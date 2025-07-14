@@ -1,0 +1,75 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencias
+node_modules/
+
+# Build
+/dist/
+/dist-ssr/
+/build/
+
+# Archivos temporales y de caché
+.cache/
+.next/
+.nuxt/
+.husky/_/
+coverage/
+nyc_output/
+/.turbo/
+/.vercel/
+/.firebase/
+/.netlify/
+/.output/
+
+# Archivos locales y de entorno
+.env*
+*.local
+.envrc
+
+# Prisma
+/prisma/migrations/
+/prisma/dev.db
+/src/generated/prisma/
+
+# Archivos de lock y dependencias
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Archivos de editor y sistema
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+
+# Otros
+*.tgz
+*.tar.gz
+*.zip
+*.bak
+*.tmp
+*.pid
+*.seed
+*.pid.lock
+
+# Archivos de pruebas y snapshots
+__snapshots__/
+__tests__/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*

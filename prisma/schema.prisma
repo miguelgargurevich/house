@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id             Int      @id @default(autoincrement())
+  nombre         String
+  email          String   @unique
+  telefono       String?
+  rol            String?
+  password_hash  String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  pagos          Pago[]
+  recibosCreados Recibo[] @relation("UsuarioCreadorRecibo")
+  unidades       Unidad[] @relation("PropietarioUnidad")
+}
+
+model EmpresaAdministradora {
+  id                  Int                    @id @default(autoincrement())
+  nombre              String
+  ruc                 String?
+  direccion           String?
+  telefono            String?
+  email               String?
+  representante_legal String?
+  fecha_inicio        DateTime?
+  fecha_fin           DateTime?
+  estado              String?                @default("activa")
+  complejos           ComplejoHabitacional[]
+  conceptos           Concepto[]
+  recibos             Recibo[]
+  unidades            Unidad[]
+}
+
+model ComplejoHabitacional {
+  id          Int                    @id @default(autoincrement())
+  nombre      String
+  tipo        String
+  direccion   String?
+  empresa_id  Int?
+  descripcion String?
+  empresa     EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
+  estructuras Estructura[]
+  recibos     Recibo[]
+  unidades    Unidad[]
+}
+
+model Estructura {
+  id          Int                   @id @default(autoincrement())
+  nombre      String?
+  tipo        String
+  padre_id    Int?
+  complejo_id Int?
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  complejo    ComplejoHabitacional? @relation(fields: [complejo_id], references: [id])
+  padre       Estructura?           @relation("EstructuraPadre", fields: [padre_id], references: [id])
+  hijos       Estructura[]          @relation("EstructuraPadre")
+  pisos       Piso[]
+  unidades    Unidad[]
+}
+
+model Piso {
+  id            Int         @id @default(autoincrement())
+  numero        Int?
+  estructura_id Int?
+  estructura    Estructura? @relation(fields: [estructura_id], references: [id])
+  unidades      Unidad[]
+}
+
+model Unidad {
+  id                     Int                    @id @default(autoincrement())
+  codigo                 String
+  tipo                   String
+  estructura_id          Int?
+  piso_id                Int?
+  complejo_id            Int?
+  descripcion            String?
+  propietario_id         Int?
+  empresa_id             Int?
+  estado                 String?                @default("activa")
+  created_at             DateTime               @default(now())
+  updated_at             DateTime               @updatedAt
+  reciboConceptoUnidades ReciboConceptoUnidad[]
+  complejo               ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
+  empresa                EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
+  estructura             Estructura?            @relation(fields: [estructura_id], references: [id])
+  piso                   Piso?                  @relation(fields: [piso_id], references: [id])
+  propietario            Usuario?               @relation("PropietarioUnidad", fields: [propietario_id], references: [id])
+}
+
+model Concepto {
+  id              Int                    @id @default(autoincrement())
+  nombre          String
+  descripcion     String?
+  tipo_monto      String?                @default("fijo")
+  empresa_id      Int?
+  activo          Boolean                @default(true)
+  created_at      DateTime               @default(now())
+  updated_at      DateTime               @updatedAt
+  empresa         EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
+  reciboConceptos ReciboConcepto[]
+}
+
+model Recibo {
+  id                Int                    @id @default(autoincrement())
+  descripcion       String?
+  fecha_emision     DateTime
+  fecha_vencimiento DateTime
+  mes               Int
+  anio              Int
+  estado            String?                @default("emitido")
+  empresa_id        Int?
+  complejo_id       Int?
+  archivo_excel_url String?
+  creado_por_id     Int?
+  created_at        DateTime               @default(now())
+  updated_at        DateTime               @updatedAt
+  complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
+  creado_por        Usuario?               @relation("UsuarioCreadorRecibo", fields: [creado_por_id], references: [id])
+  empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
+  reciboConceptos   ReciboConcepto[]
+}
+
+model ReciboConcepto {
+  id                     Int                    @id @default(autoincrement())
+  recibo_id              Int?
+  concepto_id            Int?
+  monto                  Decimal
+  es_recargo             Boolean                @default(false)
+  orden                  Int?
+  created_at             DateTime               @default(now())
+  updated_at             DateTime               @updatedAt
+  concepto               Concepto?              @relation(fields: [concepto_id], references: [id])
+  recibo                 Recibo?                @relation(fields: [recibo_id], references: [id])
+  reciboConceptoUnidades ReciboConceptoUnidad[]
+}
+
+model ReciboConceptoUnidad {
+  id                 Int             @id @default(autoincrement())
+  recibo_concepto_id Int?
+  unidad_id          Int?
+  monto              Decimal
+  estado_pago        String?         @default("pendiente")
+  fecha_pago         DateTime?
+  url_voucher        String?
+  observaciones      String?
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+  pagos              Pago[]
+  reciboConcepto     ReciboConcepto? @relation(fields: [recibo_concepto_id], references: [id])
+  unidad             Unidad?         @relation(fields: [unidad_id], references: [id])
+}
+
+model Pago {
+  id                        Int                   @id @default(autoincrement())
+  recibo_concepto_unidad_id Int?
+  monto                     Decimal
+  fecha_pago                DateTime              @default(now())
+  usuario_id                Int?
+  metodo_pago               String?
+  referencia                String?
+  observaciones             String?
+  created_at                DateTime              @default(now())
+  reciboConceptoUnidad      ReciboConceptoUnidad? @relation(fields: [recibo_concepto_unidad_id], references: [id])
+  usuario                   Usuario?              @relation(fields: [usuario_id], references: [id])
+}
