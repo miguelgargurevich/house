@@ -17,7 +17,7 @@ export default defineConfig({
             if (id.includes('react')) return 'vendor-react';
             if (id.includes('framer-motion')) return 'vendor-framer-motion';
             if (id.includes('tailwindcss')) return 'vendor-tailwind';
-            if (id.includes('supabase')) return 'vendor-supabase';
+            // Eliminado vendor-supabase: no se usa Supabase
             return 'vendor';
           }
         }

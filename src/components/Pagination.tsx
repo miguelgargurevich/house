@@ -14,7 +14,7 @@ export default function Pagination({
         className="p-2 rounded hover:bg-accent/20 disabled:opacity-50"
         onClick={() => onPageChange(page - 1)}
         disabled={page === 1}
-        aria-label="Página anterior"
+        aria-label="Anterior"
       >
         <ChevronLeftIcon className="h-5 w-5" />
       </button>
@@ -25,7 +25,7 @@ export default function Pagination({
         className="p-2 rounded hover:bg-accent/20 disabled:opacity-50"
         onClick={() => onPageChange(page + 1)}
         disabled={page === totalPages}
-        aria-label="Página siguiente"
+        aria-label="Siguiente"
       >
         <ChevronRightIcon className="h-5 w-5" />
       </button>

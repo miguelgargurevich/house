@@ -10,6 +10,7 @@ export default function Navbar() {
         <BuildingOffice2Icon className="h-7 w-7" /> House
       </span>
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         {/* Menú hamburguesa solo visible en mobile */}
         <button
           type="button"
@@ -21,7 +22,6 @@ export default function Navbar() {
         >
           <Bars3Icon className="h-6 w-6" />
         </button>
-        <ThemeToggle />
       </div>
     </nav>
   );

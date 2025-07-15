@@ -1,3 +1,4 @@
+
 import jwt from 'jsonwebtoken';
 import type { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
@@ -6,6 +7,26 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import fetch from 'node-fetch';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJSDoc from 'swagger-jsdoc';
+
+// Configuración Swagger
+const swaggerDefinition = {
+  openapi: '3.0.0',
+  info: {
+    title: 'House API',
+    version: '1.0.0',
+    description: 'Documentación de la API de House SaaS multi-tenant',
+  },
+  servers: [
+    { url: 'http://localhost:4000', description: 'Servidor local' },
+  ],
+};
+const swaggerOptions = {
+  swaggerDefinition,
+  apis: ['./src/server.ts'], // Puedes agregar más archivos si documentas con JSDoc
+};
+const swaggerSpec = swaggerJSDoc(swaggerOptions);
 
 // Helper para obtener PrismaClient por request (serverless friendly)
 function getPrisma() {
@@ -38,6 +59,9 @@ function authorizeRoles(...roles: string[]) {
 }
 
 const app = express();
+
+// Swagger UI endpoint
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(cors());
 app.use(express.json());
 // Endpoint para el chat de IA (Gemini)
@@ -180,7 +204,7 @@ app.post('/api/ai-chat', async (req, res) => {
 
 // CRUD Usuarios
 // Obtener todos los usuarios
-app.get('/api/usuarios', async (req, res) => {
+app.get('/api/usuarios', async (_req, res) => {
   try {
     const usuarios = await getPrisma().usuario.findMany();
     res.json(usuarios);
@@ -241,7 +265,7 @@ app.delete('/api/usuarios/:id', authenticateToken, authorizeRoles('admin', 'supe
 });
 
 // CRUD ComplejoHabitacional
-app.get('/api/complejos', async (req, res) => {
+app.get('/api/complejos', async (_req, res) => {
   try {
     const complejos = await getPrisma().complejoHabitacional.findMany();
     res.json(complejos);
@@ -284,7 +308,7 @@ app.delete('/api/complejos/:id', authenticateToken, authorizeRoles('admin', 'sup
 });
 
 // CRUD EmpresaAdministradora
-app.get('/api/empresas', async (req, res) => {
+app.get('/api/empresas', async (_req, res) => {
   try {
     const empresas = await getPrisma().empresaAdministradora.findMany();
     res.json(empresas);
@@ -327,7 +351,7 @@ app.delete('/api/empresas/:id', authenticateToken, authorizeRoles('admin', 'supe
 });
 
 // CRUD Piso
-app.get('/api/pisos', async (req, res) => {
+app.get('/api/pisos', async (_req, res) => {
   try {
     const pisos = await getPrisma().piso.findMany();
     res.json(pisos);
@@ -370,7 +394,7 @@ app.delete('/api/pisos/:id', authenticateToken, authorizeRoles('admin', 'superad
 });
 
 // CRUD Unidad
-app.get('/api/unidades', async (req, res) => {
+app.get('/api/unidades', async (_req, res) => {
   try {
     const unidades = await getPrisma().unidad.findMany();
     res.json(unidades);
@@ -413,7 +437,7 @@ app.delete('/api/unidades/:id', authenticateToken, authorizeRoles('admin', 'supe
 });
 
 // CRUD Concepto
-app.get('/api/conceptos', async (req, res) => {
+app.get('/api/conceptos', async (_req, res) => {
   try {
     const conceptos = await getPrisma().concepto.findMany();
     res.json(conceptos);
@@ -456,7 +480,7 @@ app.delete('/api/conceptos/:id', authenticateToken, authorizeRoles('admin', 'sup
 });
 
 // CRUD Recibo
-app.get('/api/recibos', async (req, res) => {
+app.get('/api/recibos', async (_req, res) => {
   try {
     const recibos = await getPrisma().recibo.findMany();
     res.json(recibos);
@@ -499,7 +523,7 @@ app.delete('/api/recibos/:id', authenticateToken, authorizeRoles('admin', 'super
 });
 
 // CRUD Pago
-app.get('/api/pagos', async (req, res) => {
+app.get('/api/pagos', async (_req, res) => {
   try {
     const pagos = await getPrisma().pago.findMany();
     res.json(pagos);
@@ -542,7 +566,7 @@ app.delete('/api/pagos/:id', authenticateToken, authorizeRoles('admin', 'superad
 });
 
 // CRUD ReciboConcepto
-app.get('/api/recibo-conceptos', async (req, res) => {
+app.get('/api/recibo-conceptos', async (_req, res) => {
   try {
     const reciboConceptos = await getPrisma().reciboConcepto.findMany();
     res.json(reciboConceptos);
@@ -585,7 +609,7 @@ app.delete('/api/recibo-conceptos/:id', authenticateToken, authorizeRoles('admin
 });
 
 // CRUD ReciboConceptoUnidad
-app.get('/api/recibo-concepto-unidades', async (req, res) => {
+app.get('/api/recibo-concepto-unidades', async (_req, res) => {
   try {
     const reciboConceptoUnidades = await getPrisma().reciboConceptoUnidad.findMany();
     res.json(reciboConceptoUnidades);
@@ -628,7 +652,7 @@ app.delete('/api/recibo-concepto-unidades/:id', authenticateToken, authorizeRole
 });
 
 // CRUD Estructura
-app.get('/api/estructuras', async (req, res) => {
+app.get('/api/estructuras', async (_req, res) => {
   try {
     const estructuras = await getPrisma().estructura.findMany();
     res.json(estructuras);

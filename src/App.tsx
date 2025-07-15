@@ -5,6 +5,8 @@ import AdminLayout from './layouts/AdminLayout';
 import OwnerLayout from './layouts/OwnerLayout';
 import Dashboard from './pages/Dashboard';
 import Receipts from './pages/Receipts';
+import UsuariosPage from './pages/Usuarios';
+import EmpresasPage from './pages/Empresas';
 import OwnerReceipt from './pages/OwnerReceipt';
 import Login from './pages/Login';
 import AIChatFab from './components/AIChatFab';
@@ -70,6 +72,16 @@ export default function App() {
                 <Dashboard />
               </ProtectedRoute>
             } />
+            <Route path="/usuarios" element={
+              <ProtectedRoute allowedRoles={["admin","superadmin"]} user={user}>
+                <UsuariosPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/empresas" element={
+              <ProtectedRoute allowedRoles={["admin","superadmin"]} user={user}>
+                <EmpresasPage />
+              </ProtectedRoute>
+            } />
             <Route path="/receipts" element={
               <ProtectedRoute allowedRoles={["admin","superadmin"]} user={user}>
                 <Receipts />
@@ -90,7 +102,7 @@ export default function App() {
           <Route path="*" element={<Navigate to={user?.role === 'admin' || user?.role === 'superadmin' ? '/dashboard' : user?.role === 'owner' || user?.role === 'propietario' ? '/owner/receipt' : '/login'} replace />} />
         </Routes>
       </BrowserRouter>
-      <AIChatFab />
+      {user && <AIChatFab />}
     </>
   );
 }

@@ -4,18 +4,8 @@ import {
   HomeModernIcon,
   DocumentDuplicateIcon,
   BuildingStorefrontIcon,
-  KeyIcon,
-  CreditCardIcon,
-  BellAlertIcon,
-  Bars3BottomLeftIcon,
   ArrowLeftOnRectangleIcon,
-  UserGroupIcon,
-  BanknotesIcon,
-  ClipboardDocumentCheckIcon,
-  Squares2X2Icon,
-  CurrencyDollarIcon,
-  PuzzlePieceIcon,
-  ArchiveBoxIcon
+  UserGroupIcon
 } from '@heroicons/react/24/solid';
 
 const groupedLinks = [
@@ -64,7 +54,9 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className={`fixed md:static z-40 top-0 left-0 h-full ${collapsed ? 'w-16' : 'w-56'} bg-primary dark:bg-gray-900 text-gray-100 dark:text-gray-100 flex flex-col py-6 px-2 md:px-4 min-h-screen transition-all duration-200 ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        className={`z-40 top-0 left-0 ${collapsed ? 'w-16' : 'w-56'} bg-primary dark:bg-gray-900 text-gray-100 dark:text-gray-100 flex flex-col py-6 px-2 md:px-4 min-h-screen transition-all duration-200
+        fixed md:sticky md:top-0 md:h-auto h-full
+        ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
         {/* Botón para contraer/expandir solo en desktop */}
         <button
@@ -100,7 +92,7 @@ export default function Sidebar() {
           })}
         </nav>
         <button
-          className="mt-auto flex items-center justify-center px-3 py-2 rounded text-sm border border-gray-300 dark:border-gray-700 bg-white/20 dark:bg-gray-800 text-primary dark:text-gray-200 hover:bg-accent/20 dark:hover:bg-accent/10 transition-colors font-semibold focus:outline-none focus:ring-2 focus:ring-accent/60"
+          className="mt-auto flex items-center justify-center p-2 rounded-lg bg-white/20 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-accent/20 dark:hover:bg-accent/10 transition-colors focus:outline-none focus:ring-2 focus:ring-accent/60"
           onClick={() => {
             localStorage.removeItem('user');
             localStorage.removeItem('token');
@@ -108,7 +100,7 @@ export default function Sidebar() {
           }}
           title="Cerrar sesión"
         >
-          <ArrowLeftOnRectangleIcon className="h-6 w-6 text-accent dark:text-accent" aria-hidden="true" />
+          <ArrowLeftOnRectangleIcon className="h-6 w-6 text-gray-500 dark:text-gray-300" aria-hidden="true" />
         </button>
       </aside>
       {/* Overlay mobile */}

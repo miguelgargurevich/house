@@ -65,7 +65,9 @@ export default function AIChatFab() {
     <>
       {/* Botón flotante */}
       <button
-        className="fixed bottom-6 right-6 z-50 bg-accent text-primary p-4 rounded-full shadow-lg flex items-center hover:bg-accent/90 transition"
+        className="fixed bottom-6 right-6 z-50 p-4 rounded-full shadow-lg flex items-center transition-colors
+          bg-accent text-primary hover:bg-accent/90
+          dark:bg-gray-800 dark:text-accent dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
         onClick={() => setOpen(true)}
         aria-label="Abrir chat IA"
         style={{ display: open ? 'none' : 'flex' }}
@@ -92,13 +94,13 @@ export default function AIChatFab() {
               {history.map((h, i) => (
                 <div key={i}>
                   <div className="text-right text-sm text-primary font-semibold dark:text-blue-300">Tú: {h.user}</div>
-                  <div className="text-left text-sm text-gray-800 dark:text-gray-100 bg-gray-200 dark:bg-gray-800 rounded p-2 mt-1">
+                  <div className="text-left text-sm bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-lg p-3 mt-1 shadow-sm">
                     <ReactMarkdown
                       components={{
                         strong: ({node, ...props}) => <strong className="text-primary dark:text-yellow-300 font-bold" {...props} />,
                         li: ({node, ...props}) => <li className="ml-4 list-disc" {...props} />,
                         a: ({node, ...props}) => <a className="underline text-blue-600 dark:text-blue-300" target="_blank" rel="noopener noreferrer" {...props} />,
-                        code: ({node, ...props}) => <code className="bg-gray-100 dark:bg-gray-900 px-1 rounded text-xs" {...props} />,
+                        code: ({node, ...props}) => <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded text-xs" {...props} />, 
                         p: ({node, ...props}) => <p className="mb-2" {...props} />,
                       }}
                     >
@@ -109,7 +111,7 @@ export default function AIChatFab() {
               ))}
             </div>
             <form onSubmit={handleSend} className="flex items-center gap-2 p-4 border-t bg-white dark:bg-gray-900">
-              <button type="button" onClick={() => fileInput.current?.click()} className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Adjuntar archivo">
+              <button type="button" onClick={() => fileInput.current?.click()} className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Adjuntar archivo">
                 <PaperClipIcon className="h-6 w-6 text-primary" />
               </button>
               <input
@@ -123,7 +125,7 @@ export default function AIChatFab() {
               <input
                 type="text"
                 ref={inputRef}
-                className="flex-1 border rounded px-3 py-2 text-sm"
+                className="flex-1 border rounded px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
                 placeholder="Escribe tu mensaje..."
                 value={message}
                 onChange={e => setMessage(e.target.value)}

@@ -13,9 +13,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dist'))); // Sirve el build de Vite
 
-
-
-// Catch-all para SPA (React Router)
 // Catch-all para SPA (React Router), excluyendo rutas que empiezan por /api
 app.get(/^(?!\/api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));

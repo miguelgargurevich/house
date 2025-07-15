@@ -3,7 +3,7 @@
 # Instrucciones para Copilot
 
 - Este proyecto es una app SaaS multi-tenant para administración de propiedades.
-- Stack: React 18, Vite, TypeScript, Tailwind CSS, Framer Motion, Supabase.
+- Stack: React 18, Vite, TypeScript, Tailwind CSS, Framer Motion.
 - Usa componentes desacoplados, hooks y layouts reutilizables.
 - Sigue buenas prácticas de accesibilidad y SEO.
 - Prioriza la seguridad y el manejo de roles en frontend y backend.
