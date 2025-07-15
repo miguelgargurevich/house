@@ -1,28 +1,48 @@
 import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  HomeIcon,
-  DocumentTextIcon,
-  BuildingOffice2Icon,
+  HomeModernIcon,
+  DocumentDuplicateIcon,
+  BuildingStorefrontIcon,
   KeyIcon,
   CreditCardIcon,
-  BellIcon,
-  Bars3Icon,
-  ChevronLeftIcon,
-  ArrowRightOnRectangleIcon
-} from '@heroicons/react/24/outline';
+  BellAlertIcon,
+  Bars3BottomLeftIcon,
+  ArrowLeftOnRectangleIcon,
+  UserGroupIcon,
+  BanknotesIcon,
+  ClipboardDocumentCheckIcon,
+  Squares2X2Icon,
+  CurrencyDollarIcon,
+  PuzzlePieceIcon,
+  ArchiveBoxIcon
+} from '@heroicons/react/24/solid';
 
-const links = [
-  { to: '/dashboard', label: 'Dashboard', icon: HomeIcon },
-  { to: '/receipts', label: 'Recibos', icon: DocumentTextIcon },
-  { to: '/properties', label: 'Propiedades', icon: BuildingOffice2Icon },
-  { to: '/units', label: 'Unidades', icon: KeyIcon },
-  { to: '/payments', label: 'Pagos', icon: CreditCardIcon },
-  { to: '/notifications', label: 'Notificaciones', icon: BellIcon },
+const groupedLinks = [
+  {
+    label: 'General',
+    links: [
+      { to: '/dashboard', label: 'Dashboard', icon: HomeModernIcon },
+    ],
+  },
+  {
+    label: 'Mantenimiento',
+    links: [
+      { to: '/usuarios', label: 'Usuarios', icon: UserGroupIcon },
+      { to: '/empresas', label: 'Empresas', icon: BuildingStorefrontIcon },
+    ],
+  },
+  {
+    label: 'Finanzas',
+    links: [
+      { to: '/receipts', label: 'Recibos', icon: DocumentDuplicateIcon },
+    ],
+  },
 ];
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
+  // Por defecto colapsado, pero permite expandir
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('sidebar-collapsed');
@@ -30,6 +50,10 @@ export default function Sidebar() {
     }
     return true;
   });
+  // Persistir colapsado
+  useEffect(() => {
+    localStorage.setItem('sidebar-collapsed', String(collapsed));
+  }, [collapsed]);
 
   useEffect(() => {
     const handler = () => setOpen(o => !o);
@@ -37,53 +61,54 @@ export default function Sidebar() {
     return () => window.removeEventListener('toggle-sidebar', handler);
   }, []);
 
-  // Persistir colapsado
-  useEffect(() => {
-    localStorage.setItem('sidebar-collapsed', String(collapsed));
-  }, [collapsed]);
-
   return (
     <>
       <aside
-        className={`fixed md:static z-40 top-0 left-0 h-full ${collapsed ? 'w-16' : 'w-56'} bg-primary dark:bg-gray-800 text-white flex flex-col py-6 px-2 md:px-4 min-h-screen transition-all duration-200 ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        className={`fixed md:static z-40 top-0 left-0 h-full ${collapsed ? 'w-16' : 'w-56'} bg-primary dark:bg-gray-900 text-gray-100 dark:text-gray-100 flex flex-col py-6 px-2 md:px-4 min-h-screen transition-all duration-200 ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
         {/* Botón para contraer/expandir solo en desktop */}
         <button
-          className="hidden md:flex items-center justify-center mb-4 p-2 rounded hover:bg-white/10 transition-colors"
+          className="hidden md:flex items-center justify-center mb-4 p-2 rounded hover:bg-accent/20 dark:hover:bg-accent/10 transition-colors focus:outline-none"
           aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
           onClick={() => setCollapsed(c => !c)}
         >
-          {collapsed ? <Bars3Icon className="h-6 w-6" /> : <ChevronLeftIcon className="h-6 w-6" />}
+          {collapsed ? <svg className="h-6 w-6 text-accent dark:text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg> : <svg className="h-6 w-6 text-accent dark:text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>}
         </button>
-        <nav className={`flex flex-col gap-2 mt-8 md:mt-0 ${collapsed ? 'items-center' : ''}`}>
-          {links.map(link => {
+        <nav className={`flex flex-col gap-3 mt-8 md:mt-0 ${collapsed ? 'items-center' : ''}`} aria-label="Menú principal">
+          {groupedLinks.flatMap(group => group.links).map(link => {
             const Icon = link.icon;
             return (
               <NavLink
                 key={link.to}
                 to={link.to}
-                className={({ isActive }) =>
-                  `flex items-center ${collapsed ? 'justify-center' : 'gap-3'} rounded px-3 py-2 transition-colors ${isActive ? 'bg-accent text-primary dark:bg-accent dark:text-gray-900' : 'hover:bg-accent/80 dark:hover:bg-accent/60'}`
-                }
                 onClick={() => setOpen(false)}
                 title={collapsed ? link.label : undefined}
               >
-                <Icon className="h-5 w-5" />
-                {!collapsed && link.label}
+                {({ isActive }) => (
+                  <>
+                    <span
+                      className={`inline-flex items-center rounded transition-colors align-middle ${collapsed ? 'justify-center bg-white/10 dark:bg-gray-800 hover:bg-accent/20 dark:hover:bg-accent/10 p-2' : 'justify-start p-0 mr-2'}`}
+                      style={{ minWidth: collapsed ? undefined : 24, minHeight: 32 }}
+                    >
+                      <Icon className={`h-5 w-5 ${isActive ? 'text-accent' : 'text-white dark:text-white'}`} aria-hidden="true" />
+                    </span>
+                    <span className={collapsed ? 'sr-only' : 'text-white dark:text-white inline-flex items-center align-middle'} style={{lineHeight: 1, whiteSpace: 'nowrap'}}>{link.label}</span>
+                  </>
+                )}
               </NavLink>
             );
           })}
         </nav>
         <button
-          className={`mt-auto flex items-center ${collapsed ? 'justify-center' : 'gap-2'} px-3 py-2 rounded text-sm border border-gray-300 dark:border-gray-600 bg-white/10 dark:bg-gray-900 text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors font-semibold`}
+          className="mt-auto flex items-center justify-center px-3 py-2 rounded text-sm border border-gray-300 dark:border-gray-700 bg-white/20 dark:bg-gray-800 text-primary dark:text-gray-200 hover:bg-accent/20 dark:hover:bg-accent/10 transition-colors font-semibold focus:outline-none focus:ring-2 focus:ring-accent/60"
           onClick={() => {
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
             window.location.href = '/login';
           }}
-          title={collapsed ? 'Cerrar sesión' : undefined}
+          title="Cerrar sesión"
         >
-          <ArrowRightOnRectangleIcon className="h-5 w-5" />
-          {!collapsed && 'Cerrar sesión'}
+          <ArrowLeftOnRectangleIcon className="h-6 w-6 text-accent dark:text-accent" aria-hidden="true" />
         </button>
       </aside>
       {/* Overlay mobile */}
