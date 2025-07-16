@@ -11,11 +11,12 @@
 - **Infraestructura:** Docker Compose para desarrollo local, Render (backend/db) y Vercel (frontend) en producción
 
 ### Cambios recientes
-- Sidebars de todos los roles ahora son responsivos y agrupados por contexto, con drawer en mobile y colapsado en desktop.
-- Protección de rutas y menús por rol con RoleGuard.
-- Layouts y componentes desacoplados y reutilizables.
-- Seed robusto y migraciones automáticas con Prisma.
-- Documentación y scripts actualizados para despliegue y desarrollo.
+
+- Todos los sidebars ahora muestran los ítems alineados en una sola línea (icono y texto), tanto en modo expandido como colapsado, para todos los roles.
+- Efectos de hover y transición unificados en iconos y textos de los menús.
+- Nuevo endpoint `/auth/login` en el backend para login seguro con JWT y bcrypt, alineado con el frontend.
+- Script `dev:all` ahora incluye Prisma Studio para edición visual de la base de datos.
+- Color de acento actualizado a gris claro (`#F3F4F6`).
 
 ## Cambios funcionales y técnicos recientes
 
@@ -71,6 +72,7 @@ No subas `.env` al repo. El backend y frontend usan estas variables.
 
 Todos los endpoints sensibles están protegidos por JWT y roles. El backend Express centraliza toda la lógica y la documentación Swagger está disponible en `/api-docs`.
 
+
 ## Scripts útiles
 
 - `npm run dev` — Frontend (Vite, puerto 5173)
@@ -81,6 +83,16 @@ Todos los endpoints sensibles están protegidos por JWT y roles. El backend Expr
 - `npx prisma migrate dev` — Migraciones Prisma
 - `npx prisma db seed` — Ejecutar seed de base de datos
   # Eliminado: ver README-docker.md para levantar el stack local con compose exclusivo
+
+## Prisma Studio
+
+Para explorar y editar la base de datos visualmente, ejecuta:
+
+```bash
+npx prisma studio
+```
+
+Prisma Studio estará disponible en [http://localhost:5555](http://localhost:5555).
 
 ## Configuración Tailwind
 

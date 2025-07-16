@@ -65,6 +65,36 @@ const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use(cors());
 app.use(express.json());
+// Endpoint de login
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email y contraseña requeridos' });
+  }
+  try {
+    const prisma = getPrisma();
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
+    if (!usuario) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    if (!usuario.password_hash) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    const validPassword = await bcrypt.compare(password, usuario.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    // Generar JWT
+    const token = jwt.sign(
+      { id: usuario.id, email: usuario.email, rol: usuario.rol },
+      process.env.JWT_SECRET || 'devsecret',
+      { expiresIn: '12h' }
+    );
+    res.json({ token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en login', detalle: error instanceof Error ? error.message : error });
+  }
+});
 // Endpoint para el chat de IA (Gemini)
 app.post('/api/ai-chat', async (req, res) => {
   // LOG de depuración: body y headers
