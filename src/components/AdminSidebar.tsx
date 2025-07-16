@@ -1,4 +1,3 @@
-import { useUser } from '../hooks/useUser';
 import RoleGuard from './RoleGuard';
 import { NavLink } from 'react-router-dom';
 
@@ -15,7 +14,6 @@ const links = [
 ];
 
 export default function AdminSidebar() {
-  const user = useUser();
   return (
     <aside className="w-56 bg-blue-900 text-white min-h-screen p-4">
       <nav className="flex flex-col gap-2">
