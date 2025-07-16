@@ -67,7 +67,7 @@ No subas `.env` al repo. El backend y frontend usan estas variables.
 - `/api/conceptos` — CRUD conceptos
 - `/api/pisos`, `/api/estructuras`, `/api/complejos` — CRUD jerarquía de edificios
 - `/api/tarea-mantenimientos` — CRUD tareas de mantenimiento
-- `/api/login` — Login seguro (JWT)
+- `/auth/login` — Login seguro (JWT)
 - `/api/ai-chat` — Chat IA Gemini
 
 Todos los endpoints sensibles están protegidos por JWT y roles. El backend Express centraliza toda la lógica y la documentación Swagger está disponible en `/api-docs`.
@@ -77,7 +77,7 @@ Todos los endpoints sensibles están protegidos por JWT y roles. El backend Expr
 
 - `npm run dev` — Frontend (Vite, puerto 5173)
 - `npm run backend` — Backend (Express, puerto 4000)
-- `npm run dev:all` — Frontend y backend juntos
+- `npm run dev:all` — Frontend, backend y Prisma Studio juntos
 - `npm run build` — Build de producción
 - `npm run preview` — Preview build
 - `npx prisma migrate dev` — Migraciones Prisma
@@ -96,7 +96,7 @@ Prisma Studio estará disponible en [http://localhost:5555](http://localhost:555
 
 ## Configuración Tailwind
 
-- Colores base: `#0D1B2A`, `#F4A261`, `#FFFFFF`
+- Colores base: `#0D1B2A`, `#F3F4F6`, `#FFFFFF` (acento gris claro)
 - Tipografía: Inter, Poppins
 
 
@@ -147,6 +147,6 @@ Prisma Studio estará disponible en [http://localhost:5555](http://localhost:555
 
 ## Notas y aclaraciones
 - El backend real es `src/server.ts`, no hay duplicidad de servidores.
-- Todas las rutas API están bajo `/api` por convención REST.
+- Todas las rutas API están bajo `/api` por convención REST, excepto `/auth/login` y `/api/ai-chat`.
 - El seed y los modelos están sincronizados con las páginas y roles del frontend.
-- El sistema es multi-tenant y seguro, listo para producción y escalabilidad.
+- El sistema es seguro, escalable y listo para producción, con sidebars alineados, roles avanzados y experiencia moderna.
