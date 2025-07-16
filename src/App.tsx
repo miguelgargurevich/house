@@ -56,14 +56,10 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={<Login onLogin={(u: User) => setUser(u)} />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/superadmin/dashboard" element={
         <ProtectedSuperAdmin>
-          <SuperAdminDashboard user={user!} onLogout={() => {
-            localStorage.removeItem('token');
-            setUser(null);
-            navigate('/login');
-          }} />
+          <SuperAdminDashboard user={user!} />
         </ProtectedSuperAdmin>
       } />
       <Route path="*" element={<Navigate to="/login" replace />} />

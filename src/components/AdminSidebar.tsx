@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import RoleGuard from './RoleGuard';
 import { NavLink } from 'react-router-dom';
-import { HomeModernIcon, BuildingStorefrontIcon, UserGroupIcon, CreditCardIcon, DocumentDuplicateIcon, Cog6ToothIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/solid';
+import { HomeModernIcon, BuildingOffice2Icon, UsersIcon, BanknotesIcon, ChartBarIcon, Cog6ToothIcon, WrenchScrewdriverIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/solid';
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: HomeModernIcon, roles: ['admin', 'superadmin'] },
-  { to: '/admin/empresas', label: 'Empresas', icon: BuildingStorefrontIcon, roles: ['admin', 'superadmin'] },
-  { to: '/admin/propiedades', label: 'Propiedades', icon: BuildingStorefrontIcon, roles: ['admin', 'superadmin'] },
-  { to: '/admin/propietarios', label: 'Propietarios', icon: UserGroupIcon, roles: ['admin', 'superadmin'] },
-  { to: '/admin/pagos', label: 'Pagos', icon: CreditCardIcon, roles: ['admin', 'superadmin'] },
-  { to: '/admin/reportes', label: 'Reportes', icon: DocumentDuplicateIcon, roles: ['admin', 'superadmin'] },
-  { to: '/admin/usuarios', label: 'Usuarios', icon: UserGroupIcon, roles: ['admin', 'superadmin'] },
+  { to: '/admin/empresas', label: 'Empresas', icon: BuildingOffice2Icon, roles: ['admin', 'superadmin'] },
+  { to: '/admin/propiedades', label: 'Propiedades', icon: BuildingOffice2Icon, roles: ['admin', 'superadmin'] },
+  { to: '/admin/propietarios', label: 'Propietarios', icon: UsersIcon, roles: ['admin', 'superadmin'] },
+  { to: '/admin/pagos', label: 'Pagos', icon: BanknotesIcon, roles: ['admin', 'superadmin'] },
+  { to: '/admin/reportes', label: 'Reportes', icon: ChartBarIcon, roles: ['admin', 'superadmin'] },
+  { to: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon, roles: ['admin', 'superadmin'] },
   { to: '/admin/configuracion', label: 'Configuración', icon: Cog6ToothIcon, roles: ['admin', 'superadmin'] },
-  { to: '/admin/mantenimientos', label: 'Mantenimientos', icon: ClipboardDocumentListIcon, roles: ['admin', 'superadmin', 'mantenimiento'] },
+  { to: '/admin/mantenimientos', label: 'Mantenimientos', icon: WrenchScrewdriverIcon, roles: ['admin', 'superadmin', 'mantenimiento'] },
 ];
 
 export default function AdminSidebar() {
@@ -41,27 +41,27 @@ export default function AdminSidebar() {
           <svg className="h-6 w-6 text-accent dark:text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
         )}
       </button>
-      <nav className={`flex flex-col gap-2 mt-8 md:mt-0 ${collapsed ? 'items-center' : ''}`} aria-label="Menú admin">
+      <nav className={`flex flex-col gap-0 mt-8 md:mt-0`} aria-label="Menú admin">
         {links.map(link => (
           <RoleGuard key={link.to} allowed={link.roles}>
             <NavLink
               to={link.to}
               title={collapsed ? link.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded transition-colors ${collapsed ? 'justify-center bg-white/10 dark:bg-gray-800 hover:bg-accent/20 dark:hover:bg-accent/10 p-2' : 'justify-start'} ${isActive ? 'bg-accent font-bold' : ''}`
+                  `flex items-center gap-2 px-2 rounded transition-colors ${collapsed ? 'justify-center bg-white/10 dark:bg-gray-800 hover:bg-accent/20 dark:hover:bg-accent/10' : 'justify-start'} ${isActive ? 'bg-accent font-bold' : ''}`
               }
             >
               {/* Ícono con tamaño h-6 w-6 igual al botón expandir/contraer */}
               {link.icon && (
-                <span className={`inline-flex items-center align-middle ${collapsed ? 'justify-center p-2' : 'justify-start p-0 mr-2'}`}>
-                  <link.icon className="h-6 w-6 text-gray-500 dark:text-gray-300 transition-colors hover:text-accent dark:hover:text-accent" aria-hidden="true" />
+                <span className={`inline-flex items-center align-middle ${collapsed ? 'justify-center' : 'justify-start'}`}>
+                    <link.icon className="h-5 w-5 transition-colors text-gray-100 hover:text-yellow-600" aria-hidden="true" />
                 </span>
               )}
               <span
-                className={collapsed ? 'sr-only' : 'text-white dark:text-white text-sm inline-flex items-center align-middle transition-colors hover:text-accent dark:hover:text-accent'}
+                className={collapsed ? 'sr-only' : 'text-gray-100 text-sm inline-flex items-center align-middle transition-colors hover:text-yellow-600'}
                 style={{lineHeight: 1, whiteSpace: 'nowrap'}}
               >
-                {link.label}
+                  {link.label}
               </span>
             </NavLink>
           </RoleGuard>

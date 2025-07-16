@@ -12,16 +12,16 @@ export default function OwnerSidebar() {
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen flex flex-col py-6 px-4 shadow-lg">
       <div className="mb-8 text-2xl font-bold text-primary dark:text-accent text-center">Panel Propietario</div>
-      <nav className="flex flex-col gap-2">
+      <nav className="flex flex-col gap-0">
         {menu.map(({ label, icon: Icon, to }) => (
           <Link
             key={to}
             to={to}
             className={`flex items-center gap-3 px-4 py-2 rounded-lg font-medium transition-colors hover:bg-primary/10 dark:hover:bg-accent/10 ${location.pathname === to ? 'bg-primary/10 dark:bg-accent/10 text-primary dark:text-accent' : 'text-gray-700 dark:text-gray-200'}`}
           >
-            <Icon className="h-5 w-5" />
+            <Icon className="h-5 w-5 text-gray-100 transition-colors hover:text-yellow-600" />
             <span
-              className="text-gray-700 dark:text-gray-200 text-sm inline-flex items-center align-middle transition-colors hover:text-accent dark:hover:text-accent"
+              className="text-gray-100 text-sm inline-flex items-center align-middle transition-colors hover:text-yellow-600 py-3"
               style={{lineHeight: 1, whiteSpace: 'nowrap'}}
             >
               {label}

@@ -36,7 +36,7 @@ export default function InquilinoSidebar() {
           <svg className="h-6 w-6 text-accent dark:text-accent" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
         )}
       </button>
-      <nav className={`flex flex-col gap-2 mt-8 md:mt-0 ${collapsed ? 'items-center' : ''}`} aria-label="Menú inquilino">
+      <nav className={`flex flex-col ${collapsed ? 'gap-0 items-center' : 'gap-1'} mt-8 md:mt-0`} aria-label="Menú inquilino">
         {links.map(link => (
           <RoleGuard key={link.to} allowed={link.roles}>
             <NavLink
@@ -47,17 +47,17 @@ export default function InquilinoSidebar() {
               }
             >
               {/* Ícono con color y transición igual a SuperAdminSidebar */}
-              {link.icon ? (
-                <span className={`inline-flex items-center align-middle ${collapsed ? 'justify-center p-2' : 'justify-start p-0 mr-2'}`}>
-                  <link.icon className="h-5 w-5 text-gray-500 dark:text-gray-300 transition-colors hover:text-accent dark:hover:text-accent" aria-hidden="true" />
-                </span>
-              ) : null}
-              <span
-                className={collapsed ? 'sr-only' : 'text-white dark:text-white text-sm inline-flex items-center align-middle transition-colors hover:text-accent dark:hover:text-accent'}
-                style={{lineHeight: 1, whiteSpace: 'nowrap'}}
-              >
-                {link.label}
-              </span>
+        {link.icon ? (
+          <span className={`inline-flex items-center align-middle ${collapsed ? 'justify-center' : 'justify-start'}`}>
+            <link.icon className="h-5 w-5 text-gray-100 transition-colors hover:text-yellow-600" aria-hidden="true" />
+          </span>
+        ) : null}
+        <span
+          className={collapsed ? 'sr-only' : 'text-gray-700 text-sm inline-flex items-center align-middle transition-colors hover:text-yellow-600 py-3'}
+          style={{lineHeight: 1, whiteSpace: 'nowrap'}}
+        >
+          {link.label}
+        </span>
             </NavLink>
           </RoleGuard>
         ))}

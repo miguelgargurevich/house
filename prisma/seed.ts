@@ -43,38 +43,30 @@ async function main() {
     { nombre: 'Ana López', email: 'ana.lopez@gestionurbana.com', telefono: '987654324', rol: 'admin', password: 'admin1234', empresa: 0 },
     { nombre: 'Pedro Sánchez', email: 'pedro.sanchez@gestionurbana.com', telefono: '987654325', rol: 'seguridad', password: 'seg1234', empresa: 0 },
     { nombre: 'María Fernández', email: 'maria.fernandez@gestionurbana.com', telefono: '987654326', rol: 'mantenimiento', password: 'mtto1234', empresa: 0 },
-    { nombre: 'Oscar Limón', email: 'oscar.limon@gestionurbana.com', telefono: '987654327', rol: 'limpieza', password: 'limp1234', empresa: 0 },
     { nombre: 'Laura Gutiérrez', email: 'laura.gutierrez@gestionurbana.com', telefono: '987654350', rol: 'admin', password: 'admin1234', empresa: 0 },
     { nombre: 'Ricardo Peña', email: 'ricardo.pena@gestionurbana.com', telefono: '987654351', rol: 'seguridad', password: 'seg1234', empresa: 0 },
     { nombre: 'Silvia Torres', email: 'silvia.torres@gestionurbana.com', telefono: '987654352', rol: 'mantenimiento', password: 'mtto1234', empresa: 0 },
-    { nombre: 'Jorge Salas', email: 'jorge.salas@gestionurbana.com', telefono: '987654353', rol: 'limpieza', password: 'limp1234', empresa: 0 },
     // Edifica Perú S.A.
     { nombre: 'Sonia Paredes', email: 'sonia.paredes@edificaperu.com', telefono: '987654328', rol: 'admin', password: 'admin1234', empresa: 1 },
     { nombre: 'Raúl Torres', email: 'raul.torres@edificaperu.com', telefono: '987654329', rol: 'seguridad', password: 'seg1234', empresa: 1 },
     { nombre: 'Patricia León', email: 'patricia.leon@edificaperu.com', telefono: '987654330', rol: 'mantenimiento', password: 'mtto1234', empresa: 1 },
-    { nombre: 'Carmen Ríos', email: 'carmen.rios@edificaperu.com', telefono: '987654331', rol: 'limpieza', password: 'limp1234', empresa: 1 },
     { nombre: 'Alfredo Díaz', email: 'alfredo.diaz@edificaperu.com', telefono: '987654354', rol: 'admin', password: 'admin1234', empresa: 1 },
     { nombre: 'Mónica Vera', email: 'monica.vera@edificaperu.com', telefono: '987654355', rol: 'seguridad', password: 'seg1234', empresa: 1 },
     { nombre: 'Esteban Bravo', email: 'esteban.bravo@edificaperu.com', telefono: '987654356', rol: 'mantenimiento', password: 'mtto1234', empresa: 1 },
-    { nombre: 'Paula Rojas', email: 'paula.rojas@edificaperu.com', telefono: '987654357', rol: 'limpieza', password: 'limp1234', empresa: 1 },
     // Condominios Modernos SRL
     { nombre: 'Jorge Medina', email: 'jorge.medina@condominiosmodernos.com', telefono: '987654332', rol: 'admin', password: 'admin1234', empresa: 2 },
     { nombre: 'Luis Vargas', email: 'luis.vargas@condominiosmodernos.com', telefono: '987654333', rol: 'seguridad', password: 'seg1234', empresa: 2 },
     { nombre: 'Elena Salas', email: 'elena.salas@condominiosmodernos.com', telefono: '987654334', rol: 'mantenimiento', password: 'mtto1234', empresa: 2 },
-    { nombre: 'Diego Ramos', email: 'diego.ramos@condominiosmodernos.com', telefono: '987654335', rol: 'limpieza', password: 'limp1234', empresa: 2 },
     { nombre: 'Natalia Cueva', email: 'natalia.cueva@condominiosmodernos.com', telefono: '987654358', rol: 'admin', password: 'admin1234', empresa: 2 },
     { nombre: 'Hugo Ponce', email: 'hugo.ponce@condominiosmodernos.com', telefono: '987654359', rol: 'seguridad', password: 'seg1234', empresa: 2 },
     { nombre: 'Rocío Díaz', email: 'rocio.diaz@condominiosmodernos.com', telefono: '987654360', rol: 'mantenimiento', password: 'mtto1234', empresa: 2 },
-    { nombre: 'Felipe Torres', email: 'felipe.torres@condominiosmodernos.com', telefono: '987654361', rol: 'limpieza', password: 'limp1234', empresa: 2 },
     // Residenciales del Sur
     { nombre: 'Patricia León', email: 'patricia.leon@residencialesdelsur.com', telefono: '987654336', rol: 'admin', password: 'admin1234', empresa: 3 },
     { nombre: 'Carlos Paredes', email: 'carlos.paredes@residencialesdelsur.com', telefono: '987654337', rol: 'seguridad', password: 'seg1234', empresa: 3 },
     { nombre: 'Rosa Benavides', email: 'rosa.benavides@residencialesdelsur.com', telefono: '987654338', rol: 'mantenimiento', password: 'mtto1234', empresa: 3 },
-    { nombre: 'Juan Espinoza', email: 'juan.espinoza@residencialesdelsur.com', telefono: '987654339', rol: 'limpieza', password: 'limp1234', empresa: 3 },
     { nombre: 'Andrea Salazar', email: 'andrea.salazar@residencialesdelsur.com', telefono: '987654362', rol: 'admin', password: 'admin1234', empresa: 3 },
     { nombre: 'Mario Rivas', email: 'mario.rivas@residencialesdelsur.com', telefono: '987654363', rol: 'seguridad', password: 'seg1234', empresa: 3 },
     { nombre: 'Verónica Paz', email: 'veronica.paz@residencialesdelsur.com', telefono: '987654364', rol: 'mantenimiento', password: 'mtto1234', empresa: 3 },
-    { nombre: 'Gustavo León', email: 'gustavo.leon@residencialesdelsur.com', telefono: '987654365', rol: 'limpieza', password: 'limp1234', empresa: 3 },
     // Propietarios e inquilinos (sin empresa)
     { nombre: 'Javier Castro', email: 'javier.castro@prop.com', telefono: '987654340', rol: 'propietario', password: 'prop1234' },
     { nombre: 'Sofía Ramírez', email: 'sofia.ramirez@prop.com', telefono: '987654341', rol: 'propietario', password: 'prop1234' },
@@ -105,7 +97,6 @@ async function main() {
     { nombre: 'Agua', descripcion: 'Consumo de agua potable', tipo_monto: 'variable', activo: true, empresa_id: empresasDb[2].id },
     { nombre: 'Luz común', descripcion: 'Consumo eléctrico de áreas comunes', tipo_monto: 'variable', activo: true, empresa_id: empresasDb[3].id },
     { nombre: 'Vigilancia', descripcion: 'Servicio de seguridad y vigilancia', tipo_monto: 'fijo', activo: true, empresa_id: empresasDb[0].id },
-    { nombre: 'Limpieza', descripcion: 'Servicio de limpieza de áreas comunes', tipo_monto: 'fijo', activo: true, empresa_id: empresasDb[1].id },
     { nombre: 'Ascensor', descripcion: 'Mantenimiento de ascensores', tipo_monto: 'fijo', activo: true, empresa_id: empresasDb[2].id },
     { nombre: 'Jardinería', descripcion: 'Mantenimiento de jardines', tipo_monto: 'fijo', activo: true, empresa_id: empresasDb[3].id },
   ];
@@ -154,7 +145,7 @@ async function main() {
   for (let empresaIdx = 0; empresaIdx < empresasDb.length; empresaIdx++) {
     const empresa = empresasDb[empresaIdx];
     const complejosEmpresa = complejosDb.filter(c => c.empresa_id === empresa.id);
-    const roles = ['admin', 'seguridad', 'mantenimiento', 'limpieza'];
+    const roles = ['admin', 'seguridad', 'mantenimiento'];
     // Filtrar usuarios de este empresa y rol
     let personalEmpresa = usuariosData.filter(u => u.empresa === empresaIdx && roles.includes(u.rol));
     // Si hay menos personal que complejos, crear más usuarios para cubrir todos los complejos
@@ -165,7 +156,6 @@ async function main() {
         admin: ['Ana', 'Laura', 'Sonia', 'Alfredo', 'Natalia', 'Andrea', 'Miguel', 'Lucía', 'Carlos', 'Patricia', 'Jorge', 'Luis', 'Elena', 'Diego', 'Hugo', 'Rocío', 'Felipe', 'Mario', 'Verónica', 'Gustavo'],
         seguridad: ['Pedro', 'Ricardo', 'Raúl', 'Mónica', 'Hugo', 'Mario', 'Carlos', 'Jorge', 'Sergio', 'Esteban', 'Julio', 'Axel', 'Samuel', 'Iván', 'Gonzalo', 'Esteban', 'Julio', 'Axel', 'Samuel', 'Iván'],
         mantenimiento: ['María', 'Silvia', 'Patricia', 'Esteban', 'Rocío', 'Verónica', 'Rosa', 'Gabriel', 'Fernando', 'Ignacio', 'Héctor', 'Rafael', 'Sergio', 'Julio', 'Axel', 'Samuel', 'Iván', 'Gonzalo', 'Esteban', 'Julio'],
-        limpieza: ['Oscar', 'Jorge', 'Carmen', 'Paula', 'Felipe', 'Gustavo', 'Andrea', 'Claudia', 'Lorena', 'Valeria', 'Marta', 'Bianca', 'Florencia', 'Julieta', 'Agustina', 'Jimena', 'Ariana', 'Patricia', 'Gabriela', 'Luciana']
       };
       const apellidosPersonal = ['Ramírez', 'García', 'Torres', 'Paredes', 'Soto', 'Vargas', 'León', 'Bravo', 'Salas', 'Ríos', 'Cueva', 'Paz', 'Medina', 'Rivas', 'Díaz', 'Benavides', 'Espinoza', 'Fernández', 'Peña', 'Gutiérrez'];
       const nombre = nombresPersonal[nextRol][personalEmpresa.length % nombresPersonal[nextRol].length];

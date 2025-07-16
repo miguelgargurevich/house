@@ -54,14 +54,14 @@ export default function ThemeToggle() {
   return (
     <button
       aria-label={dark ? 'Activar modo claro' : 'Activar modo oscuro'}
-      className="ml-2 p-2 rounded hover:bg-accent/20 transition"
+      className="ml-2 p-1 rounded hover:bg-accent/20 transition"
       onClick={() => setDark(d => !d)}
       type="button"
     >
       {dark ? (
-        <SunIcon className="h-6 w-6 text-yellow-400" />
+        <SunIcon className="h-5 w-5 text-yellow-400" />
       ) : (
-        <MoonIcon className="h-6 w-6 text-gray-400 dark:text-white" />
+        <MoonIcon className="h-5 w-5 text-gray-400 dark:text-white" />
       )}
     </button>
   );

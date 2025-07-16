@@ -34,7 +34,7 @@ function getChartData(isDark: boolean) {
   };
 }
 
-export default function Dashboard({ user, onLogout }: { user?: User, onLogout?: () => void }) {
+export default function Dashboard({ user }: { user?: User }) {
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === 'undefined') return false;
     return document.documentElement.classList.contains('dark');
@@ -233,15 +233,6 @@ export default function Dashboard({ user, onLogout }: { user?: User, onLogout?: 
           </RoleGuard>
         </div>
 
-        {/* Logout button */}
-        {onLogout && (
-          <div className="flex justify-end mt-8">
-            <button
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              onClick={onLogout}
-            >Cerrar sesión</button>
-          </div>
-        )}
       </motion.section>
     </SuperAdminLayout>
   );

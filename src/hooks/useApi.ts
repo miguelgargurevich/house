@@ -13,17 +13,19 @@ export function removeToken() {
 }
 
 export function useApi() {
-  // Método genérico para llamadas autenticadas
+  // Usar solo REACT_APP_API_URL como base para todas las llamadas
+  const API_BASE = import.meta.env.REACT_APP_API_URL || 'http://localhost:4000';
   const apiFetch = useCallback(
     async (url: string, options: RequestInit = {}) => {
       const token = getToken();
-      // Forzar tipado a Record<string, string> para evitar warning
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...(options.headers ? options.headers as Record<string, string> : {}),
       };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await fetch(url, {
+      // Si la url es relativa, anteponer la base
+      const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`;
+      const res = await fetch(fullUrl, {
         ...options,
         headers,
       });

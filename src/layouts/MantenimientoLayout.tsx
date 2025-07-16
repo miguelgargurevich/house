@@ -1,12 +1,21 @@
-
 import type { ReactNode } from 'react';
+import AIChatFab from '../components/AIChatFab';
 import MantenimientoSidebar from '../components/MantenimientoSidebar';
+import Navbar from '../components/Navbar';
+import CookieConsentModal from '../components/CookieConsentModal';
 
 export default function MantenimientoLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen flex bg-gray-200">
+    <div className="min-h-screen flex bg-background dark:bg-gray-900 transition-colors">
       <MantenimientoSidebar />
-      <main className="flex-1 p-6">{children}</main>
+      <div className="flex-1 flex flex-col">
+        <Navbar />
+        <main className="flex-1 p-4">{children}</main>
+        <CookieConsentModal />
+      </div>
+      <div className="fixed bottom-6 right-6 z-50">
+        <AIChatFab />
+      </div>
     </div>
   );
 }
