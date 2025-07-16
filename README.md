@@ -48,14 +48,16 @@
 
 ## Variables de entorno
 
-Configura el archivo `.env` en la raíz:
+
+Configura el archivo `.env` en la raíz del proyecto frontend y backend:
 
 ```env
 GEMINI_API_KEY=tu_clave_gemini
 DATABASE_URL=postgresql://usuario:password@host:puerto/db
 JWT_SECRET=tu_clave_secreta
+VITE_API_URL=https://tu-backend.com/api
 ```
-No subas `.env` al repo. El backend y frontend usan estas variables.
+No subas `.env` al repo. El backend y frontend usan estas variables. En Vite, todas las variables que comiencen con `VITE_` estarán disponibles en el frontend vía `import.meta.env.VITE_API_URL`.
 
 ## Endpoints principales (`src/server.ts`)
 
@@ -123,12 +125,15 @@ Prisma Studio estará disponible en [http://localhost:5555](http://localhost:555
 
 
 ## Próximos pasos
-- Mejorar validaciones y lógica avanzada de negocio
-- Agregar tests automáticos
-- Documentar endpoints y ejemplos de uso
-- Mantener la estructura centralizada y sin archivos legacy
-- Unificar lógica de permisos finos en frontend y backend
-- Mejorar la experiencia mobile y accesibilidad
+
+1. Revisión visual final: verificar consistencia de layouts, sidebars y fondo azul claro en todos los roles y resoluciones.
+2. Pruebas de usuario: testear funcionalidad, usabilidad y accesibilidad, detectar bugs menores.
+3. Optimización de rendimiento: auditar bundle, lazy loading, optimizar recursos.
+4. SEO y accesibilidad: validar meta tags, roles ARIA, navegación con teclado y contraste.
+5. Seguridad frontend: revisar manejo de roles, protección de rutas y sanitización de datos.
+6. Documentación: actualizar README y docs técnicas para onboarding.
+7. Automatización: configurar tests automáticos (unitarios/e2e), CI/CD y backups.
+8. Feedback: recopilar feedback de usuarios y stakeholders para priorizar mejoras o nuevas funcionalidades.
 
 ---
 

@@ -13,8 +13,8 @@ export function removeToken() {
 }
 
 export function useApi() {
-  // Usar solo REACT_APP_API_URL como base para todas las llamadas
-  const API_BASE = import.meta.env.REACT_APP_API_URL || 'http://localhost:4000';
+  // Usar solo VITE_API_URL como base para todas las llamadas
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   const apiFetch = useCallback(
     async (url: string, options: RequestInit = {}) => {
       const token = getToken();
