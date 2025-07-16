@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
-
 import { useEffect, useState } from 'react';
-import Chart from '../components/Chart';
+import Chart from '../../components/Chart';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { ChartBarIcon, CheckCircleIcon, ExclamationCircleIcon, HomeModernIcon } from '@heroicons/react/24/solid';
+import RoleGuard from '../../components/RoleGuard';
 
 
 const initialData = [
@@ -211,6 +211,21 @@ export default function Dashboard() {
             <span aria-hidden="true">→</span>
           </button>
         </div>
+      </div>
+
+      {/* RoleGuard example */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8 transition-colors">
+        <h2 className="font-semibold mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <HomeModernIcon className="w-5 h-5 text-primary" /> Acciones Administrativas
+        </h2>
+        <p className="text-gray-700 dark:text-gray-300 mb-4">
+          Algunas acciones están restringidas a administradores.
+        </p>
+        <RoleGuard allowed={['admin', 'superadmin']}>
+          <button className="px-4 py-2 bg-primary text-white rounded">
+            Crear empresa
+          </button>
+        </RoleGuard>
       </div>
     </motion.section>
   );

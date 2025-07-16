@@ -1,154 +1,165 @@
 import { useEffect, useState } from 'react';
-import { useApi } from '../hooks/useApi';
-import { BuildingStorefrontIcon, PencilSquareIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { useForm } from 'react-hook-form';
+import { useApi } from '../../hooks/useApi';
+import { PencilSquareIcon, TrashIcon, UserPlusIcon } from '@heroicons/react/24/outline';
 
-interface Empresa {
+
+interface Usuario {
   id: number;
   nombre: string;
-  cuit: string;
   email: string;
   telefono: string;
+  rol: string;
+  password_hash?: string;
 }
 
-export default function EmpresasPage() {
+export default function UsuariosPage() {
   const api = useApi();
-  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<Partial<Empresa>>({});
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<Usuario>({
+    defaultValues: { nombre: '', email: '', telefono: '', rol: '' }
+  });
   const [editId, setEditId] = useState<number | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   // Paginación
   const [page, setPage] = useState(1);
   const pageSize = 5;
-  const totalPages = Math.ceil(empresas.length / pageSize);
-  const paginatedEmpresas = empresas.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(usuarios.length / pageSize);
+  const paginatedUsuarios = usuarios.slice((page - 1) * pageSize, page * pageSize);
 
-  const fetchEmpresas = () => {
+  const fetchUsuarios = () => {
     setLoading(true);
-    api.apiFetch('/api/empresas')
-      .then(setEmpresas)
-      .catch((err: any) => setError(err?.error || 'Error al cargar empresas'))
+    api.apiFetch('/api/usuarios')
+      .then(setUsuarios)
+      .catch((err: any) => setError(err?.error || 'Error al cargar usuarios'))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    fetchEmpresas();
+    fetchUsuarios();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+
+  const onSubmit = async (data: Usuario) => {
     setFormError(null);
     try {
       if (editId) {
-        await api.apiFetch(`/api/empresas/${editId}`, {
+        await api.apiFetch(`/api/usuarios/${editId}`, {
           method: 'PUT',
-          body: JSON.stringify(form),
+          body: JSON.stringify(data),
         });
       } else {
-        await api.apiFetch('/api/empresas', {
+        await api.apiFetch('/api/usuarios', {
           method: 'POST',
-          body: JSON.stringify(form),
+          body: JSON.stringify(data),
         });
       }
-      setForm({});
+      reset();
       setEditId(null);
-      fetchEmpresas();
+      fetchUsuarios();
     } catch (err: any) {
-      setFormError(err?.error || 'Error al guardar empresa');
+      setFormError(err?.error || 'Error al guardar usuario');
     }
   };
 
-  const handleEdit = (empresa: Empresa) => {
-    setForm(empresa);
-    setEditId(empresa.id);
+  const handleEdit = (usuario: Usuario) => {
+    setValue('nombre', usuario.nombre);
+    setValue('email', usuario.email);
+    setValue('telefono', usuario.telefono);
+    setValue('rol', usuario.rol);
+    setEditId(usuario.id);
     setFormError(null);
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('¿Eliminar empresa?')) return;
+    if (!window.confirm('¿Eliminar usuario?')) return;
     try {
-      await api.apiFetch(`/api/empresas/${id}`, { method: 'DELETE' });
-      fetchEmpresas();
+      await api.apiFetch(`/api/usuarios/${id}`, { method: 'DELETE' });
+      fetchUsuarios();
     } catch (err: any) {
-      setError(err?.error || 'Error al eliminar empresa');
+      setError(err?.error || 'Error al eliminar usuario');
     }
   };
 
   const handleCancel = () => {
-    setForm({});
+    reset();
     setEditId(null);
     setFormError(null);
   };
 
-  if (loading) return <div className="p-8 text-center text-lg text-gray-500 dark:text-gray-300">Cargando empresas...</div>;
+  if (loading) return <div className="p-8 text-center text-lg text-gray-500 dark:text-gray-300">Cargando usuarios...</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
   return (
     <div className="p-4 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <BuildingStorefrontIcon className="h-7 w-7 text-primary dark:text-accent" />
-        <span className="text-gray-900 dark:text-gray-100">Empresas Administradoras</span>
+        <UserPlusIcon className="h-7 w-7 text-primary dark:text-accent" />
+        <span className="text-gray-900 dark:text-gray-100">Usuarios</span>
       </h1>
       <form
-        onSubmit={handleSubmit}
+        onSubmit={handleSubmit(onSubmit)}
         className="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 grid grid-cols-1 md:grid-cols-2 gap-6 border border-gray-100 dark:border-gray-800"
       >
         <div className="flex flex-col gap-1">
           <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Nombre</label>
           <input
-            name="nombre"
-            placeholder="Nombre de la empresa"
-            value={form.nombre || ''}
-            onChange={handleChange}
+            {...register('nombre', { required: 'El nombre es obligatorio' })}
+            placeholder="Nombre completo"
             className="input input-bordered w-full bg-transparent border-gray-300 dark:border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg px-3 py-2 text-base"
-            required
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">CUIT</label>
-          <input
-            name="cuit"
-            placeholder="CUIT"
-            value={form.cuit || ''}
-            onChange={handleChange}
-            className="input input-bordered w-full bg-transparent border-gray-300 dark:border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg px-3 py-2 text-base"
-            required
-          />
+          {errors?.nombre && <span className="text-xs text-red-500 mt-1">{errors.nombre.message}</span>}
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Email</label>
           <input
-            name="email"
-            placeholder="correo@empresa.com"
-            value={form.email || ''}
-            onChange={handleChange}
-            className="input input-bordered w-full bg-transparent border-gray-300 dark:border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg px-3 py-2 text-base"
+            {...register('email', {
+              required: 'El email es obligatorio',
+              pattern: {
+                value: /^[^@\s]+@[^@\s]+\.[^@\s]+$/,
+                message: 'Formato de email inválido',
+              },
+            })}
+            placeholder="correo@ejemplo.com"
             type="email"
-            required
+            className="input input-bordered w-full bg-transparent border-gray-300 dark:border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg px-3 py-2 text-base"
           />
+          {errors?.email && <span className="text-xs text-red-500 mt-1">{errors.email.message}</span>}
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Teléfono</label>
           <input
-            name="telefono"
+            {...register('telefono', { required: 'El teléfono es obligatorio' })}
             placeholder="Teléfono"
-            value={form.telefono || ''}
-            onChange={handleChange}
             className="input input-bordered w-full bg-transparent border-gray-300 dark:border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg px-3 py-2 text-base"
-            required
           />
+          {errors?.telefono && <span className="text-xs text-red-500 mt-1">{errors.telefono.message}</span>}
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Rol</label>
+          <div className="relative">
+            <select
+              {...register('rol', { required: 'El rol es obligatorio' })}
+              className="appearance-none input input-bordered w-full bg-transparent border-gray-300 dark:border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg px-3 py-2 text-base pr-8 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Selecciona un rol</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">Superadmin</option>
+              <option value="owner">Propietario</option>
+            </select>
+            <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          </div>
+          {errors?.rol && <span className="text-xs text-red-500 mt-1">{errors.rol.message}</span>}
         </div>
         <div className="col-span-1 md:col-span-2 flex gap-3 mt-2">
           <button
             type="submit"
+            disabled={isSubmitting}
             className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg shadow hover:bg-primary/90 transition-colors font-semibold text-base"
           >
-            {editId ? <PencilSquareIcon className="h-5 w-5" /> : <PlusIcon className="h-5 w-5" />} {editId ? 'Actualizar' : 'Crear'}
+            {editId ? <PencilSquareIcon className="h-5 w-5" /> : <UserPlusIcon className="h-5 w-5" />} {editId ? 'Actualizar' : 'Crear'}
           </button>
           {editId && (
             <button
@@ -168,30 +179,32 @@ export default function EmpresasPage() {
             <tr>
               <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">ID</th>
               <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Nombre</th>
-              <th className="hidden md:table-cell px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">CUIT</th>
+              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">ID</th>
+              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Nombre</th>
               <th className="hidden md:table-cell px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Email</th>
               <th className="hidden md:table-cell px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Teléfono</th>
+              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Rol</th>
               <th className="px-4 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-            {paginatedEmpresas.length === 0 && (
+            {paginatedUsuarios.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-6 text-gray-400 dark:text-gray-500">No hay empresas</td>
+                <td colSpan={6} className="text-center py-6 text-gray-400 dark:text-gray-500">No hay usuarios</td>
               </tr>
             )}
-            {paginatedEmpresas.map((e) => (
-              <tr key={e.id} className="hover:bg-accent/10 dark:hover:bg-accent/10 transition-colors">
-                <td className="px-4 py-2 text-sm font-mono text-gray-500 dark:text-gray-400">{e.id}</td>
-                <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{e.nombre}</td>
-                <td className="hidden md:table-cell px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{e.cuit}</td>
-                <td className="hidden md:table-cell px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{e.email}</td>
-                <td className="hidden md:table-cell px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{e.telefono}</td>
+            {paginatedUsuarios.map((u) => (
+              <tr key={u.id} className="hover:bg-accent/10 dark:hover:bg-accent/10 transition-colors">
+                <td className="px-4 py-2 text-sm font-mono text-gray-500 dark:text-gray-400">{u.id}</td>
+                <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">{u.nombre}</td>
+                <td className="hidden md:table-cell px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{u.email}</td>
+                <td className="hidden md:table-cell px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{u.telefono}</td>
+                <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 capitalize">{u.rol}</td>
                 <td className="px-4 py-2 flex gap-2 justify-center">
-                  <button onClick={() => handleEdit(e)} className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900 hover:bg-yellow-200 dark:hover:bg-yellow-800 transition-colors" title="Editar">
+                  <button onClick={() => handleEdit(u)} className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900 hover:bg-yellow-200 dark:hover:bg-yellow-800 transition-colors" title="Editar">
                     <PencilSquareIcon className="h-5 w-5 text-yellow-700 dark:text-yellow-300" />
                   </button>
-                  <button onClick={() => handleDelete(e.id)} className="p-2 rounded-lg bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800 transition-colors" title="Eliminar">
+                  <button onClick={() => handleDelete(u.id)} className="p-2 rounded-lg bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800 transition-colors" title="Eliminar">
                     <TrashIcon className="h-5 w-5 text-red-700 dark:text-red-300" />
                   </button>
                 </td>
@@ -223,5 +236,6 @@ export default function EmpresasPage() {
         </div>
       </div>
     </div>
+
   );
 }

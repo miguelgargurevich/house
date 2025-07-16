@@ -1,5 +1,6 @@
 
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import type { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import express from 'express';
@@ -706,8 +707,12 @@ app.post('/api/login', async (req, res) => {
     if (!usuario) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
-    // Comparar password plano (solo para demo, en prod usar hash seguro)
-    if (usuario.password_hash !== password) {
+    // Validar password usando bcrypt
+    if (!usuario.password_hash) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    const passwordValido = await bcrypt.compare(password, usuario.password_hash);
+    if (!passwordValido) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
     }
     // Generar JWT

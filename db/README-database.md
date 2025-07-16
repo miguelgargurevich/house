@@ -1,7 +1,8 @@
 
-# Base de datos local con Docker Compose
 
-Este proyecto incluye un archivo `docker-compose.yml` para levantar una base de datos PostgreSQL lista para desarrollo, persistente y con el esquema inicial cargado automáticamente.
+# Base de datos local con Docker y Prisma
+
+Este proyecto recomienda usar el entorno `certi` (ver README-docker.md) para levantar la base de datos PostgreSQL, el backend y el frontend de forma aislada y reproducible. El modelo y los datos de ejemplo se gestionan con Prisma ORM.
 
 ## Concepto principal: complejo_habitacional
 
@@ -9,39 +10,39 @@ El modelo de datos está centrado en la entidad **complejo_habitacional**, que r
 
 ## ¿Qué hace cada parte?
 
-- **version: '3.8'**: Versión de la sintaxis de Docker Compose.
-- **services**: Define los servicios a levantar (aquí solo `db`).
-- **image: postgres:15**: Usa la imagen oficial de Postgres versión 15.
-- **container_name: pg-dev**: El contenedor se llamará así (útil para identificarlo).
-- **environment**:
-  - `POSTGRES_PASSWORD`: Contraseña del usuario `postgres` (aquí: `mipassword`).
-  - `POSTGRES_DB`: Nombre de la base de datos inicial (aquí: `mi_bd_pg`).
-- **ports**: Expone el puerto 5432 del contenedor al 5432 de tu máquina.
-- **volumes**:
-  - `./db/data:/var/lib/postgresql/data`: Los datos de la base se guardan en tu disco local (persistencia).
-  - `./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql`: Al crear la base por primera vez, ejecuta el script `schema.sql` para crear las tablas y estructura inicial.
+
+Para desarrollo local, puedes levantar solo la base de datos con un comando similar, pero se recomienda usar el stack completo para pruebas realistas. El backend expone la API en el puerto 4000 (ver README-docker.md).
+
+
+
+## Flujo recomendado de desarrollo
+
+1. Usa el entorno `certi` para levantar todo el stack (ver README-docker.md).
+2. Si solo necesitas la base, puedes usar el servicio `db-certi` del compose exclusivo.
+3. Aplica migraciones y seed desde el backend del entorno `certi`.
+
+---
 
 ## Comandos útiles
 
-### Levantar la base de datos
 
-```sh
-docker compose up -d
-```
-Esto descarga la imagen (si no la tienes), crea el contenedor y lo deja corriendo en segundo plano.
+
+### Levantar solo la base de datos (opcional)
+
+Puedes levantar solo el servicio de base de datos del entorno `certi` si lo necesitas para pruebas manuales.
+
+
 
 ### Apagar la base de datos
 
-```sh
-docker compose down
-```
-Esto detiene y elimina el contenedor, pero los datos quedan guardados en `./db/data`.
+Consulta el README-docker.md para los comandos correctos según el entorno que uses.
+
+
 
 ### Ver logs del contenedor
 
-```sh
-docker compose logs -f
-```
+Consulta el README-docker.md para los comandos correctos según el entorno que uses.
+
 
 ### Conectarte a la base desde tu PC
 
@@ -50,8 +51,19 @@ docker compose logs -f
 - **Usuario:** `postgres`
 - **Contraseña:** `mipassword`
 - **Base de datos:** `mi_bd_pg`
+- **Backend API:** `http://localhost:4000/api`
 
 Puedes usar DBeaver, TablePlus, PgAdmin, o cualquier cliente SQL.
+
+---
+
+### Notas importantes
+
+- El archivo `prisma/schema.prisma` define el modelo de datos. Modifica este archivo y ejecuta migraciones para cambiar la estructura.
+- El script de seed (`prisma/seed.ts`) genera datos realistas para pruebas y demos, incluyendo personal, propietarios, inquilinos y unidades asociadas.
+- **El seed borra todos los datos antes de poblar. No lo uses en producción.**
+
+¿Dudas? Consulta este archivo o pregunta a Copilot 😉
 
 ---
 

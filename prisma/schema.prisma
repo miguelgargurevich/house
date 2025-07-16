@@ -7,18 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model TareaMantenimiento {
+  id             Int       @id @default(autoincrement())
+  titulo         String
+  descripcion    String?
+  estado         String    @default("pendiente")
+  unidad_id      Int?
+  asignado_id    Int?
+  creado_por_id  Int?
+  fecha_creacion DateTime  @default(now())
+  fecha_cierre   DateTime?
+  asignado       Usuario?  @relation("TareaAsignado", fields: [asignado_id], references: [id])
+  creado_por     Usuario?  @relation("TareaCreador", fields: [creado_por_id], references: [id])
+  unidad         Unidad?   @relation(fields: [unidad_id], references: [id])
+}
+
 model Usuario {
-  id             Int      @id @default(autoincrement())
-  nombre         String
-  email          String   @unique
-  telefono       String?
-  rol            String?
-  password_hash  String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  pagos          Pago[]
-  recibosCreados Recibo[] @relation("UsuarioCreadorRecibo")
-  unidades       Unidad[] @relation("PropietarioUnidad")
+  id              Int                  @id @default(autoincrement())
+  nombre          String
+  email           String               @unique
+  telefono        String?
+  rol             String?
+  password_hash   String?
+  created_at      DateTime             @default(now())
+  updated_at      DateTime             @updatedAt
+  pagos           Pago[]
+  recibosCreados  Recibo[]             @relation("UsuarioCreadorRecibo")
+  tareasAsignadas TareaMantenimiento[] @relation("TareaAsignado")
+  tareasCreadas   TareaMantenimiento[] @relation("TareaCreador")
+  unidades        Unidad[]             @relation("PropietarioUnidad")
+  empresa_id      Int?
+  empresa         EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
+  complejo_id     Int?
+  complejo        ComplejoHabitacional? @relation(fields: [complejo_id], references: [id])
 }
 
 model EmpresaAdministradora {
@@ -36,6 +57,7 @@ model EmpresaAdministradora {
   conceptos           Concepto[]
   recibos             Recibo[]
   unidades            Unidad[]
+  usuarios            Usuario[]
 }
 
 model ComplejoHabitacional {
@@ -49,6 +71,7 @@ model ComplejoHabitacional {
   estructuras Estructura[]
   recibos     Recibo[]
   unidades    Unidad[]
+  usuarios    Usuario[]
 }
 
 model Estructura {
@@ -88,6 +111,7 @@ model Unidad {
   created_at             DateTime               @default(now())
   updated_at             DateTime               @updatedAt
   reciboConceptoUnidades ReciboConceptoUnidad[]
+  tareasMantenimiento    TareaMantenimiento[]
   complejo               ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
   empresa                EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   estructura             Estructura?            @relation(fields: [estructura_id], references: [id])
