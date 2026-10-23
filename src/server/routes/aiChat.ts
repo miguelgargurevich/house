@@ -1,10 +1,42 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Router, type Response } from 'express';
+import { PROVEEDORES_IA } from '../lib/proveedoresIA';
+import { cabecerasDe, llaveroDeps, resolverParaUso, type ClaveParaUso } from '../services/llavero';
 import { z } from '../validation';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`;
+/** Primero el llavero (claves habilitadas, por prioridad); de respaldo, GEMINI_API_KEY del entorno. */
+async function resolverProveedor(): Promise<ClaveParaUso | null> {
+  const delLlavero = await resolverParaUso();
+  if (delLlavero) return delLlavero;
+  const clave = process.env.GEMINI_API_KEY;
+  const gemini = PROVEEDORES_IA.find((p) => p.id === 'gemini')!;
+  return clave ? { proveedor: gemini, clave, modelo: gemini.modeloPorDefecto } : null;
+}
+
+type Respuesta = { ok: boolean; status: number; texto: string };
+
+async function consultar({ proveedor, clave, modelo }: ClaveParaUso, prompt: string): Promise<Respuesta> {
+  // La clave va en cabecera, no en la URL, para que no quede en logs de proxies.
+  const gemini = proveedor.tipo === 'gemini';
+  const url = gemini ? `${proveedor.baseUrl}/models/${encodeURIComponent(modelo)}:generateContent` : `${proveedor.baseUrl}/chat/completions`;
+  const cuerpo = gemini
+    ? { contents: [{ role: 'user', parts: [{ text: prompt }] }] }
+    : { model: modelo, messages: [{ role: 'user', content: prompt }] };
+  const r = await llaveroDeps.fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...cabecerasDe(proveedor, clave) },
+    body: JSON.stringify(cuerpo),
+    redirect: 'manual',
+    signal: AbortSignal.timeout(30_000),
+  });
+  const data = (await r.json().catch(() => ({}))) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    choices?: { message?: { content?: string } }[];
+  };
+  const texto = gemini ? data.candidates?.[0]?.content?.parts?.[0]?.text : data.choices?.[0]?.message?.content;
+  return { ok: r.ok, status: r.status, texto: typeof texto === 'string' ? texto : '' };
+}
 
 // Las respuestas conservan la forma histórica que lee el chat: { response } o { error: { code, message } }.
 const fallo = (res: Response, code: number, message: string) => res.status(code).json({ error: { code, message } });
@@ -28,8 +60,8 @@ function leerSystemPrompt(): string {
 export const aiChatRouter = Router();
 
 aiChatRouter.post('/', async (req, res) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return fallo(res, 500, 'La IA no está configurada en el servidor. Contacta al administrador.');
+  const elegido = await resolverProveedor();
+  if (!elegido) return fallo(res, 500, 'La IA no está configurada en el servidor. Contacta al administrador.');
 
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) return fallo(res, 400, parsed.error.issues[0]?.message ?? 'Petición inválida.');
@@ -56,20 +88,13 @@ aiChatRouter.post('/', async (req, res) => {
   prompt += `\nMENSAJE DEL USUARIO:\n${message}\n`;
 
   try {
-    // La clave va en cabecera, no en la URL, para que no quede en logs de proxies.
-    const r = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    const data = (await r.json().catch(() => ({}))) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const r = await consultar(elegido, prompt);
     if (!r.ok) {
       if (r.status === 429) return fallo(res, 429, 'La IA está saturada o se superó la cuota. Intenta nuevamente en unos minutos.');
-      console.error(`[ai-chat] el proveedor respondió ${r.status}`);
+      console.error(`[ai-chat] el proveedor ${elegido.proveedor.id} respondió ${r.status}`);
       return fallo(res, 503, 'El servicio de IA no pudo responder. Intenta de nuevo más tarde.');
     }
-    const text = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? '').replace(/€(\d+)/g, '$$$1 USD');
+    const text = r.texto.replace(/€(\d+)/g, '$$$1 USD');
     if (!text.trim()) return fallo(res, 503, 'El servicio de IA no está disponible. Intenta de nuevo más tarde.');
     res.json({ response: text });
   } catch (err) {
