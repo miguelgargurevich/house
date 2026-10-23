@@ -1,5 +1,5 @@
-import { PageHeader } from '../../ui';
+import { PagosResidente } from '../residente/_parts/PagosResidente';
 
-export default function Page() {
-  return <PageHeader title="Mis pagos" description="Pantalla en construcción." />;
+export default function Pagos() {
+  return <PagosResidente />;
 }
