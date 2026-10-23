@@ -12,6 +12,7 @@ import { errorHandler, notFoundHandler } from './middleware/error';
 import { crearLimitadores, type RateLimitOptions } from './middleware/rateLimit';
 import { aiChatRouter } from './routes/aiChat';
 import { auditoriaRouter } from './routes/auditoria';
+import { llaveroRouter } from './routes/llavero';
 import { loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
 import { complejosRouter } from './routes/complejos';
@@ -74,6 +75,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use(auditoria);
   api.use('/auth', sesionRouter);
   api.use('/ai-chat', limiters.ai, aiChatRouter);
+  api.use('/llavero', llaveroRouter(limiters.llavero));
   api.use('/me', meRouter(limiters.password));
   api.use('/dashboard', dashboardRouter);
   api.use('/reportes', reportesRouter);

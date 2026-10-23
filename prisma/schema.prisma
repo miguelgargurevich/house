@@ -38,6 +38,7 @@ model Usuario {
   unidades          Unidad[]               @relation("PropietarioUnidad")
   unidadesInquilino Unidad[]               @relation("InquilinoUnidad")
   auditorias        Auditoria[]
+  clavesIntegracion ClaveIntegracion[]
   empresa_id        Int?
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   complejo_id       Int?
@@ -214,4 +215,24 @@ model Auditoria {
   @@index([entidad, accion])
   @@index([usuario_id])
   @@index([created_at])
+}
+
+model ClaveIntegracion {
+  id                Int       @id @default(autoincrement())
+  proveedor         String
+  etiqueta          String    @default("principal")
+  api_key_enc       String
+  ultimos4          String
+  modelo            String?
+  habilitada        Boolean   @default(true)
+  estado            String    @default("sin_probar")
+  estado_detalle    String?
+  probada_at        DateTime?
+  ultimo_uso_at     DateTime?
+  actualizado_por_id Int?
+  actualizado_por   Usuario?  @relation(fields: [actualizado_por_id], references: [id], onDelete: SetNull)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@unique([proveedor, etiqueta])
 }

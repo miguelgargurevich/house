@@ -6,6 +6,7 @@ export interface RateLimitOptions {
   login?: number;
   ai?: number;
   password?: number;
+  llavero?: number;
 }
 
 const QUINCE_MIN = 15 * 60 * 1000;
@@ -33,6 +34,7 @@ export function crearLimitadores(opts: RateLimitOptions = {}) {
     }),
     // Por usuario: se monta después de `authenticate`.
     ai: limiter(opts.ai ?? 20, 'Has alcanzado el límite de consultas a la IA, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
+    llavero: limiter(opts.llavero ?? 20, 'Demasiadas operaciones en el llavero, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
     password: limiter(opts.password ?? 10, 'Demasiados intentos de cambio de contraseña, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
   };
 }
