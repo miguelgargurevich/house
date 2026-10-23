@@ -23,23 +23,25 @@ model TareaMantenimiento {
 }
 
 model Usuario {
-  id              Int                  @id @default(autoincrement())
-  nombre          String
-  email           String               @unique
-  telefono        String?
-  rol             String?
-  password_hash   String?
-  created_at      DateTime             @default(now())
-  updated_at      DateTime             @updatedAt
-  pagos           Pago[]
-  recibosCreados  Recibo[]             @relation("UsuarioCreadorRecibo")
-  tareasAsignadas TareaMantenimiento[] @relation("TareaAsignado")
-  tareasCreadas   TareaMantenimiento[] @relation("TareaCreador")
-  unidades        Unidad[]             @relation("PropietarioUnidad")
-  empresa_id      Int?
-  empresa         EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
-  complejo_id     Int?
-  complejo        ComplejoHabitacional? @relation(fields: [complejo_id], references: [id])
+  id                Int                    @id @default(autoincrement())
+  nombre            String
+  email             String                 @unique
+  telefono          String?
+  rol               String?
+  password_hash     String?
+  created_at        DateTime               @default(now())
+  updated_at        DateTime               @updatedAt
+  pagos             Pago[]
+  recibosCreados    Recibo[]               @relation("UsuarioCreadorRecibo")
+  tareasAsignadas   TareaMantenimiento[]   @relation("TareaAsignado")
+  tareasCreadas     TareaMantenimiento[]   @relation("TareaCreador")
+  unidades          Unidad[]               @relation("PropietarioUnidad")
+  unidadesInquilino Unidad[]               @relation("InquilinoUnidad")
+  auditorias        Auditoria[]
+  empresa_id        Int?
+  empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
+  complejo_id       Int?
+  complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
 }
 
 model EmpresaAdministradora {
@@ -106,6 +108,7 @@ model Unidad {
   complejo_id            Int?
   descripcion            String?
   propietario_id         Int?
+  inquilino_id           Int?
   empresa_id             Int?
   estado                 String?                @default("activa")
   created_at             DateTime               @default(now())
@@ -117,6 +120,7 @@ model Unidad {
   estructura             Estructura?            @relation(fields: [estructura_id], references: [id])
   piso                   Piso?                  @relation(fields: [piso_id], references: [id])
   propietario            Usuario?               @relation("PropietarioUnidad", fields: [propietario_id], references: [id])
+  inquilino              Usuario?               @relation("InquilinoUnidad", fields: [inquilino_id], references: [id])
 }
 
 model Concepto {
@@ -194,4 +198,20 @@ model Pago {
   created_at                DateTime              @default(now())
   reciboConceptoUnidad      ReciboConceptoUnidad? @relation(fields: [recibo_concepto_unidad_id], references: [id])
   usuario                   Usuario?              @relation(fields: [usuario_id], references: [id])
+}
+
+model Auditoria {
+  id         Int      @id @default(autoincrement())
+  usuario_id Int?
+  accion     String
+  entidad    String
+  entidad_id Int?
+  detalle    Json?
+  ip         String?
+  created_at DateTime @default(now())
+  usuario    Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@index([entidad, accion])
+  @@index([usuario_id])
+  @@index([created_at])
 }
