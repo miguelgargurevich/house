@@ -23,7 +23,6 @@ node_modules/
 coverage/
 nyc_output/
 /.turbo/
-/.vercel/
 /.firebase/
 /.netlify/
 /.output/

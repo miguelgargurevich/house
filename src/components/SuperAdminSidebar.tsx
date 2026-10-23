@@ -5,49 +5,12 @@ import {
   HomeModernIcon,
   BuildingStorefrontIcon,
   UserGroupIcon,
-  DocumentDuplicateIcon,
   ArrowLeftOnRectangleIcon,
   Cog6ToothIcon,
   ClipboardDocumentListIcon,
   BuildingOffice2Icon,
   WrenchScrewdriverIcon,
 } from '@heroicons/react/24/solid';
-import RoleGuard from './RoleGuard';
-
-const groupedLinks = [
-  {
-    label: 'General',
-    links: [
-      { to: '/superadmin/dashboard', label: 'Dashboard', icon: HomeModernIcon, roles: ['superadmin'] },
-    ],
-  },
-  {
-    label: 'Gestión',
-    links: [
-      { to: '/superadmin/empresas', label: 'Empresas', icon: BuildingStorefrontIcon, roles: ['superadmin'] },
-      { to: '/superadmin/usuarios', label: 'Usuarios Globales', icon: UserGroupIcon, roles: ['superadmin'] },
-    ],
-  },
-  {
-    label: 'Auditoría',
-    links: [
-      { to: '/superadmin/auditoria', label: 'Auditoría', icon: DocumentDuplicateIcon, roles: ['superadmin'] },
-    ],
-  },
-  {
-    label: 'Configuración',
-    links: [
-      { to: '/superadmin/configuracion', label: 'Configuración Avanzada', icon: HomeModernIcon, roles: ['superadmin'] },
-    ],
-  },
-  {
-    label: 'Admin',
-    links: [
-      { to: '/admin/propiedades', label: 'Propiedades (Admin)', icon: BuildingStorefrontIcon, roles: ['superadmin', 'admin'] },
-      { to: '/admin/mantenimientos', label: 'Mantenimientos (Admin)', icon: UserGroupIcon, roles: ['superadmin', 'admin', 'mantenimiento'] },
-    ],
-  },
-];
 
 export default function SuperAdminSidebar() {
   const [open, setOpen] = useState(false);
@@ -102,7 +65,7 @@ export default function SuperAdminSidebar() {
               to={to}
               onClick={() => setOpen(false)}
               title={collapsed ? label : undefined}
-              className={({ isActive }) =>
+              className={() =>
                 `flex items-center gap-2 px-2 py-3 rounded transition-colors ${collapsed ? 'justify-center' : 'justify-start'}`
               }
             >

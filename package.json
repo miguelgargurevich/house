@@ -8,9 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "backend": "ts-node-esm src/server.ts",
-    "dev:all": "concurrently \"npm run backend\" \"npm run dev\""
-
+    "backend": "tsx src/server.ts",
+    "dev:all": "concurrently \"npm run backend\" \"npm run dev\"",
+    "start": "tsx src/server.ts"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -32,7 +32,8 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.6.3",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

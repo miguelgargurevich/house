@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import RoleGuard from './RoleGuard';
 import { NavLink } from 'react-router-dom';
-import { HomeModernIcon, BuildingOffice2Icon, UsersIcon, BanknotesIcon, ChartBarIcon, Cog6ToothIcon, WrenchScrewdriverIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/solid';
+import { HomeModernIcon, BuildingOffice2Icon, UsersIcon, BanknotesIcon, ChartBarIcon, Cog6ToothIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/solid';
 
 const links = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: HomeModernIcon, roles: ['admin', 'superadmin'] },

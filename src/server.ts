@@ -20,7 +20,7 @@ const swaggerDefinition = {
     description: 'Documentación de la API de House SaaS multi-tenant',
   },
   servers: [
-    { url: 'http://localhost:4000', description: 'Servidor local' },
+    { url: '/', description: 'Servidor actual' },
   ],
 };
 const swaggerOptions = {
@@ -756,6 +756,15 @@ app.post('/api/login', async (req, res) => {
     return res.status(500).json({ error: 'Error en login' });
   }
 });
+
+// Producción: el mismo contenedor sirve el frontend compilado (dist/)
+const distDir = path.join(process.cwd(), 'dist');
+if (fs.existsSync(distDir)) {
+  app.use(express.static(distDir));
+  app.get(/^(?!\/api).*/, (_req: Request, res: Response) => {
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

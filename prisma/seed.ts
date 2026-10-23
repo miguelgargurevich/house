@@ -377,7 +377,7 @@ async function main() {
   for (let i = 0; i < 8; i++) {
     const r = await prisma.recibo.create({
       data: {
-        descripcion: `Recibo de ${conceptosDb[i].nombre} - ${now.getMonth() + 1}/2025`,
+        descripcion: `Recibo de ${conceptosDb[i % conceptosDb.length].nombre} - ${now.getMonth() + 1}/2025`,
         fecha_emision: now,
         fecha_vencimiento: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30),
         mes: now.getMonth() + 1,
@@ -396,7 +396,7 @@ async function main() {
     const rc = await prisma.reciboConcepto.create({
       data: {
         recibo_id: recibosDb[i].id,
-        concepto_id: conceptosDb[i].id,
+        concepto_id: conceptosDb[i % conceptosDb.length].id,
         monto: 250 + i * 25,
         es_recargo: false,
         orden: i + 1,
@@ -420,7 +420,7 @@ async function main() {
           usuario_id: inquilinos[(i + j) % inquilinos.length].id,
           metodo_pago: 'transferencia',
           referencia: `TRX${i + 1}${j + 1}`,
-          observaciones: `Pago de ${conceptosDb[i].nombre} correspondiente a la unidad ${unidadesDb[j].codigo}`,
+          observaciones: `Pago de ${conceptosDb[i % conceptosDb.length].nombre} correspondiente a la unidad ${unidadesDb[j].codigo}`,
         },
       });
     }

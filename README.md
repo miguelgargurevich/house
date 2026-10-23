@@ -8,7 +8,7 @@
 - **Base de datos:** PostgreSQL
 - **Autenticación:** JWT, bcrypt, protección por roles
 - **IA:** Gemini API (Google)
-- **Infraestructura:** Docker Compose para desarrollo local, Render (backend/db) y Vercel (frontend) en producción
+- **Infraestructura:** Docker Compose para desarrollo local, VPS con Coolify en producción
 
 ### Cambios recientes
 
@@ -102,24 +102,15 @@ Prisma Studio estará disponible en [http://localhost:5555](http://localhost:555
 - Tipografía: Inter, Poppins
 
 
-## Despliegue en producción
+## Despliegue en producción (VPS + Coolify)
 
-### Backend y Base de Datos (Render)
-- Crea un servicio web en Render para el backend (Node.js/Express) y un servicio de base de datos PostgreSQL.
-- Configura las variables de entorno en Render (`DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`).
-- Render expone la URL del backend, por ejemplo: `https://house-backend.onrender.com`.
-- Render gestiona automáticamente la persistencia y backups de la base de datos.
-- Ejecuta las migraciones y el seed en Render usando los scripts de Prisma.
+Todo corre en el VPS con Coolify, en un único contenedor (API Express + frontend compilado) definido por el `Dockerfile`.
 
-### Frontend (Vercel)
-- Despliega el frontend (Vite/React) en Vercel conectando el repo de GitHub.
-- Configura la variable de entorno `VITE_API_URL` con la URL pública del backend de Render.
-- Vercel gestiona automáticamente el build y el CDN global.
-
-### Recomendaciones
-- Asegúrate de que el backend permita CORS desde el dominio de Vercel.
-- Usa HTTPS en todas las URLs de producción.
-- Mantén las variables sensibles solo en Render y Vercel, nunca en el repo.
+1. En Coolify crea una base de datos PostgreSQL y copia su URL interna.
+2. Crea una aplicación desde este repo de GitHub con *Build Pack: Dockerfile* y puerto 4000.
+3. Variables de entorno: `DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY` (ver `.env.example`).
+4. Asigna el dominio; Coolify/Traefik emite el HTTPS. El frontend usa rutas relativas (`/api`), no requiere `VITE_API_URL` ni CORS.
+5. Al arrancar, el contenedor ejecuta `prisma db push`. Para cargar datos de prueba: `npx prisma db seed` dentro del contenedor.
 
 ---
 
