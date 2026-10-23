@@ -13,3 +13,11 @@ Montos (`Decimal`) llegan como string: usa `soles()` / `Number()`.
 - `GET /api/dashboard/resumen` según rol. admin/superadmin: `{recibos_emitidos, cargos_pendientes_monto, cobrado_mes, morosos (unidades con cargos vencidos), unidades_total, tareas_abiertas, cobrado_por_mes:[{mes:'2026-05', emitido, cobrado} (últimos 6)], estados:{pagado,pendiente,vencido}}` (superadmin: global + `empresas_total`, `usuarios_total`; admin: su empresa). propietario/inquilino: `{deuda_total, vencidos, proximo_vencimiento:{cargo_id,monto,fecha}|null, pagado_ano}`. mantenimiento: `{tareas_pendientes, en_progreso, completadas}`. seguridad: `{unidades_complejo, complejo}`.
 - `GET /api/reportes/morosidad` (admin/superadmin): lista de unidades con deuda vencida: `[{unidad, propietario, deuda_total, cargos_vencidos, dias_max_atraso}]`, paginada igual que las demás.
 
+
+## Adiciones (obligatorias en el backend; el frontend ya las usa)
+- `GET /api/usuarios` acepta también `?rol=propietario|inquilino|…` y `?empresa_id=` (sólo superadmin puede filtrar por otra empresa).
+- `GET /api/recibo-concepto-unidades` (cargos) acepta `?estado=pendiente|pagado|vencido&q=<código de unidad>`; cada fila incluye `unidad:{id,codigo}`, `concepto:{nombre}` (vía reciboConcepto), `recibo:{id,mes,anio,fecha_vencimiento}`, `estado` calculado.
+- `POST /api/recibos` acepta `{complejo_id, mes, anio, fecha_emision, fecha_vencimiento, descripcion?, conceptos:[{concepto_id, monto, es_recargo?}]}` y genera los `ReciboConcepto` más un `ReciboConceptoUnidad` por cada unidad activa del complejo (con el mismo monto). `GET /api/recibos/:id` devuelve además `conceptos:[…]` y `cargos:[{id, unidad:{id,codigo}, concepto:{nombre}, monto, estado}]`.
+- `GET /api/unidades?complejo_id=&estado=`, `GET /api/pagos?metodo_pago=`, `GET /api/tareas?estado=&asignado_id=` filtran en servidor.
+- `GET /api/pagos` incluye `unidad:{codigo}`, `concepto:{nombre}`, `usuario:{nombre}`.
+- `GET /api/empresas/:id` y `PUT /api/empresas/:id` los puede usar el admin sobre SU empresa.
