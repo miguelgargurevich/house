@@ -1,5 +1,83 @@
-import { PageHeader } from '../../ui';
+import { ArrowDownTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { useList } from '../../api';
+import { Badge, Button, Card, DataTable, PageHeader, Skeleton, StatStrip, fechaCorta, soles } from '../../ui';
+import type { Column } from '../../ui';
+import { descargarCSV } from './_parts/cobranza/csv';
+import { hoyISO } from './_parts/cobranza/comun';
 
-export default function Page() {
-  return <PageHeader title="Morosidad" description="Pantalla en construcción." />;
+type Ref = { id?: number; codigo?: string; nombre?: string } | string | null | undefined;
+
+interface Moroso {
+  unidad: Ref;
+  propietario: Ref;
+  deuda_total: number | string;
+  cargos_vencidos: number;
+  dias_max_atraso: number;
+}
+
+// El contrato no fija si `unidad`/`propietario` llegan como objeto o como texto: se aceptan ambos.
+const texto = (r: Ref): string => (typeof r === 'string' ? r : r?.codigo ?? r?.nombre ?? '');
+const claveFila = (m: Moroso): string => (typeof m.unidad === 'object' && m.unidad?.id ? String(m.unidad.id) : `${texto(m.unidad)}|${texto(m.propietario)}`);
+
+export default function Morosidad() {
+  const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100 });
+
+  const deudaTotal = list.items.reduce((s, m) => s + (Number(m.deuda_total) || 0), 0);
+  const mayorAtraso = list.items.reduce((s, m) => Math.max(s, m.dias_max_atraso || 0), 0);
+  const parcial = list.total > list.items.length;
+  const esperando = list.loading && list.items.length === 0;
+  const hint = parcial ? 'Sólo las filas cargadas' : undefined;
+
+  function exportar() {
+    descargarCSV(
+      `morosidad-${hoyISO()}.csv`,
+      ['Unidad', 'Propietario', 'Deuda (S/)', 'Cargos vencidos', 'Días de atraso'],
+      list.items.map(m => [texto(m.unidad), texto(m.propietario), Number(m.deuda_total).toFixed(2), m.cargos_vencidos, m.dias_max_atraso]),
+    );
+  }
+
+  const columns: Column<Moroso>[] = [
+    { key: 'unidad', header: 'Unidad', cell: m => <span className="font-medium">{texto(m.unidad) || '—'}</span> },
+    { key: 'propietario', header: 'Propietario', hideBelow: 'sm', cell: m => texto(m.propietario) || '—' },
+    { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{soles(m.deuda_total)}</span> },
+    { key: 'cargos', header: 'Cargos vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.cargos_vencidos}</span> },
+    { key: 'atraso', header: 'Atraso', cell: m => <Badge tone={m.dias_max_atraso >= 30 ? 'bad' : 'warn'}>{m.dias_max_atraso} {m.dias_max_atraso === 1 ? 'día' : 'días'}</Badge> },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        title="Morosidad"
+        description="Unidades con cargos vencidos, de mayor a menor deuda."
+        actions={
+          <Button variant="secondary" icon={<ArrowDownTrayIcon className="h-4 w-4" />} disabled={list.loading || !!list.error || list.items.length === 0} onClick={exportar}>
+            Exportar CSV
+          </Button>
+        }
+      />
+      <StatStrip
+        stats={[
+          { label: 'Deuda vencida', value: esperando ? <Skeleton className="h-7 w-28" /> : soles(deudaTotal), tone: deudaTotal > 0 ? 'bad' : undefined, hint },
+          { label: 'Unidades morosas', value: esperando ? <Skeleton className="h-7 w-10" /> : list.total },
+          { label: 'Mayor atraso', value: esperando ? <Skeleton className="h-7 w-20" /> : `${mayorAtraso} ${mayorAtraso === 1 ? 'día' : 'días'}`, tone: mayorAtraso >= 30 ? 'bad' : mayorAtraso > 0 ? 'warn' : undefined, hint },
+        ]}
+      />
+      <Card>
+        <DataTable
+          caption={`Unidades morosas al ${fechaCorta(new Date())}`}
+          columns={columns}
+          rows={list.items}
+          rowKey={claveFila}
+          loading={list.loading}
+          error={list.error}
+          onRetry={list.reload}
+          page={list.page}
+          pageSize={list.pageSize}
+          total={list.total}
+          onPage={list.setPage}
+          empty={{ title: 'Sin morosidad', description: 'Todas las unidades están al día con sus cargos.', icon: <CheckCircleIcon className="text-ok" /> }}
+        />
+      </Card>
+    </>
+  );
 }
