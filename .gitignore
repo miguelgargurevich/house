@@ -38,7 +38,6 @@ nyc_output/
 /src/generated/prisma/
 
 # Archivos de lock y dependencias
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
@@ -69,7 +68,5 @@ __snapshots__/
 __tests__/
 
 # Docker
-Dockerfile*
-.dockerignore
 docker-compose*
 .claude/

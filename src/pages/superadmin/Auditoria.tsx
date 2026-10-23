@@ -46,7 +46,7 @@ export default function Auditoria() {
   const [entidad, setEntidad] = useState('');
   const [accion, setAccion] = useState('');
   const [ver, setVer] = useState<Registro | null>(null);
-  const list = useList<Registro>('/api/auditoria', { params: { entidad, accion, orden: 'fecha:desc' } });
+  const list = useList<Registro>('/api/auditoria', { params: { entidad, accion, orden: 'created_at:desc' } });
   const filtrado = !!(entidad || accion);
 
   const columns: Column<Registro>[] = [

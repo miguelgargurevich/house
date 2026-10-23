@@ -250,7 +250,8 @@ describe('arranque', () => {
     });
 
   it('en producción sin JWT_SECRET el proceso falla al arrancar con un mensaje claro', () => {
-    const r = correr({ NODE_ENV: 'production' });
+    // JWT_SECRET vacío: dotenv no pisa variables ya definidas, así un .env local con secreto no invalida la prueba
+    const r = correr({ NODE_ENV: 'production', JWT_SECRET: '' });
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /JWT_SECRET es obligatorio en producción/);
   });

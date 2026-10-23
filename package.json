@@ -16,7 +16,7 @@
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",
     "@heroicons/react": "^2.2.0",
-    "@prisma/client": "^6.11.1",
+    "@prisma/client": "6.19.3",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/react-router-dom": "^5.3.3",
@@ -60,7 +60,7 @@
     "framer-motion": "^12.23.3",
     "globals": "^16.3.0",
     "postcss": "^8.5.6",
-    "prisma": "^6.11.1",
+    "prisma": "6.19.3",
     "tailwindcss": "^3.4.17",
     "ts-node": "^10.9.2",
     "typescript": "~5.8.3",
@@ -69,5 +69,8 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0"
   }
 }
