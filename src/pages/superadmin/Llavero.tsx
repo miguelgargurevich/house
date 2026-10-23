@@ -1,26 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LockClosedIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../api';
 import { Alert, Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, Skeleton, useToast } from '../../ui';
 import { ClaveModal } from './_parts/llavero/ClaveModal';
-import { FilaProveedor } from './_parts/llavero/FilaProveedor';
+import { ComoSeUsan } from './_parts/llavero/ComoSeUsan';
+import { GrupoProveedor } from './_parts/llavero/GrupoProveedor';
 import type { Clave, DatosLlavero, Proveedor } from './_parts/llavero/tipos';
+
+const REFRESCO_MS = 20_000;
 
 export default function Llavero() {
   const toast = useToast();
   const { data, loading, error, reload } = useResource<DatosLlavero>('/api/llavero');
-  const [editando, setEditando] = useState<Proveedor | null>(null);
+  const [editando, setEditando] = useState<{ proveedor: Proveedor; existente: Clave | null } | null>(null);
   const [quitar, setQuitar] = useState<{ proveedor: Proveedor; clave: Clave } | null>(null);
   const [probando, setProbando] = useState<number | null>(null);
   const [quitando, setQuitando] = useState(false);
 
-  const claveDe = (p: Proveedor) => data?.claves.find(c => c.proveedor === p.id && c.etiqueta === 'principal') ?? data?.claves.find(c => c.proveedor === p.id);
+  // Mientras la página está visible se refresca la lista para ver los enfriamientos; no toca modales ni foco.
+  useEffect(() => {
+    const t = setInterval(() => { if (document.visibilityState === 'visible') void reload(); }, REFRESCO_MS);
+    return () => clearInterval(t);
+  }, [reload]);
+
+  const clavesDe = (p: Proveedor) => data?.claves.filter(c => c.proveedor === p.id) ?? [];
+  const nombre = (p: Proveedor, c: Clave) => (clavesDe(p).length > 1 ? `${p.nombre} (${c.etiqueta})` : p.nombre);
 
   async function probar(p: Proveedor, c: Clave) {
     setProbando(c.id);
     try {
       const r = await api<Clave>(`/api/llavero/${c.id}/probar`, { method: 'POST' });
-      if (r.estado === 'ok') toast.ok(`${p.nombre} responde bien`); else toast.error(`${p.nombre}: ${r.estado_detalle ?? 'la prueba falló'}`);
+      if (r.estado === 'ok') toast.ok(`${nombre(p, c)} responde bien`); else toast.error(`${nombre(p, c)}: ${r.estado_detalle ?? 'la prueba falló'}`);
       await reload();
     } catch (e) { toast.error(errorText(e)); } finally { setProbando(null); }
   }
@@ -28,7 +38,7 @@ export default function Llavero() {
   async function alternar(p: Proveedor, c: Clave, habilitada: boolean) {
     try {
       await api(`/api/llavero/${c.id}`, { method: 'PATCH', json: { habilitada } });
-      toast.ok(habilitada ? `${p.nombre} habilitado` : `${p.nombre} en pausa`);
+      toast.ok(habilitada ? `${nombre(p, c)} habilitada` : `${nombre(p, c)} en pausa`);
       await reload();
     } catch (e) { toast.error(errorText(e)); }
   }
@@ -38,7 +48,7 @@ export default function Llavero() {
     setQuitando(true);
     try {
       await api(`/api/llavero/${quitar.clave.id}`, { method: 'DELETE' });
-      toast.ok(`Clave de ${quitar.proveedor.nombre} eliminada`);
+      toast.ok(`Clave ${quitar.clave.etiqueta} de ${quitar.proveedor.nombre} eliminada`);
       setQuitar(null);
       await reload();
     } catch (e) { toast.error(errorText(e)); } finally { setQuitando(false); }
@@ -74,29 +84,37 @@ export default function Llavero() {
           <ErrorState message={error} onRetry={() => void reload()} />
         ) : data && data.proveedores.length === 0 ? (
           <EmptyState icon={<LockClosedIcon />} title="No hay proveedores disponibles" description="El servidor no devolvió ningún proveedor de IA." />
-        ) : (
-          <ul className="divide-y divide-line">
-            {data?.proveedores.map(p => {
-              const c = claveDe(p);
-              return (
-                <FilaProveedor
+        ) : data ? (
+          <>
+            <ComoSeUsan orden={data.orden} proveedores={data.proveedores} />
+            <ul className="divide-y divide-line">
+              {data.proveedores.map(p => (
+                <GrupoProveedor
                   key={p.id}
                   proveedor={p}
-                  clave={c}
+                  claves={clavesDe(p)}
+                  maxClaves={data.max_claves_por_proveedor}
                   deshabilitado={sinConfigurar}
-                  probando={!!c && probando === c.id}
-                  onAgregar={() => setEditando(p)}
-                  onProbar={() => c && void probar(p, c)}
-                  onAlternar={h => c && void alternar(p, c, h)}
-                  onQuitar={() => c && setQuitar({ proveedor: p, clave: c })}
+                  probando={probando}
+                  onAgregar={() => setEditando({ proveedor: p, existente: null })}
+                  onProbar={c => void probar(p, c)}
+                  onCambiar={c => setEditando({ proveedor: p, existente: c })}
+                  onAlternar={(c, h) => void alternar(p, c, h)}
+                  onQuitar={c => setQuitar({ proveedor: p, clave: c })}
                 />
-              );
-            })}
-          </ul>
-        )}
+              ))}
+            </ul>
+          </>
+        ) : null}
       </Card>
 
-      <ClaveModal proveedor={editando} existente={editando ? claveDe(editando) ?? null : null} onClose={() => setEditando(null)} onGuardada={() => void reload()} />
+      <ClaveModal
+        proveedor={editando?.proveedor ?? null}
+        existente={editando?.existente ?? null}
+        etiquetasUsadas={editando ? clavesDe(editando.proveedor).map(c => c.etiqueta) : []}
+        onClose={() => setEditando(null)}
+        onGuardada={() => void reload()}
+      />
 
       <ConfirmDialog
         open={!!quitar}
@@ -105,7 +123,7 @@ export default function Llavero() {
         loading={quitando}
         danger
         title="Quitar clave"
-        message={`Se eliminará la clave de ${quitar?.proveedor.nombre ?? 'este proveedor'}. El asistente dejará de usarla y tendrás que volver a pegarla para recuperarla.`}
+        message={`Se eliminará la clave ${quitar?.clave.etiqueta ?? ''} de ${quitar?.proveedor.nombre ?? 'este proveedor'}. El asistente dejará de usarla y tendrás que volver a pegarla para recuperarla.`}
         confirmLabel="Quitar clave"
       />
     </>
