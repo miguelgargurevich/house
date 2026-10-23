@@ -4,8 +4,21 @@ import { PrismaClient, type Usuario, type EmpresaAdministradora, type Concepto, 
 import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
+// Cost 12 como en la API; se cachea por contraseña para no pagar 100+ hashes lentos en cada siembra.
+const sinTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const hashes = new Map<string, string>();
+async function hash(password: string) {
+  let h = hashes.get(password);
+  if (!h) {
+    h = await bcrypt.hash(password, 12);
+    hashes.set(password, h);
+  }
+  return h;
+}
+
 async function main() {
   // Eliminar datos existentes
+  await prisma.auditoria.deleteMany({});
   await prisma.pago.deleteMany({});
   await prisma.reciboConceptoUnidad.deleteMany({});
   await prisma.reciboConcepto.deleteMany({});
@@ -135,7 +148,7 @@ async function main() {
       email: u.email,
       telefono: u.telefono,
       rol: u.rol,
-      password_hash: await bcrypt.hash(u.password, 10),
+      password_hash: await hash(u.password),
     };
     const user = await prisma.usuario.create({ data });
     usuariosDb.push(user);
@@ -160,7 +173,7 @@ async function main() {
       const apellidosPersonal = ['Ramírez', 'García', 'Torres', 'Paredes', 'Soto', 'Vargas', 'León', 'Bravo', 'Salas', 'Ríos', 'Cueva', 'Paz', 'Medina', 'Rivas', 'Díaz', 'Benavides', 'Espinoza', 'Fernández', 'Peña', 'Gutiérrez'];
       const nombre = nombresPersonal[nextRol][personalEmpresa.length % nombresPersonal[nextRol].length];
       const apellido = apellidosPersonal[personalEmpresa.length % apellidosPersonal.length];
-      const email = `${nombre.toLowerCase()}.${apellido.toLowerCase()}${empresaIdx}${personalEmpresa.length}@${empresa.nombre.replace(/\s/g, '').toLowerCase()}.com`;
+      const email = sinTildes(`${nombre.toLowerCase()}.${apellido.toLowerCase()}${empresaIdx}${personalEmpresa.length}@${empresa.nombre.replace(/\s/g, '').toLowerCase()}.com`);
       const telefono = `9${(empresaIdx * 100000 + personalEmpresa.length + 10000000).toString().padStart(8, '0')}`;
       personalEmpresa.push({
         nombre: `${nombre} ${apellido}`,
@@ -181,7 +194,7 @@ async function main() {
           email: u.email,
           telefono: u.telefono,
           rol: u.rol,
-          password_hash: await bcrypt.hash(u.password, 10),
+          password_hash: await hash(u.password),
           empresa_id: empresa.id,
           complejo_id: complejo.id,
         };
@@ -194,40 +207,44 @@ async function main() {
 
   // Propietarios e inquilinos: asignar a complejos de forma repartida
   const residentes = usuariosData.filter(u => u.rol === 'propietario' || u.rol === 'inquilino');
+  const pools: Record<string, typeof residentes> = {
+    propietario: residentes.filter(u => u.rol === 'propietario'),
+    inquilino: residentes.filter(u => u.rol === 'inquilino'),
+  };
+  const usados: Record<string, number> = { propietario: 0, inquilino: 0 };
   let residenteIdx = 0;
   for (const complejo of complejosDb) {
-    // Asignar 2 propietarios y 2 inquilinos por complejo (o crear más si faltan)
+    // 2 propietarios y 2 inquilinos por complejo: primero los de la lista, luego generados
     for (const rol of ['propietario', 'inquilino']) {
       for (let i = 0; i < 2; i++) {
-        let u = residentes[residenteIdx % residentes.length];
-        // Si no hay suficientes, crear más con datos realistas
-        if (residenteIdx >= residentes.length) {
-          // Listas de nombres y apellidos realistas
+        let u = pools[rol][usados[rol]];
+        if (u) usados[rol]++;
+        else {
           const nombres = rol === 'propietario'
             ? ['Marina', 'Alonso', 'Cecilia', 'Joaquín', 'Rafael', 'Isabel', 'Fernando', 'Paula', 'Sergio', 'Lorena', 'Ignacio', 'Claudia', 'Héctor', 'Patricia', 'Gonzalo', 'Andrea', 'Julio', 'Valeria', 'Esteban', 'Marta']
             : ['Bruno', 'Camila', 'Matías', 'Renata', 'Emilio', 'Luciana', 'Tomás', 'Gabriela', 'Nicolás', 'Jimena', 'Samuel', 'Ariana', 'Damián', 'Bianca', 'Iván', 'Florencia', 'Axel', 'Julieta', 'Simón', 'Agustina'];
           const apellidos = ['Ramírez', 'García', 'Torres', 'Paredes', 'Soto', 'Vargas', 'León', 'Bravo', 'Salas', 'Ríos', 'Cueva', 'Paz', 'Medina', 'Rivas', 'Díaz', 'Benavides', 'Espinoza', 'Fernández', 'Peña', 'Gutiérrez'];
           const nombre = nombres[residenteIdx % nombres.length];
           const apellido = apellidos[residenteIdx % apellidos.length];
-          const email = `${nombre.toLowerCase()}.${apellido.toLowerCase()}${residenteIdx}@mail.com`;
-          const telefono = `9${(residenteIdx + 10000000).toString().padStart(8, '0')}`;
           u = {
             nombre: `${nombre} ${apellido}`,
-            email,
-            telefono,
+            email: sinTildes(`${nombre.toLowerCase()}.${apellido.toLowerCase()}${residenteIdx}@mail.com`),
+            telefono: `9${(residenteIdx + 10000000).toString().padStart(8, '0')}`,
             rol,
-            password: `${rol}1234`
+            password: `${rol}1234`,
           };
         }
-        let data: any = {
-          nombre: u.nombre,
-          email: u.email,
-          telefono: u.telefono,
-          rol: u.rol,
-          password_hash: await bcrypt.hash(u.password, 10),
-          complejo_id: complejo.id,
-        };
-        const user = await prisma.usuario.create({ data });
+        const user = await prisma.usuario.create({
+          data: {
+            nombre: u.nombre,
+            email: u.email,
+            telefono: u.telefono,
+            rol: u.rol,
+            password_hash: await hash(u.password),
+            empresa_id: complejo.empresa_id,
+            complejo_id: complejo.id,
+          },
+        });
         usuariosDb.push(user);
         residenteIdx++;
       }
@@ -239,6 +256,12 @@ async function main() {
   let estructurasDb: Estructura[] = [];
   let pisosDb: Piso[] = [];
   const propietarios = usuariosDb.filter(u => u.rol === 'propietario');
+  const complejoPorId = new Map(complejosDb.map(c => [c.id, c]));
+  // El propietario de una unidad es siempre un propietario del mismo complejo (y por tanto de su misma empresa)
+  const propietarioDe = (complejoId: number, n: number) => {
+    const delComplejo = propietarios.filter(p => p.complejo_id === complejoId);
+    return delComplejo[n % delComplejo.length];
+  };
   let unidadesDb: Unidad[] = [];
   let unidadCount = 1;
 
@@ -264,8 +287,8 @@ async function main() {
                 piso_id: piso.id,
                 complejo_id: complejo.id,
                 descripcion: `Departamento Torre ${t} Piso ${p} Dpto ${d}`,
-                propietario_id: propietarios[(t * p * d) % propietarios.length].id,
-                empresa_id: empresasDb[0].id,
+                propietario_id: propietarioDe(complejo.id, t * p * d).id,
+                empresa_id: complejo.empresa_id,
                 estado: 'activa',
               },
             });
@@ -339,8 +362,8 @@ async function main() {
           piso_id: piso.id,
           complejo_id: estructura?.complejo_id,
           descripcion: `Departamento ${unidadCount} con vista panorámica`,
-          propietario_id: propietarios[unidadCount % propietarios.length].id,
-          empresa_id: empresasDb[unidadCount % empresasDb.length].id,
+          propietario_id: propietarioDe(estructura!.complejo_id!, unidadCount).id,
+          empresa_id: complejoPorId.get(estructura!.complejo_id!)!.empresa_id,
           estado: 'activa',
         },
       });
@@ -352,10 +375,10 @@ async function main() {
   // Tareas de Mantenimiento realistas
   const mantenimientos = [
     { titulo: 'Reparación de ascensor', descripcion: 'El ascensor de la Torre A presenta fallas intermitentes.', estado: 'pendiente' },
-    { titulo: 'Pintura de fachada', descripcion: 'Se requiere pintar la fachada del Bloque 1.', estado: 'en_proceso' },
+    { titulo: 'Pintura de fachada', descripcion: 'Se requiere pintar la fachada del Bloque 1.', estado: 'en_progreso' },
     { titulo: 'Cambio de luminarias', descripcion: 'Reemplazo de luces LED en áreas comunes.', estado: 'completada' },
     { titulo: 'Limpieza de cisterna', descripcion: 'Limpieza anual de la cisterna de agua.', estado: 'pendiente' },
-    { titulo: 'Mantenimiento de piscina', descripcion: 'Revisión y limpieza de la piscina principal.', estado: 'en_proceso' },
+    { titulo: 'Mantenimiento de piscina', descripcion: 'Revisión y limpieza de la piscina principal.', estado: 'en_progreso' },
     { titulo: 'Reparación de portón', descripcion: 'El portón eléctrico no cierra correctamente.', estado: 'pendiente' },
   ];
   const mttoUsers = usuariosDb.filter(u => u.rol === 'mantenimiento');
@@ -370,59 +393,66 @@ async function main() {
     });
   }
 
-  // Recibos realistas
-  const superadmin = usuariosDb.find(u => u.rol === 'superadmin');
-  const now = new Date();
-  let recibosDb: Recibo[] = [];
-  for (let i = 0; i < 8; i++) {
-    const r = await prisma.recibo.create({
-      data: {
-        descripcion: `Recibo de ${conceptosDb[i % conceptosDb.length].nombre} - ${now.getMonth() + 1}/2025`,
-        fecha_emision: now,
-        fecha_vencimiento: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30),
-        mes: now.getMonth() + 1,
-        anio: 2025,
-        estado: 'emitido',
-        empresa_id: empresasDb[i % empresasDb.length].id,
-        complejo_id: complejosDb[i % complejosDb.length].id,
-        creado_por_id: superadmin?.id,
-      },
-    });
-    recibosDb.push(r);
+  // Inquilinos: cada uno ocupa una unidad distinta de las de su complejo
+  const inquilinos = usuariosDb.filter(u => u.rol === 'inquilino');
+  for (const complejo of complejosDb) {
+    const unidadesComplejo = unidadesDb.filter(u => u.complejo_id === complejo.id);
+    const delComplejo = inquilinos.filter(i => i.complejo_id === complejo.id);
+    for (const [k, inq] of delComplejo.entries()) {
+      await prisma.unidad.update({ where: { id: unidadesComplejo[k * 2 + 1].id }, data: { inquilino_id: inq.id } });
+    }
   }
 
-  // ReciboConceptos y ReciboConceptoUnidades
-  for (let i = 0; i < recibosDb.length; i++) {
-    const rc = await prisma.reciboConcepto.create({
-      data: {
-        recibo_id: recibosDb[i].id,
-        concepto_id: conceptosDb[i % conceptosDb.length].id,
-        monto: 250 + i * 25,
-        es_recargo: false,
-        orden: i + 1,
-      },
-    });
-    for (let j = 0; j < unidadesDb.length; j += 4) {
-      const rcu = await prisma.reciboConceptoUnidad.create({
+  // Recibos de los últimos 3 meses por complejo; un cargo por unidad y concepto, con mezcla de pagados / pendientes / vencidos
+  const superadmin = usuariosDb.find(u => u.rol === 'superadmin');
+  const hoy = new Date();
+  const dia = 24 * 60 * 60 * 1000;
+  const periodos = [
+    { atras: 2, vence: new Date(hoy.getTime() - 50 * dia), pagados: 80 },
+    { atras: 1, vence: new Date(hoy.getTime() - 20 * dia), pagados: 55 },
+    { atras: 0, vence: new Date(hoy.getTime() + 15 * dia), pagados: 25 },
+  ];
+  for (const complejo of complejosDb) {
+    const conceptosEmpresa = conceptosDb.filter(c => c.empresa_id === complejo.empresa_id).slice(0, 2);
+    const unidadesComplejo = unidadesDb.filter(u => u.complejo_id === complejo.id);
+    for (const per of periodos) {
+      const f = new Date(hoy.getFullYear(), hoy.getMonth() - per.atras, 1);
+      const recibo: Recibo = await prisma.recibo.create({
         data: {
-          recibo_concepto_id: rc.id,
-          unidad_id: unidadesDb[j].id,
-          monto: 250 + i * 25,
-          estado_pago: 'pendiente',
+          descripcion: `Cuota de ${f.toLocaleString('es-PE', { month: 'long' })} ${f.getFullYear()} - ${complejo.nombre}`,
+          fecha_emision: f,
+          fecha_vencimiento: per.vence,
+          mes: f.getMonth() + 1,
+          anio: f.getFullYear(),
+          estado: 'emitido',
+          empresa_id: complejo.empresa_id,
+          complejo_id: complejo.id,
+          creado_por_id: superadmin?.id,
         },
       });
-      // Pagos realistas
-      const inquilinos = usuariosDb.filter(u => u.rol === 'inquilino');
-      await prisma.pago.create({
-        data: {
-          recibo_concepto_unidad_id: rcu.id,
-          monto: rcu.monto,
-          usuario_id: inquilinos[(i + j) % inquilinos.length].id,
-          metodo_pago: 'transferencia',
-          referencia: `TRX${i + 1}${j + 1}`,
-          observaciones: `Pago de ${conceptosDb[i % conceptosDb.length].nombre} correspondiente a la unidad ${unidadesDb[j].codigo}`,
-        },
-      });
+      for (const [ci, concepto] of conceptosEmpresa.entries()) {
+        const monto = ci === 0 ? 180 : 60;
+        const rc = await prisma.reciboConcepto.create({ data: { recibo_id: recibo.id, concepto_id: concepto.id, monto, es_recargo: false, orden: ci + 1 } });
+        const pagadoEn = new Date(Math.min(hoy.getTime(), per.vence.getTime()) - 3 * dia);
+        await prisma.reciboConceptoUnidad.createMany({
+          data: unidadesComplejo.map((u, ui) => {
+            const pagado = (ui * 7 + ci * 3) % 100 < per.pagados;
+            return { recibo_concepto_id: rc.id, unidad_id: u.id, monto, estado_pago: pagado ? 'pagado' : 'pendiente', fecha_pago: pagado ? pagadoEn : null };
+          }),
+        });
+        const pagados = await prisma.reciboConceptoUnidad.findMany({ where: { recibo_concepto_id: rc.id, estado_pago: 'pagado' }, select: { id: true, unidad_id: true, monto: true, fecha_pago: true } });
+        await prisma.pago.createMany({
+          data: pagados.map((c, pi) => ({
+            recibo_concepto_unidad_id: c.id,
+            monto: c.monto,
+            fecha_pago: c.fecha_pago ?? pagadoEn,
+            usuario_id: unidadesComplejo.find(u => u.id === c.unidad_id)?.propietario_id ?? null,
+            metodo_pago: ['transferencia', 'yape', 'plin', 'efectivo', 'tarjeta'][pi % 5],
+            referencia: `TRX-${recibo.id}-${c.id}`,
+            observaciones: `Pago de ${concepto.nombre}`,
+          })),
+        });
+      }
     }
   }
 
