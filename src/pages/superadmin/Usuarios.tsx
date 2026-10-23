@@ -1,2 +1,5 @@
-import Usuarios from '../admin/Usuarios';
-export default Usuarios;
+import { PageHeader } from '../../ui';
+
+export default function Page() {
+  return <PageHeader title="Usuarios globales" description="Pantalla en construcción." />;
+}

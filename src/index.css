@@ -1,3 +1,79 @@
+@import '@fontsource-variable/figtree';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Tokens (L C H). Neutros con matiz verde-pizarra, acento verde azulado. */
+:root {
+  --bg: 0.978 0.005 160;
+  --surface: 1 0 0;
+  --surface-2: 0.962 0.007 160;
+  --line: 0.905 0.01 160;
+  --ink: 0.235 0.02 175;
+  --muted: 0.5 0.02 175;
+
+  --brand: 0.5 0.1 180;
+  --brand-hover: 0.43 0.095 180;
+  --brand-soft: 0.953 0.03 180;
+  --on-brand: 0.99 0.005 180;
+
+  --ok: 0.5 0.12 155;
+  --ok-soft: 0.95 0.04 155;
+  --warn: 0.5 0.11 70;
+  --warn-soft: 0.955 0.05 85;
+  --bad: 0.52 0.17 25;
+  --bad-soft: 0.955 0.03 25;
+  --info: 0.5 0.12 250;
+  --info-soft: 0.95 0.03 250;
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: 0.175 0.012 175;
+  --surface: 0.215 0.014 175;
+  --surface-2: 0.255 0.014 175;
+  --line: 0.32 0.014 175;
+  --ink: 0.95 0.006 175;
+  --muted: 0.72 0.015 175;
+
+  --brand: 0.74 0.11 180;
+  --brand-hover: 0.8 0.11 180;
+  --brand-soft: 0.3 0.05 180;
+  --on-brand: 0.17 0.02 180;
+
+  --ok: 0.78 0.13 155;
+  --ok-soft: 0.3 0.05 155;
+  --warn: 0.82 0.12 85;
+  --warn-soft: 0.32 0.05 80;
+  --bad: 0.76 0.13 25;
+  --bad-soft: 0.31 0.06 25;
+  --info: 0.78 0.1 250;
+  --info-soft: 0.3 0.05 250;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  h1, h2, h3 { text-wrap: balance; letter-spacing: -0.01em; }
+  /* Cifras tabulares: montos y fechas alineados */
+  .num, td, th { font-variant-numeric: tabular-nums; }
+  ::selection { background: oklch(var(--brand) / 0.25); }
+  :focus-visible { outline: 2px solid oklch(var(--brand)); outline-offset: 2px; border-radius: 4px; }
+  input, select, textarea { caret-color: oklch(var(--brand)); }
+  * { scrollbar-width: thin; scrollbar-color: oklch(var(--line)) transparent; }
+  dialog::backdrop { background: oklch(0.15 0.02 175 / 0.5); backdrop-filter: blur(2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }

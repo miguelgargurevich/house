@@ -1,3 +1,5 @@
-export default function Auditoria() {
-  return <div className="p-6">Auditoría global (solo superAdmin)</div>;
+import { PageHeader } from '../../ui';
+
+export default function Page() {
+  return <PageHeader title="Auditoría" description="Pantalla en construcción." />;
 }

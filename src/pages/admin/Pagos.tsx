@@ -1,3 +1,5 @@
-export default function Pagos() {
-  return <div className="p-6">Gestión de pagos</div>;
+import { PageHeader } from '../../ui';
+
+export default function Page() {
+  return <PageHeader title="Pagos" description="Pantalla en construcción." />;
 }

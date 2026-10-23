@@ -1,3 +1,5 @@
-export default function Mantenimientos() {
-  return <div className="p-6">Mantenimientos</div>;
+import { PageHeader } from '../../ui';
+
+export default function Page() {
+  return <PageHeader title="Mantenimiento" description="Pantalla en construcción." />;
 }

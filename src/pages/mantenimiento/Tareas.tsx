@@ -1,3 +1,5 @@
-export default function Tareas() {
-  return <div className="p-6">Lista de tareas de mantenimiento</div>;
+import { PageHeader } from '../../ui';
+
+export default function Page() {
+  return <PageHeader title="Mis tareas" description="Pantalla en construcción." />;
 }

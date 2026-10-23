@@ -1,2 +1,5 @@
-import Empresas from '../admin/Empresas';
-export default Empresas;
+import { PageHeader } from '../../ui';
+
+export default function Page() {
+  return <PageHeader title="Empresas" description="Pantalla en construcción." />;
+}

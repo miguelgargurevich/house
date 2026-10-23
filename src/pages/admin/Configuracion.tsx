@@ -1,3 +1,5 @@
-export default function Configuracion() {
-  return <div className="p-6">Configuración</div>;
+import { PageHeader } from '../../ui';
+
+export default function Page() {
+  return <PageHeader title="Mi empresa" description="Pantalla en construcción." />;
 }
