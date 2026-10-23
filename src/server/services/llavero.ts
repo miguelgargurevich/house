@@ -82,7 +82,7 @@ export function cabecerasDe(p: ProveedorIA, clave: string): Record<string, strin
 }
 
 export function detalleDeEstadoHttp(status: number): string {
-  if (status === 401 || status === 403) return 'La clave fue rechazada';
+  if (status === 400 || status === 401 || status === 403) return 'La clave fue rechazada o no es válida'; // Gemini responde 400 ante una clave inválida
   if (status === 429) return 'Límite del proveedor';
   if (status === 402) return 'La cuenta del proveedor no tiene saldo';
   if (status >= 300 && status < 400) return 'El proveedor respondió con una redirección';

@@ -134,6 +134,11 @@ describe('la clave nunca sale', () => {
     reg(await llamar(base, 'GET', '/api/auditoria?pageSize=100', T.super));
     for (const a of aud) assert.equal(JSON.stringify(a).includes('sk-prueba'), false);
     for (const t of textos) assert.equal(t.includes('sk-prueba'), false);
+    // Tampoco sale la clave cifrada: ni el campo ni un valor con el prefijo del cifrado.
+    for (const t of textos) {
+      assert.equal(t.includes('api_key_enc'), false, 'la respuesta expone api_key_enc');
+      assert.equal(t.includes('v2:'), false, 'la respuesta expone un valor cifrado');
+    }
     assert.equal(logs.some((l) => l.includes('sk-prueba')), false, 'hay una clave en los logs');
   });
 
@@ -236,8 +241,9 @@ describe('probar', () => {
     const f = await guardar('groq');
     const probar = () => llamar(base, 'POST', `/api/llavero/${f.body.id}/probar`, T.super);
     const casos: [() => Response, string][] = [
-      [() => new Response(`{"error":"${KEY} no vale"}`, { status: 401 }), 'La clave fue rechazada'],
-      [() => new Response('x', { status: 403 }), 'La clave fue rechazada'],
+      [() => new Response(`{"error":"${KEY} no vale"}`, { status: 401 }), 'La clave fue rechazada o no es válida'],
+      [() => new Response('x', { status: 403 }), 'La clave fue rechazada o no es válida'],
+      [() => new Response('x', { status: 400 }), 'La clave fue rechazada o no es válida'],
       [() => new Response('x', { status: 429 }), 'Límite del proveedor'],
       [() => new Response('x', { status: 302, headers: { location: 'http://169.254.169.254/' } }), 'El proveedor respondió con una redirección'],
       [() => new Response('boom', { status: 500 }), 'El proveedor tuvo un problema, intenta más tarde'],
