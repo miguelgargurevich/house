@@ -13,7 +13,7 @@ function maxIntentos(): number {
   return Number.isInteger(n) && n >= 1 && n <= 8 ? n : MAX_INTENTOS;
 }
 
-type Respuesta = { ok: boolean; status: number; texto: string; retryAfterMs: number | null };
+type Respuesta = { ok: boolean; status: number; texto: string; retryAfterMs: number | null; claveInvalida: boolean };
 
 async function consultar({ proveedor, clave, modelo }: Eslabon, prompt: string): Promise<Respuesta> {
   // La clave va en cabecera, no en la URL, para que no quede en logs de proxies.
@@ -38,7 +38,9 @@ async function consultar({ proveedor, clave, modelo }: Eslabon, prompt: string):
   const texto = gemini ? data.candidates?.[0]?.content?.parts?.[0]?.text : data.choices?.[0]?.message?.content;
   // El cuerpo del proveedor sólo se mira para la espera; nunca se loguea ni se devuelve.
   const retryAfterMs = r.status === 429 ? parsearRetryAfter(r.headers.get('retry-after'), crudo) : null;
-  return { ok: r.ok, status: r.status, texto: typeof texto === 'string' ? texto : '', retryAfterMs };
+  // Gemini responde 400 (no 401) ante una clave inválida: eso es una clave rechazada, no una petición mala.
+  const claveInvalida = r.status === 400 && /API key not valid|API_KEY_INVALID/i.test(crudo);
+  return { ok: r.ok, status: r.status, texto: typeof texto === 'string' ? texto : '', retryAfterMs, claveInvalida };
 }
 
 type Resultado = { texto: string } | { error: 'saturada' | 'fallo' };
@@ -60,7 +62,7 @@ async function responderConRotacion(cadena: Eslabon[], prompt: string): Promise<
         return { texto };
       }
       console.warn(`[ai-chat] ${id} respondió ${r.status}${r.ok ? ' sin texto' : ''}`);
-      if (r.status === 400) return { error: 'fallo' };
+      if (r.status === 400 && !r.claveInvalida) return { error: 'fallo' };
       if (r.status === 429) {
         registrarEstado(e.cooldownKey, 429, r.retryAfterMs);
         contarUso(e.claveId, 'limite');
@@ -68,8 +70,8 @@ async function responderConRotacion(cadena: Eslabon[], prompt: string): Promise<
       }
       todos429 = false;
       contarUso(e.claveId, 'error');
-      if (r.status === 401 || r.status === 402 || r.status === 403) {
-        await rechazarClave(e, r.status);
+      if (r.status === 401 || r.status === 402 || r.status === 403 || r.claveInvalida) {
+        await rechazarClave(e, r.claveInvalida ? 401 : r.status);
         if (e.claveId === null) registrarEstado(e.cooldownKey, 500); // el respaldo del entorno no se persiste: sólo se enfría
       } else {
         registrarEstado(e.cooldownKey, r.status >= 500 ? r.status : 500);

@@ -275,6 +275,21 @@ describe('asistente con rotación', () => {
     assert.equal((await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: a.body.id } })).estado, 'sin_probar');
   });
 
+  it('Gemini responde 400 «API key not valid» ante una clave inválida: la deja rechazada y rota al siguiente', async () => {
+    const g = await guardar('gemini', 'AIza-invalida-prueba-0001');
+    await guardar('groq', 'groq-A-prueba-00001');
+    const cuerpo = '{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}';
+    responder = (k) => (k.startsWith('AIza') ? estado(400, {}, cuerpo) : ok('Desde Groq'));
+    const r = await chat();
+    assert.deepEqual(r.body, { response: 'Desde Groq' });
+    const f = await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: g.body.id } });
+    assert.equal(f.estado, 'rechazada');
+    assert.equal(f.estado_detalle, 'La clave fue rechazada');
+    llamadas = [];
+    await chat();
+    assert.equal(llamadas.some((l) => l.clave.startsWith('AIza')), false, 'la clave inválida ya no se intenta');
+  });
+
   it('5xx, timeout y error de red → siguiente clave y cooldown corto de 30 s', async () => {
     const a = await guardar('groq', 'groq-A-prueba-00001', 'a');
     const b = await guardar('groq', 'groq-B-prueba-00001', 'b');
