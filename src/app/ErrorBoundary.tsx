@@ -3,7 +3,7 @@ import type { ErrorInfo, ReactNode } from 'react';
 import { Alert, Button } from '../ui';
 
 const CLAVE = 'house-recarga';
-const ERROR_DE_ARCHIVO = /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk/i;
+const ERROR_DE_ARCHIVO = /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk|reading 'default'/i;
 
 /** Recarga la página una sola vez (si hubo otra hace menos de 15 s, no insiste para no entrar en bucle). */
 export function recargarUnaVez(): boolean {
