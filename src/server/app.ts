@@ -98,8 +98,13 @@ export function createApp(opts: AppOptions = {}) {
   // Producción: el mismo contenedor sirve el frontend compilado (dist/).
   const distDir = path.join(process.cwd(), 'dist');
   if (fs.existsSync(distDir)) {
-    app.use(express.static(distDir));
-    app.get(/^(?!\/api).*/, (_req: Request, res: Response) => {
+    // Archivos con hash en el nombre: inmutables. Si falta uno (pestaña abierta durante un redespliegue)
+    // debe ser un 404 real: devolver index.html con 200 deja la pantalla en blanco sin ningún error.
+    app.use('/assets', express.static(path.join(distDir, 'assets'), { immutable: true, maxAge: '1y', index: false }));
+    app.use('/assets', (_req: Request, res: Response) => { res.status(404).type('text/plain').send('No encontrado'); });
+    app.use(express.static(distDir, { index: false }));
+    app.get(/^(?!\/api)(?!.*\.[a-z0-9]+$).*/i, (_req: Request, res: Response) => {
+      res.set('Cache-Control', 'no-cache'); // la página de inicio siempre se revalida: apunta a los archivos vigentes
       res.sendFile(path.join(distDir, 'index.html'));
     });
   }
