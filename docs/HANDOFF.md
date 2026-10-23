@@ -4,6 +4,31 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/llavero`
+
+**Qué se hizo:** llavero de integraciones («Mis claves de IA» de My Workspace adaptado a House), solo superadmin.
+- Backend: modelo `ClaveIntegracion` (`prisma/schema.prisma`), `lib/secretBox.ts` (AES-256-GCM, `v2:` con AAD `clave:<proveedor>:<etiqueta>`, scrypt desde `LLAVERO_ENC_KEY`), `lib/proveedoresIA.ts` (catálogo con URLs fijas), `services/llavero.ts` (guardar/listar/probar/pausar/borrar/`obtenerClaveParaUso`/`resolverParaUso`; `llaveroDeps.fetch` es el punto de inyección para pruebas), `routes/llavero.ts` en `/api/llavero`.
+- Auditoría: `middleware/audit.ts` acepta `res.locals.accion` y redacta también `clave|key|authorization|credencial`. Rate-limit nuevo `llavero` (20/15 min por usuario, solo escrituras y pruebas).
+- Asistente (`routes/aiChat.ts`): llavero por prioridad → `GEMINI_API_KEY`. Gemini por `generateContent` (URL ahora `v1beta` + modelo de la fila o `gemini-2.0-flash`) y OpenAI-compatibles por `/chat/completions`. Mismo formato de respuesta/errores.
+- Frontend: `/superadmin/llavero` (`pages/superadmin/Llavero.tsx` + `_parts/llavero/`), entrada «Llavero de IA» en la navegación del superadmin. Reusa `Interruptor` de `pages/admin/_parts/catalogo`.
+- `tests/llavero.test.ts` (16 pruebas, sin red real). `docs/SEGURIDAD.md` y `.env.example` documentan `LLAVERO_ENC_KEY`.
+
+**Cómo verificar:** `npm test` (85) · `npx tsc -b` · `npx tsc -p tests/tsconfig.json --noEmit` · `npm run build`.
+
+**Próximos pasos**
+- Definir `LLAVERO_ENC_KEY` (≥ 32 caracteres, distinta de `JWT_SECRET`) en Coolify y correr `npx prisma db push` en `house` (tabla nueva `ClaveIntegracion`; no destructivo). Sin la variable el llavero responde 503 y el asistente sigue con `GEMINI_API_KEY`.
+- Revisar la pantalla en navegador (claro/oscuro, < 640 px) y probar con claves reales: nada se ha llamado a un proveedor real.
+- Decidir si se quiere re-cifrado al rotar `LLAVERO_ENC_KEY` y si «Probar» debe listarse en la auditoría con acción propia (hoy va como `editar`).
+
+**Decisiones**
+- Las pruebas del proveedor (`GET /models`) y el asistente comparten `llaveroDeps.fetch`; el cliente nunca aporta URL.
+- Si una clave no se puede descifrar (otra `LLAVERO_ENC_KEY`), `obtenerClaveParaUso` devuelve null y el asistente pasa al siguiente proveedor/entorno; es la única «caída» silenciosa, y solo ocurre antes de llamar al proveedor.
+- Una clave con estado `error` sigue usándose mientras esté habilitada; solo «pausar» la excluye.
+
+**Gotchas**
+- `node_modules` de este worktree es un enlace al checkout principal: `npx prisma generate` regeneró ahí el cliente (incluye `ClaveIntegracion`); es un superconjunto, no rompe otras ramas, pero la base `house` de desarrollo necesita `db push` para usar el modelo.
+- `tests/helpers/app.ts` (`vaciarBase`) ahora incluye `ClaveIntegracion` en el TRUNCATE.
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/backend-seguro`
 
 **Qué se hizo** (sólo backend; el frontend lo rediseña otra sesión):
