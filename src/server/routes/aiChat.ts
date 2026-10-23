@@ -1,22 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Router, type Response } from 'express';
-import { PROVEEDORES_IA } from '../lib/proveedoresIA';
-import { cabecerasDe, llaveroDeps, resolverParaUso, type ClaveParaUso } from '../services/llavero';
+import { parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
+import { cabecerasDe, llaveroDeps } from '../services/llavero';
+import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from '../services/rotacion';
 import { z } from '../validation';
 
-/** Primero el llavero (claves habilitadas, por prioridad); de respaldo, GEMINI_API_KEY del entorno. */
-async function resolverProveedor(): Promise<ClaveParaUso | null> {
-  const delLlavero = await resolverParaUso();
-  if (delLlavero) return delLlavero;
-  const clave = process.env.GEMINI_API_KEY;
-  const gemini = PROVEEDORES_IA.find((p) => p.id === 'gemini')!;
-  return clave ? { proveedor: gemini, clave, modelo: gemini.modeloPorDefecto } : null;
+/** Eslabones que se prueban como máximo por consulta; `LLAVERO_MAX_INTENTOS` (1–8) lo cambia. */
+export const MAX_INTENTOS = 4;
+function maxIntentos(): number {
+  const n = Number(process.env.LLAVERO_MAX_INTENTOS);
+  return Number.isInteger(n) && n >= 1 && n <= 8 ? n : MAX_INTENTOS;
 }
 
-type Respuesta = { ok: boolean; status: number; texto: string };
+type Respuesta = { ok: boolean; status: number; texto: string; retryAfterMs: number | null };
 
-async function consultar({ proveedor, clave, modelo }: ClaveParaUso, prompt: string): Promise<Respuesta> {
+async function consultar({ proveedor, clave, modelo }: Eslabon, prompt: string): Promise<Respuesta> {
   // La clave va en cabecera, no en la URL, para que no quede en logs de proxies.
   const gemini = proveedor.tipo === 'gemini';
   const url = gemini ? `${proveedor.baseUrl}/models/${encodeURIComponent(modelo)}:generateContent` : `${proveedor.baseUrl}/chat/completions`;
@@ -30,12 +29,59 @@ async function consultar({ proveedor, clave, modelo }: ClaveParaUso, prompt: str
     redirect: 'manual',
     signal: AbortSignal.timeout(30_000),
   });
-  const data = (await r.json().catch(() => ({}))) as {
+  const crudo = await r.text().catch(() => '');
+  let data: {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
     choices?: { message?: { content?: string } }[];
-  };
+  } = {};
+  try { data = JSON.parse(crudo); } catch { /* cuerpo no JSON */ }
   const texto = gemini ? data.candidates?.[0]?.content?.parts?.[0]?.text : data.choices?.[0]?.message?.content;
-  return { ok: r.ok, status: r.status, texto: typeof texto === 'string' ? texto : '' };
+  // El cuerpo del proveedor sólo se mira para la espera; nunca se loguea ni se devuelve.
+  const retryAfterMs = r.status === 429 ? parsearRetryAfter(r.headers.get('retry-after'), crudo) : null;
+  return { ok: r.ok, status: r.status, texto: typeof texto === 'string' ? texto : '', retryAfterMs };
+}
+
+type Resultado = { texto: string } | { error: 'saturada' | 'fallo' };
+
+/** Recorre la cadena (hasta `maxIntentos()` eslabones): rota ante 429, 5xx, red y claves rechazadas; un 400 es culpa de la petición y no rota. */
+async function responderConRotacion(cadena: Eslabon[], prompt: string): Promise<Resultado> {
+  let intentos = 0;
+  let todos429 = true;
+  for (const e of cadena.slice(0, maxIntentos())) {
+    intentos++;
+    const id = `${e.proveedor.id}#${e.claveId ?? 'env'}`;
+    try {
+      const r = await consultar(e, prompt);
+      const texto = r.texto.replace(/€(\d+)/g, '$$$1 USD');
+      if (r.ok && texto.trim()) {
+        limpiar(e.cooldownKey);
+        contarUso(e.claveId, 'ok');
+        if (e.claveId !== null) await marcarUso(e.claveId);
+        return { texto };
+      }
+      console.warn(`[ai-chat] ${id} respondió ${r.status}${r.ok ? ' sin texto' : ''}`);
+      if (r.status === 400) return { error: 'fallo' };
+      if (r.status === 429) {
+        registrarEstado(e.cooldownKey, 429, r.retryAfterMs);
+        contarUso(e.claveId, 'limite');
+        continue;
+      }
+      todos429 = false;
+      contarUso(e.claveId, 'error');
+      if (r.status === 401 || r.status === 402 || r.status === 403) {
+        await rechazarClave(e, r.status);
+        if (e.claveId === null) registrarEstado(e.cooldownKey, 500); // el respaldo del entorno no se persiste: sólo se enfría
+      } else {
+        registrarEstado(e.cooldownKey, r.status >= 500 ? r.status : 500);
+      }
+    } catch (err) {
+      todos429 = false;
+      registrarEstado(e.cooldownKey, 0);
+      contarUso(e.claveId, 'error');
+      console.warn(`[ai-chat] ${id} falló la llamada (${err instanceof Error ? err.name : 'error'})`);
+    }
+  }
+  return { error: todos429 && intentos > 0 ? 'saturada' : 'fallo' };
 }
 
 // Las respuestas conservan la forma histórica que lee el chat: { response } o { error: { code, message } }.
@@ -60,8 +106,8 @@ function leerSystemPrompt(): string {
 export const aiChatRouter = Router();
 
 aiChatRouter.post('/', async (req, res) => {
-  const elegido = await resolverProveedor();
-  if (!elegido) return fallo(res, 500, 'La IA no está configurada en el servidor. Contacta al administrador.');
+  const cadena = await construirCadena();
+  if (cadena.length === 0) return fallo(res, 500, 'La IA no está configurada en el servidor. Contacta al administrador.');
 
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) return fallo(res, 400, parsed.error.issues[0]?.message ?? 'Petición inválida.');
@@ -87,18 +133,8 @@ aiChatRouter.post('/', async (req, res) => {
   if (sessionId) prompt += `ID de Sesión: ${sessionId}\n`;
   prompt += `\nMENSAJE DEL USUARIO:\n${message}\n`;
 
-  try {
-    const r = await consultar(elegido, prompt);
-    if (!r.ok) {
-      if (r.status === 429) return fallo(res, 429, 'La IA está saturada o se superó la cuota. Intenta nuevamente en unos minutos.');
-      console.error(`[ai-chat] el proveedor ${elegido.proveedor.id} respondió ${r.status}`);
-      return fallo(res, 503, 'El servicio de IA no pudo responder. Intenta de nuevo más tarde.');
-    }
-    const text = r.texto.replace(/€(\d+)/g, '$$$1 USD');
-    if (!text.trim()) return fallo(res, 503, 'El servicio de IA no está disponible. Intenta de nuevo más tarde.');
-    res.json({ response: text });
-  } catch (err) {
-    console.error('[ai-chat] falló la llamada al proveedor', err instanceof Error ? err.name : 'error');
-    fallo(res, 503, 'El servicio de IA no está disponible. Intenta de nuevo más tarde.');
-  }
+  const r = await responderConRotacion(cadena, prompt);
+  if ('texto' in r) return res.json({ response: r.texto });
+  if (r.error === 'saturada') return fallo(res, 429, 'La IA está saturada o se superó la cuota. Intenta nuevamente en unos minutos.');
+  fallo(res, 503, 'El servicio de IA no pudo responder. Intenta de nuevo más tarde.');
 });

@@ -1,7 +1,9 @@
 import { prisma } from '../db';
 import { HttpError, invalid, notFound } from '../errors';
 import { aadClave, cifrar, descifrar, llaveroConfigurado } from '../lib/secretBox';
+import { claveCooldown, enfriandoHasta, limpiar } from '../lib/cooldown';
 import { PROVEEDORES_IA, proveedorPorId, type ProveedorIA } from '../lib/proveedoresIA';
+import { ESTADO_RECHAZADA, olvidarUso, ordenProveedores, usoDe } from './rotacion';
 
 /** Punto de inyección de `fetch` (las pruebas lo reemplazan; nunca hay red real en ellas). */
 export const llaveroDeps = {
@@ -10,6 +12,7 @@ export const llaveroDeps = {
 
 export const TOPE_PRUEBA_MS = 10_000;
 export const ETIQUETA_POR_DEFECTO = 'principal';
+export const MAX_CLAVES_POR_PROVEEDOR = 5;
 
 // Único `select` de la tabla hacia afuera: api_key_enc no sale nunca.
 const PUBLICA = {
@@ -27,6 +30,15 @@ export function catalogoPublico() {
 
 export function listar() {
   return prisma.claveIntegracion.findMany({ select: PUBLICA, orderBy: [{ proveedor: 'asc' }, { etiqueta: 'asc' }] });
+}
+
+/** Lista para la pantalla: suma el enfriamiento y los contadores (memoria del proceso) y el orden real de proveedores. */
+export async function listarConRotacion() {
+  const claves = (await listar()).map((c) => {
+    const h = enfriandoHasta(claveCooldown(c.proveedor, c.id));
+    return { ...c, enfriando_hasta: h === null ? null : new Date(h).toISOString(), uso: usoDe(c.id) };
+  });
+  return { claves, orden: ordenProveedores(), max_claves_por_proveedor: MAX_CLAVES_POR_PROVEEDOR };
 }
 
 export function validarClave(clave: string): string {
@@ -50,12 +62,18 @@ export async function guardar(input: { proveedor: string; etiqueta?: string; cla
     actualizado_por_id: input.usuarioId,
   };
   const previa = await prisma.claveIntegracion.findUnique({ where: { proveedor_etiqueta: { proveedor: input.proveedor, etiqueta } }, select: { id: true } });
+  if (!previa && (await prisma.claveIntegracion.count({ where: { proveedor: input.proveedor } })) >= MAX_CLAVES_POR_PROVEEDOR) {
+    throw invalid(`Cada proveedor admite hasta ${MAX_CLAVES_POR_PROVEEDOR} claves. Quita una para agregar otra.`, { etiqueta: `Ya hay ${MAX_CLAVES_POR_PROVEEDOR} claves de este proveedor` });
+  }
   const fila = await prisma.claveIntegracion.upsert({
     where: { proveedor_etiqueta: { proveedor: input.proveedor, etiqueta } },
     create: { proveedor: input.proveedor, etiqueta, ...datos },
     update: datos,
     select: PUBLICA,
   });
+  // Clave nueva o reemplazada: parte de cero (sin enfriamiento ni contadores; el estado ya vuelve a sin_probar).
+  limpiar(claveCooldown(fila.proveedor, fila.id));
+  olvidarUso(fila.id);
   return { fila, creada: !previa };
 }
 
@@ -73,6 +91,8 @@ export async function pausar(id: number, habilitada: boolean, usuarioId: number)
 export async function borrar(id: number) {
   const f = await obtenerPublica(id);
   await prisma.claveIntegracion.delete({ where: { id } });
+  limpiar(claveCooldown(f.proveedor, f.id));
+  olvidarUso(f.id);
   return f;
 }
 
@@ -98,7 +118,7 @@ export async function probar(id: number) {
   const p = proveedorPorId(f.proveedor);
   if (!p) throw notFound('Proveedor');
 
-  let estado: 'ok' | 'error';
+  let estado: string;
   let detalle: string | null;
   try {
     const clave = descifrar(f.api_key_enc, aadClave(f.proveedor, f.etiqueta));
@@ -117,6 +137,9 @@ export async function probar(id: number) {
     detalle = nombre === 'TimeoutError' || nombre === 'AbortError' ? 'El proveedor no respondió a tiempo' : 'No se pudo conectar con el proveedor';
     console.error(`[llavero] la prueba de ${f.proveedor} falló (${nombre || 'error'})`);
   }
+  if (estado === 'ok') limpiar(claveCooldown(f.proveedor, f.id));
+  // Una clave rechazada sigue fuera de la rotación mientras la prueba no salga bien.
+  if (estado === 'error' && f.estado === ESTADO_RECHAZADA) estado = ESTADO_RECHAZADA;
   return prisma.claveIntegracion.update({ where: { id }, data: { estado, estado_detalle: detalle, probada_at: new Date() }, select: PUBLICA });
 }
 
@@ -137,14 +160,4 @@ export async function obtenerClaveParaUso(proveedor: string): Promise<ClaveParaU
   }
   await prisma.claveIntegracion.update({ where: { id: f.id }, data: { ultimo_uso_at: new Date() }, select: { id: true } });
   return { proveedor: p, clave, modelo: f.modelo || p.modeloPorDefecto };
-}
-
-/** Primer proveedor con clave habilitada, por prioridad del catálogo. */
-export async function resolverParaUso(): Promise<ClaveParaUso | null> {
-  const orden = [...PROVEEDORES_IA].sort((a, b) => a.prioridad - b.prioridad);
-  for (const p of orden) {
-    const r = await obtenerClaveParaUso(p.id);
-    if (r) return r;
-  }
-  return null;
 }

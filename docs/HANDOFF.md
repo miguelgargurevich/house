@@ -4,6 +4,33 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/llavero-rotacion`
+
+**Qué se hizo:** varias claves por proveedor + rotación de claves y de proveedores en el asistente (versión ligera de `providerCooldown`/cascada de My Workspace).
+- Backend: `lib/cooldown.ts` (en memoria, reloj inyectable `cooldownDeps.ahora`; 429 enfría esa clave con `Retry-After` en 3 formas, cotas 1 s–5 min, 60 s por defecto; 5xx/red 30 s), `services/rotacion.ts` (`construirCadena`, `rechazarClave`, contadores de uso), `routes/aiChat.ts` recorre hasta `MAX_INTENTOS` (4, `LLAVERO_MAX_INTENTOS` 1–8). Tope de 5 claves por proveedor (422). Estado nuevo `rechazada` (401/402/403): persistido, fuera de la rotación hasta probar ok o reemplazar. `GET /api/llavero` suma `enfriando_hasta`, `uso`, `orden`, `max_claves_por_proveedor`. Se quitó `resolverParaUso` (ya no hay «una sola clave»).
+- Frontend: grupos por proveedor con claves como filas, bloque «Cómo se usan» con el orden real, cuenta atrás «Enfriando 45 s» (`Enfriando.tsx`, solo ese componente re-renderiza cada segundo), «Agregar otra clave» (etiqueta `clave-2`…), refresco cada 20 s con la página visible. `FilaProveedor.tsx` se reemplazó por `GrupoProveedor.tsx` + `FilaClave.tsx`.
+- Pruebas: `tests/rotacion.test.ts` (20, reloj y `fetch` inyectados); en `tests/llavero.test.ts` cambió a propósito «si el primero falla rota al siguiente» (antes no se probaba otro).
+- `docs/SEGURIDAD.md` documenta rotación, claves rechazadas y qué es memoria y qué es base. Sin cambios de esquema Prisma.
+
+**Cómo verificar:** `npm test` (105) · `npx tsc -b` · `npx tsc -p tests/tsconfig.json --noEmit` · `npm run build`.
+
+**Próximos pasos**
+- Revisar la pantalla en navegador (claro/oscuro, < 640 px) y probar con claves reales: ninguna llamada a un proveedor real se ha hecho.
+- Si se despliegan varias réplicas, el enfriamiento (memoria) no se comparte entre ellas; evaluar Redis o una columna solo si llega a molestar.
+- Un modelo por clave ya existe; falta elegir modelo por proveedor en la cadena si se quiere variar entre eslabones del mismo proveedor.
+
+**Decisiones**
+- Enfriamientos y contadores son memoria a propósito (se pierden al reiniciar); lo que se persiste es `rechazada`, porque una clave sin saldo o revocada no mejora sola.
+- Un 400 no rota (es la petición); una 2xx sin texto se trata como fallo transitorio (30 s).
+- El respaldo `GEMINI_API_KEY` entra solo si el llavero no tiene ninguna clave usable; si recibe 401 se enfría 30 s pero no se persiste.
+- Una prueba fallida de una clave `rechazada` la deja `rechazada`; solo una prueba ok o reemplazarla la rehabilita.
+
+**Gotchas**
+- Las pruebas deben llamar `limpiarTodo()` y `olvidarTodoUso()` (estado global del proceso) en `beforeEach`.
+- La cuenta atrás usa el reloj del navegador contra `enfriando_hasta` del servidor; un reloj muy desfasado la muestra mal hasta el siguiente refresco.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/llavero`
 
 **Qué se hizo:** llavero de integraciones («Mis claves de IA» de My Workspace adaptado a House), solo superadmin.

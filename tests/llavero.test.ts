@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { esperar, iniciar, llamar, login, prisma, sembrar } from './helpers/app';
 import { aadClave, cifrar, descifrar } from '../src/server/lib/secretBox';
+import { limpiarTodo } from '../src/server/lib/cooldown';
 import { llaveroDeps, obtenerClaveParaUso } from '../src/server/services/llavero';
+import { olvidarTodoUso } from '../src/server/services/rotacion';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
 const KEY = 'sk-prueba-0000-AAAA';
@@ -52,6 +54,8 @@ beforeEach(async () => {
   delete process.env.GEMINI_API_KEY;
   await prisma.claveIntegracion.deleteMany();
   await prisma.auditoria.deleteMany();
+  limpiarTodo();
+  olvidarTodoUso();
   llamadas = [];
   logs.length = 0;
   respuestaFalsa = () => new Response('{}', { status: 200 });
@@ -328,7 +332,7 @@ describe('asistente IA', () => {
     assert.equal(cabecera(llamadas.at(-1)!, 'x-goog-api-key'), 'gemini-entorno-0004');
   });
 
-  it('sin proveedor: el error de siempre; si el elegido falla no prueba otro', async () => {
+  it('sin proveedor: el error de siempre; si el primero falla rota al siguiente (ver rotacion.test.ts)', async () => {
     let r = await chat();
     assert.equal(r.status, 500);
     assert.deepEqual(r.body, { error: { code: 500, message: 'La IA no está configurada en el servidor. Contacta al administrador.' } });
@@ -340,7 +344,7 @@ describe('asistente IA', () => {
     r = await chat();
     assert.equal(r.status, 503);
     assert.deepEqual(r.body, { error: { code: 503, message: 'El servicio de IA no pudo responder. Intenta de nuevo más tarde.' } });
-    assert.equal(llamadas.length, 1, 'no se reintentó con otro proveedor');
+    assert.equal(llamadas.length, 2, 'rotó al siguiente proveedor y también falló');
     respuestaFalsa = () => new Response('{}', { status: 429 });
     assert.equal((await chat()).status, 429);
   });
