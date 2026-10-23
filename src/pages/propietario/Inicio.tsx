@@ -1,5 +1,5 @@
-import { PageHeader } from '../../ui';
+import { InicioResidente } from '../residente/_parts/InicioResidente';
 
-export default function Page() {
-  return <PageHeader title="Inicio" description="Pantalla en construcción." />;
+export default function Inicio() {
+  return <InicioResidente base="/propietario" />;
 }

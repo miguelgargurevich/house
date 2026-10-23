@@ -1,5 +1,5 @@
-import { PageHeader } from '../../ui';
+import { CargosResidente } from '../residente/_parts/CargosResidente';
 
-export default function Page() {
-  return <PageHeader title="Mis recibos" description="Pantalla en construcción." />;
+export default function Cargos() {
+  return <CargosResidente />;
 }
