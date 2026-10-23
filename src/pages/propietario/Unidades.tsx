@@ -1,5 +1,5 @@
-import { PageHeader } from '../../ui';
+import { UnidadesResidente } from '../residente/_parts/UnidadesResidente';
 
-export default function Page() {
-  return <PageHeader title="Mis unidades" description="Pantalla en construcción." />;
+export default function Unidades() {
+  return <UnidadesResidente />;
 }
