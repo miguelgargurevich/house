@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 
 const ACCION: Record<string, string> = { POST: 'crear', PUT: 'editar', PATCH: 'editar', DELETE: 'eliminar' };
-const SENSIBLE = /pass|token|secret|actual|nueva|hash/i;
+const SENSIBLE = /pass|token|secret|actual|nueva|hash|clave|key|authorization|credencial/i;
 // Rutas que mutan pero no son datos de negocio.
 const EXCLUIDAS = new Set(['/api/ai-chat', '/api/auth/login']);
 
@@ -33,13 +33,13 @@ export async function registrarAuditoria(data: { usuario_id?: number | null; acc
 
 /**
  * Registra toda mutación exitosa (2xx) tras responder. Los handlers pueden fijar
- * `res.locals.entidad`, `res.locals.entidadId` y `res.locals.auditDetalle`.
+ * `res.locals.entidad`, `res.locals.accion`, `res.locals.entidadId` y `res.locals.auditDetalle`.
  */
 export const auditoria: RequestHandler = (req, res, next) => {
-  const accion = ACCION[req.method];
-  if (!accion) return next();
+  if (!ACCION[req.method]) return next();
   res.on('finish', () => {
     if (res.statusCode < 200 || res.statusCode >= 300) return;
+    const accion = (res.locals.accion as string | undefined) ?? ACCION[req.method]!;
     const path = req.baseUrl + req.path;
     if (EXCLUIDAS.has(path)) return;
     const entidad = (res.locals.entidad as string | undefined) ?? path.split('/')[2] ?? 'desconocida';

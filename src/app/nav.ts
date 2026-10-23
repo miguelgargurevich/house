@@ -2,7 +2,7 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
-  CreditCardIcon, UserCircleIcon, ShieldCheckIcon,
+  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon,
 } from '@heroicons/react/24/outline';
 import type { Rol } from '../auth/AuthContext';
 
@@ -30,6 +30,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
         { to: '/superadmin/empresas', label: 'Empresas', icon: BuildingOffice2Icon },
         { to: '/superadmin/usuarios', label: 'Usuarios globales', icon: UsersIcon },
         { to: '/superadmin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
+        { to: '/superadmin/llavero', label: 'Llavero de IA', icon: LockClosedIcon },
       ],
     },
     { label: 'Operación', items: operacion.filter(i => i.to !== '/admin/usuarios') },
