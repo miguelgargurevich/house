@@ -24,7 +24,7 @@ export function llaveroRouter(limitador: RequestHandler) {
   router.use(soloSuperadmin);
 
   router.get('/', async (_req, res) => {
-    res.json({ configurado: llaveroConfigurado(), claves: await servicio.listar(), proveedores: servicio.catalogoPublico() });
+    res.json({ configurado: llaveroConfigurado(), ...(await servicio.listarConRotacion()), proveedores: servicio.catalogoPublico() });
   });
 
   // Límite sólo en escrituras y pruebas.
