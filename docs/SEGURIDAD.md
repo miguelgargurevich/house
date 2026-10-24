@@ -57,7 +57,7 @@ Reemplazan al JWT en `localStorage`, que un XSS podía leer y que no se podía r
 - Se guardan en PostgreSQL (`ArchivoComprobante`, 1 por pago, máx. 2 MB; sin infraestructura nueva). La respuesta de cualquier lista incluye sólo metadatos: `datos` jamás sale salvo en `GET /api/pagos/:id/comprobante`.
 - Subida: cuerpo crudo con `express.raw` sólo en ese endpoint (tope 2 MB → 413); el pago se localiza y se autoriza ANTES de leer el cuerpo. Tipos permitidos JPG/PNG/WebP/PDF; el header lo manda el cliente, así que se comprueban los bytes mágicos y deben coincidir con el tipo declarado (SVG/HTML nunca entran). Se calcula sha256; el nombre se sanea (sin rutas, controles ni inversión de texto, máx. 100).
 - Entrega: `Content-Type` guardado, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Cache-Control: private, no-store`, nombre en `filename*` (RFC 5987). Acceso por empresa del pago (404 entre tenants) y, para residentes, sólo las unidades que tienen.
-- La validación (`PATCH /api/pagos/:id/validacion`) es sólo admin/superadmin y atómica (`updateMany … WHERE estado_validacion='por_validar'`): dos revisiones simultáneas → una gana, la otra 409.
+- La validación (`PATCH /api/pagos/:id/validacion`) es de admin/superadmin y de la junta del ámbito (ver «Medios de pago y junta directiva») y atómica (`updateMany … WHERE estado_validacion='por_validar'`): dos revisiones simultáneas → una gana, la otra 409.
 - Auditoría: `subir_comprobante` (nombre, tipo, tamaño, sha256), `ver_comprobante`, `validar` y `rechazar` (con motivo); nunca el contenido (el middleware además ignora cuerpos `Buffer`).
 - Riesgo aceptado: un residente ve el comprobante del otro residente de SU misma unidad (propietario ↔ inquilino), porque ya ve ese pago en su lista.
 ## Avisos por correo y WhatsApp
@@ -71,6 +71,17 @@ Pantalla `/admin/avisos`, API `/api/notificaciones` y preferencias en el perfil.
 - **Sin duplicados**: `@@unique([usuario_id, canal, tipo, ref_entidad, ref_id])`; encolar es idempotente.
 - **Pendiente / no verificado**: envío real contra Resend y Evolution (solo con `fetch` falso); dominio verificado y SPF/DKIM de `MAIL_FROM`; enlace de baja (hoy el usuario se da de baja desde su perfil); límite de envíos por usuario.
 
+## Medios de pago y junta directiva
+Pantallas `/admin/medios-pago` y `/junta/*`, API `/api/medios-pago`. Código en `routes/mediosPago.ts`, `services/mediosPago.ts` y `lib/junta.ts`.
+- **Sin pasarela**: House sólo muestra a dónde pagar (cuenta o Yape/Plin) y valida comprobantes; no mueve dinero ni guarda tarjetas.
+- **Quién gestiona**: admin de la empresa, superadmin y los propietarios con cargo `presidente` o `tesorero` en SU ámbito (condominio y, si lo tienen, block). Secretario, vocal y propietario sin cargo → 403. El cargo sólo lo asigna un admin/superadmin desde `/api/usuarios` (un usuario no puede subirse el cargo: `PUT /api/me` ignora esos campos) y cambiarlo revoca las sesiones del usuario. El cargo se relee de la base en cada petición (`authenticate`), así que quitarlo surte efecto al instante.
+- **Alcance** centralizado en `lib/junta.ts` (`ambitoJunta`, `puedeGestionar`, `filtroAmbito`) y `lib/scope.ts` (`scopeMediosPago`, `scopePagosJunta`). Ámbito ajeno → 404 (no se revela qué existe); crear en un ámbito ajeno también 404. Una junta de un block no alcanza lo de «todo el condominio».
+- **Lo que la junta NO puede**: registrar, editar o borrar pagos manuales, emitir recibos, ver pagos de otras unidades, administrar usuarios, y tampoco validar un pago registrado por ella misma (separación de funciones: lo valida otro miembro de la junta o la administración).
+- **QR**: se guarda en PostgreSQL (`MedioPago.qr_datos`, máx. 500 KB) igual que los comprobantes: cuerpo crudo, sólo PNG/JPG/WebP, bytes mágicos verificados (SVG/HTML/PDF nunca entran), nombre saneado, entrega con `nosniff`, `Content-Security-Policy: sandbox` y `Cache-Control: private, no-store`; el medio se localiza y autoriza ANTES de leer el cuerpo. Un residente sólo ve el QR de medios ACTIVOS de su ámbito. Las listas llevan `tiene_qr`, nunca los bytes.
+- **Datos de pago**: son datos que la junta ya publica a los vecinos, pero se minimizan: el residente no recibe `creado_por_id` ni el DNI/RUC del titular. La auditoría guarda tipo, ámbito y últimos 4 dígitos, nunca el número completo ni el QR (el middleware ignora cuerpos `Buffer`).
+- **Anti-fraude que SÍ cubre el diseño**: un vecino no puede inyectar una cuenta propia (sólo gestores del ámbito escriben), y el vecino que ve la cuenta la ve desde una sesión autenticada de su block. **Lo que NO cubre**: un presidente malicioso puede publicar su cuenta personal como la de la junta; la administradora ve en la auditoría quién creó o cambió cada medio (`Auditoria`, entidad `medio-pago`) y puede desactivarlo.
+- **Limitación**: «block» es `Estructura` (igualdad directa con `Unidad.estructura_id`); no se recorren blocks anidados (`padre_id`).
+
 ## Riesgos aceptados
 - Ninguno abierto por ahora. El antiguo «token en `localStorage` / sin revocación» está cerrado por las sesiones de arriba.
 
@@ -82,4 +93,5 @@ Pantalla `/admin/avisos`, API `/api/notificaciones` y preferencias en el perfil.
 4. Para cerrar todas las sesiones a la vez: `DELETE FROM "Sesion"` (rotar `JWT_SECRET` ya no las afecta).
 
 ## No verificado
+Pantallas de medios de pago, grupo «Junta» y paso «Cómo pagar» (sin navegador; sólo `tsc`, `build` y la API probada); copiar al portapapeles y escaneo real de QR en móvil.
 Chat de IA y «Probar» contra proveedores reales (sin claves locales; solo con `fetch` falso), despliegue real en Coolify, rendimiento con volumen alto.
