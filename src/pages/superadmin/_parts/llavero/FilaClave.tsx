@@ -32,8 +32,10 @@ export function FilaClave({ proveedor: p, clave: c, deshabilitado, probando, sin
   const estado = ESTADO[c.estado];
   const detalle = c.estado === 'rechazada' || c.estado === 'error' ? c.estado_detalle : null;
   return (
-    <li className="flex flex-col gap-3 py-3 pl-5 pr-5 md:flex-row md:items-center md:justify-between md:gap-6">
-      <div className="min-w-0 md:flex-1">
+    // Siempre apilada (24-oct): la información a todo el ancho y los controles debajo. En fila, con el asistente abierto el ancho real
+    // es el de una tablet aunque la ventana sea de escritorio, y los 7 controles aplastaban la información a una palabra por línea.
+    <li className="flex flex-col gap-3 px-5 py-4">
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="num text-sm font-medium">{c.etiqueta}</span>
           <span className="num text-sm text-muted" aria-label={`Termina en ${c.ultimos4}`}>••••{c.ultimos4}</span>
@@ -62,7 +64,7 @@ export function FilaClave({ proveedor: p, clave: c, deshabilitado, probando, sin
           {' · '}Última prueba: {fechaCorta(c.probada_at)} · Último uso: {fechaCorta(c.ultimo_uso_at)}
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-2 md:justify-end">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         <Interruptor label="Habilitada" checked={c.habilitada} disabled={deshabilitado} onChange={e => onAlternar(e.target.checked)} className="mr-2" />
         <Interruptor label="Reserva" hint="Sólo si lo demás falla" checked={c.reserva} disabled={deshabilitado} onChange={e => onReserva(e.target.checked)} className="mr-2" />
         <Button variant="secondary" loading={probando} disabled={deshabilitado} onClick={onProbar}>Probar</Button>
