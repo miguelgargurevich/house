@@ -1,30 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon, ChatBubbleLeftRightIcon, PencilSquareIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import { useAuth } from '../auth/AuthContext';
-import { IconButton, useToast } from '../ui';
+import { cx, useToast } from '../ui';
+import { AsaDeAncho } from './asistente/AsaDeAncho';
+import { CabeceraAsistente } from './asistente/CabeceraAsistente';
 import { Compositor } from './asistente/Compositor';
 import { Conversaciones } from './asistente/Conversaciones';
 import { Mensajes } from './asistente/Mensajes';
 import { estaAlFinal } from './asistente/scroll';
 import { SUGERENCIAS, SUGERENCIA_JUNTA } from './asistente/sugerencias';
+import { useAnchoPanel } from './asistente/useDock';
 import { useAsistente } from './asistente/useAsistente';
 
-const MOVIL = '(max-width: 639px)';
 const FOCALIZABLE = 'button:not(:disabled),[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
 
-function useMovil(): boolean {
-  const [movil, setMovil] = useState(() => window.matchMedia(MOVIL).matches);
-  useEffect(() => {
-    const q = window.matchMedia(MOVIL);
-    const h = () => setMovil(q.matches);
-    q.addEventListener('change', h);
-    return () => q.removeEventListener('change', h);
-  }, []);
-  return movil;
-}
+/** El hilo sube POR DETRÁS de la cabecera (44 px) y se desvanece 1 rem bajo ella; abajo termina limpio, donde empieza el pie. */
+const HILO = '-mt-11 pb-4 pt-[calc(44px_+_1rem)] scroll-pt-[calc(44px_+_1rem)] scroll-pb-4 [mask-image:linear-gradient(to_bottom,transparent_44px,#000_calc(44px_+_1rem))]';
 
 /** Alto realmente visible (descuenta el teclado del celular): así el campo de texto nunca queda tapado. */
 function useAltoVisible(activo: boolean): { height: number; top: number } | null {
@@ -41,68 +35,63 @@ function useAltoVisible(activo: boolean): { height: number; top: number } | null
   return v;
 }
 
-/** Panel del asistente: pantalla completa en el celular (diálogo modal), lateral en escritorio. */
-export function Assistant({ open, onClose }: { open: boolean; onClose: () => void }) {
+/**
+ * Panel del asistente. En escritorio (>= lg) es una COLUMNA del layout, a la derecha del contenido (que se reduce): ancho redimensionable
+ * y se anima con el ancho. En el celular (< lg) es una vista propia a pantalla completa con «Volver». Siempre montado: la conversación
+ * no se pierde al navegar ni al cerrar.
+ */
+export function Assistant({ open, onClose, escritorio }: { open: boolean; onClose: () => void; escritorio: boolean }) {
   const { user } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
   const { pathname } = useLocation();
-  const movil = useMovil();
-  const visible = useAltoVisible(open && movil);
+  const visible = useAltoVisible(open && !escritorio);
+  const { ancho, mover, confirmar, restablecer } = useAnchoPanel(user?.id ?? 0);
   const a = useAsistente(user?.id ?? 0, pathname, open);
   const [vista, setVista] = useState<'chat' | 'conversaciones'>('chat');
-  const [anuncio, setAnuncio] = useState('');
+  const [arrastrando, setArrastrando] = useState(false);
 
   const panel = useRef<HTMLElement>(null);
   const area = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const siguiendo = useRef(true);
+  const abiertoAntes = useRef(open);
 
-  // Foco: al abrir va al campo de texto; al cerrar vuelve a quien abrió el panel.
+  // Foco: al abrir va al campo de texto; al cerrar vuelve a quien abrió el panel (si el foco se había quedado en el panel).
+  // En el primer render (panel recordado como abierto) no se roba el foco de la página.
   useEffect(() => {
+    if (abiertoAntes.current === open) return; // primer render (también el doble efecto de StrictMode): no hay transición
+    abiertoAntes.current = open;
     if (open) {
-      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      opener.current = document.activeElement instanceof HTMLElement && !panel.current?.contains(document.activeElement) ? document.activeElement : null;
       siguiendo.current = true;
-      input.current?.focus();
+      input.current?.focus({ preventScroll: true });
     } else if (opener.current) {
       const volver = opener.current;
       opener.current = null;
-      if (volver.isConnected) volver.focus();
+      const ac = document.activeElement;
+      if (volver.isConnected && (!ac || ac === document.body || panel.current?.contains(ac))) volver.focus();
     }
   }, [open]);
-
-  // Esc cierra (si hay un diálogo de confirmación abierto, Esc es para él; el menú de ajustes lo maneja el compositor).
-  useEffect(() => {
-    if (!open) return;
-    const h = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) onClose(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [open, onClose]);
 
   // El texto nuevo arrastra la vista sólo si la persona ya estaba al final: no se pelea con quien subió a leer.
   useEffect(() => {
     const el = area.current;
     if (el && siguiendo.current) el.scrollTop = el.scrollHeight;
-  }, [a.mensajes, a.fase, vista]);
+  }, [a.mensajes, a.fase, vista, open]);
 
-  // Lectores de pantalla: se anuncia una vez cuando termina la respuesta (no cada fragmento).
-  const ocupadoAntes = useRef(false);
-  useEffect(() => {
-    if (ocupadoAntes.current && !a.ocupado) setAnuncio(a.mensajes.at(-1)?.estado === 'error' ? 'No se pudo completar la respuesta.' : 'El asistente respondió.');
-    if (a.ocupado) setAnuncio('');
-    ocupadoAntes.current = a.ocupado;
-  }, [a.ocupado, a.mensajes]);
-
-  const navegar = useCallback((ruta: string) => { nav(ruta); if (movil) onClose(); }, [nav, movil, onClose]);
+  const navegar = useCallback((ruta: string) => { nav(ruta); if (!escritorio) onClose(); }, [nav, escritorio, onClose]);
   const copiar = useCallback(async (t: string) => {
     try { await navigator.clipboard.writeText(t); return true; }
     catch { toast.error('No se pudo copiar. Selecciona el texto y cópialo a mano.'); return false; }
   }, [toast]);
 
-  // Foco atrapado sólo en el celular (ahí es un diálogo modal); en escritorio el panel convive con la página.
-  const atrapar = (e: KeyboardEvent<HTMLElement>) => {
-    if (!movil || e.key !== 'Tab' || !panel.current) return;
+  // Esc (con el foco dentro del panel) cierra; si hay un diálogo de confirmación abierto, Esc es para él; el menú de ajustes lo frena antes.
+  // El foco se atrapa sólo en el celular (ahí es una vista a pantalla completa); en escritorio el panel convive con la página.
+  const teclas = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]')) { onClose(); return; }
+    if (escritorio || e.key !== 'Tab' || !panel.current) return;
     const lista = [...panel.current.querySelectorAll<HTMLElement>(FOCALIZABLE)].filter((x) => x.offsetParent !== null);
     if (!lista.length) return;
     const primero = lista[0]!;
@@ -111,52 +100,59 @@ export function Assistant({ open, onClose }: { open: boolean; onClose: () => voi
     else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primero.focus(); }
   };
 
-  if (!open || !user) return null;
+  if (!user) return null;
   const chips = [...(esJunta(user) ? [SUGERENCIA_JUNTA] : []), ...SUGERENCIAS[user.rol]].filter((t, i, l) => l.indexOf(t) === i).slice(0, 4);
   const enChat = vista === 'chat';
+  const estilo = {
+    '--ancho': `${open ? ancho : 0}px`,
+    '--ancho-fijo': `${ancho}px`,
+    ...(!escritorio && visible ? { height: visible.height, top: visible.top, bottom: 'auto' } : {}),
+  } as CSSProperties;
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-ink/30 sm:hidden" onClick={onClose} aria-hidden="true" />
-      <aside
-        ref={panel}
-        role="dialog"
-        aria-modal={movil}
-        aria-label="Asistente de House"
-        onKeyDown={atrapar}
-        style={movil && visible ? { height: visible.height, top: visible.top, bottom: 'auto' } : undefined}
-        className="fixed inset-x-0 bottom-0 top-0 z-50 flex h-dvh flex-col bg-surface sm:inset-x-auto sm:right-0 sm:w-[26rem] sm:border-l sm:border-line sm:shadow-pop"
-      >
-        <header className="flex h-14 shrink-0 items-center justify-between gap-1 border-b border-line px-3">
-          {enChat ? (
-            <h2 className="flex items-center gap-2 px-1 text-sm font-semibold"><SparklesIcon className="h-5 w-5 text-brand" aria-hidden="true" /> Asistente</h2>
-          ) : (
-            <div className="flex items-center gap-1">
-              <IconButton label="Volver al chat" onClick={() => setVista('chat')}><ArrowLeftIcon className="h-5 w-5" aria-hidden="true" /></IconButton>
-              <h2 className="text-sm font-semibold">Tus conversaciones</h2>
-            </div>
-          )}
-          <div className="flex items-center">
-            {enChat && <IconButton label="Ver conversaciones anteriores" onClick={() => { void a.cargarLista(); setVista('conversaciones'); }}><ChatBubbleLeftRightIcon className="h-5 w-5" aria-hidden="true" /></IconButton>}
-            <IconButton label="Nueva conversación" onClick={() => { a.nueva(); setVista('chat'); siguiendo.current = true; input.current?.focus(); }}><PencilSquareIcon className="h-5 w-5" aria-hidden="true" /></IconButton>
-            <IconButton label="Cerrar asistente" onClick={onClose}><XMarkIcon className="h-5 w-5" aria-hidden="true" /></IconButton>
-          </div>
-        </header>
+    <aside
+      ref={panel}
+      role="complementary"
+      aria-label="Asistente de House"
+      inert={!open}
+      onKeyDown={teclas}
+      style={estilo}
+      className={cx(
+        open ? 'fixed inset-0 z-50 h-dvh' : 'hidden',
+        'lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-0 lg:z-20 lg:block lg:h-dvh lg:w-[var(--ancho)] lg:shrink-0 lg:overflow-hidden',
+        !arrastrando && 'lg:transition-[width] lg:duration-200 lg:ease-out',
+      )}
+    >
+      <div className="relative flex h-full w-full flex-col bg-surface lg:w-[var(--ancho-fijo)] lg:border-l lg:border-line">
+        {open && <AsaDeAncho ancho={ancho} onMover={mover} onConfirmar={confirmar} onRestablecer={restablecer} onArrastrando={setArrastrando} />}
+
+        <CabeceraAsistente
+          vista={vista}
+          opciones={a.opciones}
+          ajustes={a.ajustes}
+          onAjustes={a.setAjustes}
+          onNueva={() => { a.nueva(); setVista('chat'); siguiendo.current = true; input.current?.focus(); }}
+          onHistorial={() => { void a.cargarLista(); setVista('conversaciones'); }}
+          onVolverAlChat={() => setVista('chat')}
+          onCerrar={onClose}
+        />
 
         <div
           ref={area}
           onScroll={(e) => { siguiendo.current = estaAlFinal(e.currentTarget); }}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          className={cx('min-h-0 flex-1 overflow-y-auto overscroll-contain', HILO)}
         >
           {enChat ? (
-            <div className="p-4">
+            <div aria-live="polite" aria-busy={a.ocupado} aria-relevant="additions text">
               {a.mensajes.length === 0 ? (
-                <div className="space-y-4">
-                  <p className="rounded-lg bg-surface2 p-4 text-sm text-muted">Hola, {user.nombre.split(/\s+/)[0]}. Pregúntame cómo usar House o por tu cuenta: tus recibos, tus pagos o dónde hacer algo.</p>
-                  <ul className="flex flex-wrap gap-2" aria-label="Preguntas sugeridas">
+                <div className="mx-auto w-full max-w-2xl px-4 pt-6">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-brand"><SparklesIcon className="h-5 w-5" aria-hidden="true" /></span>
+                  <p className="mt-3 text-lg font-semibold">Hola, {user.nombre.split(/\s+/)[0]}</p>
+                  <p className="mt-1 text-sm text-muted">Pregúntame cómo usar House o por tu cuenta: tus recibos, tus pagos o dónde hacer algo.</p>
+                  <ul className="mt-5 space-y-2" aria-label="Preguntas sugeridas">
                     {chips.map((t) => (
                       <li key={t}>
-                        <button type="button" onClick={() => { siguiendo.current = true; a.enviarTexto(t); }} disabled={a.ocupado} className="min-h-10 rounded-full border border-line bg-surface px-3.5 py-2 text-left text-sm font-medium transition-colors duration-150 hover:bg-surface2 disabled:opacity-50">{t}</button>
+                        <button type="button" onClick={() => { siguiendo.current = true; a.enviarTexto(t); }} disabled={a.ocupado} className="min-h-11 w-full rounded-lg border border-line bg-surface px-3.5 py-2 text-left text-sm font-medium transition-colors duration-150 hover:bg-surface2 disabled:opacity-50">{t}</button>
                       </li>
                     ))}
                   </ul>
@@ -176,7 +172,6 @@ export function Assistant({ open, onClose }: { open: boolean; onClose: () => voi
             />
           )}
         </div>
-        <p role="status" aria-live="polite" className="sr-only">{anuncio}</p>
 
         {enChat && (
           <Compositor
@@ -185,13 +180,10 @@ export function Assistant({ open, onClose }: { open: boolean; onClose: () => voi
             onEnviar={() => { siguiendo.current = true; a.enviar(); }}
             onDetener={a.detener}
             ocupado={a.ocupado}
-            opciones={a.opciones}
-            ajustes={a.ajustes}
-            onAjustes={a.setAjustes}
             inputRef={input}
           />
         )}
-      </aside>
-    </>
+      </div>
+    </aside>
   );
 }
