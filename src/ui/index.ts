@@ -9,5 +9,6 @@ export * from './PageHeader';
 export * from './DataTable';
 export * from './Misc';
 export * from './BarChart';
+export * from './ProgressBar';
 export * from './format';
 export { cx } from './cx';

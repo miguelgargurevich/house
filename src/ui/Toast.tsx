@@ -20,17 +20,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2" role="status" aria-live="polite">
-        {items.map(t => (
-          <div key={t.id} className="pointer-events-auto flex items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-pop animate-[toast-in_200ms_cubic-bezier(0.22,1,0.36,1)]">
-            {t.kind === 'ok'
-              ? <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-ok" />
-              : <ExclamationCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-bad" />}
-            <span>{t.text}</span>
-          </div>
-        ))}
+      {/* Dos regiones vivas siempre montadas: los avisos son cortesía (status/polite), los errores interrumpen (alert/assertive). */}
+      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2">
+        <div role="status" aria-live="polite" className="flex flex-col gap-2">
+          {items.filter(t => t.kind === 'ok').map(t => <Aviso key={t.id} item={t} />)}
+        </div>
+        <div role="alert" aria-live="assertive" className="flex flex-col gap-2">
+          {items.filter(t => t.kind === 'error').map(t => <Aviso key={t.id} item={t} />)}
+        </div>
       </div>
     </Ctx.Provider>
+  );
+}
+
+function Aviso({ item: t }: { item: ToastItem }) {
+  return (
+    <div className="pointer-events-auto flex items-start gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm shadow-pop animate-[toast-in_200ms_cubic-bezier(0.22,1,0.36,1)]">
+      {t.kind === 'ok'
+        ? <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-ok" aria-hidden="true" />
+        : <ExclamationCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-bad" aria-hidden="true" />}
+      <span>{t.text}</span>
+    </div>
   );
 }
 

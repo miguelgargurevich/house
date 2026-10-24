@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { cx } from './cx';
 import { Skeleton, EmptyState, ErrorState } from './Feedback';
 import { IconButton } from './Button';
+import { esTeclaDeActivar, vieneDeControlInterno } from './a11y';
 
 export interface Column<T> {
   key: string;
@@ -64,8 +65,17 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
               : rows.map(r => (
                   <tr
                     key={rowKey(r)}
-                    onClick={onRowClick ? () => onRowClick(r) : undefined}
-                    className={cx('transition-colors duration-150 hover:bg-surface2/70', onRowClick && 'cursor-pointer')}
+                    {...(onRowClick && {
+                      // Fila operable con teclado; los botones/enlaces internos conservan su propia acción.
+                      tabIndex: 0,
+                      onClick: (e: MouseEvent<HTMLTableRowElement>) => { if (!vieneDeControlInterno(e.target, e.currentTarget)) onRowClick(r); },
+                      onKeyDown: (e: KeyboardEvent<HTMLTableRowElement>) => {
+                        if (!esTeclaDeActivar(e.key) || vieneDeControlInterno(e.target, e.currentTarget) || e.target !== e.currentTarget) return;
+                        e.preventDefault();
+                        onRowClick(r);
+                      },
+                    })}
+                    className={cx('transition-colors duration-150 hover:bg-surface2/70', onRowClick && 'cursor-pointer focus-visible:bg-surface2/70 focus-visible:-outline-offset-2')}
                   >
                     {columns.map(c => (
                       <td key={c.key} className={cx('px-5 py-3.5 align-middle', c.align === 'right' && 'text-right', c.hideBelow && hide[c.hideBelow], c.className)}>

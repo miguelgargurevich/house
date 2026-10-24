@@ -36,7 +36,8 @@ export function IconButton({ label, className, children, ...rest }: ButtonHTMLAt
       type="button"
       aria-label={label}
       title={label}
-      className={cx('inline-flex h-9 w-9 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-surface2 hover:text-ink disabled:opacity-50', className)}
+      // 40 px de objetivo táctil; el margen negativo (-m-0.5) deja su hueco en el diseño en 36 px, así las filas de las tablas no crecen.
+      className={cx('inline-flex h-10 w-10 -m-0.5 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-surface2 hover:text-ink disabled:opacity-50', className)}
       {...rest}
     >
       {children}
