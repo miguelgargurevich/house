@@ -21,6 +21,7 @@ const AdminMantenimientos = lazy(() => import('./pages/admin/Mantenimientos'));
 const AdminConceptos = lazy(() => import('./pages/admin/Conceptos'));
 const AdminUsuarios = lazy(() => import('./pages/admin/Usuarios'));
 const AdminConfiguracion = lazy(() => import('./pages/admin/Configuracion'));
+const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
 const PropietarioInicio = lazy(() => import('./pages/propietario/Inicio'));
 const PropietarioUnidades = lazy(() => import('./pages/propietario/Unidades'));
 const PropietarioCargos = lazy(() => import('./pages/propietario/Cargos'));
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/admin/conceptos" element={<AdminConceptos />} />
           <Route path="/admin/usuarios" element={<AdminUsuarios />} />
           <Route path="/admin/configuracion" element={<AdminConfiguracion />} />
+          <Route path="/admin/avisos" element={<AdminAvisos />} />
         </Route>
         <Route element={<RequireRole roles={['propietario']} />}>
           <Route path="/propietario/inicio" element={<PropietarioInicio />} />

@@ -2,7 +2,7 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
-  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon,
+  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon,
 } from '@heroicons/react/24/outline';
 import type { Rol } from '../auth/AuthContext';
 
@@ -19,6 +19,7 @@ const operacion: NavItem[] = [
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
   { to: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon },
+  { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
 ];
 
 export const NAV: Record<Rol, NavGroup[]> = {

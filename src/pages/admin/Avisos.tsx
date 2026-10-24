@@ -1,0 +1,113 @@
+import { useState } from 'react';
+import { ArrowPathIcon, BellIcon } from '@heroicons/react/24/outline';
+import { api, errorText, useList, useResource } from '../../api';
+import { Badge, Button, Card, DataTable, PageHeader, SearchBox, Skeleton, StatStrip, Tabs, Toolbar, useToast } from '../../ui';
+import type { Column, Tone } from '../../ui';
+import { Canales } from './_parts/avisos/Canales';
+
+type Estado = 'pendiente' | 'enviada' | 'error' | 'omitida';
+type Filtro = '' | Estado;
+
+interface Aviso {
+  id: number;
+  usuario: { id: number; nombre: string };
+  canal: 'email' | 'whatsapp';
+  tipo: string;
+  estado: Estado;
+  asunto: string;
+  intentos: number;
+  error: string | null;
+  programada_para: string;
+  enviada_at: string | null;
+  created_at: string;
+}
+
+const TIPO: Record<string, string> = {
+  recibo_emitido: 'Recibo emitido',
+  por_vencer: 'Por vencer',
+  vencido: 'Vencido',
+  pago_validado: 'Pago validado',
+  pago_rechazado: 'Pago rechazado',
+};
+const CANAL = { email: 'Correo', whatsapp: 'WhatsApp' } as const;
+const ESTADO: Record<Estado, { tone: Tone; label: string }> = {
+  enviada: { tone: 'ok', label: 'Enviada' },
+  pendiente: { tone: 'info', label: 'Pendiente' },
+  error: { tone: 'bad', label: 'Con error' },
+  omitida: { tone: 'warn', label: 'Omitida' },
+};
+
+const fechaHora = new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const cuando = (a: Aviso) => fechaHora.format(new Date(a.enviada_at ?? (a.estado === 'pendiente' ? a.programada_para : a.created_at)));
+
+export default function Avisos() {
+  const toast = useToast();
+  const [filtro, setFiltro] = useState<Filtro>('');
+  const [reenviando, setReenviando] = useState<number | null>(null);
+  const list = useList<Aviso>('/api/notificaciones', { params: { estado: filtro } });
+  const resumen = useResource<Record<Estado, number>>('/api/notificaciones/resumen');
+  const cifra = (e: Estado) => (resumen.loading && !resumen.data ? <Skeleton className="h-7 w-10" /> : resumen.data?.[e] ?? 0);
+
+  async function reenviar(a: Aviso) {
+    setReenviando(a.id);
+    try {
+      await api(`/api/notificaciones/${a.id}/reenviar`, { method: 'POST' });
+      toast.ok('Lo volveremos a enviar en unos minutos');
+      void list.reload();
+      void resumen.reload();
+    } catch (e) { toast.error(errorText(e)); } finally { setReenviando(null); }
+  }
+
+  const columns: Column<Aviso>[] = [
+    { key: 'destinatario', header: 'Destinatario', cell: a => <span className="font-medium">{a.usuario.nombre}</span> },
+    { key: 'canal', header: 'Canal', hideBelow: 'sm', cell: a => CANAL[a.canal] },
+    { key: 'tipo', header: 'Aviso', hideBelow: 'md', cell: a => TIPO[a.tipo] ?? a.tipo },
+    { key: 'estado', header: 'Estado', cell: a => <Badge tone={ESTADO[a.estado].tone}>{ESTADO[a.estado].label}</Badge> },
+    { key: 'fecha', header: 'Fecha', hideBelow: 'lg', cell: a => <span className="num text-muted">{cuando(a)}</span> },
+    { key: 'error', header: 'Motivo', hideBelow: 'lg', cell: a => (a.error ? <span className="text-xs text-muted">{a.error}</span> : '—') },
+    { key: 'acciones', header: '', align: 'right', cell: a => (
+      a.estado === 'error' || a.estado === 'omitida'
+        ? <Button size="sm" variant="secondary" icon={<ArrowPathIcon className="h-4 w-4" />} loading={reenviando === a.id} onClick={() => void reenviar(a)} aria-label={`Reenviar aviso a ${a.usuario.nombre}`}>Reenviar</Button>
+        : null
+    ) },
+  ];
+
+  return (
+    <>
+      <PageHeader title="Avisos" description="Correos y mensajes de WhatsApp que enviamos a propietarios e inquilinos: recibos, vencimientos y pagos." />
+      <StatStrip
+        stats={[
+          { label: 'Enviadas', value: cifra('enviada'), tone: 'ok' },
+          { label: 'Con error', value: cifra('error'), tone: (resumen.data?.error ?? 0) > 0 ? 'bad' : undefined },
+          { label: 'Omitidas', value: cifra('omitida'), tone: (resumen.data?.omitida ?? 0) > 0 ? 'warn' : undefined },
+          { label: 'Pendientes', value: cifra('pendiente') },
+        ]}
+      />
+      <Canales />
+      <Card>
+        <Toolbar>
+          <Tabs<Filtro>
+            value={filtro}
+            onChange={setFiltro}
+            items={[{ id: '', label: 'Todos' }, { id: 'pendiente', label: 'Pendientes' }, { id: 'enviada', label: 'Enviadas' }, { id: 'error', label: 'Con error' }, { id: 'omitida', label: 'Omitidas' }]}
+          />
+          <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por destinatario…" />
+        </Toolbar>
+        <DataTable
+          caption="Avisos enviados y por enviar"
+          columns={columns}
+          rows={list.items}
+          rowKey={a => a.id}
+          loading={list.loading}
+          error={list.error}
+          onRetry={list.reload}
+          page={list.page}
+          pageSize={list.pageSize}
+          total={list.total}
+          onPage={list.setPage}
+          empty={{ title: 'Sin avisos', description: 'Cuando emitas un recibo, aquí verás a quién se le avisó.', icon: <BellIcon /> }}
+        />
+      </Card>
+    </>
+  );
+}
