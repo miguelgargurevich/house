@@ -455,7 +455,7 @@ model EstadoIA {
 }
 
 /// Token de API personal de SOLO LECTURA para el endpoint MCP (`POST /mcp`). Se guarda sólo el sha256; el token se muestra una vez.
-/// `huella` es un sha256 del rol y la contraseña del dueño al crearlo: si cualquiera cambia, el token deja de valer.
+/// `huella` es un sha256 del rol y la contraseña del dueño al crearlo: si cualquiera cambia (o el usuario se desactiva), el token deja de valer.
 model TokenApi {
   id          String    @id @default(cuid())
   usuario_id  Int

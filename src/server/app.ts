@@ -13,6 +13,8 @@ import { crearLimitadores, type RateLimitOptions } from './middleware/rateLimit'
 import { aiChatRouter } from './routes/aiChat';
 import { auditoriaRouter } from './routes/auditoria';
 import { llaveroRouter } from './routes/llavero';
+import { mcpRouter } from './routes/mcp';
+import { tokensApiRouter } from './routes/tokensApi';
 import { loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
 import { comprobantesRouter } from './routes/comprobantes';
@@ -52,6 +54,9 @@ export function createApp(opts: AppOptions = {}) {
     }),
   );
 
+  // `/mcp` va ANTES de CORS y del JSON global: su propio filtro de Origin (403), su Bearer, su límite de tasa y su cuerpo acotado.
+  app.use('/mcp', mcpRouter({ porMinuto: opts.rateLimits?.mcp, fallos: limiters.mcpFallos }));
+
   // CORS desactivado por defecto (mismo origen); sólo se habilita para los orígenes listados en CORS_ORIGIN.
   const origenes = parseCorsOrigins();
   if (origenes.length) app.use(cors({ origin: origenes }));
@@ -80,6 +85,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/auth', sesionRouter);
   api.use('/ai-chat', aiChatRouter(limiters.ai)); // el límite por usuario sólo cuenta los mensajes (POST), no las lecturas
   api.use('/llavero', llaveroRouter(limiters.llavero));
+  api.use('/me/tokens-api', tokensApiRouter); // antes de /me: tokens de API (MCP) del propio usuario
   api.use('/me/avisos', avisosPersonalesRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me/medios-pago', mediosPagoMeRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me', meRouter(limiters.password));
