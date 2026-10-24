@@ -4,6 +4,31 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/calidad`
+
+**Qué se hizo:** mejoras media y baja pendientes: accesibilidad del kit de UI y pruebas end-to-end del flujo de dinero. Sin cambios de backend, de esquema ni de páginas.
+- **Kit de UI (`src/ui/*`, compatible hacia atrás):** `IconButton` 40 px de objetivo táctil sin agrandar filas (`h-10 w-10 -m-0.5`); `Tabs` WAI-ARIA completo (+ `idBase`, `label`, `TabPanel`); `DataTable` con filas clicables operables por teclado que ignoran eventos de controles internos; `ocultarEtiqueta` en `Field/Input/Select/Textarea/SearchBox` y error en región `aria-live`; `ProgressBar` nuevo (exportado, **ninguna pantalla migrada**); `Modal` con `aria-labelledby`, foco inicial al primer control y retorno del foco; `Toast` con `status` (avisos) y `alert` (errores). Lógica pura en `src/ui/a11y.ts`.
+- **Contraste:** `scripts/contraste.mjs` (OKLCH → sRGB → WCAG). Los 32 pares texto/fondo pasan 4.5:1 en claro y oscuro; no se tocó ningún token. Detalle, pendientes y lo no verificado en `docs/ACCESIBILIDAD.md`.
+- **Pruebas:** `tests/accesibilidad.test.ts` (lógica pura + contraste) y `tests/flujo-dinero.test.ts` (UN recorrido narrativo con Marta —administradora—, Rosa/Luis/Jorge/Carmen —vecinos— y actores de otra empresa: emitir → pagar con comprobante → validar → rechazar y repagar → morosidad con días de atraso → efectivo manual → invariantes, aislamiento por unidad y por empresa, auditoría sin archivos, IA con `fetch` falso).
+
+**Próximos pasos:**
+- Migrar las pantallas al kit nuevo (reemplazar `[&_label]:sr-only` por `ocultarEtiqueta` en `Pagos.tsx`, `Recibos.tsx`, `EmitirReciboModal.tsx`; `ProgresoCobro` → `ProgressBar`; `Tabs` con `idBase`/`TabPanel` donde haya paneles). Lo hace quien toque páginas.
+- Revisar en navegador: altura de filas con `IconButton`, foco visible de fila, foco del `Modal`. Probar con un lector de pantalla.
+- Decisión de diseño pendiente: el borde de los campos (`line`/`surface` ≈ 1.3:1) no llega a 3:1 (WCAG 1.4.11); ver `docs/ACCESIBILIDAD.md`.
+
+**Decisiones:**
+- `IconButton` usa margen negativo y no `relative` + `before:`: `Shell` le pasa `absolute` y Tailwind ordena `relative` después, lo rompería.
+- Las filas de `DataTable` conservan el rol `row` (con `tabIndex` y teclado) en lugar de `role="button"`, que rompe la semántica de tabla.
+- El «reloj» del test de dinero se mueve corrigiendo `fecha_vencimiento` del recibo por la API (el backend no tiene reloj inyectable en las rutas).
+
+**Gotchas:**
+- Los montos Decimal de los cargos salen sin ceros de relleno (`"180.5"`) pero con dos decimales en dashboard y reportes (`"180.50"`): compara en céntimos.
+- Un pago manual (`POST /api/pagos`) sobre un cargo de OTRA empresa responde **422** (referencia inválida), no 404; los GET/PATCH/DELETE sí dan 404. Está así en el contrato actual y el test lo fija.
+- La auditoría de un recibo se guarda con `entidad: 'recibo'` (singular); la de pagos, `entidad: 'pago'`.
+- Los tests del recorrido dependen del orden (una sola historia); no los corras con `--test-name-pattern` aislado.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/sesion-cookie`
 
 **Qué se hizo:** sesiones de servidor con cookie httpOnly + CSRF + revocación (cierra el riesgo aceptado del token en `localStorage`).
