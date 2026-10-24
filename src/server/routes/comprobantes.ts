@@ -8,6 +8,9 @@ import { esJunta } from '../lib/junta';
 import { scopePagos, scopePagosJunta } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
+import { estadoParaResidente, selectEvaluacion } from '../lib/evaluacionVista';
+import { iniciarEvaluacion } from '../services/evaluacion';
+import { avisarResultado, cerrarPago } from '../services/validacionPago';
 import { dispositionInline, detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
 import { parseBody, parseId, z } from '../validation';
 
@@ -76,6 +79,8 @@ comprobantesRouter.post('/:id/comprobante', requireRole('admin', 'propietario', 
   });
   res.locals.accion = 'subir_comprobante';
   res.locals.auditDetalle = { nombre, tipo_mime: declarado, tamano: cuerpo.length, sha256 }; // nunca el contenido
+  // La IA lee el comprobante en segundo plano: no frena la respuesta ni, si falla, la subida. Un archivo nuevo invalida la evaluación anterior.
+  await iniciarEvaluacion(pago.id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
   res.status(201).json(a);
 });
 
@@ -104,23 +109,41 @@ comprobantesRouter.patch('/:id/validacion', requireRole('admin', 'propietario'),
   const pago = res.locals.pago as PagoCargado;
   if (u.rol === 'propietario' && pago.usuario_id === u.id) throw forbidden('No puedes validar tu propio pago: pídeselo a la administración u otro miembro de la junta');
   const v = parseBody(validacionSchema, req);
-  await prisma.$transaction(async (tx) => {
-    // Cierre atómico: sólo una revisión de un pago por validar logra pasar.
-    const r = await tx.pago.updateMany({
-      where: { id: pago.id, estado_validacion: 'por_validar' },
-      data: { estado_validacion: v.estado, validado_por_id: u.id, validado_at: new Date(), motivo_rechazo: v.estado === 'rechazado' ? v.motivo : null },
-    });
-    if (r.count === 0) throw conflict('Este pago ya fue revisado');
-    const cargoId = pago.recibo_concepto_unidad_id;
-    if (cargoId == null) return;
-    if (v.estado === 'validado') {
-      await tx.reciboConceptoUnidad.update({ where: { id: cargoId }, data: { estado_pago: 'pagado', fecha_pago: pago.fecha_pago } });
-    } else {
-      await tx.reciboConceptoUnidad.updateMany({ where: { id: cargoId, estado_pago: 'en_revision' }, data: { estado_pago: 'pendiente', fecha_pago: null } });
-    }
-  });
+  await cerrarPago({ pagoId: pago.id, cargoId: pago.recibo_concepto_unidad_id, fechaPago: pago.fecha_pago, estado: v.estado, motivo: v.estado === 'rechazado' ? v.motivo : undefined, validadorId: u.id });
+  await avisarResultado(pago.id, v.estado, v.estado === 'rechazado' ? v.motivo : null);
   res.locals.accion = v.estado === 'validado' ? 'validar' : 'rechazar';
   res.locals.auditDetalle = v.estado === 'validado' ? { estado: v.estado } : { estado: v.estado, motivo: v.motivo };
   const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: pago.id }, include: includePago });
-  res.json(formatearPago(actualizado));
+  res.json(formatearPago(actualizado, 'completa'));
+});
+
+// ---------- Evaluación automática (IA) ----------
+/** Admin/superadmin de la empresa o junta en su ámbito: ven la evaluación completa; el residente, sólo un estado simple. */
+async function veCompleta(u: AuthUser, pagoId: number): Promise<boolean> {
+  if (u.rol === 'admin' || u.rol === 'superadmin') return true;
+  return esJunta(u) && (await prisma.pago.count({ where: { AND: [{ id: pagoId }, scopePagosJunta(u)] } })) > 0;
+}
+
+comprobantesRouter.get('/:id/evaluacion', requireRole('admin', 'propietario', 'inquilino'), cargarPago, async (req, res) => {
+  const u = currentUser(req);
+  const pago = res.locals.pago as PagoCargado;
+  const [ev, p] = await Promise.all([
+    prisma.evaluacionComprobante.findUnique({ where: { pago_id: pago.id }, select: selectEvaluacion }),
+    prisma.pago.findUniqueOrThrow({ where: { id: pago.id }, select: { validado_por_ia: true } }),
+  ]);
+  const evaluacion = ev && (await veCompleta(u, pago.id)) ? ev : ev ? { estado: estadoParaResidente(ev) } : null;
+  res.json({ evaluacion, validado_por_ia: p.validado_por_ia });
+});
+
+// Pedir (o repetir) la evaluación: admin/superadmin de la empresa y junta en su ámbito. El trabajo corre en segundo plano.
+comprobantesRouter.post('/:id/evaluacion', requireRole('admin', 'propietario'), cargarPagoAValidar, async (req, res) => {
+  const u = currentUser(req);
+  if (u.rol !== 'admin' && u.rol !== 'superadmin' && !esJunta(u)) throw forbidden();
+  const pago = res.locals.pago as PagoCargado;
+  if (!(await prisma.archivoComprobante.findUnique({ where: { pago_id: pago.id }, select: { id: true } }))) throw conflict('Este pago no tiene comprobante que evaluar');
+  if (!(await iniciarEvaluacion(pago.id, 'manual'))) throw conflict('Este comprobante ya se está evaluando');
+  res.locals.accion = 'reevaluar_comprobante';
+  res.locals.auditDetalle = { origen: 'manual' };
+  const ev = await prisma.evaluacionComprobante.findUnique({ where: { pago_id: pago.id }, select: selectEvaluacion });
+  res.status(202).json({ evaluacion: ev });
 });

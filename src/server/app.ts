@@ -95,6 +95,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/unidades', unidadesRouter);
   api.use('/conceptos', conceptosRouter);
   api.use('/recibos', recibosRouter);
+  api.post('/pagos/:id/evaluacion', limiters.evaluacion); // por usuario; sigue a comprobantesRouter
   api.use('/pagos', comprobantesRouter); // antes del CRUD: sus rutas (/:id/comprobante, /:id/validacion) admiten también a residentes
   api.use('/pagos', pagosRouter);
   api.use('/recibo-conceptos', reciboConceptosRouter);
