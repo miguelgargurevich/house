@@ -19,13 +19,13 @@ const proveedorParams = z.object({ proveedor: z.string().trim().toLowerCase().mi
 const guardarSchema = z.object({
   clave: z.string({ error: 'Debe ser un texto' }),
   etiqueta: texto(40).regex(/^[a-z0-9-]+$/i, 'Solo letras, números y guiones').transform((v) => v.toLowerCase()).optional(),
-  modelo: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(120).regex(/^[\w.:/\-]+$/, 'Modelo inválido').nullish()),
+  modelo: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(120).regex(/^[\w.:/-]+$/, 'Modelo inválido').nullish()),
 });
 const ajusteSchema = z
   .object({
     habilitada: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
     reserva: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
-    modelo: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(120).regex(/^[\w.:/\-]+$/, 'Modelo inválido').nullable().optional()),
+    modelo: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(120).regex(/^[\w.:/-]+$/, 'Modelo inválido').nullable().optional()),
   })
   .refine((v) => v.habilitada !== undefined || v.reserva !== undefined || v.modelo !== undefined, 'Indica habilitada, reserva o modelo');
 

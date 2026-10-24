@@ -22,6 +22,9 @@ export class ApiError extends Error {
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: (() => void) | null) { onUnauthorized = fn; }
 
+/** Para quien lee la respuesta a mano (p. ej. el stream del asistente): el servidor dijo 401, la sesión se perdió. */
+export function avisarSesionPerdida() { if (csrf) onUnauthorized?.(); }
+
 export async function api<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...(init.headers as Record<string, string> | undefined) };
   const metodo = (init.method ?? 'GET').toUpperCase();

@@ -53,7 +53,7 @@ export const esGratis = (proveedor: string, modelo_id: string) => proveedor === 
 
 const numeroOnull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.trunc(v) : null);
 const textoOnull = (v: unknown, max = 160) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
-const idValido = (v: unknown): v is string => typeof v === 'string' && /^[\w.:/\-]{1,120}$/.test(v);
+const idValido = (v: unknown): v is string => typeof v === 'string' && /^[\w.:/-]{1,120}$/.test(v);
 
 /**
  * Lee la respuesta de `GET /models`. Gemini: el campo `name` trae el prefijo `models/` y sólo sirven los que soportan

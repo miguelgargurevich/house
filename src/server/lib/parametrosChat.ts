@@ -24,7 +24,7 @@ export const ajustesSchema = z
   .object({
     conversacion_id: z.string({ error: 'Debe ser un texto' }).trim().min(1).max(40).optional(),
     ruta: z.string({ error: 'Debe ser un texto' }).max(200).optional(),
-    modelo: z.string({ error: 'Debe ser un texto' }).trim().min(1, 'Es obligatorio').max(120).regex(/^[\w.:/\-]+$/, 'Modelo inválido').default('auto'),
+    modelo: z.string({ error: 'Debe ser un texto' }).trim().min(1, 'Es obligatorio').max(120).regex(/^[\w.:/-]+$/, 'Modelo inválido').default('auto'),
     preset: z.enum(PRESET_IDS, { error: `Debe ser: ${PRESET_IDS.join(', ')}` }).default('equilibrado'),
     parametros: parametrosSchema.optional(),
     esfuerzo: z.enum(ESFUERZOS, { error: `Debe ser: ${ESFUERZOS.join(', ')}` }).default('medium'),

@@ -68,6 +68,7 @@ const CARGO_TEXTO: Record<string, string> = { presidente: 'Presidente', tesorero
 const ESTADO_PAGO: Record<string, string> = { validado: 'validado', por_validar: 'en revisión', rechazado: 'rechazado' };
 
 /** Texto libre que viene de la base (nombres, títulos): sin saltos de línea ni caracteres de control y acotado, para que no inyecte instrucciones. */
+// eslint-disable-next-line no-control-regex -- justamente se buscan caracteres de control
 export const limpiarTexto = (v: string | null | undefined, max = 80): string => (v ?? '').replace(/[\u0000-\u001f\u007f<>`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /** Medios que valen para esas unidades: los de su block y los de todo su condominio (misma regla que `/api/me/medios-pago`). */

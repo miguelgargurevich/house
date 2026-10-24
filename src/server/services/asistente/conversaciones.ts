@@ -63,7 +63,7 @@ export function unirSeguidos(mensajes: MensajeTurno[]): MensajeTurno[] {
   const salida: MensajeTurno[] = [];
   for (const m of mensajes) {
     const ultimo = salida[salida.length - 1];
-    if (ultimo && ultimo.rol === m.rol) ultimo.texto += `\n\n${m.texto}`;
+    if (ultimo && ultimo.rol === m.rol) { if (ultimo.texto !== m.texto) ultimo.texto += `\n\n${m.texto}`; } // un «Reintentar» repite la misma pregunta: no se duplica
     else salida.push({ ...m });
   }
   return salida;

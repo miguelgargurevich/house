@@ -513,6 +513,15 @@ describe('conversaciones', () => {
     assert.deepEqual(mensajesDe(ultima()), [{ rol: 'user', texto: 'Primera\n\nSegunda\n\nTercera\n\nCuarta' }]);
   });
 
+  it('un «Reintentar» (la misma pregunta otra vez) no duplica el texto en el prompt', async () => {
+    manejador = () => estado(503);
+    const a = await chat(T.prop1, { message: 'Misma pregunta' });
+    manejador = () => chatOk('Ahora sí');
+    limpiarTodo();
+    await chat(T.prop1, { message: 'Misma pregunta', conversacion_id: a.body.conversacion_id });
+    assert.deepEqual(mensajesDe(ultima()), [{ rol: 'user', texto: 'Misma pregunta' }]);
+  });
+
   it('el título son las primeras palabras (máx. 8, 60 caracteres)', () => {
     assert.equal(tituloDe('hola'), 'hola');
     assert.equal(tituloDe('uno dos tres cuatro cinco seis siete ocho nueve diez'), 'uno dos tres cuatro cinco seis siete ocho…');
