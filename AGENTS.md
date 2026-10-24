@@ -21,6 +21,7 @@ Antes de trabajar: lee `docs/HANDOFF.md` (última entrada) y `docs/API-CONTRATO.
 - Estructura: `src/server/app.ts` (`createApp()`, sin `listen`), `db.ts` (un solo `PrismaClient`; `password_hash` se omite en TODA consulta, el login y el cambio de contraseña lo piden con `omit: { password_hash: false }`), `middleware/`, `routes/` (uno por recurso), `lib/scope.ts` (alcance por empresa), `crud.ts` (CRUD genérico con paginación), `validation.ts` (zod).
 - Todo `/api/*` exige JWT salvo `POST /api/auth/login`. El rol y la empresa se releen de la base en cada petición.
 - Multi-tenant: todo recurso se filtra con las funciones de `lib/scope.ts`; otro tenant → **404**, no 403. Un recurso nuevo debe tener su `scopeX`.
+- Roles: `superadmin`, `admin`, `propietario`, `inquilino`, `mantenimiento`, `seguridad`, `limpieza`, `jardineria`. Personal (admin, seguridad, mantenimiento, limpieza, jardinería) pertenece a una empresa (`Usuario.empresa_id`) y opcionalmente a un condominio; los residentes (propietario, inquilino) no tienen empresa y se alcanzan por condominio/unidades.
 - Toda entrada (body, query, params) pasa por zod (`parseBody`/`parseQuery`/`parseId`) → 422 con `{error, campos}`. Errores inesperados: sólo `{error:'mensaje corto'}`; el detalle va al log.
 - Mutaciones y logins quedan en `Auditoria` (middleware `audit.ts`); nunca guardes contraseñas en el detalle.
 - Montos son `Decimal` y salen como string. Mensajes de error en español (Perú), montos en S/.

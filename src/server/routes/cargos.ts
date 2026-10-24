@@ -2,7 +2,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { invalid } from '../errors';
 import { filtroEstadoCargo, formatearCargo, includeCargo, type EstadoCargo } from '../lib/cargos';
-import { scopeCargos, scopeReciboConceptos, scopeUnidades } from '../lib/scope';
+import { scopeCargos, scopeCargosEscritura, scopeReciboConceptosEscritura, scopeUnidades } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
 
@@ -18,13 +18,14 @@ const base = z.object({
 
 async function validarRefs(d: Record<string, unknown>, user: AuthUser, existing?: Record<string, unknown>) {
   const rcId = (d.recibo_concepto_id ?? existing?.recibo_concepto_id) as number | undefined;
-  const rc = rcId != null ? await assertRef(prisma.reciboConcepto, rcId, scopeReciboConceptos(user), 'recibo_concepto_id', {}) : null;
+  const rc = rcId != null ? await assertRef(prisma.reciboConcepto, rcId, scopeReciboConceptosEscritura(user), 'recibo_concepto_id', {}) : null;
   const unidadId = (d.unidad_id ?? existing?.unidad_id) as number | undefined;
   if (unidadId != null) {
     const unidad = await assertRef(prisma.unidad, unidadId, scopeUnidades(user), 'unidad_id');
     if (rc) {
-      const recibo = await prisma.recibo.findUnique({ where: { id: rc.recibo_id as number }, select: { empresa_id: true } });
-      if (recibo && unidad!.empresa_id !== recibo.empresa_id) {
+      const recibo = await prisma.recibo.findUnique({ where: { id: rc.recibo_id as number }, select: { empresa_id: true, complejo: { select: { empresa_id: true } } } });
+      // La unidad debe ser del condominio que hoy administra la empresa (el recibo pudo emitirlo la anterior).
+      if (recibo && unidad!.empresa_id !== (recibo.complejo?.empresa_id ?? recibo.empresa_id)) {
         throw invalid('Datos inválidos: unidad_id: la unidad es de otra empresa', { unidad_id: 'Es de otra empresa' });
       }
     }
@@ -40,6 +41,7 @@ export const cargosRouter = crudRouter({
   readRoles: ['admin'],
   writeRoles: ['admin'],
   scope: scopeCargos,
+  writeScope: scopeCargosEscritura,
   search: ['unidad.codigo'],
   orderable: ['id', 'monto', 'estado_pago', 'fecha_pago', 'created_at'],
   defaultOrder: { id: 'desc' },

@@ -1,8 +1,18 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
 
-export const ROLES = ['superadmin', 'admin', 'propietario', 'inquilino', 'mantenimiento', 'seguridad'] as const;
+export const ROLES = ['superadmin', 'admin', 'propietario', 'inquilino', 'mantenimiento', 'seguridad', 'limpieza', 'jardineria'] as const;
 export type Rol = (typeof ROLES)[number];
+
+/** Personal: pertenece a una EMPRESA (`Usuario.empresa_id`) y trabaja en sus condominios. Los residentes (propietario, inquilino) no tienen empresa. */
+export const ROLES_PERSONAL = ['admin', 'seguridad', 'mantenimiento', 'limpieza', 'jardineria'] as const satisfies readonly Rol[];
+/** Personal con tareas asignadas: ven sus tareas y las unidades de ellas, y nada de cobranza. */
+export const ROLES_OPERATIVOS = ['mantenimiento', 'limpieza', 'jardineria'] as const satisfies readonly Rol[];
+export const ROLES_RESIDENTE = ['propietario', 'inquilino'] as const satisfies readonly Rol[];
+
+/** Rubros del directorio de proveedores. */
+export const RUBROS_PROVEEDOR = ['ascensores', 'gasfiteria', 'electricidad', 'pintura', 'jardineria', 'limpieza', 'seguridad', 'fumigacion', 'carpinteria', 'cerrajeria', 'otros'] as const;
+export type RubroProveedor = (typeof RUBROS_PROVEEDOR)[number];
 
 export const BCRYPT_COST = 12;
 

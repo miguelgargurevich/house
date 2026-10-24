@@ -22,6 +22,8 @@ export interface CrudOptions {
   createRoles?: Rol[];
   deleteRoles?: Rol[];
   scope: (user: AuthUser) => Where;
+  /** Alcance para modificar y borrar (por omisión, `scope`): permite que un recurso sea visible pero de sólo consulta (recibos de la administradora anterior). */
+  writeScope?: (user: AuthUser) => Where;
   search?: string[];
   orderable: string[];
   defaultOrder: Record<string, 'asc' | 'desc'>;
@@ -106,7 +108,7 @@ export function crudRouter(o: CrudOptions): Router {
   const update = async (req: Request, res: Response) => {
     const user = currentUser(req);
     const id: Id = parseId(req);
-    const existing = await o.delegate.findFirst({ where: { AND: [{ id }, o.scope(user)] } });
+    const existing = await o.delegate.findFirst({ where: { AND: [{ id }, (o.writeScope ?? o.scope)(user)] } });
     if (!existing) throw notFound();
     let data = parseBody(updateSchema, req) as Record<string, unknown>;
     if (o.prepareUpdate) data = await o.prepareUpdate(data, user, existing);
@@ -121,7 +123,7 @@ export function crudRouter(o: CrudOptions): Router {
   router.delete('/:id', requireRole(...(o.deleteRoles ?? o.writeRoles)), async (req, res) => {
     const user = currentUser(req);
     const id: Id = parseId(req);
-    const existing = await o.delegate.findFirst({ where: { AND: [{ id }, o.scope(user)] } });
+    const existing = await o.delegate.findFirst({ where: { AND: [{ id }, (o.writeScope ?? o.scope)(user)] } });
     if (!existing) throw notFound();
     if (o.beforeDelete) await o.beforeDelete(existing, user);
     await o.delegate.delete({ where: { id } });

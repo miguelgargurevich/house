@@ -20,7 +20,9 @@ const AdminPagos = lazy(() => import('./pages/admin/Pagos'));
 const AdminMorosidad = lazy(() => import('./pages/admin/Morosidad'));
 const AdminMantenimientos = lazy(() => import('./pages/admin/Mantenimientos'));
 const AdminConceptos = lazy(() => import('./pages/admin/Conceptos'));
-const AdminUsuarios = lazy(() => import('./pages/admin/Usuarios'));
+const AdminResidentes = lazy(() => import('./pages/admin/Residentes'));
+const AdminPersonal = lazy(() => import('./pages/admin/Personal'));
+const AdminProveedores = lazy(() => import('./pages/admin/Proveedores'));
 const AdminConfiguracion = lazy(() => import('./pages/admin/Configuracion'));
 const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
 const AdminMediosPago = lazy(() => import('./pages/admin/MediosPago'));
@@ -74,7 +76,9 @@ export default function App() {
           <Route path="/admin/morosidad" element={<AdminMorosidad />} />
           <Route path="/admin/mantenimientos" element={<AdminMantenimientos />} />
           <Route path="/admin/conceptos" element={<AdminConceptos />} />
-          <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+          <Route path="/admin/residentes" element={<AdminResidentes />} />
+          <Route path="/admin/personal" element={<AdminPersonal />} />
+          <Route path="/admin/proveedores" element={<AdminProveedores />} />
           <Route path="/admin/configuracion" element={<AdminConfiguracion />} />
           <Route path="/admin/avisos" element={<AdminAvisos />} />
           <Route path="/admin/medios-pago" element={<AdminMediosPago />} />
@@ -97,6 +101,14 @@ export default function App() {
         <Route element={<RequireRole roles={['mantenimiento']} />}>
           <Route path="/mantenimiento/inicio" element={<MantenimientoInicio />} />
           <Route path="/mantenimiento/tareas" element={<MantenimientoTareas />} />
+        </Route>
+        <Route element={<RequireRole roles={['limpieza']} />}>
+          <Route path="/limpieza/inicio" element={<MantenimientoInicio />} />
+          <Route path="/limpieza/tareas" element={<MantenimientoTareas />} />
+        </Route>
+        <Route element={<RequireRole roles={['jardineria']} />}>
+          <Route path="/jardineria/inicio" element={<MantenimientoInicio />} />
+          <Route path="/jardineria/tareas" element={<MantenimientoTareas />} />
         </Route>
         <Route element={<RequireRole roles={['seguridad']} />}>
           <Route path="/seguridad/inicio" element={<SeguridadInicio />} />

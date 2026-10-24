@@ -26,7 +26,7 @@ export default function Tareas() {
 
   return (
     <>
-      <PageHeader title="Mis tareas" description="Trabajos de mantenimiento que te asignaron." />
+      <PageHeader title="Mis tareas" description="Trabajos que te asignó la administración." />
       <div className="mb-4 max-w-full overflow-x-auto"><Tabs value={estado} onChange={setEstado} items={TABS} /></div>
 
       {list.error ? (

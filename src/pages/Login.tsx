@@ -13,6 +13,7 @@ const DEMO = [
   ['Inquilino', 'valentina.ruiz@inq.com', 'inq1234'],
   ['Mantenimiento', 'maria.fernandez@gestionurbana.com', 'mtto1234'],
   ['Seguridad', 'pedro.sanchez@gestionurbana.com', 'seg1234'],
+  ['Limpieza', 'limpieza@prueba.house', 'pers1234'],
 ] as const;
 
 export default function Login() {

@@ -98,21 +98,22 @@ describe('empresa: sólo para el personal', () => {
     assert.ok((await idsDe(T.super)).includes(sinUnidades.id));
   });
 
-  it('en la lista, la empresa de un residente sale de sus unidades (puede ser más de una; ninguna si no tiene)', async () => {
+  it('en la lista, un residente se muestra por sus unidades (condominio · block · departamento), sin empresa; el personal no lleva lista derivada', async () => {
     const hash = await bcrypt.hash(PASSWORD, 4);
     const doble = await prisma.usuario.create({ data: { nombre: 'Doble', email: 'doble@test.pe', rol: 'propietario', password_hash: hash } });
     const ninguna = await prisma.usuario.create({ data: { nombre: 'Ninguna', email: 'ninguna@test.pe', rol: 'propietario', password_hash: hash, complejo_id: d.complejoA.id } });
     await prisma.unidad.create({ data: { codigo: 'A-301', tipo: 'Departamento', complejo_id: d.complejoA.id, empresa_id: d.empresaA.id, propietario_id: doble.id, estado: 'activa' } });
     await prisma.unidad.create({ data: { codigo: 'B-301', tipo: 'Departamento', complejo_id: d.complejoB.id, empresa_id: d.empresaB.id, propietario_id: doble.id, estado: 'activa' } });
-    const lista = (await llamar(base, 'GET', '/api/usuarios?pageSize=100', T.super)).body.items as { id: number; empresa: unknown; empresas_administradoras: { nombre: string }[] }[];
+    type Fila = { id: number; empresa: unknown; unidades?: { codigo: string; complejo: { nombre: string } }[]; empresas_administradoras?: unknown };
+    const lista = (await llamar(base, 'GET', '/api/usuarios?pageSize=100', T.super)).body.items as Fila[];
     const fila = (id: number) => lista.find((x) => x.id === id)!;
-    assert.deepEqual(fila(doble.id).empresas_administradoras.map((e) => e.nombre).sort(), ['Empresa A', 'Empresa B']);
+    assert.deepEqual(fila(doble.id).unidades!.map((u) => `${u.complejo.nombre}·${u.codigo}`), ['Complejo A·A-301', 'Complejo B·B-301']);
     assert.equal(fila(doble.id).empresa, null);
-    assert.deepEqual(fila(ninguna.id).empresas_administradoras, []);
-    assert.deepEqual(fila(d.adminA.id).empresas_administradoras, [], 'el personal no tiene lista derivada: usa su empresa');
+    assert.equal(fila(doble.id).empresas_administradoras, undefined, 'ya no se deriva una «empresa» para el residente');
+    assert.deepEqual(fila(ninguna.id).unidades, []);
+    assert.equal(fila(d.adminA.id).unidades, undefined, 'el personal no tiene unidades');
     assert.equal((fila(d.adminA.id).empresa as { nombre: string }).nombre, 'Empresa A');
-    // el admin A sólo ve su empresa en un residente compartido, porque sólo ve las unidades... (todas las suyas y las ajenas figuran en la fila)
-    const deA = (await llamar(base, 'GET', '/api/usuarios?pageSize=100', T.adminA)).body.items as typeof lista;
+    const deA = (await llamar(base, 'GET', '/api/usuarios?pageSize=100', T.adminA)).body.items as Fila[];
     assert.ok(deA.some((x) => x.id === doble.id));
   });
 });

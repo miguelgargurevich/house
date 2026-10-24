@@ -7,7 +7,7 @@ import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
 import { ambitoJunta, filtroAmbito } from '../lib/junta';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
-import { scopeComplejos, scopeConceptos, scopeRecibos, scopeUnidades, scopeUsuarios } from '../lib/scope';
+import { scopeComplejos, scopeConceptos, scopeRecibos, scopeRecibosEscritura, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
@@ -75,6 +75,7 @@ const crud = crudRouter({
   readRoles: ['admin'],
   writeRoles: ['admin'],
   scope: scopeRecibos,
+  writeScope: scopeRecibosEscritura,
   search: ['descripcion'],
   orderable: ['id', 'mes', 'anio', 'fecha_emision', 'fecha_vencimiento', 'estado', 'created_at'],
   defaultOrder: { fecha_emision: 'desc' },
@@ -176,7 +177,7 @@ function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
 /** Periodos emitidos que alcanza (para elegir dónde registrar un pago). Se declara antes de GET /:id. */
 router.get('/periodos', adminOJunta, async (req, res) => {
   const items = await prisma.recibo.findMany({
-    where: recibosDe(currentUser(req)),
+    where: esAdmin(currentUser(req)) ? scopeRecibosEscritura(currentUser(req)) : recibosDe(currentUser(req)), // los periodos donde SE PUEDE cobrar
     orderBy: [{ anio: 'desc' }, { mes: 'desc' }, { id: 'desc' }],
     take: 24,
     select: { id: true, mes: true, anio: true, descripcion: true, fecha_emision: true, fecha_vencimiento: true, estado: true, complejo: { select: { id: true, nombre: true } } },
@@ -218,8 +219,9 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
 });
 // ---------- Mantenimientos del periodo (un recibo por departamento) ----------
 /** El recibo del periodo, sólo si es de la empresa del usuario (si no, 404). */
-async function reciboAccesible(req: Parameters<typeof currentUser>[0], id: number) {
-  const r = await prisma.recibo.findFirst({ where: { AND: [{ id }, recibosDe(currentUser(req))] }, select: { id: true } });
+async function reciboAccesible(req: Parameters<typeof currentUser>[0], id: number, escritura = false) {
+  const u = currentUser(req);
+  const r = await prisma.recibo.findFirst({ where: { AND: [{ id }, escritura && esAdmin(u) ? scopeRecibosEscritura(u) : recibosDe(u)] }, select: { id: true } });
   if (!r) throw notFound();
 }
 
@@ -273,7 +275,7 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res)
   const u = currentUser(req);
   const { id, unidadId } = parse(idsMant, req.params);
   const body = parseBody(pagoMantenimiento, req);
-  await reciboAccesible(req, id);
+  await reciboAccesible(req, id, true); // cobrar es de quien administra el condominio hoy; la administradora anterior sólo consulta
   const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesDe(u)] }, select: { id: true, propietario_id: true, inquilino_id: true } });
   if (!unidad) throw notFound('Mantenimiento');
   const { usuario_id, ...datos } = body;
@@ -286,7 +288,8 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res)
   res.locals.entidad = 'pago';
   res.locals.entidadId = r.pago_id;
   res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: id, unidad_id: unidadId };
-  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u), vista: 'completa' }) });
+  // El recibo ya se validó arriba: al cobrar la última unidad deja de tener deuda y `recibosDe` dejaría de alcanzarlo (404 tras haber cobrado).
+  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
 });
 
 router.use(crud);

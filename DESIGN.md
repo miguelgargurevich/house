@@ -3,7 +3,7 @@
 Superficie: **Operate** (aplicación). Familiaridad antes que sorpresa; la marca vive en los detalles.
 
 ## Principios
-- Un solo vocabulario para los 6 roles: mismos componentes (`src/ui`), mismo shell (`src/app/Shell.tsx`).
+- Un solo vocabulario para los 8 roles: mismos componentes (`src/ui`), mismo shell (`src/app/Shell.tsx`).
 - El dinero manda: montos con `soles()` y cifras tabulares (`.num`), estados siempre con `StatusBadge` (color + palabra).
 - Móvil real para residentes: tablas con `hideBelow`, formularios en una columna bajo `sm`, objetivos táctiles ≥ 40 px.
 - Sin decoración sin función: nada de gradientes, brillos ni tarjetas anidadas. Un solo momento de movimiento por pantalla (150–250 ms).
@@ -21,7 +21,7 @@ Iconos: solo `@heroicons/react/24/outline` (trazo 1.5), `h-4 w-4` en botones/tab
 Accesibilidad del kit (detalle y pendientes en `docs/ACCESIBILIDAD.md`): para etiquetas de toolbars y filtros usa `ocultarEtiqueta` (nunca `[&_label]:sr-only`); `Tabs` con `idBase` + `TabPanel` cuando haya paneles; `DataTable` con `onRowClick` ya es operable por teclado.
 
 ## Patrones de pantalla
-- Lista: `PageHeader` (acción primaria a la derecha) → `Card` con `Toolbar` + `DataTable`. Crear/editar en `Modal`; borrar con `ConfirmDialog`. Ver `src/pages/admin/Usuarios.tsx`.
+- Lista: `PageHeader` (acción primaria a la derecha) → `Card` con `Toolbar` + `DataTable`. Crear/editar en `Modal`; borrar con `ConfirmDialog`. Ver `src/pages/admin/_parts/personas/PersonasLista.tsx` (residentes, personal y superadmin) y `src/pages/admin/Proveedores.tsx`.
 - Resumen: `PageHeader` → `StatStrip` → `Card`s con gráfico/estados. Ver `src/pages/admin/Dashboard.tsx`.
 - Datos: `useList` (listas paginadas) y `useResource` (uno) de `src/api.ts`; mutaciones con `api()` + `toast`.
 - Estados obligatorios en cada pantalla: cargando (skeleton), vacío (`EmptyState` que enseña qué hacer), error (`ErrorState` con reintentar).
@@ -36,3 +36,10 @@ Accesibilidad del kit (detalle y pendientes en `docs/ACCESIBILIDAD.md`): para et
 - **Botones de pie que cambian de función** (`Ya pagué` → `Confirmar pago`) llevan `key` distinta: si React reutiliza el nodo y le cambia el `type` a `submit` durante el clic, el formulario se envía solo.
 - **Tablas de pagos** a 1280 px sin scroll: una fila por pago del mantenimiento; lo secundario se oculta con `hideBelow`.
 - **Impresión:** `#recibo-imprimible` con `@media print` que oculta el resto de la página; sin dependencias.
+
+## Patrones de Personas (residente / personal / proveedores)
+- Tres pantallas bajo `/admin/residentes`, `/admin/personal`, `/admin/proveedores`, todas reusando `PersonasLista` con un `tipo` distinto; no se mezclan: cada pantalla pide su `tipo` y la API filtra en el servidor (404 a otro tenant).
+- **Residentes**: columnas nombre+correo, rol, condominio · block · departamento(s) (varias unidades → «B01-804 +1»), cargo de junta, teléfono; filtros por condominio, block y estado (moroso/al día); sin columna de empresa. Crear exige condominio y unidad (propietario o inquilino de esa unidad, libre).
+- **Personal**: columnas nombre, rol, condominio(s) donde trabaja, teléfono; empresa no se muestra al admin (es la suya); el superadmin la ve y la elige. Roles: admin, seguridad, mantenimiento, limpieza, jardinería.
+- **Proveedores**: directorio con rubro, contacto, condominios que atiende, activo; crear/editar/desactivar; el superadmin elige la empresa. En Mantenimiento, asignar a «Personal» o «Proveedor» (no ambos).
+- **Condominios**: «Administrado por …» con el contrato vigente (desde), botón «Cambiar de administradora» (solo superadmin) y el historial de contratos (`ContratosModal`).

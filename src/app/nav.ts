@@ -2,7 +2,8 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
-  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon,
+  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, IdentificationIcon, TruckIcon, SparklesIcon,
+  SunIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { Rol, Usuario } from '../auth/AuthContext';
@@ -20,8 +21,14 @@ const operacion: NavItem[] = [
   { to: '/admin/morosidad', label: 'Morosidad', icon: ExclamationTriangleIcon },
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
-  { to: '/admin/usuarios', label: 'Usuarios', icon: UsersIcon },
   { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
+];
+
+/** Personas, cada tipo en su pantalla: residentes (de un condominio), personal (de la empresa) y proveedores (directorio, sin acceso). */
+const personas: NavItem[] = [
+  { to: '/admin/residentes', label: 'Residentes', icon: UsersIcon },
+  { to: '/admin/personal', label: 'Personal', icon: IdentificationIcon },
+  { to: '/admin/proveedores', label: 'Proveedores', icon: TruckIcon },
 ];
 
 export const NAV: Record<Rol, NavGroup[]> = {
@@ -36,11 +43,13 @@ export const NAV: Record<Rol, NavGroup[]> = {
         { to: '/superadmin/llavero', label: 'Llavero de IA', icon: LockClosedIcon },
       ],
     },
-    { label: 'Operación', items: operacion.filter(i => i.to !== '/admin/usuarios') },
+    { label: 'Operación', items: operacion },
+    { label: 'Personas', items: personas },
   ],
   admin: [
     { items: [{ to: '/admin/dashboard', label: 'Resumen', icon: HomeIcon }] },
     { label: 'Operación', items: operacion },
+    { label: 'Personas', items: personas },
     { label: 'Cuenta', items: [{ to: '/admin/configuracion', label: 'Mi empresa', icon: Cog6ToothIcon }] },
   ],
   propietario: [
@@ -70,6 +79,18 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/seguridad/unidades', label: 'Unidades', icon: KeyIcon },
     ] },
   ],
+  limpieza: [
+    { items: [
+      { to: '/limpieza/inicio', label: 'Inicio', icon: SparklesIcon },
+      { to: '/limpieza/tareas', label: 'Mis tareas', icon: WrenchScrewdriverIcon },
+    ] },
+  ],
+  jardineria: [
+    { items: [
+      { to: '/jardineria/inicio', label: 'Inicio', icon: SunIcon },
+      { to: '/jardineria/tareas', label: 'Mis tareas', icon: WrenchScrewdriverIcon },
+    ] },
+  ],
 };
 
 /** Grupo «Junta» de presidente y tesorero: reusa las pantallas de la administración, acotadas por la API a su block. */
@@ -95,4 +116,6 @@ export const ROL_LABEL: Record<Rol, string> = {
   inquilino: 'Inquilino',
   mantenimiento: 'Mantenimiento',
   seguridad: 'Seguridad',
+  limpieza: 'Limpieza',
+  jardineria: 'Jardinería',
 };

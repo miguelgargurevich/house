@@ -1,7 +1,7 @@
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { invalid } from '../errors';
-import { scopeConceptos, scopeRecibos, scopeReciboConceptos } from '../lib/scope';
+import { scopeConceptos, scopeRecibosEscritura, scopeReciboConceptos, scopeReciboConceptosEscritura } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { idSchema, montoSchema, z } from '../validation';
 
@@ -15,7 +15,7 @@ const base = z.object({
 
 async function validarRefs(d: Record<string, unknown>, user: AuthUser, existing?: Record<string, unknown>) {
   const reciboId = (d.recibo_id ?? existing?.recibo_id) as number | undefined;
-  const recibo = reciboId != null ? await assertRef(prisma.recibo, reciboId, scopeRecibos(user), 'recibo_id') : null;
+  const recibo = reciboId != null ? await assertRef(prisma.recibo, reciboId, scopeRecibosEscritura(user), 'recibo_id') : null;
   if (d.concepto_id != null) {
     const concepto = await assertRef(prisma.concepto, d.concepto_id as number, scopeConceptos(user), 'concepto_id');
     if (recibo && concepto!.empresa_id !== recibo.empresa_id) {
@@ -32,6 +32,7 @@ export const reciboConceptosRouter = crudRouter({
   readRoles: ['admin'],
   writeRoles: ['admin'],
   scope: scopeReciboConceptos,
+  writeScope: scopeReciboConceptosEscritura,
   orderable: ['id', 'orden', 'monto'],
   defaultOrder: { id: 'asc' },
   include: { concepto: { select: { id: true, nombre: true } } },

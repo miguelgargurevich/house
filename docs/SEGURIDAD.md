@@ -20,7 +20,9 @@ Sin hallazgos críticos abiertos. El riesgo del token en `localStorage` quedó c
 | 10 | deps | 3 vulnerabilidades altas (`deepmerge-ts` vía Prisma CLI) | `overrides` a `deepmerge-ts@^8`; Prisma fijado en 6.19.3; `npm audit` en 0 |
 | 11 | deploy | Contenedor como root; healthcheck apuntaba a una ruta que no existe en producción; sin `package-lock.json` en el repo (`npm ci` fallaba) | `USER node`, `/api/health`, lockfile versionado |
 | 12 | xss | Script inline bloqueado por la CSP | `theme-init.js` externo; sin `dangerouslySetInnerHTML` en el código |
-| 13 | validation | Auditoría pedía orden `fecha`, el backend solo `created_at` | Corregido en la pantalla |
+| 13 | access-control | Proveedores, contratos y personal mezclados en una misma pantalla | Proveedores: cada administradora ve solo los suyos, otro tenant → 404; empresa del proveedor no se cambia por PUT. Contratos: solo superadmin cambia de administradora (admin → 403); un solo vigente por condominio con `FOR UPDATE`. Personal: limpieza y jardinería ven solo sus tareas y sus unidades, nada de cobranza (403). Residentes: sin `empresa_id`, alcance por condominio/unidades. |
+| 14 | access-control | Cambio de administradora sin historial ni cierre atómico | `cambiarAdministradora` cierra el vigente, abre el nuevo, mueve `complejo.empresa_id` y `unidad.empresa_id`, libera personal de la empresa anterior y revoca sus sesiones, todo en una transacción; idempotente al arrancar (`scripts/contratos-iniciales.ts`). |
+| 15 | validation | Auditoría pedía orden `fecha`, el backend solo `created_at` | Corregido en la pantalla |
 
 ## Llavero de IA (claves de proveedores)
 Pantalla `/superadmin/llavero` y API `/api/llavero` para guardar las API keys de Gemini, Groq, OpenRouter, OpenAI, DeepSeek y Mistral que usa el asistente.
