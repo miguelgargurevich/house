@@ -337,7 +337,7 @@ describe('evaluación: sin IA, PDF y proveedores', () => {
     assert.equal(conGemini.ev.estado, 'completada');
     assert.equal(conGemini.ev.proveedor, 'gemini');
     assert.equal(llamadas.length, 1);
-    assert.match(llamadas[0]!.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-2\.5-flash:generateContent$/);
+    assert.match(llamadas[0]!.url, /generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-flash-latest:generateContent$/);
     assert.equal(llamadas[0]!.cuerpo.contents[0].parts[1].inlineData.mimeType, 'application/pdf');
     assert.equal(llamadas[0]!.cuerpo.systemInstruction.parts[0].text, PROMPT_SISTEMA);
   });
