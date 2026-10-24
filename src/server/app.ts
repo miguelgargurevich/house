@@ -78,7 +78,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use(authenticate);
   api.use(auditoria);
   api.use('/auth', sesionRouter);
-  api.use('/ai-chat', limiters.ai, aiChatRouter);
+  api.use('/ai-chat', aiChatRouter(limiters.ai)); // el límite por usuario sólo cuenta los mensajes (POST), no las lecturas
   api.use('/llavero', llaveroRouter(limiters.llavero));
   api.use('/me/avisos', avisosPersonalesRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me/medios-pago', mediosPagoMeRouter); // antes de /me: ruta propia, sin tocar me.ts

@@ -3,8 +3,11 @@ import { LockClosedIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../api';
 import { Alert, Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, Skeleton, useToast } from '../../ui';
 import { ClaveModal } from './_parts/llavero/ClaveModal';
+import { Actividad } from './_parts/llavero/Actividad';
 import { ComoSeUsan } from './_parts/llavero/ComoSeUsan';
 import { GrupoProveedor } from './_parts/llavero/GrupoProveedor';
+import { ModeloModal } from './_parts/llavero/ModeloModal';
+import { SaludBanner } from './_parts/llavero/SaludBanner';
 import type { Clave, DatosLlavero, Proveedor } from './_parts/llavero/tipos';
 
 const REFRESCO_MS = 20_000;
@@ -15,6 +18,8 @@ export default function Llavero() {
   const [editando, setEditando] = useState<{ proveedor: Proveedor; existente: Clave | null } | null>(null);
   const [quitar, setQuitar] = useState<{ proveedor: Proveedor; clave: Clave } | null>(null);
   const [probando, setProbando] = useState<number | null>(null);
+  const [sincronizando, setSincronizando] = useState<number | null>(null);
+  const [modelo, setModelo] = useState<{ proveedor: Proveedor; clave: Clave } | null>(null);
   const [quitando, setQuitando] = useState(false);
 
   // Mientras la página está visible se refresca la lista para ver los enfriamientos; no toca modales ni foco.
@@ -33,6 +38,24 @@ export default function Llavero() {
       if (r.estado === 'ok') toast.ok(`${nombre(p, c)} responde bien`); else toast.error(`${nombre(p, c)}: ${r.estado_detalle ?? 'la prueba falló'}`);
       await reload();
     } catch (e) { toast.error(errorText(e)); } finally { setProbando(null); }
+  }
+
+  async function sincronizar(p: Proveedor, c: Clave) {
+    setSincronizando(c.id);
+    try {
+      const r = await api<{ ok: boolean; nuevos: number; deprecados: number; revividos: number; error: string | null }>(`/api/llavero/${c.id}/sincronizar`, { method: 'POST' });
+      if (!r.ok) toast.error(`${nombre(p, c)}: ${r.error ?? 'no se pudo sincronizar'}. No se retiró ningún modelo.`);
+      else toast.ok(r.nuevos + r.deprecados + r.revividos === 0 ? `${nombre(p, c)}: los modelos ya estaban al día` : `${nombre(p, c)}: ${r.nuevos} nuevos, ${r.deprecados} retirados, ${r.revividos} reactivados`);
+      await reload();
+    } catch (e) { toast.error(errorText(e)); } finally { setSincronizando(null); }
+  }
+
+  async function reserva(p: Proveedor, c: Clave, valor: boolean) {
+    try {
+      await api(`/api/llavero/${c.id}`, { method: 'PATCH', json: { reserva: valor } });
+      toast.ok(valor ? `${nombre(p, c)} será la reserva: sólo se usa si todo lo demás falla` : `${nombre(p, c)} vuelve al uso normal`);
+      await reload();
+    } catch (e) { toast.error(errorText(e)); }
   }
 
   async function alternar(p: Proveedor, c: Clave, habilitada: boolean) {
@@ -67,6 +90,7 @@ export default function Llavero() {
           </Alert>
         </div>
       )}
+      {data && <SaludBanner salud={data.salud} />}
       {data?.configurado && data.claves.length === 0 && (
         <div className="mb-4">
           <Alert tone="info">Aún no hay ninguna clave guardada. Mientras tanto el asistente usa la clave de Gemini del servidor, si existe.</Alert>
@@ -96,10 +120,14 @@ export default function Llavero() {
                   maxClaves={data.max_claves_por_proveedor}
                   deshabilitado={sinConfigurar}
                   probando={probando}
+                  sincronizando={sincronizando}
                   onAgregar={() => setEditando({ proveedor: p, existente: null })}
                   onProbar={c => void probar(p, c)}
+                  onSincronizar={c => void sincronizar(p, c)}
                   onCambiar={c => setEditando({ proveedor: p, existente: c })}
+                  onCambiarModelo={c => setModelo({ proveedor: p, clave: c })}
                   onAlternar={(c, h) => void alternar(p, c, h)}
+                  onReserva={(c, r) => void reserva(p, c, r)}
                   onQuitar={c => setQuitar({ proveedor: p, clave: c })}
                 />
               ))}
@@ -107,6 +135,10 @@ export default function Llavero() {
           </>
         ) : null}
       </Card>
+
+      {data && <Actividad cambios={data.cambios_recientes} consultas={data.consultas_recientes} />}
+
+      <ModeloModal objetivo={modelo} onClose={() => setModelo(null)} onGuardado={() => void reload()} />
 
       <ClaveModal
         proveedor={editando?.proveedor ?? null}

@@ -1,4 +1,5 @@
-import { Badge, Button, fechaCorta } from '../../../../ui';
+import { Alert, Badge, Button, fechaCorta } from '../../../../ui';
+import { fechaHora } from '../fechas';
 import { Interruptor } from '../../../admin/_parts/catalogo/Interruptor';
 import { Enfriando } from './Enfriando';
 import type { Clave, Proveedor } from './tipos';
@@ -17,13 +18,17 @@ interface Props {
   clave: Clave;
   deshabilitado: boolean;
   probando: boolean;
+  sincronizando: boolean;
   onProbar: () => void;
+  onSincronizar: () => void;
   onCambiar: () => void;
+  onCambiarModelo: () => void;
   onAlternar: (habilitada: boolean) => void;
+  onReserva: (reserva: boolean) => void;
   onQuitar: () => void;
 }
 
-export function FilaClave({ proveedor: p, clave: c, deshabilitado, probando, onProbar, onCambiar, onAlternar, onQuitar }: Props) {
+export function FilaClave({ proveedor: p, clave: c, deshabilitado, probando, sincronizando, onProbar, onSincronizar, onCambiar, onCambiarModelo, onAlternar, onReserva, onQuitar }: Props) {
   const estado = ESTADO[c.estado];
   const detalle = c.estado === 'rechazada' || c.estado === 'error' ? c.estado_detalle : null;
   return (
@@ -34,21 +39,35 @@ export function FilaClave({ proveedor: p, clave: c, deshabilitado, probando, onP
           <span className="num text-sm text-muted" aria-label={`Termina en ${c.ultimos4}`}>••••{c.ultimos4}</span>
           <Badge tone={estado.tone}>{estado.label}</Badge>
           <Enfriando hasta={c.enfriando_hasta} />
+          {c.reserva && <Badge tone="info">Reserva</Badge>}
         </div>
         {detalle && (
           <p className="mt-1 text-sm text-bad">
             {detalle}{c.estado === 'rechazada' && '. No se usa hasta que la pruebes bien o la reemplaces.'}
           </p>
         )}
+        {c.aviso_modelo && <div className="mt-2"><Alert tone="warn">{c.aviso_modelo}</Alert></div>}
+        <p className="mt-1 text-sm">
+          Modelo en uso: <span className="num font-medium">{c.modelo_en_uso ?? c.modelo ?? p.modeloPorDefecto}</span>
+          <span className="text-muted"> · {c.modelo ? 'fijado por ti' : 'automático'}</span>
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          <span className="num">{plural(c.modelos_activos, 'modelo activo', 'modelos activos')}</span>
+          {c.modelos_deprecados > 0 && <span className="num"> · {plural(c.modelos_deprecados, 'retirado', 'retirados')}</span>}
+          {' · '}Sincronizado: {c.ultima_sync ? <span className={c.ultima_sync.ok ? undefined : 'text-bad'}>{fechaHora(c.ultima_sync.at)}{!c.ultima_sync.ok && c.ultima_sync.error ? ` (${c.ultima_sync.error})` : ''}</span> : 'nunca'}
+        </p>
         <p className="mt-1 text-xs text-muted">
           <span className="num">{plural(c.uso.ok, 'uso', 'usos')} · {plural(c.uso.limite, 'límite', 'límites')}</span>
           {c.uso.error > 0 && <span className="num"> · {plural(c.uso.error, 'error', 'errores')}</span>}
-          {' · '}Modelo: <span className="num">{c.modelo ?? p.modeloPorDefecto}</span> · Última prueba: {fechaCorta(c.probada_at)} · Último uso: {fechaCorta(c.ultimo_uso_at)}
+          {' · '}Última prueba: {fechaCorta(c.probada_at)} · Último uso: {fechaCorta(c.ultimo_uso_at)}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2 md:justify-end">
         <Interruptor label="Habilitada" checked={c.habilitada} disabled={deshabilitado} onChange={e => onAlternar(e.target.checked)} className="mr-2" />
+        <Interruptor label="Reserva" hint="Sólo si lo demás falla" checked={c.reserva} disabled={deshabilitado} onChange={e => onReserva(e.target.checked)} className="mr-2" />
         <Button variant="secondary" loading={probando} disabled={deshabilitado} onClick={onProbar}>Probar</Button>
+        <Button variant="secondary" loading={sincronizando} disabled={deshabilitado} onClick={onSincronizar}>Sincronizar ahora</Button>
+        <Button variant="secondary" disabled={deshabilitado} onClick={onCambiarModelo}>Cambiar modelo</Button>
         <Button variant="secondary" disabled={deshabilitado} onClick={onCambiar}>Cambiar clave</Button>
         <Button variant="ghost" disabled={deshabilitado} onClick={onQuitar}>Quitar</Button>
       </div>

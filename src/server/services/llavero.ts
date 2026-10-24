@@ -3,20 +3,19 @@ import { HttpError, invalid, notFound } from '../errors';
 import { aadClave, cifrar, descifrar, llaveroConfigurado } from '../lib/secretBox';
 import { claveCooldown, enfriandoHasta, limpiar } from '../lib/cooldown';
 import { PROVEEDORES_IA, proveedorPorId, type ProveedorIA } from '../lib/proveedoresIA';
-import { ESTADO_RECHAZADA, olvidarUso, ordenProveedores, usoDe } from './rotacion';
+import { olvidarUso, ordenProveedores, usoDe } from './rotacion';
 
 /** Punto de inyección de `fetch` (las pruebas lo reemplazan; nunca hay red real en ellas). */
 export const llaveroDeps = {
   fetch: (url: string, init?: RequestInit): Promise<Response> => globalThis.fetch(url, init),
 };
 
-export const TOPE_PRUEBA_MS = 10_000;
 export const ETIQUETA_POR_DEFECTO = 'principal';
 export const MAX_CLAVES_POR_PROVEEDOR = 5;
 
 // Único `select` de la tabla hacia afuera: api_key_enc no sale nunca.
-const PUBLICA = {
-  id: true, proveedor: true, etiqueta: true, ultimos4: true, modelo: true, habilitada: true,
+export const PUBLICA = {
+  id: true, proveedor: true, etiqueta: true, ultimos4: true, modelo: true, habilitada: true, reserva: true, aviso_modelo: true,
   estado: true, estado_detalle: true, probada_at: true, ultimo_uso_at: true,
 } as const;
 
@@ -56,6 +55,7 @@ export async function guardar(input: { proveedor: string; etiqueta?: string; cla
     api_key_enc: cifrar(clave, aadClave(input.proveedor, etiqueta)),
     ultimos4: clave.slice(-4),
     modelo: input.modelo || null,
+    aviso_modelo: null,
     estado: 'sin_probar',
     estado_detalle: null,
     probada_at: null,
@@ -71,6 +71,8 @@ export async function guardar(input: { proveedor: string; etiqueta?: string; cla
     update: datos,
     select: PUBLICA,
   });
+  // Clave reemplazada: puede ser de otra cuenta, así que su catálogo de modelos se descarta (el sync lo vuelve a armar).
+  if (previa) await prisma.modeloIA.deleteMany({ where: { clave_id: fila.id } });
   // Clave nueva o reemplazada: parte de cero (sin enfriamiento ni contadores; el estado ya vuelve a sin_probar).
   limpiar(claveCooldown(fila.proveedor, fila.id));
   olvidarUso(fila.id);
@@ -83,9 +85,24 @@ export async function obtenerPublica(id: number) {
   return f;
 }
 
-export async function pausar(id: number, habilitada: boolean, usuarioId: number) {
+export interface Ajuste { habilitada?: boolean; reserva?: boolean; /** `null` = elección automática. */ modelo?: string | null }
+
+/** Pausa/habilita, marca como reserva o fija el modelo de la clave. Un modelo fijado debe estar activo en el catálogo de ESA clave (si ya hay catálogo). */
+export async function ajustar(id: number, a: Ajuste, usuarioId: number) {
   await obtenerPublica(id);
-  return prisma.claveIntegracion.update({ where: { id }, data: { habilitada, actualizado_por_id: usuarioId }, select: PUBLICA });
+  const data: { habilitada?: boolean; reserva?: boolean; modelo?: string | null; aviso_modelo?: null; actualizado_por_id: number } = { actualizado_por_id: usuarioId };
+  if (a.habilitada !== undefined) data.habilitada = a.habilitada;
+  if (a.reserva !== undefined) data.reserva = a.reserva;
+  if (a.modelo !== undefined) {
+    if (a.modelo !== null) {
+      const hayCatalogo = (await prisma.modeloIA.count({ where: { clave_id: id } })) > 0;
+      const vigente = await prisma.modeloIA.findFirst({ where: { clave_id: id, modelo_id: a.modelo, estado: { not: 'deprecado' }, categoria: { not: 'otro' } }, select: { id: true } });
+      if (hayCatalogo && !vigente) throw invalid('Datos inválidos: modelo: Ese modelo no está disponible para esta clave', { modelo: 'Ese modelo no está disponible para esta clave' });
+    }
+    data.modelo = a.modelo;
+    data.aviso_modelo = null; // la persona ya eligió: el aviso de «ya no existe» deja de aplicar
+  }
+  return prisma.claveIntegracion.update({ where: { id }, data, select: PUBLICA });
 }
 
 export async function borrar(id: number) {
@@ -108,39 +125,6 @@ export function detalleDeEstadoHttp(status: number): string {
   if (status >= 300 && status < 400) return 'El proveedor respondió con una redirección';
   if (status >= 500) return 'El proveedor tuvo un problema, intenta más tarde';
   return `El proveedor respondió HTTP ${status}`;
-}
-
-/** Llama a `GET /models` del proveedor (URL fija, sin seguir redirecciones) y guarda el resultado. */
-export async function probar(id: number) {
-  exigirConfigurado();
-  const f = await prisma.claveIntegracion.findUnique({ where: { id } });
-  if (!f) throw notFound('Clave');
-  const p = proveedorPorId(f.proveedor);
-  if (!p) throw notFound('Proveedor');
-
-  let estado: string;
-  let detalle: string | null;
-  try {
-    const clave = descifrar(f.api_key_enc, aadClave(f.proveedor, f.etiqueta));
-    const r = await llaveroDeps.fetch(`${p.baseUrl}/models`, {
-      method: 'GET',
-      headers: { Accept: 'application/json', ...cabecerasDe(p, clave) },
-      redirect: 'manual',
-      signal: AbortSignal.timeout(TOPE_PRUEBA_MS),
-    });
-    // Se descarta el cuerpo: nunca se guarda ni se devuelve lo que diga el proveedor.
-    await r.body?.cancel().catch(() => undefined);
-    if (r.ok) { estado = 'ok'; detalle = null; } else { estado = 'error'; detalle = detalleDeEstadoHttp(r.status); }
-  } catch (err) {
-    estado = 'error';
-    const nombre = err instanceof Error ? err.name : '';
-    detalle = nombre === 'TimeoutError' || nombre === 'AbortError' ? 'El proveedor no respondió a tiempo' : 'No se pudo conectar con el proveedor';
-    console.error(`[llavero] la prueba de ${f.proveedor} falló (${nombre || 'error'})`);
-  }
-  if (estado === 'ok') limpiar(claveCooldown(f.proveedor, f.id));
-  // Una clave rechazada sigue fuera de la rotación mientras la prueba no salga bien.
-  if (estado === 'error' && f.estado === ESTADO_RECHAZADA) estado = ESTADO_RECHAZADA;
-  return prisma.claveIntegracion.update({ where: { id }, data: { estado, estado_detalle: detalle, probada_at: new Date() }, select: PUBLICA });
 }
 
 export interface ClaveParaUso { proveedor: ProveedorIA; clave: string; modelo: string }

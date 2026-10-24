@@ -7,6 +7,9 @@ process.env.DATABASE_URL = URL_PRUEBAS;
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'secreto-de-pruebas-que-supera-los-32-caracteres';
 process.env.SESIONES_LIMPIEZA = 'off';
+process.env.MODELOS_SYNC = 'off';
+process.env.ASISTENTE_CANARY = 'off';
+process.env.ASISTENTE_LIMPIEZA = 'off';
 delete process.env.CORS_ORIGIN;
 delete process.env.GEMINI_API_KEY;
 

@@ -14,7 +14,7 @@ const MIN = 60_000;
 /** Pendiente = sin pagar y sin comprobante en revisión (`en_revision`) ni `pagado`. */
 const cargoPendiente: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: 'pendiente' }] };
 
-export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number };
+export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number };
 
 interface Cargado {
   datos: Parameters<typeof plantilla>[1];
@@ -22,6 +22,8 @@ interface Cargado {
 
 /** Reúne lo que lleva el mensaje. `null` si no hay nada que avisar a ese usuario (cargos ya pagados, recibo borrado…). */
 async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: string }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
+  // Avisos de la plataforma (estado de la IA): no hablan de cargos; el detalle viaja en `opts.motivo`.
+  if (ref.entidad === 'ia') return { datos: { nombre: usuario.nombre, periodo: '', monto: '', vencimiento: '' } };
   if (ref.entidad === 'cargo' || ref.entidad === 'pago') {
     const cargoId = ref.entidad === 'cargo' ? ref.id : (await prisma.pago.findUnique({ where: { id: ref.id }, select: { recibo_concepto_unidad_id: true } }))?.recibo_concepto_unidad_id;
     if (cargoId == null) return null;
@@ -76,6 +78,7 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
  * `ref` dice de qué trata el aviso y de ahí salen los datos del mensaje:
  *  - `{ entidad: 'recibo', id }` → recibo emitido / por vencer / vencido (suma los cargos del usuario en ese recibo);
  *  - `{ entidad: 'cargo', id }`  → un cargo (`ReciboConceptoUnidad.id`);
+ *  - `{ entidad: 'ia', id }`     → `ia_caida` / `ia_restablecida` (sólo superadmin; `id` distingue cada episodio; el detalle va en `opts.motivo`);
  *  - `{ entidad: 'pago', id }`   → `pago_validado` / `pago_rechazado` de ESE pago (los datos salen de su cargo; cada pago avisa una vez,
  *    aunque el mismo cargo se rechace, se vuelva a pagar y se rechace de nuevo).
  * `opts.motivo` es el motivo de un rechazo y va en el mensaje.

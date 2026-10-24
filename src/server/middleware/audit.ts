@@ -5,7 +5,9 @@ import { prisma } from '../db';
 const ACCION: Record<string, string> = { POST: 'crear', PUT: 'editar', PATCH: 'editar', DELETE: 'eliminar' };
 const SENSIBLE = /pass|token|secret|actual|nueva|hash|clave|key|authorization|credencial/i;
 // Rutas que mutan pero no son datos de negocio.
-const EXCLUIDAS = new Set(['/api/ai-chat', '/api/auth/login']);
+const EXCLUIDAS = new Set(['/api/auth/login']);
+// Todo `/api/ai-chat/*` queda fuera: el contenido de las conversaciones sólo lo ve su dueño (ni el superadmin, ni la auditoría).
+const excluida = (path: string) => EXCLUIDAS.has(path) || path === '/api/ai-chat' || path.startsWith('/api/ai-chat/');
 
 export const ipDe = (req: Request) => req.ip ?? null;
 
@@ -41,7 +43,7 @@ export const auditoria: RequestHandler = (req, res, next) => {
     if (res.statusCode < 200 || res.statusCode >= 300) return;
     const accion = (res.locals.accion as string | undefined) ?? ACCION[req.method]!;
     const path = req.baseUrl + req.path;
-    if (EXCLUIDAS.has(path)) return;
+    if (excluida(path)) return;
     const entidad = (res.locals.entidad as string | undefined) ?? path.split('/')[2] ?? 'desconocida';
     void registrarAuditoria({
       usuario_id: req.user?.id,

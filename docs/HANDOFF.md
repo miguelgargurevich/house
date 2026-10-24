@@ -4,6 +4,42 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/asistente`
+
+**Qué se hizo:** el chat de IA deja de depender de modelos fijos y de un solo intento: descubre y depreca modelos solo, responde en streaming con conversaciones guardadas, usa datos verificados de la cuenta, y no se queda sin IA aunque caigan los proveedores. Pedido de Miguel: «corrige y mejora el chat de IA, revisa cómo lo hicimos en My Workspace» (en producción respondía «No pude responder: El servicio de IA no pudo responder»: Gemini 404, Groq 404 y OpenRouter 402 porque los modelos por defecto ya no existían o eran de pago).
+- **Esquema (aditivo, al final de cada bloque):** `ModeloIA`, `SyncModelosIA`, `ConversacionIA`, `MensajeIA` (con `modo`), `EstadoIA`; en `ClaveIntegracion`: `reserva` y `aviso_modelo`. `db push` sólo contra `house_test_asistente`.
+- **Catálogo vivo** (`services/modelos/`: `sync.ts`, `seleccion.ts`, `retiro.ts`; `lib/modelosIA.ts`, `lib/modelosMalos.ts`): `GET /models` por clave; nuevo → `activo`, ausente → `deprecado` con fecha (nunca se borra), reaparecido → `activo`; lista vacía o error del proveedor no deprecan nada. Clasificador por nombre, filtro de no‑chat, `elegirModeloAuto` con preferencias por proveedor y categoría según esfuerzo/largo del mensaje. Se dispara al guardar/habilitar una clave, en «Probar», en «Sincronizar ahora» y cada 6 h con `pg_try_advisory_xact_lock` (`MODELOS_SYNC`).
+- **Motor** (`services/asistente/motor.ts`, `proveedor.ts`): la unidad de rotación es la ruta (clave, modelo). 404 de modelo = vale para el PROVEEDOR 10 min (memoria) y deprecado en la base al instante; 402 de OpenRouter con un modelo de pago prueba un `:free`; 400 por parámetro no soportado se reintenta una vez sin opcionales; tope de rutas distintas (6; `LLAVERO_MAX_INTENTOS`) y de tiempo (25 s; `LLAVERO_TOPE_MS`); la reserva (`ClaveIntegracion.reserva`) va al final con su propio margen. Streaming SSE (Gemini `:streamGenerateContent?alt=sse` y `stream: true`), cancelación del cliente corta la llamada al proveedor.
+- **Chat y conversaciones** (`routes/aiChat.ts`, `services/asistente/turno.ts`, `conversaciones.ts`): `POST /api/ai-chat` (compatible + `conversacion_id`), `POST /api/ai-chat/stream`, `GET /opciones`, `GET/DELETE /conversaciones[/:id]`. El historial lo arma el servidor (10 turnos, ~6000 caracteres). Parámetros `modelo|preset|parametros|esfuerzo` con zod; la regla por rol se aplica en el servidor (sólo admin/superadmin eligen modelo y esfuerzo y pasan de 1024 tokens). Métricas por mensaje (proveedor, modelo, latencia, tokens). Retención 90 días (`ASISTENTE_LIMPIEZA`). **`/api/ai-chat/*` quedó fuera de la auditoría** (`middleware/audit.ts`): el contenido sólo lo ve su dueño.
+- **Contexto y prompt** (`services/asistente/contexto.ts`, `lib/rutasApp.ts`, `src/config/ai-system-prompt.txt`): bloque «DATOS VERIFICADOS» armado por código con los scopes de las APIs; prompt reescrito con las rutas reales (una prueba las compara con `App.tsx`). Contingencia sin IA con los mismos datos cuando ninguna ruta responde (`modo: 'contingencia'`).
+- **Resiliencia**: «Probar» ejercita el chat de verdad (`prueba.ts`); recuperación de claves rechazadas (`recuperacion.ts`: cada 6 h y en el sync, separación de 5 h y 8 reintentos); canary (`canary.ts`: cada 30 min, máx. 50/día, `ASISTENTE_CANARY`); salud y alertas (`salud.ts`: `GET /api/llavero` → `salud`, aviso `ia_caida`/`ia_restablecida` al superadmin). **Tocó avisos de forma aditiva**: `TIPOS` + 2 plantillas, `RefAviso` `{ entidad: 'ia' }` y 2 etiquetas en `pages/admin/Avisos.tsx`.
+- **Frontend** (`src/app/Assistant.tsx`, `src/app/asistente/`): streaming con «Detener», «Pensando…», «Reintentar», nueva conversación y selector de las últimas 20 con «Borrar» confirmado, «Copiar», chips por rol, borrador conservado, foco y Esc, `role="dialog"` modal sólo en móvil, scroll que no pelea, Markdown seguro (sólo rutas internas y `https`), errores por causa, métricas sólo para el superadmin, menú «Ajustes» (Modelo / Creatividad con «A medida» / Esfuerzo) guardado por usuario. Llavero (`pages/superadmin/_parts/llavero/`): banner de salud, modelo en uso, «Cambiar modelo», «Sincronizar ahora», reserva, «Cambios recientes» y «Consultas recientes». La lógica pura está en `src/app/asistente/*.ts` y se prueba con `node:test`.
+- **Docs**: `docs/SEGURIDAD.md` (rotación nueva, catálogo vivo, resiliencia, sección «Asistente de IA»), `docs/API-CONTRATO.md` (sección nueva), `.env.example`.
+
+**Próximos pasos:**
+- **Revisar el panel y el Llavero en un navegador real (no hubo)**, sobre todo en el celular: teclado, foco, menú «Ajustes», modo oscuro y el `visualViewport`.
+- Probar con las claves REALES de producción (sólo se probó con `fetch` falso): respuestas de cada proveedor, el stream real de Gemini/Groq/OpenRouter, que `gemini-flash-latest` y `openai/gpt-oss-120b` aguanten el `thinkingConfig`/`reasoning_effort`, y que el sync clasifique bien los ~469 modelos de OpenRouter.
+- Tras desplegar: `MODELOS_SYNC`, `ASISTENTE_CANARY` y `ASISTENTE_LIMPIEZA` quedan activas solas en producción; pulsar «Sincronizar ahora» en cada clave y «Probar» para ver el modelo que elige el Auto.
+- Decidir si se marca alguna clave de OpenRouter con saldo como **reserva**.
+
+**Decisiones:**
+- Mensajes cortos (< 60 caracteres) o esfuerzo bajo prefieren un modelo rápido/equilibrado en Auto (pedido); por eso con «Hola» el Auto de Groq elige `qwen` y no `gpt-oss-120b`. La lista de preferencia sólo manda dentro de la categoría pedida y el resto queda de respaldo.
+- Un 400 que persiste sin opcionales ya NO corta la consulta (antes «es culpa de la petición»): se prueba la siguiente ruta sin castigar la clave. Gemma vía Gemini, p. ej., rechaza `systemInstruction` con 400.
+- **Canary**: el pedido decía «una consulta por proveedor cada 30 min» y «máx. ~50 al día»; con 3+ proveedores no caben las dos. Cada pasada revisa a los proveedores más rezagados (rotando) y el presupuesto reparte 50/día en las 48 pasadas.
+- Si no hay NINGUNA clave (ni `GEMINI_API_KEY`), `POST /api/ai-chat` sigue dando 500 «no está configurada» (no contingencia): es un problema de configuración, no una caída.
+- La salud en pantalla sigue en rojo, aunque venza el enfriamiento, hasta que una consulta real o el canary confirmen la recuperación.
+- Los tokens de «pensar/razonar» se suman al tope de salida (si no, la respuesta llegaba vacía o cortada con `maxTokens` 1024).
+- El título de la conversación son las primeras 8 palabras del primer mensaje; un «Reintentar» repite la pregunta y el historial no la duplica.
+
+**Gotchas:**
+- `prisma generate` actualizó el cliente compartido del checkout principal (tablas/campos nuevos; nada se quitó).
+- Las pruebas usan `tests/helpers/ia.ts` (proveedores falsos: lista de modelos, chat, SSE manual) y el reloj `cooldownDeps.ahora`; `tests/helpers/env.ts` apaga `MODELOS_SYNC`, `ASISTENTE_CANARY` y `ASISTENTE_LIMPIEZA`.
+- Las pruebas viejas de rotación se ajustaron a lo que cambió a propósito: `conversacion_id` en la respuesta, contingencia en lugar de 503/429, 400 con reintento, tope de 6 rutas, «Probar» con dos llamadas.
+- El canary, la recuperación y las alertas viven en proceso: con varias réplicas el estado de memoria (enfriamientos, modelos malos, presupuesto) es por réplica; el de la base (salud, catálogo) se comparte.
+- Sin `LLAVERO_ENC_KEY` nada de esto corre (el llavero responde 503), y los avisos de «IA sin servicio» salen por correo/WhatsApp sólo si el superadmin tiene esos canales activos.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/evaluacion-ia`
 
 **Qué se hizo:** el residente sube la captura de su pago y la IA (visión) la lee; el código la contrasta con lo que debía pagarse. Además, avisos al residente al validar o rechazar. La IA AYUDA: las decisiones salen de comparaciones por código, nunca del texto del modelo.

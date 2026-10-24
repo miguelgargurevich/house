@@ -9,15 +9,19 @@ interface Props {
   maxClaves: number;
   deshabilitado: boolean;
   probando: number | null;
+  sincronizando: number | null;
   onAgregar: () => void;
   onProbar: (c: Clave) => void;
+  onSincronizar: (c: Clave) => void;
   onCambiar: (c: Clave) => void;
+  onCambiarModelo: (c: Clave) => void;
   onAlternar: (c: Clave, habilitada: boolean) => void;
+  onReserva: (c: Clave, reserva: boolean) => void;
   onQuitar: (c: Clave) => void;
 }
 
 /** Un proveedor con sus claves como filas; sin tarjetas anidadas. */
-export function GrupoProveedor({ proveedor: p, claves, maxClaves, deshabilitado, probando, onAgregar, onProbar, onCambiar, onAlternar, onQuitar }: Props) {
+export function GrupoProveedor({ proveedor: p, claves, maxClaves, deshabilitado, probando, sincronizando, onAgregar, onProbar, onSincronizar, onCambiar, onCambiarModelo, onAlternar, onReserva, onQuitar }: Props) {
   const lleno = claves.length >= maxClaves;
   return (
     <li>
@@ -43,9 +47,13 @@ export function GrupoProveedor({ proveedor: p, claves, maxClaves, deshabilitado,
               clave={c}
               deshabilitado={deshabilitado}
               probando={probando === c.id}
+              sincronizando={sincronizando === c.id}
               onProbar={() => onProbar(c)}
+              onSincronizar={() => onSincronizar(c)}
               onCambiar={() => onCambiar(c)}
+              onCambiarModelo={() => onCambiarModelo(c)}
               onAlternar={h => onAlternar(c, h)}
+              onReserva={r => onReserva(c, r)}
               onQuitar={() => onQuitar(c)}
             />
           ))}

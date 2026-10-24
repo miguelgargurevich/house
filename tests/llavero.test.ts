@@ -4,6 +4,7 @@ import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { esperar, iniciar, llamar, login, prisma, sembrar } from './helpers/app';
 import { aadClave, cifrar, descifrar } from '../src/server/lib/secretBox';
 import { limpiarTodo } from '../src/server/lib/cooldown';
+import { FRASE_CONTINGENCIA } from '../src/server/services/asistente/contexto';
 import { llaveroDeps, obtenerClaveParaUso } from '../src/server/services/llavero';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
 
@@ -17,7 +18,9 @@ let T: { super: string; adminA: string; prop1: string };
 
 type Llamada = { url: string; init: RequestInit };
 let llamadas: Llamada[] = [];
-let respuestaFalsa: (url: string, init: RequestInit) => Response | Promise<Response> = () => new Response('{}', { status: 200 });
+// Por omisión responde a todo bien: lista de modelos (`GET /models`, de ambos tipos) y una respuesta de chat.
+const todoOk = () => new Response(JSON.stringify({ data: [{ id: 'm-test' }], models: [{ name: 'models/m-test', supportedGenerationMethods: ['generateContent'] }], choices: [{ message: { content: 'ok' } }], candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
+let respuestaFalsa: (url: string, init: RequestInit) => Response | Promise<Response> = todoOk;
 const fetchOriginal = llaveroDeps.fetch;
 const cabecera = (l: Llamada, nombre: string) => (l.init.headers as Record<string, string>)[nombre];
 
@@ -58,7 +61,7 @@ beforeEach(async () => {
   olvidarTodoUso();
   llamadas = [];
   logs.length = 0;
-  respuestaFalsa = () => new Response('{}', { status: 200 });
+  respuestaFalsa = todoOk;
   espiar();
 });
 afterEach(restaurarConsola);
@@ -232,13 +235,21 @@ describe('probar', () => {
     assert.equal(rg.body.estado, 'ok');
     assert.ok(rg.body.probada_at);
     await llamar(base, 'POST', `/api/llavero/${o.body.id}/probar`, T.super);
+    // Cada prueba hace DOS llamadas: la lista de modelos y UNA consulta mínima de chat.
     assert.equal(llamadas[0].url, 'https://generativelanguage.googleapis.com/v1beta/models');
     assert.equal(cabecera(llamadas[0], 'x-goog-api-key'), KEY);
     assert.equal(llamadas[0].init.method, 'GET');
     assert.equal(llamadas[0].init.redirect, 'manual');
     assert.ok(llamadas[0].init.signal);
-    assert.equal(llamadas[1].url, 'https://api.openai.com/v1/models');
-    assert.equal(cabecera(llamadas[1], 'Authorization'), `Bearer ${KEY2}`);
+    assert.equal(llamadas[1].url, 'https://generativelanguage.googleapis.com/v1beta/models/m-test:generateContent');
+    assert.equal(llamadas[1].init.method, 'POST');
+    assert.equal(llamadas.length, 4);
+    assert.equal(llamadas[2].url, 'https://api.openai.com/v1/models');
+    assert.equal(cabecera(llamadas[2], 'Authorization'), `Bearer ${KEY2}`);
+    const chat = JSON.parse(llamadas[3].init.body as string);
+    assert.equal(llamadas[3].url, 'https://api.openai.com/v1/chat/completions');
+    assert.equal(chat.model, 'm-test', 'prueba con el modelo de la lista viva, no con un nombre fijo');
+    assert.equal(chat.max_completion_tokens, 8, 'consulta mínima');
   });
 
   it('error: 401/403, 429, redirección, 500, timeout y red; el detalle no filtra la clave ni el cuerpo', async () => {
@@ -307,18 +318,20 @@ describe('asistente IA', () => {
 
     let r = await chat();
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { response: 'Respuesta de Gemini' });
+    assert.equal(r.body.response, 'Respuesta de Gemini');
     assert.equal(llamadas.at(-1)!.url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent');
     assert.equal(cabecera(llamadas.at(-1)!, 'x-goog-api-key'), 'gemini-prueba-0001');
 
     await llamar(base, 'PATCH', `/api/llavero/${gem.body.id}`, T.super, { habilitada: false });
     r = await chat();
-    assert.deepEqual(r.body, { response: 'Respuesta compatible' });
+    assert.equal(r.body.response, 'Respuesta compatible');
     assert.equal(llamadas.at(-1)!.url, 'https://api.groq.com/openai/v1/chat/completions');
     assert.equal(cabecera(llamadas.at(-1)!, 'Authorization'), 'Bearer groq-prueba-00003');
     const cuerpo = JSON.parse(llamadas.at(-1)!.init.body as string);
     assert.equal(cuerpo.model, 'openai/gpt-oss-120b');
-    assert.ok(cuerpo.messages[0].content.includes('MENSAJE DEL USUARIO:\nHola'));
+    assert.equal(cuerpo.messages[0].role, 'system');
+    assert.ok(cuerpo.messages[0].content.includes('DATOS VERIFICADOS DEL USUARIO'), 'el prompt lleva los datos verificados');
+    assert.deepEqual(cuerpo.messages.at(-1), { role: 'user', content: 'Hola' });
 
     await llamar(base, 'PATCH', `/api/llavero/${groq.body.id}`, T.super, { habilitada: false });
     await chat();
@@ -328,7 +341,7 @@ describe('asistente IA', () => {
     await prisma.claveIntegracion.deleteMany();
     process.env.GEMINI_API_KEY = 'gemini-entorno-0004';
     r = await chat();
-    assert.deepEqual(r.body, { response: 'Respuesta de Gemini' });
+    assert.equal(r.body.response, 'Respuesta de Gemini');
     assert.equal(cabecera(llamadas.at(-1)!, 'x-goog-api-key'), 'gemini-entorno-0004');
   });
 
@@ -342,11 +355,13 @@ describe('asistente IA', () => {
     await guardar('groq', 'groq-prueba-00003');
     respuestaFalsa = () => new Response('{}', { status: 500 });
     r = await chat();
-    assert.equal(r.status, 503);
-    assert.deepEqual(r.body, { error: { code: 503, message: 'El servicio de IA no pudo responder. Intenta de nuevo más tarde.' } });
+    // Ninguna ruta responde: ya no es un error genérico; el asistente contesta con lo que sabe de la cuenta (sin IA).
+    assert.equal(r.status, 200);
+    assert.equal(r.body.modo, 'contingencia');
+    assert.ok(r.body.response.startsWith(FRASE_CONTINGENCIA));
     assert.equal(llamadas.length, 2, 'rotó al siguiente proveedor y también falló');
     respuestaFalsa = () => new Response('{}', { status: 429 });
-    assert.equal((await chat()).status, 429);
+    assert.equal((await chat()).body.modo, 'contingencia');
   });
 });
 

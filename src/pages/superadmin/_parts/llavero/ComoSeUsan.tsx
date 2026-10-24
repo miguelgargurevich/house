@@ -19,7 +19,7 @@ export function ComoSeUsan({ orden, proveedores }: { orden: string[]; proveedore
             ))}
           </ol>
         )}
-        <p className="mt-1 text-sm text-muted">El asistente usa la primera clave disponible. Si una se agota o falla, pasa sola a la siguiente clave o al siguiente proveedor.</p>
+        <p className="mt-1 text-sm text-muted">El asistente usa la primera clave disponible con un modelo vigente. Si una clave se agota o un modelo deja de existir, pasa solo a otro modelo, a la siguiente clave o al siguiente proveedor. Las claves marcadas como reserva se usan sólo al final.</p>
       </div>
     </div>
   );
