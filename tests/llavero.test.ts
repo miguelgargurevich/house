@@ -92,7 +92,7 @@ describe('acceso', () => {
     assert.equal(ok.body.claves.length, 1, 'el admin no pudo borrar nada');
     assert.equal(ok.body.claves[0].habilitada, true);
     assert.equal(ok.body.claves[0].ultimos4, KEY.slice(-4), 'el admin no pudo reemplazar la clave');
-    assert.deepEqual(ok.body.proveedores.map((p: { id: string }) => p.id).sort(), ['deepseek', 'gemini', 'groq', 'mistral', 'openai', 'openrouter']);
+    assert.deepEqual(ok.body.proveedores.map((p: { id: string }) => p.id).sort(), ['cerebras', 'cohere', 'deepseek', 'gemini', 'groq', 'kilo', 'llm7', 'mistral', 'nvidia', 'ollama', 'openai', 'openrouter', 'sambanova']);
     assert.ok(ok.body.proveedores.every((p: Record<string, unknown>) => p.nombre && p.descripcion && p.urlParaConseguirKey && p.modeloPorDefecto && !('baseUrl' in p)));
   });
 });
