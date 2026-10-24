@@ -29,6 +29,7 @@ import { mediosPagoMeRouter, mediosPagoRouter } from './routes/mediosPago';
 import { notificacionesRouter } from './routes/notificaciones';
 import { pagosRouter } from './routes/pagos';
 import { pisosRouter } from './routes/pisos';
+import { proveedoresRouter } from './routes/proveedores';
 import { reciboConceptosRouter } from './routes/reciboConceptos';
 import { recibosRouter } from './routes/recibos';
 import { reportesRouter } from './routes/reportes';
@@ -111,6 +112,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/pagos', pagosRouter);
   api.use('/recibo-conceptos', reciboConceptosRouter);
   api.use('/recibo-concepto-unidades', cargosRouter);
+  api.use('/proveedores', proveedoresRouter);
   api.use('/tareas', tareasRouter);
   api.use('/auditoria', auditoriaRouter);
   app.use('/api', api);

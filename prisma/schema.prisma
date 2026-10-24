@@ -14,9 +14,12 @@ model TareaMantenimiento {
   estado         String    @default("pendiente")
   unidad_id      Int?
   asignado_id    Int?
+  /// Alternativa a `asignado_id`: la tarea la hace un proveedor externo (directorio de la administradora).
+  proveedor_id   Int?
   creado_por_id  Int?
   fecha_creacion DateTime  @default(now())
   fecha_cierre   DateTime?
+  proveedor      Proveedor? @relation(fields: [proveedor_id], references: [id], onDelete: SetNull)
   asignado       Usuario?  @relation("TareaAsignado", fields: [asignado_id], references: [id])
   creado_por     Usuario?  @relation("TareaCreador", fields: [creado_por_id], references: [id])
   unidad         Unidad?   @relation(fields: [unidad_id], references: [id])
@@ -69,6 +72,8 @@ model EmpresaAdministradora {
   fecha_fin           DateTime?
   estado              String?                @default("activa")
   complejos           ComplejoHabitacional[]
+  contratos           ContratoAdministracion[]
+  proveedores         Proveedor[]
   conceptos           Concepto[]
   recibos             Recibo[]
   unidades            Unidad[]
@@ -88,8 +93,57 @@ model ComplejoHabitacional {
   unidades    Unidad[]
   usuarios    Usuario[]
   mediosPago  MedioPago[]
+  contratos   ContratoAdministracion[]
+  proveedores ProveedorComplejo[]
   /// Si está activa, un comprobante que la IA lee como «coincide» (confianza alta, sin duplicados) valida el pago solo. Nunca rechaza.
   validacion_automatica_ia Boolean @default(false)
+}
+
+/// Quién administra un condominio y desde cuándo. Un solo contrato vigente (`fecha_fin` null) por condominio; `ComplejoHabitacional.empresa_id` es la empresa de ese contrato.
+model ContratoAdministracion {
+  id            Int                   @id @default(autoincrement())
+  complejo_id   Int
+  empresa_id    Int
+  fecha_inicio  DateTime
+  fecha_fin     DateTime?
+  observaciones String?
+  created_at    DateTime              @default(now())
+  complejo      ComplejoHabitacional  @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  empresa       EmpresaAdministradora @relation(fields: [empresa_id], references: [id])
+
+  @@index([complejo_id, fecha_fin])
+  @@index([empresa_id])
+}
+
+/// Proveedor externo de la administradora (ascensores, gasfitería, pintura…). Sólo ficha: no inicia sesión. Se asigna a tareas de mantenimiento.
+model Proveedor {
+  id              Int                    @id @default(autoincrement())
+  empresa_id      Int
+  razon_social    String
+  ruc             String?
+  rubro           String
+  contacto_nombre String?
+  telefono        String?
+  email           String?
+  notas           String?
+  activo          Boolean                @default(true)
+  created_at      DateTime               @default(now())
+  updated_at      DateTime               @updatedAt
+  empresa         EmpresaAdministradora  @relation(fields: [empresa_id], references: [id])
+  complejos       ProveedorComplejo[]
+  tareas          TareaMantenimiento[]
+
+  @@index([empresa_id, rubro])
+}
+
+/// Condominios que atiende un proveedor.
+model ProveedorComplejo {
+  proveedor_id Int
+  complejo_id  Int
+  proveedor    Proveedor            @relation(fields: [proveedor_id], references: [id], onDelete: Cascade)
+  complejo     ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+
+  @@id([proveedor_id, complejo_id])
 }
 
 model Estructura {

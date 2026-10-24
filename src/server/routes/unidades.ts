@@ -33,8 +33,8 @@ async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
 export const unidadesRouter = crudRouter({
   entidad: 'unidad',
   delegate: prisma.unidad,
-  // mantenimiento y seguridad sólo leen (alcance acotado en scopeUnidades)
-  readRoles: ['admin', 'mantenimiento', 'seguridad'],
+  // el personal sólo lee (alcance acotado en scopeUnidades)
+  readRoles: ['admin', 'mantenimiento', 'seguridad', 'limpieza', 'jardineria'],
   writeRoles: ['admin'],
   scope: scopeUnidades,
   search: ['codigo', 'descripcion'],

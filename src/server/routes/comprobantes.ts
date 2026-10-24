@@ -5,7 +5,7 @@ import { prisma } from '../db';
 import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
 import { esJunta } from '../lib/junta';
-import { scopePagos, scopePagosJunta } from '../lib/scope';
+import { scopePagos, scopePagosEscritura, scopePagosJunta } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { estadoParaResidente, selectEvaluacion } from '../lib/evaluacionVista';
@@ -42,7 +42,7 @@ const cargador = (alcanceDe: (u: AuthUser) => Prisma.PagoWhereInput): RequestHan
 
 const cargarPago = cargador(alcance);
 /** Validar: el admin de la empresa o la junta del ámbito de la unidad (no basta ser dueño de la unidad). */
-const cargarPagoAValidar = cargador((u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagos(u)));
+const cargarPagoAValidar = cargador((u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagosEscritura(u)));
 
 type PagoCargado = { id: number; usuario_id: number | null; estado_validacion: string; recibo_concepto_unidad_id: number | null; fecha_pago: Date };
 

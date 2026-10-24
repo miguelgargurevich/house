@@ -5,7 +5,7 @@ import { conflict, invalid } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
 import { esJunta } from '../lib/junta';
 import { conResumenDeGrupo, soloPrincipales } from '../services/mantenimiento';
-import { scopeCargos, scopePagos, scopePagosJunta, scopeUsuarios } from '../lib/scope';
+import { scopeCargosEscritura, scopePagos, scopePagosEscritura, scopePagosJunta, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
 
@@ -40,7 +40,7 @@ export async function sincronizarCargo(tx: Prisma.TransactionClient, cargoId: nu
 
 async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
   if (d.recibo_concepto_unidad_id != null) {
-    const cargo = await assertRef(prisma.reciboConceptoUnidad, d.recibo_concepto_unidad_id as number, scopeCargos(user), 'recibo_concepto_unidad_id');
+    const cargo = await assertRef(prisma.reciboConceptoUnidad, d.recibo_concepto_unidad_id as number, scopeCargosEscritura(user), 'recibo_concepto_unidad_id');
     if (d.monto != null) {
       // Un pago por validar ya reclama su monto; uno rechazado no.
       const { _sum } = await prisma.pago.aggregate({ where: { recibo_concepto_unidad_id: cargo!.id as number, estado_validacion: { not: 'rechazado' } }, _sum: { monto: true } });
@@ -63,6 +63,7 @@ export const pagosRouter = crudRouter({
   // La junta (presidente/tesorero) sólo LEE los pagos de su ámbito; registrar, editar y borrar siguen siendo del admin.
   readAlso: esJunta,
   scope: (u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagos(u)),
+  writeScope: (u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagosEscritura(u)),
   search: ['referencia', 'observaciones', 'reciboConceptoUnidad.unidad.codigo'],
   orderable: ['id', 'monto', 'fecha_pago', 'metodo_pago'],
   defaultOrder: { fecha_pago: 'desc' },

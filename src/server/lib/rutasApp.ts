@@ -6,7 +6,7 @@ import { esJunta } from './junta';
 
 const OPERACION = [
   '/admin/dashboard', '/admin/complejos', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad',
-  '/admin/mantenimientos', '/admin/conceptos', '/admin/usuarios', '/admin/configuracion', '/admin/avisos', '/admin/medios-pago',
+  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/medios-pago',
 ] as const;
 
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
@@ -16,6 +16,8 @@ export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
   inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos'],
   mantenimiento: ['/mantenimiento/inicio', '/mantenimiento/tareas'],
   seguridad: ['/seguridad/inicio', '/seguridad/unidades'],
+  limpieza: ['/limpieza/inicio', '/limpieza/tareas'],
+  jardineria: ['/jardineria/inicio', '/jardineria/tareas'],
 };
 export const RUTAS_JUNTA = ['/junta/medios-pago', '/junta/pagos'] as const;
 export const RUTAS_COMUNES = ['/perfil'] as const;

@@ -1,4 +1,4 @@
-type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad';
+type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad' | 'limpieza' | 'jardineria';
 
 /** Chips del panel vacío, por rol. */
 export const SUGERENCIAS: Record<Rol, string[]> = {
@@ -8,6 +8,8 @@ export const SUGERENCIAS: Record<Rol, string[]> = {
   superadmin: ['¿Cómo agrego una clave de IA?', '¿Qué pagos hay por validar?', '¿Cómo sé si la IA está funcionando?'],
   mantenimiento: ['¿Cuántas tareas tengo abiertas?', '¿Cómo actualizo una tarea?'],
   seguridad: ['¿Qué puedo ver en la app?', '¿Cómo cambio mi contraseña?'],
+  limpieza: ['¿Cuántas tareas tengo abiertas?', '¿Cómo actualizo una tarea?'],
+  jardineria: ['¿Cuántas tareas tengo abiertas?', '¿Cómo actualizo una tarea?'],
 };
 
 /** Para el cargo de junta (presidente/tesorero) se suma lo suyo. */

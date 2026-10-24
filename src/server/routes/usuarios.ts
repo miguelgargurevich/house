@@ -1,10 +1,11 @@
 import bcrypt from 'bcrypt';
-import { BCRYPT_COST } from '../config';
+import { BCRYPT_COST, ROLES_PERSONAL, ROLES_RESIDENTE } from '../config';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { forbidden, invalid } from '../errors';
+import { filtroEstadoCargo } from '../lib/cargos';
 import { CARGOS_JUNTA } from '../lib/junta';
-import { empresaDe, scopeComplejos, scopeEstructuras, scopeUsuarios } from '../lib/scope';
+import { empresaDe, scopeComplejos, scopeEstructuras, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { revocarDeUsuario } from '../services/sesiones';
 import { emailSchema, idSchema, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
@@ -19,8 +20,15 @@ const base = z.object({
   cargo_junta: z.enum(CARGOS_JUNTA, { error: `cargo_junta debe ser: ${CARGOS_JUNTA.join(', ')}` }).nullish(),
   estructura_id: idSchema.nullish(),
 });
-const createSchema = base.extend({ password: passwordSchema });
+const createSchema = base.extend({
+  password: passwordSchema,
+  /** Sólo al crear un residente: la unidad de la que es propietario o inquilino (según su rol). */
+  unidad_id: idSchema.nullish(),
+});
 const updateSchema = base.partial().extend({ password: passwordSchema.optional() });
+
+type UnidadResidente = { id: number; codigo: string; complejo: { id: number; nombre: string } | null; estructura: { id: number; nombre: string | null } | null };
+const unidadFila = (u: UnidadResidente) => ({ id: u.id, codigo: u.codigo, complejo: u.complejo, estructura: u.estructura });
 
 /**
  * Cargo en la junta: sólo lo asigna un admin/superadmin (este router ya lo exige), exige rol propietario y condominio,
@@ -49,7 +57,7 @@ async function normalizarJunta(out: Record<string, unknown> & { rol?: string; co
 
 /** Reglas de tenant y de escalada de privilegios comunes a crear y editar. */
 async function normalizar(data: Record<string, unknown>, user: AuthUser, existing?: Record<string, unknown>) {
-  const out = { ...data } as Record<string, unknown> & { password?: string; rol?: string; empresa_id?: number | null; complejo_id?: number | null; cargo_junta?: string | null; estructura_id?: number | null };
+  const out = { ...data } as Record<string, unknown> & { password?: string; unidad_id?: number | null; rol?: string; empresa_id?: number | null; complejo_id?: number | null; cargo_junta?: string | null; estructura_id?: number | null };
 
   if (user.rol === 'admin') {
     if (out.rol === 'superadmin') throw forbidden('No puedes crear ni ascender usuarios a superadmin');
@@ -81,6 +89,15 @@ async function normalizar(data: Record<string, unknown>, user: AuthUser, existin
     await assertRef(prisma.empresaAdministradora, out.empresa_id, {}, 'empresa_id');
   }
   await normalizarJunta(out, user, existing);
+  // Al crear un residente se le puede dar de una vez su departamento (propietario o inquilino de esa unidad, libre, del condominio elegido).
+  if (out.unidad_id != null) {
+    if (rolFinal !== 'propietario' && rolFinal !== 'inquilino') throw invalid('Datos inválidos: unidad_id: sólo un propietario o inquilino tiene departamento', { unidad_id: 'Sólo para residentes' });
+    if (out.complejo_id == null) throw invalid('Datos inválidos: complejo_id: elige el condominio de la unidad', { complejo_id: 'Elige el condominio' });
+    const unidad = await assertRef(prisma.unidad, out.unidad_id, scopeUnidades(user), 'unidad_id', { complejo_id: out.complejo_id });
+    if (unidad![rolFinal === 'propietario' ? 'propietario_id' : 'inquilino_id'] != null) {
+      throw invalid(`Datos inválidos: unidad_id: la unidad ya tiene ${rolFinal === 'propietario' ? 'propietario' : 'inquilino'}`, { unidad_id: `Ya tiene ${rolFinal}` });
+    }
+  }
   if (out.password !== undefined) {
     out.password_hash = await bcrypt.hash(out.password, BCRYPT_COST);
     delete out.password;
@@ -97,39 +114,74 @@ export const usuariosRouter = crudRouter({
   search: ['nombre', 'email', 'telefono'],
   orderable: ['id', 'nombre', 'email', 'rol', 'created_at'],
   defaultOrder: { nombre: 'asc' },
-  include: { empresa: { select: { id: true, nombre: true } } },
-  // Un residente no tiene empresa propia: muestra la(s) que administran los condominios de sus unidades.
+  include: { empresa: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } } },
+  // Un residente no tiene empresa: se muestra por sus unidades (condominio · block · departamento) y si está en mora.
   format: async (items) => {
     const residentes = items.filter((u) => u.rol === 'propietario' || u.rol === 'inquilino').map((u) => u.id as number);
-    const mapa = new Map<number, Map<number, string>>();
+    const mapa = new Map<number, ReturnType<typeof unidadFila>[]>();
+    const morosas = new Set<number>();
     if (residentes.length) {
       const unidades = await prisma.unidad.findMany({
         where: { OR: [{ propietario_id: { in: residentes } }, { inquilino_id: { in: residentes } }] },
-        select: { propietario_id: true, inquilino_id: true, empresa: { select: { id: true, nombre: true } }, complejo: { select: { empresa: { select: { id: true, nombre: true } } } } },
+        orderBy: [{ codigo: 'asc' }, { id: 'asc' }],
+        select: { id: true, codigo: true, propietario_id: true, inquilino_id: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } },
       });
-      for (const un of unidades) {
-        const e = un.complejo?.empresa ?? un.empresa;
-        if (!e) continue;
-        for (const id of [un.propietario_id, un.inquilino_id]) if (id != null && residentes.includes(id)) mapa.set(id, (mapa.get(id) ?? new Map()).set(e.id, e.nombre));
-      }
+      for (const un of unidades) for (const id of [un.propietario_id, un.inquilino_id]) if (id != null && residentes.includes(id)) mapa.set(id, [...(mapa.get(id) ?? []), unidadFila(un)]);
+      const vencidas = await prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [{ unidad_id: { in: unidades.map((x) => x.id) } }, filtroEstadoCargo('vencido')] } });
+      for (const v of vencidas) if (v.unidad_id != null) morosas.add(v.unidad_id);
     }
-    return items.map((u) => ({ ...u, empresas_administradoras: [...(mapa.get(u.id as number) ?? new Map<number, string>())].map(([id, nombre]) => ({ id, nombre })) }));
+    return items.map((u) => {
+      if (u.rol !== 'propietario' && u.rol !== 'inquilino') return u;
+      const unidades = mapa.get(u.id as number) ?? [];
+      return { ...u, unidades, moroso: unidades.some((x) => morosas.has(x.id)) };
+    });
   },
   filtros: {
-    schema: z.object({ rol: rolSchema.optional(), empresa_id: idSchema.optional() }),
+    schema: z.object({
+      rol: rolSchema.optional(),
+      empresa_id: idSchema.optional(),
+      /** residente = propietarios e inquilinos; personal = el que trabaja para una empresa; superadmin. */
+      tipo: z.enum(['residente', 'personal', 'superadmin'], { error: 'tipo debe ser: residente, personal, superadmin' }).optional(),
+      complejo_id: idSchema.optional(),
+      estructura_id: idSchema.optional(),
+      estado: z.enum(['moroso', 'al_dia'], { error: 'estado debe ser: moroso, al_dia' }).optional(),
+    }),
     where: (f, user) => {
-      const w: Record<string, unknown> = {};
-      if (f.rol) w.rol = f.rol;
+      const and: Record<string, unknown>[] = [];
+      if (f.rol) and.push({ rol: f.rol });
+      if (f.tipo === 'residente') and.push({ rol: { in: [...ROLES_RESIDENTE] } });
+      if (f.tipo === 'personal') and.push({ rol: { in: [...ROLES_PERSONAL] } });
+      if (f.tipo === 'superadmin') and.push({ rol: 'superadmin' });
       if (f.empresa_id !== undefined) {
         // Un admin sólo ve su empresa: filtrar por otra empresa no devuelve nada, no es un error que revele existencia.
-        w.empresa_id = user.rol === 'superadmin' ? f.empresa_id : f.empresa_id === user.empresa_id ? f.empresa_id : -1;
+        and.push({ empresa_id: user.rol === 'superadmin' ? f.empresa_id : f.empresa_id === user.empresa_id ? f.empresa_id : -1 });
       }
-      return w;
+      // Condominio: el del residente (por su ficha o por sus unidades) o donde trabaja el personal.
+      if (f.complejo_id !== undefined) {
+        const enUnidad = { complejo_id: f.complejo_id, ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}) };
+        and.push(f.estructura_id !== undefined ? { OR: [{ unidades: { some: enUnidad } }, { unidadesInquilino: { some: enUnidad } }] } : { OR: [{ complejo_id: f.complejo_id }, { unidades: { some: enUnidad } }, { unidadesInquilino: { some: enUnidad } }] });
+      } else if (f.estructura_id !== undefined) {
+        and.push({ OR: [{ unidades: { some: { estructura_id: f.estructura_id } } }, { unidadesInquilino: { some: { estructura_id: f.estructura_id } } }] });
+      }
+      if (f.estado) {
+        const enMora = { reciboConceptoUnidades: { some: filtroEstadoCargo('vencido') } };
+        const moroso = { OR: [{ unidades: { some: enMora } }, { unidadesInquilino: { some: enMora } }] };
+        and.push({ rol: { in: [...ROLES_RESIDENTE] } }, f.estado === 'moroso' ? moroso : { NOT: moroso });
+      }
+      return and.length ? { AND: and } : {};
     },
   },
   createSchema,
   updateSchema,
   prepareCreate: (d, u) => normalizar(d, u),
+  create: async (data) => {
+    const { unidad_id, ...datos } = data as { unidad_id?: number | null } & Record<string, unknown>;
+    return prisma.$transaction(async (tx) => {
+      const creado = await tx.usuario.create({ data: datos as never });
+      if (unidad_id != null) await tx.unidad.update({ where: { id: unidad_id }, data: { [datos.rol === 'propietario' ? 'propietario_id' : 'inquilino_id']: creado.id } });
+      return creado;
+    });
+  },
   prepareUpdate: (d, u, e) => normalizar(d, u, e),
   // Cambiar el rol o la contraseña de alguien cierra sus sesiones abiertas (borrar al usuario las elimina por cascada).
   afterUpdate: async (e, d) => {

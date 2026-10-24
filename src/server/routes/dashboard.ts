@@ -121,6 +121,8 @@ dashboardRouter.get('/resumen', async (req, res) => {
     case 'inquilino':
       return void res.json(await resumenResidente(u));
     case 'mantenimiento':
+    case 'limpieza':
+    case 'jardineria':
       return void res.json(await resumenMantenimiento(u));
     case 'seguridad':
       return void res.json(await resumenSeguridad(u));

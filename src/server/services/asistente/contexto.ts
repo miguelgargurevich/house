@@ -4,7 +4,7 @@
 // residente (lo que ya ve en su pantalla de pago), con sus textos limpios para que no sirvan de vía de inyección.
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
-import type { Rol } from '../../config';
+import { ROLES_OPERATIVOS, type Rol } from '../../config';
 import { cooldownDeps } from '../../lib/cooldown';
 import { decimalAString, filtroEstadoCargo, noPagado } from '../../lib/cargos';
 import { hoyLima } from '../../lib/fechas';
@@ -63,6 +63,8 @@ const ROL_TEXTO: Record<Rol, string> = {
   inquilino: 'Inquilino',
   mantenimiento: 'Personal de mantenimiento',
   seguridad: 'Personal de seguridad',
+  limpieza: 'Personal de limpieza',
+  jardineria: 'Personal de jardinería',
 };
 const CARGO_TEXTO: Record<string, string> = { presidente: 'Presidente', tesorero: 'Tesorero', secretario: 'Secretario', vocal: 'Vocal' };
 const ESTADO_PAGO: Record<string, string> = { validado: 'validado', por_validar: 'en revisión', rechazado: 'rechazado' };
@@ -159,7 +161,7 @@ export async function cargarDatos(user: AuthUser, ruta?: string): Promise<DatosC
   const [residente, gestion, mantenimiento] = await Promise.all([
     esResidente ? situacionResidente(user) : null,
     user.rol === 'superadmin' || user.rol === 'admin' || ambitoJunta(user) ? situacionGestion(user) : null,
-    user.rol === 'mantenimiento' ? situacionMantenimiento(user) : null,
+    ROLES_OPERATIVOS.includes(user.rol as never) ? situacionMantenimiento(user) : null,
   ]);
   return {
     nombre: limpiarTexto(fila?.nombre.trim().split(/\s+/)[0], 40) || 'vecino',
