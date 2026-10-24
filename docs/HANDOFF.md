@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-24 — Claude Code (Opus 5.5) — `main`: el asistente ya no se queda sin IA por una ruta colgada
+
+**Qué se hizo:** en producción el asistente respondía en contingencia con 4 claves sanas. Causa medida en el contenedor: `gemini-flash-latest` no responde (> 40 s, simple, stream y con herramientas) mientras `gemini-flash-lite-latest` contesta en ~3 s y Groq en < 0,4 s; con una espera de 30 s por intento dentro de un tope de 25 s por turno, el primer intento se comía todo el turno. Cambios (`motor.ts`, `lib/modelosMalos.ts`, `modelos/seleccion.ts`, `lib/modelosIA.ts`):
+- espera por intento 12 s (`LLAVERO_ESPERA_MS`, 2 000–60 000) y tope por turno 45 s;
+- modelo que agota la espera → «lento» 15 min en todo su proveedor: pasa al FINAL de la fila (no se veta), se prueba el otro modelo de la misma clave y la clave sólo se enfría si no le queda otro;
+- Auto nunca pone primero modelos débiles (`esDebil`: allam, <= 4B; Groq elegía `allam-2-7b`); `gemini-flash-lite-latest` es el segundo preferido de Gemini;
+- `probada_at` usa el reloj inyectado (el test de recuperación fallaba el día en que la fecha real coincidía con la del test).
+- Verificado en producción con las claves reales: 1ª consulta 14 s (flash-latest colgado → flash-lite), 2ª 2,9 s usando la herramienta `empresas`. Suite 553/553; mutaciones en rojo (marca de lento, filtro de débiles).
+
+**Pendiente:** cada 15 min la primera consulta vuelve a probar `gemini-flash-latest` y paga 12 s si sigue colgado; si Google no lo arregla, conviene bajarlo en la preferencia o que el canary marque lentos.
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/herramientas`: herramientas de solo lectura (asistente + MCP)
 
 **Pedido de Miguel:** «Quiero que el asistente de IA pueda responder sobre toda la BD. Son tools, y después las puedo usar con mi MCP.» Se retomó trabajo parcial de una sesión interrumpida (catálogo en `src/server/tools/` sin tests): se revisó, se probó y se completó. **Doc completa: `docs/HERRAMIENTAS.md`.**
