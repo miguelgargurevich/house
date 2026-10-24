@@ -6,6 +6,7 @@ import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip
 import type { Column } from '../../ui';
 import { VeredictoBadge } from '../shared/evaluacion';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
+import { esJunta } from '../../auth/junta';
 import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
 import { ValidarPagoModal } from './_parts/cobranza/ValidarPagoModal';
 import type { PagoRevisable } from './_parts/cobranza/ValidarPagoModal';
@@ -28,8 +29,9 @@ type PagoFila = PagoRevisable;
 
 export default function Pagos() {
   const { user } = useAuth();
-  // La junta (propietario con cargo) sólo revisa los pagos de su block: registrar pagos es de la administración.
-  const puedeRegistrar = user?.rol !== 'propietario';
+  // La administración y la junta (presidente o tesorero, en su block) registran pagos; un propietario sin cargo no llega a esta pantalla.
+  const junta = esJunta(user);
+  const puedeRegistrar = user?.rol !== 'propietario' || junta;
   const [pestana, setPestana] = useState<Pestana>('por_validar');
   const [metodo, setMetodo] = useState('');
   const [revisando, setRevisando] = useState<PagoFila | null>(null);
@@ -75,7 +77,7 @@ export default function Pagos() {
     <>
       <PageHeader
         title="Pagos"
-        description={puedeRegistrar ? 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.' : 'Revisa los comprobantes de los vecinos de tu block: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo.'}
+        description={junta ? 'Revisa los comprobantes de los vecinos de tu block: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo. También puedes registrar aquí los pagos que recibas directamente.' : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
         actions={puedeRegistrar ? <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button> : undefined}
       />
       <StatStrip

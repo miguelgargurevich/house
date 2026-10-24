@@ -339,6 +339,51 @@ describe('validar o rechazar el pago del mantenimiento (atómico por grupo)', ()
   });
 });
 
+describe('la junta también registra el pago del mantenimiento (24-oct, Miguel)', () => {
+  it('presidente del condominio: registra (queda validado por él) y ve sólo los periodos de su condominio; sin cargo → 403', async () => {
+    const m = await mantenimiento(d.unidadA1);
+    const ruta = `/api/recibos/${m.reciboId}/mantenimientos/${m.unidadId}/pagos`;
+    assert.equal((await llamar(base, 'POST', ruta, T.prop1, { metodo_pago: 'efectivo' })).status, 403, 'propietario sin cargo');
+    const r = await llamar(base, 'POST', ruta, T.presiA, { metodo_pago: 'yape', referencia: 'OP-123' });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    const presi = await prisma.usuario.findUniqueOrThrow({ where: { email: 'presi.a@test.pe' } });
+    const pagos = await pagosDe(m);
+    assert.ok(pagos.length === 3 && pagos.every((p) => p.estado_validacion === 'validado' && p.validado_por_id === presi.id));
+    assert.deepEqual(await estadosCargos(m), ['pagado', 'pagado', 'pagado']);
+
+    const periodos = await llamar(base, 'GET', '/api/recibos/periodos', T.presiA);
+    assert.equal(periodos.status, 200);
+    assert.ok(periodos.body.items.length > 0 && periodos.body.items.every((x: { complejo: { id: number } }) => x.complejo.id === d.complejoA.id), 'sólo su condominio');
+    assert.equal((await llamar(base, 'GET', '/api/recibos/periodos', T.prop1)).status, 403);
+    assert.equal((await llamar(base, 'GET', `/api/recibos/${m.reciboId}`, T.presiA)).status, 403, 'el resto de recibos sigue siendo de la administración');
+  });
+
+  it('fuera de su ámbito → 404 (otro block, otro condominio); sólo atribuye el pago al propietario o inquilino de ese depa', async () => {
+    const b1 = await prisma.estructura.create({ data: { nombre: 'Block J1', tipo: 'block', complejo_id: d.complejoA.id } });
+    const b2 = await prisma.estructura.create({ data: { nombre: 'Block J2', tipo: 'block', complejo_id: d.complejoA.id } });
+    const enB1 = await prisma.unidad.create({ data: { codigo: 'J1-101', tipo: 'departamento', complejo_id: d.complejoA.id, empresa_id: d.empresaA.id, estructura_id: b1.id, propietario_id: d.propietario2.id, estado: 'activa' } });
+    const enB2 = await prisma.unidad.create({ data: { codigo: 'J2-101', tipo: 'departamento', complejo_id: d.complejoA.id, empresa_id: d.empresaA.id, estructura_id: b2.id, propietario_id: d.propietario2.id, estado: 'activa' } });
+    const hash = await bcrypt.hash(PASSWORD, 4);
+    await prisma.usuario.create({ data: { nombre: 'Tesorera J1', email: 'teso.j1@test.pe', rol: 'propietario', password_hash: hash, complejo_id: d.complejoA.id, estructura_id: b1.id, cargo_junta: 'tesorero' } });
+    const teso = await login(base, 'teso.j1@test.pe');
+
+    const m2 = await mantenimiento(enB2);
+    assert.equal((await llamar(base, 'POST', `/api/recibos/${m2.reciboId}/mantenimientos/${m2.unidadId}/pagos`, teso, { metodo_pago: 'efectivo' })).status, 404, 'otro block');
+    assert.equal((await pagosDe(m2)).length, 0);
+    const lista = await llamar(base, 'GET', `/api/recibos/${m2.reciboId}/mantenimientos?estructura_id=${b2.id}`, teso);
+    assert.equal(lista.status, 200);
+    assert.ok(lista.body.items.every((x: { unidad: { codigo: string } }) => x.unidad.codigo !== 'J2-101'), 'aunque pida otro block, sólo ve el suyo');
+
+    const mB = await mantenimiento(d.unidadB1, { complejo: d.complejoB });
+    assert.equal((await llamar(base, 'POST', `/api/recibos/${mB.reciboId}/mantenimientos/${mB.unidadId}/pagos`, teso, { metodo_pago: 'efectivo' })).status, 404, 'otro condominio');
+
+    const m1 = await mantenimiento(enB1);
+    const ruta1 = `/api/recibos/${m1.reciboId}/mantenimientos/${m1.unidadId}/pagos`;
+    assert.equal((await llamar(base, 'POST', ruta1, teso, { metodo_pago: 'efectivo', usuario_id: d.propietarioB.id })).status, 422, 'no puede atribuirlo a alguien ajeno');
+    assert.equal((await llamar(base, 'POST', ruta1, teso, { metodo_pago: 'efectivo', usuario_id: d.propietario2.id })).status, 201, 'sí al propietario del depa');
+  });
+});
+
 describe('la administración registra el pago del mantenimiento', () => {
   it('queda validado de inmediato: un Pago por cargo, cargos pagados, mismo grupo', async () => {
     const m = await mantenimiento(d.unidadA1);

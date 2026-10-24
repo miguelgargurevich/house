@@ -1,13 +1,14 @@
 import { Prisma } from '@prisma/client';
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { notFound, invalid } from '../errors';
+import { forbidden, notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
+import { ambitoJunta, filtroAmbito } from '../lib/junta';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { scopeComplejos, scopeConceptos, scopeRecibos, scopeUnidades, scopeUsuarios } from '../lib/scope';
-import { currentUser, requireRole } from '../middleware/auth';
+import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
@@ -150,6 +151,39 @@ const crud = crudRouter({
 
 const router = Router();
 
+// ---------- Administración o junta (24-oct, Miguel: «la junta también puede registrar pagos») ----------
+// La junta gestora (presidente o tesorero) ve los periodos de su condominio y registra pagos de los mantenimientos de su ámbito
+// (su block, o todo el condominio si no tiene block). Todo lo demás de recibos sigue siendo de la administración.
+const esAdmin = (u: AuthUser) => u.rol === 'admin' || u.rol === 'superadmin';
+const adminOJunta: RequestHandler = (req, _res, next) => {
+  const u = currentUser(req);
+  if (esAdmin(u) || ambitoJunta(u)) return next();
+  throw forbidden();
+};
+/** Recibos que alcanza: la administración por empresa; la junta, los de su condominio. */
+function recibosDe(u: AuthUser): Prisma.ReciboWhereInput {
+  if (esAdmin(u)) return scopeRecibos(u);
+  const a = ambitoJunta(u);
+  return a ? { complejo_id: a.complejo_id } : { id: -1 };
+}
+/** Unidades que alcanza: la administración por empresa; la junta, las de su block (o de su condominio). */
+function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
+  if (esAdmin(u)) return scopeUnidades(u);
+  const a = ambitoJunta(u);
+  return a ? filtroAmbito(a) : { id: -1 };
+}
+
+/** Periodos emitidos que alcanza (para elegir dónde registrar un pago). Se declara antes de GET /:id. */
+router.get('/periodos', adminOJunta, async (req, res) => {
+  const items = await prisma.recibo.findMany({
+    where: recibosDe(currentUser(req)),
+    orderBy: [{ anio: 'desc' }, { mes: 'desc' }, { id: 'desc' }],
+    take: 24,
+    select: { id: true, mes: true, anio: true, descripcion: true, fecha_emision: true, fecha_vencimiento: true, estado: true, complejo: { select: { id: true, nombre: true } } },
+  });
+  res.json({ items, total: items.length, page: 1, pageSize: 24 });
+});
+
 // Detalle ampliado: conceptos y cargos por unidad (se declara antes del CRUD para tomar GET /:id).
 router.get('/:id', requireRole('admin'), async (req, res) => {
   const user = currentUser(req);
@@ -185,7 +219,7 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
 // ---------- Mantenimientos del periodo (un recibo por departamento) ----------
 /** El recibo del periodo, sólo si es de la empresa del usuario (si no, 404). */
 async function reciboAccesible(req: Parameters<typeof currentUser>[0], id: number) {
-  const r = await prisma.recibo.findFirst({ where: { AND: [{ id }, scopeRecibos(currentUser(req))] }, select: { id: true } });
+  const r = await prisma.recibo.findFirst({ where: { AND: [{ id }, recibosDe(currentUser(req))] }, select: { id: true } });
   if (!r) throw notFound();
 }
 
@@ -203,14 +237,16 @@ const mantQuery = listQuerySchema.extend({
   sin_block: z.enum(['true', 'false']).optional(),
 });
 
-router.get('/:id/mantenimientos', requireRole('admin'), async (req, res) => {
+router.get('/:id/mantenimientos', adminOJunta, async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id);
   const q = parse(mantQuery, req.query);
+  // La junta de un block sólo ve los departamentos de su block, pida lo que pida.
+  const a = esAdmin(currentUser(req)) ? null : ambitoJunta(currentUser(req));
   const orden = parseOrden(q.orden, [...ORDEN_MANTENIMIENTOS], {});
   const campo = Object.keys(orden)[0] as OrdenMantenimientos | undefined;
   const r = await listarMantenimientos(
-    { reciboId: id, estado: q.estado, q: q.q, estructuraId: q.sin_block === 'true' ? null : q.estructura_id },
+    { reciboId: id, estado: q.estado, q: q.q, estructuraId: a?.estructura_id != null ? a.estructura_id : q.sin_block === 'true' ? null : q.estructura_id },
     { page: q.page, pageSize: q.pageSize, orden: campo ? { campo, dir: (orden as Record<string, 'asc' | 'desc'>)[campo] } : { campo: 'codigo', dir: 'asc' } },
   );
   res.json({ items: r.items, total: r.total, page: q.page, pageSize: q.pageSize });
@@ -218,10 +254,10 @@ router.get('/:id/mantenimientos', requireRole('admin'), async (req, res) => {
 
 const idsMant = z.object({ id: idSchema, unidadId: idSchema });
 
-router.get('/:id/mantenimientos/:unidadId', requireRole('admin'), async (req, res) => {
+router.get('/:id/mantenimientos/:unidadId', adminOJunta, async (req, res) => {
   const u = currentUser(req);
   const { id, unidadId } = parse(idsMant, req.params);
-  res.json(await detalleMantenimiento(id, unidadId, { reciboWhere: scopeRecibos(u), unidadWhere: scopeUnidades(u), vista: 'completa' }));
+  res.json(await detalleMantenimiento(id, unidadId, { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u), vista: 'completa' }));
 });
 
 const pagoMantenimiento = z.strictObject({
@@ -232,20 +268,25 @@ const pagoMantenimiento = z.strictObject({
   usuario_id: idSchema.nullish(),
 });
 
-/** La administración registra el pago del mantenimiento completo: queda validado de inmediato (el comprobante es opcional y se sube después). */
-router.post('/:id/mantenimientos/:unidadId/pagos', requireRole('admin'), async (req, res) => {
+/** La administración o la junta registran el pago del mantenimiento completo: queda validado de inmediato (el comprobante es opcional y se sube después). */
+router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res) => {
   const u = currentUser(req);
   const { id, unidadId } = parse(idsMant, req.params);
   const body = parseBody(pagoMantenimiento, req);
   await reciboAccesible(req, id);
-  if (!(await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, scopeUnidades(u)] }, select: { id: true } }))) throw notFound('Mantenimiento');
+  const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesDe(u)] }, select: { id: true, propietario_id: true, inquilino_id: true } });
+  if (!unidad) throw notFound('Mantenimiento');
   const { usuario_id, ...datos } = body;
-  if (usuario_id != null) await assertRef(prisma.usuario, usuario_id, scopeUsuarios(u), 'usuario_id');
+  if (usuario_id != null) {
+    if (esAdmin(u)) await assertRef(prisma.usuario, usuario_id, scopeUsuarios(u), 'usuario_id');
+    // La junta sólo puede atribuir el pago al propietario o al inquilino de ese departamento.
+    else if (usuario_id !== unidad.propietario_id && usuario_id !== unidad.inquilino_id) throw invalid('Datos inválidos: usuario_id: debe ser el propietario o el inquilino del departamento', { usuario_id: 'Debe ser el propietario o el inquilino' });
+  }
   const r = await pagarMantenimiento({ reciboId: id, unidadId, usuarioId: usuario_id ?? null, modo: 'administracion', validadorId: u.id, ...datos });
   res.locals.entidad = 'pago';
   res.locals.entidadId = r.pago_id;
   res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: id, unidad_id: unidadId };
-  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { reciboWhere: scopeRecibos(u), unidadWhere: scopeUnidades(u), vista: 'completa' }) });
+  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u), vista: 'completa' }) });
 });
 
 router.use(crud);

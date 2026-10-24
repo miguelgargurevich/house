@@ -49,7 +49,8 @@ function ListaPorPagar({ reciboId, q, elegido, onElegir }: ListaProps) {
 
 /** Registrar el pago de un mantenimiento: elige el periodo, busca el departamento y registra cómo pagó (el monto es el saldo completo). */
 export function RegistrarPagoModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const recibos = useResource<Lista<ReciboFila>>('/api/recibos?pageSize=24');
+  // Los periodos que alcanza quien registra: la administración por empresa, la junta los de su condominio.
+  const recibos = useResource<Lista<ReciboFila>>('/api/recibos/periodos');
   const [reciboId, setReciboId] = useState('');
   const [q, setQ] = useState('');
   const [elegido, setElegido] = useState<Mantenimiento | null>(null);
