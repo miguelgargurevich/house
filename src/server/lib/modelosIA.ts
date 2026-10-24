@@ -98,7 +98,8 @@ export function leerListaModelos(p: Pick<ProveedorIA, 'id' | 'tipo'>, cuerpo: un
 // ---------- Preferencias para el modo Auto ----------
 /** Patrones en orden de preferencia por proveedor. Lo que no calza con ninguno va después, por nombre. */
 export const PREFERENCIAS: Record<string, RegExp[]> = {
-  gemini: [/^gemini-flash-latest$/, /^gemini-flash-lite-latest$/, /^gemini-2\.5-flash$/, /^gemini-[\d.]+-flash$/, /-flash$/],
+  // 24-oct (Miguel): flash-lite primero mientras `gemini-flash-latest` siga colgándose en producción (> 40 s sin responder con estas claves).
+  gemini: [/^gemini-flash-lite-latest$/, /^gemini-flash-latest$/, /^gemini-2\.5-flash$/, /^gemini-[\d.]+-flash$/, /-flash$/],
   groq: [/^openai\/gpt-oss-120b$/, /-versatile$/, /^qwen/],
   openrouter: [/gemma-4.*:free$/, /nemotron.*:free$/, /:free$/],
 };

@@ -299,12 +299,12 @@ describe('elegirModeloAuto', () => {
     assert.equal(await elegirModeloAuto(clave('gemini', null)), 'gemini-flash-latest');
   });
 
-  it('prefiere por proveedor: Gemini flash-latest, Groq gpt-oss-120b, OpenRouter sólo :free', async () => {
+  it('prefiere por proveedor: Gemini flash-lite-latest (mientras flash-latest se cuelga), Groq gpt-oss-120b, OpenRouter sólo :free', async () => {
     const g = await guardar('gemini', 'gemini-prueba-0001');
     const q = await guardar('groq', 'groq-prueba-00001');
     const o = await guardar('openrouter', 'openrouter-prueba-001');
     await Promise.all([g, q, o].map((c) => sincronizarClave(c.id)));
-    assert.equal(await elegirModeloAuto(clave('gemini', g.id), { esfuerzo: 'medium' }), 'gemini-flash-latest');
+    assert.equal(await elegirModeloAuto(clave('gemini', g.id), { esfuerzo: 'medium' }), 'gemini-flash-lite-latest');
     assert.equal(await elegirModeloAuto(clave('groq', q.id), { esfuerzo: 'medium' }), 'openai/gpt-oss-120b');
     const c = await candidatosDeClave(clave('openrouter', o.id));
     assert.equal(c.modelos[0], 'google/gemma-4-31b-it:free');
@@ -329,7 +329,7 @@ describe('elegirModeloAuto', () => {
     // Sin modelos de la categoría pedida, no se queda sin respuesta: cae a la preferencia normal.
     const g = await guardar('gemini', 'gemini-prueba-0001');
     await sincronizarClave(g.id);
-    assert.equal(await elegirModeloAuto(clave('gemini', g.id), { esfuerzo: 'high' }), 'gemini-flash-latest');
+    assert.equal(await elegirModeloAuto(clave('gemini', g.id), { esfuerzo: 'high' }), 'gemini-flash-lite-latest');
   });
 
   it('un modelo deprecado jamás se elige; el fijado deprecado se ignora; los marcados malos se saltan', async () => {

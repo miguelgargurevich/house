@@ -289,20 +289,21 @@ describe('la unidad de rotación es (clave, modelo)', () => {
     try {
       const g = await guardar('gemini', 'gemini-prueba-unica-0001', 'principal');
       await catalogo(g.id, 'gemini-flash-latest', 'gemini-flash-lite-latest');
-      manejador = (l) => l.modelo === 'gemini-flash-latest'
+      // El preferido (flash-lite) se cuelga y el otro responde: el caso simétrico al de producción.
+      manejador = (l) => l.modelo === 'gemini-flash-lite-latest'
         ? new Promise<Response>((_, rechazar) => l.signal?.addEventListener('abort', () => rechazar(l.signal?.reason), { once: true }))
-        : chatOk('Desde flash-lite');
+        : chatOk('Desde flash');
       const r = await chat();
       assert.equal(r.status, 200);
       assert.notEqual(r.body.modo, 'contingencia', 'una sola clave también se salva con su otro modelo');
-      assert.deepEqual(modelosLlamados(), ['gemini:gemini-flash-latest', 'gemini:gemini-flash-lite-latest']);
+      assert.deepEqual(modelosLlamados(), ['gemini:gemini-flash-lite-latest', 'gemini:gemini-flash-latest']);
       assert.equal(estaEnfriando(claveCooldown('gemini', g.id)), false, 'la clave NO se enfría: su otro modelo respondió');
 
       ia.llamadas.length = 0;
       const t0 = Date.now();
       const r2 = await chat();
       assert.notEqual(r2.body.modo, 'contingencia');
-      assert.deepEqual(modelosLlamados(), ['gemini:gemini-flash-lite-latest'], 'el lento pasó al final: ya no se espera');
+      assert.deepEqual(modelosLlamados(), ['gemini:gemini-flash-latest'], 'el lento pasó al final: ya no se espera');
       assert.ok(Date.now() - t0 < 1_500);
     } finally {
       delete process.env.LLAVERO_ESPERA_MS;
