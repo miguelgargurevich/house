@@ -2,7 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { api, csrfStore, setUnauthorizedHandler } from '../api';
 
-export type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad';
+export type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad' | 'limpieza' | 'jardineria';
+
+/** Personal con tareas asignadas (comparten pantallas de «Mis tareas»; cada uno ve sólo lo suyo). */
+export const ROLES_OPERATIVOS: readonly Rol[] = ['mantenimiento', 'limpieza', 'jardineria'];
+/** Personal: pertenece a una empresa. Los residentes (propietario, inquilino) no. */
+export const ROLES_PERSONAL: readonly Rol[] = ['admin', 'seguridad', 'mantenimiento', 'limpieza', 'jardineria'];
 
 export type CargoJunta = 'presidente' | 'tesorero' | 'secretario' | 'vocal';
 
@@ -37,6 +42,8 @@ export const HOME: Record<Rol, string> = {
   inquilino: '/inquilino/inicio',
   mantenimiento: '/mantenimiento/inicio',
   seguridad: '/seguridad/inicio',
+  limpieza: '/limpieza/inicio',
+  jardineria: '/jardineria/inicio',
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
