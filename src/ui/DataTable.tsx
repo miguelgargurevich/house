@@ -11,7 +11,7 @@ export interface Column<T> {
   cell: (row: T) => ReactNode;
   align?: 'left' | 'right';
   className?: string;
-  hideBelow?: 'sm' | 'md' | 'lg';
+  hideBelow?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 interface Props<T> {
@@ -30,7 +30,7 @@ interface Props<T> {
   onRowClick?: (row: T) => void;
 }
 
-const hide = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell' };
+const hide = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell', xl: 'hidden xl:table-cell' };
 
 export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, page = 1, pageSize = 20, total, onPage, empty, caption, onRowClick }: Props<T>) {
   if (error) return <ErrorState message={error} onRetry={onRetry} />;

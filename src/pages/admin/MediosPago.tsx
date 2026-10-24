@@ -7,7 +7,6 @@ import type { Column } from '../../ui';
 import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { MedioFormModal } from './_parts/medios/MedioFormModal';
-import { QrImagen } from './_parts/medios/QrMiniatura';
 import { ambitoLabel, datoPrincipal, nombreBlock, tipoLabel, useAmbitos } from './_parts/medios/tipos';
 import type { Medio } from './_parts/medios/tipos';
 
@@ -53,16 +52,12 @@ export default function MediosPago() {
     { key: 'tipo', header: 'Medio', cell: m => (
       <span className="flex items-center gap-2.5 font-medium">
         {m.tipo === 'banco' ? <BuildingLibraryIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : <DevicePhoneMobileIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />}
-        <span>{tipoLabel(m.tipo)}{m.tipo === 'banco' && m.banco ? <span className="block text-xs font-normal text-muted">{m.banco}</span> : null}</span>
+        <span>{tipoLabel(m.tipo)}<span className="block text-xs font-normal text-muted">{m.tipo === 'banco' ? (m.banco ?? '') : m.tiene_qr ? 'Con código QR' : 'Sin código QR'}</span></span>
       </span>
     ) },
-    { key: 'titular', header: 'Titular', cell: m => <span className="block max-w-[14rem] truncate">{m.titular}</span> },
-    { key: 'dato', header: 'Cuenta o celular', hideBelow: 'sm', cell: m => <span className="num">{datoPrincipal(m)}</span> },
-    { key: 'ambito', header: 'Para', hideBelow: 'md', cell: m => ambitoLabel(m) },
-    { key: 'qr', header: 'QR', hideBelow: 'md', cell: m => (m.tiene_qr
-      ? <QrImagen id={m.id} version={m.updated_at} alt={`Código QR de ${tipoLabel(m.tipo)} de ${m.titular}`} className="h-10 w-10" />
-      : <span className="flex items-center gap-1 text-muted"><QrCodeIcon className="h-4 w-4" aria-hidden="true" />Sin QR</span>) },
-    { key: 'activo', header: 'Estado', cell: m => <Interruptor className="min-h-0" label={m.activo ? 'Activo' : 'Inactivo'} aria-label={`Mostrar a los vecinos: ${tipoLabel(m.tipo)} de ${m.titular}`} checked={m.activo} onChange={e => void cambiarActivo(m, e.target.checked)} /> },
+    { key: 'titular', header: 'Titular', cell: m => <span className="block max-w-[12rem]"><span className="block truncate">{m.titular}</span><span className="block truncate text-xs text-muted">{ambitoLabel(m)}</span></span> },
+    { key: 'dato', header: 'Cuenta o celular', hideBelow: 'md', cell: m => <span className="num">{datoPrincipal(m)}</span> },
+    { key: 'activo', header: 'Estado', cell: m => <Interruptor className="min-h-0 [&>span:last-child]:sr-only" label={m.activo ? 'Activo' : 'Inactivo'} aria-label={`Mostrar a los vecinos: ${tipoLabel(m.tipo)} de ${m.titular}`} checked={m.activo} onChange={e => void cambiarActivo(m, e.target.checked)} /> },
     { key: 'acciones', header: '', align: 'right', cell: m => (
       <div className="flex justify-end gap-1">
         <IconButton label={`Editar ${tipoLabel(m.tipo)} de ${m.titular}`} onClick={() => setEditando(m)}><PencilSquareIcon className="h-4 w-4" /></IconButton>

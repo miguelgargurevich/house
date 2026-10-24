@@ -44,13 +44,12 @@ export default function Pagos() {
 
   const columns: Column<PagoFila>[] = [
     { key: 'fecha', header: 'Fecha', cell: p => fechaCorta(p.fecha_pago) },
-    { key: 'unidad', header: 'Unidad', cell: p => <span className="font-medium">{p.unidad?.codigo ?? '—'}</span> },
-    { key: 'concepto', header: 'Concepto', hideBelow: 'md', cell: p => p.concepto?.nombre ?? '—' },
-    { key: 'usuario', header: 'Pagó', hideBelow: 'lg', cell: p => p.usuario?.nombre ?? '—' },
+    { key: 'unidad', header: 'Unidad', cell: p => <span className="block"><span className="block font-medium">{p.unidad?.codigo ?? '—'}</span><span className="block text-xs text-muted">{p.concepto?.nombre ?? '—'}</span></span> },
+    { key: 'usuario', header: 'Pagó', hideBelow: 'xl', cell: p => p.usuario?.nombre ?? '—' },
     { key: 'metodo', header: 'Método', hideBelow: 'sm', cell: p => <Badge>{metodoLabel(p.metodo_pago)}</Badge> },
-    { key: 'referencia', header: 'Referencia', hideBelow: 'lg', cell: p => <span className="num text-muted">{p.referencia || '—'}</span> },
+    { key: 'referencia', header: 'Referencia', hideBelow: 'xl', cell: p => <span className="num text-muted">{p.referencia || '—'}</span> },
     ...(pestana === 'rechazado' ? [{ key: 'motivo', header: 'Motivo', hideBelow: 'md' as const, cell: (p: PagoFila) => <span className="text-muted">{p.motivo_rechazo ?? '—'}</span> }] : []),
-    { key: 'comprobante', header: 'Comprobante', hideBelow: 'sm', cell: p => (p.comprobante ? <Badge tone="info">Adjunto</Badge> : <span className="text-muted">Sin archivo</span>) },
+    { key: 'comprobante', header: 'Comprobante', hideBelow: 'xl', cell: p => (p.comprobante ? <Badge tone="info">Adjunto</Badge> : <span className="text-muted">Sin archivo</span>) },
     { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(p.monto)}</span> },
     { key: 'estado', header: 'Estado', cell: p => <StatusBadge estado={p.estado_validacion} /> },
     { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },

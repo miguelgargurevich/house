@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
+// Versiones anteriores guardaban el token en localStorage; ya no se usa, así que se borra al arrancar.
+try { localStorage.removeItem('house-token'); } catch { /* sin almacenamiento */ }
+
 /** Token CSRF de la sesión: sólo en memoria (lo entregan login y /me); nunca en localStorage ni en cookie legible. */
 let csrf: string | null = null;
 export const csrfStore = {
