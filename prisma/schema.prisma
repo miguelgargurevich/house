@@ -39,6 +39,7 @@ model Usuario {
   unidadesInquilino Unidad[]               @relation("InquilinoUnidad")
   auditorias        Auditoria[]
   clavesIntegracion ClaveIntegracion[]
+  sesiones          Sesion[]
   empresa_id        Int?
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   complejo_id       Int?
@@ -235,4 +236,22 @@ model ClaveIntegracion {
   updated_at        DateTime  @updatedAt
 
   @@unique([proveedor, etiqueta])
+}
+
+/// Sesión del lado del servidor: la cookie `house_sesion` lleva un token opaco; aquí sólo se guarda su sha256.
+model Sesion {
+  id            String    @id @default(cuid())
+  usuario_id    Int
+  usuario       Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  token_hash    String    @unique
+  csrf_token    String
+  ip            String?
+  user_agent    String?
+  created_at    DateTime  @default(now())
+  ultimo_uso_at DateTime  @default(now())
+  expira_at     DateTime
+  revocada_at   DateTime?
+
+  @@index([usuario_id])
+  @@index([expira_at])
 }

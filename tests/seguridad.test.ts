@@ -2,6 +2,7 @@ import { JWT_SECRET_PRUEBAS } from './helpers/env';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { after, before, describe, it } from 'node:test';
+import bcrypt from 'bcrypt';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { errorHandler } from '../src/server/middleware/error';
@@ -22,16 +23,14 @@ after(async () => {
 });
 
 describe('login', () => {
-  it('devuelve token HS256 de 8h con el payload acordado y el usuario sin hash', async () => {
+  it('devuelve { user, csrf } y la sesión viaja sólo en una cookie httpOnly (sin token en el JSON)', async () => {
     const r = await llamar(base, 'POST', '/api/auth/login', null, { email: 'admin.a@test.pe', password: PASSWORD });
     assert.equal(r.status, 200);
-    assert.deepEqual(Object.keys(r.body).sort(), ['token', 'user']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['csrf', 'user']);
     assert.deepEqual(r.body.user, { id: d.adminA.id, nombre: 'Admin A', email: 'admin.a@test.pe', rol: 'admin', empresa_id: d.empresaA.id, complejo_id: null });
-    const { header, payload } = jwt.decode(r.body.token, { complete: true }) as { header: { alg: string }; payload: Record<string, number | string | null> };
-    assert.equal(header.alg, 'HS256');
-    assert.equal(Number(payload.exp) - Number(payload.iat), 8 * 3600);
-    assert.deepEqual({ id: payload.id, email: payload.email, rol: payload.rol, empresa_id: payload.empresa_id, complejo_id: payload.complejo_id }, { id: d.adminA.id, email: 'admin.a@test.pe', rol: 'admin', empresa_id: d.empresaA.id, complejo_id: null });
-    assert.ok(!/password|hash|\$2[aby]\$/i.test(r.texto));
+    assert.ok(r.body.csrf.length >= 40);
+    assert.match(r.headers.get('set-cookie') ?? '', /^house_sesion=[\w-]{43};.*HttpOnly/i);
+    assert.ok(!/password|hash|\$2[aby]\$|token/i.test(r.texto));
   });
 
   it('rechaza contraseña errónea y usuario inexistente con el mismo mensaje (401)', async () => {
@@ -78,6 +77,7 @@ describe('login', () => {
     assert.equal(r.status, 200);
     assert.equal(r.body.email, 'inq1@test.pe');
     assert.equal(r.body.rol, 'inquilino');
+    assert.ok(r.body.csrf);
     assert.ok(!r.texto.includes('password_hash'));
   });
 });
@@ -104,25 +104,26 @@ describe('autenticación obligatoria', () => {
     assert.equal((await llamar(base, 'POST', '/api/me/cargos/1/pagos', null, { metodo_pago: 'yape' })).status, 401);
   });
 
-  it('rechaza tokens manipulados: firma ajena, alg none, vencido y de usuario eliminado', async () => {
+  it('rechaza cookies inventadas, JWT en la cookie y sesiones de un usuario eliminado', async () => {
     const payload = { id: d.adminA.id, email: 'admin.a@test.pe', rol: 'admin', empresa_id: d.empresaA.id, complejo_id: null };
-    const ajeno = jwt.sign(payload, 'otro-secreto-distinto-de-treinta-y-dos-caracteres', { algorithm: 'HS256' });
-    const sinFirma = `${Buffer.from('{"alg":"none","typ":"JWT"}').toString('base64url')}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.`;
-    const vencido = jwt.sign(payload, JWT_SECRET_PRUEBAS, { algorithm: 'HS256', expiresIn: -10 });
-    const hs512 = jwt.sign(payload, JWT_SECRET_PRUEBAS, { algorithm: 'HS512' });
-    for (const [nombre, t] of [['firma ajena', ajeno], ['alg none', sinFirma], ['vencido', vencido], ['HS512', hs512], ['basura', 'abc.def.ghi']] as const) {
-      assert.equal((await llamar(base, 'GET', '/api/auth/me', t)).status, 401, nombre);
+    const jwtValido = jwt.sign(payload, JWT_SECRET_PRUEBAS, { algorithm: 'HS256', expiresIn: '1h' });
+    for (const [nombre, t] of [['JWT firmado', jwtValido], ['basura', 'abc.def.ghi'], ['aleatoria', 'A'.repeat(43)]] as const) {
+      assert.equal((await llamar(base, 'GET', '/api/auth/me', null, undefined, { cookie: `house_sesion=${t}` })).status, 401, nombre);
     }
-    const efimero = await prisma.usuario.create({ data: { nombre: 'Efímero', email: 'efimero@test.pe', rol: 'inquilino', password_hash: 'x' } });
-    const tokenEfimero = jwt.sign({ id: efimero.id, email: efimero.email, rol: 'inquilino' }, JWT_SECRET_PRUEBAS, { algorithm: 'HS256', expiresIn: '1h' });
-    assert.equal((await llamar(base, 'GET', '/api/auth/me', tokenEfimero)).status, 200);
-    await prisma.usuario.delete({ where: { id: efimero.id } });
-    assert.equal((await llamar(base, 'GET', '/api/auth/me', tokenEfimero)).status, 401);
+    await prisma.usuario.create({ data: { nombre: 'Efímero', email: 'efimero@test.pe', rol: 'inquilino', password_hash: await bcrypt.hash(PASSWORD, 4) } });
+    const sesion = await login(base, 'efimero@test.pe');
+    assert.equal((await llamar(base, 'GET', '/api/auth/me', sesion)).status, 200);
+    await prisma.usuario.delete({ where: { email: 'efimero@test.pe' } });
+    assert.equal((await llamar(base, 'GET', '/api/auth/me', sesion)).status, 401);
   });
 
-  it('el rol sale de la base y no del token: un token con rol inflado no da privilegios', async () => {
-    const inflado = jwt.sign({ id: d.propietario1.id, email: 'prop1@test.pe', rol: 'superadmin' }, JWT_SECRET_PRUEBAS, { algorithm: 'HS256', expiresIn: '1h' });
-    assert.equal((await llamar(base, 'GET', '/api/usuarios', inflado)).status, 403);
+  it('el rol sale de la base en cada petición: un cambio directo de rol se nota de inmediato', async () => {
+    const sesion = await login(base, 'mtto.a2@test.pe');
+    assert.equal((await llamar(base, 'GET', '/api/usuarios', sesion)).status, 403);
+    await prisma.usuario.update({ where: { id: d.mantenimientoA2.id }, data: { rol: 'admin' } });
+    assert.equal((await llamar(base, 'GET', '/api/usuarios', sesion)).status, 200);
+    await prisma.usuario.update({ where: { id: d.mantenimientoA2.id }, data: { rol: 'mantenimiento' } });
+    assert.equal((await llamar(base, 'GET', '/api/usuarios', sesion)).status, 403);
   });
 
   it('un admin sin empresa asignada no puede operar (no ve "todo lo huérfano")', async () => {

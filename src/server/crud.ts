@@ -33,6 +33,7 @@ export interface CrudOptions {
   prepareCreate?: (data: Record<string, unknown>, user: AuthUser) => Promise<Record<string, unknown>> | Record<string, unknown>;
   prepareUpdate?: (data: Record<string, unknown>, user: AuthUser, existing: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown>;
   beforeDelete?: (existing: Record<string, unknown>, user: AuthUser) => Promise<void> | void;
+  afterUpdate?: (existing: Record<string, unknown>, data: Record<string, unknown>) => Promise<void> | void;
   afterDelete?: (existing: Record<string, unknown>) => Promise<void> | void;
   /** Enriquece/transforma filas ya consultadas (lote, para poder agregar con una sola consulta). */
   format?: (items: any[], user: AuthUser) => Promise<any[]> | any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -103,6 +104,7 @@ export function crudRouter(o: CrudOptions): Router {
     let data = parseBody(updateSchema, req) as Record<string, unknown>;
     if (o.prepareUpdate) data = await o.prepareUpdate(data, user, existing);
     const row = await o.delegate.update({ where: { id }, data, ...queryArgs(o) });
+    if (o.afterUpdate) await o.afterUpdate(existing, data);
     res.locals.entidadId = id;
     res.json((await fmt([row], user))[0]);
   };

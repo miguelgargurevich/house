@@ -60,7 +60,7 @@ export function createApp(opts: AppOptions = {}) {
         openapi: '3.0.0',
         info: { title: 'House API', version: '2.0.0', description: 'API de House SaaS multi-tenant. Contrato completo en docs/API-CONTRATO.md.' },
         servers: [{ url: '/' }],
-        components: { securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } } },
+        components: { securitySchemes: { cookieAuth: { type: 'apiKey', in: 'cookie', name: 'house_sesion' } } },
       },
       apis: ['./src/server/routes/*.ts'],
     });
