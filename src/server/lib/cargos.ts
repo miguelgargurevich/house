@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { hoyLima } from './fechas';
+import { conVistaResidente, selectEvaluacion } from './evaluacionVista';
 
 export type EstadoCargo = 'pagado' | 'pendiente' | 'vencido' | 'en_revision';
 
@@ -41,16 +42,17 @@ export const includeCargo = {
       recibo: { select: { id: true, mes: true, anio: true, descripcion: true, fecha_vencimiento: true } },
     },
   },
-  pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], include: { comprobante: { select: selectComprobante } } },
+  pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], include: { comprobante: { select: selectComprobante }, evaluacion: { select: { estado: true, veredicto: true } } } },
 } satisfies Prisma.ReciboConceptoUnidadInclude;
 
 type CargoConIncludes = Prisma.ReciboConceptoUnidadGetPayload<{ include: typeof includeCargo }>;
 
 /** Aplana reciboConcepto → `concepto` y `recibo` y calcula `estado`. */
 export function formatearCargo(c: CargoConIncludes) {
-  const { reciboConcepto, ...resto } = c;
+  const { reciboConcepto, pagos, ...resto } = c;
   return {
     ...resto,
+    pagos: pagos.map(conVistaResidente), // la evaluación de la IA sólo sale resumida: el detalle va en los pagos de la junta y el admin
     concepto: reciboConcepto?.concepto ? { nombre: reciboConcepto.concepto.nombre } : null,
     recibo: reciboConcepto?.recibo ?? null,
     estado: estadoCargo(c.estado_pago, reciboConcepto?.recibo?.fecha_vencimiento),
@@ -63,6 +65,7 @@ export const includePago = {
   usuario: { select: { id: true, nombre: true } },
   validado_por: { select: { id: true, nombre: true } },
   comprobante: { select: selectComprobante },
+  evaluacion: { select: selectEvaluacion },
   reciboConceptoUnidad: {
     select: {
       id: true,
@@ -74,9 +77,13 @@ export const includePago = {
 
 type PagoConIncludes = Prisma.PagoGetPayload<{ include: typeof includePago }>;
 
-/** Aplana el cargo del pago en `unidad`, `concepto` y `recibo`. */
-export function formatearPago(p: PagoConIncludes) {
-  const { reciboConceptoUnidad: c, ...resto } = p;
+/**
+ * Aplana el cargo del pago en `unidad`, `concepto` y `recibo`. `vista` decide qué ve de la evaluación de la IA: por omisión
+ * (residente) sólo un estado simple; `'completa'` es para quien valida (admin y junta) y trae alertas, extraído y comprobaciones.
+ */
+export function formatearPago(p: PagoConIncludes, vista: 'residente' | 'completa' = 'residente') {
+  const { reciboConceptoUnidad: c, ...completo } = p;
+  const resto = vista === 'completa' ? completo : conVistaResidente(completo);
   return {
     ...resto,
     unidad: c?.unidad ?? null,

@@ -86,6 +86,8 @@ model ComplejoHabitacional {
   unidades    Unidad[]
   usuarios    Usuario[]
   mediosPago  MedioPago[]
+  /// Si está activa, un comprobante que la IA lee como «coincide» (confianza alta, sin duplicados) valida el pago solo. Nunca rechaza.
+  validacion_automatica_ia Boolean @default(false)
 }
 
 model Estructura {
@@ -218,6 +220,8 @@ model Pago {
   motivo_rechazo            String?
   validado_por              Usuario?              @relation("PagoValidador", fields: [validado_por_id], references: [id], onDelete: SetNull)
   comprobante               ArchivoComprobante?
+  validado_por_ia           Boolean               @default(false)
+  evaluacion                EvaluacionComprobante?
 
   @@index([estado_validacion])
 }
@@ -340,4 +344,25 @@ model MedioPago {
   creado_por        Usuario?              @relation(fields: [creado_por_id], references: [id], onDelete: SetNull)
 
   @@index([complejo_id, estructura_id])
+}
+
+/// Lectura del comprobante por IA (visión) contrastada por código con lo que debía pagarse. Una por pago. No guarda el texto crudo del modelo.
+model EvaluacionComprobante {
+  id           Int       @id @default(autoincrement())
+  pago_id      Int       @unique
+  estado       String    @default("pendiente")
+  proveedor    String?
+  modelo       String?
+  veredicto    String?
+  confianza    Float?
+  extraido     Json?
+  coincidencias Json?
+  alertas      Json?
+  resumen      String?
+  intentos     Int       @default(0)
+  error        String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  evaluada_at  DateTime?
+  pago         Pago      @relation(fields: [pago_id], references: [id], onDelete: Cascade)
 }

@@ -4,6 +4,7 @@ import { useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, StatusBadge, Tabs, Toolbar, fechaCorta, soles } from '../../ui';
 import type { Column } from '../../ui';
+import { VeredictoBadge } from '../shared/evaluacion';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
 import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
 import { ValidarPagoModal } from './_parts/cobranza/ValidarPagoModal';
@@ -50,8 +51,9 @@ export default function Pagos() {
     { key: 'referencia', header: 'Referencia', hideBelow: 'xl', cell: p => <span className="num text-muted">{p.referencia || '—'}</span> },
     ...(pestana === 'rechazado' ? [{ key: 'motivo', header: 'Motivo', hideBelow: 'md' as const, cell: (p: PagoFila) => <span className="text-muted">{p.motivo_rechazo ?? '—'}</span> }] : []),
     { key: 'comprobante', header: 'Comprobante', hideBelow: 'xl', cell: p => (p.comprobante ? <Badge tone="info">Adjunto</Badge> : <span className="text-muted">Sin archivo</span>) },
+    ...(pestana === 'por_validar' ? [{ key: 'ia', header: 'Revisión IA', hideBelow: 'md' as const, cell: (p: PagoFila) => (p.comprobante ? <VeredictoBadge evaluacion={p.evaluacion} /> : <span className="text-muted">—</span>) }] : []),
     { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(p.monto)}</span> },
-    { key: 'estado', header: 'Estado', cell: p => <StatusBadge estado={p.estado_validacion} /> },
+    { key: 'estado', header: 'Estado', cell: p => <span className="flex flex-wrap items-center gap-1.5"><StatusBadge estado={p.estado_validacion} />{p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}</span> },
     { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },
   ];
 

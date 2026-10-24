@@ -14,7 +14,7 @@ const MIN = 60_000;
 /** Pendiente = sin pagar y sin comprobante en revisión (`en_revision`) ni `pagado`. */
 const cargoPendiente: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: 'pendiente' }] };
 
-export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number };
+export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number };
 
 interface Cargado {
   datos: Parameters<typeof plantilla>[1];
@@ -22,9 +22,11 @@ interface Cargado {
 
 /** Reúne lo que lleva el mensaje. `null` si no hay nada que avisar a ese usuario (cargos ya pagados, recibo borrado…). */
 async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: string }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
-  if (ref.entidad === 'cargo') {
+  if (ref.entidad === 'cargo' || ref.entidad === 'pago') {
+    const cargoId = ref.entidad === 'cargo' ? ref.id : (await prisma.pago.findUnique({ where: { id: ref.id }, select: { recibo_concepto_unidad_id: true } }))?.recibo_concepto_unidad_id;
+    if (cargoId == null) return null;
     const c = await prisma.reciboConceptoUnidad.findUnique({
-      where: { id: ref.id },
+      where: { id: cargoId },
       select: { monto: true, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
     });
     const recibo = c?.reciboConcepto?.recibo;
@@ -73,11 +75,14 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
  *
  * `ref` dice de qué trata el aviso y de ahí salen los datos del mensaje:
  *  - `{ entidad: 'recibo', id }` → recibo emitido / por vencer / vencido (suma los cargos del usuario en ese recibo);
- *  - `{ entidad: 'cargo', id }`  → `pago_validado` / `pago_rechazado` (un cargo, `ReciboConceptoUnidad.id`).
+ *  - `{ entidad: 'cargo', id }`  → un cargo (`ReciboConceptoUnidad.id`);
+ *  - `{ entidad: 'pago', id }`   → `pago_validado` / `pago_rechazado` de ESE pago (los datos salen de su cargo; cada pago avisa una vez,
+ *    aunque el mismo cargo se rechace, se vuelva a pagar y se rechace de nuevo).
+ * `opts.motivo` es el motivo de un rechazo y va en el mensaje.
  *
  * Nunca envía en línea: la notificación queda `pendiente` y la procesa `procesarCola`. Devuelve cuántas creó.
  */
-export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefAviso, opts: { ahora?: Date } = {}): Promise<number> {
+export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefAviso, opts: { ahora?: Date; motivo?: string } = {}): Promise<number> {
   const ahora = opts.ahora ?? new Date();
   const u = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true, nombre: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
   if (!u) return 0;
@@ -87,7 +92,7 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   if (!canales.length) return 0;
   const cargado = await cargarDatos(tipo, u, ref, ahora);
   if (!cargado) return 0;
-  const { asunto, cuerpo } = plantilla(tipo, cargado.datos);
+  const { asunto, cuerpo } = plantilla(tipo, opts.motivo ? { ...cargado.datos, motivo: opts.motivo.slice(0, 300) } : cargado.datos);
   const r = await prisma.notificacion.createMany({
     data: canales.map((canal) => ({ usuario_id: u.id, canal, tipo, asunto, cuerpo, estado: 'pendiente', programada_para: ahora, ref_entidad: ref.entidad, ref_id: ref.id })),
     skipDuplicates: true,

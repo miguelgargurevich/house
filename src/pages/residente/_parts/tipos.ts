@@ -1,4 +1,5 @@
 import type { ComprobanteMeta } from '../../shared/comprobantes';
+import type { EvaluacionResidente } from '../../shared/evaluacion';
 
 export type EstadoCargo = 'pagado' | 'pendiente' | 'vencido' | 'en_revision';
 export type EstadoValidacion = 'por_validar' | 'validado' | 'rechazado';
@@ -12,7 +13,7 @@ export interface Cargo {
   recibo: { id: number; mes: number; anio: number; descripcion?: string | null; fecha_vencimiento: string };
   unidad: { id: number; codigo: string };
   /** Del más reciente al más antiguo. */
-  pagos?: { id: number; estado_validacion: EstadoValidacion; motivo_rechazo: string | null }[];
+  pagos?: { id: number; estado_validacion: EstadoValidacion; motivo_rechazo: string | null; evaluacion?: EvaluacionResidente | null; validado_por_ia?: boolean }[];
 }
 
 /** Motivo del último rechazo si el cargo volvió a quedar por pagar; `null` en cualquier otro caso. */
@@ -33,6 +34,9 @@ export interface PagoResidente {
   motivo_rechazo: string | null;
   validado_at: string | null;
   comprobante: ComprobanteMeta | null;
+  /** Sólo un estado simple: el detalle de la IA es de la junta y la administración. */
+  evaluacion?: EvaluacionResidente | null;
+  validado_por_ia?: boolean;
   unidad?: { codigo: string } | null;
   concepto?: { nombre: string } | null;
 }

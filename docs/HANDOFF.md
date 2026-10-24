@@ -4,6 +4,33 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/evaluacion-ia`
+
+**Qué se hizo:** el residente sube la captura de su pago y la IA (visión) la lee; el código la contrasta con lo que debía pagarse. Además, avisos al residente al validar o rechazar. La IA AYUDA: las decisiones salen de comparaciones por código, nunca del texto del modelo.
+- **Esquema (aditivo, al final de cada bloque):** modelo `EvaluacionComprobante` (1 por pago, Cascade), `ComplejoHabitacional.validacion_automatica_ia` (false), `Pago.validado_por_ia` (false). `db push` sólo contra `house_test_ia`; `prisma generate` actualizó el cliente compartido del checkout principal (campos nuevos, nada se quitó).
+- **Backend:** `lib/lecturaComprobante.ts` (prompt + esquema zod estricto + limpieza), `services/contraste.ts` (funciones puras: monto, fecha, destino, nombre, duplicados, veredicto y confianza), `services/evaluacion.ts` (cadena del llavero filtrada a visión, tope de 3 claves, toma atómica, reintento a los 60 s, auto-validación), `services/validacionPago.ts` (cierre atómico compartido por la validación manual y la de la IA + `avisarResultado`), `lib/evaluacionVista.ts` (vista completa vs. simple del residente). `proveedoresIA.ts`: `vision`, `modeloVision`, `visionPdf`. Rutas nuevas: `POST/GET /api/pagos/:id/evaluacion` (límite por usuario `limiters.evaluacion`).
+- **Avisos:** `RefAviso` admite `{ entidad: 'pago', id }` y `encolarAviso` recibe `opts.motivo` (la plantilla `pago_rechazado` lo muestra). Fue el único cambio en `services/avisos/`: el pedido exigía el motivo y evitar que un 2.º rechazo del MISMO cargo quedara tapado por la unicidad (usuario, canal, tipo, ref).
+- **Frontend:** `pages/shared/evaluacion.tsx` (panel, insignias, hooks de seguimiento), `ValidarPagoModal` (panel «Evaluación automática» + «Volver a evaluar»), columna «Revisión IA» en Pagos › Por validar, `PagarModal` (aviso de privacidad, botón de cámara, paso «Pago registrado» con «Evaluando tu comprobante…» ≤ 30 s), `PagosResidente` (estado e insignia «Validado automáticamente»), `ValidacionAutomaticaIA` en Medios de pago (sólo admin; confirma al activar).
+- **Pruebas:** `tests/evaluacion-ia.test.ts` (62). Suite completa: 295 en verde. Mutaciones (copia a scratchpad y `cp`): 32 aplicadas; 29 en rojo. Sin detectar y por qué: `!duplicado` en la auto-validación (redundante: un duplicado ya da `no_coincide`), enfriar el respaldo de entorno tras un 401 y `skipDuplicates` de la cola (su error se traga en `avisarResultado`; la idempotencia la cubre `tests/avisos.test.ts`).
+- **Docs:** `SEGURIDAD.md` (sección «Evaluación de comprobantes con IA»: qué se envía, a quién, qué se guarda) y `API-CONTRATO.md`.
+
+**Próximos pasos:**
+- Probar con un proveedor REAL y capturas reales de Yape, Plin y bancos (sólo se probó con `fetch` falso): afinar el prompt, confirmar que los modelos por defecto (`gemini-2.5-flash`, `gpt-4o-mini`, `openai/gpt-4o-mini`, `mistral-small-latest`) siguen vigentes y medir costo y latencia.
+- Revisar las pantallas en el navegador (no hubo): panel de evaluación en el modal, columna «Revisión IA», paso «Pago registrado» y la cámara en móvil, interruptor en Medios de pago.
+- Decidir con la administración el proveedor de IA de producción (la imagen sale hacia él; ver `SEGURIDAD.md`) y cuándo activar `validacion_automatica_ia`.
+
+**Decisiones:**
+- Estado «evaluando» = `estado: 'pendiente'`. Durante el reintento sigue `pendiente` con `error = 'Reintento programado'` (el residente sigue viendo «evaluando»).
+- `resumen` y `alertas` los arma el código; el texto del modelo jamás se guarda. `moneda` nula → el monto queda en `null` (revisar), no en falso.
+- Los duplicados (archivo y n.º de operación) se buscan sólo dentro de la empresa.
+- `GET /api/me/*` y `formatearPago` son «residente» por omisión (a prueba de olvidos): lo completo se pide con `'completa'`.
+
+**Gotchas:**
+- La evaluación corre en el proceso (no hay cola persistente): si el contenedor se reinicia a medias, queda `pendiente` y se retoma con «Volver a evaluar» a los 3 min.
+- Las pruebas esperan la IA con `esperarEvaluaciones()`; las que usan compuertas las abren solas en `afterEach`.
+- `fechaCorta('YYYY-MM-DD')` cae un día antes en Lima (se interpreta UTC): la fecha detectada se muestra con `T12:00:00`.
+- `tests/helpers/env.ts` ya acepta `TEST_DATABASE_URL`; esta rama usó `house_test_ia`.
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/calidad`
 
 **Qué se hizo:** mejoras media y baja pendientes: accesibilidad del kit de UI y pruebas end-to-end del flujo de dinero. Sin cambios de backend, de esquema ni de páginas.

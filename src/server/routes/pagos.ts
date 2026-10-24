@@ -66,7 +66,7 @@ export const pagosRouter = crudRouter({
   orderable: ['id', 'monto', 'fecha_pago', 'metodo_pago'],
   defaultOrder: { fecha_pago: 'desc' },
   include: includePago,
-  format: (items) => items.map(formatearPago),
+  format: (items) => items.map((p) => formatearPago(p, 'completa')), // los lee el admin o la junta: ven la evaluación completa
   filtros: {
     schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional() }),
     where: (f) => ({

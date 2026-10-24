@@ -4,6 +4,8 @@ import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, fechaCorta
 import { ComprobanteVista } from '../../../shared/ComprobanteVista';
 import type { ComprobanteMeta } from '../../../shared/comprobantes';
 import { tamanoLegible } from '../../../shared/comprobantes';
+import { EvaluacionPanel, useEvaluacionCompleta } from '../../../shared/evaluacion';
+import type { EvaluacionCompleta } from '../../../shared/evaluacion';
 import { metodoLabel } from './comun';
 
 export interface PagoRevisable {
@@ -21,6 +23,9 @@ export interface PagoRevisable {
   unidad?: { codigo: string } | null;
   concepto?: { nombre: string } | null;
   usuario?: { nombre: string } | null;
+  /** Sólo la traen los pagos que ve quien valida (admin y junta). */
+  evaluacion?: EvaluacionCompleta | null;
+  validado_por_ia?: boolean;
 }
 
 interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: () => void }
@@ -32,6 +37,8 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const [motivo, setMotivo] = useState('');
   const [errorMotivo, setErrorMotivo] = useState<string | undefined>();
   const [enviando, setEnviando] = useState<'validado' | 'rechazado' | null>(null);
+
+  const ia = useEvaluacionCompleta(pago?.id ?? null, pago?.evaluacion ?? null);
 
   useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); }, [pago?.id]);
 
@@ -110,6 +117,18 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               <Alert tone="warn">{pago.usuario ? `${pago.usuario.nombre} no adjuntó comprobante.` : 'Este pago no tiene comprobante adjunto.'}</Alert>
             )}
           </section>
+
+          {pago.comprobante && (
+            <EvaluacionPanel
+              evaluacion={ia.ev}
+              montoEsperado={pago.monto}
+              validadoPorIA={ia.validadoPorIA || pago.validado_por_ia === true}
+              puedeReevaluar={porValidar}
+              reevaluando={ia.esperando}
+              onReevaluar={() => void ia.reevaluar()}
+              errorReevaluar={ia.error}
+            />
+          )}
 
           {rechazando && (
             <Textarea

@@ -109,7 +109,7 @@ export function meRouter(limitePassword: RequestHandler) {
       prisma.pago.count({ where }),
       prisma.pago.findMany({ where, orderBy: [orderBy, { id: 'asc' }], ...page(q), include: includePago }),
     ]);
-    res.json({ items: rows.map(formatearPago), total, page: q.page, pageSize: q.pageSize });
+    res.json({ items: rows.map((p) => formatearPago(p)), total, page: q.page, pageSize: q.pageSize });
   });
 
   router.post('/cargos/:id/pagos', residente, async (req, res) => {

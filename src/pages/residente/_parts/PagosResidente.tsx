@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react';
 import { ArrowUpTrayIcon, BanknotesIcon, DocumentTextIcon, PrinterIcon } from '@heroicons/react/24/outline';
 import { errorText, useList } from '../../../api';
 import { ComprobanteVista } from '../../shared/ComprobanteVista';
+import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
 import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, PageHeader, Skeleton, StatusBadge, fechaCorta, soles, useToast } from '../../../ui';
 import type { Column } from '../../../ui';
@@ -21,6 +22,9 @@ export function PagosResidente() {
   const [subiendo, setSubiendo] = useState(false);
   const toast = useToast();
   const inputArchivo = useRef<HTMLInputElement>(null);
+  // Si la captura aún se está evaluando, se sigue su estado mientras el detalle está abierto.
+  const seguimiento = useEvaluacionResidente(ver?.estado_validacion === 'por_validar' && ver.evaluacion?.estado === 'evaluando' ? ver.id : null);
+  const estadoIA = seguimiento.estado ?? (ver?.estado_validacion === 'por_validar' ? ver.evaluacion?.estado ?? null : null);
 
   async function adjuntar(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -45,7 +49,7 @@ export function PagosResidente() {
     { key: 'metodo', header: 'Método', cell: p => metodoLabel(p.metodo_pago) },
     { key: 'referencia', header: 'Referencia', hideBelow: 'lg', cell: p => <span className="num">{p.referencia || '—'}</span> },
     { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(p.monto)}</span> },
-    { key: 'estado', header: 'Estado', cell: p => <StatusBadge estado={estadoVisible(p.estado_validacion)} /> },
+    { key: 'estado', header: 'Estado', cell: p => <span className="flex flex-wrap items-center gap-1.5"><StatusBadge estado={estadoVisible(p.estado_validacion)} /><ValidadoPorIABadge validado={p.validado_por_ia} /></span> },
     { key: 'acciones', header: '', align: 'right', cell: p => <IconButton label={`Ver comprobante del ${fechaCorta(p.fecha_pago)}`} onClick={() => setVer(p)}><DocumentTextIcon className="h-4 w-4" /></IconButton> },
   ];
 
@@ -74,6 +78,7 @@ export function PagosResidente() {
                       <span className="flex shrink-0 flex-col items-end gap-1">
                         <span className="num font-semibold">{soles(p.monto)}</span>
                         <StatusBadge estado={estadoVisible(p.estado_validacion)} />
+                        <ValidadoPorIABadge validado={p.validado_por_ia} />
                       </span>
                     </button>
                   </li>
@@ -140,13 +145,14 @@ export function PagosResidente() {
             />
             <p className="mt-5 text-xs text-muted">
               {ver.estado_validacion === 'validado'
-                ? 'Pago validado por la administración.'
+                ? (ver.validado_por_ia ? 'Pago validado automáticamente por la inteligencia artificial.' : 'Pago validado por la administración.')
                 : ver.estado_validacion === 'rechazado'
                   ? `Pago rechazado: ${ver.motivo_rechazo ?? 'sin motivo indicado'}.`
                   : 'Pago registrado por el residente; está en revisión y queda sujeto a la validación del administrador.'}
             </p>
           </div>
         )}
+        {estadoIA && <div className="mt-4 print:hidden"><EstadoEvaluacion estado={estadoIA} /></div>}
         {ver?.estado_validacion === 'rechazado' && <div className="mt-4 print:hidden"><Alert tone="bad">Tu pago fue rechazado: {ver.motivo_rechazo ?? 'sin motivo indicado'}. Vuelve a pagar el recibo desde Mis recibos.</Alert></div>}
         {ver?.comprobante && (
           <div className="mt-5 print:hidden">

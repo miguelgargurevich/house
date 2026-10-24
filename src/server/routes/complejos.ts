@@ -10,6 +10,8 @@ const base = z.object({
   direccion: textoOpcional(255),
   descripcion: textoOpcional(1000),
   empresa_id: idSchema.nullish(),
+  /** Valida solo los pagos que la IA lee como coincidencia exacta. Sólo admin/superadmin editan complejos (la junta no). */
+  validacion_automatica_ia: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
 });
 
 export const complejosRouter = crudRouter({

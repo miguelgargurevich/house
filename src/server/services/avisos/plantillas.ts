@@ -15,6 +15,8 @@ export interface DatosAviso {
   vencimiento: string;
   /** Días que faltan para vencer (negativo si ya venció). Sólo para `por_vencer`. */
   dias?: number;
+  /** Motivo del rechazo (sólo `pago_rechazado`). */
+  motivo?: string;
 }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -71,7 +73,7 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
     case 'pago_rechazado':
       return {
         asunto: `No pudimos validar tu pago de ${d.periodo}`,
-        cuerpo: `${hola}\n\nNo pudimos validar tu pago de ${d.monto}${por} (${d.periodo}). Revisa el detalle y vuelve a enviar tu comprobante.\n\n${cierre}`,
+        cuerpo: `${hola}\n\nNo pudimos validar tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Revisa el detalle y vuelve a enviar tu comprobante.\n\n${cierre}`,
       };
   }
 }
