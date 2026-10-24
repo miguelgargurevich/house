@@ -26,8 +26,8 @@ const borde = (p: string) => new RegExp(`(^|[-_/.:])(${p})([-_.:]|$)`, 'i');
 
 // Lo que NO sirve para conversar: se guarda como categoría 'otro' y nunca es elegible.
 const NO_CHAT = [
-  /embed|text-to-speech|speech|whisper|transcri|audio|voice|imagen|image|video|sora|dall-e|flux|stable-diffusion|moderation|safety|shield|rerank|robotics|computer-use/i,
-  borde('tts|stt|veo|live|guard|aqa|lyria|nano-banana'),
+  /embed|text-to-speech|speech|whisper|transcri|audio|voice|imagen|image|video|sora|dall-e|flux|stable-diffusion|moderation|safety|safeguard|shield|rerank|robotics|computer-use/i,
+  borde('tts|stt|veo|live|guard|guardrail|aqa|lyria|nano-banana'),
 ];
 
 export function esModeloDeChat(modelo_id: string): boolean {
