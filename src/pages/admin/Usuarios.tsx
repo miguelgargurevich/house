@@ -3,17 +3,27 @@ import { useForm } from 'react-hook-form';
 import { PencilSquareIcon, PlusIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../api';
 import type { Page } from '../../api';
-import type { Rol } from '../../auth/AuthContext';
+import type { CargoJunta, Rol } from '../../auth/AuthContext';
 import { useAuth } from '../../auth/AuthContext';
 import { ROL_LABEL } from '../../app/nav';
 import {
   Avatar, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, Toolbar, useToast,
 } from '../../ui';
 import type { Column } from '../../ui';
+import { nombreBlock } from './_parts/medios/tipos';
 
-interface Fila { id: number; nombre: string; email: string; telefono: string | null; rol: Rol | null; empresa?: { id: number; nombre: string } | null }
-interface Form { nombre: string; email: string; telefono: string; rol: Rol; password: string; empresa_id: string }
+interface Fila { id: number; nombre: string; email: string; telefono: string | null; rol: Rol | null; empresa?: { id: number; nombre: string } | null; cargo_junta?: CargoJunta | null; complejo_id?: number | null; estructura_id?: number | null }
+interface Form { nombre: string; email: string; telefono: string; rol: Rol; password: string; empresa_id: string; cargo_junta: CargoJunta | ''; complejo_id: string; estructura_id: string }
 interface EmpresaOpt { id: number; nombre: string }
+interface BlockOpt { id: number; nombre: string | null }
+
+const CARGOS: { value: CargoJunta; label: string }[] = [
+  { value: 'presidente', label: 'Presidente' },
+  { value: 'tesorero', label: 'Tesorero' },
+  { value: 'secretario', label: 'Secretario' },
+  { value: 'vocal', label: 'Vocal' },
+];
+const cargoLabel = (c: CargoJunta | null | undefined) => CARGOS.find(x => x.value === c)?.label ?? '—';
 
 export default function Usuarios() {
   const { user } = useAuth();
@@ -23,24 +33,33 @@ export default function Usuarios() {
   const [filtroEmpresa, setFiltroEmpresa] = useState('');
   const list = useList<Fila>('/api/usuarios', { params: { rol: filtroRol, empresa_id: esSuper ? filtroEmpresa : undefined } });
   const empresas = useResource<Page<EmpresaOpt>>(esSuper ? '/api/empresas?pageSize=100' : null);
+  const complejos = useResource<Page<EmpresaOpt>>('/api/complejos?pageSize=100');
   const [editando, setEditando] = useState<Fila | 'nuevo' | null>(null);
   const [borrar, setBorrar] = useState<Fila | null>(null);
   const [busy, setBusy] = useState(false);
 
   const roles = (Object.keys(ROL_LABEL) as Rol[]).filter(r => esSuper || r !== 'superadmin');
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<Form>();
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<Form>();
+  const cargoElegido = watch('rol') === 'propietario' && watch('cargo_junta') !== '';
+  const complejoCargo = watch('complejo_id');
+  const bloques = useResource<Page<BlockOpt>>(cargoElegido && complejoCargo ? `/api/estructuras?complejo_id=${complejoCargo}&pageSize=100` : null);
 
   function abrir(f: Fila | 'nuevo') {
     reset(f === 'nuevo'
-      ? { nombre: '', email: '', telefono: '', rol: 'propietario', password: '', empresa_id: '' }
-      : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? 'propietario') as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '' });
+      ? { nombre: '', email: '', telefono: '', rol: 'propietario', password: '', empresa_id: '', cargo_junta: '', complejo_id: '', estructura_id: '' }
+      : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? 'propietario') as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', cargo_junta: f.cargo_junta ?? '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', estructura_id: f.estructura_id ? String(f.estructura_id) : '' });
     setEditando(f);
   }
 
   async function guardar(v: Form) {
     const nuevo = editando === 'nuevo';
-    const { empresa_id, ...resto } = v;
+    const { empresa_id, cargo_junta, complejo_id, estructura_id, ...resto } = v;
     const body: Record<string, unknown> = { ...resto };
+    // El cargo sólo existe para propietarios; con cargo van también el condominio y el block de la junta.
+    if (v.rol === 'propietario') {
+      body.cargo_junta = cargo_junta || null;
+      if (cargo_junta) { body.complejo_id = Number(complejo_id); body.estructura_id = estructura_id ? Number(estructura_id) : null; }
+    }
     if (!resto.password) delete body.password;
     if (esSuper) body.empresa_id = empresa_id && v.rol !== 'superadmin' ? Number(empresa_id) : null;
     try {
@@ -67,6 +86,7 @@ export default function Usuarios() {
       <div className="flex items-center gap-3"><Avatar nombre={f.nombre} size="sm" /><div className="min-w-0"><p className="truncate font-medium">{f.nombre}</p><p className="truncate text-xs text-muted">{f.email}</p></div></div>
     ) },
     { key: 'rol', header: 'Rol', cell: f => (f.rol ? ROL_LABEL[f.rol] : '—') },
+    { key: 'cargo', header: 'Cargo', hideBelow: 'md', cell: f => (f.cargo_junta ? cargoLabel(f.cargo_junta) : '—') },
     { key: 'empresa', header: 'Empresa', hideBelow: 'md', cell: f => f.empresa?.nombre ?? '—' },
     { key: 'telefono', header: 'Teléfono', hideBelow: 'lg', cell: f => <span className="num">{f.telefono ?? '—'}</span> },
     { key: 'acciones', header: '', align: 'right', cell: f => (
@@ -138,6 +158,29 @@ export default function Usuarios() {
               <option value="">Sin empresa</option>
               {(empresas.data?.items ?? []).map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
             </Select>
+          )}
+          {watch('rol') === 'propietario' && (
+            <>
+              <Select label="Cargo en la junta" className="sm:col-span-2" hint="Presidente y tesorero gestionan los medios de pago y validan los pagos de su block. Secretario y vocal no ganan permisos." {...register('cargo_junta')}>
+                <option value="">Ninguno</option>
+                {CARGOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </Select>
+              {cargoElegido && (
+                <>
+                  <Select
+                    label="Condominio de la junta" error={errors.complejo_id && 'Elige el condominio'} disabled={complejos.loading}
+                    {...register('complejo_id', { validate: v => !cargoElegido || v !== '', onChange: () => setValue('estructura_id', '') })}
+                  >
+                    <option value="">Elige un condominio</option>
+                    {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </Select>
+                  <Select label="Block de la junta" disabled={!complejoCargo || bloques.loading} hint={bloques.error ? 'No se pudieron cargar los blocks.' : 'Sin block, la junta alcanza todo el condominio.'} {...register('estructura_id')}>
+                    <option value="">Todo el condominio</option>
+                    {(bloques.data?.items ?? []).map(b => <option key={b.id} value={b.id}>{nombreBlock(b)}</option>)}
+                  </Select>
+                </>
+              )}
+            </>
           )}
           <Input
             label={editando === 'nuevo' ? 'Contraseña' : 'Nueva contraseña'}

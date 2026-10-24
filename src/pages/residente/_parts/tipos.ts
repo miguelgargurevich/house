@@ -54,3 +54,17 @@ export function metodoLabel(m: string | null | undefined): string {
 export const estadoVisible = (e: EstadoValidacion): string => (e === 'por_validar' ? 'en_revision' : e);
 
 export const primerNombre = (nombre: string | undefined) => nombre?.trim().split(/\s+/)[0] ?? '';
+
+/** Medio de pago que ve el residente (`GET /api/me/medios-pago`): sólo lo necesario para pagar. */
+export interface MedioResidente {
+  id: number;
+  tipo: 'banco' | 'yape' | 'plin';
+  ambito: 'block' | 'condominio';
+  banco: string | null;
+  tipo_cuenta: 'ahorros' | 'corriente' | null;
+  numero_cuenta: string | null;
+  cci: string | null;
+  titular: string;
+  celular: string | null;
+  tiene_qr: boolean;
+}

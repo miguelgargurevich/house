@@ -2,9 +2,10 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
-  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon,
+  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon,
 } from '@heroicons/react/24/outline';
-import type { Rol } from '../auth/AuthContext';
+import { esJunta } from '../auth/junta';
+import type { Rol, Usuario } from '../auth/AuthContext';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 export interface NavItem { to: string; label: string; icon: Icon }
@@ -15,6 +16,7 @@ const operacion: NavItem[] = [
   { to: '/admin/unidades', label: 'Unidades', icon: KeyIcon },
   { to: '/admin/recibos', label: 'Recibos', icon: ReceiptPercentIcon },
   { to: '/admin/pagos', label: 'Pagos', icon: BanknotesIcon },
+  { to: '/admin/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
   { to: '/admin/morosidad', label: 'Morosidad', icon: ExclamationTriangleIcon },
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
@@ -69,6 +71,20 @@ export const NAV: Record<Rol, NavGroup[]> = {
     ] },
   ],
 };
+
+/** Grupo «Junta» de presidente y tesorero: reusa las pantallas de la administración, acotadas por la API a su block. */
+const JUNTA: NavGroup = {
+  label: 'Junta',
+  items: [
+    { to: '/junta/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
+    { to: '/junta/pagos', label: 'Pagos por validar', icon: BanknotesIcon },
+  ],
+};
+
+/** La navegación depende del rol y, para propietarios, del cargo en la junta. */
+export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id'>): NavGroup[] {
+  return esJunta(user) ? [...NAV[user.rol], JUNTA] : NAV[user.rol];
+}
 
 export const PERFIL: NavItem = { to: '/perfil', label: 'Mi perfil', icon: UserCircleIcon };
 

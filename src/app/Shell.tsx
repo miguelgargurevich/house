@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRightStartOnRectangleIcon, Bars3Icon, MoonIcon, SparklesIcon, SunIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar, IconButton, cx } from '../ui';
-import { NAV, PERFIL, ROL_LABEL } from './nav';
+import { PERFIL, ROL_LABEL, navPara } from './nav';
 import { useTheme } from './theme';
 import { Assistant } from './Assistant';
 
@@ -38,7 +38,7 @@ export function Shell() {
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center justify-between px-5"><Logo /></div>
       <nav aria-label="Principal" className="flex-1 space-y-5 overflow-y-auto px-3 py-3">
-        {NAV[user.rol].map((g, i) => (
+        {navPara(user).map((g, i) => (
           <div key={i}>
             {g.label && <p className="mb-1.5 px-3 text-xs font-medium uppercase tracking-wide text-muted">{g.label}</p>}
             <ul className="space-y-0.5">

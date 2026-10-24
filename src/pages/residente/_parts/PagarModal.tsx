@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
-import { api, errorText } from '../../../api';
+import { api, errorText, useResource } from '../../../api';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
 import { Alert, Button, DefinitionList, Input, Modal, Select, fechaCorta, periodo, soles, useToast } from '../../../ui';
+import { ComoPagar } from './ComoPagar';
 import { METODOS } from './tipos';
-import type { Cargo, Metodo } from './tipos';
+import type { Cargo, MedioResidente, Metodo } from './tipos';
 
 interface Form { metodo_pago: Metodo; referencia: string }
 
@@ -15,12 +16,16 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
   const toast = useToast();
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ defaultValues: { metodo_pago: 'transferencia', referencia: '' } });
 
+  const [paso, setPaso] = useState<'como' | 'registrar'>('como');
+  const medios = useResource<MedioResidente[]>(cargo ? `/api/me/medios-pago?cargo_id=${cargo.id}` : null);
+
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
 
   useEffect(() => {
     if (!cargo) return;
     reset({ metodo_pago: 'transferencia', referencia: '' });
+    setPaso('como');
     setArchivo(null);
     setErrorArchivo(undefined);
   }, [cargo, reset]);
@@ -56,15 +61,21 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
     <Modal
       open={cargo !== null}
       onClose={onClose}
-      title="Pagar recibo"
-      footer={
+      title={paso === 'como' ? 'Cómo pagar' : 'Registrar tu pago'}
+      footer={paso === 'como' ? (
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => setPaso('registrar')}>Ya pagué: registrar comprobante</Button>
+        </>
+      ) : (
+        <>
+          <Button variant="secondary" onClick={() => setPaso('como')}>Ver cómo pagar</Button>
           <Button type="submit" form="form-pago" loading={isSubmitting}>Confirmar pago</Button>
         </>
-      }
+      )}
     >
-      {cargo && (
+      {cargo && paso === 'como' && <ComoPagar cargo={cargo} medios={medios.data} loading={medios.loading} error={medios.error} />}
+      {cargo && paso === 'registrar' && (
         <form id="form-pago" onSubmit={handleSubmit(confirmar)} className="space-y-5" noValidate>
           <div className="rounded bg-surface2 p-4">
             <p className="text-sm text-muted">Monto a pagar</p>
