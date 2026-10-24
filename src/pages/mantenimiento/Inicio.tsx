@@ -1,13 +1,19 @@
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useList, useResource } from '../../api';
+import { useAuth } from '../../auth/AuthContext';
 import { Card, CardBody, CardHeader, EmptyState, ErrorState, PageHeader, Skeleton, StatStrip } from '../../ui';
 import { TareaCard, useCambiarEstado } from './_parts/TareaCard';
 import type { Tarea } from './_parts/TareaCard';
 
 interface Resumen { tareas_pendientes: number; en_progreso: number; completadas: number }
 
+/** Las mismas pantallas sirven al personal con tareas (mantenimiento, limpieza, jardinería); cada uno ve sólo las suyas. */
+const TRABAJO: Record<string, string> = { mantenimiento: 'mantenimiento', limpieza: 'limpieza', jardineria: 'jardinería' };
+
 export default function Inicio() {
+  const { user } = useAuth();
+  const rol = user?.rol ?? 'mantenimiento';
   const resumen = useResource<Resumen>('/api/dashboard/resumen');
   const tareas = useList<Tarea>('/api/tareas', { pageSize: 10, params: { orden: 'fecha_creacion:desc' } });
   const { busyId, cambiar } = useCambiarEstado(() => { void resumen.reload(); void tareas.reload(); });
@@ -16,7 +22,7 @@ export default function Inicio() {
 
   return (
     <>
-      <PageHeader title="Inicio" description="Tu trabajo de mantenimiento de un vistazo." />
+      <PageHeader title="Inicio" description={`Tu trabajo de ${TRABAJO[rol] ?? 'mantenimiento'} de un vistazo.`} />
       {resumen.error ? (
         <Card className="mb-6"><ErrorState message={resumen.error} onRetry={resumen.reload} /></Card>
       ) : resumen.loading || !d ? (
@@ -35,7 +41,7 @@ export default function Inicio() {
         <CardHeader
           title="Tareas recientes"
           description="Las últimas que siguen abiertas."
-          action={<Link to="/mantenimiento/tareas" className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-brand hover:underline">Ver todas <ArrowRightIcon className="h-4 w-4" /></Link>}
+          action={<Link to={`/${rol}/tareas`} className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-brand hover:underline">Ver todas <ArrowRightIcon className="h-4 w-4" /></Link>}
         />
         {tareas.error ? (
           <ErrorState message={tareas.error} onRetry={tareas.reload} />

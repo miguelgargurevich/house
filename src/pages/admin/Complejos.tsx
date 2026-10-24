@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { BuildingStorefrontIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { BuildingStorefrontIcon, DocumentTextIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  Badge, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, Textarea, Toolbar, useToast,
+  Badge, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, Textarea, Toolbar, fechaCorta, useToast,
 } from '../../ui';
 import type { Column } from '../../ui';
 import { TIPOS_COMPLEJO, useOpciones } from './_parts/catalogo/opciones';
+import { ContratosModal } from './_parts/personas/ContratosModal';
 
 interface Fila {
   id: number;
@@ -19,6 +20,8 @@ interface Fila {
   empresa?: { id: number; nombre: string } | null;
   _count?: { unidades: number };
   unidades_count?: number;
+  /** Contrato de administración vigente (desde cuándo la administra su empresa). */
+  contrato_vigente?: { id: number; fecha_inicio: string } | null;
 }
 interface Form { nombre: string; tipo: string; direccion: string; descripcion: string; empresa_id: string }
 
@@ -32,6 +35,7 @@ export default function Complejos() {
   const empresas = useOpciones(esSuper ? '/api/empresas' : null);
   const [editando, setEditando] = useState<Fila | 'nuevo' | null>(null);
   const [borrar, setBorrar] = useState<Fila | null>(null);
+  const [contratos, setContratos] = useState<Fila | null>(null);
   const [busy, setBusy] = useState(false);
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>();
 
@@ -45,7 +49,8 @@ export default function Complejos() {
   async function guardar(v: Form) {
     const nuevo = editando === 'nuevo';
     const body: Record<string, unknown> = { nombre: v.nombre.trim(), tipo: v.tipo, direccion: v.direccion.trim() || null, descripcion: v.descripcion.trim() || null };
-    if (esSuper) body.empresa_id = Number(v.empresa_id);
+    // La administradora se elige al crear; después se cambia con «Cambiar de administradora» (cierra un contrato y abre otro).
+    if (esSuper && nuevo) body.empresa_id = Number(v.empresa_id);
     try {
       await api(nuevo ? '/api/complejos' : `/api/complejos/${(editando as Fila).id}`, { method: nuevo ? 'POST' : 'PUT', json: body });
       toast.ok(nuevo ? 'Condominio creado' : 'Cambios guardados');
@@ -71,10 +76,13 @@ export default function Complejos() {
     ) },
     { key: 'tipo', header: 'Tipo', cell: f => <Badge tone="brand">{f.tipo}</Badge> },
     { key: 'direccion', header: 'Dirección', hideBelow: 'sm', cell: f => f.direccion ?? '—' },
-    ...(esSuper ? [{ key: 'empresa', header: 'Empresa', hideBelow: 'md' as const, cell: (f: Fila) => f.empresa?.nombre ?? '—' }] : []),
+    { key: 'empresa', header: 'Administrado por', hideBelow: 'md', cell: f => (
+      <div className="min-w-0"><p className="truncate">{f.empresa?.nombre ?? '—'}</p>{f.contrato_vigente && <p className="truncate text-xs text-muted">Desde <span className="num">{fechaCorta(f.contrato_vigente.fecha_inicio)}</span></p>}</div>
+    ) },
     { key: 'unidades', header: 'Unidades', align: 'right', hideBelow: 'md', cell: f => <span className="num">{cantidad(f) ?? '—'}</span> },
     { key: 'acciones', header: '', align: 'right', cell: f => (
       <div className="flex justify-end gap-1">
+        <IconButton label={`Contratos de administración de ${f.nombre}`} onClick={() => setContratos(f)}><DocumentTextIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Editar ${f.nombre}`} onClick={() => abrir(f)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Eliminar ${f.nombre}`} onClick={() => setBorrar(f)}><TrashIcon className="h-4 w-4" /></IconButton>
       </div>
@@ -122,8 +130,8 @@ export default function Complejos() {
           <Select label="Tipo" error={errors.tipo && 'Elige el tipo'} {...register('tipo', { required: true })}>
             {TIPOS_COMPLEJO.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
-          {esSuper && (
-            <Select label="Empresa" error={errors.empresa_id && 'Elige la empresa'} hint={empresas.error ?? undefined} {...register('empresa_id', { required: true })}>
+          {esSuper && editando === 'nuevo' && (
+            <Select label="Empresa administradora" error={errors.empresa_id && 'Elige la empresa'} hint={empresas.error ?? undefined} {...register('empresa_id', { required: true })}>
               <option value="">{empresas.loading ? 'Cargando…' : 'Selecciona una empresa'}</option>
               {empresas.opciones.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
             </Select>
@@ -132,6 +140,8 @@ export default function Complejos() {
           <Textarea label="Descripción" className="sm:col-span-2" {...register('descripcion')} />
         </form>
       </Modal>
+
+      {contratos && <ContratosModal complejo={contratos} puedeCambiar={esSuper} onClose={() => setContratos(null)} onCambiado={() => void list.reload()} />}
 
       <ConfirmDialog
         open={!!borrar}
