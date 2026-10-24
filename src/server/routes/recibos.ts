@@ -288,7 +288,8 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res)
   res.locals.entidad = 'pago';
   res.locals.entidadId = r.pago_id;
   res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: id, unidad_id: unidadId };
-  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u), vista: 'completa' }) });
+  // El recibo ya se validó arriba: al cobrar la última unidad deja de tener deuda y `recibosDe` dejaría de alcanzarlo (404 tras haber cobrado).
+  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
 });
 
 router.use(crud);
