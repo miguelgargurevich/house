@@ -4,6 +4,42 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/herramientas`: herramientas de solo lectura (asistente + MCP)
+
+**Pedido de Miguel:** «Quiero que el asistente de IA pueda responder sobre toda la BD. Son tools, y después las puedo usar con mi MCP.» Se retomó trabajo parcial de una sesión interrumpida (catálogo en `src/server/tools/` sin tests): se revisó, se probó y se completó. **Doc completa: `docs/HERRAMIENTAS.md`.**
+
+**Qué se hizo**
+- **Catálogo de 22 herramientas** (`src/server/tools/`: `base.ts`, `gestion.ts` ×14, `residente.ts` ×5, `superadmin.ts` ×3, `index.ts`). `ejecutarHerramienta` es el ÚNICO camino de ejecución (asistente y MCP): revalida el rol en cada llamada, zod estricto, `depurar` (campos/correos prohibidos), `acotar` (tamaño, con cursor coherente) y auditoría (`entidad: herramienta`, origen `asistente`|`mcp`).
+- **Asistente** (`services/asistente/herramientas.ts`, `respaldo.ts`, `lib/modelosSinHerramientas.ts`; cambios mínimos en `proveedor.ts`, `motor.ts`, `turno.ts`, `conversaciones.ts` y UNA línea en `routes/aiChat.ts`): bucle de ≤ 4 rondas / 6 consultas / 20 s, Gemini y OpenAI-compatible, respaldo determinista (DATOS VERIFICADOS) y memoria negativa por ruta, contingencia con datos. Evento SSE nuevo **`herramienta`** `{nombre, estado}` (solo se emite; `src/app/asistente/*` no se tocó). Prompt actualizado.
+- **MCP**: `POST /mcp` (`routes/mcp.ts`, JSON-RPC propio, sin dependencias nuevas), tokens de API personales (`services/tokensApi.ts`, `routes/tokensApi.ts` en `/api/me/tokens-api`), pantalla «Tokens de API» en Mi perfil (`pages/shared/_parts/TokensApi.tsx`).
+- **Esquema ADITIVO**: modelo `TokenApi` (+ relación en `Usuario`) y `MensajeIA.herramientas Json?`. `prisma db push` sin pérdida.
+- Docs: `HERRAMIENTAS.md` (nuevo), `SEGURIDAD.md`, `API-CONTRATO.md`, `.env.example` (`ASISTENTE_HERRAMIENTAS`, `ASISTENTE_HERRAMIENTAS_MS`).
+
+**Verificación (números reales)**: `npm test` **522/522** (base `house_test_herramientas`; eran 421 antes de la rama), `tsc -b`, `tsc -p tests/tsconfig.json`, `npm run build` limpios. Pruebas nuevas: `herramientas.test.ts` (43: matriz de alcance por herramienta y rol con dos empresas, junta por block, residentes, campos prohibidos, límites/cursor, zod estricto, texto hostil, auditoría), `asistente-herramientas.test.ts` (24: Gemini y compatible simulados, 1 y varias rondas, tope de rondas/consultas/tiempo, herramienta inventada o de otro rol, rutas sin herramientas, streaming, contingencia, enrutador), `mcp.test.ts` (21: protocolo, tokens, 401 por vencido/revocado/desactivado/contraseña/rol, Bearer fuera de `/mcp`, cookie en `/mcp`, Origin, tasa, auditoría). **Mutaciones** (copia en scratchpad + `cp`): sin filtro de alcance en `morosos`, sin filtro de junta, sin filtro de residente, sin validación de rol en `ejecutarHerramienta`, sin tope de 50 (zod y `pagina()`), sin comparación del hash, sin huella, sin filtro Origin, respaldo sin filtrar por rol, sin `depurar`, sin tope de 6 consultas → **todas ponen tests en rojo**.
+- **Navegador local** (Playwright sobre la app compilada + un Gemini FALSO inyectado con `llaveroDeps.fetch`, BD `house_dev_herramientas` con el seed): crear token (error sin nombre, token mostrado una vez, Copiar → portapapeles == token, no queda en el DOM ni tras recargar), revocar (`/mcp` pasa de 200 a 401), Enter/Esc/foco, 375 px sin scroll horizontal; mantenimiento NO ve la sección; el panel del asistente muestra la respuesta tras la herramienta (ignora el evento). `curl` real a `/mcp`: `tools/list` (admin 14, residente 5, tesorero 17 tras recibir el cargo con el MISMO token), `tools/call morosos` (admin Ana: solo su empresa; tesorero: solo su block), Bearer en `/api/*` → 401, cookie en `/mcp` → 401, `Origin` → 403, herramienta de otro rol → `-32602`, `limite: 500` → `isError`, 50 filas + cursor.
+- **Bug hallado con datos reales (y corregido, con test):** `mi_deuda` de alguien con 700+ cargos devolvía un resultado enorme y `acotar` lo reemplazaba por «demasiado grande» perdiendo el total; ahora topa `por_unidad` a 50 (`unidades_con_deuda` da el conteo) y `acotar` recorta cualquier lista conservando los totales y deja el cursor en lo entregado.
+
+**NO verificado (honesto)**
+- **Modelos reales** que soporten herramientas (Gemini, Groq, OpenRouter…): solo `fetch` falso con los formatos documentados; el comportamiento real (qué tan bien eligen la herramienta, si respetan «no muestres lo que no devolvió», 400 reales de «tools no soportadas», `thoughtSignature` de Gemini 3) queda por probar con claves reales. El regex de rutas sin herramientas (`modelosSinHerramientas.ts`) y el de errores («tool», «function calling») son heurísticos.
+- **Clientes MCP reales** (Claude Desktop/Code, MCP de My Workspace): solo `curl` y el protocolo probado a mano; las claves exactas de configuración de cada cliente en `HERRAMIENTAS.md` son orientativas. No hay SSE/sesiones (spec 2025-06-18 lo permite).
+- Producción (Coolify, `https://house.gargurevich.dev/mcp` detrás de Traefik: confirmar que no pise la cabecera `Authorization` ni añada `Origin`), rendimiento con volumen muy alto, varias réplicas (memoria negativa y límite por token son por proceso).
+
+**Decisiones**
+- `huella` del token = sha256(rol + hash de contraseña): rol/contraseña/desactivación invalidan; el ALCANCE (empresa, cargo de junta, block) se relee en cada llamada y el token lo hereda tal cual (la lista de herramientas cambia en vivo).
+- Un 400 «tools no soportadas» marca la ruta y esa MISMA consulta se contesta con el respaldo (la persona siempre recibe respuesta); la ruta pasa al final del orden dentro de su clave. NO se rota a otra clave/proveedor «que sí» antes de responder (habría que reordenar la cadena del motor; queda como mejora). Un 400 genérico (sin hablar de herramientas) sigue la rotación de siempre.
+- Con herramientas, el texto final llega por el mismo SSE (token a token si el modelo ya empezó a escribir; de golpe tras rondas con `functionCall` sin texto).
+- Gestión: la junta NO tiene `tareas_de_mantenimiento` ni `avisos_recientes`; secretario y vocal solo las de residente; mantenimiento y seguridad ninguna.
+
+**Gotchas**
+- `GET /` de la app compilada falla («Petición inválida») si el repo vive bajo una carpeta con punto (`.claude/worktrees/…`): `res.sendFile` rechaza rutas con dotfiles. Para verificar en navegador se sirvió una copia de `dist/` fuera de ese árbol (cwd distinto). No pasa en producción.
+- El esquema JSON de las herramientas sale de `z.toJSONSchema` (zod 4); para Gemini se pasa por `esquemaParaGemini` (sin `additionalProperties`, `pattern`, uniones).
+- `tests/helpers/ia.ts` ganó `pideHerramientas`, `resultadosDe`, `fuerzaTexto`, `flujoSoloLlamada`, `flujoTextoYLlamada`.
+- Pendiente de MERGE: la otra sesión (`feat/asistente-mensajes`) toca `routes/aiChat.ts` y `src/app/asistente/*`; aquí hay UNA línea en `aiChat.ts` (evento `herramienta` en el SSE) y `conversaciones.ts` (+2 líneas para `herramientas`).
+
+**Próximos pasos:** probar con claves reales (Gemini y un compatible) y ajustar descripciones/prompt según cómo elijan herramientas; mostrar «Consultando…» en el panel con el evento `herramienta` (la otra sesión); registrar el servidor en el MCP de My Workspace; valorar reordenar la cadena del motor para preferir rutas con herramientas.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — orquestación en `main`: integración de asistente, inline y proveedores
 
 **Qué se hizo:** integré `feat/evaluacion-ia`, `feat/asistente` y `feat/asistente-inline`; agregué siete proveedores al catálogo del llavero (Cerebras, SambaNova, NVIDIA, Cohere, Ollama Cloud, LLM7, Kilo; los modelos por defecto de Ollama, LLM7 y Kilo son estimados y el catálogo vivo debe corregirlos al sincronizar); las tarjetas de cifras (`StatStrip`) y los dashboards se adaptan al ancho real con rejillas `auto-fit`.

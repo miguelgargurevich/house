@@ -164,6 +164,7 @@ export function aiChatRouter(limitador: RequestHandler) {
     try {
       for await (const ev of ejecutarTurno(prep, { stream: true, signal: control.signal })) {
         if (ev.tipo === 'delta') evento(res, 'delta', { texto: ev.texto });
+        else if (ev.tipo === 'herramienta') evento(res, 'herramienta', { nombre: ev.nombre, estado: ev.estado });
         else if (ev.tipo === 'fin') evento(res, 'done', { modelo: ev.modelo, proveedor: ev.proveedor, latencia_ms: ev.latencia_ms, ...(ev.modo ? { modo: ev.modo } : {}) });
         else evento(res, 'error', { codigo: ev.codigo, mensaje: ev.mensaje });
       }

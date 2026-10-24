@@ -8,12 +8,17 @@ export interface RateLimitOptions {
   password?: number;
   llavero?: number;
   evaluacion?: number;
+  /** `/mcp`: solicitudes por minuto y por token. */
+  mcp?: number;
+  /** `/mcp`: intentos con token inválido por IP cada 15 min. */
+  mcpFallos?: number;
 }
 
 const QUINCE_MIN = 15 * 60 * 1000;
 
-function limiter(max: number, mensaje: string, keyGenerator: (req: Request) => string): RequestHandler {
+function limiter(max: number, mensaje: string, keyGenerator: (req: Request) => string, extra: { soloFallos?: boolean } = {}): RequestHandler {
   return rateLimit({
+    ...(extra.soloFallos ? { skipSuccessfulRequests: true } : {}),
     windowMs: QUINCE_MIN,
     limit: max,
     standardHeaders: 'draft-7',
@@ -37,6 +42,8 @@ export function crearLimitadores(opts: RateLimitOptions = {}) {
     ai: limiter(opts.ai ?? 20, 'Has alcanzado el límite de consultas a la IA, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
     llavero: limiter(opts.llavero ?? 20, 'Demasiadas operaciones en el llavero, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
     evaluacion: limiter(opts.evaluacion ?? 20, 'Has pedido demasiadas evaluaciones de comprobantes, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
+    // Sólo cuenta los 4xx de `/mcp` (token inválido): una IP que tantea tokens se frena; un cliente con token válido no gasta este cupo.
+    mcpFallos: limiter(opts.mcpFallos ?? 30, 'Demasiados intentos con un token inválido, intenta de nuevo más tarde', ip, { soloFallos: true }),
     password: limiter(opts.password ?? 10, 'Demasiados intentos de cambio de contraseña, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
   };
 }

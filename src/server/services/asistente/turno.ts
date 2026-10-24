@@ -9,7 +9,9 @@ import { construirCadena } from '../rotacion';
 import type { AjustesAplicados } from '../../lib/parametrosChat';
 import { construirContexto, respuestaContingencia, type DatosContexto } from './contexto';
 import { guardarMensajeAsistente, guardarMensajeUsuario, historialDe, nombreAmigableDeModelo, obtenerOCrear, unirSeguidos } from './conversaciones';
+import { crearSesion } from './herramientas';
 import { ejecutar, type CausaFallo } from './motor';
+import { contingenciaConDatos } from './respaldo';
 import type { Turno } from './proveedor';
 
 let systemPrompt: string | undefined;
@@ -30,6 +32,9 @@ export const MENSAJES_ERROR: Record<CausaFallo | 'cortada', { status: number; me
 };
 
 export interface Preparado {
+  usuario: AuthUser;
+  /** El mensaje de esta persona (lo usa el respaldo sin herramientas para elegir qué consultar). */
+  mensaje: string;
   conversacionId: string;
   /** Id del mensaje del usuario recién guardado (el panel lo usa para «volver a este mensaje»). */
   mensajeId: number;
@@ -57,6 +62,8 @@ export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: Aj
     throw new HttpError(500, 'No se pudo preparar la consulta a la IA.');
   }
   return {
+    usuario: user,
+    mensaje,
     conversacionId: id,
     mensajeId: guardado.id,
     turno: { sistema, mensajes: unirSeguidos([...historial, { rol: 'user', texto: mensaje }]) },
@@ -68,6 +75,8 @@ export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: Aj
 
 export type EventoTurno =
   | { tipo: 'delta'; texto: string }
+  /** Una herramienta de consulta está corriendo / terminó. Sólo se emite; el panel puede ignorarlo. */
+  | { tipo: 'herramienta'; nombre: string; estado: 'ejecutando' | 'listo' | 'error' }
   | { tipo: 'fin'; modelo: string | null; proveedor: string | null; latencia_ms: number; modo: 'contingencia' | null; texto: string }
   | { tipo: 'error'; codigo: CausaFallo | 'cortada'; mensaje: string; parcial: string };
 
@@ -77,7 +86,11 @@ export type EventoTurno =
  */
 export async function* ejecutarTurno(prep: Preparado, opts: { stream: boolean; signal?: AbortSignal }): AsyncGenerator<EventoTurno, void, void> {
   const { ajustes } = prep;
+  const cola: EventoTurno[] = [];
+  const herramientas = crearSesion(prep.usuario, prep.mensaje, (ev) => { cola.push({ tipo: 'herramienta', ...ev }); });
+  const usadas = () => herramientas?.usadas ?? [];
   const gen = ejecutar({
+    herramientas,
     turno: prep.turno,
     parametros: ajustes.parametros,
     esfuerzo: ajustes.esfuerzo,
@@ -87,25 +100,27 @@ export async function* ejecutarTurno(prep: Preparado, opts: { stream: boolean; s
     signal: opts.signal,
   });
   let r = await gen.next();
-  while (!r.done) {
+  for (;;) {
+    while (cola.length) yield cola.shift()!;
+    if (r.done) break;
     yield { tipo: 'delta', texto: r.value };
     r = await gen.next();
   }
   const res = r.value;
   if (res.tipo === 'ok') {
-    await guardarMensajeAsistente(prep.conversacionId, res.texto, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, tokens_entrada: res.tokens_entrada, tokens_salida: res.tokens_salida, estado: 'ok' }, prep.mensajeId);
+    await guardarMensajeAsistente(prep.conversacionId, res.texto, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, tokens_entrada: res.tokens_entrada, tokens_salida: res.tokens_salida, estado: 'ok', herramientas: usadas() }, prep.mensajeId);
     yield { tipo: 'fin', modelo: res.modelo, proveedor: res.proveedor, latencia_ms: res.latencia_ms, modo: null, texto: res.texto };
     return;
   }
 
   // ---- No hubo respuesta completa ----
   if (res.causa === 'cancelado') {
-    if (res.parcial) await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cancelado' }, prep.mensajeId);
+    if (res.parcial) await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cancelado', herramientas: usadas() }, prep.mensajeId);
     return;
   }
   if (res.parcial) {
     // Falló a mitad del stream: el cliente ya recibió texto; se guarda el parcial y se avisa.
-    await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cortada' }, prep.mensajeId);
+    await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cortada', herramientas: usadas() }, prep.mensajeId);
     yield { tipo: 'error', codigo: 'cortada', mensaje: MENSAJES_ERROR.cortada.mensaje, parcial: res.parcial };
     return;
   }
@@ -120,8 +135,10 @@ export async function* ejecutarTurno(prep: Preparado, opts: { stream: boolean; s
     return;
   }
   // Ninguna ruta sana: contingencia sin IA, con los datos verificados del usuario.
-  const texto = respuestaContingencia(prep.datos);
-  await guardarMensajeAsistente(prep.conversacionId, texto, { estado: 'ok', modo: 'contingencia', latencia_ms: res.latencia_ms, error_codigo: res.causa }, prep.mensajeId);
+  // Sin IA, los datos que pidió el mensaje se consultan igual (con sus permisos) y se listan como texto.
+  const extra = herramientas ? await contingenciaConDatos(prep.usuario, prep.mensaje).catch(() => ({ texto: '', usadas: [] })) : { texto: '', usadas: [] };
+  const texto = extra.texto ? `${respuestaContingencia(prep.datos)}\n\n**Lo que pediste:**\n${extra.texto}` : respuestaContingencia(prep.datos);
+  await guardarMensajeAsistente(prep.conversacionId, texto, { estado: 'ok', modo: 'contingencia', latencia_ms: res.latencia_ms, error_codigo: res.causa, herramientas: [...usadas(), ...extra.usadas] }, prep.mensajeId);
   yield { tipo: 'delta', texto };
   yield { tipo: 'fin', modelo: null, proveedor: null, latencia_ms: res.latencia_ms, modo: 'contingencia', texto };
 }

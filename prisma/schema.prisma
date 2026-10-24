@@ -54,6 +54,7 @@ model Usuario {
   estructura        Estructura?            @relation("JuntaEstructura", fields: [estructura_id], references: [id], onDelete: SetNull)
   mediosPagoCreados MedioPago[]
   conversacionesIA  ConversacionIA[]
+  tokensApi         TokenApi[]
 }
 
 model EmpresaAdministradora {
@@ -438,6 +439,8 @@ model MensajeIA {
   error_codigo    String?
   /// `contingencia` cuando la respuesta se armó por código porque ninguna ruta de IA respondió.
   modo            String?
+  /// Herramientas de consulta que usó el turno: [{ nombre, ms, estado }]. Sin argumentos ni datos.
+  herramientas    Json?
   created_at      DateTime       @default(now())
 
   @@index([conversacion_id, created_at])
@@ -449,4 +452,23 @@ model EstadoIA {
   clave      String   @id
   valor      Json
   updated_at DateTime @updatedAt
+}
+
+/// Token de API personal de SOLO LECTURA para el endpoint MCP (`POST /mcp`). Se guarda sólo el sha256; el token se muestra una vez.
+/// `huella` es un sha256 del rol y la contraseña del dueño al crearlo: si cualquiera cambia (o el usuario se desactiva), el token deja de valer.
+model TokenApi {
+  id          String    @id @default(cuid())
+  usuario_id  Int
+  usuario     Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  nombre      String
+  prefijo     String
+  hash        String    @unique
+  huella      String
+  ultimo_uso  DateTime?
+  expira      DateTime
+  revocado_at DateTime?
+  created_at  DateTime  @default(now())
+
+  @@index([usuario_id])
+  @@index([prefijo])
 }
