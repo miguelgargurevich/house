@@ -147,12 +147,15 @@ describe('dashboard por rol', () => {
 
   it('propietario: deuda, vencidos, próximo vencimiento y pagado del año', async () => {
     const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.prop2);
-    assert.deepEqual(Object.keys(r.body).sort(), ['deuda_total', 'en_revision', 'pagado_ano', 'proximo_vencimiento', 'vencidos']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['deuda_total', 'en_revision', 'mantenimientos_en_revision', 'mantenimientos_vencidos', 'pagado_ano', 'proximo_mantenimiento', 'proximo_vencimiento', 'vencidos']);
     // prop2 pagó su único cargo en la prueba anterior, pero sigue en revisión: es «por cobrar», no moroso y no cuenta como pagado
     assert.equal(r.body.deuda_total, '150.00');
     assert.equal(r.body.en_revision, 1);
     assert.equal(r.body.vencidos, 0);
     assert.equal(r.body.proximo_vencimiento, null);
+    assert.equal(r.body.proximo_mantenimiento, null);
+    assert.equal(r.body.mantenimientos_vencidos, 0);
+    assert.equal(r.body.mantenimientos_en_revision, 1, 'el mantenimiento en revisión (1 de 1 cargos)');
     assert.equal(r.body.pagado_ano, '0.00');
     const p1 = await llamar(base, 'GET', '/api/dashboard/resumen', T.prop1);
     assert.equal(p1.body.pagado_ano, '0.00', 'sus dos pagos siguen por validar');
@@ -175,6 +178,11 @@ describe('dashboard por rol', () => {
     assert.equal(r.body.vencidos, 1);
     assert.equal(r.body.proximo_vencimiento.cargo_id, d.cargoFuturoA1.id);
     assert.equal(r.body.proximo_vencimiento.monto, '200.00');
+    // a nivel mantenimiento: el recibo vencido es un mantenimiento vencido y el futuro es el próximo
+    assert.equal(r.body.mantenimientos_vencidos, 1);
+    assert.equal(r.body.proximo_mantenimiento.monto, '200.00');
+    assert.equal(r.body.proximo_mantenimiento.recibo_id, d.reciboFuturoA.id);
+    assert.equal(r.body.proximo_mantenimiento.titulo, 'Mantenimiento de octubre de 2026 · A-101');
   });
 });
 

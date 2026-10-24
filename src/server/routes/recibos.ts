@@ -5,7 +5,7 @@ import { prisma } from '../db';
 import { notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
-import { ESTADOS_MANTENIMIENTO, ORDEN_MANTENIMIENTOS, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
+import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { scopeComplejos, scopeConceptos, scopeRecibos, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
@@ -196,7 +196,7 @@ router.get('/:id/blocks', requireRole('admin'), async (req, res) => {
 });
 
 const mantQuery = listQuerySchema.extend({
-  estado: z.enum(ESTADOS_MANTENIMIENTO).optional(),
+  estado: estadosQuery,
   estructura_id: idSchema.optional(),
   sin_block: z.enum(['true', 'false']).optional(),
 });

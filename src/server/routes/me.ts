@@ -7,7 +7,7 @@ import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, include
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { listQuerySchema, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
 import { revocarDeUsuario } from '../services/sesiones';
-import { ESTADOS_MANTENIMIENTO, ORDEN_MANTENIMIENTOS, listarMantenimientos, type OrdenMantenimientos } from '../lib/mantenimientos';
+import { ORDEN_MANTENIMIENTOS, estadosQuery, listarMantenimientos, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { conResumenDeGrupo, detalleMantenimiento, pagarMantenimiento, soloPrincipales } from '../services/mantenimiento';
 import { idSchema } from '../validation';
 import { METODOS_PAGO } from './pagos';
@@ -149,7 +149,7 @@ export function meRouter(limitePassword: RequestHandler) {
 
   // ---------- Mantenimientos (un recibo por departamento y mes) ----------
   const ids2 = z.object({ reciboId: idSchema, unidadId: idSchema });
-  const mantQuery = listQuerySchema.extend({ estado: z.enum(ESTADOS_MANTENIMIENTO).optional(), unidad_id: idSchema.optional() });
+  const mantQuery = listQuerySchema.extend({ estado: estadosQuery, unidad_id: idSchema.optional() });
   const idsDeUnidades = async (u: AuthUser) => (await prisma.unidad.findMany({ where: unidadesPropias(u), select: { id: true } })).map((x) => x.id);
 
   router.get('/mantenimientos', residente, async (req, res) => {

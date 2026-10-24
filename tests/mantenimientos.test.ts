@@ -172,6 +172,10 @@ describe('residente: mis mantenimientos (uno por recibo y departamento)', () => 
     assert.equal(p1.body.items.length, 1);
     assert.ok(p1.body.total > 1);
     assert.equal((await llamar(base, 'GET', '/api/me/mantenimientos?estado=otro', T.prop1)).status, 422);
+    assert.equal((await llamar(base, 'GET', '/api/me/mantenimientos?estado=vencido,otro', T.prop1)).status, 422);
+    const varios = await llamar(base, 'GET', '/api/me/mantenimientos?estado=vencido,pendiente&pageSize=100', T.prop1);
+    assert.ok(varios.body.items.length > 1 && varios.body.items.every((x: any) => ['vencido', 'pendiente'].includes(x.estado))); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.ok(new Set(varios.body.items.map((x: any) => x.estado)).size === 2, 'trae los dos estados'); // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 });
 

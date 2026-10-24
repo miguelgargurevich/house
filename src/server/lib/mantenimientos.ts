@@ -5,6 +5,7 @@
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
+import { z } from '../validation';
 import { hoyLima } from './fechas';
 
 export type EstadoMantenimiento = 'pagado' | 'en_revision' | 'parcial' | 'vencido' | 'pendiente';
@@ -94,7 +95,8 @@ export interface FiltroMantenimientos {
   unidadIds?: number[];
   /** `null` = unidades sin block. */
   estructuraId?: number | null;
-  estado?: EstadoMantenimiento;
+  /** Uno o varios estados (p. ej. «por pagar» = pendiente + parcial). */
+  estado?: EstadoMantenimiento | EstadoMantenimiento[];
   q?: string;
 }
 
@@ -204,6 +206,7 @@ export async function listarMantenimientos(
     : p.orden?.campo === 'vencimiento' ? Prisma.sql`ORDER BY r.fecha_vencimiento ${dir}, u.codigo ASC`
     : Prisma.sql`ORDER BY r.fecha_vencimiento DESC, u.codigo ASC`;
   const estado = sqlEstado(hoy);
+  const estados = f.estado === undefined ? [] : Array.isArray(f.estado) ? f.estado : [f.estado];
   const filas = await prisma.$queryRaw<FilaSql[]>`
     WITH ${cteCargos(f)}
     SELECT * FROM (
@@ -216,7 +219,7 @@ export async function listarMantenimientos(
       JOIN "Unidad" u ON u.id = m.unidad_id
       LEFT JOIN "Estructura" e ON e.id = u.estructura_id
       LEFT JOIN "Usuario" pr ON pr.id = u.propietario_id
-      ${f.estado ? Prisma.sql`WHERE ${estado} = ${f.estado}` : Prisma.empty}
+      ${estados.length ? Prisma.sql`WHERE ${estado} IN (${Prisma.join(estados)})` : Prisma.empty}
     ) t
     WHERE t.rn > ${(p.page - 1) * p.pageSize} AND t.rn <= ${p.page * p.pageSize}
     ORDER BY t.rn`;
@@ -266,3 +269,10 @@ export async function resumenPorBlock(reciboId: number, hoy = hoyLima()): Promis
 
 /** ¿Se agrupa por block? Sólo si el recibo toca más de un block (un solo block, o casas sin estructura, va directo a la lista). */
 export const agruparPorBlock = (filas: FilaBlock[]) => filas.length > 1;
+
+/** Query `?estado=pendiente,parcial`: uno o varios estados válidos separados por coma; otro valor → 422. */
+export const estadosQuery = z
+  .string()
+  .transform((v) => v.split(',').map((x) => x.trim()).filter(Boolean))
+  .pipe(z.array(z.enum(ESTADOS_MANTENIMIENTO, { error: `estado debe ser: ${ESTADOS_MANTENIMIENTO.join(', ')}` })).min(1))
+  .optional();
