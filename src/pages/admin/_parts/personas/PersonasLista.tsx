@@ -26,7 +26,7 @@ interface Fila {
 }
 interface Form {
   nombre: string; email: string; telefono: string; rol: Rol; password: string; empresa_id: string;
-  cargo_junta: CargoJunta | ''; complejo_id: string; estructura_id: string; unidad: string;
+  cargo_junta: CargoJunta | ''; complejo_id: string; estructura_id: string; unidad: string; unidad_id: string;
 }
 interface Opt { id: number; nombre: string; empresa_id?: number | null }
 interface BlockOpt { id: number; nombre: string | null }
@@ -112,8 +112,8 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
 
   function abrir(f: Fila | 'nuevo') {
     reset(f === 'nuevo'
-      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: '', cargo_junta: '', complejo_id: '', estructura_id: '', unidad: '' }
-      : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? roles[0]!) as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', cargo_junta: f.cargo_junta ?? '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', estructura_id: f.estructura_id ? String(f.estructura_id) : '', unidad: '' });
+      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: '', cargo_junta: '', complejo_id: '', estructura_id: '', unidad: '', unidad_id: '' }
+      : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? roles[0]!) as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', cargo_junta: f.cargo_junta ?? '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', estructura_id: f.estructura_id ? String(f.estructura_id) : '', unidad: f.unidades?.[0]?.codigo ?? '', unidad_id: f.unidades?.[0]?.id ? String(f.unidades[0].id) : '' });
     setEditando(f);
   }
 
@@ -129,14 +129,25 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
         if (v.cargo_junta) body.estructura_id = v.estructura_id ? Number(v.estructura_id) : null;
       }
       const codigo = v.unidad.trim();
-      if (nuevo && codigo) {
-        // El departamento se escribe por su código (un condominio puede tener cientos): se busca dentro del condominio elegido.
-        try {
-          const r = await api<Page<{ id: number; codigo: string }>>(`/api/unidades?complejo_id=${v.complejo_id}&q=${encodeURIComponent(codigo)}&pageSize=20`);
-          const hit = r.items.find(u => u.codigo.toLowerCase() === codigo.toLowerCase());
+      const unidadId = v.unidad_id ? Number(v.unidad_id) : null;
+      const codigoActual = (editando as Fila)?.unidades?.[0]?.codigo ?? '';
+      const unidadIdActual = (editando as Fila)?.unidades?.[0]?.id ? String((editando as Fila).unidades[0].id) : '';
+      const departamentoCambio = codigo !== codigoActual || Boolean(unidadId && unidadId !== unidadIdActual);
+      if (nuevo || departamentoCambio) {
+        if (codigo || unidadId) {
+          // El departamento se escribe por su código (un condominio puede tener cientos): se busca dentro del condominio elegido.
+          let hit: { id: number; codigo: string } | null = null;
+          if (unidadId) {
+            hit = { id: unidadId, codigo };
+          } else {
+            try {
+              const r = await api<Page<{ id: number; codigo: string }>>(`/api/unidades?complejo_id=${v.complejo_id}&q=${encodeURIComponent(codigo)}&pageSize=20`);
+              hit = r.items.find(u => u.codigo.toLowerCase() === codigo.toLowerCase()) ?? null;
+            } catch (e) { toast.error(errorText(e)); return; }
+          }
           if (!hit) { toast.error(`No encontré el departamento «${codigo}» en ese condominio.`); return; }
           body.unidad_id = hit.id;
-        } catch (e) { toast.error(errorText(e)); return; }
+        }
       }
     }
     if (esPersonal) {
@@ -287,8 +298,14 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
               {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </Select>
           )}
-          {esResidente && editando === 'nuevo' && (
-            <Input label="Departamento (opcional)" placeholder="Ej. B01-804" hint="Código de la unidad; quedará como su departamento." disabled={!complejoElegido} {...register('unidad')} />
+          {esResidente && (
+            <Input
+              label="Departamento (opcional)"
+              placeholder="Ej. B01-804"
+              hint="Código de la unidad; quedará como su departamento."
+              disabled={!complejoElegido}
+              {...register('unidad')}
+            />
           )}
           {esResidente && rolElegido === 'propietario' && (
             <>
