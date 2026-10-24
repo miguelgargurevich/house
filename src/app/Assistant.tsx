@@ -5,6 +5,7 @@ import { SparklesIcon } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import { useAuth } from '../auth/AuthContext';
 import { cx, useToast } from '../ui';
+import { exportarMarkdown, nombreArchivoDe, ultimoEnviado } from './asistente/acciones';
 import { AsaDeAncho } from './asistente/AsaDeAncho';
 import { CabeceraAsistente } from './asistente/CabeceraAsistente';
 import { Compositor } from './asistente/Compositor';
@@ -87,10 +88,39 @@ export function Assistant({ open, onClose, escritorio }: { open: boolean; onClos
     catch { toast.error('No se pudo copiar. Selecciona el texto y cópialo a mano.'); return false; }
   }, [toast]);
 
-  // Esc (con el foco dentro del panel) cierra; si hay un diálogo de confirmación abierto, Esc es para él; el menú de ajustes lo frena antes.
+  /** Foco al campo con el cursor al final (tras editar, regenerar o reintentar). */
+  const enfocarCampo = useCallback(() => {
+    requestAnimationFrame(() => { const el = input.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
+  }, []);
+  const editar = (id: string) => {
+    siguiendo.current = true;
+    a.editar(id).then((ok) => { if (ok) enfocarCampo(); }).catch(() => toast.error('No se pudo volver a ese mensaje. Inténtalo de nuevo.'));
+  };
+  const regenerar = (opts?: { auto?: boolean }) => {
+    siguiendo.current = true;
+    a.regenerar(opts).then((ok) => { if (ok) enfocarCampo(); }).catch(() => toast.error('No se pudo regenerar la respuesta. Inténtalo de nuevo.'));
+  };
+  const exportar = () => {
+    const ahora = new Date();
+    const titulo = a.lista?.find((c) => c.id === a.conversacionId)?.titulo ?? a.mensajes.find((m) => m.rol === 'user')?.texto.slice(0, 60) ?? 'Conversación';
+    const url = URL.createObjectURL(new Blob([exportarMarkdown(titulo, a.mensajes, ahora)], { type: 'text/markdown;charset=utf-8' }));
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = nombreArchivoDe(titulo, ahora);
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.ok('Conversación exportada');
+  };
+
+  // Esc (con el foco dentro del panel): si hay una respuesta en curso la detiene; si no, cierra; si hay un diálogo de confirmación abierto, Esc es para él; el menú de ajustes lo frena antes.
   // El foco se atrapa sólo en el celular (ahí es una vista a pantalla completa); en escritorio el panel convive con la página.
   const teclas = (e: KeyboardEvent<HTMLElement>) => {
-    if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]')) { onClose(); return; }
+    if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]')) {
+      if (a.ocupado) { e.preventDefault(); a.detener(); input.current?.focus(); } else onClose();
+      return;
+    }
     if (escritorio || e.key !== 'Tab' || !panel.current) return;
     const lista = [...panel.current.querySelectorAll<HTMLElement>(FOCALIZABLE)].filter((x) => x.offsetParent !== null);
     if (!lista.length) return;
@@ -134,6 +164,7 @@ export function Assistant({ open, onClose, escritorio }: { open: boolean; onClos
           onNueva={() => { a.nueva(); setVista('chat'); siguiendo.current = true; input.current?.focus(); }}
           onHistorial={() => { void a.cargarLista(); setVista('conversaciones'); }}
           onVolverAlChat={() => setVista('chat')}
+          onExportar={a.mensajes.some((m) => m.texto.trim()) ? exportar : undefined}
           onCerrar={onClose}
         />
 
@@ -158,7 +189,7 @@ export function Assistant({ open, onClose, escritorio }: { open: boolean; onClos
                   </ul>
                 </div>
               ) : (
-                <Mensajes mensajes={a.mensajes} verMetricas={user.rol === 'superadmin'} ocupado={a.ocupado} onReintentar={a.reintentar} onNavegar={navegar} onCopiar={copiar} />
+                <Mensajes mensajes={a.mensajes} verMetricas={user.rol === 'superadmin'} ocupado={a.ocupado} onNavegar={navegar} onCopiar={copiar} onEditar={editar} onRegenerar={() => regenerar()} onReintentarConAuto={() => regenerar({ auto: true })} onUsarAutoSiempre={() => { a.usarAutoSiempre(); toast.ok('Listo: usaré Auto en tus próximas consultas'); }} autoYaGuardado={a.ajustes.modelo === 'auto'} />
               )}
             </div>
           ) : (
@@ -168,6 +199,7 @@ export function Assistant({ open, onClose, escritorio }: { open: boolean; onClos
               error={a.errorLista}
               onReintentar={() => void a.cargarLista()}
               onAbrir={(id) => { void a.abrir(id).then((ok) => { if (ok) { siguiendo.current = true; setVista('chat'); } else toast.error('No se pudo abrir la conversación.'); }); }}
+              onRenombrar={a.renombrar}
               onBorrar={async (id) => { try { await a.borrar(id); toast.ok('Conversación borrada'); } catch { toast.error('No se pudo borrar la conversación.'); throw new Error('borrar'); } }}
             />
           )}
@@ -179,6 +211,7 @@ export function Assistant({ open, onClose, escritorio }: { open: boolean; onClos
             onChange={a.setTexto}
             onEnviar={() => { siguiendo.current = true; a.enviar(); }}
             onDetener={a.detener}
+            onRecuperar={() => ultimoEnviado(a.mensajes)}
             ocupado={a.ocupado}
             inputRef={input}
           />

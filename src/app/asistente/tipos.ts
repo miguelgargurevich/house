@@ -27,6 +27,8 @@ export interface ErrorChat { causa: CausaError; mensaje: string }
 export interface MensajeChat {
   /** Identificador local (no el de la base). */
   id: string;
+  /** Id en la base (sólo si ya se guardó): lo usa «Editar» para borrar desde ese mensaje en el servidor. */
+  idServidor?: number;
   rol: 'user' | 'assistant';
   texto: string;
   estado: 'ok' | 'transmitiendo' | 'error';
