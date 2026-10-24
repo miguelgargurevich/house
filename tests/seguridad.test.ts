@@ -236,7 +236,7 @@ describe('manejo de errores', () => {
 
   it('un correo duplicado responde 409 genérico, sin detalle de Prisma', async () => {
     const token = await login(base, 'admin.a@test.pe');
-    const r = await llamar(base, 'POST', '/api/usuarios', token, { nombre: 'Duplicado', email: 'prop1@test.pe', rol: 'inquilino', password: 'ClaveSegura123' });
+    const r = await llamar(base, 'POST', '/api/usuarios', token, { nombre: 'Duplicado', email: 'prop1@test.pe', rol: 'inquilino', password: 'ClaveSegura123', complejo_id: d.complejoA.id });
     assert.equal(r.status, 409);
     assert.ok(!/prisma|unique|constraint/i.test(r.texto));
   });

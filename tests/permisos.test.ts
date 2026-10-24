@@ -39,7 +39,7 @@ describe('password_hash nunca sale', () => {
   });
 
   it('tampoco en las respuestas de crear y editar usuarios, ni siquiera si el cliente envía password_hash', async () => {
-    const c = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Nuevo', email: 'nuevo@test.pe', rol: 'inquilino', password: 'ClaveSegura123', password_hash: 'inyectado' });
+    const c = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Nuevo', email: 'nuevo@test.pe', rol: 'inquilino', password: 'ClaveSegura123', password_hash: 'inyectado', complejo_id: d.complejoA.id });
     assert.equal(c.status, 201);
     assert.ok(!/password_hash|\$2[aby]\$/.test(c.texto));
     const guardado = await prisma.usuario.findUnique({ where: { id: c.body.id }, omit: { password_hash: false } });
@@ -71,7 +71,7 @@ describe('aislamiento entre empresas', () => {
     const u = await llamar(base, 'GET', '/api/unidades?pageSize=100', T.adminA);
     assert.deepEqual(u.body.items.map((x: { codigo: string }) => x.codigo).sort(), ['A-101', 'A-102']);
     const us = await llamar(base, 'GET', '/api/usuarios?pageSize=100', T.adminA);
-    assert.ok(us.body.items.every((x: { rol: string; empresa_id: number }) => x.rol !== 'superadmin' && x.empresa_id === d.empresaA.id));
+    assert.ok(us.body.items.every((x: { rol: string; empresa_id: number | null }) => x.rol !== 'superadmin' && (x.empresa_id === d.empresaA.id || (['propietario', 'inquilino'].includes(x.rol) && x.empresa_id === null))), 'el personal es de la empresa; un residente puede no tener empresa propia');
     assert.ok(!us.body.items.some((x: { id: number }) => x.id === d.adminB.id));
     const e = await llamar(base, 'GET', '/api/empresas', T.adminA);
     assert.deepEqual(e.body.items.map((x: { id: number }) => x.id), [d.empresaA.id]);

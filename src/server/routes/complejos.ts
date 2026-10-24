@@ -24,6 +24,18 @@ export const complejosRouter = crudRouter({
   orderable: ['id', 'nombre', 'tipo'],
   defaultOrder: { nombre: 'asc' },
   include: { empresa: { select: { id: true, nombre: true } } },
+  // Conteo de unidades y de blocks (agregado en una sola consulta por página).
+  format: async (items) => {
+    const ids = items.map((c) => c.id as number);
+    if (!ids.length) return items;
+    const [unidades, blocks] = await Promise.all([
+      prisma.unidad.groupBy({ by: ['complejo_id'], where: { complejo_id: { in: ids } }, _count: { _all: true } }),
+      prisma.estructura.groupBy({ by: ['complejo_id'], where: { complejo_id: { in: ids } }, _count: { _all: true } }),
+    ]);
+    const u = new Map(unidades.map((x) => [x.complejo_id, x._count._all]));
+    const b = new Map(blocks.map((x) => [x.complejo_id, x._count._all]));
+    return items.map((c) => ({ ...c, unidades_count: u.get(c.id as number) ?? 0, blocks_count: b.get(c.id as number) ?? 0 }));
+  },
   createSchema: base,
   updateSchema: base.partial(),
   prepareCreate: async (d, u) => {

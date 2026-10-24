@@ -331,7 +331,7 @@ describe('tareas', () => {
 
 describe('auditoría', () => {
   it('registra mutaciones exitosas con usuario, entidad, id e IP, sin guardar contraseñas', async () => {
-    const r = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Auditado', email: 'auditado@test.pe', rol: 'inquilino', password: 'ClaveSuperSecreta1' });
+    const r = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Auditado', email: 'auditado@test.pe', rol: 'inquilino', password: 'ClaveSuperSecreta1', complejo_id: d.complejoA.id });
     assert.equal(r.status, 201);
     const fila = await esperar(() => prisma.auditoria.findFirst({ where: { entidad: 'usuario', accion: 'crear', entidad_id: r.body.id } }));
     assert.equal(fila.usuario_id, d.adminA.id);

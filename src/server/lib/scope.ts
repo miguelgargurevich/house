@@ -49,18 +49,17 @@ export function scopeUnidades(u: AuthUser): Prisma.UnidadWhereInput {
   }
 }
 
-/** Usuarios de la empresa: con empresa propia, de un complejo suyo, o dueños/inquilinos de sus unidades. Nunca superadmins. */
+/**
+ * Usuarios de la empresa: el personal con empresa propia, quien está asignado a un complejo suyo y los dueños/inquilinos de sus
+ * unidades (un residente no necesita `empresa_id`: llega por sus unidades). Nunca superadmins.
+ */
 export function scopeUsuarios(u: AuthUser): Prisma.UsuarioWhereInput {
   if (esGlobal(u)) return {};
   const e = empresaDe(u);
+  const unidadSuya: Prisma.UnidadWhereInput = { OR: [{ empresa_id: e }, { complejo: { empresa_id: e } }] };
   return {
     rol: { not: 'superadmin' },
-    OR: [
-      { empresa_id: e },
-      { complejo: { empresa_id: e } },
-      { unidades: { some: { empresa_id: e } } },
-      { unidadesInquilino: { some: { empresa_id: e } } },
-    ],
+    OR: [{ empresa_id: e }, { complejo: { empresa_id: e } }, { unidades: { some: unidadSuya } }, { unidadesInquilino: { some: unidadSuya } }],
   };
 }
 

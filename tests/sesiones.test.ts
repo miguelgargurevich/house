@@ -29,7 +29,7 @@ const HORA = 60 * MIN;
 const cookieHeader = (t: string) => ({ cookie: `house_sesion=${t.split('.')[0]}` });
 const loginCrudo = (email: string): Promise<Respuesta> => llamar(base, 'POST', '/api/auth/login', null, { email, password: PASSWORD });
 const nuevoUsuario = (email: string, rol = 'inquilino') =>
-  prisma.usuario.create({ data: { nombre: email, email, rol, password_hash: bcrypt.hashSync(PASSWORD, 4), empresa_id: d.empresaA.id } });
+  prisma.usuario.create({ data: { nombre: email, email, rol, password_hash: bcrypt.hashSync(PASSWORD, 4), empresa_id: d.empresaA.id, complejo_id: d.complejoA.id } });
 
 describe('cookie de sesión', () => {
   it('el login entrega house_sesion con HttpOnly, SameSite=Lax y Path=/ (sin Secure fuera de producción)', async () => {
