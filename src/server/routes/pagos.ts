@@ -8,6 +8,7 @@ import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
 
 export const METODOS_PAGO = ['transferencia', 'yape', 'plin', 'efectivo', 'tarjeta'] as const;
+export const ESTADOS_VALIDACION = ['por_validar', 'validado', 'rechazado'] as const;
 
 const base = z.object({
   recibo_concepto_unidad_id: idSchema,
@@ -19,15 +20,19 @@ const base = z.object({
   observaciones: textoOpcional(500),
 });
 
-/** Marca el cargo como pagado cuando lo abonado cubre su monto (y lo reabre si deja de cubrirlo). */
+/**
+ * Deja el cargo según sus pagos: pagado si lo VALIDADO lo cubre, en revisión si hay un pago por validar,
+ * pendiente en otro caso. Un pago rechazado no cuenta.
+ */
 export async function sincronizarCargo(tx: Prisma.TransactionClient, cargoId: number) {
   const cargo = await tx.reciboConceptoUnidad.findUnique({ where: { id: cargoId }, select: { monto: true } });
   if (!cargo) return;
-  const { _sum } = await tx.pago.aggregate({ where: { recibo_concepto_unidad_id: cargoId }, _sum: { monto: true } });
+  const { _sum } = await tx.pago.aggregate({ where: { recibo_concepto_unidad_id: cargoId, estado_validacion: 'validado' }, _sum: { monto: true } });
   const pagado = new Prisma.Decimal(_sum.monto ?? 0).gte(cargo.monto);
+  const porValidar = !pagado && (await tx.pago.count({ where: { recibo_concepto_unidad_id: cargoId, estado_validacion: 'por_validar' } })) > 0;
   await tx.reciboConceptoUnidad.update({
     where: { id: cargoId },
-    data: pagado ? { estado_pago: 'pagado', fecha_pago: new Date() } : { estado_pago: 'pendiente', fecha_pago: null },
+    data: pagado ? { estado_pago: 'pagado', fecha_pago: new Date() } : { estado_pago: porValidar ? 'en_revision' : 'pendiente', fecha_pago: null },
   });
 }
 
@@ -35,9 +40,10 @@ async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
   if (d.recibo_concepto_unidad_id != null) {
     const cargo = await assertRef(prisma.reciboConceptoUnidad, d.recibo_concepto_unidad_id as number, scopeCargos(user), 'recibo_concepto_unidad_id');
     if (d.monto != null) {
-      const { _sum } = await prisma.pago.aggregate({ where: { recibo_concepto_unidad_id: cargo!.id as number }, _sum: { monto: true } });
+      // Un pago por validar ya reclama su monto; uno rechazado no.
+      const { _sum } = await prisma.pago.aggregate({ where: { recibo_concepto_unidad_id: cargo!.id as number, estado_validacion: { not: 'rechazado' } }, _sum: { monto: true } });
       const saldo = new Prisma.Decimal(cargo!.monto as Prisma.Decimal).minus(_sum.monto ?? 0);
-      if (saldo.lte(0)) throw conflict('Este cargo ya está pagado');
+      if (saldo.lte(0)) throw conflict(cargo!.estado_pago === 'en_revision' ? 'Este cargo tiene un pago en revisión: valídalo o recházalo primero' : 'Este cargo ya está pagado');
       if (new Prisma.Decimal(d.monto as string).gt(saldo)) {
         throw invalid(`Datos inválidos: monto: excede el saldo del cargo (S/ ${saldo.toFixed(2)})`, { monto: 'Excede el saldo del cargo' });
       }
@@ -59,9 +65,10 @@ export const pagosRouter = crudRouter({
   include: includePago,
   format: (items) => items.map(formatearPago),
   filtros: {
-    schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional() }),
+    schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional() }),
     where: (f) => ({
       ...(f.metodo_pago ? { metodo_pago: f.metodo_pago } : {}),
+      ...(f.estado_validacion ? { estado_validacion: f.estado_validacion } : {}),
       ...(f.recibo_concepto_unidad_id !== undefined ? { recibo_concepto_unidad_id: f.recibo_concepto_unidad_id } : {}),
     }),
   },
@@ -69,10 +76,11 @@ export const pagosRouter = crudRouter({
   // El cargo de un pago no se reasigna; sólo se corrigen los datos del pago.
   updateSchema: z.object({ fecha_pago: fechaSchema.optional(), metodo_pago: base.shape.metodo_pago.optional(), referencia: textoOpcional(120), observaciones: textoOpcional(500) }),
   prepareCreate: validarRefs,
-  async create(data) {
+  async create(data, user) {
     const d = data as { recibo_concepto_unidad_id: number } & Record<string, unknown>;
     return prisma.$transaction(async (tx) => {
-      const pago = await tx.pago.create({ data: d as Prisma.PagoUncheckedCreateInput });
+      // Lo registra un administrador: queda validado de inmediato.
+      const pago = await tx.pago.create({ data: { ...d, estado_validacion: 'validado', validado_por_id: user.id, validado_at: new Date() } as Prisma.PagoUncheckedCreateInput });
       await sincronizarCargo(tx, d.recibo_concepto_unidad_id);
       return pago;
     });

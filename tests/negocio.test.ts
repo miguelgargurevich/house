@@ -74,17 +74,18 @@ describe('residentes: /api/me/*', () => {
     assert.equal((await llamar(base, 'GET', '/api/me/cargos', T.prop2)).body.total, 1);
   });
 
-  it('pagar un cargo: registra el Pago por el monto, lo marca pagado con fecha, y no se puede pagar dos veces', async () => {
+  it('pagar un cargo: registra el Pago por el monto, deja el cargo en revisión (sin fecha de pago), y no se puede pagar dos veces', async () => {
     const id = d.cargoFuturoA1.id;
     const r = await llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, T.prop1, { metodo_pago: 'yape', referencia: 'OP-123', observaciones: 'desde la app' });
     assert.equal(r.status, 201);
     assert.equal(r.body.metodo_pago, 'yape');
     assert.equal(r.body.referencia, 'OP-123');
     assert.equal(r.body.monto, '200');
-    assert.equal(r.body.cargo.estado, 'pagado');
+    assert.equal(r.body.estado_validacion, 'por_validar');
+    assert.equal(r.body.cargo.estado, 'en_revision');
     const cargo = await prisma.reciboConceptoUnidad.findUnique({ where: { id }, include: { pagos: true } });
-    assert.equal(cargo!.estado_pago, 'pagado');
-    assert.ok(cargo!.fecha_pago);
+    assert.equal(cargo!.estado_pago, 'en_revision');
+    assert.equal(cargo!.fecha_pago, null);
     assert.equal(cargo!.pagos.length, 1);
     assert.equal(cargo!.pagos[0].usuario_id, d.propietario1.id);
     assert.equal(String(cargo!.pagos[0].monto), '200');
@@ -98,7 +99,8 @@ describe('residentes: /api/me/*', () => {
     const pagos = await llamar(base, 'GET', '/api/me/pagos', T.prop1);
     assert.equal(pagos.body.total, 1);
     assert.equal(pagos.body.items[0].unidad.codigo, 'A-101');
-    assert.equal((await llamar(base, 'GET', '/api/me/cargos?estado=pagado', T.prop1)).body.total, 1);
+    assert.equal((await llamar(base, 'GET', '/api/me/cargos?estado=pagado', T.prop1)).body.total, 0, 'en revisión todavía no es pagado');
+    assert.equal((await llamar(base, 'GET', '/api/me/cargos?estado=en_revision', T.prop1)).body.total, 1);
   });
 
   it('dos pagos simultáneos del mismo cargo: exactamente uno entra (cierre atómico)', async () => {
@@ -123,13 +125,13 @@ describe('dashboard por rol', () => {
   it('admin: forma del resumen con sus números y sólo su empresa', async () => {
     const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.adminB);
     assert.equal(r.status, 200);
-    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'morosos', 'recibos_emitidos', 'tareas_abiertas', 'unidades_total']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'morosos', 'pagos_por_validar', 'recibos_emitidos', 'tareas_abiertas', 'unidades_total']);
     assert.equal(r.body.recibos_emitidos, 1);
     assert.equal(r.body.cargos_pendientes_monto, '90.00');
     assert.equal(r.body.morosos, 1);
     assert.equal(r.body.unidades_total, 1);
     assert.equal(r.body.tareas_abiertas, 1);
-    assert.deepEqual(r.body.estados, { pagado: 0, pendiente: 0, vencido: 1 });
+    assert.deepEqual(r.body.estados, { pagado: 0, pendiente: 0, vencido: 1, en_revision: 0 });
     assert.equal(r.body.cobrado_por_mes.length, 6);
     assert.match(r.body.cobrado_por_mes[5].mes, /^\d{4}-\d{2}$/);
     assert.deepEqual(Object.keys(r.body.cobrado_por_mes[0]).sort(), ['cobrado', 'emitido', 'mes']);
@@ -145,14 +147,16 @@ describe('dashboard por rol', () => {
 
   it('propietario: deuda, vencidos, próximo vencimiento y pagado del año', async () => {
     const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.prop2);
-    assert.deepEqual(Object.keys(r.body).sort(), ['deuda_total', 'pagado_ano', 'proximo_vencimiento', 'vencidos']);
-    // prop2 ya pagó su único cargo en la prueba anterior
-    assert.equal(r.body.deuda_total, '0.00');
+    assert.deepEqual(Object.keys(r.body).sort(), ['deuda_total', 'en_revision', 'pagado_ano', 'proximo_vencimiento', 'vencidos']);
+    // prop2 pagó su único cargo en la prueba anterior, pero sigue en revisión: es «por cobrar», no moroso y no cuenta como pagado
+    assert.equal(r.body.deuda_total, '150.00');
+    assert.equal(r.body.en_revision, 1);
     assert.equal(r.body.vencidos, 0);
     assert.equal(r.body.proximo_vencimiento, null);
-    assert.equal(r.body.pagado_ano, '150.00');
+    assert.equal(r.body.pagado_ano, '0.00');
     const p1 = await llamar(base, 'GET', '/api/dashboard/resumen', T.prop1);
-    assert.equal(p1.body.pagado_ano, '350.00', 'pagó el cargo futuro (200) y ganó la carrera por el vencido (150)');
+    assert.equal(p1.body.pagado_ano, '0.00', 'sus dos pagos siguen por validar');
+    assert.equal(p1.body.en_revision, 2);
   });
 
   it('mantenimiento y seguridad reciben su propio resumen', async () => {
@@ -216,8 +220,9 @@ describe('recibos y cargos (admin)', () => {
     assert.equal(agosto.complejo.nombre, 'Complejo A');
     assert.equal(agosto.estado, 'emitido');
     assert.equal(agosto.totales.monto, '300.00');
-    assert.equal(agosto.totales.cobrado, '150.00', 'prop2 pagó su cargo de agosto');
-    assert.equal(agosto.totales.pendiente, '150.00');
+    assert.equal(agosto.totales.cobrado, '0.00', 'el pago de prop2 sigue por validar');
+    assert.equal(agosto.totales.en_revision, '150.00');
+    assert.equal(agosto.totales.pendiente, '300.00', 'lo que está en revisión sigue por cobrar');
     assert.equal(agosto.estado_cobranza, 'vencido');
   });
 

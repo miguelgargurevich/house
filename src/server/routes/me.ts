@@ -73,7 +73,7 @@ export function meRouter(limitePassword: RequestHandler) {
     res.json({ items, total, page: q.page, pageSize: q.pageSize });
   });
 
-  const cargosQuery = listQuerySchema.extend({ estado: z.enum(['pendiente', 'pagado', 'vencido']).optional() });
+  const cargosQuery = listQuerySchema.extend({ estado: z.enum(['pendiente', 'pagado', 'vencido', 'en_revision']).optional() });
 
   router.get('/cargos', residente, async (req, res) => {
     const u = currentUser(req);
@@ -124,14 +124,15 @@ export function meRouter(limitePassword: RequestHandler) {
     const pago = await prisma.$transaction(async (tx) => {
       const cargo = await tx.reciboConceptoUnidad.findFirst({ where: { id, unidad: unidadesPropias(u) } });
       if (!cargo) throw notFound('Cargo');
-      // Cierre atómico: sólo uno de dos pagos simultáneos del mismo cargo logra pasar de no-pagado a pagado.
+      // Cierre atómico: sólo uno de dos pagos simultáneos del mismo cargo logra pasar de abierto a en revisión.
       const cerrado = await tx.reciboConceptoUnidad.updateMany({
-        where: { id, OR: [{ estado_pago: null }, { estado_pago: { not: 'pagado' } }] },
-        data: { estado_pago: 'pagado', fecha_pago: new Date() },
+        where: { id, OR: [{ estado_pago: null }, { estado_pago: { notIn: ['pagado', 'en_revision'] } }] },
+        data: { estado_pago: 'en_revision', fecha_pago: null },
       });
-      if (cerrado.count === 0) throw conflict('Este cargo ya fue pagado');
+      if (cerrado.count === 0) throw conflict(cargo.estado_pago === 'en_revision' ? 'Este cargo ya tiene un pago en revisión' : 'Este cargo ya fue pagado');
+      // El administrador valida el pago; hasta entonces no cuenta como cobrado.
       return tx.pago.create({
-        data: { recibo_concepto_unidad_id: id, monto: cargo.monto, usuario_id: u.id, metodo_pago: body.metodo_pago, referencia: body.referencia, observaciones: body.observaciones },
+        data: { recibo_concepto_unidad_id: id, monto: cargo.monto, usuario_id: u.id, metodo_pago: body.metodo_pago, referencia: body.referencia, observaciones: body.observaciones, estado_validacion: 'por_validar' },
       });
     });
     const cargo = await prisma.reciboConceptoUnidad.findUniqueOrThrow({ where: { id }, include: includeCargo });

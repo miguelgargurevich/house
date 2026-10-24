@@ -31,7 +31,7 @@ model Usuario {
   password_hash     String?
   created_at        DateTime               @default(now())
   updated_at        DateTime               @updatedAt
-  pagos             Pago[]
+  pagos             Pago[]                 @relation("PagoUsuario")
   recibosCreados    Recibo[]               @relation("UsuarioCreadorRecibo")
   tareasAsignadas   TareaMantenimiento[]   @relation("TareaAsignado")
   tareasCreadas     TareaMantenimiento[]   @relation("TareaCreador")
@@ -43,6 +43,8 @@ model Usuario {
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   complejo_id       Int?
   complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
+  pagosValidados    Pago[]                 @relation("PagoValidador")
+  comprobantesSubidos ArchivoComprobante[]
 }
 
 model EmpresaAdministradora {
@@ -198,7 +200,15 @@ model Pago {
   observaciones             String?
   created_at                DateTime              @default(now())
   reciboConceptoUnidad      ReciboConceptoUnidad? @relation(fields: [recibo_concepto_unidad_id], references: [id])
-  usuario                   Usuario?              @relation(fields: [usuario_id], references: [id])
+  usuario                   Usuario?              @relation("PagoUsuario", fields: [usuario_id], references: [id])
+  estado_validacion         String                @default("validado")
+  validado_por_id           Int?
+  validado_at               DateTime?
+  motivo_rechazo            String?
+  validado_por              Usuario?              @relation("PagoValidador", fields: [validado_por_id], references: [id], onDelete: SetNull)
+  comprobante               ArchivoComprobante?
+
+  @@index([estado_validacion])
 }
 
 model Auditoria {
@@ -235,4 +245,18 @@ model ClaveIntegracion {
   updated_at        DateTime  @updatedAt
 
   @@unique([proveedor, etiqueta])
+}
+
+model ArchivoComprobante {
+  id             Int      @id @default(autoincrement())
+  pago_id        Int      @unique
+  nombre         String
+  tipo_mime      String
+  tamano         Int
+  sha256         String
+  datos          Bytes
+  subido_por_id  Int?
+  created_at     DateTime @default(now())
+  pago           Pago     @relation(fields: [pago_id], references: [id], onDelete: Cascade)
+  subido_por     Usuario? @relation(fields: [subido_por_id], references: [id], onDelete: SetNull)
 }

@@ -32,15 +32,16 @@ const updateSchema = z.object({
   estado: texto(30).optional(),
 });
 
-type Totales = { monto: string; cobrado: string; pendiente: string };
+type Totales = { monto: string; cobrado: string; pendiente: string; en_revision: string };
 
 async function totalesPorRecibo(ids: number[]): Promise<Map<number, Totales>> {
   const mapa = new Map<number, Totales>();
   if (!ids.length) return mapa;
-  const filas = await prisma.$queryRaw<{ recibo_id: number; monto: Prisma.Decimal; cobrado: Prisma.Decimal }[]>`
+  const filas = await prisma.$queryRaw<{ recibo_id: number; monto: Prisma.Decimal; cobrado: Prisma.Decimal; en_revision: Prisma.Decimal }[]>`
     SELECT rc.recibo_id,
            COALESCE(SUM(rcu.monto), 0) AS monto,
-           COALESCE(SUM(CASE WHEN rcu.estado_pago = 'pagado' THEN rcu.monto ELSE 0 END), 0) AS cobrado
+           COALESCE(SUM(CASE WHEN rcu.estado_pago = 'pagado' THEN rcu.monto ELSE 0 END), 0) AS cobrado,
+           COALESCE(SUM(CASE WHEN rcu.estado_pago = 'en_revision' THEN rcu.monto ELSE 0 END), 0) AS en_revision
     FROM "ReciboConceptoUnidad" rcu
     JOIN "ReciboConcepto" rc ON rc.id = rcu.recibo_concepto_id
     WHERE rc.recibo_id IN (${Prisma.join(ids)})
@@ -48,16 +49,18 @@ async function totalesPorRecibo(ids: number[]): Promise<Map<number, Totales>> {
   for (const f of filas) {
     const monto = new Prisma.Decimal(f.monto);
     const cobrado = new Prisma.Decimal(f.cobrado);
-    mapa.set(f.recibo_id, { monto: monto.toFixed(2), cobrado: cobrado.toFixed(2), pendiente: monto.minus(cobrado).toFixed(2) });
+    mapa.set(f.recibo_id, { monto: monto.toFixed(2), cobrado: cobrado.toFixed(2), pendiente: monto.minus(cobrado).toFixed(2), en_revision: new Prisma.Decimal(f.en_revision).toFixed(2) });
   }
   return mapa;
 }
 
 function conTotales(r: { id: number; fecha_vencimiento: Date }, t: Totales | undefined) {
-  const totales = t ?? { monto: '0.00', cobrado: '0.00', pendiente: '0.00' };
+  const totales = t ?? { monto: '0.00', cobrado: '0.00', pendiente: '0.00', en_revision: '0.00' };
   const pendiente = new Prisma.Decimal(totales.pendiente);
+  // Lo que está en revisión sigue «por cobrar» (pendiente) pero no puede dejar el recibo como vencido.
+  const moroso = pendiente.minus(totales.en_revision);
   const monto = new Prisma.Decimal(totales.monto);
-  const estado_cobranza = monto.gt(0) && pendiente.lte(0) ? 'pagado' : r.fecha_vencimiento < hoyLima() && pendiente.gt(0) ? 'vencido' : 'pendiente';
+  const estado_cobranza = monto.gt(0) && pendiente.lte(0) ? 'pagado' : r.fecha_vencimiento < hoyLima() && moroso.gt(0) ? 'vencido' : 'pendiente';
   return { totales, estado_cobranza };
 }
 
