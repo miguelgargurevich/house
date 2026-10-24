@@ -2,7 +2,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
-import { esperar, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { cabecerasDeSesion, esperar, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
 import { detectarTipo, dispositionInline, sanearNombre } from '../src/server/services/comprobantes';
 
@@ -44,7 +44,7 @@ interface Subida { status: number; body: any; headers: Headers } // eslint-disab
 async function subir(token: string | null, pagoId: number, bytes: Buffer, tipo: string, nombre?: string): Promise<Subida> {
   const r = await fetch(`${base}/api/pagos/${pagoId}/comprobante`, {
     method: 'POST',
-    headers: { 'content-type': tipo, ...(token ? { authorization: `Bearer ${token}` } : {}), ...(nombre !== undefined ? { 'x-nombre-archivo': nombre } : {}) },
+    headers: { 'content-type': tipo, ...cabecerasDeSesion(token), ...(nombre !== undefined ? { 'x-nombre-archivo': nombre } : {}) },
     body: new Uint8Array(bytes),
   });
   const texto = await r.text();
@@ -54,7 +54,7 @@ async function subir(token: string | null, pagoId: number, bytes: Buffer, tipo: 
 }
 
 async function bajar(token: string | null, pagoId: number) {
-  const r = await fetch(`${base}/api/pagos/${pagoId}/comprobante`, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+  const r = await fetch(`${base}/api/pagos/${pagoId}/comprobante`, { headers: cabecerasDeSesion(token) });
   return { status: r.status, headers: r.headers, bytes: Buffer.from(await r.arrayBuffer()) };
 }
 

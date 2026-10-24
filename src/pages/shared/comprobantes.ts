@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { tokenStore } from '../../api';
+import { csrfHeader } from '../../api';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -23,31 +23,27 @@ export function errorDeArchivo(f: File): string | null {
   return null;
 }
 
-const autorizacion = (): Record<string, string> => {
-  const t = tokenStore.get();
-  return t ? { Authorization: `Bearer ${t}` } : {};
-};
-
 async function mensajeDe(res: Response): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { error?: unknown };
   if (res.status === 413) return 'El archivo supera los 2 MB.';
   return typeof data.error === 'string' ? data.error : 'No se pudo completar la operación';
 }
 
-/** Sube el archivo como cuerpo crudo (el resto de la app habla JSON, por eso no pasa por `api()`). */
+/** Sube el archivo como cuerpo crudo (el resto de la app habla JSON, por eso no pasa por `api()`; la sesión va en la cookie y el CSRF en la cabecera). */
 export async function subirComprobante(pagoId: number, archivo: File): Promise<ComprobanteMeta> {
   const res = await fetch(`${BASE}/api/pagos/${pagoId}/comprobante`, {
     method: 'POST',
-    headers: { ...autorizacion(), Accept: 'application/json', 'Content-Type': archivo.type, 'X-Nombre-Archivo': encodeURIComponent(archivo.name) },
+    headers: { ...csrfHeader(), Accept: 'application/json', 'Content-Type': archivo.type, 'X-Nombre-Archivo': encodeURIComponent(archivo.name) },
     body: archivo,
+    credentials: 'same-origin',
   });
   if (!res.ok) throw new Error(await mensajeDe(res));
   return (await res.json()) as ComprobanteMeta;
 }
 
-/** Descarga el archivo con la sesión y lo expone como URL local (un <img src> no puede mandar el token). */
+/** Descarga el archivo con la sesión y lo expone como URL local (un <img src> no puede mandar la cabecera CSRF ni manejar errores). */
 export async function descargarComprobante(pagoId: number, señal?: AbortSignal): Promise<{ url: string; tipo: string }> {
-  const res = await fetch(`${BASE}/api/pagos/${pagoId}/comprobante`, { headers: autorizacion(), signal: señal });
+  const res = await fetch(`${BASE}/api/pagos/${pagoId}/comprobante`, { credentials: 'same-origin', signal: señal });
   if (!res.ok) throw new Error(res.status === 404 ? 'Este pago no tiene comprobante adjunto.' : await mensajeDe(res));
   const blob = await res.blob();
   return { url: URL.createObjectURL(blob), tipo: blob.type };

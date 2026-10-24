@@ -29,6 +29,13 @@ const separar = (t: string) => {
   return i < 0 ? { cookie: t, csrf: '' } : { cookie: t.slice(0, i), csrf: t.slice(i + 1) };
 };
 
+/** Cabeceras (cookie + CSRF) de una sesión de `login()`, para peticiones crudas que `llamar` no cubre (cuerpos binarios). */
+export function cabecerasDeSesion(token?: string | null): Record<string, string> {
+  if (!token) return {};
+  const s = separar(token);
+  return { cookie: `house_sesion=${s.cookie}`, ...(s.csrf ? { 'x-csrf-token': s.csrf } : {}) };
+}
+
 /** `token` es lo que devuelve `login()`; `headers` puede pisar la cookie o el CSRF para probar fallos. */
 export async function llamar(base: string, metodo: string, ruta: string, token?: string | null, cuerpo?: unknown, headers: Record<string, string> = {}): Promise<Respuesta> {
   const s = token ? separar(token) : null;

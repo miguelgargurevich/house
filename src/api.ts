@@ -8,6 +8,8 @@ export const csrfStore = {
   set: (t: string | null) => { csrf = t; },
   has: () => csrf !== null,
 };
+/** Cabecera CSRF para peticiones que no pasan por `api()` (p. ej. subir un archivo como cuerpo crudo). */
+export const csrfHeader = (): Record<string, string> => (csrf ? { 'X-CSRF-Token': csrf } : {});
 
 export class ApiError extends Error {
   status: number;
