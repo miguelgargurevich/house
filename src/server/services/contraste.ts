@@ -1,0 +1,161 @@
+/**
+ * Contraste (por código, nunca por el texto del modelo) entre lo que leyó la IA y lo que debía pagarse.
+ * Funciones puras: sin base de datos ni red, para poder probarlas en matriz.
+ */
+import type { Lectura } from '../lib/lecturaComprobante';
+
+export type Comprobacion = boolean | null;
+export type Veredicto = 'coincide' | 'revisar' | 'no_coincide' | 'ilegible';
+
+export interface Coincidencias {
+  monto: Comprobacion;
+  destino: Comprobacion;
+  fecha: Comprobacion;
+  estado_operacion: Comprobacion;
+}
+
+export interface MedioParaContraste {
+  tipo: string; // banco | yape | plin
+  titular: string;
+  celular: string | null;
+  numero_cuenta: string | null;
+  cci: string | null;
+}
+
+export interface Esperado {
+  monto: string; // decimal como texto
+  /** Fecha de emisión del recibo (el día en Lima, 00:00 UTC). */
+  emision: Date;
+  /** Hoy en Lima (00:00 UTC). */
+  hoy: Date;
+}
+
+export interface Duplicados {
+  /** Id de otro pago que ya usó el MISMO archivo. */
+  archivoEnPago: number | null;
+  /** Id de otro pago de la empresa con el mismo número de operación. */
+  operacionEnPago: number | null;
+}
+
+export interface Contraste {
+  coincidencias: Coincidencias;
+  alertas: string[];
+  veredicto: Veredicto;
+  confianza: number;
+  resumen: string;
+}
+
+const DIA = 86_400_000;
+export const TOLERANCIA_MONTO = 0.01;
+export const DIAS_ANTES_EMISION = 3;
+export const MIN_OPERACION = 5;
+
+const PESOS = { monto: 40, destino: 30, fecha: 10, operacion: 10, estado: 10 } as const;
+
+/** Sin tildes, mayúsculas y sólo letras/números separados por un espacio. */
+export function normalizarNombre(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9Ñ]+/g, ' ')
+    .trim();
+}
+
+const palabras = (s: string) => new Set(normalizarNombre(s).split(' ').filter((p) => p.length >= 2));
+
+/** ≥ 2 palabras en común con el titular (o todas las del titular si éste tiene menos de 2). */
+export function nombreCoincide(leido: string | null, titular: string): boolean {
+  if (!leido) return false;
+  const a = palabras(leido);
+  const t = palabras(titular);
+  if (t.size === 0) return false;
+  let comunes = 0;
+  for (const p of t) if (a.has(p)) comunes++;
+  return comunes >= Math.min(2, t.size);
+}
+
+const soloDigitos = (s: string | null) => (s ?? '').replace(/\D/g, '');
+const terminaEn = (completo: string | null, cola: string) => {
+  const d = soloDigitos(completo);
+  return d.length > 0 && cola.length >= 3 && d.endsWith(cola);
+};
+
+/** `null` si no hay medios activos o la IA no extrajo ni número ni nombre de destino. */
+export function contrastarDestino(l: Pick<Lectura, 'medio' | 'destino_numero' | 'destinatario_nombre'>, medios: MedioParaContraste[]): Comprobacion {
+  if (medios.length === 0) return null;
+  if (!l.destino_numero && !l.destinatario_nombre) return null;
+  const cola = l.destino_numero ?? '';
+  const billetera = l.medio === 'yape' || l.medio === 'plin';
+  const bancario = l.medio === 'transferencia' || l.medio === 'deposito';
+  return medios.some((m) => {
+    if (nombreCoincide(l.destinatario_nombre, m.titular)) return true;
+    if (!cola) return false;
+    if (m.tipo === 'banco') return !billetera && (terminaEn(m.numero_cuenta, cola) || terminaEn(m.cci, cola));
+    return !bancario && terminaEn(m.celular, cola);
+  });
+}
+
+export function contrastarMonto(l: Pick<Lectura, 'monto' | 'moneda'>, esperado: string): Comprobacion {
+  if (l.moneda === 'USD') return false;
+  if (l.monto == null || l.moneda == null) return null;
+  return Math.abs(l.monto - Number(esperado)) <= TOLERANCIA_MONTO + 1e-9;
+}
+
+/** Entre 3 días antes de la emisión y mañana (hora de Lima). */
+export function contrastarFecha(fecha: string | null, e: Pick<Esperado, 'emision' | 'hoy'>): Comprobacion {
+  if (!fecha) return null;
+  const t = Date.parse(`${fecha}T00:00:00Z`);
+  return t >= e.emision.getTime() - DIAS_ANTES_EMISION * DIA && t <= e.hoy.getTime() + DIA;
+}
+
+const NO_ES = 'La imagen no parece un comprobante de pago';
+const SIN_LEER = 'No se pudo leer el comprobante con claridad';
+
+export function contrastar(l: Lectura, esperado: Esperado, medios: MedioParaContraste[], dup: Duplicados): Contraste {
+  const coincidencias: Coincidencias = {
+    monto: contrastarMonto(l, esperado.monto),
+    destino: contrastarDestino(l, medios),
+    fecha: contrastarFecha(l.fecha, esperado),
+    estado_operacion: l.estado_operacion === 'exitosa' ? true : l.estado_operacion === 'desconocido' ? null : false,
+  };
+  const tieneOperacion = !!l.numero_operacion && l.numero_operacion.length >= MIN_OPERACION;
+  const alertas: string[] = [];
+  if (!l.es_comprobante_de_pago) alertas.push(NO_ES);
+  else if (!l.legible) alertas.push(SIN_LEER);
+  if (dup.archivoEnPago != null) alertas.push(`Este archivo ya se usó en el pago #${dup.archivoEnPago}`);
+  if (dup.operacionEnPago != null) alertas.push(`El número de operación ya se usó en el pago #${dup.operacionEnPago}`);
+  if (l.estado_operacion === 'fallida') alertas.push('La operación figura como fallida');
+  if (l.estado_operacion === 'pendiente') alertas.push('La operación figura como pendiente');
+  if (l.moneda === 'USD') alertas.push('El comprobante está en dólares');
+  if (coincidencias.monto === false && l.moneda !== 'USD') alertas.push('El monto del comprobante no coincide con lo que se debe');
+  if (coincidencias.destino === false) alertas.push('El destino no coincide con los medios de pago activos');
+  if (coincidencias.fecha === false) alertas.push('La fecha del comprobante está fuera del rango esperado');
+
+  const duplicado = dup.archivoEnPago != null || dup.operacionEnPago != null;
+  let veredicto: Veredicto;
+  if (!l.legible || !l.es_comprobante_de_pago) veredicto = 'ilegible';
+  else if (coincidencias.monto === false || coincidencias.destino === false || duplicado || l.estado_operacion === 'fallida') veredicto = 'no_coincide';
+  else if (coincidencias.monto === true && coincidencias.destino === true && coincidencias.fecha === true && l.estado_operacion === 'exitosa') veredicto = 'coincide';
+  else veredicto = 'revisar';
+
+  const puntos =
+    (coincidencias.monto === true ? PESOS.monto : 0) + (coincidencias.destino === true ? PESOS.destino : 0) + (coincidencias.fecha === true ? PESOS.fecha : 0) +
+    (tieneOperacion ? PESOS.operacion : 0) + (coincidencias.estado_operacion === true ? PESOS.estado : 0);
+  const confianza = puntos / 100;
+
+  return { coincidencias, alertas, veredicto, confianza, resumen: resumenDe(veredicto, coincidencias, alertas.length > 0) };
+}
+
+/** Texto corto armado por código (nunca copiado de la respuesta del modelo). */
+function resumenDe(v: Veredicto, c: Coincidencias, hayAlertas: boolean): string {
+  switch (v) {
+    case 'coincide': return 'El monto, el destino y la fecha del comprobante coinciden con lo esperado.';
+    case 'ilegible': return 'No se pudo leer el comprobante o no parece un pago: revísalo a mano.';
+    case 'no_coincide': return 'Hay datos del comprobante que no coinciden con lo esperado o que ya se usaron: revísalo antes de validar.';
+    default: {
+      const faltan = [c.monto !== true && 'el monto', c.destino !== true && 'el destino', c.fecha !== true && 'la fecha', c.estado_operacion !== true && 'el estado de la operación'].filter(Boolean);
+      return `No se pudo confirmar ${faltan.join(', ') || 'algún dato'}${hayAlertas ? ' (hay alertas)' : ''}: revísalo a mano.`;
+    }
+  }
+}

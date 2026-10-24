@@ -11,15 +11,21 @@ export interface ProveedorIA {
   modeloPorDefecto: string;
   variableDeEntorno: string;
   prioridad: number;
+  /** ¿Lee imágenes? Sólo estos proveedores sirven para evaluar comprobantes. */
+  vision: boolean;
+  /** Modelo con visión por defecto (la clave puede cambiarlo con su campo `modelo`). */
+  modeloVision: string;
+  /** ¿Acepta PDF además de imágenes? */
+  visionPdf: boolean;
 }
 
 export const PROVEEDORES_IA: readonly ProveedorIA[] = [
-  { id: 'gemini', nombre: 'Google Gemini', descripcion: 'Modelos Gemini de Google. Tiene un plan gratuito generoso.', tipo: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', urlParaConseguirKey: 'https://aistudio.google.com/apikey', modeloPorDefecto: 'gemini-2.0-flash', variableDeEntorno: 'GEMINI_API_KEY', prioridad: 1 },
-  { id: 'groq', nombre: 'Groq', descripcion: 'Inferencia muy rápida de modelos abiertos.', tipo: 'openai-compatible', baseUrl: 'https://api.groq.com/openai/v1', urlParaConseguirKey: 'https://console.groq.com/keys', modeloPorDefecto: 'llama-3.3-70b-versatile', variableDeEntorno: 'GROQ_API_KEY', prioridad: 2 },
-  { id: 'openrouter', nombre: 'OpenRouter', descripcion: 'Una sola clave para muchos modelos de distintos proveedores.', tipo: 'openai-compatible', baseUrl: 'https://openrouter.ai/api/v1', urlParaConseguirKey: 'https://openrouter.ai/keys', modeloPorDefecto: 'openrouter/auto', variableDeEntorno: 'OPENROUTER_API_KEY', prioridad: 3 },
-  { id: 'openai', nombre: 'OpenAI', descripcion: 'Modelos GPT de OpenAI.', tipo: 'openai-compatible', baseUrl: 'https://api.openai.com/v1', urlParaConseguirKey: 'https://platform.openai.com/api-keys', modeloPorDefecto: 'gpt-4o-mini', variableDeEntorno: 'OPENAI_API_KEY', prioridad: 4 },
-  { id: 'deepseek', nombre: 'DeepSeek', descripcion: 'Modelos DeepSeek a bajo costo.', tipo: 'openai-compatible', baseUrl: 'https://api.deepseek.com', urlParaConseguirKey: 'https://platform.deepseek.com/api_keys', modeloPorDefecto: 'deepseek-chat', variableDeEntorno: 'DEEPSEEK_API_KEY', prioridad: 5 },
-  { id: 'mistral', nombre: 'Mistral AI', descripcion: 'Modelos Mistral de la empresa francesa.', tipo: 'openai-compatible', baseUrl: 'https://api.mistral.ai/v1', urlParaConseguirKey: 'https://console.mistral.ai/api-keys', modeloPorDefecto: 'mistral-small-latest', variableDeEntorno: 'MISTRAL_API_KEY', prioridad: 6 },
+  { id: 'gemini', nombre: 'Google Gemini', descripcion: 'Modelos Gemini de Google. Tiene un plan gratuito generoso.', tipo: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta', urlParaConseguirKey: 'https://aistudio.google.com/apikey', modeloPorDefecto: 'gemini-2.0-flash', variableDeEntorno: 'GEMINI_API_KEY', prioridad: 1, vision: true, modeloVision: 'gemini-2.5-flash', visionPdf: true },
+  { id: 'groq', nombre: 'Groq', descripcion: 'Inferencia muy rápida de modelos abiertos.', tipo: 'openai-compatible', baseUrl: 'https://api.groq.com/openai/v1', urlParaConseguirKey: 'https://console.groq.com/keys', modeloPorDefecto: 'llama-3.3-70b-versatile', variableDeEntorno: 'GROQ_API_KEY', prioridad: 2, vision: false, modeloVision: '', visionPdf: false },
+  { id: 'openrouter', nombre: 'OpenRouter', descripcion: 'Una sola clave para muchos modelos de distintos proveedores.', tipo: 'openai-compatible', baseUrl: 'https://openrouter.ai/api/v1', urlParaConseguirKey: 'https://openrouter.ai/keys', modeloPorDefecto: 'openrouter/auto', variableDeEntorno: 'OPENROUTER_API_KEY', prioridad: 3, vision: true, modeloVision: 'openai/gpt-4o-mini', visionPdf: false },
+  { id: 'openai', nombre: 'OpenAI', descripcion: 'Modelos GPT de OpenAI.', tipo: 'openai-compatible', baseUrl: 'https://api.openai.com/v1', urlParaConseguirKey: 'https://platform.openai.com/api-keys', modeloPorDefecto: 'gpt-4o-mini', variableDeEntorno: 'OPENAI_API_KEY', prioridad: 4, vision: true, modeloVision: 'gpt-4o-mini', visionPdf: false },
+  { id: 'deepseek', nombre: 'DeepSeek', descripcion: 'Modelos DeepSeek a bajo costo.', tipo: 'openai-compatible', baseUrl: 'https://api.deepseek.com', urlParaConseguirKey: 'https://platform.deepseek.com/api_keys', modeloPorDefecto: 'deepseek-chat', variableDeEntorno: 'DEEPSEEK_API_KEY', prioridad: 5, vision: false, modeloVision: '', visionPdf: false },
+  { id: 'mistral', nombre: 'Mistral AI', descripcion: 'Modelos Mistral de la empresa francesa.', tipo: 'openai-compatible', baseUrl: 'https://api.mistral.ai/v1', urlParaConseguirKey: 'https://console.mistral.ai/api-keys', modeloPorDefecto: 'mistral-small-latest', variableDeEntorno: 'MISTRAL_API_KEY', prioridad: 6, vision: true, modeloVision: 'mistral-small-latest', visionPdf: false },
 ];
 
 export const proveedorPorId = (id: string) => PROVEEDORES_IA.find((p) => p.id === id);
