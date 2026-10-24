@@ -53,6 +53,7 @@ model Usuario {
   estructura_id     Int?
   estructura        Estructura?            @relation("JuntaEstructura", fields: [estructura_id], references: [id], onDelete: SetNull)
   mediosPagoCreados MedioPago[]
+  conversacionesIA  ConversacionIA[]
 }
 
 model EmpresaAdministradora {
@@ -258,6 +259,12 @@ model ClaveIntegracion {
   actualizado_por   Usuario?  @relation(fields: [actualizado_por_id], references: [id], onDelete: SetNull)
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
+  /// Proveedor «de reserva»: sólo se usa cuando las rutas normales están agotadas.
+  reserva           Boolean   @default(false)
+  /// Aviso para la pantalla cuando el modelo fijado dejó de existir y la clave volvió a elección automática.
+  aviso_modelo      String?
+  modelos           ModeloIA[]
+  sincronizaciones  SyncModelosIA[]
 
   @@unique([proveedor, etiqueta])
 }
@@ -365,4 +372,81 @@ model EvaluacionComprobante {
   updated_at   DateTime  @updatedAt
   evaluada_at  DateTime?
   pago         Pago      @relation(fields: [pago_id], references: [id], onDelete: Cascade)
+}
+
+/// Modelo de chat que una clave puede usar (catálogo vivo, sincronizado con `GET /models` del proveedor). Nunca se borra: se depreca.
+model ModeloIA {
+  id           Int              @id @default(autoincrement())
+  clave_id     Int
+  clave        ClaveIntegracion @relation(fields: [clave_id], references: [id], onDelete: Cascade)
+  modelo_id    String
+  nombre       String?
+  categoria    String           @default("equilibrado")
+  estado       String           @default("nuevo")
+  gratis       Boolean          @default(false)
+  ventana      Int?
+  vision       Boolean?
+  visto_at     DateTime         @default(now())
+  deprecado_at DateTime?
+  created_at   DateTime         @default(now())
+
+  @@unique([clave_id, modelo_id])
+}
+
+/// Historial de cada sincronización de modelos de una clave.
+model SyncModelosIA {
+  id         Int              @id @default(autoincrement())
+  clave_id   Int
+  clave      ClaveIntegracion @relation(fields: [clave_id], references: [id], onDelete: Cascade)
+  ok         Boolean
+  nuevos     Int              @default(0)
+  deprecados Int              @default(0)
+  revividos  Int              @default(0)
+  total      Int              @default(0)
+  detalle    Json?
+  error      String?
+  created_at DateTime         @default(now())
+
+  @@index([clave_id, created_at])
+}
+
+/// Conversación del asistente. Su contenido sólo lo ve su dueño (ni el superadmin). Se borra a los 90 días.
+model ConversacionIA {
+  id         String      @id @default(cuid())
+  usuario_id Int
+  usuario    Usuario     @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  titulo     String
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt
+  mensajes   MensajeIA[]
+
+  @@index([usuario_id, updated_at])
+}
+
+model MensajeIA {
+  id              Int            @id @default(autoincrement())
+  conversacion_id String
+  conversacion    ConversacionIA @relation(fields: [conversacion_id], references: [id], onDelete: Cascade)
+  rol             String
+  contenido       String
+  proveedor       String?
+  modelo          String?
+  latencia_ms     Int?
+  tokens_entrada  Int?
+  tokens_salida   Int?
+  estado          String         @default("ok")
+  error_codigo    String?
+  /// `contingencia` cuando la respuesta se armó por código porque ninguna ruta de IA respondió.
+  modo            String?
+  created_at      DateTime       @default(now())
+
+  @@index([conversacion_id, created_at])
+  @@index([rol, created_at])
+}
+
+/// Estado persistente de la IA del asistente (salud, alertas): pares clave → JSON.
+model EstadoIA {
+  clave      String   @id
+  valor      Json
+  updated_at DateTime @updatedAt
 }

@@ -3,6 +3,7 @@ import { currentUser } from '../middleware/auth';
 import { forbidden } from '../errors';
 import { llaveroConfigurado } from '../lib/secretBox';
 import * as servicio from '../services/llavero';
+import { sincronizarEnSegundoPlano } from '../services/modelos/sync';
 import { parseBody, parseId, parse, texto, z } from '../validation';
 
 const soloSuperadmin: RequestHandler = (req, _res, next) => {
@@ -42,6 +43,7 @@ export function llaveroRouter(limitador: RequestHandler) {
     const body = parseBody(guardarSchema, req);
     const { fila, creada } = await servicio.guardar({ proveedor, etiqueta: body.etiqueta, clave: body.clave, modelo: body.modelo, usuarioId: currentUser(req).id });
     auditar(res, creada ? 'crear' : 'editar', fila, { modelo: fila.modelo, ultimos4: fila.ultimos4 });
+    sincronizarEnSegundoPlano(fila.id); // sólo con MODELOS_SYNC activo: descubre los modelos de la clave nueva
     res.status(creada ? 201 : 200).json(fila);
   });
 
