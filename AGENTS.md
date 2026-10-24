@@ -7,6 +7,7 @@ Antes de trabajar: lee `docs/HANDOFF.md` (última entrada) y `docs/API-CONTRATO.
 - `npm run dev:all` — backend (puerto 4000) + Vite (5173; proxy `/api` → 4000).
 - `npm run backend` / `npm start` — sólo el backend (`tsx src/server.ts`; `PORT` configurable).
 - `npx prisma db push` — aplica el esquema (no hay migraciones versionadas). `npx prisma db seed` — siembra datos de prueba (`prisma/seed.ts`; contraseñas de desarrollo en ese archivo).
+- `npm run seed:libertadores` — SOLO base local `house` (aborta si no): borra y recrea todo con el Condominio Los Libertadores de Surco (448 unidades, 12 recibos nov-2025→oct-2026, ~37 000 pagos; ~45 s). Cuentas: `miguel@prueba.house` / `prop1234` (B01-804, presidente del Block 1), las del Login. No toca `seed.ts` ni el llavero de IA.
 - `npm test` — pruebas del backend (`node:test` + `tsx`, `tests/*.test.ts`, contra la base `house_test`; ver abajo).
 - `npx tsc -b` y `npm run build` — tipos y build del frontend; `npx tsc -p tests/tsconfig.json --noEmit` — tipos del backend + tests.
 
