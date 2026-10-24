@@ -11,7 +11,8 @@
     "backend": "tsx src/server.ts",
     "dev:all": "concurrently \"npm run backend\" \"npm run dev\"",
     "start": "tsx src/server.ts",
-    "test": "node --import tsx --test --test-concurrency=1 \"tests/*.test.ts\""
+    "test": "node --import tsx --test --test-concurrency=1 \"tests/*.test.ts\"",
+    "seed:libertadores": "tsx prisma/seed-libertadores.ts"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",

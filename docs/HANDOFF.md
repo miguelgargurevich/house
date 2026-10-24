@@ -4,6 +4,27 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-24 — Claude Code (Sonnet 5.5) — `feat/seed-libertadores`: datos de prueba del Condominio Los Libertadores de Surco
+
+**Qué se hizo:** `prisma/seed-libertadores.ts` + `npm run seed:libertadores` (el `seed.ts` original no se tocó). Sólo corre contra `localhost` y la base `house`; borra y recrea todo (incluye medios de pago, avisos, comprobantes, evaluaciones, IA, tokens y sesiones; conserva `ClaveIntegracion`, `ModeloIA`, `SyncModelosIA`, `EstadoIA`). Determinista (PRNG con semilla), ~45 s.
+- Empresa «Gestión Urbana SAC»; complejo tipo `condominio`; 14 `Estructura` tipo `block` («Block N»), 8 pisos, 4 dptos: 448 unidades con código `B01-804` (block, piso+dpto 101…804). 438 propietarios (10 con 2 unidades), 67 inquilinos (~15 %), presidente y tesorero por block (28), 7 medios de pago (BCP del condominio + Yape/Plin del tesorero en algunos blocks, algunos con QR PNG generado), 8 tareas, 684 avisos.
+- Miguel: `miguel@prueba.house` / `prop1234`, dueño de `B01-804`, presidente del Block 1. Cuentas del Login intactas (Javier Castro → `B03-502`, Valentina Ruiz inquilina de `B05-301` con su mes en revisión).
+- 12 recibos (emisión día 1, vence el 15) con 7 conceptos ordinarios por unidad, Mora y 2 extraordinarios (ascensor Block 7 en mar-2026, S/ 60 sólo a ese block; bomba de agua en ago-2026, S/ 40 a todos). Total ordinario por unidad y mes: S/ 201–231 (media ≈ 215; sin mora ni extraordinarios, verificado por SQL). Con el extraordinario del Block 7 llega a S/ 288.
+- **Mora:** 10 % del total ordinario del mes anterior de esa unidad, sólo a quien pagó ese mes pasado el vencimiento o aún lo debe; va en el recibo del mes siguiente (`es_recargo`).
+- Un `Pago` por cargo (así lo espera `sincronizarCargo`); todos los cargos de una unidad-mes comparten método y referencia. Métodos del enum real (`transferencia`, `yape`, `plin`, `efectivo`, `tarjeta`; no existe «depósito»). 276 pagos `por_validar` con comprobante PNG (octubre), rechazados con motivo y validados por la junta del block o por Ana.
+- Resultado: emitido S/ 1 189 814, cobrado (validado) S/ 1 118 456, por cobrar S/ 71 358, 156 unidades con cargos vencidos (24 con deuda de meses anteriores, 1–12 meses).
+
+**Para tener en cuenta (gotchas):**
+- Hoy es 24-oct y el recibo de octubre vence el 15: según `cargos.ts` los impagos de octubre salen **vencidos**, no «pendientes» (el dashboard muestra `pendiente: 0`). Miguel debe 7 cargos (S/ 213.78) vencidos.
+- Meses pasados: ~89 % a tiempo, ~8 % tarde, sólo ~2.4 % sin pagar (el brief pedía ~7 %: con ~25 morosos y deudas de 1–6 meses no sale más). La morosidad lista 156 unidades porque octubre cuenta.
+- El seed destruye lo que haya en `house` (otras sesiones que usen esa base verán los datos nuevos; sus sesiones/JWT dejan de valer).
+- Prueba rápida: `DATABASE_URL=…/house npm run seed:libertadores` (o con `.env`; `dotenv` se carga solo).
+
+**Verificado:** conteos y rangos por SQL; API local (puerto 4100) como Miguel (dashboard, `/me/unidades`, `/me/cargos` 86 cargos, `/me/pagos` 79, `/pagos?estado_validacion=por_validar` 7, medios de pago del block) y como Ana (dashboard, morosidad 156, recibos, unidades, avisos 684, tareas 8; respuestas de paginación < 40 ms); `tsc -b`, `tsc -p tests` y `npm test` (0 fallos, base `house_test_seed`).
+**NO verificado:** nada en el navegador (no hay automatización de navegador en la sesión): Inicio, Mis recibos, Mis pagos, Pagos por validar, Morosidad y dashboard sólo se comprobaron por la API; la lectura de comprobantes por IA y los avisos reales (el seed deja los avisos ya «enviada»/«error»/«pendiente» sin enviar nada).
+
+---
+
 ## 2026-10-24 — Claude Code (Opus 5.5) — `main`: el asistente ya no se queda sin IA por una ruta colgada
 
 **Qué se hizo:** en producción el asistente respondía en contingencia con 4 claves sanas. Causa medida en el contenedor: `gemini-flash-latest` no responde (> 40 s, simple, stream y con herramientas) mientras `gemini-flash-lite-latest` contesta en ~3 s y Groq en < 0,4 s; con una espera de 30 s por intento dentro de un tope de 25 s por turno, el primer intento se comía todo el turno. Cambios (`motor.ts`, `lib/modelosMalos.ts`, `modelos/seleccion.ts`, `lib/modelosIA.ts`):
