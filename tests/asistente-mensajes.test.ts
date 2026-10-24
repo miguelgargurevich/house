@@ -139,22 +139,31 @@ describe('marcado de las acciones (render del servidor)', () => {
     mensajes: ms, verMetricas: false, onNavegar: noop, onCopiar: copiar, onEditar: noop, onRegenerar: noop, onReintentarConAuto: noop, onUsarAutoSiempre: noop, autoYaGuardado: false, ocupado: false, ...extra,
   }));
 
-  it('el mensaje del usuario tiene «Copiar mensaje» y «Editar mensaje», visibles con hover/foco y siempre en táctil, y su texto se puede seleccionar', () => {
+  it('el mensaje del usuario tiene «Copiar mensaje» y «Reescribir mensaje», visibles con hover/foco y siempre en táctil, y su texto se puede seleccionar', () => {
     const h = html([u('1', 'Hola mundo'), a('2', 'Respuesta')]);
     assert.match(h, /aria-label="Copiar mensaje"/);
-    assert.match(h, /aria-label="Editar mensaje"/);
+    assert.match(h, /aria-label="Reescribir mensaje"/);
     assert.match(h, /group-hover:opacity-100/);
-    assert.match(h, /focus-within:opacity-100/);
+    assert.match(h, /group-focus-within:opacity-100/);
     assert.match(h, /\[@media\(hover:none\)\]:opacity-100/);
     assert.match(h, /select-text[^"]*"[^>]*>Hola mundo/);
     assert.ok(!/select-none|pointer-events-none|\binert\b/.test(h), 'nada impide seleccionar');
   });
-  it('objetivos táctiles de 44 px (h-11 w-11) en las acciones', () => {
+  it('objetivos táctiles de 44 px: icono de 28 px (h-7 w-7) + zona invisible de 8 px por lado (before:-inset-2)', () => {
     const h = html([u('1', 'Hola'), a('2', 'Respuesta')]);
-    for (const etiqueta of ['Copiar mensaje', 'Editar mensaje', 'Copiar respuesta', 'Regenerar respuesta']) {
+    for (const etiqueta of ['Copiar mensaje', 'Reescribir mensaje', 'Copiar respuesta', 'Regenerar respuesta']) {
       const boton = new RegExp(`<button[^>]*aria-label="${etiqueta}"[^>]*>`).exec(h)?.[0] ?? '';
-      assert.match(boton, /h-11 w-11/, etiqueta);
+      assert.match(boton, /h-7 w-7/, etiqueta);
+      assert.match(boton, /before:-inset-2/, etiqueta);
     }
+  });
+  it('disposición como el chat de Agentes de MW: «Reescribir» a la izquierda de la burbuja y «Copiar» flotando en su esquina superior derecha', () => {
+    const h = html([u('1', 'Hola mundo'), a('2', 'Respuesta')]);
+    const li = /<li class="group flex items-center justify-end[^"]*">.*?<\/li>/.exec(h)?.[0] ?? '';
+    assert.ok(li.indexOf('Reescribir mensaje') < li.indexOf('Hola mundo'), 'Reescribir va antes (a la izquierda) de la burbuja');
+    const copiar = /<button[^>]*aria-label="Copiar mensaje"[^>]*>/.exec(li)?.[0] ?? '';
+    assert.match(copiar, /absolute -right-2 -top-2/, 'Copiar flota sobre la esquina de la burbuja');
+    assert.ok(!/<div class="mt-1 flex h-7/.test(li), 'el mensaje propio no lleva fila de acciones debajo (sin espacio extra)');
   });
   it('«Regenerar» sólo en la última respuesta terminada; no mientras hay un turno en curso', () => {
     const dos = [u('1', 'a'), a('2', 'r1'), u('3', 'b'), a('4', 'r2')];
