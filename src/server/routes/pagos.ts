@@ -3,7 +3,8 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { conflict, invalid } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
-import { scopeCargos, scopePagos, scopeUsuarios } from '../lib/scope';
+import { esJunta } from '../lib/junta';
+import { scopeCargos, scopePagos, scopePagosJunta, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
 
@@ -58,7 +59,9 @@ export const pagosRouter = crudRouter({
   delegate: prisma.pago,
   readRoles: ['admin'],
   writeRoles: ['admin'],
-  scope: scopePagos,
+  // La junta (presidente/tesorero) sólo LEE los pagos de su ámbito; registrar, editar y borrar siguen siendo del admin.
+  readAlso: esJunta,
+  scope: (u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagos(u)),
   search: ['referencia', 'observaciones', 'reciboConceptoUnidad.unidad.codigo'],
   orderable: ['id', 'monto', 'fecha_pago', 'metodo_pago'],
   defaultOrder: { fecha_pago: 'desc' },

@@ -23,6 +23,8 @@ const usuarioPublico = {
   rol: true,
   empresa_id: true,
   complejo_id: true,
+  cargo_junta: true,
+  estructura_id: true,
 } as const;
 
 /**
@@ -56,7 +58,7 @@ export function loginRouter(limitador: RequestHandler) {
       await registrarAuditoria({ usuario_id: usuario?.id, accion: 'login_fallido', entidad: 'usuario', entidad_id: usuario?.id, detalle: { email }, ip: ipDe(req) });
       throw new HttpError(401, 'Credenciales inválidas');
     }
-    const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id };
+    const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id };
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));
     ponerCookie(res, token);
     await registrarAuditoria({ usuario_id: user.id, accion: 'login', entidad: 'usuario', entidad_id: user.id, ip: ipDe(req) });

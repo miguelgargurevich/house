@@ -23,6 +23,7 @@ import { empresasRouter } from './routes/empresas';
 import { estructurasRouter } from './routes/estructuras';
 import { avisosPersonalesRouter } from './routes/avisosPersonales';
 import { meRouter } from './routes/me';
+import { mediosPagoMeRouter, mediosPagoRouter } from './routes/mediosPago';
 import { notificacionesRouter } from './routes/notificaciones';
 import { pagosRouter } from './routes/pagos';
 import { pisosRouter } from './routes/pisos';
@@ -80,7 +81,9 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/ai-chat', limiters.ai, aiChatRouter);
   api.use('/llavero', llaveroRouter(limiters.llavero));
   api.use('/me/avisos', avisosPersonalesRouter); // antes de /me: ruta propia, sin tocar me.ts
+  api.use('/me/medios-pago', mediosPagoMeRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me', meRouter(limiters.password));
+  api.use('/medios-pago', mediosPagoRouter);
   api.use('/notificaciones', notificacionesRouter);
   api.use('/dashboard', dashboardRouter);
   api.use('/reportes', reportesRouter);

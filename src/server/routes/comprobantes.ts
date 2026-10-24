@@ -4,7 +4,8 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
-import { scopePagos } from '../lib/scope';
+import { esJunta } from '../lib/junta';
+import { scopePagos, scopePagosJunta } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { dispositionInline, detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
@@ -12,7 +13,10 @@ import { parseBody, parseId, z } from '../validation';
 
 /** Pagos que ve cada rol: el admin, los de su empresa; el residente, los de las unidades que tiene. */
 function alcance(u: AuthUser): Prisma.PagoWhereInput {
-  if (u.rol === 'propietario') return { reciboConceptoUnidad: { unidad: { propietario_id: u.id } } };
+  if (u.rol === 'propietario') {
+    const suyos: Prisma.PagoWhereInput = { reciboConceptoUnidad: { unidad: { propietario_id: u.id } } };
+    return esJunta(u) ? { OR: [suyos, scopePagosJunta(u)] } : suyos; // la junta ve además los pagos de su ámbito
+  }
   if (u.rol === 'inquilino') return { reciboConceptoUnidad: { unidad: { inquilino_id: u.id } } };
   return scopePagos(u);
 }
@@ -20,15 +24,19 @@ function alcance(u: AuthUser): Prisma.PagoWhereInput {
 const esResidente = (u: AuthUser) => u.rol === 'propietario' || u.rol === 'inquilino';
 
 // Se ubica el pago ANTES de leer el cuerpo: quien no tiene acceso recibe 404 sin que se descargue el archivo.
-const cargarPago: RequestHandler = async (req, res, next) => {
+const cargador = (alcanceDe: (u: AuthUser) => Prisma.PagoWhereInput): RequestHandler => async (req, res, next) => {
   const u = currentUser(req);
-  const pago = await prisma.pago.findFirst({ where: { AND: [{ id: parseId(req) }, alcance(u)] }, select: { id: true, usuario_id: true, estado_validacion: true, recibo_concepto_unidad_id: true, fecha_pago: true } });
+  const pago = await prisma.pago.findFirst({ where: { AND: [{ id: parseId(req) }, alcanceDe(u)] }, select: { id: true, usuario_id: true, estado_validacion: true, recibo_concepto_unidad_id: true, fecha_pago: true } });
   if (!pago) throw notFound('Pago');
   res.locals.pago = pago;
   res.locals.entidad = 'pago';
   res.locals.entidadId = pago.id;
   next();
 };
+
+const cargarPago = cargador(alcance);
+/** Validar: el admin de la empresa o la junta del ámbito de la unidad (no basta ser dueño de la unidad). */
+const cargarPagoAValidar = cargador((u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagos(u)));
 
 type PagoCargado = { id: number; usuario_id: number | null; estado_validacion: string; recibo_concepto_unidad_id: number | null; fecha_pago: Date };
 
@@ -90,10 +98,11 @@ comprobantesRouter.get('/:id/comprobante', requireRole('admin', 'propietario', '
 });
 
 // ---------- Validar o rechazar ----------
-comprobantesRouter.patch('/:id/validacion', requireRole('admin'), cargarPago, async (req, res) => {
+comprobantesRouter.patch('/:id/validacion', requireRole('admin', 'propietario'), cargarPagoAValidar, async (req, res) => {
   const u = currentUser(req);
-  if (u.rol !== 'admin' && u.rol !== 'superadmin') throw forbidden();
+  if (u.rol !== 'admin' && u.rol !== 'superadmin' && !esJunta(u)) throw forbidden(); // propietario sin cargo de gestión
   const pago = res.locals.pago as PagoCargado;
+  if (u.rol === 'propietario' && pago.usuario_id === u.id) throw forbidden('No puedes validar tu propio pago: pídeselo a la administración u otro miembro de la junta');
   const v = parseBody(validacionSchema, req);
   await prisma.$transaction(async (tx) => {
     // Cierre atómico: sólo una revisión de un pago por validar logra pasar.
