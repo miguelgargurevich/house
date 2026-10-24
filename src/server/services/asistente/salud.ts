@@ -106,9 +106,13 @@ const guardarEstado = (v: EstadoGuardado) => prisma.estadoIA.upsert({ where: { c
 export async function saludActual(): Promise<SaludVista> {
   const rutas = await calcularRutas();
   const configurada = rutas.length > 0;
-  const ok = rutas.some((r) => r.estado === 'ok');
   const guardado = await leerEstado();
-  return { configurada, ok, desde: ok || !configurada ? null : guardado.ok ? null : guardado.desde, rutas, motivo: ok || !configurada ? null : motivoDe(rutas) };
+  // Vencido un enfriamiento una ruta vuelve a verse «ok», pero eso no prueba que el proveedor se recuperó: mientras haya una caída
+  // registrada, la salud sigue en rojo hasta que una consulta (o el canary) lo confirme.
+  const ok = rutas.some((r) => r.estado === 'ok') && (guardado.ok || !configurada);
+  if (ok || !configurada) return { configurada, ok, desde: null, rutas, motivo: null };
+  const motivo = rutas.some((r) => r.estado === 'ok') ? guardado.motivo : motivoDe(rutas);
+  return { configurada, ok, desde: guardado.ok ? null : guardado.desde, rutas, motivo };
 }
 
 const horaLima = (ms: number) => new Intl.DateTimeFormat('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Lima' }).format(new Date(ms));

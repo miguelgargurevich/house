@@ -43,7 +43,7 @@ export function tipoDeFallo(f: Fallo): Exclude<TipoPrueba, 'ok'> {
 
 /** Una consulta mínima de chat con el modelo que el modo Auto elegiría para esa clave. Si el modelo no existe, lo retira (se probará otro la próxima vez). */
 export async function pruebaDeChat(e: Eslabon): Promise<ResultadoPrueba> {
-  const modelo = await elegirModeloAuto({ claveId: e.claveId, proveedor: e.proveedor, modelo: e.fijado }, { esfuerzo: 'low', mensajeCorto: true });
+  const modelo = await elegirModeloAuto({ claveId: e.claveId, proveedor: e.proveedor, modelo: e.fijado }, { esfuerzo: 'medium' }); // el modelo que el Auto usaría de verdad en una consulta normal
   const r = await consultaMinima(e, modelo);
   if (r.tipo === 'completa') {
     if (r.texto.trim()) return { tipo: 'ok', modelo, detalle: null, fallo: null };
