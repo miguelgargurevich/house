@@ -4,6 +4,34 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/asistente-inline`
+
+**Qué se hizo:** el panel del asistente deja de ser un overlay y pasa a ser una columna acoplada (inline) con el estilo de los paneles de My Workspace. Pedido de Miguel: «que el panel de IA sea inline y no overlay, y que tenga el estilo de los paneles de MW». **Sólo frontend** (el backend y los selectores ya hechos no se tocaron; sólo se reubicaron).
+- **Inline (>= lg):** `Shell.tsx` es ahora `lg:flex`: columna de contenido (`min-w-0 flex-1`) + `<Assistant>` como `aside sticky h-dvh` a la derecha. El contenido se reduce (medido a 1440: 1152 → 800 px), sin sombra ni velo, `border-l border-line`. Abrir/cerrar anima el ancho (200 ms, `transition-[width]`; el interior mantiene su ancho fijo para que el texto no se reacomode); `prefers-reduced-motion` lo anula con la regla global. Cerrado: ancho 0 + `inert` (sale del orden de tabulación). Sigue montado, así que la conversación no se pierde al navegar ni al cerrar.
+- **Redimensionable:** `asistente/AsaDeAncho.tsx` (separador `role="separator"` en el borde izquierdo): arrastre, ← → (16 px; Mayús 64), Inicio/Fin, doble clic restablece. 20–40 rem; por defecto 24 rem. El tope baja en pantallas justas (`acotarAncho`: deja ≥ 480 px al contenido; a 1024 el panel queda en 20 rem). Se guarda por usuario en `localStorage` (`house:asistente:ancho:<id>`, con try/catch).
+- **Abierto/cerrado por usuario** (`house:asistente:abierto:<id>`): en escritorio se recuerda al recargar y NO roba el foco al cargar; en el celular la vista es pasajera y no pisa la preferencia de escritorio. Lógica pura en `asistente/panel.ts`, hooks en `asistente/useDock.ts` (`useEscritorio`, `usePanelAbierto`, `useAnchoPanel`).
+- **Móvil/tablet (< lg):** vista propia `fixed inset-0` (sin velo) con «Volver» en la cabecera, foco atrapado, contenido de atrás `inert`, y el alto sigue al teclado (`visualViewport`).
+- **Estilo MW:** `asistente/CabeceraAsistente.tsx` — cabecera de 44 px esmerilada (`bg-surface/70 backdrop-blur-md`), título, chip «Auto · Equilibrado» (abre el `AjustesMenu` de siempre: modelo, creatividad, esfuerzo; ya NO está en el compositor), historial, nueva conversación, cerrar. El hilo sube por detrás de la cabecera (`-mt-11` + `mask-image` que desvanece 1 rem) y termina limpio sobre el pie. `Compositor.tsx`: pie sólido sin blur, textarea que crece (hasta 6 líneas), Enter envía / Mayús+Enter salto, botón enviar/detener de 44 px, contador `n/4000` discreto (aviso a partir del 90 %). `Mensajes.tsx`: centrado (`max-w-2xl`), burbuja del usuario a la derecha, respuesta sin caja, `PuntosPensando` (tres puntos), copiar de 44 px. Estado vacío con saludo + sugerencias en lista.
+- **Accesibilidad:** `role="complementary"` con nombre «Asistente de House»; el hilo es `aria-live="polite"` con `aria-busy` mientras transmite (el lector espera a que termine la respuesta en vez de leer cada fragmento; se quitó el `status` sr-only aparte para no duplicar); foco al campo al abrir y de vuelta a quien abrió al cerrar; Esc cierra sólo con el foco dentro del panel (y el menú de ajustes lo frena antes); objetivos ≥ 44 px (medidos en móvil); contraste de los pares nuevos AA (ink/brand-soft 14,6 claro · 11,6 oscuro; warn/surface 6,2 · 9,9; muted/bg 5,6 · 7,7).
+- `Markdown.tsx`: separación entre bloques (`[&>*+*]:mt-2`; una lista seguida de un párrafo quedaba pegada). `DESIGN.md`: patrón nuevo «Panel lateral inline».
+
+**Verificación (números reales):** `npx tsc -b` limpio; `npx tsc -p tests/tsconfig.json --noEmit` limpio; `npm run build` OK; `eslint src/app` sin salida; `npm test` contra `house_test_asistente_inline`: **421 pass / 0 fail** (incluye 4 pruebas nuevas de `panel.ts`: acotado de ancho, guardado por usuario, abierto/cerrado, localStorage bloqueado). Navegador (Chromium headless con Playwright, backend en 4010 y Vite en 5180 con BD propia; respuesta del modelo simulada con `route` porque no hay claves de IA): 1440 claro y oscuro, 1024 claro, 390 claro y oscuro.
+
+**NO verificado (honesto):**
+- Respuestas reales de un modelo (sólo SSE simulado; sin claves). El estado de error real («No pude responder…») sí se vio.
+- Safari/iOS y Firefox; teclado virtual real (la lógica de `visualViewport` se conserva pero no se probó en un teléfono). El `mask-image`/`backdrop-blur` sólo se vio en Chromium.
+- Lector de pantalla real (VoiceOver/NVDA): `aria-live` + `aria-busy` está razonado, no escuchado.
+- `prefers-reduced-motion` no se emuló en el navegador (se apoya en la regla global de `index.css`).
+- Arrastre táctil del borde (el asa es sólo `lg`, donde casi no hay táctil).
+- Los otros 5 roles (sólo se probó superadmin en el navegador; los residentes no ven selector de modelo: el chip muestra sólo la creatividad).
+
+**Gotchas / pendientes:**
+- A 1024–1279 px con el panel abierto el contenido queda en ~450 px y varias pantallas (StatStrip, tarjetas de `Dashboard`) se ven apretadas: sus puntos de quiebre son por viewport, no por contenedor. Arreglo real = container queries en esas páginas (trabajo aparte; no se tocó `src/pages`).
+- Las métricas «modelo · 1,2 s» siguen visibles sólo para superadmin (decisión previa; no se cambió).
+- El Shell ahora envuelve cabecera + `<main>` en un `div`; si otra rama toca `Shell.tsx` habrá que reconciliar.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/asistente`
 
 **Qué se hizo:** el chat de IA deja de depender de modelos fijos y de un solo intento: descubre y depreca modelos solo, responde en streaming con conversaciones guardadas, usa datos verificados de la cuenta, y no se queda sin IA aunque caigan los proveedores. Pedido de Miguel: «corrige y mejora el chat de IA, revisa cómo lo hicimos en My Workspace» (en producción respondía «No pude responder: El servicio de IA no pudo responder»: Gemini 404, Groq 404 y OpenRouter 402 porque los modelos por defecto ya no existían o eran de pago).

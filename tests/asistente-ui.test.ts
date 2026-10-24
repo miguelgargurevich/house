@@ -8,6 +8,9 @@ import {
 import { enviarMensaje, type EventoCliente } from '../src/app/asistente/cliente';
 import { clasificarEnlace } from '../src/app/asistente/enlaces';
 import { MENSAJE_ERROR, errorDeEvento, errorDeExcepcion, errorDeRespuesta } from '../src/app/asistente/errores';
+import {
+  ANCHO_DEFECTO, ANCHO_MAX, ANCHO_MIN, acotarAncho, claveAbierto, claveAncho, guardarAbierto, guardarAncho, leerAbierto, leerAncho,
+} from '../src/app/asistente/panel';
 import { estaAlFinal } from '../src/app/asistente/scroll';
 import { AcumuladorSse, leerSse } from '../src/app/asistente/sse';
 import { SUGERENCIAS } from '../src/app/asistente/sugerencias';
@@ -240,5 +243,53 @@ describe('scroll y sugerencias', () => {
     assert.deepEqual(SUGERENCIAS.inquilino, SUGERENCIAS.propietario);
     assert.deepEqual(SUGERENCIAS.admin.slice(0, 2), ['¿Qué pagos debo validar?', '¿Quién está en mora?']);
     assert.equal(SUGERENCIAS.superadmin[0], '¿Cómo agrego una clave de IA?');
+  });
+});
+
+describe('panel inline: ancho y estado abierto', () => {
+  const memoria = () => { const m = new Map<string, string>(); return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); }, removeItem: (k: string) => { m.delete(k); } }; };
+  const roto = { getItem: () => { throw new Error('bloqueado'); }, setItem: () => { throw new Error('bloqueado'); }, removeItem: () => { throw new Error('bloqueado'); } };
+
+  it('el ancho se acota a [20rem, 40rem] y baja el tope en pantallas justas sin pasar del mínimo', () => {
+    assert.equal(acotarAncho(100, 1920), ANCHO_MIN);
+    assert.equal(acotarAncho(9999, 1920), ANCHO_MAX);
+    assert.equal(acotarAncho(450, 1920), 450);
+    assert.equal(acotarAncho(600, 1280), 544, '1280 − 256 (barra) − 480 (contenido mínimo)');
+    assert.equal(acotarAncho(600, 1024), ANCHO_MIN, 'a 1024 el contenido ya queda justo: el panel se queda en su mínimo');
+    assert.equal(acotarAncho(600, 800), ANCHO_MIN, 'nunca por debajo del mínimo');
+    assert.equal(acotarAncho(NaN, 1440), ANCHO_DEFECTO);
+    assert.equal(acotarAncho('x', 1440), ANCHO_DEFECTO);
+    assert.equal(acotarAncho(400.6, 1440), 401);
+  });
+
+  it('se guarda por usuario y lo corrupto o ausente vuelve al valor por omisión', () => {
+    const a = memoria();
+    assert.equal(leerAncho(7, 1440, a), ANCHO_DEFECTO);
+    guardarAncho(7, 480, a);
+    assert.equal(leerAncho(7, 1440, a), 480);
+    assert.equal(leerAncho(8, 1440, a), ANCHO_DEFECTO, 'otro usuario no hereda el ancho');
+    a.m.set(claveAncho(7), 'basura');
+    assert.equal(leerAncho(7, 1440, a), ANCHO_DEFECTO);
+    guardarAncho(7, 600, a);
+    assert.equal(leerAncho(7, 1280, a), 544, 'un ancho guardado en una pantalla grande se acota en una chica');
+  });
+
+  it('abierto/cerrado se recuerda por usuario; por omisión cerrado', () => {
+    const a = memoria();
+    assert.equal(leerAbierto(7, a), false);
+    guardarAbierto(7, true, a);
+    assert.equal(leerAbierto(7, a), true);
+    assert.equal(leerAbierto(8, a), false);
+    guardarAbierto(7, false, a);
+    assert.equal(a.m.get(claveAbierto(7)), '0');
+    assert.equal(leerAbierto(7, a), false);
+  });
+
+  it('sin localStorage (bloqueado) no lanza y usa los valores por omisión', () => {
+    assert.doesNotThrow(() => { guardarAncho(1, 500, roto); guardarAbierto(1, true, roto); });
+    assert.equal(leerAncho(1, 1440, roto), ANCHO_DEFECTO);
+    assert.equal(leerAbierto(1, roto), false);
+    assert.equal(leerAncho(1, 1440, null), ANCHO_DEFECTO);
+    assert.equal(leerAbierto(1, null), false);
   });
 });

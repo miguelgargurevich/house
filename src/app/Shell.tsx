@@ -6,6 +6,7 @@ import { Avatar, IconButton, cx } from '../ui';
 import { PERFIL, ROL_LABEL, navPara } from './nav';
 import { useTheme } from './theme';
 import { Assistant } from './Assistant';
+import { useEscritorio, usePanelAbierto } from './asistente/useDock';
 
 function Logo() {
   return (
@@ -27,7 +28,8 @@ export function Shell() {
   const nav = useNavigate();
   const loc = useLocation();
   const [menu, setMenu] = useState(false);
-  const [chat, setChat] = useState(false);
+  const escritorio = useEscritorio();
+  const chat = usePanelAbierto(user?.id ?? 0, escritorio);
 
   useEffect(() => { setMenu(false); }, [loc.pathname]);
   if (!user) return null;
@@ -73,7 +75,7 @@ export function Shell() {
   );
 
   return (
-    <div className="min-h-screen lg:pl-64">
+    <div className="min-h-screen lg:flex lg:pl-64">
       <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded focus:bg-surface focus:px-3 focus:py-2 focus:shadow-pop">Saltar al contenido</a>
 
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-line bg-surface lg:block">{sidebar}</aside>
@@ -88,6 +90,7 @@ export function Shell() {
         </div>
       )}
 
+      <div className="min-w-0 flex-1" inert={chat.abierto && !escritorio}>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-line bg-bg/85 px-4 backdrop-blur lg:px-8">
         <div className="flex items-center gap-2 lg:hidden">
           <IconButton label="Abrir menú" onClick={() => setMenu(true)}><Bars3Icon className="h-5 w-5" /></IconButton>
@@ -97,15 +100,16 @@ export function Shell() {
           <IconButton label={dark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle}>
             {dark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
           </IconButton>
-          <IconButton label="Abrir asistente" onClick={() => setChat(true)}><SparklesIcon className="h-5 w-5" /></IconButton>
+          <IconButton label={chat.abierto ? 'Cerrar asistente' : 'Abrir asistente'} aria-pressed={chat.abierto} onClick={chat.alternar} className={chat.abierto ? '!text-brand' : undefined}><SparklesIcon className="h-5 w-5" /></IconButton>
         </div>
       </header>
 
       <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
         <Outlet />
       </main>
+      </div>
 
-      <Assistant open={chat} onClose={() => setChat(false)} />
+      <Assistant open={chat.abierto} onClose={chat.cerrar} escritorio={escritorio} />
     </div>
   );
 }

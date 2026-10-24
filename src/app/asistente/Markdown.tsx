@@ -17,7 +17,7 @@ const sinModificadores = (e: MouseEvent) => !(e.metaKey || e.ctrlKey || e.shiftK
 export function Markdown({ texto, onNavegar }: Props) {
   const titulo = ({ children }: { children?: ReactNode }) => <p className="font-semibold">{children}</p>;
   return (
-    <div className="break-words text-sm [&_a]:text-brand [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-surface2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_li]:mt-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_p+*]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface2 [&_pre]:p-3 [&_strong]:font-semibold [&_ul]:ml-5 [&_ul]:list-disc">
+    <div className="break-words text-sm [&_a]:text-brand [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-surface2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_li]:mt-1 [&_ol]:ml-5 [&_ol]:list-decimal [&>*+*]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface2 [&_pre]:p-3 [&_strong]:font-semibold [&_ul]:ml-5 [&_ul]:list-disc">
       <ReactMarkdown
         skipHtml
         urlTransform={(url) => (clasificarEnlace(url).tipo === 'descartado' ? '' : url)}
