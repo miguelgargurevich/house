@@ -9,7 +9,9 @@ import { retirarModelo } from '../modelos/retiro';
 import { candidatosDeClave } from '../modelos/seleccion';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from '../rotacion';
 import { anotarCausa, notificarResultado, olvidarCausa } from './salud';
+import { llamarConHerramientas, type SesionHerramientas } from './herramientas';
 import { llamarProveedor, type Fallo, type Salida, type Turno } from './proveedor';
+import { sinHerramientas } from '../../lib/modelosSinHerramientas';
 
 /** Rutas distintas (proveedor + modelo) que se prueban como máximo por consulta; `LLAVERO_MAX_INTENTOS` (1–8) lo cambia. */
 export const MAX_INTENTOS = 6;
@@ -38,6 +40,8 @@ export interface Peticion {
   /** Mensajes cortos prefieren un modelo rápido en Auto. */
   mensajeCorto: boolean;
   signal?: AbortSignal;
+  /** Herramientas de consulta de este turno (null/ausente = sin herramientas). El motor sólo las pasa a la ruta; el bucle vive en `herramientas.ts`. */
+  herramientas?: SesionHerramientas | null;
 }
 
 export interface ExitoMotor {
@@ -107,6 +111,8 @@ export async function* ejecutar(p: Peticion): AsyncGenerator<string, ResultadoMo
       if (agotado) break;
       if (p.signal?.aborted) return falla('cancelado');
       const { modelos } = await candidatosDeClave({ claveId: e.claveId, proveedor: e.proveedor, modelo: e.fijado }, ctx);
+      // Con herramientas, las rutas que ya se supo que no las admiten pasan al final (siguen sirviendo, con el respaldo).
+      if (p.herramientas && !p.modeloFijo) modelos.splice(0, modelos.length, ...modelos.filter((m) => !sinHerramientas(e.proveedor.id, m)), ...modelos.filter((m) => sinHerramientas(e.proveedor.id, m)));
       const probados = new Set<string>();
       const id = `${e.proveedor.id}#${e.claveId ?? 'env'}`;
 
@@ -126,10 +132,11 @@ export async function* ejecutar(p: Peticion): AsyncGenerator<string, ResultadoMo
           if (llamadas >= maxL || cooldownDeps.ahora() >= tanda.hasta) { accion = 'agotado'; break; }
           llamadas++;
           llamadasTotal++;
-          const s: Salida = await llamarProveedor(e, modelo, p.turno, {
+          const opciones = {
             parametros: p.parametros, esfuerzo: p.esfuerzo, opcionales, stream: p.stream, signal: p.signal,
             esperaMs: Math.min(ESPERA_LLAMADA_MS, tanda.hasta - cooldownDeps.ahora()),
-          });
+          };
+          const s: Salida = p.herramientas ? await llamarConHerramientas(e, modelo, p.turno, opciones, p.herramientas) : await llamarProveedor(e, modelo, p.turno, opciones);
 
           if (s.tipo !== 'fallo') {
             // ---- Éxito: la clave se limpia y se emite el texto ----

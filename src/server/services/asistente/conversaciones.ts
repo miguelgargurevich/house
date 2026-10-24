@@ -81,6 +81,8 @@ export interface MetricasMensaje {
   estado: 'ok' | 'error';
   error_codigo?: string | null;
   modo?: 'contingencia' | null;
+  /** Herramientas que usó el turno (nombre y tiempo; nunca argumentos ni datos). */
+  herramientas?: { nombre: string; ms: number; estado: string }[];
 }
 
 export async function guardarMensajeAsistente(conversacionId: string, contenido: string, m: MetricasMensaje) {
@@ -91,6 +93,7 @@ export async function guardarMensajeAsistente(conversacionId: string, contenido:
         proveedor: m.proveedor ?? null, modelo: m.modelo ?? null, latencia_ms: m.latencia_ms ?? null,
         tokens_entrada: m.tokens_entrada ?? null, tokens_salida: m.tokens_salida ?? null,
         estado: m.estado, error_codigo: m.error_codigo ?? null, modo: m.modo ?? null,
+        herramientas: m.herramientas?.length ? m.herramientas : undefined,
       },
       select: { id: true },
     }),

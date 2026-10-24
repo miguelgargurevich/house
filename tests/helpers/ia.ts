@@ -115,3 +115,47 @@ export const mensajesDe = (l: LlamadaIA): { rol: string; texto: string }[] =>
   l.proveedor === 'gemini'
     ? l.cuerpo.contents.map((c: any) => ({ rol: c.role === 'model' ? 'assistant' : 'user', texto: c.parts[0].text }))
     : l.cuerpo.messages.slice(1).map((m: any) => ({ rol: m.role, texto: m.content }));
+
+// ---------- Herramientas (tool-calling) ----------
+export interface PedidoHerramienta { nombre: string; args?: unknown }
+/** El modelo pide herramientas (Gemini: partes `functionCall`; compatible: `tool_calls`). */
+export function pideHerramientas(proveedor: string, ...pedidos: PedidoHerramienta[]): Response {
+  if (proveedor === 'gemini') {
+    return json({
+      candidates: [{ content: { role: 'model', parts: pedidos.map((p) => ({ functionCall: { name: p.nombre, args: p.args ?? {} } })) } }],
+      usageMetadata: { promptTokenCount: 20, candidatesTokenCount: 5 },
+    });
+  }
+  return json({
+    choices: [{ message: { role: 'assistant', content: null, tool_calls: pedidos.map((p, i) => ({ id: `call_${i}`, type: 'function', function: { name: p.nombre, arguments: JSON.stringify(p.args ?? {}) } })) } }],
+    usage: { prompt_tokens: 20, completion_tokens: 5 },
+  });
+}
+/** Herramientas declaradas en la petición, por nombre. */
+export const herramientasDeclaradas = (l: LlamadaIA): string[] =>
+  l.proveedor === 'gemini' ? (l.cuerpo.tools?.[0]?.functionDeclarations ?? []).map((d: any) => d.name) : (l.cuerpo.tools ?? []).map((t: any) => t.function.name);
+/** Resultados de herramientas que ya trae la petición (lo que se le devolvió al modelo), ya convertidos a objetos. */
+export const resultadosDe = (l: LlamadaIA): { nombre: string; contenido: any }[] =>
+  l.proveedor === 'gemini'
+    ? l.cuerpo.contents.flatMap((c: any) => c.parts.filter((p: any) => p.functionResponse).map((p: any) => ({ nombre: p.functionResponse.name, contenido: p.functionResponse.response })))
+    : l.cuerpo.messages.filter((m: any) => m.role === 'tool').map((m: any) => ({ nombre: m.tool_call_id, contenido: JSON.parse(m.content) }));
+/** ¿La petición obliga a contestar con texto (última ronda)? */
+export const fuerzaTexto = (l: LlamadaIA): boolean => (l.proveedor === 'gemini' ? l.cuerpo.toolConfig?.functionCallingConfig?.mode === 'NONE' : l.cuerpo.tool_choice === 'none');
+
+/** Flujo SSE en el que el modelo escribe texto y después pide una herramienta. */
+export function flujoTextoYLlamada(proveedor: string, texto: string, pedido: PedidoHerramienta): Response {
+  const partes = proveedor === 'gemini'
+    ? [{ candidates: [{ content: { parts: [{ text: texto }] } }] }, { candidates: [{ content: { parts: [{ functionCall: { name: pedido.nombre, args: pedido.args ?? {} } }] } }] }]
+    : [{ choices: [{ delta: { content: texto } }] }, { choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_0', function: { name: pedido.nombre, arguments: JSON.stringify(pedido.args ?? {}).slice(0, 3) } }] } }] }, { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: JSON.stringify(pedido.args ?? {}).slice(3) } }] } }] }];
+  const cuerpo = partes.map((p) => `data: ${JSON.stringify(p)}\n\n`).join('') + (proveedor === 'gemini' ? '' : 'data: [DONE]\n\n');
+  return new Response(new ReadableStream({ start(c) { c.enqueue(enc.encode(cuerpo)); c.close(); } }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
+/** Flujo SSE en el que el modelo pide una herramienta SIN texto antes. */
+export function flujoSoloLlamada(proveedor: string, pedido: PedidoHerramienta): Response {
+  const args = JSON.stringify(pedido.args ?? {});
+  const partes = proveedor === 'gemini'
+    ? [{ candidates: [{ content: { parts: [{ functionCall: { name: pedido.nombre, args: pedido.args ?? {} } }] } }] }]
+    : [{ choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_0', function: { name: pedido.nombre, arguments: args.slice(0, 2) } }] } }] }, { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: args.slice(2) } }] } }] }];
+  const cuerpo = partes.map((p) => `data: ${JSON.stringify(p)}\n\n`).join('') + (proveedor === 'gemini' ? '' : 'data: [DONE]\n\n');
+  return new Response(new ReadableStream({ start(c) { c.enqueue(enc.encode(cuerpo)); c.close(); } }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
