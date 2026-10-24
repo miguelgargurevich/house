@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — orquestación en `main`: integración de asistente, inline y proveedores
+
+**Qué se hizo:** integré `feat/evaluacion-ia`, `feat/asistente` y `feat/asistente-inline`; agregué siete proveedores al catálogo del llavero (Cerebras, SambaNova, NVIDIA, Cohere, Ollama Cloud, LLM7, Kilo; los modelos por defecto de Ollama, LLM7 y Kilo son estimados y el catálogo vivo debe corregirlos al sincronizar); las tarjetas de cifras (`StatStrip`) y los dashboards se adaptan al ancho real con rejillas `auto-fit`.
+- **Fix:** `src/server/lib/modelosIA.ts` — los clasificadores de seguridad (`safeguard`, `guardrail`) ya no cuentan como modelos de chat (caso real: `openai/gpt-oss-safeguard-20b` elegible y fallando). Test nuevo: `tests/modelos-chat.test.ts` (mutación verificada: falla sin el cambio). El sync reclasifica en cada pasada, así que desaparece de las listas al sincronizar.
+- Suite completa: 421/421 con base de pruebas propia.
+
+**Próximos pasos:** integrar `feat/menu-compacto` y `feat/asistente-mensajes` (en curso), revisar otras pantallas apretadas entre 1024 y 1279 px con el asistente abierto, probar con keys reales en el Llavero.
+
+**Gotchas:** el ancho del asistente no se reajusta al agrandar la ventana hasta recargar; en dev, reiniciar el backend tras un merge (tsx no recarga solo).
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/asistente-inline`
 
 **Qué se hizo:** el panel del asistente deja de ser un overlay y pasa a ser una columna acoplada (inline) con el estilo de los paneles de My Workspace. Pedido de Miguel: «que el panel de IA sea inline y no overlay, y que tenga el estilo de los paneles de MW». **Sólo frontend** (el backend y los selectores ya hechos no se tocaron; sólo se reubicaron).
