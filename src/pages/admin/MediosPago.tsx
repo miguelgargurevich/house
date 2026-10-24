@@ -7,6 +7,7 @@ import type { Column } from '../../ui';
 import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { MedioFormModal } from './_parts/medios/MedioFormModal';
+import { ValidacionAutomaticaIA } from './_parts/medios/ValidacionAutomaticaIA';
 import { ambitoLabel, datoPrincipal, nombreBlock, tipoLabel, useAmbitos } from './_parts/medios/tipos';
 import type { Medio } from './_parts/medios/tipos';
 
@@ -76,6 +77,7 @@ export default function MediosPago() {
         description={esJunta ? 'Las cuentas y los Yape o Plin donde pagan los vecinos de tu block.' : 'Las cuentas bancarias y los Yape o Plin donde pagan los vecinos de cada block. Los define la administración o la junta directiva.'}
         actions={<Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedeAgregar} onClick={() => setEditando('nuevo')}>Agregar medio de pago</Button>}
       />
+      {!esJunta && <ValidacionAutomaticaIA />}
       {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y blocks: {ambitos.error}</Alert></div>}
       <Card>
         <Toolbar>

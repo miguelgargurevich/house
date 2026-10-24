@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
+import { CameraIcon } from '@heroicons/react/24/outline';
 import { useForm } from 'react-hook-form';
 import { api, errorText, useResource } from '../../../api';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
 import { Alert, Button, DefinitionList, Input, Modal, Select, fechaCorta, periodo, soles, useToast } from '../../../ui';
+import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
 import { ComoPagar } from './ComoPagar';
 import { METODOS } from './tipos';
 import type { Cargo, MedioResidente, Metodo } from './tipos';
@@ -16,7 +18,11 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
   const toast = useToast();
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ defaultValues: { metodo_pago: 'transferencia', referencia: '' } });
 
-  const [paso, setPaso] = useState<'como' | 'registrar'>('como');
+  const [paso, setPaso] = useState<'como' | 'registrar' | 'enviado'>('como');
+  // Id del pago cuyo comprobante se acaba de subir: mientras tanto se muestra cómo va la revisión automática.
+  const [pagoSubido, setPagoSubido] = useState<number | null>(null);
+  const evaluacion = useEvaluacionResidente(pagoSubido);
+  const inputCamara = useRef<HTMLInputElement>(null);
   const medios = useResource<MedioResidente[]>(cargo ? `/api/me/medios-pago?cargo_id=${cargo.id}` : null);
 
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -26,6 +32,7 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
     if (!cargo) return;
     reset({ metodo_pago: 'transferencia', referencia: '' });
     setPaso('como');
+    setPagoSubido(null);
     setArchivo(null);
     setErrorArchivo(undefined);
   }, [cargo, reset]);
@@ -51,9 +58,15 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
         try { await subirComprobante(pago.id, archivo); }
         catch (e) { subido = false; toast.error(`Tu pago quedó registrado, pero no se pudo subir el comprobante: ${errorText(e)} Puedes adjuntarlo desde Mis pagos.`); }
       }
+      onPagado();
+      if (archivo && subido) {
+        // Se queda abierto un momento para mostrar la revisión automática de la captura.
+        setPagoSubido(pago.id);
+        setPaso('enviado');
+        return;
+      }
       if (subido) toast.ok('Tu pago quedó en revisión; te avisaremos cuando se valide.');
       onClose();
-      onPagado();
     } catch (e) { toast.error(errorText(e)); }
   }
 
@@ -61,8 +74,10 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
     <Modal
       open={cargo !== null}
       onClose={onClose}
-      title={paso === 'como' ? 'Cómo pagar' : 'Registrar tu pago'}
-      footer={paso === 'como' ? (
+      title={paso === 'como' ? 'Cómo pagar' : paso === 'enviado' ? 'Pago registrado' : 'Registrar tu pago'}
+      footer={paso === 'enviado' ? (
+        <Button onClick={onClose}>Listo</Button>
+      ) : paso === 'como' ? (
         <>
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
           <Button onClick={() => setPaso('registrar')}>Ya pagué: registrar comprobante</Button>
@@ -75,6 +90,13 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
       )}
     >
       {cargo && paso === 'como' && <ComoPagar cargo={cargo} medios={medios.data} loading={medios.loading} error={medios.error} />}
+      {cargo && paso === 'enviado' && (
+        <div className="space-y-4">
+          <Alert tone="ok">Tu pago quedó registrado y en revisión; te avisaremos cuando se valide.</Alert>
+          {evaluacion.estado && <EstadoEvaluacion estado={evaluacion.estado} />}
+          {evaluacion.validadoPorIA && <ValidadoPorIABadge validado />}
+        </div>
+      )}
       {cargo && paso === 'registrar' && (
         <form id="form-pago" onSubmit={handleSubmit(confirmar)} className="space-y-5" noValidate>
           <div className="rounded bg-surface2 p-4">
@@ -100,11 +122,15 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
                 label="Adjuntar comprobante (opcional)"
                 type="file"
                 accept={ACCEPT_COMPROBANTE}
-                hint="Foto o PDF de tu voucher, hasta 2 MB."
+                hint="Foto o PDF de tu voucher, hasta 2 MB. Revisamos tu comprobante con inteligencia artificial para acelerar la validación."
                 error={errorArchivo}
                 onChange={elegirArchivo}
                 className="[&_input]:h-auto [&_input]:py-2"
               />
+              <div className="mt-2">
+                <Button size="sm" variant="secondary" icon={<CameraIcon className="h-4 w-4" />} onClick={() => inputCamara.current?.click()}>Tomar foto con la cámara</Button>
+                <input ref={inputCamara} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={elegirArchivo} className="sr-only" tabIndex={-1} aria-label="Tomar una foto del comprobante" />
+              </div>
               {archivo && (
                 <p className="mt-2 flex items-center justify-between gap-3 rounded bg-surface2 px-3 py-2 text-sm">
                   <span className="min-w-0 truncate">{archivo.name} · <span className="num text-muted">{tamanoLegible(archivo.size)}</span></span>
