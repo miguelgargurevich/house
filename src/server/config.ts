@@ -5,7 +5,6 @@ export const ROLES = ['superadmin', 'admin', 'propietario', 'inquilino', 'manten
 export type Rol = (typeof ROLES)[number];
 
 export const BCRYPT_COST = 12;
-export const JWT_EXPIRES_IN = '8h';
 
 export function isProduction(env: NodeJS.ProcessEnv = process.env) {
   return env.NODE_ENV === 'production';

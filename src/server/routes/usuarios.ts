@@ -5,6 +5,7 @@ import { prisma } from '../db';
 import { forbidden, invalid } from '../errors';
 import { empresaDe, scopeComplejos, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
+import { revocarDeUsuario } from '../services/sesiones';
 import { emailSchema, idSchema, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
 
 const base = z.object({
@@ -74,6 +75,10 @@ export const usuariosRouter = crudRouter({
   updateSchema,
   prepareCreate: (d, u) => normalizar(d, u),
   prepareUpdate: (d, u, e) => normalizar(d, u, e),
+  // Cambiar el rol o la contraseña de alguien cierra sus sesiones abiertas (borrar al usuario las elimina por cascada).
+  afterUpdate: async (e, d) => {
+    if ((d.rol !== undefined && d.rol !== e.rol) || d.password_hash !== undefined) await revocarDeUsuario(e.id as number);
+  },
   beforeDelete: (e, u) => {
     if (e.id === u.id) throw invalid('No puedes eliminar tu propia cuenta');
   },

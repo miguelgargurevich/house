@@ -1,8 +1,9 @@
 # Contrato de API (backend nuevo)
 
 Lo implementa la rama `feat/backend-seguro`. El frontend se construye contra esto.
-Autenticación: `Authorization: Bearer <token>` (lo pone `api()` de `src/api.ts`). Errores: `{ error: 'mensaje' }` con el status HTTP.
-Login: `POST /api/auth/login` {email,password} → {token,user}; `GET /api/auth/me` → usuario.
+Autenticación: sesión de servidor con la cookie `house_sesion` (httpOnly, SameSite=Lax; el navegador la manda sola, `api()` usa `credentials: 'same-origin'`). **Ya no existe `Authorization: Bearer` ni token en `localStorage`.** Toda mutación (POST/PUT/PATCH/DELETE) exige además el header `X-CSRF-Token` (se obtiene en login y `/me`, `api()` lo guarda solo en memoria) y un `Origin`/`Referer` propio; si falta → 403. Errores: `{ error: 'mensaje' }` con el status HTTP.
+Login: `POST /api/auth/login` {email,password} → `{user, csrf}` + `Set-Cookie: house_sesion`; `GET /api/auth/me` → usuario + `csrf` (401 = sin sesión). Vigencia 12 h absolutas / 2 h de inactividad.
+Sesiones: `POST /api/auth/logout` → 204 (revoca y borra la cookie); `GET /api/auth/sesiones` → `[{id, ip, user_agent, creada, ultimo_uso, actual}]` (solo las mías y activas); `DELETE /api/auth/sesiones/:id` → 204 (404 si no es mía); `POST /api/auth/sesiones/cerrar-otras` → `{cerradas}`. `PUT /api/me/password` revoca las demás sesiones; cambiar el rol/contraseña de un usuario o eliminarlo cierra las suyas.
 Montos (`Decimal`) llegan como string: usa `soles()` / `Number()`.
 
 - Todas las listas devuelven `{items, total, page, pageSize}` con query `?page=1&pageSize=20&q=texto&orden=campo:asc|desc` (pageSize máx 100; `q` busca en nombre/código/email/descripcion según recurso). Recursos: usuarios, empresas, complejos, pisos, estructuras, unidades, conceptos, recibos, pagos, tareas, auditoria. Los GET por id devuelven el objeto. POST→201 con el objeto creado; PUT/PATCH→objeto actualizado; DELETE→204.

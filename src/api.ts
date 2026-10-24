@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-const KEY = 'house-token';
 
-export const tokenStore = {
-  get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
-  set: (t: string) => { try { localStorage.setItem(KEY, t); } catch { /* sin almacenamiento */ } },
-  clear: () => { try { localStorage.removeItem(KEY); } catch { /* sin almacenamiento */ } },
+/** Token CSRF de la sesión: sólo en memoria (lo entregan login y /me); nunca en localStorage ni en cookie legible. */
+let csrf: string | null = null;
+export const csrfStore = {
+  set: (t: string | null) => { csrf = t; },
+  has: () => csrf !== null,
 };
 
 export class ApiError extends Error {
@@ -19,15 +19,15 @@ export function setUnauthorizedHandler(fn: (() => void) | null) { onUnauthorized
 
 export async function api<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...(init.headers as Record<string, string> | undefined) };
-  const token = tokenStore.get();
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const metodo = (init.method ?? 'GET').toUpperCase();
+  if (csrf && metodo !== 'GET' && metodo !== 'HEAD') headers['X-CSRF-Token'] = csrf;
   let body = init.body;
   if (init.json !== undefined) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(init.json); }
-  const res = await fetch(`${BASE}${path}`, { ...init, headers, body });
+  const res = await fetch(`${BASE}${path}`, { ...init, headers, body, credentials: 'same-origin' });
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401 && token) onUnauthorized?.();
+    if (res.status === 401 && csrf) onUnauthorized?.(); // la sesión se perdió (vencida, revocada o cerrada en otro lado)
     const msg = typeof data?.error === 'string' ? data.error : data?.error?.message ?? 'No se pudo completar la operación';
     throw new ApiError(msg, res.status);
   }

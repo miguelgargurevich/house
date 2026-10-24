@@ -22,10 +22,23 @@ export interface Respuesta {
   headers: Headers;
 }
 
+/** «Sesión» de prueba: `<valor de la cookie>.<token CSRF>` (ambos son base64url, sin puntos). `llamar` la convierte en cookie + X-CSRF-Token. */
+export const credenciales = (cookie: string, csrf: string) => `${cookie}.${csrf}`;
+const separar = (t: string) => {
+  const i = t.indexOf('.');
+  return i < 0 ? { cookie: t, csrf: '' } : { cookie: t.slice(0, i), csrf: t.slice(i + 1) };
+};
+
+/** `token` es lo que devuelve `login()`; `headers` puede pisar la cookie o el CSRF para probar fallos. */
 export async function llamar(base: string, metodo: string, ruta: string, token?: string | null, cuerpo?: unknown, headers: Record<string, string> = {}): Promise<Respuesta> {
+  const s = token ? separar(token) : null;
   const r = await fetch(base + ruta, {
     method: metodo,
-    headers: { ...(cuerpo !== undefined ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
+    headers: {
+      ...(cuerpo !== undefined ? { 'content-type': 'application/json' } : {}),
+      ...(s ? { cookie: `house_sesion=${s.cookie}`, ...(s.csrf ? { 'x-csrf-token': s.csrf } : {}) } : {}),
+      ...headers,
+    },
     body: cuerpo === undefined ? undefined : typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo),
   });
   const texto = await r.text();
@@ -38,10 +51,13 @@ export async function llamar(base: string, metodo: string, ruta: string, token?:
   return { status: r.status, body, texto, headers: r.headers };
 }
 
+/** Valor de la cookie `house_sesion` en el Set-Cookie de una respuesta. */
+export const cookieDe = (r: Respuesta) => /house_sesion=([^;]+)/.exec(r.headers.get('set-cookie') ?? '')?.[1] ?? '';
+
 export async function login(base: string, email: string, password = PASSWORD): Promise<string> {
   const r = await llamar(base, 'POST', '/api/auth/login', null, { email, password });
   if (r.status !== 200) throw new Error(`login de ${email} falló con ${r.status}`);
-  return r.body.token;
+  return credenciales(cookieDe(r), r.body.csrf);
 }
 
 export async function vaciarBase() {

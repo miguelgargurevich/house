@@ -1,16 +1,16 @@
 # Auditoría de seguridad de House
 
-Fecha: 2026-10-23 · Alcance: frontend React + backend Express/Prisma + Docker. Método: revisión de código (rutas, middleware, esquema), `npm audit`, pruebas automáticas (69) y prueba del contenedor de producción.
+Fecha: 2026-10-23 · Alcance: frontend React + backend Express/Prisma + Docker. Método: revisión de código (rutas, middleware, esquema), `npm audit`, pruebas automáticas y prueba del contenedor de producción.
 
 ## Resultado
-Sin hallazgos críticos abiertos. Quedan 2 riesgos aceptados y 3 recomendaciones.
+Sin hallazgos críticos abiertos. El riesgo del token en `localStorage` quedó cerrado con sesiones de servidor (ver «Sesiones»). Quedan 3 recomendaciones.
 
 ## Hallazgos cerrados
 | # | Categoría | Hallazgo original | Corrección |
 |---|---|---|---|
-| 1 | access-control | Todos los GET `/api/*` públicos (listas completas) | Todo `/api` exige JWT salvo login y `/api/health`; permisos por rol y por empresa; recurso ajeno → 404 |
+| 1 | access-control | Todos los GET `/api/*` públicos (listas completas) | Todo `/api` exige sesión (cookie) salvo login y `/api/health`; permisos por rol y por empresa; recurso ajeno → 404 |
 | 2 | data | `password_hash` salía en las respuestas de usuarios | `omit` global en Prisma; test de que nunca aparece |
-| 3 | authn | Secreto JWT `devsecret` por defecto; dos logins con vigencias distintas | Producción exige `JWT_SECRET` ≥ 32; un solo login; 8 h; el usuario se relee en cada petición (borrado = acceso cortado) |
+| 3 | authn | Secreto JWT `devsecret` por defecto; dos logins con vigencias distintas | Producción exige `JWT_SECRET` ≥ 32; un solo login; el usuario se relee en cada petición (borrado = acceso cortado). Desde las sesiones de servidor ya no se firman JWT (ver «Sesiones») |
 | 4 | authn | Sin límite de intentos | Rate-limit de login (IP+correo), API y asistente IA |
 | 5 | access-control | Un admin podía crear superadmins y tocar otras empresas | Alta/cambio de rol acotado; scoping por `empresa_id` |
 | 6 | validation | Sin validación de entrada | zod en body y query; paginación acotada |
@@ -41,14 +41,25 @@ Pantalla `/superadmin/llavero` y API `/api/llavero` para guardar las API keys de
 - **Qué es memoria y qué es base**: enfriamientos y contadores de uso (`ok`/`limite`/`error`) viven **en memoria del proceso** y se pierden al reiniciar (a propósito; con varias réplicas cada una tiene los suyos). En la base quedan las claves cifradas, `estado`/`estado_detalle` (incl. `rechazada`), `habilitada` y `ultimo_uso_at`. `GET /api/llavero` suma `enfriando_hasta`, `uso`, `orden` y `max_claves_por_proveedor`; la clave y `api_key_enc` siguen sin salir.
 - **Pendiente**: rotación de `LLAVERO_ENC_KEY` con re-cifrado (hoy hay que recargar las claves a mano); las claves descifradas viven en memoria solo mientras dura cada consulta del asistente (la cadena se arma por petición y no se cachea).
 
+## Sesiones (cookie httpOnly + CSRF + revocación)
+Reemplazan al JWT en `localStorage`, que un XSS podía leer y que no se podía revocar.
+- **Modelo**: tabla `Sesion` (`usuario_id` con borrado en cascada, `token_hash`, `csrf_token`, `ip`, `user_agent`, `created_at`, `ultimo_uso_at`, `expira_at`, `revocada_at`). El token es opaco (32 bytes aleatorios, base64url); en la base solo queda su **sha256**, así que un volcado de la tabla no permite entrar.
+- **Cookie** `house_sesion`: `HttpOnly; SameSite=Lax; Path=/`, y `Secure` en producción. El JS del navegador no la ve. El login devuelve `{ user, csrf }`; el token CSRF vive **solo en memoria** del frontend (no en cookie ni en `localStorage`) y se recupera con `GET /api/auth/me` al recargar.
+- **Vigencia**: absoluta 12 h; inactividad 2 h (`ultimo_uso_at` se desliza, escribiendo como mucho cada 60 s). Una tarea en proceso borra cada hora las sesiones vencidas, inactivas o revocadas (`SESIONES_LIMPIEZA=off` la desactiva; las pruebas la apagan).
+- **`authenticate`**: solo cookie (`Authorization: Bearer` ya no se acepta). Busca por hash, valida revocación/expiración/inactividad y relee usuario, rol y empresa. Cualquier fallo → 401 genérico.
+- **CSRF**: toda mutación (POST/PUT/PATCH/DELETE) exige `X-CSRF-Token` igual al de la sesión (comparación en tiempo constante) y, si llega `Origin` (o `Referer` cuando falta), debe coincidir con el `Host` o con `CORS_ORIGIN`; si no, 403. Sin `Origin` ni `Referer` (clientes que no son navegador) se acepta, porque el token CSRF sigue siendo obligatorio. El login queda exento (aún no hay sesión). `SameSite=Lax` es la segunda barrera.
+- **Revocación**: `POST /api/auth/logout`, `DELETE /api/auth/sesiones/:id` (404 si no es tuya), `POST /api/auth/sesiones/cerrar-otras`. Cambiar la contraseña (`PUT /api/me/password`) revoca las demás sesiones de la persona. Cambiar el rol o la contraseña de un usuario desde `/api/usuarios` revoca todas sus sesiones; eliminarlo las borra por cascada. La pantalla «Mi perfil» lista las sesiones activas.
+- **Auditoría**: logout, cierre de una sesión y «cerrar otras» quedan en `Auditoria` (entidad `sesion`); nunca se guarda el token ni el CSRF.
+- **`JWT_SECRET`**: ya no se usa para firmar nada. Se sigue exigiendo en producción por compatibilidad con el despliegue; se puede retirar en un cambio aparte.
+- **Límites conocidos**: no hay tope de sesiones simultáneas por usuario; la IP y el user-agent son informativos (no se enlazan a la sesión); con varias réplicas el estado es consistente porque vive en PostgreSQL.
+
 ## Riesgos aceptados
-- **Token en `localStorage`** (autenticación por Bearer): un XSS podría leerlo. Mitigado con CSP estricta (`script-src 'self'`), sin HTML inyectado y token de 8 h. Pasar a cookie `httpOnly` + CSRF es la mejora siguiente.
-- **Sin revocación explícita de tokens** antes de su vencimiento (salvo borrar al usuario).
+- Ninguno abierto por ahora. El antiguo «token en `localStorage` / sin revocación» está cerrado por las sesiones de arriba.
 
 ## Recomendaciones
 1. **Datos de prueba**: `prisma db seed` crea cuentas con contraseñas conocidas (`admin1234`…). No ejecutarlo en producción; al crear el primer superadmin real usar una contraseña propia.
 2. Definir en Coolify `JWT_SECRET` (≥ 32 caracteres aleatorios), `DATABASE_URL`, `LLAVERO_ENC_KEY` (≥ 32 caracteres aleatorios, distinta de `JWT_SECRET`; sin ella el llavero no funciona), `GEMINI_API_KEY` (respaldo del asistente) y, si hace falta, `CORS_ORIGIN`.
-3. Respaldos de PostgreSQL y rotación de `JWT_SECRET` (invalida las sesiones).
+3. Respaldos de PostgreSQL. Para cerrar todas las sesiones a la vez: `DELETE FROM "Sesion"` (rotar `JWT_SECRET` ya no las afecta).
 
 ## No verificado
 Chat de IA y «Probar» contra proveedores reales (sin claves locales; solo con `fetch` falso), despliegue real en Coolify, rendimiento con volumen alto.

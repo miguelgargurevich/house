@@ -6,6 +6,7 @@ import { HttpError, conflict, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { listQuerySchema, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
+import { revocarDeUsuario } from '../services/sesiones';
 import { METODOS_PAGO } from './pagos';
 
 /** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
@@ -46,6 +47,7 @@ export function meRouter(limitePassword: RequestHandler) {
     }
     if (actual === nueva) throw invalid('Datos inválidos: nueva: debe ser distinta de la actual', { nueva: 'Debe ser distinta de la actual' });
     await prisma.usuario.update({ where: { id: u.id }, data: { password_hash: await bcrypt.hash(nueva, BCRYPT_COST) } });
+    await revocarDeUsuario(u.id, req.sesion!.id); // quien robó la contraseña vieja pierde su sesión
     res.locals.entidadId = u.id;
     res.locals.auditDetalle = { campo: 'password' };
     res.json({ ok: true });
