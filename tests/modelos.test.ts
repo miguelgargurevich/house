@@ -310,6 +310,9 @@ describe('elegirModeloAuto', () => {
     assert.equal(c.modelos[0], 'google/gemma-4-31b-it:free');
     assert.ok(c.modelos.every((m) => m.endsWith(':free')), 'OpenRouter en Auto nunca elige uno de pago');
     assert.equal(c.modelos.length, 2, 'máximo 2 modelos por clave');
+    // Si sólo queda UN gratuito, es el único candidato: los de pago nunca completan la lista en Auto.
+    await prisma.modeloIA.updateMany({ where: { clave_id: o.id, modelo_id: { in: ['nvidia/nemotron-3-super-120b-a12b:free', 'poolside/laguna-s-2.1:free'] } }, data: { estado: 'deprecado' } });
+    assert.deepEqual((await candidatosDeClave(clave('openrouter', o.id))).modelos, ['google/gemma-4-31b-it:free']);
     // El admin que fija uno de pago en la clave lo obtiene.
     assert.equal((await candidatosDeClave(clave('openrouter', o.id, 'openai/gpt-4o'))).modelos[0], 'openai/gpt-4o');
   });

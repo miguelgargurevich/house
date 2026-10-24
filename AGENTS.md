@@ -11,6 +11,7 @@ Antes de trabajar: lee `docs/HANDOFF.md` (última entrada) y `docs/API-CONTRATO.
 - `npx tsc -b` y `npm run build` — tipos y build del frontend; `npx tsc -p tests/tsconfig.json --noEmit` — tipos del backend + tests.
 
 ## Entorno
+- Asistente de IA: `MODELOS_SYNC`, `ASISTENTE_CANARY`, `ASISTENTE_LIMPIEZA` (`on|off`; por defecto sólo producción; las pruebas las apagan). Las pruebas del asistente usan `fetch` inyectado (`tests/helpers/ia.ts`): nunca red real.
 - `.env` (no se commitea; plantilla en `.env.example`): `DATABASE_URL`, `JWT_SECRET` (≥ 32 caracteres; **obligatorio** con `NODE_ENV=production`, si no el proceso no arranca), `CORS_ORIGIN` (opcional, lista separada por comas; por defecto CORS desactivado = mismo origen), `GEMINI_API_KEY` (chat de IA).
 - Postgres local: contenedor `house-pg`, puerto 5433. Bases: `house` (desarrollo), `house_test` (pruebas; créala con `docker exec house-pg psql -U postgres -c "CREATE DATABASE house_test"` y aplica el esquema con `DATABASE_URL=postgresql://postgres:house@localhost:5433/house_test npx prisma db push`).
 - Las pruebas **vacían** `house_test` en cada archivo y se niegan a correr si `DATABASE_URL` no contiene `house_test`. Corren de a un archivo (`--test-concurrency=1`) porque comparten esa base.

@@ -140,7 +140,7 @@ describe('enlaces del Markdown', () => {
     assert.deepEqual(clasificarEnlace('https://aistudio.google.com/apikey'), { tipo: 'externo', url: 'https://aistudio.google.com/apikey' });
     for (const mal of [
       'javascript:alert(1)', 'JAVASCRIPT:alert(1)', ' javascript:alert(1)', 'data:text/html,<script>1</script>', 'http://evil.com', 'mailto:a@b.pe', 'tel:123', 'vbscript:x',
-      '//evil.com/x', '/\\evil.com', '/ruta con espacio', '/a"onclick="x', 'ftp://x.com', 'file:///etc/passwd', 'https://user:pw@evil.com/', 'https://', 'relativo/sin/barra', '', '#ancla', 'blob:https://x.com/1', '/x\u0000y',
+      '//evil.com/x', '//evil', '//evil/propietario/cargos', '/\\evil.com', '/ruta con espacio', '/a"onclick="x', 'ftp://x.com', 'file:///etc/passwd', 'https://user:pw@evil.com/', 'https://', 'relativo/sin/barra', '', '#ancla', 'blob:https://x.com/1', '/x\u0000y',
     ]) assert.equal(clasificarEnlace(mal).tipo, 'descartado', JSON.stringify(mal));
     assert.equal(clasificarEnlace(undefined).tipo, 'descartado');
   });
@@ -184,6 +184,8 @@ describe('ajustes del compositor', () => {
     const a = normalizarAjustes(guardado, opcionesAdmin);
     assert.deepEqual([a.modelo, a.esfuerzo, a.parametros.maxTokens], ['qwen/qwen3.8-27b', 'high', 4096]);
     assert.equal(normalizarAjustes({ ...guardado, modelo: 'ya-no-existe' }, opcionesAdmin).modelo, 'auto');
+    // Defensa extra: aunque la lista llegara con modelos, si no puede elegir, no se conserva.
+    assert.equal(normalizarAjustes(guardado, { ...opcionesAdmin, puede_elegir_modelo: false, puede_elegir_esfuerzo: false }).modelo, 'auto');
   });
 
   it('el cuerpo sólo lleva lo que ese usuario puede elegir; `parametros` sólo con «A medida»', () => {
