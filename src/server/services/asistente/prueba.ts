@@ -2,7 +2,7 @@
 // que se usaría. Sólo se marca `ok` si el modelo respondió texto. La usan el botón «Probar», la recuperación de claves rechazadas y el canary.
 import { prisma } from '../../db';
 import { notFound } from '../../errors';
-import { claveCooldown, limpiar } from '../../lib/cooldown';
+import { claveCooldown, cooldownDeps, limpiar } from '../../lib/cooldown';
 import { proveedorPorId } from '../../lib/proveedoresIA';
 import { exigirConfigurado } from '../llavero';
 import { retirarModelo } from '../modelos/retiro';
@@ -88,6 +88,6 @@ export async function probar(id: number) {
   }
   if (estado === 'ok') { limpiar(claveCooldown(f.proveedor, f.id)); olvidarCausa(claveCooldown(f.proveedor, f.id)); }
   if (estado === 'error' && f.estado === ESTADO_RECHAZADA) estado = ESTADO_RECHAZADA;
-  const fila = await prisma.claveIntegracion.update({ where: { id }, data: { estado, estado_detalle: detalle, probada_at: new Date() }, select: PUBLICA_PRUEBA });
+  const fila = await prisma.claveIntegracion.update({ where: { id }, data: { estado, estado_detalle: detalle, probada_at: new Date(cooldownDeps.ahora()) }, select: PUBLICA_PRUEBA });
   return { ...fila, modelo_probado: modeloProbado, sync: sync ? { ok: sync.ok, nuevos: sync.nuevos, deprecados: sync.deprecados, revividos: sync.revividos, total: sync.total } : null };
 }

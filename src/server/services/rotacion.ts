@@ -75,7 +75,7 @@ export async function rechazarClave(e: Eslabon, status: number): Promise<void> {
   console.warn(`[llavero] clave ${e.proveedor.id}#${e.claveId ?? 'env'} rechazada`);
   if (e.claveId === null) return;
   const detalle = status === 402 ? 'La cuenta no tiene saldo' : 'La clave fue rechazada';
-  await prisma.claveIntegracion.update({ where: { id: e.claveId }, data: { estado: ESTADO_RECHAZADA, estado_detalle: detalle, probada_at: new Date() }, select: { id: true } }).catch(() => undefined);
+  await prisma.claveIntegracion.update({ where: { id: e.claveId }, data: { estado: ESTADO_RECHAZADA, estado_detalle: detalle, probada_at: new Date(cooldownDeps.ahora()) }, select: { id: true } }).catch(() => undefined);
 }
 
 // Contadores de uso por clave: en memoria, desde el arranque.

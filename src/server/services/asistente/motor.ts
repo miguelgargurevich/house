@@ -3,7 +3,7 @@
 // cuentan por ruta distinta (proveedor + modelo), con un tope de tiempo total. Las claves marcadas como reserva van al final.
 import { registrarEstado, limpiar, cooldownDeps } from '../../lib/cooldown';
 import type { Esfuerzo, ParametrosGeneracion } from '../../lib/modelosIA';
-import { modeloMalo } from '../../lib/modelosMalos';
+import { marcarLento, modeloMalo } from '../../lib/modelosMalos';
 import { prisma } from '../../db';
 import { retirarModelo } from '../modelos/retiro';
 import { candidatosDeClave } from '../modelos/seleccion';
@@ -20,12 +20,22 @@ export function maxIntentos(): number {
   return Number.isInteger(n) && n >= 1 && n <= 8 ? n : MAX_INTENTOS;
 }
 /** Tope de tiempo total por consulta; `LLAVERO_TOPE_MS` (2 000–120 000) lo cambia. */
-export const TOPE_TIEMPO_MS = 25_000;
+export const TOPE_TIEMPO_MS = 45_000;
 export function topeTiempoMs(): number {
   const n = Number(process.env.LLAVERO_TOPE_MS);
   return Number.isInteger(n) && n >= 2_000 && n <= 120_000 ? n : TOPE_TIEMPO_MS;
 }
-const ESPERA_LLAMADA_MS = 30_000;
+/**
+ * Lo máximo que se espera la PRIMERA respuesta de una ruta antes de pasar a la siguiente; `LLAVERO_ESPERA_MS` (2 000–60 000) lo cambia.
+ * Corto a propósito (24-oct, Miguel: «no se debe caer por IA, tengo varias keys»): en producción `gemini-flash-latest` se colgó más de
+ * 40 s sin responder y, con una espera de 30 s, se comía todo el tope del turno sin probar las demás claves.
+ */
+export const ESPERA_LLAMADA_MS = 12_000;
+export function esperaLlamadaMs(): number {
+  const n = Number(process.env.LLAVERO_ESPERA_MS);
+  return Number.isInteger(n) && n >= 2_000 && n <= 60_000 ? n : ESPERA_LLAMADA_MS;
+}
+
 /** La reserva tiene su propio margen: si las normales gastaron el tiempo, igual se le da una oportunidad. */
 const TIEMPO_RESERVA_MS = 12_000;
 const MAX_RUTAS_RESERVA = 2;
@@ -66,7 +76,7 @@ export interface FalloMotor {
 }
 export type ResultadoMotor = ExitoMotor | FalloMotor;
 
-type Accion = 'exito' | 'siguiente_modelo' | 'siguiente_clave' | 'probar_gratis' | 'sin_texto' | 'agotado' | 'cancelado';
+type Accion = 'exito' | 'siguiente_modelo' | 'siguiente_clave' | 'probar_gratis' | 'sin_texto' | 'agotado' | 'cancelado' | 'lento';
 
 const esGratisOR = (m: string) => /:free$/i.test(m);
 
@@ -134,7 +144,7 @@ export async function* ejecutar(p: Peticion): AsyncGenerator<string, ResultadoMo
           llamadasTotal++;
           const opciones = {
             parametros: p.parametros, esfuerzo: p.esfuerzo, opcionales, stream: p.stream, signal: p.signal,
-            esperaMs: Math.min(ESPERA_LLAMADA_MS, tanda.hasta - cooldownDeps.ahora()),
+            esperaMs: Math.min(esperaLlamadaMs(), tanda.hasta - cooldownDeps.ahora()),
           };
           const s: Salida = p.herramientas ? await llamarConHerramientas(e, modelo, p.turno, opciones, p.herramientas) : await llamarProveedor(e, modelo, p.turno, opciones);
 
@@ -186,6 +196,11 @@ export async function* ejecutar(p: Peticion): AsyncGenerator<string, ResultadoMo
           break;
         }
         if (accion === 'siguiente_modelo') continue;
+        if (accion === 'lento') {
+          if (i < modelos.length - 1) continue;
+          registrarEstado(e.cooldownKey, 0);
+          break;
+        }
         if (accion === 'sin_texto') { if (i === modelos.length - 1) registrarEstado(e.cooldownKey, 500); continue; }
         break; // siguiente_clave
       }
@@ -221,6 +236,13 @@ async function clasificar(e: Eslabon, modelo: string, s: Fallo, noTodos429: () =
     return 'siguiente_clave';
   }
   if (s.sinTexto) return 'sin_texto';
+  if (s.tiempoAgotado) {
+    // No contestó a tiempo: el modelo pasa al final de la fila en todo el proveedor (no se veta) y se prueba el siguiente modelo de esta
+    // misma clave; la clave sólo se enfría si ya no le queda otro (ver el bucle).
+    marcarLento(e.proveedor.id, modelo);
+    anotarCausa(e.cooldownKey, 'caido', null);
+    return 'lento';
+  }
   if (s.status === 400) return 'siguiente_modelo'; // la ruta no acepta la petición ni sin opcionales: se prueba otra, sin castigar la clave
   registrarEstado(e.cooldownKey, s.status >= 500 ? s.status : s.status === 0 ? 0 : 500);
   anotarCausa(e.cooldownKey, 'caido', s.status || null);

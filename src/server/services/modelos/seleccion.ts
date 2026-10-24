@@ -1,7 +1,7 @@
 // Elección del modelo de una clave. Los candidatos salen del catálogo vivo (`ModeloIA`); sin lista viva se usa el `modeloPorDefecto`.
 import { prisma } from '../../db';
-import { modeloMalo } from '../../lib/modelosMalos';
-import { esInestable, indicePreferencia, type Categoria, type Esfuerzo } from '../../lib/modelosIA';
+import { esLento, modeloMalo } from '../../lib/modelosMalos';
+import { esDebil, esInestable, indicePreferencia, type Categoria, type Esfuerzo } from '../../lib/modelosIA';
 import type { ProveedorIA } from '../../lib/proveedoresIA';
 
 /** Modelos que se prueban como máximo por clave en una consulta. */
@@ -39,7 +39,8 @@ export function ordenarActivos(proveedor: string, activos: Fila[], ctx: Contexto
   const rango = (m: Fila) => (cats ? (cats.includes(m.categoria as Categoria) ? cats.indexOf(m.categoria as Categoria) : cats.length) : 0);
   return [...activos]
     .sort((a, b) =>
-      rango(a) - rango(b)
+      Number(esDebil(a.modelo_id)) - Number(esDebil(b.modelo_id))
+      || rango(a) - rango(b)
       || Number(esInestable(a.modelo_id)) - Number(esInestable(b.modelo_id))
       || indicePreferencia(proveedor, a.modelo_id) - indicePreferencia(proveedor, b.modelo_id)
       || a.modelo_id.localeCompare(b.modelo_id))
@@ -77,7 +78,9 @@ export async function candidatosDeClave(clave: ClaveParaModelo, ctx: ContextoMod
   const lista: string[] = [];
   if (pinVigente && !modeloMalo(p.id, pinVigente)) lista.push(pinVigente);
   for (const id of auto) if (!lista.includes(id)) lista.push(id);
-  return { modelos: lista.slice(0, MAX_MODELOS_POR_CLAVE), viva: true };
+  // Los que hace poco no contestaron a tiempo van al final (siguen ahí si no queda otro).
+  const ordenada = [...lista.filter((id) => !esLento(p.id, id)), ...lista.filter((id) => esLento(p.id, id))];
+  return { modelos: ordenada.slice(0, MAX_MODELOS_POR_CLAVE), viva: true };
 }
 
 /** El modelo que usaría el modo Auto con esta clave (o el `modeloPorDefecto` si no hay lista viva ni candidatos). */

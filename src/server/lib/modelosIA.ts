@@ -98,7 +98,7 @@ export function leerListaModelos(p: Pick<ProveedorIA, 'id' | 'tipo'>, cuerpo: un
 // ---------- Preferencias para el modo Auto ----------
 /** Patrones en orden de preferencia por proveedor. Lo que no calza con ninguno va después, por nombre. */
 export const PREFERENCIAS: Record<string, RegExp[]> = {
-  gemini: [/^gemini-flash-latest$/, /^gemini-2\.5-flash$/, /^gemini-[\d.]+-flash$/, /-flash$/],
+  gemini: [/^gemini-flash-latest$/, /^gemini-flash-lite-latest$/, /^gemini-2\.5-flash$/, /^gemini-[\d.]+-flash$/, /-flash$/],
   groq: [/^openai\/gpt-oss-120b$/, /-versatile$/, /^qwen/],
   openrouter: [/gemma-4.*:free$/, /nemotron.*:free$/, /:free$/],
 };
@@ -108,6 +108,12 @@ export const indicePreferencia = (proveedor: string, modelo_id: string): number 
   const i = lista.findIndex((r) => r.test(modelo_id));
   return i < 0 ? lista.length : i;
 };
+
+/**
+ * Modelos de chat que Auto nunca pone primero: muy pequeños (<= 4B) o de nicho (24-oct: en producción Groq elegía `allam-2-7b` para
+ * los mensajes cortos). Siguen como último respaldo y se pueden fijar a mano.
+ */
+export const esDebil = (modelo_id: string) => /allam|(^|[-_/:.])[1-4](\.\d)?b([-_:.]|$)/i.test(modelo_id);
 
 /** Los modelos con «preview/exp» no son estables: en Auto van después de los estables. */
 export const esInestable = (modelo_id: string) => /preview|exp(erimental)?\b|-exp-|-\d{2}-\d{2}$/i.test(modelo_id);

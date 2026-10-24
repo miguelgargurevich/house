@@ -4,9 +4,9 @@ import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
 import { chatOk, estado, instalarIA, json, listaCompat, listaGemini, type LlamadaIA } from './helpers/ia';
 import { claveCooldown, cooldownDeps, enfriandoHasta, estaEnfriando, limpiarTodo, registrarEstado } from '../src/server/lib/cooldown';
-import { limpiarModelosMalos, modeloMalo } from '../src/server/lib/modelosMalos';
+import { esLento, limpiarModelosMalos, modeloMalo } from '../src/server/lib/modelosMalos';
 import { FRASE_CONTINGENCIA } from '../src/server/services/asistente/contexto';
-import { MAX_INTENTOS, TOPE_TIEMPO_MS, topeTiempoMs } from '../src/server/services/asistente/motor';
+import { ESPERA_LLAMADA_MS, MAX_INTENTOS, TOPE_TIEMPO_MS, esperaLlamadaMs, topeTiempoMs } from '../src/server/services/asistente/motor';
 import { LOCK_CANARY, canaryActivo, consumoDelDia, ejecutarCanary, pasadaDeCanary, reiniciarCanary, PRESUPUESTO_DIARIO } from '../src/server/services/asistente/canary';
 import { ESPERA_RECUPERACION_MS, MAX_REINTENTOS_AUTOMATICOS, olvidarReintentos, recuperarRechazadas, reintentosDe } from '../src/server/services/asistente/recuperacion';
 import { actualizarSalud, olvidarCausas, olvidarSaludEnMemoria, saludActual } from '../src/server/services/asistente/salud';
@@ -233,20 +233,80 @@ describe('la unidad de rotación es (clave, modelo)', () => {
     assert.equal(new Set(modelosLlamados()).size, 6);
   });
 
-  it('tope de tiempo total por consulta (~25 s) con el reloj inyectado', async () => {
-    assert.equal(TOPE_TIEMPO_MS, 25_000);
-    for (const e of ['a', 'b', 'c', 'd', 'e']) await guardar('groq', `groq-${e}-prueba-00001`, e);
+  it('tope de tiempo total por consulta (~45 s) con el reloj inyectado', async () => {
+    assert.equal(TOPE_TIEMPO_MS, 45_000);
+    for (const e of ['a', 'b', 'c', 'd', 'e', 'f']) await guardar('groq', `groq-${e}-prueba-00001`, e);
     manejador = () => { reloj += 10_000; return estado(503); }; // cada llamada «tarda» 10 s
     const r = await chat();
     assert.equal(r.body.modo, 'contingencia');
-    assert.equal(chats().length, 3, 'a los 30 s ya pasó el tope de 25 s: no se hace la cuarta');
-    assert.equal(topeTiempoMs(), 25_000);
+    assert.equal(chats().length, 5, 'a los 50 s ya pasó el tope de 45 s: no se hace la sexta');
+    assert.equal(topeTiempoMs(), 45_000);
     process.env.LLAVERO_TOPE_MS = '5000';
     assert.equal(topeTiempoMs(), 5000);
     process.env.LLAVERO_TOPE_MS = '1';
-    assert.equal(topeTiempoMs(), 25_000, 'fuera de rango se ignora');
+    assert.equal(topeTiempoMs(), 45_000, 'fuera de rango se ignora');
     process.env.LLAVERO_TOPE_MS = 'x';
-    assert.equal(topeTiempoMs(), 25_000);
+    assert.equal(topeTiempoMs(), 45_000);
+  });
+
+  it('una ruta que se cuelga no se come el turno: a los pocos segundos responde la siguiente clave (caso real de producción)', async () => {
+    assert.equal(ESPERA_LLAMADA_MS, 12_000);
+    process.env.LLAVERO_ESPERA_MS = '2000';
+    try {
+      assert.equal(esperaLlamadaMs(), 2000);
+      await guardar('gemini', 'gemini-prueba-cuelga-0001', 'principal');
+      await guardar('groq', 'groq-prueba-responde-0001', 'principal');
+      // Gemini acepta la conexión y nunca contesta (sólo termina cuando el motor la aborta); Groq contesta al toque.
+      manejador = (l) => l.proveedor === 'gemini'
+        ? new Promise<Response>((_, rechazar) => l.signal?.addEventListener('abort', () => rechazar(l.signal?.reason), { once: true }))
+        : chatOk('Respuesta de Groq');
+      const t0 = Date.now();
+      const r = await chat();
+      const ms = Date.now() - t0;
+      assert.equal(r.status, 200);
+      assert.notEqual(r.body.modo, 'contingencia', 'con otra clave sana NO hay contingencia');
+      assert.match(r.body.respuesta ?? r.body.texto ?? JSON.stringify(r.body), /Respuesta de Groq/);
+      assert.ok(ms < 8_000, `respondió en ${ms} ms: la espera por intento corta la ruta colgada`);
+      const g = chats().filter((c) => c.proveedor === 'gemini');
+      assert.equal(g.length, 1, 'se intentó Gemini una sola vez');
+      assert.ok(esLento('gemini', g[0]!.modelo!), 'el modelo queda marcado como lento en todo el proveedor');
+      assert.equal(modeloMalo('gemini', g[0]!.modelo!), false, 'pero NO se veta: si es lo único que queda, se sigue intentando');
+
+      // La siguiente consulta no espera otra vez a la ruta colgada (la clave se enfrió): responde la sana sin demora.
+      ia.llamadas.length = 0;
+      const t1 = Date.now();
+      const r2 = await chat();
+      assert.equal(r2.status, 200);
+      assert.ok(Date.now() - t1 < 1_500, 'sin volver a esperar la ruta colgada');
+      assert.equal(chats().filter((c) => c.proveedor === 'gemini').length, 0);
+    } finally {
+      delete process.env.LLAVERO_ESPERA_MS;
+    }
+  });
+
+  it('con UNA sola clave: si su modelo preferido se cuelga, prueba su otro modelo y la siguiente consulta va directo al que responde', async () => {
+    process.env.LLAVERO_ESPERA_MS = '2000';
+    try {
+      const g = await guardar('gemini', 'gemini-prueba-unica-0001', 'principal');
+      await catalogo(g.id, 'gemini-flash-latest', 'gemini-flash-lite-latest');
+      manejador = (l) => l.modelo === 'gemini-flash-latest'
+        ? new Promise<Response>((_, rechazar) => l.signal?.addEventListener('abort', () => rechazar(l.signal?.reason), { once: true }))
+        : chatOk('Desde flash-lite');
+      const r = await chat();
+      assert.equal(r.status, 200);
+      assert.notEqual(r.body.modo, 'contingencia', 'una sola clave también se salva con su otro modelo');
+      assert.deepEqual(modelosLlamados(), ['gemini:gemini-flash-latest', 'gemini:gemini-flash-lite-latest']);
+      assert.equal(estaEnfriando(claveCooldown('gemini', g.id)), false, 'la clave NO se enfría: su otro modelo respondió');
+
+      ia.llamadas.length = 0;
+      const t0 = Date.now();
+      const r2 = await chat();
+      assert.notEqual(r2.body.modo, 'contingencia');
+      assert.deepEqual(modelosLlamados(), ['gemini:gemini-flash-lite-latest'], 'el lento pasó al final: ya no se espera');
+      assert.ok(Date.now() - t0 < 1_500);
+    } finally {
+      delete process.env.LLAVERO_ESPERA_MS;
+    }
   });
 });
 
