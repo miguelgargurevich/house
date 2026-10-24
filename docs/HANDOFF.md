@@ -4,7 +4,35 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
-## 2026-10-24 — Claude Code (Sonnet 5.5) — `feat/recibos-por-unidad`: un recibo (mantenimiento) por departamento, pagos agrupados, empresa sólo para el personal
+## 2026-10-24 — Claude Code (Sonnet 5.5) — `feat/personas`: separar Residentes, Personal y Proveedores; contrato de administración del condominio
+
+**Pedido de Miguel:** los usuarios no tienen empresa; es el condominio el que tiene una empresa de mantenimiento. Hay personal asociado a la empresa (seguridad, limpieza, jardines), una zona de proveedores (ascensores, gasfitería, pintura…), y residentes asociados a condominios/edificios. Todo estaba mezclado en la misma pantalla: separar y corregir. **Contrato: `docs/API-CONTRATO.md`, `docs/SEGURIDAD.md`, `DESIGN.md`, `AGENTS.md`.**
+
+**Qué se hizo (commits pequeños, SIN push)**
+- **Esquema ADITIVO:** `ContratoAdministracion` (un solo vigente por condominio, `fecha_fin` null), `Proveedor` (sólo ficha, no inicia sesión), `ProveedorComplejo`, `TareaMantenimiento.proveedor_id` (nullable, SetNull, no ambos con `asignado_id`). Roles nuevos `limpieza` y `jardineria` en `ROLES`, `ROLES_PERSONAL`, `ROLES_OPERATIVOS` y `ROL_LABEL`.
+- **Contratos:** `cambiarAdministradora` cierra el vigente, abre el nuevo, mueve `complejo.empresa_id` + `unidad.empresa_id`, libera personal de la empresa anterior (complejo_id=null) y revoca sus sesiones, todo en transacción con `FOR UPDATE`. `crearContratosIniciales` (idempotente, `--simular`; script `scripts/contratos-iniciales.ts` para producción, no ejecutado). Recibos guardan su `empresa_id` (la anterior los consulta; la nueva cobra la deuda pendiente).
+- **Alcance (`lib/scope.ts`):** `scopeUsuarios` separa personal (por empresa) y residentes (por condominio/unidades, sin empresa); `scopeTareas` para mantenimiento/limpieza/jardineria = solo sus tareas; `scopeProveedores` = solo de su empresa. Limpieza/jardineria: sin cobranza (403), solo sus tareas y unidades.
+- **Rutas:** `/api/usuarios` con `?tipo=residente|personal|superadmin`, `?estado=moroso|al_dia`, `?complejo_id=`, `?estructura_id=`; `/api/complejos/:id/contratos` (historial), `POST /api/complejos/:id/administradora` (solo superadmin); `/api/proveedores` CRUD con zod, filtros `rubro|activo|complejo_id`, 404 ajenos; `/api/tareas` con `proveedor_id`, exclusividad con `asignado_id`.
+- **Tests:** `tests/personas.test.ts` (32 pruebas: contratos vigente/único/cambio atómico/historial/qué ve cada empresa, roles limpieza/jardineria sin cobranza, proveedores CRUD/404/asignar a tarea, residentes y personal listados separados). Suite completa: 635/635 verde.
+- **Frontend:** menú «Personas» con Residentes/Personal/Proveedores; rutas nuevas; Condominios con contrato vigente + historial + «Cambiar de administradora» (superadmin); Superadmin Usuarios con pestañas; Login con cuenta Limpieza; nav y roles nuevos (limpieza, jardinería con menú «Mis tareas`).
+
+**Verificación (números reales)**
+- `npm test` **635/635** (base `house_test_personas`); `npx tsc -b` y `npm run build` limpios; `npx tsc --noEmit` limpio.
+- Prueba del prompt del asistente: se corrigió `/admin/usuarios` → `/admin/residentes` en `src/config/ai-system-prompt.txt`.
+
+**NO verificado (honesto)**
+- Navegador real (Playwright): no se probó en este worktree. Falta verificar como `ana.lopez@gestionurbana.com` (Personas, Condominios, Mantenimiento con proveedor), como superadmin (cambiar de administradora) y como `limpieza@prueba.house`.
+- Seed `prisma/seed-libertadores.ts` actualizado (contratos vigente+anterior, limpieza@prueba.house / jardineria@prueba.house / pers1234, 10 proveedores, tareas a proveedores) pero **no se ejecutó contra la base `house`** (solo cambios de código).
+- Producción (Coolify): `scripts/contratos-iniciales.ts` no se ejecutó; `prisma db push` con las tablas nuevas no se aplicó allí.
+- El cliente de Prisma generado vive en el `node_modules` compartido del repo principal (symlink): se regeneró con las tablas nuevas (aditivo; otras sesiones siguen funcionando).
+
+**Próximos pasos**
+1. Ejecutar el seed actualizado contra `house` para verificar que no rompe nada.
+2. Verificación en navegador (Playwright) con las cuentas de prueba.
+3. Commits pendientes: los archivos de frontend están sin commitear (ver `git status`).
+4. Push sólo con OK de Miguel.
+
+---
 
 **Pedido de Miguel:** un solo recibo por departamento con todos los conceptos, agrupado por block (salvo condominios sin blocks o con uno), pagos «a los recibos, no por conceptos»; la empresa no es dato del residente. **Contrato: `docs/API-CONTRATO.md` (sección «Mantenimiento…»), `SEGURIDAD.md`, `DESIGN.md`.**
 
