@@ -46,7 +46,7 @@ export const cargosRouter = crudRouter({
   include: includeCargo,
   filtros: {
     schema: z.object({
-      estado: z.enum(['pendiente', 'pagado', 'vencido']).optional(),
+      estado: z.enum(['pendiente', 'pagado', 'vencido', 'en_revision']).optional(),
       unidad_id: idSchema.optional(),
       recibo_id: idSchema.optional(),
     }),

@@ -53,13 +53,23 @@ Reemplazan al JWT en `localStorage`, que un XSS podía leer y que no se podía r
 - **`JWT_SECRET`**: ya no se usa para firmar nada. Se sigue exigiendo en producción por compatibilidad con el despliegue; se puede retirar en un cambio aparte.
 - **Límites conocidos**: no hay tope de sesiones simultáneas por usuario; la IP y el user-agent son informativos (no se enlazan a la sesión); con varias réplicas el estado es consistente porque vive en PostgreSQL.
 
+## Comprobantes de pago (archivos)
+- Se guardan en PostgreSQL (`ArchivoComprobante`, 1 por pago, máx. 2 MB; sin infraestructura nueva). La respuesta de cualquier lista incluye sólo metadatos: `datos` jamás sale salvo en `GET /api/pagos/:id/comprobante`.
+- Subida: cuerpo crudo con `express.raw` sólo en ese endpoint (tope 2 MB → 413); el pago se localiza y se autoriza ANTES de leer el cuerpo. Tipos permitidos JPG/PNG/WebP/PDF; el header lo manda el cliente, así que se comprueban los bytes mágicos y deben coincidir con el tipo declarado (SVG/HTML nunca entran). Se calcula sha256; el nombre se sanea (sin rutas, controles ni inversión de texto, máx. 100).
+- Entrega: `Content-Type` guardado, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Cache-Control: private, no-store`, nombre en `filename*` (RFC 5987). Acceso por empresa del pago (404 entre tenants) y, para residentes, sólo las unidades que tienen.
+- La validación (`PATCH /api/pagos/:id/validacion`) es sólo admin/superadmin y atómica (`updateMany … WHERE estado_validacion='por_validar'`): dos revisiones simultáneas → una gana, la otra 409.
+- Auditoría: `subir_comprobante` (nombre, tipo, tamaño, sha256), `ver_comprobante`, `validar` y `rechazar` (con motivo); nunca el contenido (el middleware además ignora cuerpos `Buffer`).
+- Riesgo aceptado: un residente ve el comprobante del otro residente de SU misma unidad (propietario ↔ inquilino), porque ya ve ese pago en su lista.
+
 ## Riesgos aceptados
 - Ninguno abierto por ahora. El antiguo «token en `localStorage` / sin revocación» está cerrado por las sesiones de arriba.
 
 ## Recomendaciones
 1. **Datos de prueba**: `prisma db seed` crea cuentas con contraseñas conocidas (`admin1234`…). No ejecutarlo en producción; al crear el primer superadmin real usar una contraseña propia.
 2. Definir en Coolify `JWT_SECRET` (≥ 32 caracteres aleatorios), `DATABASE_URL`, `LLAVERO_ENC_KEY` (≥ 32 caracteres aleatorios, distinta de `JWT_SECRET`; sin ella el llavero no funciona), `GEMINI_API_KEY` (respaldo del asistente) y, si hace falta, `CORS_ORIGIN`.
-3. Respaldos de PostgreSQL. Para cerrar todas las sesiones a la vez: `DELETE FROM "Sesion"` (rotar `JWT_SECRET` ya no las afecta).
+
+3. Respaldos de PostgreSQL (ver `docs/RESPALDOS.md`). Los comprobantes de pago viven en la base: el respaldo los incluye y la base crece hasta 2 MB por pago con archivo.
+4. Para cerrar todas las sesiones a la vez: `DELETE FROM "Sesion"` (rotar `JWT_SECRET` ya no las afecta).
 
 ## No verificado
 Chat de IA y «Probar» contra proveedores reales (sin claves locales; solo con `fetch` falso), despliegue real en Coolify, rendimiento con volumen alto.

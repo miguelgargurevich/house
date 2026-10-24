@@ -12,6 +12,7 @@ import type { Cargo } from './tipos';
 interface Resumen {
   deuda_total: number | string;
   vencidos: number | string;
+  en_revision: number;
   proximo_vencimiento: { cargo_id: number; monto: number | string; fecha: string } | null;
   pagado_ano: number | string;
 }
@@ -58,6 +59,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
                 {alDia
                   ? <p className="mt-1 flex items-center gap-1.5 text-sm text-ok"><CheckCircleIcon className="h-4 w-4" />Estás al día</p>
                   : hayVencidos && <p className="mt-1 text-sm text-bad">Tienes recibos vencidos</p>}
+                {r.en_revision > 0 && <p className="mt-1 text-sm text-info">{r.en_revision === 1 ? '1 pago en revisión' : `${r.en_revision} pagos en revisión`}</p>}
               </div>
               <div className="p-5">
                 <p className="text-sm text-muted">Próximo vencimiento</p>

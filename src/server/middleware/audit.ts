@@ -11,7 +11,7 @@ export const ipDe = (req: Request) => req.ip ?? null;
 
 /** Cuerpo de la petición resumido y sin campos sensibles, para la auditoría. */
 function resumir(body: unknown): Prisma.InputJsonValue | undefined {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return undefined;
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Buffer.isBuffer(body)) return undefined; // un archivo crudo nunca va a la auditoría
   const out: Record<string, Prisma.InputJsonValue> = {};
   for (const [k, v] of Object.entries(body)) {
     if (SENSIBLE.test(k)) out[k] = '[omitido]';

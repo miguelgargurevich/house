@@ -15,6 +15,7 @@ import { auditoriaRouter } from './routes/auditoria';
 import { llaveroRouter } from './routes/llavero';
 import { loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
+import { comprobantesRouter } from './routes/comprobantes';
 import { complejosRouter } from './routes/complejos';
 import { conceptosRouter } from './routes/conceptos';
 import { dashboardRouter } from './routes/dashboard';
@@ -87,6 +88,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/unidades', unidadesRouter);
   api.use('/conceptos', conceptosRouter);
   api.use('/recibos', recibosRouter);
+  api.use('/pagos', comprobantesRouter); // antes del CRUD: sus rutas (/:id/comprobante, /:id/validacion) admiten también a residentes
   api.use('/pagos', pagosRouter);
   api.use('/recibo-conceptos', reciboConceptosRouter);
   api.use('/recibo-concepto-unidades', cargosRouter);

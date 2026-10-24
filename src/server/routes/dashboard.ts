@@ -1,34 +1,37 @@
 import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
-import { decimalAString, filtroEstadoCargo } from '../lib/cargos';
+import { decimalAString, filtroEstadoCargo, noPagado } from '../lib/cargos';
 import { inicioAnioLima, inicioMesLima, mesesAtras } from '../lib/fechas';
 import { scopeCargos, scopePagos, scopeRecibos, scopeTareas, scopeUnidades } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { forbidden } from '../errors';
 
-const noPagado: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: { not: 'pagado' } }] };
+/** Sólo los pagos validados cuentan como cobrado (uno en revisión o rechazado todavía no es dinero cobrado). */
+const validado: Prisma.PagoWhereInput = { estado_validacion: 'validado' };
 const sumaMonto = (v: { _sum: { monto: Prisma.Decimal | null } }) => decimalAString(v._sum.monto);
 
 async function resumenAdmin(u: AuthUser) {
   const cargos = scopeCargos(u);
   const ahora = new Date();
   const meses = mesesAtras(6, ahora);
-  const [recibos, pendientes, cobradoMes, morosos, unidades, tareas, pagado, pendiente, vencido, serie] = await Promise.all([
+  const [recibos, pendientes, cobradoMes, morosos, unidades, tareas, pagado, pendiente, vencido, enRevision, porValidar, serie] = await Promise.all([
     prisma.recibo.count({ where: scopeRecibos(u) }),
     prisma.reciboConceptoUnidad.aggregate({ where: { AND: [cargos, noPagado] }, _sum: { monto: true } }),
-    prisma.pago.aggregate({ where: { AND: [scopePagos(u), { fecha_pago: { gte: inicioMesLima(ahora) } }] }, _sum: { monto: true } }),
+    prisma.pago.aggregate({ where: { AND: [scopePagos(u), validado, { fecha_pago: { gte: inicioMesLima(ahora) } }] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
     prisma.unidad.count({ where: scopeUnidades(u) }),
     prisma.tareaMantenimiento.count({ where: { AND: [scopeTareas(u), { estado: { not: 'completada' } }] } }),
     prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('pagado')] } }),
     prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('pendiente')] } }),
     prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
+    prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('en_revision')] } }),
+    prisma.pago.count({ where: { AND: [scopePagos(u), { estado_validacion: 'por_validar' }] } }),
     Promise.all(
       meses.map(async (m) => {
         const [emitido, cobrado] = await Promise.all([
           prisma.reciboConceptoUnidad.aggregate({ where: { AND: [cargos, { reciboConcepto: { recibo: { anio: m.anio, mes: m.mes } } }] }, _sum: { monto: true } }),
-          prisma.pago.aggregate({ where: { AND: [scopePagos(u), { fecha_pago: { gte: m.desde, lt: m.hasta } }] }, _sum: { monto: true } }),
+          prisma.pago.aggregate({ where: { AND: [scopePagos(u), validado, { fecha_pago: { gte: m.desde, lt: m.hasta } }] }, _sum: { monto: true } }),
         ]);
         return { mes: m.clave, emitido: sumaMonto(emitido), cobrado: sumaMonto(cobrado) };
       }),
@@ -42,7 +45,8 @@ async function resumenAdmin(u: AuthUser) {
     unidades_total: unidades,
     tareas_abiertas: tareas,
     cobrado_por_mes: serie,
-    estados: { pagado, pendiente, vencido },
+    estados: { pagado, pendiente, vencido, en_revision: enRevision },
+    pagos_por_validar: porValidar,
   };
   if (u.rol !== 'superadmin') return base;
   const [empresas_total, usuarios_total] = await Promise.all([prisma.empresaAdministradora.count(), prisma.usuario.count()]);
@@ -52,19 +56,21 @@ async function resumenAdmin(u: AuthUser) {
 async function resumenResidente(u: AuthUser) {
   const propias = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
   const mios: Prisma.ReciboConceptoUnidadWhereInput = { unidad: propias };
-  const [deuda, vencidos, proximo, pagadoAnio] = await Promise.all([
+  const [deuda, vencidos, enRevision, proximo, pagadoAnio] = await Promise.all([
     prisma.reciboConceptoUnidad.aggregate({ where: { AND: [mios, noPagado] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido')] } }),
+    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision')] } }),
     prisma.reciboConceptoUnidad.findFirst({
       where: { AND: [mios, filtroEstadoCargo('pendiente')] },
       orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'asc' } } }, { id: 'asc' }],
       select: { id: true, monto: true, reciboConcepto: { select: { recibo: { select: { fecha_vencimiento: true } } } } },
     }),
-    prisma.pago.aggregate({ where: { reciboConceptoUnidad: mios, fecha_pago: { gte: inicioAnioLima() } }, _sum: { monto: true } }),
+    prisma.pago.aggregate({ where: { reciboConceptoUnidad: mios, ...validado, fecha_pago: { gte: inicioAnioLima() } }, _sum: { monto: true } }),
   ]);
   return {
     deuda_total: sumaMonto(deuda),
     vencidos,
+    en_revision: enRevision,
     proximo_vencimiento: proximo ? { cargo_id: proximo.id, monto: decimalAString(proximo.monto), fecha: proximo.reciboConcepto?.recibo?.fecha_vencimiento ?? null } : null,
     pagado_ano: sumaMonto(pagadoAnio),
   };
