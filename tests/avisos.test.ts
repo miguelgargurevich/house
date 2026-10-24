@@ -93,7 +93,7 @@ describe('plantillas', () => {
     assert.equal(datos.periodo, 'octubre de 2026');
     assert.equal(datos.monto, 'S/ 1,234.50');
     assert.equal(datos.vencimiento, '15/11/2026');
-    for (const tipo of TIPOS) {
+    for (const tipo of TIPOS.filter((t) => !t.startsWith('ia_'))) { // los de la IA no hablan de cargos (ver abajo)
       const { asunto, cuerpo } = plantilla(tipo, datos);
       assert.ok(asunto.length > 5 && asunto.length < 90, tipo);
       assert.match(cuerpo, /^Hola María,/, tipo);
@@ -106,6 +106,15 @@ describe('plantillas', () => {
     assert.match(plantilla('por_vencer', { ...datos, dias: 1 }).asunto, /vence mañana/);
     assert.match(plantilla('recibo_emitido', datos).cuerpo, /Vence el 15\/11\/2026/);
     assert.match(plantilla('vencido', datos).cuerpo, /venció el 15\/11\/2026/);
+  });
+
+  it('los avisos de la IA (sólo superadmin) llevan el detalle y el enlace al Llavero, sin hablar de cargos', () => {
+    const caida = plantilla('ia_caida', { ...datos, motivo: 'Sin IA disponible desde las 14:32: Gemini 404, Groq 404, OpenRouter sin saldo.' });
+    assert.match(caida.cuerpo, /^Hola María,/);
+    assert.match(caida.cuerpo, /Gemini 404, Groq 404, OpenRouter sin saldo/);
+    assert.match(caida.cuerpo, /house\.gargurevich\.dev\/superadmin\/llavero/);
+    assert.match(plantilla('ia_restablecida', { ...datos, motivo: 'La IA del asistente se restableció.' }).cuerpo, /se restableció/);
+    for (const tipo of ['ia_caida', 'ia_restablecida'] as const) assert.doesNotMatch(plantilla(tipo, datos).cuerpo, /S\/|undefined|\{|\}/);
   });
 });
 
