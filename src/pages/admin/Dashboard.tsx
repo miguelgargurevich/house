@@ -39,8 +39,8 @@ export default function Dashboard() {
               { label: 'Tareas abiertas', value: data.tareas_abiertas },
             ]}
           />
-          <div className="grid gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
+          <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 24rem), 1fr))' }}>
+            <Card>
               <CardHeader title="Emitido vs. cobrado" description="Últimos 6 meses, en soles." />
               <CardBody>
                 <BarChart
