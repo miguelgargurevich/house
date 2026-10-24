@@ -4,6 +4,21 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/menu-compacto`
+
+**Qué se hizo:** menú lateral con modo compacto (riel de iconos de 64 px), como el Portal de Dealers. Pedido de Miguel: «que el menú tenga su modo compacto». **Sólo frontend.**
+- `src/app/barra.ts` (lógica pura: `anchoBarra`, lectura/escritura segura del estado, `esAtajoMenu`), `useBarra.ts` (hook), `Pista.tsx` (tooltip con mouse y foco), `Shell.tsx` (la marca de la cabecera alterna; riel con iconos, separadores finos, pie con avatar; `--barra` mueve aside y contenido).
+- Atajo `[` o Ctrl/Cmd+B (no en inputs/textarea/select/contenteditable). Estado global `house:menu:colapsado`. Móvil: cajón con textos siempre.
+- El asistente acoplado lee el ancho real de la barra: `acotarAncho(px, viewport, barra)` y `useAnchoPanel(usuarioId, barra)` (guarda el ancho pedido y lo acota al mostrarlo: al expandir el menú el panel se achica sin perder el elegido).
+- Pruebas: `tests/barra-menu.test.ts`. Suite completa 432/432 contra `house_test_menu`; `tsc -b`, `tsc -p tests` y `npm run build` limpios.
+- Verificado en Chrome (Playwright, vite propio en :5199): 1440 y 1024, claro y oscuro, riel/expandida, asistente abierto/cerrado (sin solapes; a 1024 con menú expandido el panel baja a 320 px), recarga mantiene riel, Tab muestra tooltip, `[` y Ctrl+B alternan, `[` en el textarea del asistente no, móvil 390 con cajón con textos.
+- **No verificado:** `prefers-reduced-motion` (sólo la regla global existente), lector de pantalla real, Safari/Firefox, rol distinto de superadmin (propietario/junta), arrastre del asistente con el riel, ausencia total de localStorage en navegador (cubierta sólo por prueba unitaria), parpadeo de carga medido a ojo, 390 px sólo comprobado por texto (hay captura sin revisar).
+
+**Decisiones / gotchas:** los ítems llevan `aria-label` + tooltip propio en vez de `title` nativo (el `title` no sale con foco de teclado y duplicaría el tooltip). El botón de la marca expandido conserva `title` con el atajo. Estado global, no por usuario. El :5173 de `dev:all` corre desde el checkout principal, no desde este worktree.
+**Próximos pasos:** revisar el diff, integrar con cherry-pick; push sólo con OK de Miguel.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/asistente-inline`
 
 **Qué se hizo:** el panel del asistente deja de ser un overlay y pasa a ser una columna acoplada (inline) con el estilo de los paneles de My Workspace. Pedido de Miguel: «que el panel de IA sea inline y no overlay, y que tenga el estilo de los paneles de MW». **Sólo frontend** (el backend y los selectores ya hechos no se tocaron; sólo se reubicaron).
