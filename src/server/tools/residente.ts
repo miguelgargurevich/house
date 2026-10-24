@@ -3,6 +3,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { estadoCargo, filtroEstadoCargo, noPagado } from '../lib/cargos';
+import { listarMantenimientos, type EstadoMantenimiento } from '../lib/mantenimientos';
 import type { AuthUser } from '../middleware/auth';
 import { medioDeUnidades } from '../services/asistente/contexto';
 import { z } from '../validation';
@@ -10,6 +11,8 @@ import { MAX_FILAS, cortar, dato, defineHerramienta, fechaDia, instante, monto, 
 
 const RESIDENTE = ['propietario', 'inquilino'] as const;
 const ESTADOS_CARGO = ['pagado', 'pendiente', 'vencido', 'en_revision'] as const;
+/** Mantenimientos con desglose por respuesta de `mis_recibos` (el resto, con `filas` y el cursor). */
+const MAX_MANTENIMIENTOS = 6;
 
 export function unidadesPropias(u: AuthUser): Prisma.UnidadWhereInput {
   if (u.rol === 'propietario') return { propietario_id: u.id };
@@ -76,7 +79,7 @@ export const miDeuda = defineHerramienta({
 
 export const misRecibos = defineHerramienta({
   nombre: 'mis_recibos',
-  descripcion: 'Los cargos/recibos de la persona que escribe, con concepto, periodo, monto, estado (pendiente, vencido, en_revision, pagado) y vencimiento. Úsala para «¿qué recibos tengo vencidos?». Ejemplo: {"estado":"vencido"}.',
+  descripcion: 'Los recibos de la persona que escribe. Cada mes recibe UN mantenimiento por departamento que agrupa todos sus conceptos (agua, luz de áreas comunes, limpieza, seguridad, mora…): `mantenimientos` trae cada uno con su total, saldo, estado y el desglose por concepto (los pagos son del mantenimiento completo); `filas` es el detalle plano por concepto. Estados: pendiente, vencido, en_revision, pagado. Úsala para «¿qué recibos tengo vencidos?» o «¿qué incluye mi mantenimiento de octubre?». Ejemplo: {"estado":"vencido"}.',
   entrada: z.strictObject({ estado: z.enum(ESTADOS_CARGO).optional(), ...paginacion }),
   roles: RESIDENTE,
   solo_lectura: true,
@@ -90,7 +93,25 @@ export const misRecibos = defineHerramienta({
       select: { id: true, monto: true, estado_pago: true, unidad: { select: { codigo: true } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
     });
     const c = cortar(filas, p);
+    // Lo mismo agrupado: un mantenimiento por departamento y mes, con su desglose (los más recientes; `pendiente` incluye el pago parcial).
+    const unidadIds = (await prisma.unidad.findMany({ where: unidadesPropias(u), select: { id: true } })).map((x) => x.id);
+    const estados: EstadoMantenimiento[] | undefined = e.estado === 'pendiente' ? ['pendiente', 'parcial'] : e.estado ? [e.estado] : undefined;
+    const mant = await listarMantenimientos({ unidadIds, estado: estados }, { page: 1, pageSize: MAX_MANTENIMIENTOS });
+    const desglose = mant.items.length
+      ? await prisma.reciboConceptoUnidad.findMany({
+          where: { OR: mant.items.map((m) => ({ unidad_id: m.unidad_id, reciboConcepto: { recibo_id: m.recibo_id } })) },
+          select: { unidad_id: true, monto: true, reciboConcepto: { select: { recibo_id: true, orden: true, concepto: { select: { nombre: true } } } } },
+        })
+      : [];
     return respuesta({
+      mantenimientos: mant.items.map((m) => ({
+        mantenimiento: dato(m.titulo), unidad: dato(m.unidad.codigo, 30), total: m.total, pagado: m.cobrado, en_revision: m.en_revision, saldo: m.saldo, estado: m.estado, vencimiento: fechaDia(m.fecha_vencimiento),
+        conceptos: desglose
+          .filter((x) => x.unidad_id === m.unidad_id && x.reciboConcepto?.recibo_id === m.recibo_id)
+          .sort((a, b) => (a.reciboConcepto?.orden ?? 0) - (b.reciboConcepto?.orden ?? 0))
+          .map((x) => ({ concepto: dato(x.reciboConcepto?.concepto?.nombre), monto: monto(x.monto) })),
+      })),
+      total_mantenimientos: mant.total,
       filas: c.filas.map((x) => ({
         unidad: dato(x.unidad?.codigo, 30), concepto: dato(x.reciboConcepto?.concepto?.nombre), periodo: periodoDe(x.reciboConcepto?.recibo?.anio, x.reciboConcepto?.recibo?.mes),
         monto: monto(x.monto), estado: estadoCargo(x.estado_pago, x.reciboConcepto?.recibo?.fecha_vencimiento), vencimiento: fechaDia(x.reciboConcepto?.recibo?.fecha_vencimiento),
