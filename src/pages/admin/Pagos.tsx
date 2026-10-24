@@ -1,26 +1,39 @@
 import { useState } from 'react';
 import { BanknotesIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../api';
-import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, Toolbar, fechaCorta, soles } from '../../ui';
+import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, StatusBadge, Tabs, Toolbar, fechaCorta, soles } from '../../ui';
 import type { Column } from '../../ui';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
 import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
+import { ValidarPagoModal } from './_parts/cobranza/ValidarPagoModal';
+import type { PagoRevisable } from './_parts/cobranza/ValidarPagoModal';
 
-interface PagoFila {
-  id: number;
-  fecha_pago: string;
-  monto: number | string;
-  metodo_pago: string | null;
-  referencia: string | null;
-  unidad?: { codigo: string } | null;
-  concepto?: { nombre: string } | null;
-  usuario?: { nombre: string } | null;
-}
+type Pestana = 'por_validar' | 'validado' | 'rechazado';
+
+const PESTANAS: { id: Pestana; label: string }[] = [
+  { id: 'por_validar', label: 'Por validar' },
+  { id: 'validado', label: 'Validados' },
+  { id: 'rechazado', label: 'Rechazados' },
+];
+
+const TEXTOS: Record<Pestana, { stat: string; tone: 'ok' | 'warn' | 'bad'; vacio: string; vacioDesc: string }> = {
+  por_validar: { stat: 'Por validar en esta página', tone: 'warn', vacio: 'No hay pagos por validar', vacioDesc: 'Cuando un residente registre un pago, aparecerá aquí para que lo revises.' },
+  validado: { stat: 'Cobrado en esta página', tone: 'ok', vacio: 'No hay pagos validados', vacioDesc: 'Los pagos que valides o registres tú aparecerán aquí.' },
+  rechazado: { stat: 'Rechazado en esta página', tone: 'bad', vacio: 'No hay pagos rechazados', vacioDesc: 'Los pagos que rechaces quedarán aquí con su motivo.' },
+};
+
+type PagoFila = PagoRevisable;
 
 export default function Pagos() {
+  const [pestana, setPestana] = useState<Pestana>('por_validar');
   const [metodo, setMetodo] = useState('');
+  const [revisando, setRevisando] = useState<PagoFila | null>(null);
   const [registrando, setRegistrando] = useState(false);
-  const list = useList<PagoFila>('/api/pagos', { params: { metodo_pago: metodo || undefined } });
+  const list = useList<PagoFila>('/api/pagos', {
+    // Los más antiguos primero en «Por validar»: es una cola de trabajo.
+    params: { estado_validacion: pestana, metodo_pago: metodo || undefined, orden: pestana === 'por_validar' ? 'fecha_pago:asc' : undefined },
+  });
+  const textos = TEXTOS[pestana];
 
   const cobradoPagina = list.items.reduce((s, p) => s + (Number(p.monto) || 0), 0);
   const cargandoStats = list.loading && list.items.length === 0;
@@ -32,22 +45,29 @@ export default function Pagos() {
     { key: 'usuario', header: 'Pagó', hideBelow: 'lg', cell: p => p.usuario?.nombre ?? '—' },
     { key: 'metodo', header: 'Método', hideBelow: 'sm', cell: p => <Badge>{metodoLabel(p.metodo_pago)}</Badge> },
     { key: 'referencia', header: 'Referencia', hideBelow: 'lg', cell: p => <span className="num text-muted">{p.referencia || '—'}</span> },
+    ...(pestana === 'rechazado' ? [{ key: 'motivo', header: 'Motivo', hideBelow: 'md' as const, cell: (p: PagoFila) => <span className="text-muted">{p.motivo_rechazo ?? '—'}</span> }] : []),
+    { key: 'comprobante', header: 'Comprobante', hideBelow: 'sm', cell: p => (p.comprobante ? <Badge tone="info">Adjunto</Badge> : <span className="text-muted">Sin archivo</span>) },
     { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(p.monto)}</span> },
+    { key: 'estado', header: 'Estado', cell: p => <StatusBadge estado={p.estado_validacion} /> },
+    { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },
   ];
 
   return (
     <>
       <PageHeader
         title="Pagos"
-        description="Cobros registrados por unidad. Registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta."
+        description="Revisa los pagos que registran los residentes y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta."
         actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button>}
       />
       <StatStrip
         stats={[
-          { label: 'Cobrado en esta página', value: cargandoStats ? <Skeleton className="h-7 w-28" /> : soles(cobradoPagina), tone: 'ok' },
+          { label: textos.stat, value: cargandoStats ? <Skeleton className="h-7 w-28" /> : soles(cobradoPagina), tone: textos.tone },
           { label: 'Pagos en esta página', value: cargandoStats ? <Skeleton className="h-7 w-10" /> : list.items.length, hint: list.error ? undefined : `${list.total} en total` },
         ]}
       />
+      <div className="mb-4 overflow-x-auto">
+        <Tabs value={pestana} onChange={setPestana} items={PESTANAS} />
+      </div>
       <Card>
         <Toolbar>
           <Select label="Método de pago" className="w-full sm:w-52 [&_label]:sr-only" value={metodo} onChange={e => setMetodo(e.target.value)}>
@@ -67,16 +87,18 @@ export default function Pagos() {
           pageSize={list.pageSize}
           total={list.total}
           onPage={list.setPage}
+          onRowClick={setRevisando}
           empty={{
-            title: 'No hay pagos registrados',
-            description: metodo ? 'Prueba con otro filtro.' : 'Cuando un residente pague, registra el cobro aquí para actualizar su deuda.',
+            title: textos.vacio,
+            description: metodo ? 'Prueba con otro filtro.' : textos.vacioDesc,
             icon: <BanknotesIcon />,
-            action: metodo ? undefined : <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>,
+            action: metodo || pestana !== 'validado' ? undefined : <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>,
           }}
         />
       </Card>
 
-      {registrando && <RegistrarPagoModal onClose={() => setRegistrando(false)} onSaved={() => void list.reload()} />}
+      <ValidarPagoModal pago={revisando} onClose={() => setRevisando(null)} onRevisado={() => void list.reload()} />
+      {registrando && <RegistrarPagoModal onClose={() => setRegistrando(false)} onSaved={() => { if (pestana === 'validado') void list.reload(); else setPestana('validado'); /* un pago del admin queda validado */ }} />}
     </>
   );
 }

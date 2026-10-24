@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { BanknotesIcon, DocumentTextIcon, PrinterIcon } from '@heroicons/react/24/outline';
-import { useList } from '../../../api';
-import { Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, PageHeader, Skeleton, fechaCorta, soles } from '../../../ui';
+import { useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import { ArrowUpTrayIcon, BanknotesIcon, DocumentTextIcon, PrinterIcon } from '@heroicons/react/24/outline';
+import { errorText, useList } from '../../../api';
+import { ComprobanteVista } from '../../shared/ComprobanteVista';
+import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
+import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, PageHeader, Skeleton, StatusBadge, fechaCorta, soles, useToast } from '../../../ui';
 import type { Column } from '../../../ui';
 import { Pager } from './Pager';
-import { metodoLabel } from './tipos';
+import { estadoVisible, metodoLabel } from './tipos';
 import type { PagoResidente } from './tipos';
 
 // Al imprimir sólo se ve el comprobante (el resto de la página se oculta).
@@ -15,6 +18,25 @@ const EMPTY = { title: 'Aún no has registrado pagos', description: 'Cuando pagu
 export function PagosResidente() {
   const list = useList<PagoResidente>('/api/me/pagos', { pageSize: 10 });
   const [ver, setVer] = useState<PagoResidente | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const toast = useToast();
+  const inputArchivo = useRef<HTMLInputElement>(null);
+
+  async function adjuntar(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f || !ver) return;
+    const err = errorDeArchivo(f);
+    if (err) return void toast.error(err);
+    setSubiendo(true);
+    try {
+      const meta = await subirComprobante(ver.id, f);
+      setVer({ ...ver, comprobante: meta });
+      toast.ok('Comprobante adjuntado.');
+      void list.reload();
+    } catch (er) { toast.error(errorText(er)); }
+    finally { setSubiendo(false); }
+  }
 
   const columns: Column<PagoResidente>[] = [
     { key: 'fecha', header: 'Fecha', cell: p => fechaCorta(p.fecha_pago) },
@@ -23,6 +45,7 @@ export function PagosResidente() {
     { key: 'metodo', header: 'Método', cell: p => metodoLabel(p.metodo_pago) },
     { key: 'referencia', header: 'Referencia', hideBelow: 'lg', cell: p => <span className="num">{p.referencia || '—'}</span> },
     { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(p.monto)}</span> },
+    { key: 'estado', header: 'Estado', cell: p => <StatusBadge estado={estadoVisible(p.estado_validacion)} /> },
     { key: 'acciones', header: '', align: 'right', cell: p => <IconButton label={`Ver comprobante del ${fechaCorta(p.fecha_pago)}`} onClick={() => setVer(p)}><DocumentTextIcon className="h-4 w-4" /></IconButton> },
   ];
 
@@ -48,7 +71,10 @@ export function PagosResidente() {
                         <span className="block truncate font-medium">{p.concepto?.nombre ?? 'Pago'}</span>
                         <span className="block text-sm text-muted">{fechaCorta(p.fecha_pago)} · {metodoLabel(p.metodo_pago)}</span>
                       </span>
-                      <span className="num shrink-0 font-semibold">{soles(p.monto)}</span>
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="num font-semibold">{soles(p.monto)}</span>
+                        <StatusBadge estado={estadoVisible(p.estado_validacion)} />
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -84,6 +110,11 @@ export function PagosResidente() {
         footer={
           <>
             <Button variant="secondary" onClick={() => setVer(null)}>Cerrar</Button>
+            {ver?.estado_validacion === 'por_validar' && (
+              <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} onClick={() => inputArchivo.current?.click()}>
+                {ver.comprobante ? 'Reemplazar comprobante' : 'Adjuntar comprobante'}
+              </Button>
+            )}
             <Button icon={<PrinterIcon className="h-4 w-4" />} onClick={() => window.print()}>Imprimir</Button>
           </>
         }
@@ -101,12 +132,28 @@ export function PagosResidente() {
                 { label: 'Unidad', value: ver.unidad?.codigo },
                 { label: 'Método', value: metodoLabel(ver.metodo_pago) },
                 { label: 'Referencia', value: ver.referencia && <span className="num">{ver.referencia}</span> },
+                { label: 'Estado', value: <StatusBadge estado={estadoVisible(ver.estado_validacion)} /> },
+                ...(ver.estado_validacion === 'validado' && ver.validado_at ? [{ label: 'Validado el', value: fechaCorta(ver.validado_at) }] : []),
+                ...(ver.comprobante ? [{ label: 'Comprobante adjunto', value: `${ver.comprobante.nombre} · ${tamanoLegible(ver.comprobante.tamano)}` }] : []),
                 ...(ver.observaciones ? [{ label: 'Observaciones', value: ver.observaciones }] : []),
               ]}
             />
-            <p className="mt-5 text-xs text-muted">Pago registrado por el residente; sujeto a validación del administrador.</p>
+            <p className="mt-5 text-xs text-muted">
+              {ver.estado_validacion === 'validado'
+                ? 'Pago validado por la administración.'
+                : ver.estado_validacion === 'rechazado'
+                  ? `Pago rechazado: ${ver.motivo_rechazo ?? 'sin motivo indicado'}.`
+                  : 'Pago registrado por el residente; está en revisión y queda sujeto a la validación del administrador.'}
+            </p>
           </div>
         )}
+        {ver?.estado_validacion === 'rechazado' && <div className="mt-4 print:hidden"><Alert tone="bad">Tu pago fue rechazado: {ver.motivo_rechazo ?? 'sin motivo indicado'}. Vuelve a pagar el recibo desde Mis recibos.</Alert></div>}
+        {ver?.comprobante && (
+          <div className="mt-5 print:hidden">
+            <ComprobanteVista key={ver.comprobante.created_at} pagoId={ver.id} descripcion={`Comprobante adjunto al pago del ${fechaCorta(ver.fecha_pago)}`} nombre={ver.comprobante.nombre} />
+          </div>
+        )}
+        <input ref={inputArchivo} type="file" accept={ACCEPT_COMPROBANTE} onChange={e => void adjuntar(e)} className="sr-only" tabIndex={-1} aria-label="Elegir archivo del comprobante" />
       </Modal>
     </>
   );
