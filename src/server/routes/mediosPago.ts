@@ -107,6 +107,20 @@ mediosPagoRouter.use((req, _res, next) => {
   next();
 });
 
+/** Condominios y blocks donde puede gestionar medios de pago quien llama (la junta no puede leer `/api/estructuras`). */
+mediosPagoRouter.get('/ambitos', async (req, res) => {
+  const u = currentUser(req);
+  const junta = ambitoJunta(u);
+  const complejos = await prisma.complejoHabitacional.findMany({
+    where: junta ? { id: junta.complejo_id } : scopeComplejos(u),
+    orderBy: { nombre: 'asc' },
+    take: 100,
+    select: { id: true, nombre: true, estructuras: { where: junta?.estructura_id != null ? { id: junta.estructura_id } : {}, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true } } },
+  });
+  // `fijo`: la junta de un block sólo gestiona ese block (no puede elegir «todo el condominio»).
+  res.json({ complejos, fijo: junta?.estructura_id != null });
+});
+
 mediosPagoRouter.get('/', async (req, res) => {
   const u = currentUser(req);
   const q = parse(filtrosSchema, req.query);

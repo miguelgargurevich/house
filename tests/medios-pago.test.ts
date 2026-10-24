@@ -189,6 +189,25 @@ describe('medios de pago: matriz de permisos', () => {
   });
 });
 
+describe('medios de pago: ámbitos disponibles', () => {
+  it('la administradora ve los condominios de su empresa con sus blocks; la junta, sólo los suyos', async () => {
+    const a = await llama(T.adminA, 'GET', '/api/medios-pago/ambitos');
+    assert.equal(a.status, 200);
+    assert.deepEqual(a.body.complejos.map((c: { id: number }) => c.id), [d.complejoA.id]);
+    assert.deepEqual(a.body.complejos[0].estructuras.map((e: { id: number }) => e.id).sort(), [e1.id, e2.id].sort());
+    assert.equal(a.body.fijo, false);
+    const todo = await llama(T.presiTodo, 'GET', '/api/medios-pago/ambitos');
+    assert.equal(todo.body.complejos[0].estructuras.length, 2);
+    assert.equal(todo.body.fijo, false);
+    const p1 = await llama(T.presi1, 'GET', '/api/medios-pago/ambitos');
+    assert.deepEqual(p1.body.complejos[0].estructuras.map((e: { id: number }) => e.id), [e1.id]);
+    assert.equal(p1.body.fijo, true);
+    const b = await llama(T.adminB, 'GET', '/api/medios-pago/ambitos');
+    assert.deepEqual(b.body.complejos[0].estructuras.map((e: { id: number }) => e.id), [eB.id]);
+    for (const quien of ['secre1', 'prop1', 'inq1', 'mttoA'] as const) assert.equal((await llama(T[quien], 'GET', '/api/medios-pago/ambitos')).status, 403, quien);
+  });
+});
+
 describe('medios de pago: validación por tipo', () => {
   beforeEach(limpiar);
   const ambito = () => ({ complejo_id: d.complejoA.id, estructura_id: e1.id });
