@@ -308,7 +308,7 @@ describe('asistente IA', () => {
     let r = await chat();
     assert.equal(r.status, 200);
     assert.deepEqual(r.body, { response: 'Respuesta de Gemini' });
-    assert.equal(llamadas.at(-1)!.url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
+    assert.equal(llamadas.at(-1)!.url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent');
     assert.equal(cabecera(llamadas.at(-1)!, 'x-goog-api-key'), 'gemini-prueba-0001');
 
     await llamar(base, 'PATCH', `/api/llavero/${gem.body.id}`, T.super, { habilitada: false });
@@ -317,7 +317,7 @@ describe('asistente IA', () => {
     assert.equal(llamadas.at(-1)!.url, 'https://api.groq.com/openai/v1/chat/completions');
     assert.equal(cabecera(llamadas.at(-1)!, 'Authorization'), 'Bearer groq-prueba-00003');
     const cuerpo = JSON.parse(llamadas.at(-1)!.init.body as string);
-    assert.equal(cuerpo.model, 'llama-3.3-70b-versatile');
+    assert.equal(cuerpo.model, 'openai/gpt-oss-120b');
     assert.ok(cuerpo.messages[0].content.includes('MENSAJE DEL USUARIO:\nHola'));
 
     await llamar(base, 'PATCH', `/api/llavero/${groq.body.id}`, T.super, { habilitada: false });
