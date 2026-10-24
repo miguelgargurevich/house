@@ -12,11 +12,13 @@
  *   MORA (recargo): 10 % del total ordinario (sin mora ni extraordinarios) del mes anterior de esa unidad, sólo a quien pagó ese mes
  *   después del vencimiento o aún lo debe. Se carga en el recibo del mes siguiente.
  *   Extraordinarios (raros, no entran en el rango 200–260): ascensor del Block 7 (mar-2026, S/ 60 sólo a ese block) y cambio de bomba de agua (ago-2026, S/ 40 a todos).
- * Cada cargo (`ReciboConceptoUnidad`) lleva su propio `Pago` (así lo espera `sincronizarCargo`): todos los cargos de una unidad en un mes
- * se pagan juntos, con el mismo método y referencia.
+ * Pagos: el vecino paga el MANTENIMIENTO del mes (todos los conceptos de su departamento) con una sola operación y un solo comprobante:
+ * un `Pago` por cargo, todos con el mismo `grupo` (el primero es `grupo_principal` y lleva el comprobante). Unas cuantas unidades
+ * (`idx % 29 === 0`) conservan pagos SUELTOS antiguos por cargo en los meses pasados, para probar la compatibilidad.
+ * Los residentes no llevan `empresa_id` (la derivan de sus unidades); sólo el personal.
  */
 import 'dotenv/config';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { Prisma, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
@@ -373,7 +375,7 @@ async function main() {
     const creados = await prisma.usuario.createManyAndReturn({
       data: lote.map(({ p, h }) => ({
         nombre: p.nombre, email: p.email, telefono: p.telefono, rol: p.rol, password_hash: h,
-        empresa_id: empresa.id, complejo_id: complejo.id,
+        complejo_id: complejo.id, // el residente no lleva empresa: es la del condominio de sus unidades
         ...(p.cargo_junta ? { cargo_junta: p.cargo_junta, estructura_id: p.estructura_id } : {}),
       })),
       select: { id: true, email: true },
@@ -475,7 +477,7 @@ async function main() {
     refPorMes.push(orden.map((o, i) => ({ ...o, orden: i + 1 })));
     const recibo = await prisma.recibo.create({
       data: {
-        descripcion: `Recibo de ${periodoTexto(mes, anio)} — Condominio Los Libertadores de Surco`,
+        descripcion: `Mantenimiento de ${periodoTexto(mes, anio)} — Condominio Los Libertadores de Surco`,
         fecha_emision: utc(anio, mes, 1), fecha_vencimiento: utc(anio, mes, 15), mes, anio, estado: 'emitido', empresa_id: empresa.id, complejo_id: complejo.id, creado_por_id: ana,
         created_at: utc(anio, mes, 1, 14), updated_at: utc(anio, mes, 1, 14),
       },
@@ -508,40 +510,56 @@ async function main() {
     for (const c of creados) cargoId.set(`${c.recibo_concepto_id}:${c.unidad_id}`, c.id);
   }
 
-  // Pagos: uno por cargo pagado / en revisión / rechazado.
+  // Pagos del mantenimiento: un pago por departamento y mes, repartido en un `Pago` por cargo con el mismo `grupo`.
   const pagos: Prisma.PagoCreateManyInput[] = [];
-  const meta: { u: Plan; m: number; estado: string }[] = [];
   const MOTIVOS = ['El voucher no corresponde al monto del recibo', 'La operación no aparece en el estado de cuenta', 'El comprobante está borroso: súbelo de nuevo'];
   const valida = (u: Plan, metodo: string) => (metodo === 'efectivo' ? ana : elige([...juntaDe(u.block), ana]));
+  const porMantenimiento = new Map<string, Cargo[]>(); // `${unidad.idx}:${m}` (en el orden de los conceptos)
   for (const c of cargos) {
-    const e = estados[c.unidad.idx]![c.m]!;
-    const idCargo = cargoId.get(`${rcId.get(c.rcKey)!}:${idU(c.unidad)}`)!;
-    const base = { recibo_concepto_unidad_id: idCargo, monto: dec(c.monto), usuario_id: pagadorDe(c.unidad), metodo_pago: e.metodo, referencia: e.ref };
+    const k = `${c.unidad.idx}:${c.m}`;
+    porMantenimiento.set(k, [...(porMantenimiento.get(k) ?? []), c]);
+  }
+  let grupos = 0;
+  let sueltos = 0;
+  for (const delMes of porMantenimiento.values()) {
+    const { unidad: u, m } = delMes[0]!;
+    const e = estados[u.idx]![m]!;
+    const suelto = u.idx % 29 === 0 && m <= ACTUAL - 2; // pagos antiguos por cargo, sin grupo
+    const emitir = (campos: Partial<Prisma.PagoCreateManyInput>, fecha: Date) => {
+      const grupo = suelto ? null : randomUUID();
+      if (suelto) sueltos += delMes.length;
+      else grupos++;
+      delMes.forEach((c, i) => {
+        const idCargo = cargoId.get(`${rcId.get(c.rcKey)!}:${idU(u)}`)!;
+        pagos.push({
+          recibo_concepto_unidad_id: idCargo, monto: dec(c.monto), usuario_id: pagadorDe(u), metodo_pago: e.metodo, referencia: e.ref,
+          fecha_pago: fecha, created_at: fecha, ...(grupo ? { grupo, grupo_principal: i === 0 } : {}), ...campos,
+        });
+      });
+    };
     if (e.rechazos && e.fecha) {
       const antes = e.estado === 'pagado' ? new Date(e.fecha.getTime() - DIA) : e.fecha;
-      pagos.push({ ...base, referencia: `OP-${entre(10000000, 99999999)}`, fecha_pago: antes, created_at: antes, estado_validacion: 'rechazado', validado_por_id: valida(c.unidad, e.metodo), validado_at: new Date(antes.getTime() + 6 * 3600000), motivo_rechazo: MOTIVOS[(c.unidad.idx + c.m) % MOTIVOS.length]! });
-      meta.push({ u: c.unidad, m: c.m, estado: 'rechazado' });
+      emitir({ referencia: `OP-${entre(10000000, 99999999)}`, estado_validacion: 'rechazado', validado_por_id: valida(u, e.metodo), validado_at: new Date(antes.getTime() + 6 * 3600000), motivo_rechazo: MOTIVOS[(u.idx + m) % MOTIVOS.length]! }, antes);
     }
     if (e.estado === 'pagado' && e.fecha) {
-      pagos.push({ ...base, fecha_pago: e.fecha, created_at: e.fecha, estado_validacion: 'validado', validado_por_id: valida(c.unidad, e.metodo), validado_at: new Date(Math.min(e.fecha.getTime() + DIA, HOY.getTime())) });
-      meta.push({ u: c.unidad, m: c.m, estado: 'validado' });
+      emitir({ estado_validacion: 'validado', validado_por_id: valida(u, e.metodo), validado_at: new Date(Math.min(e.fecha.getTime() + DIA, HOY.getTime())) }, e.fecha);
     } else if (e.estado === 'en_revision' && e.fecha) {
-      pagos.push({ ...base, fecha_pago: e.fecha, created_at: e.fecha, estado_validacion: 'por_validar' });
-      meta.push({ u: c.unidad, m: c.m, estado: 'por_validar' });
+      emitir({ estado_validacion: 'por_validar' }, e.fecha);
     }
   }
-  const pagosDb: { id: number; recibo_concepto_unidad_id: number | null; estado_validacion: string; metodo_pago: string | null; fecha_pago: Date }[] = [];
+  const pagosDb: { id: number; recibo_concepto_unidad_id: number | null; estado_validacion: string; metodo_pago: string | null; fecha_pago: Date; grupo: string | null; grupo_principal: boolean }[] = [];
   for (const lote of trozos(pagos, 5000)) {
-    pagosDb.push(...(await prisma.pago.createManyAndReturn({ data: lote, select: { id: true, recibo_concepto_unidad_id: true, estado_validacion: true, metodo_pago: true, fecha_pago: true } })));
+    pagosDb.push(...(await prisma.pago.createManyAndReturn({ data: lote, select: { id: true, recibo_concepto_unidad_id: true, estado_validacion: true, metodo_pago: true, fecha_pago: true, grupo: true, grupo_principal: true } })));
   }
 
-  // Comprobantes de los pagos por validar (PNG pequeño generado, distinto por pago).
-  const porValidar = pagosDb.filter((p) => p.estado_validacion === 'por_validar');
+  // Comprobantes de los pagos por validar: UNO por pago del mantenimiento (en su pago principal) o por pago suelto (PNG pequeño generado, distinto por pago).
+  const porValidar = pagosDb.filter((p) => p.estado_validacion === 'por_validar' && (p.grupo == null || p.grupo_principal));
   const comprobantes = porValidar.map((p) => {
     const bytes = png(48, 64, p.id, 'voucher');
     return { pago_id: p.id, nombre: `voucher-${p.id}.png`, tipo_mime: 'image/png', tamano: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'), datos: new Uint8Array(bytes), created_at: p.fecha_pago };
   });
   for (const lote of trozos(comprobantes, 200)) await prisma.archivoComprobante.createMany({ data: lote });
+  console.log(`Pagos del mantenimiento (grupos): ${grupos} · pagos sueltos por cargo (antiguos): ${sueltos}`);
 
   // Tareas de mantenimiento.
   const tarea = (titulo: string, descripcion: string, estado: string, u: Plan, creada: Date, cierre?: Date): Prisma.TareaMantenimientoCreateManyInput => ({
@@ -602,14 +620,14 @@ async function resumen(t0: number, extra: Record<string, number>) {
       (SELECT COALESCE(sum(monto), 0) FROM "ReciboConceptoUnidad" WHERE estado_pago <> 'pagado') AS por_cobrar,
       (SELECT COALESCE(sum(c.monto), 0) FROM "ReciboConceptoUnidad" c JOIN "ReciboConcepto" rc ON rc.id = c.recibo_concepto_id JOIN "Recibo" r ON r.id = rc.recibo_id
          WHERE c.estado_pago = 'pendiente' AND r.fecha_vencimiento < ${HOY}) AS vencido,
-      (SELECT count(*) FROM "Pago" WHERE estado_validacion = 'por_validar') AS por_validar,
+      (SELECT count(*) FROM "Pago" WHERE estado_validacion = 'por_validar' AND (grupo IS NULL OR grupo_principal)) AS por_validar,
       (SELECT count(DISTINCT c.unidad_id) FROM "ReciboConceptoUnidad" c JOIN "ReciboConcepto" rc ON rc.id = c.recibo_concepto_id JOIN "Recibo" r ON r.id = rc.recibo_id
          WHERE c.estado_pago = 'pendiente' AND r.fecha_vencimiento < ${HOY}) AS morosos,
       (SELECT count(*) FROM "Usuario" WHERE rol = 'propietario') AS propietarios,
       (SELECT count(*) FROM "Usuario" WHERE rol = 'inquilino') AS inquilinos`;
   const soles = (v: Prisma.Decimal) => solesTexto(v);
   console.log('\n══ Seed Los Libertadores de Surco ══');
-  console.log(`Unidades: ${r!.unidades} (14 blocks × 8 pisos × 4) · Recibos: ${r!.recibos} · Cargos: ${extra.cargos} · Pagos: ${extra.pagos} (${r!.por_validar} por validar, con comprobante)`);
+  console.log(`Unidades: ${r!.unidades} (14 blocks × 8 pisos × 4) · Recibos: ${r!.recibos} · Cargos: ${extra.cargos} · Pagos: ${extra.pagos} (${r!.por_validar} mantenimientos/pagos por validar, con comprobante)`);
   console.log(`Propietarios: ${r!.propietarios} · Inquilinos: ${r!.inquilinos} · Medios de pago: ${extra.medios} · Tareas: ${extra.tareas} · Avisos: ${extra.avisos}`);
   console.log(`Emitido: ${soles(r!.emitido)} · Cobrado (validado): ${soles(r!.cobrado)} · Por cobrar (incluye en revisión): ${soles(r!.por_cobrar)} · Vencido impago: ${soles(r!.vencido)}`);
   console.log(`Unidades morosas (con cargos vencidos): ${r!.morosos}`);
