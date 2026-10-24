@@ -1,4 +1,4 @@
-export const TIPOS = ['recibo_emitido', 'por_vencer', 'vencido', 'pago_validado', 'pago_rechazado'] as const;
+export const TIPOS = ['recibo_emitido', 'por_vencer', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
 export const ENLACE_APP = 'https://house.gargurevich.dev';
@@ -15,7 +15,7 @@ export interface DatosAviso {
   vencimiento: string;
   /** Días que faltan para vencer (negativo si ya venció). Sólo para `por_vencer`. */
   dias?: number;
-  /** Motivo del rechazo (sólo `pago_rechazado`). */
+  /** Motivo del rechazo (`pago_rechazado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
   motivo?: string;
 }
 
@@ -74,6 +74,16 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
       return {
         asunto: `No pudimos validar tu pago de ${d.periodo}`,
         cuerpo: `${hola}\n\nNo pudimos validar tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Revisa el detalle y vuelve a enviar tu comprobante.\n\n${cierre}`,
+      };
+    case 'ia_caida':
+      return {
+        asunto: 'El asistente de IA se quedó sin proveedores disponibles',
+        cuerpo: `${hola}\n\n${d.motivo ?? 'No queda ninguna ruta de IA sana.'}\n\nMientras tanto el asistente responde con los datos de cada cuenta, sin IA. Revisa el Llavero de IA en ${ENLACE_APP}/superadmin/llavero.\n\n— House`,
+      };
+    case 'ia_restablecida':
+      return {
+        asunto: 'El asistente de IA volvió a funcionar',
+        cuerpo: `${hola}\n\n${d.motivo ?? 'La IA del asistente se restableció.'}\n\n— House`,
       };
   }
 }

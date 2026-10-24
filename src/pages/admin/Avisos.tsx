@@ -28,6 +28,8 @@ const TIPO: Record<string, string> = {
   vencido: 'Vencido',
   pago_validado: 'Pago validado',
   pago_rechazado: 'Pago rechazado',
+  ia_caida: 'IA sin servicio',
+  ia_restablecida: 'IA restablecida',
 };
 const CANAL = { email: 'Correo', whatsapp: 'WhatsApp' } as const;
 const ESTADO: Record<Estado, { tone: Tone; label: string }> = {

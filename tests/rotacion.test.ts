@@ -8,6 +8,7 @@ import {
 import { llaveroDeps } from '../src/server/services/llavero';
 import { construirCadena, olvidarTodoUso } from '../src/server/services/rotacion';
 import { MAX_INTENTOS } from '../src/server/routes/aiChat';
+import { FRASE_CONTINGENCIA } from '../src/server/services/asistente/contexto';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
 const T0 = 1_700_000_000_000;
@@ -22,7 +23,8 @@ const fetchOriginal = llaveroDeps.fetch;
 
 type Llamada = { url: string; clave: string };
 let llamadas: Llamada[] = [];
-let responder: (clave: string, url: string) => Response | Promise<Response> = () => ok('Hola');
+let cuerpos: Record<string, any>[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+let responder: (clave: string, url: string, cuerpo: Record<string, any>) => Response | Promise<Response> = () => ok('Hola'); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const ok = (texto: string) => new Response(JSON.stringify({ choices: [{ message: { content: texto } }], candidates: [{ content: { parts: [{ text: texto }] } }] }), { status: 200 });
 const estado = (status: number, headers: Record<string, string> = {}, cuerpo = '{"error":"cuerpo-secreto-del-proveedor"}') => new Response(cuerpo, { status, headers });
@@ -43,7 +45,9 @@ before(async () => {
   llaveroDeps.fetch = async (url, init = {}) => {
     const clave = claveDe(init);
     llamadas.push({ url, clave });
-    return responder(clave, url);
+    const cuerpo = JSON.parse(String(init.body ?? '{}'));
+    cuerpos.push(cuerpo);
+    return responder(clave, url, cuerpo);
   };
 });
 after(async () => {
@@ -64,6 +68,7 @@ beforeEach(async () => {
   olvidarTodoUso();
   ahora = T0;
   llamadas = [];
+  cuerpos = [];
   logs.length = 0;
   responder = () => ok('Hola');
   for (const k of ['log', 'warn', 'error', 'info'] as const) {
@@ -78,7 +83,6 @@ const chat = () => llamar(base, 'POST', '/api/ai-chat', T.adminA, { message: 'Ho
 const usadas = () => llamadas.map((l) => l.clave);
 const cd = (proveedor: string, id: number) => claveCooldown(proveedor, id);
 
-const GENERICO_503 = { error: { code: 503, message: 'El servicio de IA no pudo responder. Intenta de nuevo más tarde.' } };
 
 describe('parsearRetryAfter', () => {
   it('lee segundos, fecha HTTP y retryDelay del cuerpo; la basura da null', () => {
@@ -182,7 +186,7 @@ describe('asistente con rotación', () => {
     await guardar('groq', 'groq-B-prueba-00001', 'b');
     responder = (k) => (k === 'groq-A-prueba-00001' ? estado(429, { 'retry-after': '42' }) : ok('Desde B'));
     const r = await chat();
-    assert.deepEqual(r.body, { response: 'Desde B' });
+    assert.equal(r.body.response, 'Desde B');
     assert.deepEqual(usadas(), ['groq-A-prueba-00001', 'groq-B-prueba-00001']);
     assert.equal(enfriandoHasta(cd('groq', a.body.id)), T0 + 42_000);
     // La siguiente consulta ya no toca A: B primero (A sigue enfriada).
@@ -203,7 +207,7 @@ describe('asistente con rotación', () => {
     await guardar('groq', 'groq-A-prueba-00001');
     responder = (k) => (k.startsWith('gemini') ? estado(429, {}, '{"error":{"details":[{"retryDelay":"50s"}]}}') : ok('Desde Groq'));
     const r = await chat();
-    assert.deepEqual(r.body, { response: 'Desde Groq' });
+    assert.equal(r.body.response, 'Desde Groq');
     assert.equal(llamadas.length, 3);
     assert.equal(llamadas[2].url, 'https://api.groq.com/openai/v1/chat/completions');
     assert.equal(enfriandoHasta(cd('gemini', g1.body.id)), T0 + 50_000);
@@ -213,7 +217,7 @@ describe('asistente con rotación', () => {
     const a = await guardar('groq', 'groq-A-prueba-00001');
     registrarEstado(cd('groq', a.body.id), 429, 120_000);
     const r = await chat();
-    assert.deepEqual(r.body, { response: 'Hola' });
+    assert.equal(r.body.response, 'Hola');
     assert.equal(llamadas.length, 1);
     assert.equal(enfriandoHasta(cd('groq', a.body.id)), null, 'el éxito limpió el enfriamiento');
   });
@@ -235,7 +239,7 @@ describe('asistente con rotación', () => {
     const o = await guardar('openai', 'openai-A-prueba-0001');
     responder = (k) => (k === 'groq-A-prueba-00001' ? estado(401) : k === 'groq-B-prueba-00001' ? estado(402) : ok('Desde OpenAI'));
     const r = await chat();
-    assert.deepEqual(r.body, { response: 'Desde OpenAI' });
+    assert.equal(r.body.response, 'Desde OpenAI');
     const fa = await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: a.body.id } });
     const fb = await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: b.body.id } });
     assert.equal(fa.estado, 'rechazada');
@@ -263,14 +267,30 @@ describe('asistente con rotación', () => {
     assert.ok(usadas()[0].startsWith('groq-'));
   });
 
-  it('400 es culpa de la petición: no rota y devuelve el error genérico', async () => {
+  it('400 por un parámetro no soportado: reintenta UNA vez sin los opcionales y no castiga la clave', async () => {
+    const a = await guardar('groq', 'groq-A-prueba-00001');
+    cuerpos = [];
+    responder = (_k, _u, cuerpo) => (cuerpo.temperature !== undefined ? estado(400) : ok('Sin opcionales'));
+    const r = await chat();
+    assert.equal(r.body.response, 'Sin opcionales');
+    assert.equal(llamadas.length, 2, 'un reintento sobre la misma clave');
+    assert.ok(cuerpos[0].temperature !== undefined && cuerpos[0].top_p !== undefined, 'la primera lleva los opcionales');
+    assert.equal(cuerpos[1].temperature, undefined);
+    assert.equal(cuerpos[1].top_p, undefined);
+    assert.equal(cuerpos[1].reasoning_effort, undefined);
+    assert.equal(cuerpos[1].model, cuerpos[0].model, 'mismo modelo');
+    assert.equal(estaEnfriando(cd('groq', a.body.id)), false, '400 no enfría');
+    assert.equal((await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: a.body.id } })).estado, 'sin_probar');
+  });
+
+  it('400 que persiste aun sin opcionales: prueba la siguiente ruta, sin enfriar ni rechazar nada; si todas fallan, contingencia', async () => {
     const a = await guardar('groq', 'groq-A-prueba-00001');
     await guardar('openai', 'openai-A-prueba-0001');
     responder = () => estado(400);
     const r = await chat();
-    assert.equal(r.status, 503);
-    assert.deepEqual(r.body, GENERICO_503);
-    assert.equal(llamadas.length, 1);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.modo, 'contingencia');
+    assert.equal(llamadas.length, 4, 'cada ruta: la petición y UN reintento sin opcionales');
     assert.equal(estaEnfriando(cd('groq', a.body.id)), false, '400 no enfría');
     assert.equal((await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: a.body.id } })).estado, 'sin_probar');
   });
@@ -281,7 +301,7 @@ describe('asistente con rotación', () => {
     const cuerpo = '{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}';
     responder = (k) => (k.startsWith('AIza') ? estado(400, {}, cuerpo) : ok('Desde Groq'));
     const r = await chat();
-    assert.deepEqual(r.body, { response: 'Desde Groq' });
+    assert.equal(r.body.response, 'Desde Groq');
     const f = await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: g.body.id } });
     assert.equal(f.estado, 'rechazada');
     assert.equal(f.estado_detalle, 'La clave fue rechazada');
@@ -300,7 +320,7 @@ describe('asistente con rotación', () => {
       return ok('Desde C');
     };
     const r = await chat();
-    assert.deepEqual(r.body, { response: 'Desde C' });
+    assert.equal(r.body.response, 'Desde C');
     assert.equal(enfriandoHasta(cd('groq', a.body.id)), T0 + 30_000);
     assert.equal(enfriandoHasta(cd('groq', b.body.id)), T0 + 30_000);
     assert.equal(estaEnfriando(cd('groq', b.body.id), T0 + 30_000), false, 'a los 30 s vuelve');
@@ -309,17 +329,17 @@ describe('asistente con rotación', () => {
     limpiarTodo();
     llamadas = [];
     responder = (k) => { if (k !== 'groq-C-prueba-00001') throw new TypeError('fetch failed'); return ok('Desde C'); };
-    assert.deepEqual((await chat()).body, { response: 'Desde C' });
+    assert.equal((await chat()).body.response, 'Desde C');
   });
 
-  it('tope de intentos: MAX_INTENTOS (4) por defecto y LLAVERO_MAX_INTENTOS entre 1 y 8; fuera de rango se ignora', async () => {
-    assert.equal(MAX_INTENTOS, 4);
+  it('tope de intentos: MAX_INTENTOS (6 rutas) por defecto, a lo sumo el doble de llamadas, y LLAVERO_MAX_INTENTOS entre 1 y 8', async () => {
+    assert.equal(MAX_INTENTOS, 6);
     for (const e of ['a', 'b', 'c', 'd', 'e']) await guardar('groq', `groq-${e}-prueba-00001`, e);
     for (const e of ['a', 'b', 'c', 'd', 'e']) await guardar('openai', `openai-${e}-prueba-001`, e);
     responder = () => estado(503);
-    assert.equal((await chat()).status, 503);
-    assert.equal(llamadas.length, 4);
-    for (const [valor, esperado] of [['2', 2], ['8', 8], ['0', 4], ['9', 4], ['x', 4]] as const) {
+    assert.equal((await chat()).body.modo, 'contingencia');
+    assert.equal(llamadas.length, 10, 'las 10 claves (sólo 2 rutas distintas) caben en el tope de llamadas (12)');
+    for (const [valor, esperado] of [['2', 4], ['3', 6], ['8', 10], ['0', 10], ['9', 10], ['x', 10]] as const) {
       process.env.LLAVERO_MAX_INTENTOS = valor;
       limpiarTodo();
       llamadas = [];
@@ -328,25 +348,26 @@ describe('asistente con rotación', () => {
     }
   });
 
-  it('agotados los intentos: error genérico sin claves ni cuerpos del proveedor; 429 si TODOS fueron 429', async () => {
+  it('agotadas las rutas: contingencia (200) sin claves ni cuerpos del proveedor; con 429 en todas, igual', async () => {
     await guardar('groq', 'groq-A-prueba-00001', 'a');
     await guardar('groq', 'groq-B-prueba-00001', 'b');
     await guardar('openai', 'openai-A-prueba-0001');
     responder = () => estado(503);
     let r = await chat();
-    assert.equal(r.status, 503);
-    assert.deepEqual(r.body, GENERICO_503);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.modo, 'contingencia');
+    assert.ok(r.body.response.startsWith(FRASE_CONTINGENCIA));
     responder = () => estado(429);
     limpiarTodo();
     r = await chat();
-    assert.equal(r.status, 429);
-    assert.deepEqual(r.body, { error: { code: 429, message: 'La IA está saturada o se superó la cuota. Intenta nuevamente en unos minutos.' } });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.modo, 'contingencia');
     responder = (k) => (k.startsWith('openai') ? estado(503) : estado(429));
     limpiarTodo();
-    assert.equal((await chat()).status, 503, 'mezcla de 429 y 5xx → genérico 503');
+    assert.equal((await chat()).body.modo, 'contingencia', 'mezcla de 429 y 5xx');
     responder = (k) => { if (k.startsWith('openai')) throw new TypeError('fetch failed'); return estado(429); };
     limpiarTodo();
-    assert.equal((await chat()).status, 503, 'mezcla de 429 y error de red → genérico 503');
+    assert.equal((await chat()).body.modo, 'contingencia', 'mezcla de 429 y error de red');
     const todo = logs.join('\n');
     for (const secreto of ['groq-A-prueba-00001', 'groq-B-prueba-00001', 'openai-A-prueba-0001', 'cuerpo-secreto-del-proveedor']) {
       assert.ok(!todo.includes(secreto), `los logs no contienen ${secreto}`);
@@ -357,7 +378,7 @@ describe('asistente con rotación', () => {
 
   it('respaldo GEMINI_API_KEY: se usa sin llavero y no si el llavero tiene claves usables', async () => {
     process.env.GEMINI_API_KEY = 'gemini-entorno-0004';
-    assert.deepEqual((await chat()).body, { response: 'Hola' });
+    assert.equal((await chat()).body.response, 'Hola');
     assert.deepEqual(usadas(), ['gemini-entorno-0004']);
     await guardar('groq', 'groq-A-prueba-00001');
     llamadas = [];
@@ -372,7 +393,7 @@ describe('asistente con rotación', () => {
   it('el respaldo del entorno que recibe 401 se enfría pero no se persiste nada', async () => {
     process.env.GEMINI_API_KEY = 'gemini-entorno-0004';
     responder = () => estado(401);
-    assert.equal((await chat()).status, 503);
+    assert.equal((await chat()).body.modo, 'contingencia');
     assert.equal(estaEnfriando('env#gemini'), true);
     assert.equal(await prisma.claveIntegracion.count(), 0);
   });
