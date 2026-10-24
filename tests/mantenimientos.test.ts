@@ -4,6 +4,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
 import { cabecerasDeSesion, esperar, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
+import { rutaPermitida } from '../src/server/lib/rutasApp';
 import {
   cuentaCargo, estadoMantenimiento, listarMantenimientos, numeroMantenimiento, repartirSaldos, sumarCuentas, tituloMantenimiento, type CargoCuenta,
 } from '../src/server/lib/mantenimientos';
@@ -125,6 +126,15 @@ after(async () => {
 });
 beforeEach(async () => {
   await prisma.notificacion.deleteMany();
+});
+
+describe('asistente: la pantalla del periodo', () => {
+  it('/admin/recibos/<id> se reconoce como la pantalla del periodo (sólo para el admin)', () => {
+    const admin = { id: 1, email: 'a@x.pe', rol: 'admin', empresa_id: 1, cargo_junta: null, complejo_id: null, estructura_id: null } as const;
+    assert.equal(rutaPermitida(admin, '/admin/recibos/12'), '/admin/recibos/:id');
+    assert.equal(rutaPermitida(admin, '/admin/recibos/12/'), '/admin/recibos/:id');
+    assert.equal(rutaPermitida({ ...admin, rol: 'propietario' }, '/admin/recibos/12'), null);
+  });
 });
 
 describe('residente: mis mantenimientos (uno por recibo y departamento)', () => {

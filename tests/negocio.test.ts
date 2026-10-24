@@ -270,7 +270,7 @@ describe('recibos y cargos (admin)', () => {
     assert.equal(r.status, 200);
     const a101 = r.body.items.find((x: { unidad: { codigo: string } }) => x.unidad.codigo === 'A-101');
     assert.ok(a101);
-    assert.deepEqual(Object.keys(a101).sort(), ['cargos_vencidos', 'deuda_total', 'dias_max_atraso', 'propietario', 'unidad']);
+    assert.deepEqual(Object.keys(a101).sort(), ['cargos_vencidos', 'deuda_total', 'dias_max_atraso', 'estructura', 'propietario', 'unidad']);
     assert.equal(a101.deuda_total, '150.00');
     assert.equal(a101.cargos_vencidos, 1);
     assert.equal(a101.dias_max_atraso, 30);
