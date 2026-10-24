@@ -267,9 +267,11 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
         })
       : null,
   ]);
+  // Pago de un mantenimiento: la IA compara contra el TOTAL del grupo (el comprobante es uno solo), no contra un cargo.
+  const totalGrupo = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto : null;
   const c = contrastar(
     lectura,
-    { monto: pago.monto.toString(), emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()) },
+    { monto: (totalGrupo ?? pago.monto).toString(), emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()) },
     medios.map(medioParaContraste),
     { archivoEnPago: mismoArchivo?.pago_id ?? null, operacionEnPago: mismaOperacion?.pago_id ?? null },
   );

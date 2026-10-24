@@ -7,6 +7,9 @@ import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, include
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { listQuerySchema, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
 import { revocarDeUsuario } from '../services/sesiones';
+import { ESTADOS_MANTENIMIENTO, ORDEN_MANTENIMIENTOS, listarMantenimientos, type OrdenMantenimientos } from '../lib/mantenimientos';
+import { conResumenDeGrupo, detalleMantenimiento, pagarMantenimiento, soloPrincipales } from '../services/mantenimiento';
+import { idSchema } from '../validation';
 import { METODOS_PAGO } from './pagos';
 
 /** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
@@ -103,13 +106,14 @@ export function meRouter(limitePassword: RequestHandler) {
   router.get('/pagos', residente, async (req, res) => {
     const u = currentUser(req);
     const q = parse(listQuerySchema, req.query);
-    const where = { reciboConceptoUnidad: { unidad: unidadesPropias(u) } };
+    // Una fila por pago del mantenimiento (el principal de cada grupo) y los pagos sueltos antiguos.
+    const where = { AND: [{ reciboConceptoUnidad: { unidad: unidadesPropias(u) } }, soloPrincipales] };
     const orderBy = parseOrden(q.orden, ['id', 'monto', 'fecha_pago'], { fecha_pago: 'desc' });
     const [total, rows] = await Promise.all([
       prisma.pago.count({ where }),
       prisma.pago.findMany({ where, orderBy: [orderBy, { id: 'asc' }], ...page(q), include: includePago }),
     ]);
-    res.json({ items: rows.map((p) => formatearPago(p)), total, page: q.page, pageSize: q.pageSize });
+    res.json({ items: await conResumenDeGrupo(rows.map((p) => formatearPago(p))), total, page: q.page, pageSize: q.pageSize });
   });
 
   router.post('/cargos/:id/pagos', residente, async (req, res) => {
@@ -141,6 +145,50 @@ export function meRouter(limitePassword: RequestHandler) {
     res.locals.entidad = 'pago';
     res.locals.entidadId = pago.id;
     res.status(201).json({ ...pago, cargo: formatearCargo(cargo) });
+  });
+
+  // ---------- Mantenimientos (un recibo por departamento y mes) ----------
+  const ids2 = z.object({ reciboId: idSchema, unidadId: idSchema });
+  const mantQuery = listQuerySchema.extend({ estado: z.enum(ESTADOS_MANTENIMIENTO).optional(), unidad_id: idSchema.optional() });
+  const idsDeUnidades = async (u: AuthUser) => (await prisma.unidad.findMany({ where: unidadesPropias(u), select: { id: true } })).map((x) => x.id);
+
+  router.get('/mantenimientos', residente, async (req, res) => {
+    const u = currentUser(req);
+    const q = parse(mantQuery, req.query);
+    const propias = await idsDeUnidades(u);
+    const unidadIds = q.unidad_id !== undefined ? propias.filter((id) => id === q.unidad_id) : propias; // una unidad ajena no devuelve nada
+    const orden = parseOrden(q.orden, [...ORDEN_MANTENIMIENTOS], {});
+    const campo = Object.keys(orden)[0] as OrdenMantenimientos | undefined;
+    const r = await listarMantenimientos(
+      { unidadIds, estado: q.estado, q: q.q },
+      { page: q.page, pageSize: q.pageSize, orden: campo ? { campo, dir: (orden as Record<string, 'asc' | 'desc'>)[campo] } : undefined },
+    );
+    res.json({ items: r.items, total: r.total, page: q.page, pageSize: q.pageSize });
+  });
+
+  router.get('/mantenimientos/:reciboId/:unidadId', residente, async (req, res) => {
+    const u = currentUser(req);
+    const { reciboId, unidadId } = parse(ids2, req.params);
+    res.json(await detalleMantenimiento(reciboId, unidadId, { unidadWhere: unidadesPropias(u), vista: 'residente' }));
+  });
+
+  const pagoMantenimiento = z.strictObject({
+    metodo_pago: z.enum(METODOS_PAGO, { error: `metodo_pago debe ser: ${METODOS_PAGO.join(', ')}` }),
+    referencia: texto(120).nullish(),
+    observaciones: texto(500).nullish(),
+  });
+
+  /** Paga el mantenimiento completo: un formulario y UN comprobante (se sube después a `POST /api/pagos/:pago_id/comprobante`). El servidor calcula los montos. */
+  router.post('/mantenimientos/:reciboId/:unidadId/pagos', residente, async (req, res) => {
+    const u = currentUser(req);
+    const { reciboId, unidadId } = parse(ids2, req.params);
+    const body = parseBody(pagoMantenimiento, req);
+    if (!(await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesPropias(u)] }, select: { id: true } }))) throw notFound('Mantenimiento');
+    const r = await pagarMantenimiento({ reciboId, unidadId, usuarioId: u.id, modo: 'residente', ...body });
+    res.locals.entidad = 'pago';
+    res.locals.entidadId = r.pago_id;
+    res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: reciboId, unidad_id: unidadId };
+    res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(reciboId, unidadId, { unidadWhere: unidadesPropias(u), vista: 'residente' }) });
   });
 
   return router;
