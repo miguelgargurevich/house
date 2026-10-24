@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api, setUnauthorizedHandler, tokenStore } from '../api';
+import { api, csrfStore, setUnauthorizedHandler } from '../api';
 
 export type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad';
 
@@ -35,23 +35,33 @@ export const HOME: Record<Rol, string> = {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Usuario | null>(null);
-  const [loading, setLoading] = useState(() => !!tokenStore.get());
+  const [loading, setLoading] = useState(true); // al arrancar se pregunta al servidor si hay sesión (cookie httpOnly)
 
-  const logout = useCallback(() => { tokenStore.clear(); setUser(null); }, []);
+  // Olvida la sesión sólo en este navegador (el servidor ya la cerró o no existe).
+  const olvidar = useCallback(() => { csrfStore.set(null); setUser(null); }, []);
+
+  const logout = useCallback(() => {
+    if (csrfStore.has()) void api('/api/auth/logout', { method: 'POST', json: {} }).catch(() => undefined);
+    olvidar();
+  }, [olvidar]);
 
   const refresh = useCallback(async () => {
-    try { setUser(await api<Usuario>('/api/auth/me')); } catch { logout(); }
-  }, [logout]);
+    try {
+      const { csrf, ...u } = await api<Usuario & { csrf: string }>('/api/auth/me');
+      csrfStore.set(csrf);
+      setUser(u);
+    } catch { olvidar(); }
+  }, [olvidar]);
 
   useEffect(() => {
-    setUnauthorizedHandler(logout);
-    if (tokenStore.get()) void refresh().finally(() => setLoading(false));
+    setUnauthorizedHandler(olvidar);
+    void refresh().finally(() => setLoading(false));
     return () => setUnauthorizedHandler(null);
-  }, [logout, refresh]);
+  }, [olvidar, refresh]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const r = await api<{ token: string; user: Usuario }>('/api/auth/login', { method: 'POST', json: { email, password } });
-    tokenStore.set(r.token);
+    const r = await api<{ user: Usuario; csrf: string }>('/api/auth/login', { method: 'POST', json: { email, password } });
+    csrfStore.set(r.csrf);
     setUser(r.user);
     return r.user;
   }, []);

@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { api, errorText } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { ROL_LABEL } from '../../app/nav';
+import SesionesActivas from './SesionesActivas';
 import { Avatar, Button, Card, CardBody, CardHeader, DefinitionList, Input, PageHeader, Skeleton, useToast } from '../../ui';
 
 interface DatosForm { nombre: string; telefono: string }
@@ -90,6 +91,8 @@ export default function Perfil() {
             </form>
           </CardBody>
         </Card>
+
+        <SesionesActivas />
       </div>
     </>
   );
