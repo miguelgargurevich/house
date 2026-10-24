@@ -221,9 +221,10 @@ for (const u of unidades) if (u.duenoKey < 0) u.duenoKey = crearPersona('propiet
 U_VALENTINA.inquilinoKey = crearPersona('inquilino', { nombre: 'Valentina Ruiz', email: 'valentina.ruiz@inq.com' });
 for (const u of barajar(unidades.filter((x) => !especiales.has(x))).slice(0, 66)) u.inquilinoKey = crearPersona('inquilino');
 
-// Morosos: ~27 unidades con 1 a 12 meses de deuda seguidos hasta octubre.
+// Morosos: 70 unidades con 1 a 11 meses de deuda seguidos hasta octubre (reparto parejo). Deja ~7 % de los meses pasados sin pagar
+// (24-oct, Miguel: «sube la morosidad de los meses pasados a ~7 %»; con 27 unidades quedaba en ~2,4 %).
 {
-  const rachas = [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 12];
+  const rachas = Array.from({ length: 70 }, (_, i) => 1 + (i % 11));
   const candidatas = barajar(unidades.filter((u) => !especiales.has(u) && u.block !== 1));
   rachas.forEach((r, i) => (candidatas[i]!.moroso = r));
 }
