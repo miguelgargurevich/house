@@ -1,27 +1,27 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { PlusIcon, ReceiptPercentIcon } from '@heroicons/react/24/outline';
 import { useList, useResource } from '../../api';
 import { Button, Card, DataTable, PageHeader, SearchBox, Select, StatusBadge, Toolbar, fechaCorta, periodo } from '../../ui';
 import type { Column } from '../../ui';
 import { EmitirReciboModal } from './_parts/cobranza/EmitirReciboModal';
-import { ReciboDetalleModal } from './_parts/cobranza/ReciboDetalleModal';
-import type { ReciboFila } from './_parts/cobranza/ReciboDetalleModal';
 import { ProgresoCobro } from './_parts/cobranza/ProgresoCobro';
-import type { Complejo, Lista } from './_parts/cobranza/comun';
+import type { Complejo, Lista, ReciboFila } from './_parts/cobranza/comun';
 
 export default function Recibos() {
   const [complejo, setComplejo] = useState('');
   const [emitiendo, setEmitiendo] = useState(false);
-  const [detalle, setDetalle] = useState<ReciboFila | null>(null);
+  const navigate = useNavigate();
+  const abrir = (r: ReciboFila) => navigate(`/admin/recibos/${r.id}`);
   const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: complejo || undefined } });
   const complejos = useResource<Lista<Complejo>>('/api/complejos?pageSize=100');
 
   const columns: Column<ReciboFila>[] = [
     { key: 'periodo', header: 'Periodo', cell: r => (
-      <button type="button" onClick={() => setDetalle(r)} className="text-left font-medium hover:text-brand">
+      <Link to={`/admin/recibos/${r.id}`} className="block text-left font-medium hover:text-brand">
         {periodo(r.mes, r.anio)}
         {r.descripcion && <span className="block max-w-[16rem] truncate text-xs font-normal text-muted">{r.descripcion}</span>}
-      </button>
+      </Link>
     ) },
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: r => r.complejo?.nombre ?? '—' },
     { key: 'emision', header: 'Emisión', hideBelow: 'lg', cell: r => fechaCorta(r.fecha_emision) },
@@ -34,7 +34,7 @@ export default function Recibos() {
     <>
       <PageHeader
         title="Recibos"
-        description="Emite los recibos del periodo y sigue cuánto se ha cobrado de cada uno."
+        description="Emite el mantenimiento del mes y ábrelo para ver los recibos de cada departamento, por block."
         actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEmitiendo(true)}>Emitir recibo</Button>}
       />
       <Card>
@@ -57,10 +57,10 @@ export default function Recibos() {
           pageSize={list.pageSize}
           total={list.total}
           onPage={list.setPage}
-          onRowClick={setDetalle}
+          onRowClick={abrir}
           empty={{
             title: 'Aún no hay recibos',
-            description: list.q || complejo ? 'Prueba con otro filtro.' : 'Emite el primero y se generará un cargo por cada unidad activa.',
+            description: list.q || complejo ? 'Prueba con otro filtro.' : 'Emite el primero y cada departamento activo recibirá su mantenimiento con todos los conceptos.',
             icon: <ReceiptPercentIcon />,
             action: list.q || complejo ? undefined : <Button onClick={() => setEmitiendo(true)}>Emitir recibo</Button>,
           }}
@@ -68,7 +68,6 @@ export default function Recibos() {
       </Card>
 
       {emitiendo && <EmitirReciboModal onClose={() => setEmitiendo(false)} onSaved={() => void list.reload()} />}
-      {detalle && <ReciboDetalleModal recibo={detalle} onClose={() => setDetalle(null)} />}
     </>
   );
 }

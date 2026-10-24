@@ -12,7 +12,7 @@ import {
 import type { Column } from '../../ui';
 import { nombreBlock } from './_parts/medios/tipos';
 
-interface Fila { id: number; nombre: string; email: string; telefono: string | null; rol: Rol | null; empresa?: { id: number; nombre: string } | null; cargo_junta?: CargoJunta | null; complejo_id?: number | null; estructura_id?: number | null }
+interface Fila { id: number; nombre: string; email: string; telefono: string | null; rol: Rol | null; empresa?: { id: number; nombre: string } | null; /** Residentes: las empresas que administran los condominios de sus unidades. */ empresas_administradoras?: { id: number; nombre: string }[]; cargo_junta?: CargoJunta | null; complejo_id?: number | null; estructura_id?: number | null }
 interface Form { nombre: string; email: string; telefono: string; rol: Rol; password: string; empresa_id: string; cargo_junta: CargoJunta | ''; complejo_id: string; estructura_id: string }
 interface EmpresaOpt { id: number; nombre: string }
 interface BlockOpt { id: number; nombre: string | null }
@@ -40,7 +40,13 @@ export default function Usuarios() {
 
   const roles = (Object.keys(ROL_LABEL) as Rol[]).filter(r => esSuper || r !== 'superadmin');
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<Form>();
-  const cargoElegido = watch('rol') === 'propietario' && watch('cargo_junta') !== '';
+  const rolElegido = watch('rol');
+  // La empresa es del PERSONAL; un propietario o inquilino la deriva del condominio de sus unidades (no se pide ni se guarda).
+  const esPersonal = rolElegido === 'admin' || rolElegido === 'mantenimiento' || rolElegido === 'seguridad';
+  const esResidente = rolElegido === 'propietario' || rolElegido === 'inquilino';
+  const cargoElegido = rolElegido === 'propietario' && watch('cargo_junta') !== '';
+  // La administración de una empresa no alcanza a un residente sin condominio ni unidades: al crearlo se le pide uno; la junta también lo exige.
+  const exigeCondominio = (editando === 'nuevo' && !esSuper) || cargoElegido;
   const complejoCargo = watch('complejo_id');
   const bloques = useResource<Page<BlockOpt>>(cargoElegido && complejoCargo ? `/api/estructuras?complejo_id=${complejoCargo}&pageSize=100` : null);
 
@@ -55,13 +61,16 @@ export default function Usuarios() {
     const nuevo = editando === 'nuevo';
     const { empresa_id, cargo_junta, complejo_id, estructura_id, ...resto } = v;
     const body: Record<string, unknown> = { ...resto };
-    // El cargo sólo existe para propietarios; con cargo van también el condominio y el block de la junta.
+    // Un residente va ligado a un condominio (así la administración lo alcanza aunque aún no tenga unidades).
+    if (v.rol === 'propietario' || v.rol === 'inquilino') body.complejo_id = complejo_id ? Number(complejo_id) : null;
+    // El cargo sólo existe para propietarios; con cargo va también el block de la junta.
     if (v.rol === 'propietario') {
       body.cargo_junta = cargo_junta || null;
-      if (cargo_junta) { body.complejo_id = Number(complejo_id); body.estructura_id = estructura_id ? Number(estructura_id) : null; }
+      if (cargo_junta) body.estructura_id = estructura_id ? Number(estructura_id) : null;
     }
     if (!resto.password) delete body.password;
-    if (esSuper) body.empresa_id = empresa_id && v.rol !== 'superadmin' ? Number(empresa_id) : null;
+    // La empresa sólo se envía para el personal; el servidor deja a los residentes sin empresa.
+    if (esSuper) body.empresa_id = esPersonal && empresa_id ? Number(empresa_id) : null;
     try {
       await api(nuevo ? '/api/usuarios' : `/api/usuarios/${(editando as Fila).id}`, { method: nuevo ? 'POST' : 'PUT', json: body });
       toast.ok(nuevo ? 'Usuario creado' : 'Cambios guardados');
@@ -87,7 +96,11 @@ export default function Usuarios() {
     ) },
     { key: 'rol', header: 'Rol', cell: f => (f.rol ? ROL_LABEL[f.rol] : '—') },
     { key: 'cargo', header: 'Cargo', hideBelow: 'md', cell: f => (f.cargo_junta ? cargoLabel(f.cargo_junta) : '—') },
-    { key: 'empresa', header: 'Empresa', hideBelow: 'md', cell: f => f.empresa?.nombre ?? '—' },
+    { key: 'empresa', header: 'Empresa', hideBelow: 'md', cell: f => (
+      f.rol === 'propietario' || f.rol === 'inquilino'
+        ? (f.empresas_administradoras?.length ? f.empresas_administradoras.map(e => e.nombre).join(', ') : '—')
+        : f.empresa?.nombre ?? '—'
+    ) },
     { key: 'telefono', header: 'Teléfono', hideBelow: 'lg', cell: f => <span className="num">{f.telefono ?? '—'}</span> },
     { key: 'acciones', header: '', align: 'right', cell: f => (
       <div className="flex justify-end gap-1">
@@ -147,38 +160,40 @@ export default function Usuarios() {
           <Input label="Correo electrónico" type="email" error={errors.email && 'Ingresa un correo válido'} {...register('email', { required: true, pattern: /^\S+@\S+\.\S+$/ })} />
           <Input label="Teléfono" inputMode="tel" {...register('telefono')} />
           <Select label="Rol" {...register('rol', { required: true })}>{roles.map(r => <option key={r} value={r}>{ROL_LABEL[r]}</option>)}</Select>
-          {esSuper && (
+          {esSuper && esPersonal && (
             <Select
               label="Empresa"
-              hint={watch('rol') === 'superadmin' ? 'El superadministrador no pertenece a una empresa.' : undefined}
+              hint="Para quién trabaja y qué ve."
               error={errors.empresa_id && 'Elige la empresa del usuario'}
-              disabled={watch('rol') === 'superadmin'}
-              {...register('empresa_id', { validate: v => !['admin', 'mantenimiento', 'seguridad'].includes(watch('rol')) || v !== '' })}
+              {...register('empresa_id', { validate: v => !esPersonal || v !== '' })}
             >
-              <option value="">Sin empresa</option>
+              <option value="">Elige una empresa</option>
               {(empresas.data?.items ?? []).map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
             </Select>
           )}
-          {watch('rol') === 'propietario' && (
+          {esResidente && (
+            <Select
+              label="Condominio"
+              hint="Su empresa administradora es la del condominio de sus unidades."
+              error={errors.complejo_id && 'Elige el condominio'}
+              disabled={complejos.loading}
+              {...register('complejo_id', { validate: v => !exigeCondominio || v !== '', onChange: () => setValue('estructura_id', '') })}
+            >
+              <option value="">{esSuper ? 'Sin condominio' : 'Elige un condominio'}</option>
+              {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </Select>
+          )}
+          {rolElegido === 'propietario' && (
             <>
               <Select label="Cargo en la junta" className="sm:col-span-2" hint="Presidente y tesorero gestionan los medios de pago y validan los pagos de su block. Secretario y vocal no ganan permisos." {...register('cargo_junta')}>
                 <option value="">Ninguno</option>
                 {CARGOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </Select>
               {cargoElegido && (
-                <>
-                  <Select
-                    label="Condominio de la junta" error={errors.complejo_id && 'Elige el condominio'} disabled={complejos.loading}
-                    {...register('complejo_id', { validate: v => !cargoElegido || v !== '', onChange: () => setValue('estructura_id', '') })}
-                  >
-                    <option value="">Elige un condominio</option>
-                    {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </Select>
-                  <Select label="Block de la junta" disabled={!complejoCargo || bloques.loading} hint={bloques.error ? 'No se pudieron cargar los blocks.' : 'Sin block, la junta alcanza todo el condominio.'} {...register('estructura_id')}>
-                    <option value="">Todo el condominio</option>
-                    {(bloques.data?.items ?? []).map(b => <option key={b.id} value={b.id}>{nombreBlock(b)}</option>)}
-                  </Select>
-                </>
+                <Select label="Block de la junta" className="sm:col-span-2" disabled={!complejoCargo || bloques.loading} hint={bloques.error ? 'No se pudieron cargar los blocks.' : 'Sin block, la junta alcanza todo el condominio.'} {...register('estructura_id')}>
+                  <option value="">Todo el condominio</option>
+                  {(bloques.data?.items ?? []).map(b => <option key={b.id} value={b.id}>{nombreBlock(b)}</option>)}
+                </Select>
               )}
             </>
           )}

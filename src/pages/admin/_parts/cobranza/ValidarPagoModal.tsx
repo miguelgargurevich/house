@@ -23,6 +23,8 @@ export interface PagoRevisable {
   unidad?: { codigo: string } | null;
   concepto?: { nombre: string } | null;
   usuario?: { nombre: string } | null;
+  /** Pago del mantenimiento completo: el total del grupo y cuántos conceptos cubre; `null` en un pago suelto antiguo. */
+  mantenimiento?: { titulo: string; total: string; conceptos: number } | null;
   /** Sólo la traen los pagos que ve quien valida (admin y junta). */
   evaluacion?: EvaluacionCompleta | null;
   validado_por_ia?: boolean;
@@ -51,7 +53,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
     setEnviando(estado);
     try {
       await api(`/api/pagos/${pago.id}/validacion`, { method: 'PATCH', json: estado === 'validado' ? { estado } : { estado, motivo: texto } });
-      toast.ok(estado === 'validado' ? 'Pago validado. El recibo quedó pagado.' : 'Pago rechazado. El recibo volvió a pendiente.');
+      toast.ok(estado === 'validado' ? 'Pago validado. El mantenimiento quedó pagado.' : 'Pago rechazado. El mantenimiento volvió a pendiente.');
       onClose();
       onRevisado();
     } catch (e) { toast.error(errorText(e)); }
@@ -59,13 +61,15 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   }
 
   const porValidar = pago?.estado_validacion === 'por_validar';
+  // Un pago del mantenimiento se revisa por su TOTAL: el comprobante es uno solo y cubre todos los conceptos.
+  const monto = pago ? pago.mantenimiento?.total ?? pago.monto : 0;
 
   return (
     <Modal
       open={pago !== null}
       onClose={onClose}
       title={porValidar ? 'Revisar pago' : 'Detalle del pago'}
-      description={pago ? `${pago.unidad?.codigo ?? 'Unidad'} · ${pago.concepto?.nombre ?? 'Pago'}` : undefined}
+      description={pago ? pago.mantenimiento ? pago.mantenimiento.titulo : `${pago.unidad?.codigo ?? 'Unidad'} · ${pago.concepto?.nombre ?? 'Pago'}` : undefined}
       size="lg"
       footer={
         porValidar ? (
@@ -88,7 +92,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
         <div className="space-y-5">
           <div className="rounded bg-surface2 p-4">
             <div className="flex items-start justify-between gap-3">
-              <p className="num text-2xl font-semibold">{soles(pago.monto)}</p>
+              <div><p className="num text-2xl font-semibold">{soles(monto)}</p>{pago.mantenimiento && <p className="text-xs text-muted">Mantenimiento completo · {pago.mantenimiento.conceptos} conceptos</p>}</div>
               <StatusBadge estado={pago.estado_validacion} />
             </div>
             <div className="mt-4">
@@ -112,7 +116,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               Comprobante{pago.comprobante && <span className="ml-2 font-normal text-muted">{pago.comprobante.nombre} · {tamanoLegible(pago.comprobante.tamano)}</span>}
             </h3>
             {pago.comprobante ? (
-              <ComprobanteVista key={pago.comprobante.created_at} pagoId={pago.id} descripcion={`Comprobante de pago de ${pago.unidad?.codigo ?? 'la unidad'}, ${soles(pago.monto)}`} nombre={pago.comprobante.nombre} />
+              <ComprobanteVista key={pago.comprobante.created_at} pagoId={pago.id} descripcion={`Comprobante de pago de ${pago.unidad?.codigo ?? 'la unidad'}, ${soles(monto)}`} nombre={pago.comprobante.nombre} />
             ) : (
               <Alert tone="warn">{pago.usuario ? `${pago.usuario.nombre} no adjuntó comprobante.` : 'Este pago no tiene comprobante adjunto.'}</Alert>
             )}
@@ -121,7 +125,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
           {pago.comprobante && (
             <EvaluacionPanel
               evaluacion={ia.ev}
-              montoEsperado={pago.monto}
+              montoEsperado={monto}
               validadoPorIA={ia.validadoPorIA || pago.validado_por_ia === true}
               puedeReevaluar={porValidar}
               reevaluando={ia.esperando}

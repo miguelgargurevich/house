@@ -19,7 +19,7 @@ const PESTANAS: { id: Pestana; label: string }[] = [
 ];
 
 const TEXTOS: Record<Pestana, { stat: string; tone: 'ok' | 'warn' | 'bad'; vacio: string; vacioDesc: string }> = {
-  por_validar: { stat: 'Por validar en esta página', tone: 'warn', vacio: 'No hay pagos por validar', vacioDesc: 'Cuando un residente registre un pago, aparecerá aquí para que lo revises.' },
+  por_validar: { stat: 'Por validar en esta página', tone: 'warn', vacio: 'No hay pagos por validar', vacioDesc: 'Cuando un vecino registre el pago de su mantenimiento, aparecerá aquí para que lo revises.' },
   validado: { stat: 'Cobrado en esta página', tone: 'ok', vacio: 'No hay pagos validados', vacioDesc: 'Los pagos que valides o registres tú aparecerán aquí.' },
   rechazado: { stat: 'Rechazado en esta página', tone: 'bad', vacio: 'No hay pagos rechazados', vacioDesc: 'Los pagos que rechaces quedarán aquí con su motivo.' },
 };
@@ -40,19 +40,30 @@ export default function Pagos() {
   });
   const textos = TEXTOS[pestana];
 
-  const cobradoPagina = list.items.reduce((s, p) => s + (Number(p.monto) || 0), 0);
+  const cobradoPagina = list.items.reduce((s, p) => s + (Number(p.mantenimiento?.total ?? p.monto) || 0), 0);
   const cargandoStats = list.loading && list.items.length === 0;
 
+  // Una fila por PAGO DEL MANTENIMIENTO (no por concepto): cabe a 1280 px sin scroll; lo secundario se oculta según el ancho.
+  const monto = (p: PagoFila) => p.mantenimiento?.total ?? p.monto;
   const columns: Column<PagoFila>[] = [
-    { key: 'fecha', header: 'Fecha', cell: p => fechaCorta(p.fecha_pago) },
-    { key: 'unidad', header: 'Unidad', cell: p => <span className="block"><span className="block font-medium">{p.unidad?.codigo ?? '—'}</span><span className="block text-xs text-muted">{p.concepto?.nombre ?? '—'}</span></span> },
+    { key: 'fecha', header: 'Fecha', cell: p => <span className="whitespace-nowrap">{fechaCorta(p.fecha_pago)}</span> },
+    { key: 'mant', header: 'Mantenimiento', cell: p => (
+      <span className="block min-w-0">
+        <span className="block font-medium">{p.mantenimiento ? p.mantenimiento.titulo.split(' · ')[0] : p.concepto?.nombre ?? 'Pago'}</span>
+        <span className="block text-xs text-muted"><span className="num">{p.unidad?.codigo ?? '—'}</span>{p.mantenimiento ? ` · ${p.mantenimiento.conceptos} conceptos` : ' · un solo concepto'}</span>
+      </span>
+    ) },
     { key: 'usuario', header: 'Pagó', hideBelow: 'xl', cell: p => p.usuario?.nombre ?? '—' },
-    { key: 'metodo', header: 'Método', hideBelow: 'sm', cell: p => <Badge>{metodoLabel(p.metodo_pago)}</Badge> },
-    { key: 'referencia', header: 'Referencia', hideBelow: 'xl', cell: p => <span className="num text-muted">{p.referencia || '—'}</span> },
+    { key: 'metodo', header: 'Método', hideBelow: 'lg', cell: p => (
+      <span className="block"><Badge>{metodoLabel(p.metodo_pago)}</Badge>{p.referencia && <span className="num mt-1 block text-xs text-muted">{p.referencia}</span>}</span>
+    ) },
     ...(pestana === 'rechazado' ? [{ key: 'motivo', header: 'Motivo', hideBelow: 'md' as const, cell: (p: PagoFila) => <span className="text-muted">{p.motivo_rechazo ?? '—'}</span> }] : []),
-    { key: 'comprobante', header: 'Comprobante', hideBelow: 'xl', cell: p => (p.comprobante ? <Badge tone="info">Adjunto</Badge> : <span className="text-muted">Sin archivo</span>) },
-    ...(pestana === 'por_validar' ? [{ key: 'ia', header: 'Revisión IA', hideBelow: 'md' as const, cell: (p: PagoFila) => (p.comprobante ? <VeredictoBadge evaluacion={p.evaluacion} /> : <span className="text-muted">—</span>) }] : []),
-    { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(p.monto)}</span> },
+    { key: 'comprobante', header: 'Comprobante', hideBelow: 'md', cell: p => (
+      p.comprobante
+        ? <span className="block"><Badge tone="info">Adjunto</Badge>{pestana === 'por_validar' && <span className="mt-1 block"><VeredictoBadge evaluacion={p.evaluacion} /></span>}</span>
+        : <span className="text-muted">Sin archivo</span>
+    ) },
+    { key: 'monto', header: 'Total', align: 'right', cell: p => <span className="num whitespace-nowrap font-medium">{soles(monto(p))}</span> },
     { key: 'estado', header: 'Estado', cell: p => <span className="flex flex-wrap items-center gap-1.5"><StatusBadge estado={p.estado_validacion} />{p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}</span> },
     { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },
   ];
@@ -61,7 +72,7 @@ export default function Pagos() {
     <>
       <PageHeader
         title="Pagos"
-        description={puedeRegistrar ? 'Revisa los pagos que registran los residentes y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.' : 'Revisa los comprobantes de los vecinos de tu block: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo.'}
+        description={puedeRegistrar ? 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.' : 'Revisa los comprobantes de los vecinos de tu block: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo.'}
         actions={puedeRegistrar ? <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button> : undefined}
       />
       <StatStrip
@@ -81,7 +92,7 @@ export default function Pagos() {
           </Select>
         </Toolbar>
         <DataTable
-          caption="Pagos registrados"
+          caption="Pagos de mantenimientos"
           columns={columns}
           rows={list.items}
           rowKey={p => p.id}

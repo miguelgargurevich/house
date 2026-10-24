@@ -35,3 +35,16 @@ export function fechaAISO(v: string): string {
 export function nombreMes(mes: number): string {
   return periodo(mes, 2000).split(' ')[0] ?? '';
 }
+
+/** Fila de la lista de recibos (la emisión del mes de un condominio). */
+export interface ReciboFila {
+  id: number;
+  mes: number;
+  anio: number;
+  descripcion: string | null;
+  fecha_emision: string;
+  fecha_vencimiento: string;
+  estado: string | null;
+  complejo?: { id: number; nombre: string } | null;
+  totales?: { monto: number | string; cobrado: number | string; pendiente: number | string };
+}

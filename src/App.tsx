@@ -15,6 +15,7 @@ const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminComplejos = lazy(() => import('./pages/admin/Complejos'));
 const AdminUnidades = lazy(() => import('./pages/admin/Unidades'));
 const AdminRecibos = lazy(() => import('./pages/admin/Recibos'));
+const AdminPeriodoRecibo = lazy(() => import('./pages/admin/PeriodoRecibo'));
 const AdminPagos = lazy(() => import('./pages/admin/Pagos'));
 const AdminMorosidad = lazy(() => import('./pages/admin/Morosidad'));
 const AdminMantenimientos = lazy(() => import('./pages/admin/Mantenimientos'));
@@ -68,6 +69,7 @@ export default function App() {
           <Route path="/admin/complejos" element={<AdminComplejos />} />
           <Route path="/admin/unidades" element={<AdminUnidades />} />
           <Route path="/admin/recibos" element={<AdminRecibos />} />
+          <Route path="/admin/recibos/:id" element={<AdminPeriodoRecibo />} />
           <Route path="/admin/pagos" element={<AdminPagos />} />
           <Route path="/admin/morosidad" element={<AdminMorosidad />} />
           <Route path="/admin/mantenimientos" element={<AdminMantenimientos />} />

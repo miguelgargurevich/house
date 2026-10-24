@@ -163,7 +163,9 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
   });
   if (!recibo) throw notFound();
   const { reciboConceptos, ...resto } = recibo;
-  const cargosDb = await prisma.reciboConceptoUnidad.findMany({
+  // `?sin_cargos=1`: sólo la cabecera, los conceptos y los totales (la pantalla del periodo pagina los departamentos aparte).
+  const sinCargos = req.query.sin_cargos === '1';
+  const cargosDb = sinCargos ? [] : await prisma.reciboConceptoUnidad.findMany({
     where: { reciboConcepto: { recibo_id: id } },
     include: includeCargo,
     orderBy: [{ unidad: { codigo: 'asc' } }, { id: 'asc' }],
