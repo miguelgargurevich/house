@@ -57,6 +57,8 @@ DATABASE_URL=postgresql://usuario:password@host:puerto/db
 JWT_SECRET=tu_clave_secreta
 VITE_API_URL=https://tu-backend.com/api
 ```
+Avisos por correo y WhatsApp (opcionales; sin ellas los avisos quedan «omitidos»): `RESEND_API_KEY` y `MAIL_FROM` (correo, Resend), `EVOLUTION_URL`, `EVOLUTION_INSTANCE` y `EVOLUTION_APIKEY` (WhatsApp, Evolution API) y `AVISOS_PLANIFICADOR=on|off` (activo por defecto solo en producción). Detalle en `docs/SEGURIDAD.md`.
+
 No subas `.env` al repo. El backend y frontend usan estas variables. En Vite, todas las variables que comiencen con `VITE_` estarán disponibles en el frontend vía `import.meta.env.VITE_API_URL`.
 
 ## Endpoints principales (`src/server.ts`)

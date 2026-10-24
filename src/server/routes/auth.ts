@@ -81,7 +81,7 @@ export const sesionRouter = Router();
  */
 sesionRouter.get('/me', async (req, res) => {
   const u = currentUser(req);
-  const usuario = await prisma.usuario.findUnique({ where: { id: u.id }, select: { ...usuarioPublico, telefono: true, empresa: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } } } });
+  const usuario = await prisma.usuario.findUnique({ where: { id: u.id }, select: { ...usuarioPublico, telefono: true, aviso_email: true, aviso_whatsapp: true, empresa: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } } } });
   res.json({ ...usuario, csrf: req.sesion?.csrf });
 });
 

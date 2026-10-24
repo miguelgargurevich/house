@@ -46,6 +46,9 @@ model Usuario {
   complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
   pagosValidados    Pago[]                 @relation("PagoValidador")
   comprobantesSubidos ArchivoComprobante[]
+  aviso_email       Boolean                @default(true)
+  aviso_whatsapp    Boolean                @default(false)
+  notificaciones    Notificacion[]
 }
 
 model EmpresaAdministradora {
@@ -278,4 +281,28 @@ model ArchivoComprobante {
   created_at     DateTime @default(now())
   pago           Pago     @relation(fields: [pago_id], references: [id], onDelete: Cascade)
   subido_por     Usuario? @relation(fields: [subido_por_id], references: [id], onDelete: SetNull)
+}
+
+/// Aviso por correo o WhatsApp: se encola `pendiente` y el planificador lo envía. Único por usuario, canal, tipo y referencia.
+model Notificacion {
+  id             Int       @id @default(autoincrement())
+  usuario_id     Int
+  canal          String
+  tipo           String
+  asunto         String
+  cuerpo         String
+  estado         String    @default("pendiente")
+  intentos       Int       @default(0)
+  error          String?
+  programada_para DateTime @default(now())
+  enviada_at     DateTime?
+  ref_entidad    String?
+  ref_id         Int?
+  created_at     DateTime  @default(now())
+  usuario        Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@unique([usuario_id, canal, tipo, ref_entidad, ref_id])
+  @@index([estado, programada_para])
+  @@index([usuario_id])
+  @@index([created_at])
 }

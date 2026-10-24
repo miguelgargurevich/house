@@ -51,6 +51,31 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Los binarios no pasan por `llamar()` (serializa a JSON): las pruebas usan `fetch` directo con el cuerpo crudo.
 
 ---
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/avisos`
+
+**Qué se hizo:** avisos de recibos y vencimientos por correo (Resend) y WhatsApp (Evolution API).
+- Esquema (aditivo, al final de cada bloque): `Usuario.aviso_email` (default `true`), `Usuario.aviso_whatsapp` (default `false`), `Usuario.notificaciones`, modelo `Notificacion` con `@@unique([usuario_id, canal, tipo, ref_entidad, ref_id])`.
+- Backend `src/server/services/avisos/`: `celular.ts` (normaliza a `51` + 9 dígitos), `plantillas.ts` (5 tipos, español de Perú con tuteo), `canales.ts` (adaptadores con `fetch`, reloj y `env` inyectables; sin variables ⇒ `omitida` «Canal no configurado»), `cola.ts` (`encolarAviso`, `encolarReciboEmitido`, `encolarRecordatorios`, `procesarCola`), `planificador.ts` (cada 15 min, `AVISOS_PLANIFICADOR=on|off`, por defecto solo en producción; se inicia desde `src/server.ts`, nunca desde `createApp`).
+- API: `GET /api/notificaciones` (+ `/resumen`, `/canales`), `POST /api/notificaciones/:id/reenviar` (auditado), `GET|PUT /api/me/avisos` (router propio `routes/avisosPersonales.ts`, montado ANTES de `/me`: **no se tocó `me.ts`**). `GET /api/auth/me` suma `aviso_email` y `aviso_whatsapp`. `POST /api/recibos` encola `recibo_emitido` tras la transacción; un fallo allí se registra y no deshace la emisión.
+- **Para la sesión de comprobantes:** llama `encolarAviso('pago_validado' | 'pago_rechazado', usuarioId, { entidad: 'cargo', id: <ReciboConceptoUnidad.id> })` (import desde `src/server/services/avisos`). Es idempotente y devuelve cuántas notificaciones creó. Hazlo después de confirmar la transacción y con `try/catch`; opcional `procesarPronto()` para enviar sin esperar al ciclo. No se modificó `pagos.ts`.
+- Frontend: `/admin/avisos` (`pages/admin/Avisos.tsx` + `_parts/avisos/Canales.tsx`; ruta lazy en `App.tsx`, entrada «Avisos» con `BellIcon` en `nav.ts` para admin y superadmin) y sección «Avisos» del Perfil (`pages/shared/_parts/AvisosPerfil.tsx`; **un único punto de inserción**: `<AvisosPerfil />` al final del grid de `Perfil.tsx`). No hay componente de interruptor en `src/ui`: el `role="switch"` es local a `AvisosPerfil.tsx`.
+- Pruebas: `tests/avisos.test.ts` (25; sin red, `fetch` y reloj inyectados). 18 mutaciones comprobadas en rojo (preferencias, `en_revision`, ventana de emisión, backoff, `skipDuplicates`, arrendamiento, fuga del mensaje de error, canal no configurado, fijos como celular, bloqueo del planificador, tenant y estado en reenviar, cuerpo en el listado, scope del listado, fallo que deshace la emisión, celular obligatorio para WhatsApp, `auth/me`, enlace en plantilla).
+- Docs: `docs/SEGURIDAD.md` (sección «Avisos»), `docs/API-CONTRATO.md`, `.env.example`, README.
+
+**Cómo verificar:** `npm test` (131) · `npx tsc -b` · `npx tsc -p tests/tsconfig.json --noEmit` · `npm run build`. Las pruebas necesitan `house_test` con el esquema nuevo: `DATABASE_URL=postgresql://postgres:house@localhost:5433/house_test npx prisma db push`.
+
+**Próximos pasos**
+- Definir en Coolify `RESEND_API_KEY`, `MAIL_FROM` (dominio verificado en Resend, SPF/DKIM), `EVOLUTION_URL`, `EVOLUTION_INSTANCE`, `EVOLUTION_APIKEY`. Sin ellas todo queda `omitida` (se ve en `/admin/avisos` › Canales) y «Reenviar» lo recupera después.
+- Conectar `pago_validado`/`pago_rechazado` desde comprobantes (arriba).
+- Enlace de baja en los correos y límite de envíos por usuario (hoy la baja es desde el Perfil).
+
+**Decisiones y gotchas**
+- **Todos los usuarios existentes quedan con `aviso_email = true`**: al configurar Resend empezarán a recibir avisos. Los recibos con vencimiento en los próximos 3 días (y los vencidos hace ≤ 3 días) recibirán su recordatorio en el primer ciclo.
+- Bloqueo del planificador con `pg_try_advisory_xact_lock` en una transacción (no el de sesión que pedía el brief: con el pool de Prisma toma y suelta en conexiones distintas). Cada notificación se «arrienda» (se corre `programada_para` 5 min) antes de enviar, así dos procesos no la mandan dos veces; por eso puede procesarse en caliente tras emitir (`procesarPronto`, solo con planificador activo).
+- `por_vencer` cubre faltan ≤ 3 días y excluye recibos emitidos hoy (ya se avisó al emitir); `vencido` recupera hasta 3 días atrás por si el proceso estuvo caído. Sin duplicados por el `@@unique`.
+- `GET /api/notificaciones/canales` devuelve `{configurado, faltan:[NOMBRES de variables]}` (no solo booleanos) para que la pantalla diga qué variable falta; nunca valores.
+- **`prisma generate` y `node_modules` compartido**: el cliente de Prisma vive en el checkout principal y lo comparten las 3 sesiones; cada `generate` pisa el de las otras (cada rama tiene su esquema). Si `tsc` o las pruebas dicen que no existe `notificacion` / `aviso_email`, corre `npx prisma generate` y repite. Al integrar las ramas habrá que fusionar `schema.prisma` (modelos al final del bloque) y regenerar.
+- Con varias réplicas y el planificador activo en todas, el bloqueo asesor deja trabajar a una sola.
 
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/llavero-rotacion`
 
