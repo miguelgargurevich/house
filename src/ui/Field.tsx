@@ -1,5 +1,6 @@
 import { forwardRef, useId } from 'react';
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { cx } from './cx';
 
 const control =
@@ -42,7 +43,12 @@ type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { label: string; er
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select({ label, error, hint, className, ocultarEtiqueta, children, ...rest }, ref) {
   return (
     <Field label={label} error={error} hint={hint} className={className} ocultarEtiqueta={ocultarEtiqueta}>
-      {p => <select ref={ref} className={cx(control, 'h-10 pr-8')} {...p} {...rest}>{children}</select>}
+      {p => (
+        <span className="relative block">
+          <select ref={ref} className={cx(control, 'h-10 appearance-none pr-10')} {...p} {...rest}>{children}</select>
+          <ChevronDownIcon aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+        </span>
+      )}
     </Field>
   );
 });
