@@ -8,7 +8,7 @@ import { aplicarAjustes, ajustesSchema, puedeElegir, type AjustesAplicados } fro
 import { proveedorPorId } from '../lib/proveedoresIA';
 import { currentUser } from '../middleware/auth';
 import { ESTADO_RECHAZADA } from '../services/rotacion';
-import { borrarDe, detalleDe, listarDe } from '../services/asistente/conversaciones';
+import { TITULO_RENOMBRADO_MAX, borrarDe, detalleDe, listarDe, renombrarDe, revertirDesde } from '../services/asistente/conversaciones';
 import { MAX_INTENTOS } from '../services/asistente/motor';
 import { MENSAJES_ERROR, ejecutarTurno, prepararTurno, type Preparado } from '../services/asistente/turno';
 import { parse, z } from '../validation';
@@ -24,6 +24,13 @@ const mensajeSchema = z.object({
 // Campos históricos (`context`, `conversationContext`, `sessionId`, `sentiment`…) se aceptan y se ignoran: el historial lo arma el servidor.
 
 const idConversacion = z.object({ id: z.string().trim().min(1).max(40) });
+const idMensajeSchema = z.object({ id: z.string().trim().min(1).max(40), mensajeId: z.coerce.number().int().min(1).max(2_147_483_647) });
+// Título: texto plano de 1 a 80 caracteres, sin HTML ni caracteres de control.
+const tituloSchema = z.object({
+  titulo: z.string().trim().min(1, 'El título es obligatorio.').max(TITULO_RENOMBRADO_MAX, `El título admite hasta ${TITULO_RENOMBRADO_MAX} caracteres.`)
+    .refine((t) => !/[<>]/.test(t), 'El título no puede llevar < ni >.')
+    .refine((t) => !/\p{Cc}/u.test(t), 'El título tiene caracteres no válidos.'),
+});
 
 /** Modelos que el usuario puede fijar: activos y de chat en alguna clave habilitada y no rechazada (sin repetir). */
 async function modelosElegibles() {
@@ -111,6 +118,19 @@ export function aiChatRouter(limitador: RequestHandler) {
     res.status(204).end();
   });
 
+  router.patch('/conversaciones/:id', async (req, res) => {
+    const { id } = parse(idConversacion, req.params);
+    const { titulo } = parse(tituloSchema, req.body);
+    res.json(await renombrarDe(currentUser(req).id, id, titulo));
+  });
+
+  // «Volver a un mensaje»: borra ese mensaje y todo lo posterior. Idempotente; el panel detiene antes su propio stream.
+  router.delete('/conversaciones/:id/mensajes/:mensajeId', async (req, res) => {
+    const { id, mensajeId } = parse(idMensajeSchema, req.params);
+    await revertirDesde(currentUser(req).id, id, mensajeId);
+    res.status(204).end();
+  });
+
   router.post('/', limitador, async (req, res) => {
     const u = currentUser(req);
     let prep: Preparado;
@@ -140,7 +160,7 @@ export function aiChatRouter(limitador: RequestHandler) {
     const control = new AbortController();
     res.on('close', () => { if (!res.writableFinished) control.abort(); });
     abrirSse(res);
-    evento(res, 'meta', { conversacion_id: prep.conversacionId });
+    evento(res, 'meta', { conversacion_id: prep.conversacionId, mensaje_id: prep.mensajeId });
     try {
       for await (const ev of ejecutarTurno(prep, { stream: true, signal: control.signal })) {
         if (ev.tipo === 'delta') evento(res, 'delta', { texto: ev.texto });

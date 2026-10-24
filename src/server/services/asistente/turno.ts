@@ -8,7 +8,7 @@ import { MENSAJE_CORTO } from '../modelos/seleccion';
 import { construirCadena } from '../rotacion';
 import type { AjustesAplicados } from '../../lib/parametrosChat';
 import { construirContexto, respuestaContingencia, type DatosContexto } from './contexto';
-import { guardarMensajeAsistente, guardarMensajeUsuario, historialDe, obtenerOCrear, unirSeguidos } from './conversaciones';
+import { guardarMensajeAsistente, guardarMensajeUsuario, historialDe, nombreAmigableDeModelo, obtenerOCrear, unirSeguidos } from './conversaciones';
 import { ejecutar, type CausaFallo } from './motor';
 import type { Turno } from './proveedor';
 
@@ -31,6 +31,8 @@ export const MENSAJES_ERROR: Record<CausaFallo | 'cortada', { status: number; me
 
 export interface Preparado {
   conversacionId: string;
+  /** Id del mensaje del usuario recién guardado (el panel lo usa para «volver a este mensaje»). */
+  mensajeId: number;
   turno: Turno;
   datos: DatosContexto;
   ajustes: AjustesAplicados;
@@ -45,7 +47,7 @@ export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: Aj
   if ((await construirCadena()).length === 0) throw new HttpError(500, MENSAJES_ERROR.sin_configurar.mensaje);
   const { id } = await obtenerOCrear(user.id, opts.conversacionId, mensaje);
   const historial = await historialDe(id); // ANTES de guardar el mensaje nuevo
-  await guardarMensajeUsuario(id, mensaje);
+  const guardado = await guardarMensajeUsuario(id, mensaje);
   const { datos, bloque } = await construirContexto(user, opts.ruta);
   let sistema: string;
   try {
@@ -56,6 +58,7 @@ export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: Aj
   }
   return {
     conversacionId: id,
+    mensajeId: guardado.id,
     turno: { sistema, mensajes: unirSeguidos([...historial, { rol: 'user', texto: mensaje }]) },
     datos,
     ajustes,
@@ -90,25 +93,25 @@ export async function* ejecutarTurno(prep: Preparado, opts: { stream: boolean; s
   }
   const res = r.value;
   if (res.tipo === 'ok') {
-    await guardarMensajeAsistente(prep.conversacionId, res.texto, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, tokens_entrada: res.tokens_entrada, tokens_salida: res.tokens_salida, estado: 'ok' });
+    await guardarMensajeAsistente(prep.conversacionId, res.texto, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, tokens_entrada: res.tokens_entrada, tokens_salida: res.tokens_salida, estado: 'ok' }, prep.mensajeId);
     yield { tipo: 'fin', modelo: res.modelo, proveedor: res.proveedor, latencia_ms: res.latencia_ms, modo: null, texto: res.texto };
     return;
   }
 
   // ---- No hubo respuesta completa ----
   if (res.causa === 'cancelado') {
-    if (res.parcial) await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cancelado' });
+    if (res.parcial) await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cancelado' }, prep.mensajeId);
     return;
   }
   if (res.parcial) {
     // Falló a mitad del stream: el cliente ya recibió texto; se guarda el parcial y se avisa.
-    await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cortada' });
+    await guardarMensajeAsistente(prep.conversacionId, res.parcial, { proveedor: res.proveedor, modelo: res.modelo, latencia_ms: res.latencia_ms, estado: 'error', error_codigo: 'cortada' }, prep.mensajeId);
     yield { tipo: 'error', codigo: 'cortada', mensaje: MENSAJES_ERROR.cortada.mensaje, parcial: res.parcial };
     return;
   }
   if (res.causa === 'modelo_fijo') {
-    const mensaje = `El modelo ${res.modelo ?? ''} no respondió; prueba con Auto.`.replace('  ', ' ');
-    await guardarMensajeAsistente(prep.conversacionId, '', { estado: 'error', error_codigo: 'modelo_fijo', latencia_ms: res.latencia_ms });
+    const mensaje = `El modelo ${await nombreAmigableDeModelo(res.modelo)} no respondió; prueba con Auto.`;
+    await guardarMensajeAsistente(prep.conversacionId, '', { estado: 'error', error_codigo: 'modelo_fijo', latencia_ms: res.latencia_ms }, prep.mensajeId);
     yield { tipo: 'error', codigo: 'modelo_fijo', mensaje, parcial: '' };
     return;
   }
@@ -118,7 +121,7 @@ export async function* ejecutarTurno(prep: Preparado, opts: { stream: boolean; s
   }
   // Ninguna ruta sana: contingencia sin IA, con los datos verificados del usuario.
   const texto = respuestaContingencia(prep.datos);
-  await guardarMensajeAsistente(prep.conversacionId, texto, { estado: 'ok', modo: 'contingencia', latencia_ms: res.latencia_ms, error_codigo: res.causa });
+  await guardarMensajeAsistente(prep.conversacionId, texto, { estado: 'ok', modo: 'contingencia', latencia_ms: res.latencia_ms, error_codigo: res.causa }, prep.mensajeId);
   yield { tipo: 'delta', texto };
   yield { tipo: 'fin', modelo: null, proveedor: null, latencia_ms: res.latencia_ms, modo: 'contingencia', texto };
 }

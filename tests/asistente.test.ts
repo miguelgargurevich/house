@@ -10,7 +10,7 @@ import { limpiarModelosMalos, modeloMalo } from '../src/server/lib/modelosMalos'
 import { fechaTexto } from '../src/server/services/avisos/plantillas';
 import { rutaPermitida, RUTAS_JUNTA, TODAS_LAS_RUTAS } from '../src/server/lib/rutasApp';
 import { FRASE_CONTINGENCIA } from '../src/server/services/asistente/contexto';
-import { HISTORIAL_CARACTERES, limpiarConversaciones, limpiezaActiva, tituloDe } from '../src/server/services/asistente/conversaciones';
+import { HISTORIAL_CARACTERES, guardarMensajeAsistente, guardarMensajeUsuario, limpiarConversaciones, limpiezaActiva, revertirDesde, tituloDe } from '../src/server/services/asistente/conversaciones';
 import { olvidarSaludEnMemoria, olvidarCausas } from '../src/server/services/asistente/salud';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
 
@@ -260,7 +260,7 @@ describe('parámetros del turno', () => {
     manejador = () => estado(503);
     const f = await chat(T.adminA, { modelo: 'qwen/qwen3.8-27b' });
     assert.equal(f.status, 503);
-    assert.equal(f.body.error.message, 'El modelo qwen/qwen3.8-27b no respondió; prueba con Auto.');
+    assert.equal(f.body.error.message, 'El modelo qwen3.8-27b no respondió; prueba con Auto.');
     assert.ok(chats().every((l) => l.modelo === 'qwen/qwen3.8-27b'), 'no cambió de modelo por debajo');
     // Un modelo que no está activo en ninguna clave: 422.
     const nada = await chat(T.adminA, { modelo: 'modelo-que-no-existe' });
@@ -674,7 +674,7 @@ describe('POST /api/ai-chat/stream', () => {
     manejador = () => estado(503);
     const r = await stream(T.adminA, { modelo: 'qwen/qwen3.8-27b' });
     assert.deepEqual(r.eventos.map((e) => e.evento), ['meta', 'error']);
-    assert.deepEqual(r.eventos[1].datos, { codigo: 'modelo_fijo', mensaje: 'El modelo qwen/qwen3.8-27b no respondió; prueba con Auto.' });
+    assert.deepEqual(r.eventos[1].datos, { codigo: 'modelo_fijo', mensaje: 'El modelo qwen3.8-27b no respondió; prueba con Auto.' });
     assert.ok(chats().every((l) => l.modelo === 'qwen/qwen3.8-27b'));
   });
 });
@@ -941,7 +941,7 @@ describe('contingencia: ninguna ruta de IA responde', () => {
     await catalogo(q.id, 'qwen/qwen3.8-27b');
     const r = await chat(T.adminA, { modelo: 'qwen/qwen3.8-27b' });
     assert.equal(r.status, 503);
-    assert.equal(r.body.error.message, 'El modelo qwen/qwen3.8-27b no respondió; prueba con Auto.');
+    assert.equal(r.body.error.message, 'El modelo qwen3.8-27b no respondió; prueba con Auto.');
   });
 });
 
@@ -968,6 +968,139 @@ describe('límite de uso del chat', () => {
     } finally {
       await otro.cerrar();
     }
+  });
+});
+
+// ---------- Acciones sobre mensajes y conversaciones ----------
+describe('volver a un mensaje, renombrar y modelo fijo con nombre amigable', () => {
+  const crear = async (token: string, ...mensajes: string[]) => {
+    let id: string | undefined;
+    for (const m of mensajes) id = (await chat(token, { message: m, ...(id ? { conversacion_id: id } : {}) })).body.conversacion_id as string;
+    return id!;
+  };
+  const filas = (id: string) => prisma.mensajeIA.findMany({ where: { conversacion_id: id }, orderBy: { id: 'asc' }, select: { id: true, rol: true, contenido: true } });
+
+  it('revertir borra ESE mensaje y todo lo posterior, en orden, y conserva lo anterior y el título', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    const id = await crear(T.prop1, 'Primera pregunta', 'Segunda pregunta', 'Tercera pregunta');
+    const antes = await filas(id);
+    assert.deepEqual(antes.map((f) => f.rol), ['user', 'assistant', 'user', 'assistant', 'user', 'assistant']);
+    const titulo = (await prisma.conversacionIA.findUniqueOrThrow({ where: { id } })).titulo;
+    const r = await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${id}/mensajes/${antes[2].id}`, T.prop1);
+    assert.equal(r.status, 204);
+    assert.deepEqual((await filas(id)).map((f) => f.id), [antes[0].id, antes[1].id], 'se fue desde el 2.º mensaje del usuario (inclusive), no desde el siguiente');
+    assert.equal((await prisma.conversacionIA.findUniqueOrThrow({ where: { id } })).titulo, titulo);
+    await chat(T.prop1, { message: 'Segunda, reescrita', conversacion_id: id });
+    assert.deepEqual(mensajesDe(ultima()).map((m) => m.texto), ['Primera pregunta', 'Hola', 'Segunda, reescrita'], 'la respuesta nueva se arma sólo con lo que quedó');
+  });
+
+  it('idempotente: repetir la llamada responde igual; revertir el primero deja la conversación vacía pero viva', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    const id = await crear(T.prop1, 'Solo una');
+    const [primero] = await filas(id);
+    assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${id}/mensajes/${primero.id}`, T.prop1)).status, 204);
+    assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${id}/mensajes/${primero.id}`, T.prop1)).status, 204);
+    assert.equal((await filas(id)).length, 0);
+    assert.equal((await prisma.conversacionIA.findUnique({ where: { id } }))?.titulo, 'Solo una');
+    const det = await llamar(base, 'GET', `/api/ai-chat/conversaciones/${id}`, T.prop1);
+    assert.deepEqual(det.body.mensajes, []);
+  });
+
+  it('una conversación ajena (o inexistente) responde 404 y NO borra nada; ni el admin ni el superadmin pueden', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    const id = await crear(T.prop1, 'Privada', 'Más privada');
+    const antes = await filas(id);
+    for (const t of [T.prop2, T.adminA, T.super]) {
+      assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${id}/mensajes/${antes[0].id}`, t)).status, 404);
+    }
+    assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/no-existe/mensajes/${antes[0].id}`, T.prop1)).status, 404);
+    assert.equal((await filas(id)).length, antes.length);
+  });
+
+  it('sólo toca la conversación de la ruta (aunque el id de mensaje sea de otra del mismo usuario); entradas malas: 422; sin sesión: 401', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    const a = await crear(T.prop1, 'Conversación A');
+    const b = await crear(T.prop1, 'Conversación B');
+    const [bPrimero] = await filas(b);
+    const [aPrimero] = await filas(a);
+    // El id de un mensaje de B en la ruta de A: A no tiene mensajes con id >= ése, y B queda intacta.
+    assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${a}/mensajes/${bPrimero.id}`, T.prop1)).status, 204);
+    assert.equal((await filas(b)).length, 2, 'B intacta');
+    assert.equal((await filas(a)).length, 2, 'A intacta');
+    for (const mal of ['abc', '0', '-3', '1.5', '99999999999']) {
+      assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${a}/mensajes/${mal}`, T.prop1)).status, 422, mal);
+    }
+    assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${a}/mensajes/${aPrimero.id}`, null)).status, 401);
+    assert.equal((await filas(a)).length, 2);
+  });
+
+  it('renombrar: sólo el dueño, 1–80 caracteres, sin HTML; recorta espacios; no toca los mensajes', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    const id = await crear(T.prop1, 'Título original');
+    const r = await llamar(base, 'PATCH', `/api/ai-chat/conversaciones/${id}`, T.prop1, { titulo: '  Mis recibos de marzo  ' });
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body, { id, titulo: 'Mis recibos de marzo' });
+    assert.equal((await llamar(base, 'GET', '/api/ai-chat/conversaciones', T.prop1)).body[0].titulo, 'Mis recibos de marzo');
+    assert.equal((await filas(id)).length, 2);
+    for (const titulo of ['', '   ', 'a'.repeat(81), '<b>hola</b>', 'x\u0000y', 5, undefined]) {
+      assert.equal((await llamar(base, 'PATCH', `/api/ai-chat/conversaciones/${id}`, T.prop1, { titulo })).status, 422, JSON.stringify(titulo));
+    }
+    assert.equal((await llamar(base, 'PATCH', `/api/ai-chat/conversaciones/${id}`, T.prop1, { titulo: 'a'.repeat(80) })).status, 200);
+    for (const t of [T.prop2, T.adminA, T.super]) assert.equal((await llamar(base, 'PATCH', `/api/ai-chat/conversaciones/${id}`, t, { titulo: 'Robado' })).status, 404);
+    assert.equal((await llamar(base, 'PATCH', `/api/ai-chat/conversaciones/${id}`, null, { titulo: 'x' })).status, 401);
+    assert.equal((await prisma.conversacionIA.findUniqueOrThrow({ where: { id } })).titulo, 'a'.repeat(80));
+  });
+
+  it('el evento meta del stream trae el id del mensaje guardado (para «volver a este mensaje»)', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    const r = await stream(T.prop1, { message: 'Con id' });
+    const meta = r.eventos[0].datos;
+    const fila = await prisma.mensajeIA.findFirstOrThrow({ where: { conversacion_id: meta.conversacion_id, rol: 'user' } });
+    assert.equal(meta.mensaje_id, fila.id);
+    assert.equal((await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${meta.conversacion_id}/mensajes/${meta.mensaje_id}`, T.prop1)).status, 204);
+  });
+
+  it('si la persona vuelve atrás mientras la respuesta se generaba, la respuesta NO queda huérfana', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    manejador = async () => { await prisma.mensajeIA.deleteMany({ where: { rol: 'user' } }); return chatOk('Respuesta tardía'); };
+    const r = await chat(T.prop1, { message: 'Pregunta que se borra' });
+    assert.equal(r.status, 200);
+    assert.equal(await prisma.mensajeIA.count(), 0, 'sin pregunta no se guarda la respuesta');
+  });
+
+  it('guardar una respuesta a la vez que se revierte su pregunta nunca deja una respuesta huérfana (carrera)', async () => {
+    for (let i = 0; i < 30; i++) {
+      const c = await prisma.conversacionIA.create({ data: { usuario_id: D.propietario1.id, titulo: `carrera ${i}` } });
+      const u = await guardarMensajeUsuario(c.id, 'pregunta');
+      await Promise.all([
+        guardarMensajeAsistente(c.id, 'respuesta', { estado: 'ok' }, u.id),
+        revertirDesde(D.propietario1.id, c.id, u.id),
+      ]);
+      assert.equal(await prisma.mensajeIA.count({ where: { conversacion_id: c.id } }), 0, `iteración ${i}`);
+    }
+  });
+
+  it('ni revertir ni renombrar dejan rastro en la auditoría (el contenido es sólo del dueño)', async () => {
+    await guardar('groq', 'groq-prueba-00001');
+    const id = await crear(T.prop1, 'Secreto de título');
+    const [m] = await filas(id);
+    await llamar(base, 'PATCH', `/api/ai-chat/conversaciones/${id}`, T.prop1, { titulo: 'Otro secreto' });
+    await llamar(base, 'DELETE', `/api/ai-chat/conversaciones/${id}/mensajes/${m.id}`, T.prop1);
+    await new Promise((r) => setTimeout(r, 150));
+    assert.ok(!JSON.stringify(await prisma.auditoria.findMany()).includes('secreto'));
+    assert.equal(await prisma.auditoria.count({ where: { entidad: { contains: 'ai-chat' } } }), 0);
+  });
+
+  it('el error del modelo fijo dice el NOMBRE amigable (no el id crudo)', async () => {
+    const q = await guardar('groq', 'groq-prueba-00001');
+    await catalogo(q.id, 'openai/gpt-oss-safeguard-20b');
+    await prisma.modeloIA.updateMany({ where: { modelo_id: 'openai/gpt-oss-safeguard-20b' }, data: { nombre: 'GPT OSS Safeguard 20B' } });
+    manejador = () => estado(503);
+    const r = await stream(T.adminA, { modelo: 'openai/gpt-oss-safeguard-20b' });
+    const err = r.eventos.at(-1)!;
+    assert.equal(err.evento, 'error');
+    assert.deepEqual(err.datos, { codigo: 'modelo_fijo', mensaje: 'El modelo GPT OSS Safeguard 20B no respondió; prueba con Auto.' });
+    assert.ok(!r.texto.includes('openai/gpt-oss-safeguard-20b'));
   });
 });
 

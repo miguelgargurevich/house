@@ -83,9 +83,15 @@ export interface MetricasMensaje {
   modo?: 'contingencia' | null;
 }
 
-export async function guardarMensajeAsistente(conversacionId: string, contenido: string, m: MetricasMensaje) {
-  const [fila] = await prisma.$transaction([
-    prisma.mensajeIA.create({
+/**
+ * Guarda la respuesta. Si se pasa `mensajeUsuarioId` y ese mensaje ya no existe (la persona volvió a un mensaje anterior mientras la respuesta
+ * aún se generaba), NO se guarda: quedaría una respuesta huérfana sin su pregunta. Devuelve `null` en ese caso.
+ */
+export async function guardarMensajeAsistente(conversacionId: string, contenido: string, m: MetricasMensaje, mensajeUsuarioId?: number) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "ConversacionIA" WHERE id = ${conversacionId} FOR UPDATE`; // serializa con `revertirDesde`
+    if (mensajeUsuarioId !== undefined && !(await tx.mensajeIA.findUnique({ where: { id: mensajeUsuarioId }, select: { id: true } }))) return null;
+    const fila = await tx.mensajeIA.create({
       data: {
         conversacion_id: conversacionId, rol: 'assistant', contenido,
         proveedor: m.proveedor ?? null, modelo: m.modelo ?? null, latencia_ms: m.latencia_ms ?? null,
@@ -93,10 +99,10 @@ export async function guardarMensajeAsistente(conversacionId: string, contenido:
         estado: m.estado, error_codigo: m.error_codigo ?? null, modo: m.modo ?? null,
       },
       select: { id: true },
-    }),
-    prisma.conversacionIA.update({ where: { id: conversacionId }, data: { updated_at: new Date(cooldownDeps.ahora()) }, select: { id: true } }),
-  ]);
-  return fila;
+    });
+    await tx.conversacionIA.update({ where: { id: conversacionId }, data: { updated_at: new Date(cooldownDeps.ahora()) }, select: { id: true } });
+    return fila;
+  });
 }
 
 export const listarDe = (usuarioId: number) =>
@@ -118,6 +124,36 @@ export async function detalleDe(usuarioId: number, id: string, conMetricas: bool
 export async function borrarDe(usuarioId: number, id: string): Promise<void> {
   const r = await prisma.conversacionIA.deleteMany({ where: { id, usuario_id: usuarioId } });
   if (r.count === 0) throw sinConversacion();
+}
+
+export const TITULO_RENOMBRADO_MAX = 80;
+
+/** Cambia el título de una conversación PROPIA (ajena → 404). */
+export async function renombrarDe(usuarioId: number, id: string, titulo: string) {
+  const r = await prisma.conversacionIA.updateMany({ where: { id, usuario_id: usuarioId }, data: { titulo } });
+  if (r.count === 0) throw sinConversacion();
+  return { id, titulo };
+}
+
+/**
+ * «Volver a un mensaje»: borra ese mensaje y todos los posteriores de una conversación PROPIA (ajena → 404), en una transacción.
+ * Idempotente: si el mensaje ya no existe se responde igual (0 borrados). La conversación se conserva aunque quede vacía; ni el título ni la fecha cambian.
+ */
+export async function revertirDesde(usuarioId: number, id: string, mensajeId: number): Promise<{ borrados: number }> {
+  return prisma.$transaction(async (tx) => {
+    // Bloquea la fila de la conversación: una respuesta que se está guardando a la vez espera, y luego se ve borrada o no se guarda (ver `guardarMensajeAsistente`).
+    const c = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "ConversacionIA" WHERE id = ${id} AND usuario_id = ${usuarioId} FOR UPDATE`;
+    if (c.length === 0) throw sinConversacion();
+    const r = await tx.mensajeIA.deleteMany({ where: { conversacion_id: id, id: { gte: mensajeId } } });
+    return { borrados: r.count };
+  });
+}
+
+/** Nombre legible del modelo para los mensajes de error (nunca el id crudo del proveedor). */
+export async function nombreAmigableDeModelo(modeloId: string | null | undefined): Promise<string> {
+  if (!modeloId) return 'elegido';
+  const f = await prisma.modeloIA.findFirst({ where: { modelo_id: modeloId, nombre: { not: null } }, select: { nombre: true } });
+  return f?.nombre?.trim() || modeloId.split('/').pop() || 'elegido';
 }
 
 /** Borra las conversaciones sin actividad desde hace más de 90 días. */
