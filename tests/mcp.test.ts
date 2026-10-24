@@ -285,7 +285,7 @@ describe('autenticación del endpoint', () => {
       assert.equal(r.status, 401, `${m} ${ruta}`);
     }
   });
-  it('último uso: se registra y los intentos fallidos no tocan nada', async () => {
+  it('último uso: se registra al usar el token y se ve en el listado', async () => {
     const t = await crear(T.adminA);
     await mcp(t.token, { jsonrpc: '2.0', id: 1, method: 'ping' });
     assert.ok((await prisma.tokenApi.findUniqueOrThrow({ where: { id: t.id } })).ultimo_uso);

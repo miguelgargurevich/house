@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { CATALOGO, descriptorDe, ejecutarHerramienta, herramientasDe, esquemaParaGemini, depurar, acotar } from '../src/server/tools';
 import type { AuthUser } from '../src/server/middleware/auth';
+import { MAX_FILAS, pagina } from '../src/server/tools/base';
 import { esperar, prisma } from './helpers/app';
 import { hallazgosProhibidos, sembrarHerramientas, usuarioDe, type DatosHerramientas } from './helpers/herramientas';
 
@@ -332,6 +333,11 @@ describe('límites, cursor y entradas inválidas', () => {
       assert.equal(r.ok, false, `${n} ${JSON.stringify(e)}`);
       if (!r.ok) assert.equal(r.codigo, 'entrada_invalida');
     }
+  });
+  it('segunda línea de defensa: aunque la entrada pasara de 50, la paginación nunca pide más de 50 filas (ni menos de 1)', () => {
+    assert.deepEqual([pagina({ limite: 5000 }).limite, pagina({ limite: 5000 }).take], [MAX_FILAS, MAX_FILAS + 1]);
+    assert.equal(pagina({ limite: -3 }).limite, 1);
+    assert.equal(pagina({ limite: 20, cursor: 'o40' }).skip, 40);
   });
   it('una respuesta enorme se recorta y se marca como truncada', async () => {
     const grande = { moneda: 'PEN', aviso: 'x', filas: Array.from({ length: 50 }, (_, i) => ({ i, texto: 'x'.repeat(300) })) };

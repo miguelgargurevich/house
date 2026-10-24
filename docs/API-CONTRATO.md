@@ -70,6 +70,7 @@ Todo `/api/ai-chat/*` exige sesión; los POST exigen además `X-CSRF-Token`. Err
 - `POST /api/ai-chat/stream` — mismo cuerpo. Respuesta `text/event-stream` (`Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`). Los errores previos (validación, 404, 429, sin IA) son JSON normal con su código, sin abrir el stream. Eventos, en orden:
   - `meta` `{ conversacion_id }`
   - `delta` `{ texto }` (uno o varios; con un proveedor/modelo que no sirve stream, uno solo con la respuesta completa)
+  - `herramienta` `{ nombre, estado: 'ejecutando' | 'listo' | 'error' }` (NUEVO; cero o más, ANTES del primer `delta` de texto final: el modelo consultó datos con una herramienta de solo lectura; `nombre` es de `docs/HERRAMIENTAS.md`, o `desconocida`). Solo se emite: el panel puede ignorarlo; un cliente que no lo conozca no se rompe.
   - `done` `{ modelo, proveedor, latencia_ms, modo? }` (`modo: 'contingencia'` con `modelo`/`proveedor` null)
   - `error` `{ codigo, mensaje }` (`cortada` si falló a mitad: el parcial se guarda con `estado='error'`; `modelo_fijo`; `sin_configurar`)
   Si falla ANTES del primer texto se rota sin avisar al cliente. Si el cliente cierra la conexión se cancela la llamada al proveedor y se guarda lo recibido (`estado='error'`, `error_codigo='cancelado'`).
@@ -85,3 +86,11 @@ Todo `/api/ai-chat/*` exige sesión; los POST exigen además `X-CSRF-Token`. Err
   - `POST /:id/sincronizar` → `{ ok, nuevos, deprecados, revividos, total, error, aviso_modelo }` (un error del proveedor no deprecia nada).
   - Los avisos al superadmin `ia_caida` / `ia_restablecida` usan `encolarAviso` con `ref: { entidad: 'ia', id }` (ver `docs/SEGURIDAD.md`).
 - **Variables de entorno**: `MODELOS_SYNC`, `ASISTENTE_CANARY`, `ASISTENTE_LIMPIEZA` (`on|off`; por defecto solo producción), `LLAVERO_MAX_INTENTOS` (1–8, rutas distintas por consulta; por omisión 6) y `LLAVERO_TOPE_MS` (2 000–120 000; por omisión 25 000).
+
+## Herramientas de consulta, tokens de API y MCP
+Ver `docs/HERRAMIENTAS.md` (catálogo, argumentos, ejemplos y modelo de seguridad).
+- **Tokens de API personales** (con sesión: cookie + `X-CSRF-Token`; el Bearer NO abre estas rutas; los 4 roles con herramientas —no mantenimiento ni seguridad—):
+  - `GET /api/me/tokens-api` → `{ tokens: [{ id, nombre, prefijo, creado, ultimo_uso|null, vence, estado: 'activo'|'vencido'|'revocado'|'invalidado' }], max_activos: 5, dias_por_defecto: 90, dias_maximos: 365 }`. Nunca trae el token ni su hash.
+  - `POST /api/me/tokens-api` `{ nombre (1–60), dias? (1–365, por omisión 90) }` → `201 { id, nombre, prefijo, creado, ultimo_uso, vence, estado, token }`. **`token` (`hse_…`) solo sale aquí, una vez.** 422 con más de 5 activos, `dias` fuera de rango o campos de más; 403 para mantenimiento/seguridad. `Cache-Control: no-store`.
+  - `DELETE /api/me/tokens-api/:id` → 204 (revoca; 404 si no es mío o ya estaba revocado). Se audita como `token_api` (`crear`/`revocar`), sin el token.
+- **`POST /mcp`** (fuera de `/api`, sin cookie): JSON-RPC 2.0 «Streamable HTTP» (sin SSE ni sesiones). Cabecera `Authorization: Bearer hse_…` obligatoria; cualquier `Origin` → 403; `GET`/`DELETE`/`PUT` → 405 (`Allow: POST`); token inválido/vencido/revocado/invalidado/dueño desactivado → 401 `WWW-Authenticate: Bearer realm="house-mcp"` y cuerpo `{ jsonrpc, id: null, error }`; 429 + `Retry-After` por token (120/min); cuerpo máx. 32 kb (413). Métodos: `initialize`, `ping`, `tools/list`, `tools/call` (`params: { name, arguments }` → `result: { isError, content: [{ type: 'text', text: '<JSON de la herramienta>' }] }`), notificaciones → 202. Errores: `-32700` JSON roto, `-32600` solicitud inválida, `-32601` método desconocido, `-32602` herramienta inventada o de otro rol / falta `name`.

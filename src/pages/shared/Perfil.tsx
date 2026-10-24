@@ -5,7 +5,11 @@ import { useAuth } from '../../auth/AuthContext';
 import { ROL_LABEL } from '../../app/nav';
 import SesionesActivas from './SesionesActivas';
 import { AvisosPerfil } from './_parts/AvisosPerfil';
+import { TokensApiPerfil } from './_parts/TokensApi';
 import { Avatar, Button, Card, CardBody, CardHeader, DefinitionList, Input, PageHeader, Skeleton, useToast } from '../../ui';
+
+/** Roles que tienen herramientas de consulta (mantenimiento y seguridad no): sólo ellos ven los tokens de API. */
+const CON_HERRAMIENTAS: readonly string[] = ['superadmin', 'admin', 'propietario', 'inquilino'];
 
 interface DatosForm { nombre: string; telefono: string }
 interface ClaveForm { actual: string; nueva: string; confirmar: string }
@@ -95,6 +99,7 @@ export default function Perfil() {
 
         <SesionesActivas />
         <AvisosPerfil />
+        {CON_HERRAMIENTAS.includes(user.rol) && <TokensApiPerfil />}
       </div>
     </>
   );
