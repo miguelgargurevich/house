@@ -8,7 +8,7 @@ import { MENSAJE_CORTO } from '../modelos/seleccion';
 import { construirCadena } from '../rotacion';
 import type { AjustesAplicados } from '../../lib/parametrosChat';
 import { construirContexto, respuestaContingencia, type DatosContexto } from './contexto';
-import { guardarMensajeAsistente, guardarMensajeUsuario, historialDe, obtenerOCrear } from './conversaciones';
+import { guardarMensajeAsistente, guardarMensajeUsuario, historialDe, obtenerOCrear, unirSeguidos } from './conversaciones';
 import { ejecutar, type CausaFallo } from './motor';
 import type { Turno } from './proveedor';
 
@@ -56,7 +56,7 @@ export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: Aj
   }
   return {
     conversacionId: id,
-    turno: { sistema, mensajes: [...historial, { rol: 'user', texto: mensaje }] },
+    turno: { sistema, mensajes: unirSeguidos([...historial, { rol: 'user', texto: mensaje }]) },
     datos,
     ajustes,
     mensajeCorto: mensaje.length < MENSAJE_CORTO,

@@ -53,14 +53,19 @@ export async function historialDe(conversacionId: string): Promise<MensajeTurno[
     elegidos.push({ rol: f.rol === 'assistant' ? 'assistant' : 'user', texto: f.contenido.length > HISTORIAL_CARACTERES ? f.contenido.slice(0, HISTORIAL_CARACTERES) : f.contenido });
   }
   elegidos.reverse();
-  // Une mensajes seguidos del mismo rol (una pregunta cuya respuesta falló) y empieza por el usuario.
+  const salida = unirSeguidos(elegidos);
+  while (salida.length && salida[0]!.rol !== 'user') salida.shift();
+  return salida;
+}
+
+/** Une mensajes seguidos del mismo rol (p. ej. una pregunta cuya respuesta falló y la siguiente): los proveedores esperan que los roles alternen. */
+export function unirSeguidos(mensajes: MensajeTurno[]): MensajeTurno[] {
   const salida: MensajeTurno[] = [];
-  for (const m of elegidos) {
+  for (const m of mensajes) {
     const ultimo = salida[salida.length - 1];
     if (ultimo && ultimo.rol === m.rol) ultimo.texto += `\n\n${m.texto}`;
     else salida.push({ ...m });
   }
-  while (salida.length && salida[0]!.rol !== 'user') salida.shift();
   return salida;
 }
 

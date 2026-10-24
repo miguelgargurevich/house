@@ -34,14 +34,10 @@ function categoriasPreferidas(ctx: ContextoModelo): Categoria[] | null {
 
 /** Ordena los modelos activos: categoría pedida primero (si existe alguno), luego preferencia del proveedor, estables antes que preview. */
 export function ordenarActivos(proveedor: string, activos: Fila[], ctx: ContextoModelo): string[] {
-  let pool = activos;
   const cats = categoriasPreferidas(ctx);
-  if (cats) {
-    const delasCats = activos.filter((m) => cats.includes(m.categoria as Categoria));
-    if (delasCats.length) pool = delasCats;
-  }
-  const rango = (m: Fila) => (cats ? Math.max(0, cats.indexOf(m.categoria as Categoria)) : 0);
-  return [...pool]
+  // Las categorías pedidas van primero, pero el resto NO se descarta: queda detrás como respaldo si el preferido falla.
+  const rango = (m: Fila) => (cats ? (cats.includes(m.categoria as Categoria) ? cats.indexOf(m.categoria as Categoria) : cats.length) : 0);
+  return [...activos]
     .sort((a, b) =>
       rango(a) - rango(b)
       || Number(esInestable(a.modelo_id)) - Number(esInestable(b.modelo_id))
