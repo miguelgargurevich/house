@@ -40,13 +40,13 @@ function useAltoVisible(activo: boolean): { height: number; top: number } | null
  * y se anima con el ancho. En el celular (< lg) es una vista propia a pantalla completa con «Volver». Siempre montado: la conversación
  * no se pierde al navegar ni al cerrar.
  */
-export function Assistant({ open, onClose, escritorio }: { open: boolean; onClose: () => void; escritorio: boolean }) {
+export function Assistant({ open, onClose, escritorio, barra }: { open: boolean; onClose: () => void; escritorio: boolean; barra: number }) {
   const { user } = useAuth();
   const toast = useToast();
   const nav = useNavigate();
   const { pathname } = useLocation();
   const visible = useAltoVisible(open && !escritorio);
-  const { ancho, mover, confirmar, restablecer } = useAnchoPanel(user?.id ?? 0);
+  const { ancho, mover, confirmar, restablecer } = useAnchoPanel(user?.id ?? 0, barra);
   const a = useAsistente(user?.id ?? 0, pathname, open);
   const [vista, setVista] = useState<'chat' | 'conversaciones'>('chat');
   const [arrastrando, setArrastrando] = useState(false);

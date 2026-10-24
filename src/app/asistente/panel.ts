@@ -1,18 +1,20 @@
 // Panel «docked» del asistente: ancho y estado abierto/cerrado (lógica pura, sin React). Se guardan por usuario en `localStorage`,
 // siempre con try/catch: puede estar bloqueado y el panel debe funcionar igual.
 
+import { BARRA_ANCHA } from '../barra';
+
 export const ANCHO_MIN = 320; // 20rem
 export const ANCHO_MAX = 640; // 40rem
 export const ANCHO_DEFECTO = 384; // 24rem
-/** Ancho de la barra lateral de la app (`lg:pl-64`) y mínimo que debe conservar el contenido para no quedar aplastado. */
-const BARRA_LATERAL = 256;
+/** Mínimo que debe conservar el contenido para no quedar aplastado. */
 const CONTENIDO_MIN = 480;
 export const PASO_TECLADO = 16;
 
-/** Deja el ancho dentro de [20rem, 40rem] y sin comerse el contenido: en pantallas justas el tope baja (nunca por debajo del mínimo). */
-export function acotarAncho(px: unknown, viewport: number): number {
+/** Deja el ancho dentro de [20rem, 40rem] y sin comerse el contenido: en pantallas justas el tope baja (nunca por debajo del mínimo).
+ *  `barra` es el ancho REAL de la barra lateral (64 en riel, 256 expandida). */
+export function acotarAncho(px: unknown, viewport: number, barra: number = BARRA_ANCHA): number {
   const n = typeof px === 'number' && Number.isFinite(px) ? px : ANCHO_DEFECTO;
-  const tope = Math.max(ANCHO_MIN, Math.min(ANCHO_MAX, viewport - BARRA_LATERAL - CONTENIDO_MIN));
+  const tope = Math.max(ANCHO_MIN, Math.min(ANCHO_MAX, viewport - barra - CONTENIDO_MIN));
   return Math.round(Math.min(tope, Math.max(ANCHO_MIN, n)));
 }
 
