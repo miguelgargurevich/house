@@ -63,6 +63,9 @@ export function scopeUsuarios(u: AuthUser): Prisma.UsuarioWhereInput {
   };
 }
 
+/** Avisos de los usuarios de la empresa (mismo alcance que `scopeUsuarios`). */
+export const scopeNotificaciones = (u: AuthUser): Prisma.NotificacionWhereInput => (esGlobal(u) ? {} : { usuario: scopeUsuarios(u) });
+
 export function scopeTareas(u: AuthUser): Prisma.TareaMantenimientoWhereInput {
   switch (u.rol) {
     case 'superadmin':

@@ -7,6 +7,7 @@ import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
 import { scopeComplejos, scopeConceptos, scopeRecibos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
+import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
 import { fechaSchema, idSchema, montoSchema, parseId, texto, textoOpcional, z } from '../validation';
 
 const conceptoItem = z.object({ concepto_id: idSchema, monto: montoSchema, es_recargo: z.boolean().optional() });
@@ -103,7 +104,7 @@ const crud = crudRouter({
       });
       if (validos !== ids.length) throw invalid('Datos inválidos: conceptos: algún concepto no existe, está inactivo o es de otra empresa', { conceptos: 'Concepto inválido' });
     }
-    return prisma.$transaction(async (tx) => {
+    const emitido = await prisma.$transaction(async (tx) => {
       const recibo = await tx.recibo.create({
         data: {
           complejo_id: d.complejo_id,
@@ -130,6 +131,14 @@ const crud = crudRouter({
       }
       return recibo;
     });
+    // Avisos al propietario e inquilino de cada unidad con cargo. Un fallo aquí nunca debe deshacer la emisión.
+    try {
+      await encolarReciboEmitido(emitido.id);
+      procesarPronto();
+    } catch (err) {
+      console.error('[avisos] no se pudieron encolar los avisos del recibo', emitido.id, err instanceof Error ? err.message : 'error');
+    }
+    return emitido;
   },
 });
 
