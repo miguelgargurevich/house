@@ -41,6 +41,14 @@ Pantalla `/superadmin/llavero` y API `/api/llavero` para guardar las API keys de
 - **Qué es memoria y qué es base**: enfriamientos y contadores de uso (`ok`/`limite`/`error`) viven **en memoria del proceso** y se pierden al reiniciar (a propósito; con varias réplicas cada una tiene los suyos). En la base quedan las claves cifradas, `estado`/`estado_detalle` (incl. `rechazada`), `habilitada` y `ultimo_uso_at`. `GET /api/llavero` suma `enfriando_hasta`, `uso`, `orden` y `max_claves_por_proveedor`; la clave y `api_key_enc` siguen sin salir.
 - **Pendiente**: rotación de `LLAVERO_ENC_KEY` con re-cifrado (hoy hay que recargar las claves a mano); las claves descifradas viven en memoria solo mientras dura cada consulta del asistente (la cadena se arma por petición y no se cachea).
 
+## Comprobantes de pago (archivos)
+- Se guardan en PostgreSQL (`ArchivoComprobante`, 1 por pago, máx. 2 MB; sin infraestructura nueva). La respuesta de cualquier lista incluye sólo metadatos: `datos` jamás sale salvo en `GET /api/pagos/:id/comprobante`.
+- Subida: cuerpo crudo con `express.raw` sólo en ese endpoint (tope 2 MB → 413); el pago se localiza y se autoriza ANTES de leer el cuerpo. Tipos permitidos JPG/PNG/WebP/PDF; el header lo manda el cliente, así que se comprueban los bytes mágicos y deben coincidir con el tipo declarado (SVG/HTML nunca entran). Se calcula sha256; el nombre se sanea (sin rutas, controles ni inversión de texto, máx. 100).
+- Entrega: `Content-Type` guardado, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Cache-Control: private, no-store`, nombre en `filename*` (RFC 5987). Acceso por empresa del pago (404 entre tenants) y, para residentes, sólo las unidades que tienen.
+- La validación (`PATCH /api/pagos/:id/validacion`) es sólo admin/superadmin y atómica (`updateMany … WHERE estado_validacion='por_validar'`): dos revisiones simultáneas → una gana, la otra 409.
+- Auditoría: `subir_comprobante` (nombre, tipo, tamaño, sha256), `ver_comprobante`, `validar` y `rechazar` (con motivo); nunca el contenido (el middleware además ignora cuerpos `Buffer`).
+- Riesgo aceptado: un residente ve el comprobante del otro residente de SU misma unidad (propietario ↔ inquilino), porque ya ve ese pago en su lista.
+
 ## Riesgos aceptados
 - **Token en `localStorage`** (autenticación por Bearer): un XSS podría leerlo. Mitigado con CSP estricta (`script-src 'self'`), sin HTML inyectado y token de 8 h. Pasar a cookie `httpOnly` + CSRF es la mejora siguiente.
 - **Sin revocación explícita de tokens** antes de su vencimiento (salvo borrar al usuario).
@@ -48,7 +56,7 @@ Pantalla `/superadmin/llavero` y API `/api/llavero` para guardar las API keys de
 ## Recomendaciones
 1. **Datos de prueba**: `prisma db seed` crea cuentas con contraseñas conocidas (`admin1234`…). No ejecutarlo en producción; al crear el primer superadmin real usar una contraseña propia.
 2. Definir en Coolify `JWT_SECRET` (≥ 32 caracteres aleatorios), `DATABASE_URL`, `LLAVERO_ENC_KEY` (≥ 32 caracteres aleatorios, distinta de `JWT_SECRET`; sin ella el llavero no funciona), `GEMINI_API_KEY` (respaldo del asistente) y, si hace falta, `CORS_ORIGIN`.
-3. Respaldos de PostgreSQL y rotación de `JWT_SECRET` (invalida las sesiones).
+3. Respaldos de PostgreSQL y rotación de `JWT_SECRET` (invalida las sesiones). Los comprobantes de pago viven en la base: el respaldo los incluye y la base crece hasta 2 MB por pago con archivo.
 
 ## No verificado
 Chat de IA y «Probar» contra proveedores reales (sin claves locales; solo con `fetch` falso), despliegue real en Coolify, rendimiento con volumen alto.

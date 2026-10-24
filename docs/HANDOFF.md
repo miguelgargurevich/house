@@ -4,6 +4,35 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/comprobantes`
+
+**Qué se hizo:** comprobantes de pago (voucher) y validación del administrador.
+- **Estados**: `estado_pago` admite `en_revision`. Un pago del residente (`POST /api/me/cargos/:id/pagos`) deja el cargo `en_revision` y el `Pago` `por_validar`; el del admin (`POST /api/pagos`) sigue dejándolo `pagado`/`validado`. `en_revision` cuenta en «por cobrar», no en cobrado (sólo pagos `validado`) ni en morosidad. Tocados: `lib/cargos.ts` (`estadoCargo`, `filtroEstadoCargo('en_revision')`, `noPagado` exportado), `dashboard.ts`, `recibos.ts` (`totales.en_revision`, `estado_cobranza`), `cargos.ts`, `me.ts`, `pagos.ts` (`sincronizarCargo` sólo suma pagos validados; el saldo ignora rechazados).
+- **Esquema (aditivo)**: `Pago.estado_validacion` (default `validado`), `validado_por_id`, `validado_at`, `motivo_rechazo`; modelo `ArchivoComprobante` (1 por pago, cascada). Al darle nombre a la relación existente Pago↔Usuario (`PagoUsuario`) hubo que tocar dos líneas ya existentes (sólo etiqueta; no cambia la base).
+- **API**: `routes/comprobantes.ts` (montado ANTES del CRUD de pagos en `app.ts`): `POST|GET /api/pagos/:id/comprobante`, `PATCH /api/pagos/:id/validacion`; reglas en `services/comprobantes.ts` (bytes mágicos, nombre saneado, `Content-Disposition`). Detalle en `docs/API-CONTRATO.md` y `docs/SEGURIDAD.md`.
+- **Frontend**: `PagarModal` (adjuntar comprobante), «En revisión» y «Pago rechazado: motivo» + «Pagar de nuevo» en los recibos, estado e impresión del comprobante en «Mis pagos» (con adjuntar/reemplazar), `admin/Pagos.tsx` con pestañas Por validar | Validados | Rechazados y `ValidarPagoModal`. Helper de archivos propio en `src/pages/shared/comprobantes.ts` (+ `ComprobanteVista.tsx`): sube con `fetch` crudo y baja el archivo como blob con la sesión.
+- **Pruebas**: `tests/comprobantes.test.ts` (29). `tests/negocio.test.ts` cambió a propósito: pagar como residente deja `en_revision`/`por_validar`, `pagado_ano`/`cobrado` ya no cuentan hasta validar, y el dashboard suma `en_revision`/`pagos_por_validar`.
+
+**Cómo verificar:** `npm test` · `npx tsc -b` · `npx tsc -p tests/tsconfig.json --noEmit` · `npm run build`.
+
+**Próximos pasos**
+- Al fusionar con la rama de cookies: `src/pages/shared/comprobantes.ts` lee el token con `tokenStore.get()` y lo manda en `Authorization`; si la autenticación pasa a cookie `httpOnly`, cambiar `autorizacion()` por `credentials: 'include'` (un solo archivo). Las pruebas siguen usando el helper `login` del Bearer.
+- «Te avisaremos cuando se valide» (texto del modal) depende de la sesión de avisos: hoy el residente lo ve al entrar a Mis recibos / Mis pagos; no hay notificación.
+- Probar en navegador: PDF con `Content-Security-Policy: sandbox` (Chrome puede negarse a mostrar un PDF con ese header si se abre directo desde la URL de la API). La app lo evita bajando el archivo como blob y abriéndolo desde una URL local, pero conviene verlo.
+- Un pago rechazado queda en el historial (no se borra); si hace falta limpiar, es decisión de producto.
+
+**Decisiones**
+- Un rechazo no borra el pago: queda `rechazado` con su motivo y el residente paga de nuevo (pago nuevo). El monto del pago del residente sigue saliendo del cargo, no del cliente.
+- Ver el comprobante: admin de la empresa, superadmin y CUALQUIER residente de la unidad (propietario e inquilino); subirlo/reemplazarlo: sólo quien registró el pago (mientras `por_validar`) o un admin.
+- application/json con cuerpo no JSON responde 400 (el parser global lo rechaza antes); con JSON válido, 415.
+
+**Gotchas**
+- `node_modules` es un enlace al checkout principal y `prisma generate` lo reescribe para TODAS las sesiones: dos ramas con esquemas distintos se pisan el cliente (tsc/pruebas fallan con «no existe estado_validacion» hasta regenerar). Regenera justo antes de cada corrida: `npx prisma generate && npm test`.
+- Lo mismo con `house_test`: otra sesión le aplicó su esquema y borró mis columnas. Esta rama probó con su propia base: `TEST_DATABASE_URL=postgresql://postgres:house@localhost:5433/house_test_comprobantes` (el nombre debe contener `house_test`).
+- Los binarios no pasan por `llamar()` (serializa a JSON): las pruebas usan `fetch` directo con el cuerpo crudo.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/llavero-rotacion`
 
 **Qué se hizo:** varias claves por proveedor + rotación de claves y de proveedores en el asistente (versión ligera de `providerCooldown`/cascada de My Workspace).
