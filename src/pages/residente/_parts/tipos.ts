@@ -1,27 +1,8 @@
 import type { ComprobanteMeta } from '../../shared/comprobantes';
 import type { EvaluacionResidente } from '../../shared/evaluacion';
 
-export type EstadoCargo = 'pagado' | 'pendiente' | 'vencido' | 'en_revision';
 export type EstadoValidacion = 'por_validar' | 'validado' | 'rechazado';
 export type Metodo = 'transferencia' | 'yape' | 'plin' | 'efectivo' | 'tarjeta';
-
-export interface Cargo {
-  id: number;
-  monto: number | string;
-  estado: EstadoCargo;
-  concepto: { nombre: string };
-  recibo: { id: number; mes: number; anio: number; descripcion?: string | null; fecha_vencimiento: string };
-  unidad: { id: number; codigo: string };
-  /** Del más reciente al más antiguo. */
-  pagos?: { id: number; estado_validacion: EstadoValidacion; motivo_rechazo: string | null; evaluacion?: EvaluacionResidente | null; validado_por_ia?: boolean }[];
-}
-
-/** Motivo del último rechazo si el cargo volvió a quedar por pagar; `null` en cualquier otro caso. */
-export function motivoRechazo(c: Cargo): string | null {
-  if (c.estado === 'pagado' || c.estado === 'en_revision') return null;
-  const ultimo = c.pagos?.[0];
-  return ultimo?.estado_validacion === 'rechazado' ? ultimo.motivo_rechazo ?? 'Sin motivo indicado' : null;
-}
 
 export interface PagoResidente {
   id: number;
@@ -39,7 +20,13 @@ export interface PagoResidente {
   validado_por_ia?: boolean;
   unidad?: { codigo: string } | null;
   concepto?: { nombre: string } | null;
+  /** Pago del mantenimiento completo (un grupo de pagos por concepto); `null` en los pagos sueltos antiguos. */
+  mantenimiento?: { grupo: string; titulo: string; numero: string; recibo_id: number; unidad_id: number; total: string; conceptos: number } | null;
 }
+
+/** Lo que se muestra del pago: el mantenimiento completo (con su total) o el concepto del pago suelto. */
+export const nombrePago = (p: Pick<PagoResidente, 'mantenimiento' | 'concepto'>) => p.mantenimiento ? p.mantenimiento.titulo.split(' · ')[0]! : p.concepto?.nombre ?? 'Pago';
+export const montoPago = (p: Pick<PagoResidente, 'mantenimiento' | 'monto'>) => p.mantenimiento?.total ?? p.monto;
 
 export const METODOS: { value: Metodo; label: string }[] = [
   { value: 'transferencia', label: 'Transferencia' },

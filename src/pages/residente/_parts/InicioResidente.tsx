@@ -4,16 +4,18 @@ import { ArrowRightIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../../api';
 import { useAuth } from '../../../auth/AuthContext';
 import { Alert, Button, Card, CardHeader, ErrorState, PageHeader, Skeleton, fechaCorta, soles, useToast } from '../../../ui';
-import { CargoItem } from './CargoItem';
+import { DetalleMantenimientoModal } from './DetalleMantenimientoModal';
+import { MantenimientoItem } from './MantenimientoItem';
 import { PagarModal } from './PagarModal';
 import { primerNombre } from './tipos';
-import type { Cargo } from './tipos';
+import type { Mantenimiento } from '../../shared/mantenimiento/tipos';
 
 interface Resumen {
   deuda_total: number | string;
-  vencidos: number | string;
-  en_revision: number;
-  proximo_vencimiento: { cargo_id: number; monto: number | string; fecha: string } | null;
+  /** Mantenimientos (un recibo por departamento y mes), no conceptos sueltos. */
+  mantenimientos_vencidos: number;
+  mantenimientos_en_revision: number;
+  proximo_mantenimiento: { recibo_id: number; unidad_id: number; titulo: string; monto: number | string; fecha: string } | null;
   pagado_ano: number | string;
 }
 
@@ -21,24 +23,27 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
   const { user } = useAuth();
   const toast = useToast();
   const resumen = useResource<Resumen>('/api/dashboard/resumen');
-  const pendientes = useList<Cargo>('/api/me/cargos', { pageSize: 20, params: { estado: 'pendiente' } });
-  const [pagando, setPagando] = useState<Cargo | null>(null);
+  const pendientes = useList<Mantenimiento>('/api/me/mantenimientos', { pageSize: 3, params: { estado: 'pendiente,parcial', orden: 'vencimiento:asc' } });
+  const [pagando, setPagando] = useState<Mantenimiento | null>(null);
+  const [viendo, setViendo] = useState<Mantenimiento | null>(null);
   const [abriendo, setAbriendo] = useState(false);
 
-  async function pagarProximo(id: number) {
+  async function pagarProximo(p: { recibo_id: number; unidad_id: number }) {
     setAbriendo(true);
-    try { setPagando(await api<Cargo>(`/api/me/cargos/${id}`)); }
+    try {
+      const r = await api<{ items: Mantenimiento[] }>(`/api/me/mantenimientos?pageSize=100&estado=pendiente,parcial`);
+      const m = r.items.find(x => x.recibo_id === p.recibo_id && x.unidad_id === p.unidad_id);
+      if (m) setPagando(m);
+    }
     catch (e) { toast.error(errorText(e)); }
     finally { setAbriendo(false); }
   }
 
   function recargar() { void resumen.reload(); void pendientes.reload(); }
 
-  const proximos = [...pendientes.items]
-    .sort((a, b) => a.recibo.fecha_vencimiento.localeCompare(b.recibo.fecha_vencimiento))
-    .slice(0, 3);
+  const proximos = pendientes.items;
   const r = resumen.data;
-  const hayVencidos = r ? Number(r.vencidos) > 0 : false;
+  const hayVencidos = r ? r.mantenimientos_vencidos > 0 : false;
   const alDia = r ? Number(r.deuda_total) <= 0 : false;
 
   return (
@@ -58,16 +63,16 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
                 <p className={`num mt-1 text-3xl font-semibold ${hayVencidos ? 'text-bad' : ''}`}>{soles(r.deuda_total)}</p>
                 {alDia
                   ? <p className="mt-1 flex items-center gap-1.5 text-sm text-ok"><CheckCircleIcon className="h-4 w-4" />Estás al día</p>
-                  : hayVencidos && <p className="mt-1 text-sm text-bad">Tienes recibos vencidos</p>}
-                {r.en_revision > 0 && <p className="mt-1 text-sm text-info">{r.en_revision === 1 ? '1 pago en revisión' : `${r.en_revision} pagos en revisión`}</p>}
+                  : hayVencidos && <p className="mt-1 text-sm text-bad">{r.mantenimientos_vencidos === 1 ? 'Tienes 1 mantenimiento vencido' : `Tienes ${r.mantenimientos_vencidos} mantenimientos vencidos`}</p>}
+                {r.mantenimientos_en_revision > 0 && <p className="mt-1 text-sm text-info">{r.mantenimientos_en_revision === 1 ? '1 pago en revisión' : `${r.mantenimientos_en_revision} pagos en revisión`}</p>}
               </div>
               <div className="p-5">
                 <p className="text-sm text-muted">Próximo vencimiento</p>
-                {r.proximo_vencimiento ? (
+                {r.proximo_mantenimiento ? (
                   <>
-                    <p className="num mt-1 text-xl font-semibold">{soles(r.proximo_vencimiento.monto)}</p>
-                    <p className="text-sm text-muted">Vence {fechaCorta(r.proximo_vencimiento.fecha)}</p>
-                    <Button className="mt-3" loading={abriendo} onClick={() => void pagarProximo(r.proximo_vencimiento!.cargo_id)}>Pagar ahora</Button>
+                    <p className="num mt-1 text-xl font-semibold">{soles(r.proximo_mantenimiento.monto)}</p>
+                    <p className="text-sm text-muted">{r.proximo_mantenimiento.titulo.split(' · ')[0]} · vence {fechaCorta(r.proximo_mantenimiento.fecha)}</p>
+                    <Button className="mt-3" loading={abriendo} onClick={() => void pagarProximo(r.proximo_mantenimiento!)}>Pagar mantenimiento</Button>
                   </>
                 ) : (
                   <p className="mt-1 text-sm text-muted">No tienes vencimientos próximos.</p>
@@ -81,17 +86,17 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
           </Card>
 
           {alDia ? (
-            <Alert tone="ok">Estás al día: no tienes recibos por pagar. Cuando se emita uno nuevo, aparecerá aquí.</Alert>
+            <Alert tone="ok">Estás al día: no tienes mantenimientos por pagar. Cuando se emita el del mes, aparecerá aquí.</Alert>
           ) : (
             <>
               {hayVencidos && (
                 <Alert tone="bad">
-                  Tienes recibos vencidos. <Link to={`${base}/cargos?estado=vencido`} className="font-medium underline">Revisa cuáles son</Link>.
+                  Tienes mantenimientos vencidos. <Link to={`${base}/cargos?estado=vencido`} className="font-medium underline">Revisa cuáles son</Link>.
                 </Alert>
               )}
               <Card>
                 <CardHeader
-                  title="Próximos recibos"
+                  title="Próximos mantenimientos"
                   action={<Link to={`${base}/cargos`} className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline">Ver todos <ArrowRightIcon className="h-4 w-4" /></Link>}
                 />
                 {pendientes.error ? (
@@ -99,10 +104,10 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
                 ) : pendientes.loading ? (
                   <div className="space-y-3 p-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
                 ) : proximos.length === 0 ? (
-                  <p className="p-5 text-sm text-muted">No tienes recibos pendientes por vencer.</p>
+                  <p className="p-5 text-sm text-muted">No tienes mantenimientos pendientes por vencer.</p>
                 ) : (
                   <div className="divide-y divide-line">
-                    {proximos.map(c => <CargoItem key={c.id} cargo={c} onPagar={setPagando} />)}
+                    {proximos.map(m => <MantenimientoItem key={`${m.recibo_id}-${m.unidad_id}`} mant={m} onPagar={setPagando} onVer={setViendo} />)}
                   </div>
                 )}
               </Card>
@@ -111,7 +116,8 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
         </div>
       )}
 
-      <PagarModal cargo={pagando} onClose={() => setPagando(null)} onPagado={recargar} />
+      <DetalleMantenimientoModal mant={viendo} onClose={() => setViendo(null)} onPagar={setPagando} />
+      <PagarModal mant={pagando} onClose={() => setPagando(null)} onPagado={recargar} />
     </>
   );
 }

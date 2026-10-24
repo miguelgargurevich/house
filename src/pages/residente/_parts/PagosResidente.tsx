@@ -8,13 +8,13 @@ import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } f
 import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, PageHeader, Skeleton, StatusBadge, fechaCorta, soles, useToast } from '../../../ui';
 import type { Column } from '../../../ui';
 import { Pager } from './Pager';
-import { estadoVisible, metodoLabel } from './tipos';
+import { estadoVisible, metodoLabel, montoPago, nombrePago } from './tipos';
 import type { PagoResidente } from './tipos';
 
 // Al imprimir sólo se ve el comprobante (el resto de la página se oculta).
 const PRINT_CSS = '@media print{body *{visibility:hidden}#comprobante,#comprobante *{visibility:visible}#comprobante{position:fixed;left:0;top:0;width:100%;padding:24px}}';
 
-const EMPTY = { title: 'Aún no has registrado pagos', description: 'Cuando pagues un recibo, el comprobante quedará guardado aquí.', icon: <BanknotesIcon /> };
+const EMPTY = { title: 'Aún no has registrado pagos', description: 'Cuando pagues un mantenimiento, el comprobante quedará guardado aquí.', icon: <BanknotesIcon /> };
 
 export function PagosResidente() {
   const list = useList<PagoResidente>('/api/me/pagos', { pageSize: 10 });
@@ -44,18 +44,18 @@ export function PagosResidente() {
 
   const columns: Column<PagoResidente>[] = [
     { key: 'fecha', header: 'Fecha', cell: p => fechaCorta(p.fecha_pago) },
-    { key: 'concepto', header: 'Concepto', cell: p => <span className="font-medium">{p.concepto?.nombre ?? '—'}</span> },
+    { key: 'concepto', header: 'Mantenimiento', cell: p => <span className="block"><span className="font-medium">{nombrePago(p)}</span>{!p.mantenimiento && <span className="block text-xs text-muted">Pago de un solo concepto</span>}</span> },
     { key: 'unidad', header: 'Unidad', hideBelow: 'lg', cell: p => p.unidad?.codigo ?? '—' },
     { key: 'metodo', header: 'Método', cell: p => metodoLabel(p.metodo_pago) },
     { key: 'referencia', header: 'Referencia', hideBelow: 'lg', cell: p => <span className="num">{p.referencia || '—'}</span> },
-    { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(p.monto)}</span> },
+    { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(montoPago(p))}</span> },
     { key: 'estado', header: 'Estado', cell: p => <span className="flex flex-wrap items-center gap-1.5"><StatusBadge estado={estadoVisible(p.estado_validacion)} /><ValidadoPorIABadge validado={p.validado_por_ia} /></span> },
     { key: 'acciones', header: '', align: 'right', cell: p => <IconButton label={`Ver comprobante del ${fechaCorta(p.fecha_pago)}`} onClick={() => setVer(p)}><DocumentTextIcon className="h-4 w-4" /></IconButton> },
   ];
 
   return (
     <>
-      <PageHeader title="Mis pagos" description="Historial de los pagos que registraste." />
+      <PageHeader title="Mis pagos" description="Un pago por cada mantenimiento que pagaste." />
 
       <div className="md:hidden">
         {list.error ? (
@@ -72,11 +72,11 @@ export function PagosResidente() {
                   <li key={p.id}>
                     <button type="button" onClick={() => setVer(p)} className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-surface2/70">
                       <span className="min-w-0">
-                        <span className="block truncate font-medium">{p.concepto?.nombre ?? 'Pago'}</span>
+                        <span className="block truncate font-medium">{nombrePago(p)}</span>
                         <span className="block text-sm text-muted">{fechaCorta(p.fecha_pago)} · {metodoLabel(p.metodo_pago)}</span>
                       </span>
                       <span className="flex shrink-0 flex-col items-end gap-1">
-                        <span className="num font-semibold">{soles(p.monto)}</span>
+                        <span className="num font-semibold">{soles(montoPago(p))}</span>
                         <StatusBadge estado={estadoVisible(p.estado_validacion)} />
                         <ValidadoPorIABadge validado={p.validado_por_ia} />
                       </span>
@@ -128,12 +128,13 @@ export function PagosResidente() {
           <div id="comprobante">
             <style>{PRINT_CSS}</style>
             <h2 className="mb-4 hidden text-lg font-semibold print:block">Comprobante de pago · House</h2>
-            <p className="num mb-5 text-3xl font-semibold">{soles(ver.monto)}</p>
+            <p className="num mb-5 text-3xl font-semibold">{soles(montoPago(ver))}</p>
             <DefinitionList
               items={[
                 { label: 'N.º de pago', value: <span className="num">{String(ver.id).padStart(6, '0')}</span> },
                 { label: 'Fecha', value: fechaCorta(ver.fecha_pago) },
-                { label: 'Concepto', value: ver.concepto?.nombre },
+                { label: ver.mantenimiento ? 'Mantenimiento' : 'Concepto', value: nombrePago(ver) },
+                ...(ver.mantenimiento ? [{ label: 'Incluye', value: `${ver.mantenimiento.conceptos} conceptos del mes` }] : []),
                 { label: 'Unidad', value: ver.unidad?.codigo },
                 { label: 'Método', value: metodoLabel(ver.metodo_pago) },
                 { label: 'Referencia', value: ver.referencia && <span className="num">{ver.referencia}</span> },
@@ -153,7 +154,7 @@ export function PagosResidente() {
           </div>
         )}
         {estadoIA && <div className="mt-4 print:hidden"><EstadoEvaluacion estado={estadoIA} /></div>}
-        {ver?.estado_validacion === 'rechazado' && <div className="mt-4 print:hidden"><Alert tone="bad">Tu pago fue rechazado: {ver.motivo_rechazo ?? 'sin motivo indicado'}. Vuelve a pagar el recibo desde Mis recibos.</Alert></div>}
+        {ver?.estado_validacion === 'rechazado' && <div className="mt-4 print:hidden"><Alert tone="bad">Tu pago fue rechazado: {ver.motivo_rechazo ?? 'sin motivo indicado'}. Vuelve a pagar el mantenimiento desde Mis recibos.</Alert></div>}
         {ver?.comprobante && (
           <div className="mt-5 print:hidden">
             <ComprobanteVista key={ver.comprobante.created_at} pagoId={ver.id} descripcion={`Comprobante adjunto al pago del ${fechaCorta(ver.fecha_pago)}`} nombre={ver.comprobante.nombre} />
