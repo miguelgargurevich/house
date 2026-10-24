@@ -6,7 +6,7 @@ import { estadoCargo, filtroEstadoCargo, noPagado } from '../lib/cargos';
 import type { AuthUser } from '../middleware/auth';
 import { medioDeUnidades } from '../services/asistente/contexto';
 import { z } from '../validation';
-import { cortar, dato, defineHerramienta, fechaDia, instante, monto, paginacion, pagina, periodoDe, respuesta, sinAcceso } from './base';
+import { MAX_FILAS, cortar, dato, defineHerramienta, fechaDia, instante, monto, paginacion, pagina, periodoDe, respuesta, sinAcceso } from './base';
 
 const RESIDENTE = ['propietario', 'inquilino'] as const;
 const ESTADOS_CARGO = ['pagado', 'pendiente', 'vencido', 'en_revision'] as const;
@@ -59,14 +59,17 @@ export const miDeuda = defineHerramienta({
       }),
       prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [mios, noPagado] }, _sum: { monto: true } }),
     ]);
-    const unidades = await prisma.unidad.findMany({ where: { AND: [unidadesPropias(u), { id: { in: porUnidad.map((g) => g.unidad_id).filter((x): x is number => x != null) } }] }, select: { id: true, codigo: true } });
+    // Las 50 con más deuda (quien tiene muchas unidades no revienta la respuesta); `unidades_con_deuda` dice cuántas hay en total.
+    const mayores = [...porUnidad].sort((a, b) => Number(b._sum.monto ?? 0) - Number(a._sum.monto ?? 0)).slice(0, MAX_FILAS);
+    const unidades = await prisma.unidad.findMany({ where: { AND: [unidadesPropias(u), { id: { in: mayores.map((g) => g.unidad_id).filter((x): x is number => x != null) } }] }, select: { id: true, codigo: true } });
     const codigo = new Map(unidades.map((x) => [x.id, x.codigo]));
     return respuesta({
       deuda_total: monto(deuda._sum.monto),
       cargos_vencidos: vencidos,
       cargos_en_revision: enRevision,
       proximo_vencimiento: proximo ? { fecha: fechaDia(proximo.reciboConcepto?.recibo?.fecha_vencimiento), monto: monto(proximo.monto), concepto: dato(proximo.reciboConcepto?.concepto?.nombre), unidad: dato(proximo.unidad?.codigo, 30) } : null,
-      por_unidad: porUnidad.map((g) => ({ unidad: dato(g.unidad_id == null ? null : codigo.get(g.unidad_id), 30), deuda: monto(g._sum.monto) })),
+      unidades_con_deuda: porUnidad.length,
+      por_unidad: mayores.map((g) => ({ unidad: dato(g.unidad_id == null ? null : codigo.get(g.unidad_id), 30), deuda: monto(g._sum.monto) })),
     });
   },
 });

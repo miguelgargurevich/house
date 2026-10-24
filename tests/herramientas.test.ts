@@ -334,6 +334,42 @@ describe('límites, cursor y entradas inválidas', () => {
       if (!r.ok) assert.equal(r.codigo, 'entrada_invalida');
     }
   });
+  it('mi_deuda con muchas unidades: total correcto, las 50 con más deuda y el conteo; la respuesta cabe entera para el asistente', async () => {
+    const r = await usar(U.prop2, 'mi_deuda');
+    assert.ok(r.ok);
+    if (!r.ok) return;
+    const d = r.datos as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.equal(d.deuda_total, '2520.00'); // 150 + (10 + … + 69)
+    assert.equal(d.unidades_con_deuda, 61);
+    assert.equal(d.por_unidad.length, 50);
+    assert.equal(d.por_unidad[0].deuda, '150.00');
+    assert.ok(!d.truncado, 'no hace falta recortar');
+    assert.ok(JSON.stringify(d).length < 12_000);
+  });
+  it('si la respuesta se recorta por tamaño, el cursor apunta a lo entregado: paginar no pierde ninguna fila', async () => {
+    const vistas: string[] = [];
+    let cursor: string | undefined;
+    for (let i = 0; i < 80; i++) {
+      const r = await ejecutarHerramienta(U.adminA, 'morosos', { limite: 50, ...(cursor ? { cursor } : {}) }, { origen: 'asistente', maxCaracteres: 2500 });
+      assert.ok(r.ok);
+      if (!r.ok) return;
+      const d = r.datos as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      assert.ok(JSON.stringify(d).length <= 2500);
+      vistas.push(...d.filas.map((f: any) => f.unidad)); // eslint-disable-line @typescript-eslint/no-explicit-any
+      if (d.truncado) assert.equal(d.hay_mas, true);
+      cursor = d.siguiente_cursor ?? undefined;
+      if (!cursor) break;
+    }
+    assert.equal(vistas.length, 62);
+    assert.equal(new Set(vistas).size, 62, 'sin repetidas');
+  });
+  it('acotar conserva los totales y recorta las listas, aunque no se llamen «filas»', () => {
+    const grande = { moneda: 'PEN', aviso: 'x', deuda_total: '10.00', por_unidad: Array.from({ length: 50 }, (_, i) => ({ i, t: 'y'.repeat(200) })) };
+    const a = acotar(grande, 3000) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.equal(a.deuda_total, '10.00');
+    assert.equal(a.truncado, true);
+    assert.ok(JSON.stringify(a).length <= 3000 && a.por_unidad.length >= 1 && a.por_unidad.length < 50);
+  });
   it('segunda línea de defensa: aunque la entrada pasara de 50, la paginación nunca pide más de 50 filas (ni menos de 1)', () => {
     assert.deepEqual([pagina({ limite: 5000 }).limite, pagina({ limite: 5000 }).take], [MAX_FILAS, MAX_FILAS + 1]);
     assert.equal(pagina({ limite: -3 }).limite, 1);
@@ -415,5 +451,15 @@ describe('auditoría de cada llamada', () => {
       assert.ok(['mcp', 'asistente'].includes(f.origen) && typeof f.herramienta === 'string');
       assert.ok(!('argumentos' in f) && !('ip' in f) && !('detalle' in f));
     }
+  });
+});
+
+describe('mensajes de error útiles para el modelo', () => {
+  it('limite fuera de rango dice el rango, no «debe ser un número»', async () => {
+    const r = await usar(U.adminA, 'morosos', { limite: 500 });
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.match(r.mensaje, /limite máximo: 50/);
+    const t = await usar(U.adminA, 'morosos', { limite: 'muchos' });
+    if (!t.ok) assert.match(t.mensaje, /limite debe ser un número/);
   });
 });

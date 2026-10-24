@@ -37,7 +37,7 @@ export function defineHerramienta<S extends z.ZodObject>(h: Herramienta<S>): Her
 export const puedeUsar = (h: Pick<Herramienta, 'roles' | 'junta'>, u: AuthUser): boolean => h.roles.includes(u.rol) || (h.junta === true && esJunta(u));
 
 // ---------- Entrada ----------
-export const limiteSchema = z.number({ error: 'limite debe ser un número' }).int().min(1).max(MAX_FILAS).default(20).describe(`Filas por llamada (1–${MAX_FILAS}; por omisión 20).`);
+export const limiteSchema = z.number({ error: (i) => (i.code === 'invalid_type' ? 'limite debe ser un número' : undefined) }).int('limite debe ser un entero').min(1, 'limite mínimo: 1').max(MAX_FILAS, `limite máximo: ${MAX_FILAS}`).default(20).describe(`Filas por llamada (1–${MAX_FILAS}; por omisión 20).`);
 export const cursorSchema = z.string({ error: 'cursor debe ser un texto' }).max(60).optional().describe('Valor `siguiente_cursor` de la respuesta anterior, para ver más filas.');
 export const paginacion = { limite: limiteSchema, cursor: cursorSchema };
 export const periodoSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Usa el formato AAAA-MM (por ejemplo 2026-09)');

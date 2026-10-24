@@ -30,8 +30,9 @@ type Json = Record<string, unknown>;
 
 /** JSON Schema de la entrada, sin `$schema` (lo piden así tanto MCP como los proveedores). */
 function esquemaDe(h: HerramientaAny): Json {
-  const { $schema: _omitido, ...resto } = z.toJSONSchema(h.entrada, { io: 'input', target: 'draft-7' }) as Json;
-  return resto;
+  const esquema = z.toJSONSchema(h.entrada, { io: 'input', target: 'draft-7' }) as Json;
+  delete esquema.$schema;
+  return esquema;
 }
 export const descriptorDe = (h: HerramientaAny): DescriptorHerramienta => ({ name: h.nombre, description: h.descripcion, inputSchema: esquemaDe(h) });
 
@@ -76,21 +77,22 @@ export function depurar(valor: unknown, cuenta = { n: 0 }): { valor: unknown; qu
   return { valor: ir(valor), quitados: cuenta.n };
 }
 
-/** Recorta `filas` (y listas internas) hasta que el JSON quepa en `maxCaracteres`; marca `truncado`. */
-export function acotar(datos: Json, maxCaracteres: number): Json {
-  let s = JSON.stringify(datos);
-  if (s.length <= maxCaracteres) return datos;
-  const copia: Json = { ...datos };
-  let filas = Array.isArray(copia.filas) ? (copia.filas as unknown[]) : null;
-  while (filas && filas.length > 1 && s.length > maxCaracteres) {
-    filas = filas.slice(0, Math.max(1, Math.floor(filas.length / 2)));
-    copia.filas = filas;
-    copia.truncado = true;
-    copia.hay_mas = true;
-    s = JSON.stringify(copia);
+/** Recorta las listas (la más larga primero; `filas` marca `hay_mas`) hasta que el JSON quepa en `maxCaracteres`; marca `truncado`. Los totales y demás campos sueltos se conservan. */
+export function acotar(datos: Json, maxCaracteres: number, desde = 0): Json {
+  if (JSON.stringify(datos).length <= maxCaracteres) return datos;
+  const copia: Json = { ...datos, truncado: true };
+  for (;;) {
+    const s = JSON.stringify(copia);
+    if (s.length <= maxCaracteres) return copia;
+    const mayor = Object.entries(copia).filter((e): e is [string, unknown[]] => Array.isArray(e[1]) && e[1].length > 1).sort((x, y) => JSON.stringify(y[1]).length - JSON.stringify(x[1]).length)[0];
+    if (!mayor) return { moneda: datos.moneda, aviso: datos.aviso, truncado: true, nota: 'El resultado era demasiado grande; acota la consulta con filtros o un `limite` menor.' };
+    copia[mayor[0]] = mayor[1].slice(0, Math.max(1, Math.floor(mayor[1].length / 2)));
+    if (mayor[0] === 'filas') {
+      copia.hay_mas = true;
+      // El cursor apunta a lo que SÍ se entregó, no a las filas recortadas: seguir paginando no pierde ninguna.
+      if ('siguiente_cursor' in datos) copia.siguiente_cursor = `o${desde + (copia.filas as unknown[]).length}`;
+    }
   }
-  if (s.length > maxCaracteres) return { moneda: datos.moneda, aviso: datos.aviso, truncado: true, nota: 'El resultado era demasiado grande; acota la consulta con filtros o un `limite` menor.' };
-  return copia;
 }
 
 // ---------- Ejecución ----------
@@ -142,7 +144,8 @@ export async function ejecutarHerramienta(u: AuthUser, nombre: string, entradaCr
   try {
     const bruto = await h.ejecutar(u, entrada.data);
     const { valor } = depurar(bruto);
-    const datos = acotar(valor as Json, opts.maxCaracteres ?? MAX_CARACTERES[opts.origen]);
+    const desde = typeof (entrada.data as { cursor?: unknown }).cursor === 'string' ? Number(/^o(\d+)$/.exec((entrada.data as { cursor: string }).cursor)?.[1] ?? 0) : 0;
+    const datos = acotar(valor as Json, opts.maxCaracteres ?? MAX_CARACTERES[opts.origen], desde);
     const filas = Array.isArray(datos.filas) ? datos.filas.length : null;
     await auditar('ok', filas);
     return { ok: true, datos, filas, ms: ms() };
