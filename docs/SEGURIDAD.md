@@ -71,6 +71,9 @@ Pantalla `/admin/avisos`, API `/api/notificaciones` y preferencias en el perfil.
 - **Sin duplicados**: `@@unique([usuario_id, canal, tipo, ref_entidad, ref_id])`; encolar es idempotente.
 - **Pendiente / no verificado**: envío real contra Resend y Evolution (solo con `fetch` falso); dominio verificado y SPF/DKIM de `MAIL_FROM`; enlace de baja (hoy el usuario se da de baja desde su perfil); límite de envíos por usuario.
 
+## Cobertura de pruebas del flujo de dinero
+`tests/flujo-dinero.test.ts` recorre emitir → pagar con comprobante → validar/rechazar → morosidad → pago manual con sesión cookie + CSRF reales y fija, además de las cifras: cada vecino recibe 404 (no 403) al pedir cargos o comprobantes de otra unidad, un administrador de otra empresa recibe 404 en recibos, pagos, comprobantes y validación, un vecino recibe 403 en las pantallas de administración, y la auditoría registra emitir/validar/rechazar/subir comprobante sin bytes, base64 ni contraseñas del archivo. Cada una se comprobó rompiendo a propósito el alcance o la auditoría (la prueba se pone roja).
+
 ## Riesgos aceptados
 - Ninguno abierto por ahora. El antiguo «token en `localStorage` / sin revocación» está cerrado por las sesiones de arriba.
 

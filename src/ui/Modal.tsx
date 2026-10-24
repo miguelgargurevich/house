@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { Button, IconButton } from './Button';
@@ -15,14 +15,34 @@ interface ModalProps {
 
 const widths = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' };
 
-/** Diálogo nativo (<dialog>): foco atrapado, Esc y clic fuera cierran. */
+const FOCALIZABLE = 'input:not([type="hidden"]):not(:disabled),select:not(:disabled),textarea:not(:disabled),button:not(:disabled),a[href],[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Diálogo nativo (<dialog>): foco atrapado, Esc y clic fuera cierran.
+ * Al abrir, el foco va al primer control del contenido (o del pie) —no al botón «Cerrar»— salvo que un campo traiga `autoFocus`;
+ * al cerrar, vuelve al elemento que lo abrió.
+ */
 export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const previo = useRef<HTMLElement | null>(null);
+  const id = useId();
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
+    if (open && !d.open) {
+      previo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      d.showModal();
+      if (document.activeElement instanceof HTMLElement && document.activeElement.dataset.modalCerrar !== undefined) {
+        const inicial = d.querySelector<HTMLElement>(`[data-modal-cuerpo] :is(${FOCALIZABLE}), [data-modal-pie] :is(${FOCALIZABLE})`);
+        inicial?.focus();
+      }
+    }
+    if (!open) {
+      if (d.open) d.close();
+      const volver = previo.current;
+      previo.current = null;
+      if (volver?.isConnected) volver.focus();
+    }
   }, [open]);
 
   return (
@@ -30,19 +50,21 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       ref={ref}
       onClose={onClose}
       onClick={e => { if (e.target === ref.current) onClose(); }}
+      aria-labelledby={`${id}-titulo`}
+      aria-describedby={description ? `${id}-desc` : undefined}
       className={`m-auto w-[calc(100%-2rem)] ${widths[size]} rounded-xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-transparent open:animate-[dialog-in_180ms_cubic-bezier(0.22,1,0.36,1)]`}
     >
       {open && (
         <div className="flex max-h-[85vh] flex-col">
           <div className="flex items-start justify-between gap-4 px-6 pt-5">
             <div>
-              <h2 className="text-lg font-semibold">{title}</h2>
-              {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+              <h2 id={`${id}-titulo`} className="text-lg font-semibold">{title}</h2>
+              {description && <p id={`${id}-desc`} className="mt-1 text-sm text-muted">{description}</p>}
             </div>
-            <IconButton label="Cerrar" onClick={onClose} className="-mr-2 -mt-1"><XMarkIcon className="h-5 w-5" /></IconButton>
+            <IconButton label="Cerrar" data-modal-cerrar="" onClick={onClose} className="-mr-2 -mt-1"><XMarkIcon className="h-5 w-5" /></IconButton>
           </div>
-          <div className="overflow-y-auto px-6 py-5">{children}</div>
-          {footer && <div className="flex justify-end gap-2 border-t border-line px-6 py-4">{footer}</div>}
+          <div data-modal-cuerpo="" className="overflow-y-auto px-6 py-5">{children}</div>
+          {footer && <div data-modal-pie="" className="flex justify-end gap-2 border-t border-line px-6 py-4">{footer}</div>}
         </div>
       )}
     </dialog>
