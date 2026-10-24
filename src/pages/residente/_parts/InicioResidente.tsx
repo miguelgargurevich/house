@@ -23,7 +23,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
   const { user } = useAuth();
   const toast = useToast();
   const resumen = useResource<Resumen>('/api/dashboard/resumen');
-  const pendientes = useList<Mantenimiento>('/api/me/mantenimientos', { pageSize: 3, params: { estado: 'pendiente,parcial', orden: 'vencimiento:asc' } });
+  const pendientes = useList<Mantenimiento>('/api/me/mantenimientos', { pageSize: 3, params: { estado: 'vencido,pendiente,parcial', orden: 'vencimiento:asc' } });
   const [pagando, setPagando] = useState<Mantenimiento | null>(null);
   const [viendo, setViendo] = useState<Mantenimiento | null>(null);
   const [abriendo, setAbriendo] = useState(false);
@@ -96,7 +96,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
               )}
               <Card>
                 <CardHeader
-                  title="Próximos mantenimientos"
+                  title="Mantenimientos por pagar"
                   action={<Link to={`${base}/cargos`} className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline">Ver todos <ArrowRightIcon className="h-4 w-4" /></Link>}
                 />
                 {pendientes.error ? (
@@ -104,7 +104,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
                 ) : pendientes.loading ? (
                   <div className="space-y-3 p-4"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
                 ) : proximos.length === 0 ? (
-                  <p className="p-5 text-sm text-muted">No tienes mantenimientos pendientes por vencer.</p>
+                  <p className="p-5 text-sm text-muted">No tienes mantenimientos por pagar.</p>
                 ) : (
                   <div className="divide-y divide-line">
                     {proximos.map(m => <MantenimientoItem key={`${m.recibo_id}-${m.unidad_id}`} mant={m} onPagar={setPagando} onVer={setViendo} />)}

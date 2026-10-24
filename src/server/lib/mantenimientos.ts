@@ -249,8 +249,9 @@ export async function resumenPorBlock(reciboId: number, hoy = hoyLima()): Promis
     JOIN "Recibo" r ON r.id = m.recibo_id
     JOIN "Unidad" u ON u.id = m.unidad_id
     LEFT JOIN "Estructura" e ON e.id = u.estructura_id
-    GROUP BY u.estructura_id, e.nombre
-    ORDER BY e.nombre ASC NULLS LAST, u.estructura_id ASC`;
+    GROUP BY u.estructura_id, e.nombre`;
+  // «Block 2» antes que «Block 10» (orden natural); las unidades sin block, al final.
+  filas.sort((a, b) => (a.nombre == null ? 1 : b.nombre == null ? -1 : a.nombre.localeCompare(b.nombre, 'es', { numeric: true })) || (a.estructura_id ?? 0) - (b.estructura_id ?? 0));
   return filas.map((f) => {
     const emitido = dec(f.emitido);
     return {

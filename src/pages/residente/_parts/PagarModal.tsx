@@ -82,13 +82,14 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
         <Button onClick={onClose}>Listo</Button>
       ) : paso === 'como' ? (
         <>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => setPaso('registrar')}>Ya pagué: registrar comprobante</Button>
+          <Button key="cancelar" variant="secondary" onClick={onClose}>Cancelar</Button>
+          {/* `key` distinto al de «Confirmar pago»: si React reutilizara este botón y le cambiara el tipo a «submit» durante el clic, el formulario se enviaría solo. */}
+          <Button key="ya-pague" onClick={() => setPaso('registrar')}>Ya pagué: registrar comprobante</Button>
         </>
       ) : (
         <>
-          <Button variant="secondary" onClick={() => setPaso('como')}>Ver cómo pagar</Button>
-          <Button type="submit" form="form-pago" loading={isSubmitting}>Confirmar pago</Button>
+          <Button key="ver-como" variant="secondary" onClick={() => setPaso('como')}>Ver cómo pagar</Button>
+          <Button key="confirmar" type="submit" form="form-pago" loading={isSubmitting}>Confirmar pago</Button>
         </>
       )}
     >

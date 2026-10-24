@@ -138,6 +138,10 @@ describe('endurecimiento HTTP', () => {
     const r = await llamar(base, 'GET', '/api/auth/me');
     assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
     assert.ok(r.headers.get('content-security-policy'));
+    // los comprobantes y los QR se muestran como `blob:` (se descargan con la sesión): la CSP debe dejarlos pasar, y sólo a las imágenes
+    const csp = r.headers.get('content-security-policy') ?? '';
+    assert.match(csp, /img-src 'self' data: blob:/);
+    assert.ok(!/script-src[^;]*blob:/.test(csp), 'blob: sólo para imágenes');
     assert.equal(r.headers.get('x-powered-by'), null);
   });
 

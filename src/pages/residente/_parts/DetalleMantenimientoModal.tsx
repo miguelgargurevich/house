@@ -20,7 +20,7 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
     <>
       <Modal
         open={mant !== null && !imprimiendo}
-        onClose={onClose}
+        onClose={() => { if (!imprimiendo) onClose(); /* al pasar al recibo, el diálogo se cierra solo: no es salir */ }}
         size="lg"
         title={mant ? mant.titulo.split(' · ')[0]! : 'Mantenimiento'}
         description={mant ? `Departamento ${mant.unidad.codigo}${mant.unidad.estructura?.nombre ? ` · ${mant.unidad.estructura.nombre}` : ''}` : undefined}

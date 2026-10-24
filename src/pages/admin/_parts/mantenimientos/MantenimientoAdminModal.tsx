@@ -59,7 +59,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
     <>
       <Modal
         open={!imprimiendo && pago === null}
-        onClose={onClose}
+        onClose={() => { if (!imprimiendo && pago === null) onClose(); /* al pasar al recibo o al pago, el diálogo se cierra solo: no es salir */ }}
         size="lg"
         title={d ? d.titulo.split(' · ')[0]! : 'Recibo de departamento'}
         description={d ? `Departamento ${d.unidad.codigo}${d.unidad.estructura?.nombre ? ` · ${d.unidad.estructura.nombre}` : ''}${d.propietario ? ` · ${d.propietario.nombre}` : ''}` : undefined}

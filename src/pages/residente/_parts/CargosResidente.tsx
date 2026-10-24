@@ -14,7 +14,7 @@ import { Pager } from './Pager';
 type Pestana = 'por_pagar' | 'vencido' | 'en_revision' | 'pagado';
 
 const TABS: { id: Pestana; label: string; estados: string }[] = [
-  { id: 'por_pagar', label: 'Por pagar', estados: 'pendiente,parcial' },
+  { id: 'por_pagar', label: 'Por pagar', estados: 'pendiente,parcial,vencido' },
   { id: 'vencido', label: 'Vencidos', estados: 'vencido' },
   { id: 'en_revision', label: 'En revisión', estados: 'en_revision' },
   { id: 'pagado', label: 'Pagados', estados: 'pagado' },

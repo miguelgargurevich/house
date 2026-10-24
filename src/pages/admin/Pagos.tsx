@@ -50,21 +50,24 @@ export default function Pagos() {
     { key: 'mant', header: 'Mantenimiento', cell: p => (
       <span className="block min-w-0">
         <span className="block font-medium">{p.mantenimiento ? p.mantenimiento.titulo.split(' · ')[0] : p.concepto?.nombre ?? 'Pago'}</span>
-        <span className="block text-xs text-muted"><span className="num">{p.unidad?.codigo ?? '—'}</span>{p.mantenimiento ? ` · ${p.mantenimiento.conceptos} conceptos` : ' · un solo concepto'}</span>
+        <span className="block text-xs text-muted">
+          <span className="num">{p.unidad?.codigo ?? '—'}</span>{p.mantenimiento ? ` · ${p.mantenimiento.conceptos} conceptos` : ' · un solo concepto'}
+          {p.usuario?.nombre && <span className="hidden 2xl:inline"> · {p.usuario.nombre}</span>}
+        </span>
       </span>
     ) },
-    { key: 'usuario', header: 'Pagó', hideBelow: 'xl', cell: p => p.usuario?.nombre ?? '—' },
     { key: 'metodo', header: 'Método', hideBelow: 'lg', cell: p => (
       <span className="block"><Badge>{metodoLabel(p.metodo_pago)}</Badge>{p.referencia && <span className="num mt-1 block text-xs text-muted">{p.referencia}</span>}</span>
     ) },
     ...(pestana === 'rechazado' ? [{ key: 'motivo', header: 'Motivo', hideBelow: 'md' as const, cell: (p: PagoFila) => <span className="text-muted">{p.motivo_rechazo ?? '—'}</span> }] : []),
-    { key: 'comprobante', header: 'Comprobante', hideBelow: 'md', cell: p => (
-      p.comprobante
-        ? <span className="block"><Badge tone="info">Adjunto</Badge>{pestana === 'por_validar' && <span className="mt-1 block"><VeredictoBadge evaluacion={p.evaluacion} /></span>}</span>
-        : <span className="text-muted">Sin archivo</span>
-    ) },
     { key: 'monto', header: 'Total', align: 'right', cell: p => <span className="num whitespace-nowrap font-medium">{soles(monto(p))}</span> },
-    { key: 'estado', header: 'Estado', cell: p => <span className="flex flex-wrap items-center gap-1.5"><StatusBadge estado={p.estado_validacion} />{p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}</span> },
+    { key: 'estado', header: 'Estado', cell: p => (
+      <span className="flex flex-col items-start gap-1">
+        <StatusBadge estado={p.estado_validacion} />
+        {p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}
+        {pestana === 'por_validar' && (p.comprobante ? <VeredictoBadge evaluacion={p.evaluacion} /> : <span className="text-xs text-muted">Sin comprobante</span>)}
+      </span>
+    ) },
     { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },
   ];
 

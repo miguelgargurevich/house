@@ -512,6 +512,7 @@ describe('compatibilidad: pagos sueltos por cargo', () => {
 describe('administración: periodo agrupado por block y recibos de departamento', () => {
   let c2: { id: number; empresa_id: number | null };
   let b1: { id: number }, b2: { id: number };
+  let b2Id = 0;
   let rec: Mant[];
   let reciboId: number;
 
@@ -520,6 +521,7 @@ describe('administración: periodo agrupado por block y recibos de departamento'
     c2 = complejo;
     b1 = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'block', complejo_id: complejo.id } });
     b2 = await prisma.estructura.create({ data: { nombre: 'Block 2', tipo: 'block', complejo_id: complejo.id } });
+    b2Id = b2.id;
     const unidades = [];
     for (const [i, est] of [[1, b1], [2, b1], [3, b1], [4, b2], [5, b2]] as const) {
       unidades.push(await prisma.unidad.create({ data: { codigo: `BL-${i}`, tipo: 'departamento', complejo_id: complejo.id, empresa_id: d.empresaA.id, estructura_id: est.id, propietario_id: d.propietario2.id, estado: 'activa' } }));
@@ -587,6 +589,30 @@ describe('administración: periodo agrupado por block y recibos de departamento'
     }
     assert.equal((await llamar(base, 'GET', `/api/recibos/${reciboId}/mantenimientos?estado=nada`, T.adminA)).status, 422);
     assert.equal((await llamar(base, 'GET', `/api/recibos/${reciboId}/mantenimientos?orden=hack:asc`, T.adminA)).status, 422);
+  });
+
+  it('morosidad: cada unidad trae su block y se filtra por block', async () => {
+    const todas = await llamar(base, 'GET', '/api/reportes/morosidad?pageSize=100&q=BL-', T.adminA);
+    assert.deepEqual(todas.body.items.map((x: any) => [x.unidad.codigo, x.estructura?.nombre]).sort(), [['BL-2', 'Block 1'], ['BL-3', 'Block 1'], ['BL-5', 'Block 2']]); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const b2 = await llamar(base, 'GET', `/api/reportes/morosidad?pageSize=100&estructura_id=${b2Id}`, T.adminA);
+    assert.deepEqual(b2.body.items.map((x: any) => x.unidad.codigo), ['BL-5']); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.equal((await llamar(base, 'GET', `/api/reportes/morosidad?estructura_id=${b2Id}`, T.adminB)).body.total, 0, 'otra empresa: nada');
+    assert.equal((await llamar(base, 'GET', '/api/reportes/morosidad?estructura_id=abc', T.adminA)).status, 422);
+  });
+
+  it('los blocks salen en orden natural (Block 2 antes que Block 10) y las unidades sin block al final', async () => {
+    const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Orden natural', tipo: 'condominio', empresa_id: d.empresaA.id } });
+    const recibo = await prisma.recibo.create({ data: { empresa_id: d.empresaA.id, complejo_id: c.id, mes: 3, anio: 2026, fecha_emision: new Date(HOY - 60 * DIA), fecha_vencimiento: new Date(HOY + 5 * DIA), estado: 'emitido' } });
+    const concepto = await prisma.concepto.create({ data: { nombre: 'Agua', empresa_id: d.empresaA.id } });
+    const rc = await prisma.reciboConcepto.create({ data: { recibo_id: recibo.id, concepto_id: concepto.id, monto: 10, orden: 1 } });
+    for (const nombre of ['Block 10', 'Block 2', 'Block 1', null]) {
+      const est = nombre ? await prisma.estructura.create({ data: { nombre, tipo: 'block', complejo_id: c.id } }) : null;
+      const u = await prisma.unidad.create({ data: { codigo: `ON-${nombre ?? 'x'}`, tipo: 'departamento', complejo_id: c.id, empresa_id: d.empresaA.id, estructura_id: est?.id, estado: 'activa' } });
+      await prisma.reciboConceptoUnidad.create({ data: { recibo_concepto_id: rc.id, unidad_id: u.id, monto: 10, estado_pago: 'pendiente' } });
+    }
+    const r = await llamar(base, 'GET', `/api/recibos/${recibo.id}/blocks`, T.adminA);
+    assert.deepEqual(r.body.blocks.map((b: { nombre: string }) => b.nombre), ['Block 1', 'Block 2', 'Block 10', 'Sin block']);
+    assert.equal(r.body.agrupado, true);
   });
 
   it('con un solo block, o sin blocks (casas), no se agrupa: va directo a la lista de departamentos', async () => {
