@@ -4,6 +4,27 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/sesion-cookie`
+
+**Qué se hizo:** sesiones de servidor con cookie httpOnly + CSRF + revocación (cierra el riesgo aceptado del token en `localStorage`).
+- Esquema: modelo `Sesion` al final de `prisma/schema.prisma` (+ relación `sesiones` en `Usuario`). Aditivo.
+- Backend: `services/sesiones.ts` (crear/buscar/revocar/limpiar, cookie, CSRF, reloj inyectable `sesionDeps.ahora`), `middleware/auth.ts` (`authenticate` solo cookie; CSRF + Origin en mutaciones), `routes/auth.ts` (login → `{user, csrf}`; `/me` con `csrf`; `logout`, `sesiones`, `sesiones/:id`, `sesiones/cerrar-otras`), `me.ts` (cambiar contraseña revoca las demás), `usuarios.ts` + nuevo hook `afterUpdate` en `crud.ts` (cambio de rol/contraseña revoca). Se quitó JWT de login/auth y `JWT_EXPIRES_IN`; `JWT_SECRET` sigue exigido en producción pero ya no firma nada. `server.ts` arranca la limpieza horaria (`SESIONES_LIMPIEZA=off` la apaga; `tests/helpers/env.ts` la apaga).
+- Frontend: `api.ts` (sin `tokenStore`; `csrfStore` en memoria; `credentials: 'same-origin'`; `X-CSRF-Token` en mutaciones), `AuthContext` (pregunta a `/api/auth/me` al arrancar; logout llama al endpoint), `pages/shared/SesionesActivas.tsx` en «Mi perfil».
+- Pruebas: `tests/helpers/app.ts` — `login()` sigue devolviendo un string (`<cookie>.<csrf>`) que `llamar()` convierte en cookie + `X-CSRF-Token`, así las pruebas existentes no cambian. Nuevo `tests/sesiones.test.ts`; en `tests/seguridad.test.ts` se reescribieron los casos de JWT manipulado.
+- Docs: `SEGURIDAD.md` (sección «Sesiones», riesgo cerrado) y `API-CONTRATO.md`.
+
+**Cómo verificar:** `npm test` · `npx tsc -b` · `npx tsc -p tests/tsconfig.json --noEmit` · `npm run build`.
+
+**Gotchas**
+- `node_modules` es compartido entre worktrees: `prisma generate` de una sesión pisa el cliente de las otras (le pasó a esta rama: el cliente se quedó sin `Sesion` al generar la rama `avisos`). Antes de verificar, regenera con el esquema de la rama integrada.
+- Tras desplegar, todos los usuarios deben volver a iniciar sesión (los JWT viejos ya no valen).
+- Editar tu propia contraseña/rol desde «Usuarios» también cierra tu sesión.
+- Con otro origen en `CORS_ORIGIN` la cookie `SameSite=Lax` no viaja en peticiones cross-site; el modo soportado es mismo origen (el proxy de Vite en desarrollo).
+
+**Próximos pasos:** retirar `JWT_SECRET` (config, `.env.example`, tests) en un cambio aparte; opcional: tope de sesiones por usuario.
+
+---
+
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/llavero-rotacion`
 
 **Qué se hizo:** varias claves por proveedor + rotación de claves y de proveedores en el asistente (versión ligera de `providerCooldown`/cascada de My Workspace).
