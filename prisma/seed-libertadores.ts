@@ -301,6 +301,9 @@ async function limpiar() {
   await prisma.recibo.deleteMany({});
   await prisma.concepto.deleteMany({});
   await prisma.tareaMantenimiento.deleteMany({});
+  await prisma.proveedorComplejo.deleteMany({});
+  await prisma.proveedor.deleteMany({});
+  await prisma.contratoAdministracion.deleteMany({});
   await prisma.medioPago.deleteMany({});
   await prisma.mensajeIA.deleteMany({});
   await prisma.conversacionIA.deleteMany({});
@@ -321,8 +324,18 @@ async function main() {
   const empresa = await prisma.empresaAdministradora.create({
     data: { nombre: 'Gestión Urbana SAC', ruc: '20123456789', direccion: 'Av. Javier Prado 1234, Lima', telefono: '012345678', email: 'contacto@gestionurbana.com', representante_legal: 'Rosa Benavides', estado: 'activa' },
   });
+  const empresaAnterior = await prisma.empresaAdministradora.create({
+    data: { nombre: 'Servicios del Edificio SAC', ruc: '20987654321', direccion: 'Av. Arequipa 800, Lince, Lima', telefono: '013456789', email: 'admin@serviciosededificio.com', representante_legal: 'Carlos Mendoza', estado: 'activa' },
+  });
   const complejo = await prisma.complejoHabitacional.create({
     data: { nombre: 'Condominio Los Libertadores de Surco', tipo: 'condominio', direccion: 'Av. Libertadores 1500, Santiago de Surco, Lima', empresa_id: empresa.id, descripcion: '14 blocks de 8 pisos con 4 departamentos por piso (448 unidades), áreas verdes y zona de juegos.' },
+  });
+  // Contrato de administración: Gestión Urbana SAC es la vigente desde 2024; Servicios del Edificio SAC fue la anterior (cerrada).
+  await prisma.contratoAdministracion.create({
+    data: { complejo_id: complejo.id, empresa_id: empresaAnterior.id, fecha_inicio: new Date('2022-01-01'), fecha_fin: new Date('2024-02-29'), observaciones: 'Contrato anterior, cerrado al cambiar de administradora.' },
+  });
+  await prisma.contratoAdministracion.create({
+    data: { complejo_id: complejo.id, empresa_id: empresa.id, fecha_inicio: new Date('2024-03-01'), observaciones: 'Contrato vigente desde marzo de 2024.' },
   });
 
   // Personal (cuentas de prueba del Login, mismas contraseñas).
@@ -331,6 +344,8 @@ async function main() {
     { nombre: 'Ana López', email: 'ana.lopez@gestionurbana.com', telefono: '987654324', rol: 'admin', password: 'admin1234', conEmpresa: true },
     { nombre: 'Pedro Sánchez', email: 'pedro.sanchez@gestionurbana.com', telefono: '987654325', rol: 'seguridad', password: 'seg1234', conEmpresa: true },
     { nombre: 'María Fernández', email: 'maria.fernandez@gestionurbana.com', telefono: '987654326', rol: 'mantenimiento', password: 'mtto1234', conEmpresa: true },
+    { nombre: 'Lucía Rojas', email: 'limpieza@prueba.house', telefono: '987654327', rol: 'limpieza', password: 'pers1234', conEmpresa: true },
+    { nombre: 'Carlos Quispe', email: 'jardineria@prueba.house', telefono: '987654328', rol: 'jardineria', password: 'pers1234', conEmpresa: true },
   ];
   const staff = await prisma.usuario.createManyAndReturn({
     data: await Promise.all(
@@ -395,6 +410,24 @@ async function main() {
   const unidadId = new Map(unidadesDb.map((u) => [u.codigo, u.id]));
   const idU = (u: Plan) => unidadId.get(u.codigo)!;
   const pagadorDe = (u: Plan) => idPersona(u.inquilinoKey ?? u.duenoKey);
+
+  // Proveedores del directorio de Gestión Urbana SAC, asignados al condominio.
+  const proveedores = await prisma.proveedor.createManyAndReturn({
+    data: [
+      { razon_social: 'Ascensores del Sur SAC', ruc: '20111111111', rubro: 'ascensores', contacto_nombre: 'Renato Huamaní', telefono: '991112233', email: 'servicio@ascensoresdelsur.com.pe', notas: 'Mantenimiento mensual de ascensores Blocks 1-7.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Tuberías Lima EIRL', ruc: '20222222222', rubro: 'gasfiteria', contacto_nombre: 'Sandra Cáceres', telefono: '992223344', email: 'contacto@tuberiaslima.com.pe', notas: 'Reparación de filtraciones y cambio de grifería.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Pinturas Andina SAC', ruc: '20333333333', rubro: 'pintura', contacto_nombre: 'Miguel Quispe', telefono: '993334455', email: 'ventas@pinturasandina.com.pe', notas: 'Pintura de áreas comunes y pasillos.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Eléctrica Central SAC', ruc: '20444444444', rubro: 'electricidad', contacto_nombre: 'Luis Torres', telefono: '994445566', email: 'luis@electricacentral.com.pe', notas: 'Mantenimiento de luminarias y tableros eléctricos.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Jardines del Sur', ruc: '20555555555', rubro: 'jardineria', contacto_nombre: 'Rosa Condori', telefono: '995556677', email: 'rosa@jardinesdelsur.com.pe', notas: 'Jardinería y limpieza de áreas verdes.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Fumigación Rápida EIRL', ruc: '20666666666', rubro: 'fumigacion', contacto_nombre: 'Jorge Valdivia', telefono: '996667788', email: 'jvaldivia@fumigacionrapida.com.pe', notas: 'Control de plagas cada trimestre.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Cerraduras Lima', ruc: '20777777777', rubro: 'cerrajeria', contacto_nombre: 'Patricia Salas', telefono: '997778899', email: 'patricia@cerraduraslima.com.pe', notas: 'Cambio de cerraduras y cerrajería de emergencia.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Servicios Generales del Centro SAC', ruc: '20888888888', rubro: 'limpieza', contacto_nombre: 'Martha Paredes', telefono: '998889900', email: 'martha@serviciosgenerales.com.pe', notas: 'Limpieza profunda de áreas comunes.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Carpintería San Borja', ruc: '20999999999', rubro: 'carpinteria', contacto_nombre: 'Fernando Espinoza', telefono: '999990011', email: 'fespinoza@carpenteria.com.pe', notas: 'Reparación de puertas y muebles de áreas comunes.', activo: true, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+      { razon_social: 'Multiservicios Norte', ruc: '20000000001', rubro: 'otros', contacto_nombre: 'Doris Flores', telefono: '990001122', email: 'dflores@multiserviciosnorte.com.pe', notas: 'Otros servicios varios.', activo: false, empresa_id: empresa.id, complejos: { create: { complejo_id: complejo.id } } },
+    ],
+    select: { id: true, razon_social: true },
+  });
+  const idProveedor = (razon: string) => proveedores.find((p) => p.razon_social === razon)!.id;
   const juntaDe = (b: number) => personas.filter((p) => p.cargo_junta && p.estructura_id === blockId(b)).map((p) => p.id!);
 
   // Medios de pago: cuenta del condominio + Yape/Plin del tesorero en varios blocks.
@@ -562,19 +595,21 @@ async function main() {
   console.log(`Pagos del mantenimiento (grupos): ${grupos} · pagos sueltos por cargo (antiguos): ${sueltos}`);
 
   // Tareas de mantenimiento.
-  const tarea = (titulo: string, descripcion: string, estado: string, u: Plan, creada: Date, cierre?: Date): Prisma.TareaMantenimientoCreateManyInput => ({
-    titulo, descripcion, estado, unidad_id: idU(u), asignado_id: mtto, creado_por_id: ana, fecha_creacion: creada, fecha_cierre: cierre ?? null,
+  const tarea = (titulo: string, descripcion: string, estado: string, u: Plan, creada: Date, cierre?: Date, proveedorId?: number): Prisma.TareaMantenimientoCreateManyInput => ({
+    titulo, descripcion, estado, unidad_id: idU(u), asignado_id: proveedorId ? null : mtto, proveedor_id: proveedorId ?? null, creado_por_id: ana, fecha_creacion: creada, fecha_cierre: cierre ?? null,
   });
   await prisma.tareaMantenimiento.createMany({
     data: [
-      tarea('Reparación del ascensor — Block 7', 'El ascensor principal del Block 7 se detiene entre pisos; se cambia el tablero de control.', 'completada', porCodigo.get('B07-101')!, utc(2026, 2, 20), utc(2026, 3, 18)),
+      tarea('Reparación del ascensor — Block 7', 'El ascensor principal del Block 7 se detiene entre pisos; se cambia el tablero de control.', 'completada', porCodigo.get('B07-101')!, utc(2026, 2, 20), utc(2026, 3, 18), idProveedor('Ascensores del Sur SAC')),
       tarea('Cambio de bomba de agua', 'La bomba de la cisterna central falló; se reemplaza por una de 5 HP.', 'completada', porCodigo.get('B04-101')!, utc(2026, 7, 28), utc(2026, 8, 14)),
-      tarea('Cambio de luminarias LED', 'Reemplazo de luminarias de los pasillos del Block 1 y Block 2.', 'completada', porCodigo.get('B01-101')!, utc(2026, 5, 6), utc(2026, 5, 12)),
-      tarea('Ascensor del Block 3 con ruido al subir', 'Vecinos reportan ruido metálico entre los pisos 4 y 5. Pendiente de la visita técnica.', 'en_progreso', porCodigo.get('B03-401')!, utc(2026, 10, 12)),
-      tarea('Luminaria del pasillo del piso 6 apagada', 'Block 9, piso 6: dos luminarias no encienden.', 'pendiente', porCodigo.get('B09-601')!, utc(2026, 10, 19)),
-      tarea('Limpieza de la cisterna', 'Limpieza y desinfección anual de la cisterna del condominio.', 'pendiente', porCodigo.get('B14-101')!, utc(2026, 10, 21)),
-      tarea('Portón vehicular no cierra del todo', 'El sensor del portón de la entrada principal se descalibra con lluvia.', 'en_progreso', porCodigo.get('B02-101')!, utc(2026, 10, 8)),
-      tarea('Reparación de filtración en la azotea', 'Filtración en la azotea del Block 11; se llega a los departamentos del piso 8.', 'pendiente', porCodigo.get('B11-801')!, utc(2026, 10, 22)),
+      tarea('Cambio de luminarias LED', 'Reemplazo de luminarias de los pasillos del Block 1 y Block 2.', 'completada', porCodigo.get('B01-101')!, utc(2026, 5, 6), utc(2026, 5, 12), idProveedor('Eléctrica Central SAC')),
+      tarea('Ascensor del Block 3 con ruido al subir', 'Vecinos reportan ruido metálico entre los pisos 4 y 5. Pendiente de la visita técnica.', 'en_progreso', porCodigo.get('B03-401')!, utc(2026, 10, 12), idProveedor('Ascensores del Sur SAC')),
+      tarea('Luminaria del pasillo del piso 6 apagada', 'Block 9, piso 6: dos luminarias no encienden.', 'pendiente', porCodigo.get('B09-601')!, utc(2026, 10, 19), idProveedor('Eléctrica Central SAC')),
+      tarea('Limpieza de la cisterna', 'Limpieza y desinfección anual de la cisterna del condominio.', 'pendiente', porCodigo.get('B14-101')!, utc(2026, 10, 21), idProveedor('Servicios Generales del Centro SAC')),
+      tarea('Portón vehicular no cierra del todo', 'El sensor del portón de la entrada principal se descalibra con lluvia.', 'en_progreso', porCodigo.get('B02-101')!, utc(2026, 10, 8), idProveedor('Cerraduras Lima')),
+      tarea('Reparación de filtración en la azotea', 'Filtración en la azotea del Block 11; se llega a los departamentos del piso 8.', 'pendiente', porCodigo.get('B11-801')!, utc(2026, 10, 22), idProveedor('Tuberías Lima EIRL')),
+      tarea('Pintura de pasillos del Block 1', 'Repintado de los pasillos y zonas de paso del primer block.', 'pendiente', porCodigo.get('B01-101')!, utc(2026, 10, 23), idProveedor('Pinturas Andina SAC')),
+      tarea('Fumigación trimestral', 'Control de plagas en áreas verdes y cuartos de basura.', 'pendiente', porCodigo.get('B14-101')!, utc(2026, 10, 24), idProveedor('Fumigación Rápida EIRL')),
     ],
   });
 
@@ -606,7 +641,7 @@ async function main() {
   }
   for (const lote of trozos(avisos, 500)) await prisma.notificacion.createMany({ data: lote, skipDuplicates: true });
 
-  await resumen(t0, { cargos: cargos.length, pagos: pagos.length, comprobantes: comprobantes.length, avisos: avisos.length, tareas: 8, medios: medios.length });
+  await resumen(t0, { cargos: cargos.length, pagos: pagos.length, comprobantes: comprobantes.length, avisos: avisos.length, tareas: 10, medios: medios.length, proveedores: proveedores.length, contratos: 2 });
 }
 
 async function resumen(t0: number, extra: Record<string, number>) {
@@ -628,10 +663,10 @@ async function resumen(t0: number, extra: Record<string, number>) {
   const soles = (v: Prisma.Decimal) => solesTexto(v);
   console.log('\n══ Seed Los Libertadores de Surco ══');
   console.log(`Unidades: ${r!.unidades} (14 blocks × 8 pisos × 4) · Recibos: ${r!.recibos} · Cargos: ${extra.cargos} · Pagos: ${extra.pagos} (${r!.por_validar} mantenimientos/pagos por validar, con comprobante)`);
-  console.log(`Propietarios: ${r!.propietarios} · Inquilinos: ${r!.inquilinos} · Medios de pago: ${extra.medios} · Tareas: ${extra.tareas} · Avisos: ${extra.avisos}`);
+  console.log(`Propietarios: ${r!.propietarios} · Inquilinos: ${r!.inquilinos} · Medios de pago: ${extra.medios} · Tareas: ${extra.tareas} · Avisos: ${extra.avisos} · Proveedores: ${extra.proveedores} · Contratos: ${extra.contratos}`);
   console.log(`Emitido: ${soles(r!.emitido)} · Cobrado (validado): ${soles(r!.cobrado)} · Por cobrar (incluye en revisión): ${soles(r!.por_cobrar)} · Vencido impago: ${soles(r!.vencido)}`);
   console.log(`Unidades morosas (con cargos vencidos): ${r!.morosos}`);
-  console.log(`Hecho en ${((Date.now() - t0) / 1000).toFixed(1)} s. Cuentas: miguel@prueba.house / prop1234 (presidente del Block 1, B01-804); ana.lopez@gestionurbana.com / admin1234.\n`);
+  console.log(`Hecho en ${((Date.now() - t0) / 1000).toFixed(1)} s. Cuentas: miguel@prueba.house / prop1234 (presidente del Block 1, B01-804); ana.lopez@gestionurbana.com / admin1234; limpieza@prueba.house / pers1234; jardineria@prueba.house / pers1234.\n`);
 }
 
 main()
