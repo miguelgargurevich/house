@@ -18,7 +18,9 @@ let T: { super: string; adminA: string; prop1: string };
 
 type Llamada = { url: string; init: RequestInit };
 let llamadas: Llamada[] = [];
-let respuestaFalsa: (url: string, init: RequestInit) => Response | Promise<Response> = () => new Response('{}', { status: 200 });
+// Por omisión responde a todo bien: lista de modelos (`GET /models`, de ambos tipos) y una respuesta de chat.
+const todoOk = () => new Response(JSON.stringify({ data: [{ id: 'm-test' }], models: [{ name: 'models/m-test', supportedGenerationMethods: ['generateContent'] }], choices: [{ message: { content: 'ok' } }], candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
+let respuestaFalsa: (url: string, init: RequestInit) => Response | Promise<Response> = todoOk;
 const fetchOriginal = llaveroDeps.fetch;
 const cabecera = (l: Llamada, nombre: string) => (l.init.headers as Record<string, string>)[nombre];
 
@@ -59,7 +61,7 @@ beforeEach(async () => {
   olvidarTodoUso();
   llamadas = [];
   logs.length = 0;
-  respuestaFalsa = () => new Response('{}', { status: 200 });
+  respuestaFalsa = todoOk;
   espiar();
 });
 afterEach(restaurarConsola);
@@ -233,13 +235,21 @@ describe('probar', () => {
     assert.equal(rg.body.estado, 'ok');
     assert.ok(rg.body.probada_at);
     await llamar(base, 'POST', `/api/llavero/${o.body.id}/probar`, T.super);
+    // Cada prueba hace DOS llamadas: la lista de modelos y UNA consulta mínima de chat.
     assert.equal(llamadas[0].url, 'https://generativelanguage.googleapis.com/v1beta/models');
     assert.equal(cabecera(llamadas[0], 'x-goog-api-key'), KEY);
     assert.equal(llamadas[0].init.method, 'GET');
     assert.equal(llamadas[0].init.redirect, 'manual');
     assert.ok(llamadas[0].init.signal);
-    assert.equal(llamadas[1].url, 'https://api.openai.com/v1/models');
-    assert.equal(cabecera(llamadas[1], 'Authorization'), `Bearer ${KEY2}`);
+    assert.equal(llamadas[1].url, 'https://generativelanguage.googleapis.com/v1beta/models/m-test:generateContent');
+    assert.equal(llamadas[1].init.method, 'POST');
+    assert.equal(llamadas.length, 4);
+    assert.equal(llamadas[2].url, 'https://api.openai.com/v1/models');
+    assert.equal(cabecera(llamadas[2], 'Authorization'), `Bearer ${KEY2}`);
+    const chat = JSON.parse(llamadas[3].init.body as string);
+    assert.equal(llamadas[3].url, 'https://api.openai.com/v1/chat/completions');
+    assert.equal(chat.model, 'm-test', 'prueba con el modelo de la lista viva, no con un nombre fijo');
+    assert.equal(chat.max_completion_tokens, 8, 'consulta mínima');
   });
 
   it('error: 401/403, 429, redirección, 500, timeout y red; el detalle no filtra la clave ni el cuerpo', async () => {

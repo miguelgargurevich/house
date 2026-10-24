@@ -239,11 +239,10 @@ export async function llamarProveedor(e: Eslabon, modelo: string, turno: Turno, 
 /** Consulta mínima de chat (≈ 8 tokens, 10 s): la usan la «Prueba», la recuperación de claves rechazadas y el canary. */
 export const TOPE_CONSULTA_MINIMA_MS = 10_000;
 export async function consultaMinima(e: Eslabon, modelo: string, signal?: AbortSignal): Promise<Completa | Fallo> {
-  const s = await llamarProveedor(
-    e,
-    modelo,
-    { sistema: 'Responde con una sola palabra.', mensajes: [{ rol: 'user', texto: 'Di ok.' }] },
-    { parametros: { temperature: 0, maxTokens: 8, topP: 1, topK: 1 }, esfuerzo: 'low', opcionales: true, stream: false, signal, esperaMs: TOPE_CONSULTA_MINIMA_MS },
-  );
-  return s as Completa | Fallo; // `stream: false` nunca devuelve un flujo
+  const turno: Turno = { sistema: 'Responde con una sola palabra.', mensajes: [{ rol: 'user', texto: 'Di ok.' }] };
+  const base = { parametros: { temperature: 0, maxTokens: 8, topP: 1, topK: 1 }, esfuerzo: 'low' as const, stream: false, signal, esperaMs: TOPE_CONSULTA_MINIMA_MS };
+  let s = (await llamarProveedor(e, modelo, turno, { ...base, opcionales: true })) as Completa | Fallo; // `stream: false` nunca devuelve un flujo
+  // Un modelo que no admite algún parámetro opcional no es un modelo caído: UNA vez más, sin ellos.
+  if (s.tipo === 'fallo' && s.status === 400 && !s.claveInvalida && !s.modeloNoDisponible) s = (await llamarProveedor(e, modelo, turno, { ...base, opcionales: false })) as Completa | Fallo;
+  return s;
 }

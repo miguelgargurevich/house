@@ -54,6 +54,19 @@ export async function construirCadena(ahora = cooldownDeps.ahora()): Promise<Esl
   return [...orden(eslabones.filter((e) => !e.reserva)), ...orden(eslabones.filter((e) => e.reserva))];
 }
 
+/** Eslabón de una fila del llavero (con la clave descifrada sólo en memoria); null si no se puede descifrar. */
+export function eslabonDeFila(f: { id: number; proveedor: string; etiqueta: string; api_key_enc: string; modelo: string | null; reserva: boolean }): Eslabon | null {
+  const p = proveedorPorId(f.proveedor);
+  if (!p) return null;
+  try {
+    const clave = descifrar(f.api_key_enc, aadClave(f.proveedor, f.etiqueta));
+    return { cooldownKey: claveCooldown(p.id, f.id), claveId: f.id, proveedor: p, clave, modelo: f.modelo || p.modeloPorDefecto, fijado: f.modelo, reserva: f.reserva };
+  } catch {
+    console.error(`[llavero] no se pudo descifrar la clave ${p.id}#${f.id}`);
+    return null;
+  }
+}
+
 export const marcarUso = (claveId: number) =>
   prisma.claveIntegracion.update({ where: { id: claveId }, data: { ultimo_uso_at: new Date() }, select: { id: true } }).catch(() => undefined);
 

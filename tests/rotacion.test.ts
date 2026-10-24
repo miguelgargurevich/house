@@ -26,7 +26,8 @@ let llamadas: Llamada[] = [];
 let cuerpos: Record<string, any>[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
 let responder: (clave: string, url: string, cuerpo: Record<string, any>) => Response | Promise<Response> = () => ok('Hola'); // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const ok = (texto: string) => new Response(JSON.stringify({ choices: [{ message: { content: texto } }], candidates: [{ content: { parts: [{ text: texto }] } }] }), { status: 200 });
+// Sirve a la vez de respuesta de chat (compatible y Gemini) y de lista de modelos (`GET /models`), para que «Probar» también salga bien.
+const ok = (texto: string) => new Response(JSON.stringify({ choices: [{ message: { content: texto } }], candidates: [{ content: { parts: [{ text: texto }] } }], data: [{ id: 'm-test' }], models: [{ name: 'models/m-test', supportedGenerationMethods: ['generateContent'] }] }), { status: 200 });
 const estado = (status: number, headers: Record<string, string> = {}, cuerpo = '{"error":"cuerpo-secreto-del-proveedor"}') => new Response(cuerpo, { status, headers });
 const claveDe = (init: RequestInit) => {
   const h = init.headers as Record<string, string>;

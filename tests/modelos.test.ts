@@ -270,7 +270,7 @@ describe('sincronización', () => {
   it('bloqueo entre réplicas: si otra tiene el turno, la pasada no hace nada', async () => {
     const q = await guardar('groq', 'groq-prueba-00001');
     const libre = await pasadaDeSync();
-    assert.deepEqual(libre, { claves: 1, ok: 1 });
+    assert.deepEqual(libre, { claves: 1, ok: 1, revisadas: 0, rehabilitadas: 0 });
     llamadas = [];
     await prisma.$transaction(async (tx) => {
       const [{ ok }] = await tx.$queryRaw<{ ok: boolean }[]>`SELECT pg_try_advisory_xact_lock(${LOCK_MODELOS}) AS ok`;

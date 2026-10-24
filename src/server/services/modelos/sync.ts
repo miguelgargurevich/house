@@ -187,12 +187,15 @@ export async function esperarSincronizaciones(): Promise<void> {
  * Una pasada periódica: sincroniza todas las claves. El bloqueo es `pg_try_advisory_xact_lock` dentro de una transacción
  * (el de sesión se pierde con el pool de Prisma): se suelta solo al terminar o si el proceso muere. `null` = otra réplica tiene el turno.
  */
-export async function pasadaDeSync(): Promise<{ claves: number; ok: number } | null> {
+export async function pasadaDeSync(): Promise<{ claves: number; ok: number; revisadas: number; rehabilitadas: number } | null> {
   return prisma.$transaction(
     async (tx) => {
       const [{ ok }] = await tx.$queryRaw<{ ok: boolean }[]>(Prisma.sql`SELECT pg_try_advisory_xact_lock(${LOCK_MODELOS}) AS ok`);
       if (!ok) return null;
-      return sincronizarTodas();
+      const r = await sincronizarTodas();
+      // Con el catálogo al día, se vuelve a probar a las claves rechazadas (un 402 o un 401 transitorio no deben ser para siempre).
+      const { recuperarRechazadas } = await import('../asistente/recuperacion');
+      return { ...r, ...(await recuperarRechazadas()) };
     },
     { timeout: 10 * 60_000, maxWait: 10_000 },
   );
