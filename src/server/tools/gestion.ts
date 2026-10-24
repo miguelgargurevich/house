@@ -317,7 +317,7 @@ export const detalleUnidad = defineHerramienta({
 export const recibos = defineHerramienta({
   nombre: 'recibos',
   descripcion:
-    'Recibos emitidos (uno por periodo y condominio) con su total emitido, cobrado y por cobrar. Úsala para «¿qué recibos hay de septiembre?» o «recibos con cargos vencidos». ' +
+    'Recibos emitidos (uno por periodo y condominio) con su total emitido, cobrado y por cobrar, y cuántos departamentos recibieron su mantenimiento (cada departamento recibe UN mantenimiento al mes con todos los conceptos; los pagos son del mantenimiento completo). Úsala para «¿qué recibos hay de septiembre?» o «recibos con cargos vencidos». ' +
     'Con `unidad` los totales son solo de esa unidad; con `estado` solo salen recibos que tengan cargos en ese estado. Ejemplo: {"periodo":"2026-09","estado":"vencido"}.',
   entrada: z.strictObject({
     periodo: periodoSchema.optional(),
@@ -344,6 +344,12 @@ export const recibos = defineHerramienta({
     const c = cortar(filas, p);
     const rcs = await prisma.reciboConcepto.findMany({ where: { recibo_id: { in: c.filas.map((r) => r.id) } }, select: { id: true, recibo_id: true } });
     const sumas = await sumasPorRC({ AND: [al.cargos, porUnidad(e.unidad), { recibo_concepto_id: { in: rcs.map((r) => r.id) } }] });
+    // Departamentos con mantenimiento en cada recibo (una unidad = un mantenimiento, sin importar cuántos conceptos tenga).
+    const departamentos = new Map<number, number>();
+    for (const r of c.filas) {
+      const g = await prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [al.cargos, porUnidad(e.unidad), { reciboConcepto: { recibo_id: r.id } }] } });
+      departamentos.set(r.id, g.length);
+    }
     const porRecibo = new Map<number, { emitido: Prisma.Decimal; cobrado: Prisma.Decimal; cargos: number }>();
     for (const rc of rcs) {
       const s = sumas.get(rc.id);
@@ -358,7 +364,7 @@ export const recibos = defineHerramienta({
         return {
           id: r.id, periodo: periodoDe(r.anio, r.mes), descripcion: dato(r.descripcion, 120), estado: dato(r.estado, 20), condominio: dato(r.complejo?.nombre),
           emision: fechaDia(r.fecha_emision), vencimiento: fechaDia(r.fecha_vencimiento),
-          cargos: s.cargos, emitido: monto(s.emitido), cobrado: monto(s.cobrado), por_cobrar: monto(s.emitido.minus(s.cobrado)),
+          departamentos: departamentos.get(r.id) ?? 0, cargos: s.cargos, emitido: monto(s.emitido), cobrado: monto(s.cobrado), por_cobrar: monto(s.emitido.minus(s.cobrado)),
         };
       }),
       hay_mas: c.hay_mas,

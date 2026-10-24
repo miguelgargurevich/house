@@ -50,7 +50,12 @@ export function createApp(opts: AppOptions = {}) {
   app.use(
     helmet({
       // `upgrade-insecure-requests` rompe el HTTP local; en producción (HTTPS) se conserva.
-      contentSecurityPolicy: { useDefaults: true, directives: { 'upgrade-insecure-requests': isProduction() ? [] : null } },
+      contentSecurityPolicy: { useDefaults: true, directives: {
+          'upgrade-insecure-requests': isProduction() ? [] : null,
+          // El comprobante y el QR se descargan con la sesión y se muestran como URL local (`blob:`): sin esto el navegador bloquea la imagen.
+          'img-src': ["'self'", 'data:', 'blob:'],
+        },
+      },
     }),
   );
 

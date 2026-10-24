@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import { conflict, invalid } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
 import { esJunta } from '../lib/junta';
+import { conResumenDeGrupo, soloPrincipales } from '../services/mantenimiento';
 import { scopeCargos, scopePagos, scopePagosJunta, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
@@ -66,10 +67,12 @@ export const pagosRouter = crudRouter({
   orderable: ['id', 'monto', 'fecha_pago', 'metodo_pago'],
   defaultOrder: { fecha_pago: 'desc' },
   include: includePago,
-  format: (items) => items.map((p) => formatearPago(p, 'completa')), // los lee el admin o la junta: ven la evaluación completa
+  // Una fila por pago del mantenimiento (el principal de cada grupo); los pagos sueltos antiguos salen como siempre.
+  format: (items) => conResumenDeGrupo(items.map((p) => formatearPago(p, 'completa'))), // los lee el admin o la junta: ven la evaluación completa
   filtros: {
     schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional() }),
     where: (f) => ({
+      ...soloPrincipales,
       ...(f.metodo_pago ? { metodo_pago: f.metodo_pago } : {}),
       ...(f.estado_validacion ? { estado_validacion: f.estado_validacion } : {}),
       ...(f.recibo_concepto_unidad_id !== undefined ? { recibo_concepto_unidad_id: f.recibo_concepto_unidad_id } : {}),
@@ -88,9 +91,21 @@ export const pagosRouter = crudRouter({
       return pago;
     });
   },
-  // Al borrar un pago el cargo se reabre si deja de estar cubierto.
+  // Corregir los datos de un pago del mantenimiento los corrige en todo el grupo.
+  async afterUpdate(existing, d) {
+    const grupo = existing.grupo as string | null;
+    if (grupo) await prisma.pago.updateMany({ where: { grupo }, data: d as Prisma.PagoUpdateManyMutationInput });
+  },
+  // Al borrar un pago el cargo se reabre si deja de estar cubierto; borrar el de un mantenimiento borra todo el grupo.
   async afterDelete(existing) {
-    const cargoId = existing.recibo_concepto_unidad_id as number | null;
-    if (cargoId != null) await prisma.$transaction((tx) => sincronizarCargo(tx, cargoId));
+    const cargos = new Set<number>();
+    if (existing.recibo_concepto_unidad_id != null) cargos.add(existing.recibo_concepto_unidad_id as number);
+    const grupo = existing.grupo as string | null;
+    if (grupo) {
+      const resto = await prisma.pago.findMany({ where: { grupo }, select: { id: true, recibo_concepto_unidad_id: true } });
+      await prisma.pago.deleteMany({ where: { id: { in: resto.map((x) => x.id) } } });
+      for (const x of resto) if (x.recibo_concepto_unidad_id != null) cargos.add(x.recibo_concepto_unidad_id);
+    }
+    if (cargos.size) await prisma.$transaction(async (tx) => { for (const id of cargos) await sincronizarCargo(tx, id); });
   },
 });

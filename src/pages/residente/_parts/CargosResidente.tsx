@@ -2,59 +2,73 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ReceiptPercentIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../../api';
-import { Button, Card, DataTable, EmptyState, ErrorState, PageHeader, Skeleton, StatusBadge, Tabs, fechaCorta, periodo, soles } from '../../../ui';
+import { Button, Card, DataTable, EmptyState, ErrorState, PageHeader, Skeleton, StatusBadge, Tabs, fechaCorta, soles } from '../../../ui';
 import type { Column } from '../../../ui';
-import { CargoItem } from './CargoItem';
+import { sePuedePagar } from '../../shared/mantenimiento/tipos';
+import type { Mantenimiento } from '../../shared/mantenimiento/tipos';
+import { DetalleMantenimientoModal } from './DetalleMantenimientoModal';
+import { MantenimientoItem } from './MantenimientoItem';
 import { PagarModal } from './PagarModal';
 import { Pager } from './Pager';
-import { motivoRechazo } from './tipos';
-import type { Cargo, EstadoCargo } from './tipos';
 
-const TABS: { id: EstadoCargo; label: string }[] = [
-  { id: 'pendiente', label: 'Pendientes' },
-  { id: 'vencido', label: 'Vencidos' },
-  { id: 'en_revision', label: 'En revisión' },
-  { id: 'pagado', label: 'Pagados' },
+type Pestana = 'por_pagar' | 'vencido' | 'en_revision' | 'pagado';
+
+const TABS: { id: Pestana; label: string; estados: string }[] = [
+  { id: 'por_pagar', label: 'Por pagar', estados: 'pendiente,parcial,vencido' },
+  { id: 'vencido', label: 'Vencidos', estados: 'vencido' },
+  { id: 'en_revision', label: 'En revisión', estados: 'en_revision' },
+  { id: 'pagado', label: 'Pagados', estados: 'pagado' },
 ];
 
-const VACIO: Record<EstadoCargo, { title: string; description: string }> = {
-  pendiente: { title: 'No tienes recibos pendientes', description: 'Cuando se emita un recibo nuevo, aparecerá aquí para que lo pagues.' },
-  vencido: { title: 'No tienes recibos vencidos', description: 'Vas bien: todo lo emitido está dentro de plazo.' },
-  en_revision: { title: 'No tienes pagos en revisión', description: 'Cuando registres un pago, aparecerá aquí hasta que el administrador lo valide.' },
-  pagado: { title: 'Aún no hay recibos pagados', description: 'Los recibos que pagues quedarán guardados aquí.' },
+const VACIO: Record<Pestana, { title: string; description: string }> = {
+  por_pagar: { title: 'No tienes mantenimientos por pagar', description: 'Cuando se emita el mantenimiento de un mes, aparecerá aquí para que lo pagues.' },
+  vencido: { title: 'No tienes mantenimientos vencidos', description: 'Vas bien: todo lo emitido está dentro de plazo.' },
+  en_revision: { title: 'No tienes pagos en revisión', description: 'Cuando registres un pago, aparecerá aquí hasta que se valide.' },
+  pagado: { title: 'Aún no hay mantenimientos pagados', description: 'Los mantenimientos que pagues quedarán guardados aquí.' },
 };
+
+const nombreMes = (m: Mantenimiento) => m.titulo.split(' · ')[0]!;
 
 export function CargosResidente() {
   const [sp, setSp] = useSearchParams();
   const q = sp.get('estado');
-  const tab: EstadoCargo = TABS.some(t => t.id === q) ? (q as EstadoCargo) : 'pendiente';
-  const list = useList<Cargo>('/api/me/cargos', { pageSize: 10, params: { estado: tab } });
-  const [pagando, setPagando] = useState<Cargo | null>(null);
+  // `?estado=vencido` (enlaces del Inicio) o el nombre de la pestaña; «pendiente» antiguo equivale a «por pagar».
+  const tab: Pestana = TABS.some(t => t.id === q) ? (q as Pestana) : 'por_pagar';
+  const estados = TABS.find(t => t.id === tab)!.estados;
+  const list = useList<Mantenimiento>('/api/me/mantenimientos', { pageSize: 10, params: { estado: estados } });
+  const [pagando, setPagando] = useState<Mantenimiento | null>(null);
+  const [viendo, setViendo] = useState<Mantenimiento | null>(null);
   const vacio = VACIO[tab];
 
-  const columns: Column<Cargo>[] = [
-    { key: 'concepto', header: 'Concepto', cell: c => (
-      <>
-        <span className="font-medium">{c.concepto.nombre}</span>
-        {motivoRechazo(c) && <span className="block text-xs text-bad">Pago rechazado: {motivoRechazo(c)}</span>}
-      </>
+  const columns: Column<Mantenimiento>[] = [
+    { key: 'mant', header: 'Mantenimiento', cell: m => (
+      <button type="button" onClick={() => setViendo(m)} className="text-left font-medium hover:text-brand">{nombreMes(m)}</button>
     ) },
-    { key: 'periodo', header: 'Periodo', cell: c => periodo(c.recibo.mes, c.recibo.anio) },
-    { key: 'unidad', header: 'Unidad', cell: c => c.unidad.codigo },
-    { key: 'vence', header: 'Vence', cell: c => <span className={c.estado === 'vencido' ? 'text-bad' : ''}>{fechaCorta(c.recibo.fecha_vencimiento)}</span> },
-    { key: 'monto', header: 'Monto', align: 'right', cell: c => <span className="num font-medium">{soles(c.monto)}</span> },
-    { key: 'estado', header: 'Estado', cell: c => <StatusBadge estado={c.estado} /> },
-    { key: 'acciones', header: '', align: 'right', cell: c => (c.estado !== 'pagado' && c.estado !== 'en_revision' ? <Button size="sm" onClick={() => setPagando(c)}>{motivoRechazo(c) ? 'Pagar de nuevo' : 'Pagar'}</Button> : null) },
+    { key: 'unidad', header: 'Departamento', cell: m => <span className="num">{m.unidad.codigo}</span> },
+    { key: 'vence', header: 'Vence', cell: m => <span className={m.estado === 'vencido' ? 'text-bad' : ''}>{fechaCorta(m.fecha_vencimiento)}</span> },
+    { key: 'total', header: 'Total', align: 'right', cell: m => (
+      <span className="block">
+        <span className="num font-medium">{soles(m.total)}</span>
+        {m.estado === 'parcial' && <span className="block text-xs text-muted">Saldo {soles(m.saldo)}</span>}
+      </span>
+    ) },
+    { key: 'estado', header: 'Estado', cell: m => <StatusBadge estado={m.estado} /> },
+    { key: 'acciones', header: '', align: 'right', cell: m => (
+      <span className="inline-flex gap-2">
+        <Button size="sm" variant="secondary" onClick={() => setViendo(m)}>Ver detalle</Button>
+        {sePuedePagar(m) && <Button size="sm" onClick={() => setPagando(m)}>Pagar mantenimiento</Button>}
+      </span>
+    ) },
   ];
 
   return (
     <>
-      <PageHeader title="Mis recibos" description="Lo que debes y lo que ya pagaste, por unidad." />
+      <PageHeader title="Mis recibos" description="El mantenimiento de cada mes de tu departamento, con todos sus conceptos." />
       <div className="mb-4 overflow-x-auto">
-        <Tabs value={tab} onChange={t => setSp(t === 'pendiente' ? {} : { estado: t }, { replace: true })} items={TABS} />
+        <Tabs value={tab} onChange={t => setSp(t === 'por_pagar' ? {} : { estado: t }, { replace: true })} items={TABS} />
       </div>
 
-      {/* Móvil: una tarjeta por recibo */}
+      {/* Móvil: una tarjeta por mantenimiento */}
       <div className="md:hidden">
         {list.error ? (
           <Card><ErrorState message={list.error} onRetry={list.reload} /></Card>
@@ -65,7 +79,7 @@ export function CargosResidente() {
         ) : (
           <>
             <ul className="space-y-3">
-              {list.items.map(c => <li key={c.id}><Card><CargoItem cargo={c} onPagar={setPagando} /></Card></li>)}
+              {list.items.map(m => <li key={`${m.recibo_id}-${m.unidad_id}`}><Card><MantenimientoItem mant={m} onPagar={setPagando} onVer={setViendo} /></Card></li>)}
             </ul>
             <Pager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} />
           </>
@@ -75,10 +89,10 @@ export function CargosResidente() {
       {/* Escritorio: tabla */}
       <Card className="hidden md:block">
         <DataTable
-          caption="Mis recibos"
+          caption="Mis mantenimientos"
           columns={columns}
           rows={list.items}
-          rowKey={c => c.id}
+          rowKey={m => `${m.recibo_id}-${m.unidad_id}`}
           loading={list.loading}
           error={list.error}
           onRetry={list.reload}
@@ -90,7 +104,8 @@ export function CargosResidente() {
         />
       </Card>
 
-      <PagarModal cargo={pagando} onClose={() => setPagando(null)} onPagado={() => void list.reload()} />
+      <DetalleMantenimientoModal mant={viendo} onClose={() => setViendo(null)} onPagar={setPagando} />
+      <PagarModal mant={pagando} onClose={() => setPagando(null)} onPagado={() => void list.reload()} />
     </>
   );
 }

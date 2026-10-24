@@ -4,17 +4,19 @@ import { CameraIcon } from '@heroicons/react/24/outline';
 import { useForm } from 'react-hook-form';
 import { api, errorText, useResource } from '../../../api';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
-import { Alert, Button, DefinitionList, Input, Modal, Select, fechaCorta, periodo, soles, useToast } from '../../../ui';
+import { Alert, Button, DefinitionList, Input, Modal, Select, fechaCorta, soles, useToast } from '../../../ui';
 import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
 import { ComoPagar } from './ComoPagar';
 import { METODOS } from './tipos';
-import type { Cargo, MedioResidente, Metodo } from './tipos';
+import type { Metodo } from './tipos';
+import type { DetalleMantenimiento, Mantenimiento, ResultadoPagoMantenimiento } from '../../shared/mantenimiento/tipos';
 
 interface Form { metodo_pago: Metodo; referencia: string }
 
-interface Props { cargo: Cargo | null; onClose: () => void; onPagado: () => void }
+/** Paga el MANTENIMIENTO completo del mes de un departamento: un formulario y un solo comprobante por el total. */
+interface Props { mant: Mantenimiento | null; onClose: () => void; onPagado: () => void }
 
-export function PagarModal({ cargo, onClose, onPagado }: Props) {
+export function PagarModal({ mant, onClose, onPagado }: Props) {
   const toast = useToast();
   const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<Form>({ defaultValues: { metodo_pago: 'transferencia', referencia: '' } });
 
@@ -23,19 +25,20 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
   const [pagoSubido, setPagoSubido] = useState<number | null>(null);
   const evaluacion = useEvaluacionResidente(pagoSubido);
   const inputCamara = useRef<HTMLInputElement>(null);
-  const medios = useResource<MedioResidente[]>(cargo ? `/api/me/medios-pago?cargo_id=${cargo.id}` : null);
+  const detalle = useResource<DetalleMantenimiento>(mant ? `/api/me/mantenimientos/${mant.recibo_id}/${mant.unidad_id}` : null);
+  const d = mant && detalle.data && detalle.data.recibo_id === mant.recibo_id && detalle.data.unidad_id === mant.unidad_id ? detalle.data : null;
 
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
 
   useEffect(() => {
-    if (!cargo) return;
+    if (!mant) return;
     reset({ metodo_pago: 'transferencia', referencia: '' });
     setPaso('como');
     setPagoSubido(null);
     setArchivo(null);
     setErrorArchivo(undefined);
-  }, [cargo, reset]);
+  }, [mant, reset]);
 
   function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -46,22 +49,22 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
   }
 
   async function confirmar(v: Form) {
-    if (!cargo) return;
+    if (!mant) return;
     try {
-      const pago = await api<{ id: number }>(`/api/me/cargos/${cargo.id}/pagos`, {
+      const pago = await api<ResultadoPagoMantenimiento>(`/api/me/mantenimientos/${mant.recibo_id}/${mant.unidad_id}/pagos`, {
         method: 'POST',
         json: { metodo_pago: v.metodo_pago, ...(v.referencia.trim() ? { referencia: v.referencia.trim() } : {}) },
       });
       // El pago ya está registrado: si el archivo falla no se repite el pago, se avisa y se puede adjuntar después.
       let subido = true;
       if (archivo) {
-        try { await subirComprobante(pago.id, archivo); }
+        try { await subirComprobante(pago.pago_id, archivo); }
         catch (e) { subido = false; toast.error(`Tu pago quedó registrado, pero no se pudo subir el comprobante: ${errorText(e)} Puedes adjuntarlo desde Mis pagos.`); }
       }
       onPagado();
       if (archivo && subido) {
         // Se queda abierto un momento para mostrar la revisión automática de la captura.
-        setPagoSubido(pago.id);
+        setPagoSubido(pago.pago_id);
         setPaso('enviado');
         return;
       }
@@ -72,46 +75,47 @@ export function PagarModal({ cargo, onClose, onPagado }: Props) {
 
   return (
     <Modal
-      open={cargo !== null}
+      open={mant !== null}
       onClose={onClose}
       title={paso === 'como' ? 'Cómo pagar' : paso === 'enviado' ? 'Pago registrado' : 'Registrar tu pago'}
       footer={paso === 'enviado' ? (
         <Button onClick={onClose}>Listo</Button>
       ) : paso === 'como' ? (
         <>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => setPaso('registrar')}>Ya pagué: registrar comprobante</Button>
+          <Button key="cancelar" variant="secondary" onClick={onClose}>Cancelar</Button>
+          {/* `key` distinto al de «Confirmar pago»: si React reutilizara este botón y le cambiara el tipo a «submit» durante el clic, el formulario se enviaría solo. */}
+          <Button key="ya-pague" onClick={() => setPaso('registrar')}>Ya pagué: registrar comprobante</Button>
         </>
       ) : (
         <>
-          <Button variant="secondary" onClick={() => setPaso('como')}>Ver cómo pagar</Button>
-          <Button type="submit" form="form-pago" loading={isSubmitting}>Confirmar pago</Button>
+          <Button key="ver-como" variant="secondary" onClick={() => setPaso('como')}>Ver cómo pagar</Button>
+          <Button key="confirmar" type="submit" form="form-pago" loading={isSubmitting}>Confirmar pago</Button>
         </>
       )}
     >
-      {cargo && paso === 'como' && <ComoPagar cargo={cargo} medios={medios.data} loading={medios.loading} error={medios.error} />}
-      {cargo && paso === 'enviado' && (
+      {mant && paso === 'como' && <ComoPagar mant={mant} saldo={d?.saldo ?? null} medios={d?.medios_pago ?? null} loading={detalle.loading} error={detalle.error} />}
+      {mant && paso === 'enviado' && (
         <div className="space-y-4">
-          <Alert tone="ok">Tu pago quedó registrado y en revisión; te avisaremos cuando se valide.</Alert>
+          <Alert tone="ok">Tu pago del mantenimiento quedó registrado y en revisión; te avisaremos cuando se valide.</Alert>
           {evaluacion.estado && <EstadoEvaluacion estado={evaluacion.estado} />}
           {evaluacion.validadoPorIA && <ValidadoPorIABadge validado />}
         </div>
       )}
-      {cargo && paso === 'registrar' && (
+      {mant && paso === 'registrar' && (
         <form id="form-pago" onSubmit={handleSubmit(confirmar)} className="space-y-5" noValidate>
           <div className="rounded bg-surface2 p-4">
             <p className="text-sm text-muted">Monto a pagar</p>
-            <p className="num mb-4 text-2xl font-semibold">{soles(cargo.monto)}</p>
+            <p className="num mb-4 text-2xl font-semibold">{d ? soles(d.saldo) : '—'}</p>
             <DefinitionList
               items={[
-                { label: 'Concepto', value: cargo.concepto.nombre },
-                { label: 'Periodo', value: periodo(cargo.recibo.mes, cargo.recibo.anio) },
-                { label: 'Unidad', value: cargo.unidad.codigo },
-                { label: 'Vencimiento', value: fechaCorta(cargo.recibo.fecha_vencimiento) },
+                { label: 'Mantenimiento', value: mant.titulo.split(' · ')[0] },
+                { label: 'Departamento', value: mant.unidad.codigo },
+                { label: 'Conceptos', value: d ? d.conceptos.map(c => c.concepto).join(', ') : '—' },
+                { label: 'Vencimiento', value: fechaCorta(mant.fecha_vencimiento) },
               ]}
             />
           </div>
-          <Alert tone="info">Registra el pago que ya hiciste. Quedará en revisión hasta que el administrador lo valide.</Alert>
+          <Alert tone="info">Registra el pago que ya hiciste por el total del mantenimiento. Quedará en revisión hasta que se valide.</Alert>
           <div className="grid gap-4">
             <Select label="¿Cómo pagaste?" {...register('metodo_pago', { required: true })}>
               {METODOS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}

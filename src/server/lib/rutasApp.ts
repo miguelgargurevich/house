@@ -5,7 +5,7 @@ import type { AuthUser } from '../middleware/auth';
 import { esJunta } from './junta';
 
 const OPERACION = [
-  '/admin/dashboard', '/admin/complejos', '/admin/unidades', '/admin/recibos', '/admin/pagos', '/admin/morosidad',
+  '/admin/dashboard', '/admin/complejos', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad',
   '/admin/mantenimientos', '/admin/conceptos', '/admin/usuarios', '/admin/configuracion', '/admin/avisos', '/admin/medios-pago',
 ] as const;
 
@@ -26,7 +26,7 @@ export const TODAS_LAS_RUTAS: readonly string[] = [...new Set([...Object.values(
 /** Ruta actual validada: la ruta normalizada si el rol del usuario puede estar ahí; si no, `null`. */
 export function rutaPermitida(user: Pick<AuthUser, 'rol' | 'cargo_junta' | 'complejo_id' | 'estructura_id' | 'id' | 'email' | 'empresa_id'>, ruta: string | undefined): string | null {
   if (!ruta) return null;
-  const limpia = ruta.split(/[?#]/)[0]!.replace(/\/+$/, '');
+  const limpia = ruta.split(/[?#]/)[0]!.replace(/\/+$/, '').replace(/^(\/admin\/recibos)\/\d+$/, '$1/:id'); // el periodo de un recibo lleva su id
   if (!limpia) return null;
   const validas: readonly string[] = [...RUTAS_POR_ROL[user.rol], ...RUTAS_COMUNES, ...(esJunta(user) ? RUTAS_JUNTA : [])];
   return validas.includes(limpia) ? limpia : null;

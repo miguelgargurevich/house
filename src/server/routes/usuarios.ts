@@ -60,6 +60,16 @@ async function normalizar(data: Record<string, unknown>, user: AuthUser, existin
   } else if (out.rol === 'admin' && !existing && out.empresa_id == null) {
     throw invalid('Datos inválidos: empresa_id: un administrador debe pertenecer a una empresa', { empresa_id: 'Obligatorio para administradores' });
   }
+  // La empresa es del PERSONAL (para quién trabaja y base de su alcance). Un propietario o inquilino no tiene empresa propia:
+  // es la del condominio de sus unidades. Se guarda null al crear, al cambiar el rol a residente y al editar a un residente.
+  const rolFinal = (out.rol !== undefined ? out.rol : existing?.rol) as string | null | undefined;
+  if (rolFinal === 'propietario' || rolFinal === 'inquilino') {
+    out.empresa_id = null;
+    // Sin empresa propia, al residente la administración lo alcanza por su condominio o por sus unidades: un residente nuevo debe nacer con condominio.
+    if (!existing && user.rol === 'admin' && out.complejo_id == null) {
+      throw invalid('Datos inválidos: complejo_id: elige el condominio del residente', { complejo_id: 'Elige el condominio' });
+    }
+  }
 
   if (out.complejo_id != null) {
     await assertRef(prisma.complejoHabitacional, out.complejo_id, scopeComplejos(user), 'complejo_id');
@@ -88,6 +98,23 @@ export const usuariosRouter = crudRouter({
   orderable: ['id', 'nombre', 'email', 'rol', 'created_at'],
   defaultOrder: { nombre: 'asc' },
   include: { empresa: { select: { id: true, nombre: true } } },
+  // Un residente no tiene empresa propia: muestra la(s) que administran los condominios de sus unidades.
+  format: async (items) => {
+    const residentes = items.filter((u) => u.rol === 'propietario' || u.rol === 'inquilino').map((u) => u.id as number);
+    const mapa = new Map<number, Map<number, string>>();
+    if (residentes.length) {
+      const unidades = await prisma.unidad.findMany({
+        where: { OR: [{ propietario_id: { in: residentes } }, { inquilino_id: { in: residentes } }] },
+        select: { propietario_id: true, inquilino_id: true, empresa: { select: { id: true, nombre: true } }, complejo: { select: { empresa: { select: { id: true, nombre: true } } } } },
+      });
+      for (const un of unidades) {
+        const e = un.complejo?.empresa ?? un.empresa;
+        if (!e) continue;
+        for (const id of [un.propietario_id, un.inquilino_id]) if (id != null && residentes.includes(id)) mapa.set(id, (mapa.get(id) ?? new Map()).set(e.id, e.nombre));
+      }
+    }
+    return items.map((u) => ({ ...u, empresas_administradoras: [...(mapa.get(u.id as number) ?? new Map<number, string>())].map(([id, nombre]) => ({ id, nombre })) }));
+  },
   filtros: {
     schema: z.object({ rol: rolSchema.optional(), empresa_id: idSchema.optional() }),
     where: (f, user) => {

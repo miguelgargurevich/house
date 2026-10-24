@@ -5,10 +5,13 @@ import { prisma } from '../db';
 import { notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
-import { scopeComplejos, scopeConceptos, scopeRecibos } from '../lib/scope';
+import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
+import { scopeComplejos, scopeConceptos, scopeRecibos, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
-import { fechaSchema, idSchema, montoSchema, parseId, texto, textoOpcional, z } from '../validation';
+import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
+import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
+import { METODOS_PAGO } from './pagos';
 
 const conceptoItem = z.object({ concepto_id: idSchema, monto: montoSchema, es_recargo: z.boolean().optional() });
 
@@ -160,7 +163,9 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
   });
   if (!recibo) throw notFound();
   const { reciboConceptos, ...resto } = recibo;
-  const cargosDb = await prisma.reciboConceptoUnidad.findMany({
+  // `?sin_cargos=1`: sólo la cabecera, los conceptos y los totales (la pantalla del periodo pagina los departamentos aparte).
+  const sinCargos = req.query.sin_cargos === '1';
+  const cargosDb = sinCargos ? [] : await prisma.reciboConceptoUnidad.findMany({
     where: { reciboConcepto: { recibo_id: id } },
     include: includeCargo,
     orderBy: [{ unidad: { codigo: 'asc' } }, { id: 'asc' }],
@@ -177,6 +182,72 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
     }),
   });
 });
+// ---------- Mantenimientos del periodo (un recibo por departamento) ----------
+/** El recibo del periodo, sólo si es de la empresa del usuario (si no, 404). */
+async function reciboAccesible(req: Parameters<typeof currentUser>[0], id: number) {
+  const r = await prisma.recibo.findFirst({ where: { AND: [{ id }, scopeRecibos(currentUser(req))] }, select: { id: true } });
+  if (!r) throw notFound();
+}
+
+/** Totales del periodo por block; `agrupado` = hay más de un block (si no, la pantalla va directo a los departamentos). */
+router.get('/:id/blocks', requireRole('admin'), async (req, res) => {
+  const id = parseId(req);
+  await reciboAccesible(req, id);
+  const blocks = await resumenPorBlock(id);
+  res.json({ agrupado: agruparPorBlock(blocks), blocks });
+});
+
+const mantQuery = listQuerySchema.extend({
+  estado: estadosQuery,
+  estructura_id: idSchema.optional(),
+  sin_block: z.enum(['true', 'false']).optional(),
+});
+
+router.get('/:id/mantenimientos', requireRole('admin'), async (req, res) => {
+  const id = parseId(req);
+  await reciboAccesible(req, id);
+  const q = parse(mantQuery, req.query);
+  const orden = parseOrden(q.orden, [...ORDEN_MANTENIMIENTOS], {});
+  const campo = Object.keys(orden)[0] as OrdenMantenimientos | undefined;
+  const r = await listarMantenimientos(
+    { reciboId: id, estado: q.estado, q: q.q, estructuraId: q.sin_block === 'true' ? null : q.estructura_id },
+    { page: q.page, pageSize: q.pageSize, orden: campo ? { campo, dir: (orden as Record<string, 'asc' | 'desc'>)[campo] } : { campo: 'codigo', dir: 'asc' } },
+  );
+  res.json({ items: r.items, total: r.total, page: q.page, pageSize: q.pageSize });
+});
+
+const idsMant = z.object({ id: idSchema, unidadId: idSchema });
+
+router.get('/:id/mantenimientos/:unidadId', requireRole('admin'), async (req, res) => {
+  const u = currentUser(req);
+  const { id, unidadId } = parse(idsMant, req.params);
+  res.json(await detalleMantenimiento(id, unidadId, { reciboWhere: scopeRecibos(u), unidadWhere: scopeUnidades(u), vista: 'completa' }));
+});
+
+const pagoMantenimiento = z.strictObject({
+  metodo_pago: z.enum(METODOS_PAGO, { error: `metodo_pago debe ser: ${METODOS_PAGO.join(', ')}` }),
+  referencia: textoOpcional(120),
+  observaciones: textoOpcional(500),
+  fecha_pago: fechaSchema.optional(),
+  usuario_id: idSchema.nullish(),
+});
+
+/** La administración registra el pago del mantenimiento completo: queda validado de inmediato (el comprobante es opcional y se sube después). */
+router.post('/:id/mantenimientos/:unidadId/pagos', requireRole('admin'), async (req, res) => {
+  const u = currentUser(req);
+  const { id, unidadId } = parse(idsMant, req.params);
+  const body = parseBody(pagoMantenimiento, req);
+  await reciboAccesible(req, id);
+  if (!(await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, scopeUnidades(u)] }, select: { id: true } }))) throw notFound('Mantenimiento');
+  const { usuario_id, ...datos } = body;
+  if (usuario_id != null) await assertRef(prisma.usuario, usuario_id, scopeUsuarios(u), 'usuario_id');
+  const r = await pagarMantenimiento({ reciboId: id, unidadId, usuarioId: usuario_id ?? null, modo: 'administracion', validadorId: u.id, ...datos });
+  res.locals.entidad = 'pago';
+  res.locals.entidadId = r.pago_id;
+  res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: id, unidad_id: unidadId };
+  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { reciboWhere: scopeRecibos(u), unidadWhere: scopeUnidades(u), vista: 'completa' }) });
+});
+
 router.use(crud);
 
 export { router as recibosRouter };

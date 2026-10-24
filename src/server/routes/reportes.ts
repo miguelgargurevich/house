@@ -5,7 +5,7 @@ import { decimalAString, filtroEstadoCargo } from '../lib/cargos';
 import { diasEntre, hoyLima } from '../lib/fechas';
 import { scopeCargos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
-import { listQuerySchema, parse, parseOrden } from '../validation';
+import { idSchema, listQuerySchema, parse, parseOrden } from '../validation';
 
 export const reportesRouter = Router();
 
@@ -13,13 +13,13 @@ const ORDENABLES = ['deuda_total', 'cargos_vencidos', 'dias_max_atraso', 'codigo
 
 reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
   const u = currentUser(req);
-  const q = parse(listQuerySchema, req.query);
+  const q = parse(listQuerySchema.extend({ estructura_id: idSchema.optional() }), req.query);
   const [campo, dir] = Object.entries(parseOrden(q.orden, ORDENABLES, { dias_max_atraso: 'desc' }))[0];
   const hoy = hoyLima();
 
   const cargos = await prisma.reciboConceptoUnidad.findMany({
     where: {
-      AND: [scopeCargos(u), filtroEstadoCargo('vencido', hoy), { unidad_id: { not: null } }, q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' } } } : {}],
+      AND: [scopeCargos(u), filtroEstadoCargo('vencido', hoy), { unidad_id: { not: null } }, q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' } } } : {}, q.estructura_id !== undefined ? { unidad: { estructura_id: q.estructura_id } } : {}],
     },
     select: { unidad_id: true, monto: true, reciboConcepto: { select: { recibo: { select: { fecha_vencimiento: true } } } } },
   });
@@ -36,11 +36,11 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
 
   const unidades = await prisma.unidad.findMany({
     where: { id: { in: [...porUnidad.keys()] } },
-    select: { id: true, codigo: true, propietario: { select: { id: true, nombre: true } } },
+    select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, propietario: { select: { id: true, nombre: true } } },
   });
   const filas = unidades.map((un) => {
     const a = porUnidad.get(un.id)!;
-    return { unidad: { id: un.id, codigo: un.codigo }, propietario: un.propietario, deuda_total: decimalAString(a.deuda), cargos_vencidos: a.cargos, dias_max_atraso: a.maxDias };
+    return { unidad: { id: un.id, codigo: un.codigo }, estructura: un.estructura, propietario: un.propietario, deuda_total: decimalAString(a.deuda), cargos_vencidos: a.cargos, dias_max_atraso: a.maxDias };
   });
 
   const signo = dir === 'asc' ? 1 : -1;

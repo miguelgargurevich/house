@@ -29,8 +29,11 @@ const esResidente = (u: AuthUser) => u.rol === 'propietario' || u.rol === 'inqui
 // Se ubica el pago ANTES de leer el cuerpo: quien no tiene acceso recibe 404 sin que se descargue el archivo.
 const cargador = (alcanceDe: (u: AuthUser) => Prisma.PagoWhereInput): RequestHandler => async (req, res, next) => {
   const u = currentUser(req);
-  const pago = await prisma.pago.findFirst({ where: { AND: [{ id: parseId(req) }, alcanceDe(u)] }, select: { id: true, usuario_id: true, estado_validacion: true, recibo_concepto_unidad_id: true, fecha_pago: true } });
+  const campos = { id: true, usuario_id: true, estado_validacion: true, recibo_concepto_unidad_id: true, fecha_pago: true, grupo: true, grupo_principal: true } as const;
+  let pago = await prisma.pago.findFirst({ where: { AND: [{ id: parseId(req) }, alcanceDe(u)] }, select: campos });
   if (!pago) throw notFound('Pago');
+  // Pago de un mantenimiento: el comprobante, la evaluación y la validación son del GRUPO y viven en su pago principal.
+  if (pago.grupo != null && !pago.grupo_principal) pago = (await prisma.pago.findFirst({ where: { grupo: pago.grupo, grupo_principal: true }, select: campos })) ?? pago;
   res.locals.pago = pago;
   res.locals.entidad = 'pago';
   res.locals.entidadId = pago.id;

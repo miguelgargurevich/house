@@ -235,6 +235,35 @@ describe('residente e inquilino: sólo lo suyo', () => {
     const r = await usar(U.prop2, 'mis_recibos', { unidad: 'A-101' });
     assert.equal(r.ok, false);
   });
+  it('mis_recibos trae también el mantenimiento agrupado (un recibo por departamento y mes) con su desglose; sólo el propio', async () => {
+    const r = await datos(U.prop1, 'mis_recibos');
+    assert.equal(r.total_mantenimientos, 2, 'dos meses de A-101, aunque uno tenga varios conceptos');
+    const venc = r.mantenimientos.find((m: any) => m.vencimiento < new Date().toISOString().slice(0, 10)); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.equal(venc.unidad, 'A-101');
+    assert.match(venc.mantenimiento, /^Mantenimiento de agosto de 2026 · A-101$/);
+    assert.equal(venc.total, '183.50');
+    assert.equal(venc.en_revision, '150.00', 'el pago por validar');
+    assert.equal(venc.saldo, '33.50');
+    assert.equal(venc.estado, 'vencido');
+    assert.equal(venc.conceptos.length, 2, 'el desglose por concepto');
+    assert.ok(venc.conceptos.some((c: any) => c.concepto === 'Mantenimiento' && c.monto === '150.00')); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.ok(r.filas.length >= 3, 'el detalle plano sigue');
+    const futuro = r.mantenimientos.find((m: any) => m.total === '200.00'); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.equal(futuro.estado, 'pendiente');
+    // sólo lo propio y con filtro por estado
+    const p2 = await datos(U.prop2, 'mis_recibos');
+    assert.deepEqual(p2.mantenimientos.map((m: any) => m.unidad), ['A-102']); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.ok(!texto(p2).includes('A-101'));
+    const solo = await datos(U.prop1, 'mis_recibos', { estado: 'vencido' });
+    assert.deepEqual(solo.mantenimientos.map((m: any) => m.estado), ['vencido']); // eslint-disable-line @typescript-eslint/no-explicit-any
+  });
+  it('recibos (gestión) dice cuántos departamentos recibieron el mantenimiento', async () => {
+    const r = await datos(U.adminA, 'recibos');
+    assert.ok(r.filas.length >= 2);
+    const vencido = r.filas.find((f: any) => /2026-08|agosto/i.test(f.periodo) && f.cargos === 3); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.equal(vencido.departamentos, 2, 'A-101 y A-102, aunque haya 3 cargos');
+    assert.equal(vencido.cargos, 3);
+  });
   it('medios_para_pagar: los del block y los del condominio de la persona, no los de otro block ni condominio', async () => {
     const m1 = await datos(U.prop1, 'medios_para_pagar');
     assert.deepEqual(m1.filas.map((f: any) => f.titular), ['Junta Block 1']); // eslint-disable-line @typescript-eslint/no-explicit-any

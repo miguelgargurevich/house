@@ -138,6 +138,10 @@ describe('endurecimiento HTTP', () => {
     const r = await llamar(base, 'GET', '/api/auth/me');
     assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
     assert.ok(r.headers.get('content-security-policy'));
+    // los comprobantes y los QR se muestran como `blob:` (se descargan con la sesión): la CSP debe dejarlos pasar, y sólo a las imágenes
+    const csp = r.headers.get('content-security-policy') ?? '';
+    assert.match(csp, /img-src 'self' data: blob:/);
+    assert.ok(!/script-src[^;]*blob:/.test(csp), 'blob: sólo para imágenes');
     assert.equal(r.headers.get('x-powered-by'), null);
   });
 
@@ -236,7 +240,7 @@ describe('manejo de errores', () => {
 
   it('un correo duplicado responde 409 genérico, sin detalle de Prisma', async () => {
     const token = await login(base, 'admin.a@test.pe');
-    const r = await llamar(base, 'POST', '/api/usuarios', token, { nombre: 'Duplicado', email: 'prop1@test.pe', rol: 'inquilino', password: 'ClaveSegura123' });
+    const r = await llamar(base, 'POST', '/api/usuarios', token, { nombre: 'Duplicado', email: 'prop1@test.pe', rol: 'inquilino', password: 'ClaveSegura123', complejo_id: d.complejoA.id });
     assert.equal(r.status, 409);
     assert.ok(!/prisma|unique|constraint/i.test(r.texto));
   });

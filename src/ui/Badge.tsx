@@ -26,6 +26,7 @@ const estados: Record<string, { tone: Tone; label: string }> = {
   pendiente: { tone: 'warn', label: 'Pendiente' },
   vencido: { tone: 'bad', label: 'Vencido' },
   en_revision: { tone: 'info', label: 'En revisión' },
+  parcial: { tone: 'info', label: 'Pago parcial' },
   por_validar: { tone: 'warn', label: 'Por validar' },
   validado: { tone: 'ok', label: 'Validado' },
   rechazado: { tone: 'bad', label: 'Rechazado' },

@@ -25,7 +25,7 @@ async function unidadesDe(u: AuthUser) {
 }
 
 /** Medios que valen para esas unidades: los de su block y los de todo su condominio. */
-function medioDeUnidades(unidades: { complejo_id: number | null; estructura_id: number | null }[]): Prisma.MedioPagoWhereInput {
+export function medioDeUnidades(unidades: { complejo_id: number | null; estructura_id: number | null }[]): Prisma.MedioPagoWhereInput {
   const ors = unidades
     .filter((x): x is { complejo_id: number; estructura_id: number | null } => x.complejo_id != null)
     .map((x) => ({ complejo_id: x.complejo_id, OR: [{ estructura_id: null }, ...(x.estructura_id != null ? [{ estructura_id: x.estructura_id }] : [])] }));

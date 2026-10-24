@@ -16,25 +16,38 @@ export interface Cierre {
   comprobanteSha256?: string;
 }
 
-/** Cierre atómico: sólo una revisión de un pago por validar logra pasar (409 si ya se revisó). */
+/**
+ * Cierre atómico: sólo una revisión de un pago por validar logra pasar (409 si ya se revisó). Si el pago es de un mantenimiento
+ * (tiene `grupo`), se cierran TODOS los pagos del grupo y sus cargos en la misma transacción: se valida o se rechaza el mantenimiento entero.
+ */
 export async function cerrarPago(c: Cierre): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    const datos = {
+      estado_validacion: c.estado,
+      validado_por_id: c.validadorId,
+      validado_at: new Date(),
+      motivo_rechazo: c.estado === 'rechazado' ? (c.motivo ?? null) : null,
+      validado_por_ia: c.porIA === true,
+    };
     const r = await tx.pago.updateMany({
       where: { id: c.pagoId, estado_validacion: 'por_validar', ...(c.comprobanteSha256 ? { comprobante: { sha256: c.comprobanteSha256 } } : {}) },
-      data: {
-        estado_validacion: c.estado,
-        validado_por_id: c.validadorId,
-        validado_at: new Date(),
-        motivo_rechazo: c.estado === 'rechazado' ? (c.motivo ?? null) : null,
-        validado_por_ia: c.porIA === true,
-      },
+      data: datos,
     });
     if (r.count === 0) throw conflict('Este pago ya fue revisado');
-    if (c.cargoId == null) return;
+    const cargos = new Set<number>(c.cargoId != null ? [c.cargoId] : []);
+    const pago = await tx.pago.findUnique({ where: { id: c.pagoId }, select: { grupo: true } });
+    if (pago?.grupo) {
+      const resto = await tx.pago.findMany({ where: { grupo: pago.grupo, id: { not: c.pagoId }, estado_validacion: 'por_validar' }, select: { id: true, recibo_concepto_unidad_id: true } });
+      if (resto.length) {
+        await tx.pago.updateMany({ where: { id: { in: resto.map((x) => x.id) }, estado_validacion: 'por_validar' }, data: datos });
+        for (const x of resto) if (x.recibo_concepto_unidad_id != null) cargos.add(x.recibo_concepto_unidad_id);
+      }
+    }
+    if (cargos.size === 0) return;
     if (c.estado === 'validado') {
-      await tx.reciboConceptoUnidad.update({ where: { id: c.cargoId }, data: { estado_pago: 'pagado', fecha_pago: c.fechaPago } });
+      await tx.reciboConceptoUnidad.updateMany({ where: { id: { in: [...cargos] } }, data: { estado_pago: 'pagado', fecha_pago: c.fechaPago } });
     } else {
-      await tx.reciboConceptoUnidad.updateMany({ where: { id: c.cargoId, estado_pago: 'en_revision' }, data: { estado_pago: 'pendiente', fecha_pago: null } });
+      await tx.reciboConceptoUnidad.updateMany({ where: { id: { in: [...cargos] }, estado_pago: 'en_revision' }, data: { estado_pago: 'pendiente', fecha_pago: null } });
     }
   });
 }

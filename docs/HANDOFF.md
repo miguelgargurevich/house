@@ -4,6 +4,45 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-24 — Claude Code (Sonnet 5.5) — `feat/recibos-por-unidad`: un recibo (mantenimiento) por departamento, pagos agrupados, empresa sólo para el personal
+
+**Pedido de Miguel:** un solo recibo por departamento con todos los conceptos, agrupado por block (salvo condominios sin blocks o con uno), pagos «a los recibos, no por conceptos»; la empresa no es dato del residente. **Contrato: `docs/API-CONTRATO.md` (sección «Mantenimiento…»), `SEGURIDAD.md`, `DESIGN.md`.**
+
+**Qué se hizo (commits pequeños, SIN push)**
+- **Esquema ADITIVO:** `Pago.grupo String?` (índice) y `Pago.grupo_principal Boolean @default(false)`. Sin migraciones; `prisma db push` sin pérdida.
+- **Mantenimiento = (recibo, unidad)**, derivado (`lib/mantenimientos.ts`: cuentas puras, estado, número `2026-10-B01-804`, consultas agregadas en SQL, resumen por block). Pagar = un `Pago` por cargo con el saldo (calculado por el servidor), mismo `grupo`; el principal lleva el comprobante y la evaluación IA (compara contra el TOTAL del grupo). Validar/rechazar/IA actúan sobre el grupo en una transacción. Pagos sueltos antiguos siguen igual.
+- **Backend:** `me.ts` (`/me/mantenimientos…`), `recibos.ts` (`/:id/blocks`, `/:id/mantenimientos…`, registrar pago), `pagos.ts` (una fila por mantenimiento, editar/borrar por grupo), `comprobantes.ts` (redirige al principal), `validacionPago.ts`, `evaluacion.ts`, dashboard residente, morosidad por block, `complejos` con `unidades_count`/`blocks_count`.
+- **Empresa:** residentes siempre `empresa_id = null` (crear/cambiar rol/editar); `scopeUsuarios` alcanza por unidad y por condominio; lista de usuarios muestra la(s) empresa(s) derivada(s); un admin que crea un residente debe indicar condominio (si no quedaría inalcanzable). **Script para producción (NO ejecutado; lo corre el orquestador):** `npx tsx scripts/limpiar-empresa-residentes.ts --simular` y luego sin `--simular` (idempotente, imprime cuántos).
+- **Frontend:** residente (Mis recibos por mantenimiento, detalle por concepto, Pagar mantenimiento, Ver/Imprimir «Recibo de mantenimiento», Inicio coherente, Mis pagos); admin (`/admin/recibos/:id` agrupado por block con lista paginada y detalle, registrar pago del mantenimiento, parcial por concepto como «opciones avanzadas», Pagos con una fila por mantenimiento sin scroll a 1280, Usuarios con empresa sólo para personal + condominio para residentes, Morosidad con filtro de block). Asistente: `mis_recibos` y `recibos` hablan del mantenimiento, prompt actualizado.
+- **Seed Libertadores:** pagos agrupados (4 772 grupos) + 1 135 pagos sueltos antiguos (unidades `idx % 29 === 0`, meses pasados), un comprobante por grupo en octubre (29 por validar); residentes sin empresa. Totales y morosidad idénticos al seed anterior (verificado corriendo ambos: emitido S/ 1 200 468.79, cobrado S/ 1 073 340.98, 179 unidades con cargos vencidos).
+
+**Bugs reales hallados en el navegador (corregidos)**
+1. **CSP bloqueaba los comprobantes/QR** en la app servida por Express (`img-src 'self' data:` sin `blob:`): ahora `img-src 'self' data: blob:` (test en `seguridad.test.ts`). Afectaba también a producción antes de esta rama.
+2. **`PagarModal`: «Ya pagué: registrar comprobante» enviaba el pago solo** (React reutilizaba el botón y su `type` pasaba a `submit` durante el clic → pago sin comprobante). Ahora los botones llevan `key` distinta. (Existía antes de esta rama.)
+3. Dos diálogos seguidos: el `close` del `<dialog>` del primero cerraba todo; se ignora mientras se cambia.
+
+**Verificación (números reales)**
+- `npm test` **601/601** (base `house_test_recibos`; eran 555 al empezar: `mantenimientos.test.ts` 36, `empresa-personal.test.ts` 8, herramientas +2, negocio/seguridad ampliados). `tsc -b`, `tsc -p tests/tsconfig.json --noEmit` y `npm run build` limpios.
+- **Mutaciones en rojo (16):** cada cambio clave revertido hace fallar su prueba (cierre por grupo, IA contra el total, comprobante al principal, reparto por saldo, fila por mantenimiento, empresa null, alcance por condominio/unidad, conteo de unidades, orden natural de blocks, CSP, dashboard, herramienta, ruta del asistente, filtro de block en morosidad, editar por grupo).
+- **Navegador (Playwright, mi propio backend en :4100 con un Postgres aparte en :5434; no toqué el de otra sesión):** `miguel@prueba.house` (Inicio, Mis recibos con 4 pestañas, detalle, Ver/Imprimir con PDF de impresión, pagar con comprobante → «En revisión», Mis pagos, Pagos por validar de la junta con el pago nuevo, 375 px sin scroll horizontal) y `ana.lopez@gestionurbana.com` (Recibos → periodo → 14 blocks → Block 1 → departamento → detalle; registrar pago de un vencido → pagado; Pagos sin scroll a 1280 y modal de revisión con la imagen; Registrar pago; Usuarios: el formulario de seguridad pide empresa/no condominio, el de propietario pide condominio y no empresa; Condominios muestra 448; Morosidad por block). Sin errores de consola.
+
+**NO verificado (honesto)**
+- Lectura real de la IA sobre un comprobante de grupo (sólo `fetch` falso; con proveedor real no se probó). Evaluación en el navegador quedó en «No disponible» (sin claves).
+- Producción (Coolify): `prisma db push` con las 2 columnas nuevas y el script de limpieza no se ejecutaron allí. Rendimiento con volumen mayor al de 448 unidades.
+- Modo oscuro y lectores de pantalla de las pantallas nuevas; la hoja de impresión sólo se revisó generando el PDF, no en una impresora.
+- Junta que NO es admin registrando pagos a mano: no se añadió (sigue siendo del admin; la junta valida/rechaza).
+
+**Decisiones / gotchas**
+- `estado` de listas admite varios valores (`?estado=pendiente,parcial,vencido`). «Por pagar» del residente incluye vencidos.
+- Un admin ve a un residente sólo por `complejo_id` o por sus unidades; por eso crear un residente exige condominio.
+- El cliente de Prisma generado vive en el `node_modules` compartido del repo principal: se regeneró con las 2 columnas nuevas (aditivo; otras sesiones siguen funcionando).
+- Para ver la app compilada desde un worktree hay que servir una copia de `dist/` con otro cwd (dotfiles en `.claude/…`).
+- Quedan corriendo/creados por esta sesión: contenedor `house-pg-recibos` (puerto 5434, base `house` sembrada) y la base `house_test_recibos`; se pueden borrar (`docker rm -f house-pg-recibos`).
+
+**Próximos pasos:** revisar el diff, correr el script de limpieza en prod tras el deploy, probar la IA real con un comprobante de grupo y decidir si la junta debe poder registrar pagos manuales de mantenimiento.
+
+---
+
 ## 2026-10-24 — Claude Code (Sonnet 5.5) — `feat/seed-libertadores`: datos de prueba del Condominio Los Libertadores de Surco
 
 **Qué se hizo:** `prisma/seed-libertadores.ts` + `npm run seed:libertadores` (el `seed.ts` original no se tocó). Sólo corre contra `localhost` y la base `house`; borra y recrea todo (incluye medios de pago, avisos, comprobantes, evaluaciones, IA, tokens y sesiones; conserva `ClaveIntegracion`, `ModeloIA`, `SyncModelosIA`, `EstadoIA`). Determinista (PRNG con semilla), ~45 s.

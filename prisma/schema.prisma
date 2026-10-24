@@ -224,8 +224,13 @@ model Pago {
   comprobante               ArchivoComprobante?
   validado_por_ia           Boolean               @default(false)
   evaluacion                EvaluacionComprobante?
+  /// Pago del mantenimiento completo: los `Pago` de un mismo (recibo, unidad) comparten este identificador. Null = pago suelto por cargo.
+  grupo                     String?
+  /// El pago que representa al grupo: lleva el comprobante y la evaluación de la IA (que compara contra el TOTAL del grupo).
+  grupo_principal           Boolean               @default(false)
 
   @@index([estado_validacion])
+  @@index([grupo])
 }
 
 model Auditoria {

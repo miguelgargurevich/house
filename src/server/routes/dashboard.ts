@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { decimalAString, filtroEstadoCargo, noPagado } from '../lib/cargos';
 import { inicioAnioLima, inicioMesLima, mesesAtras } from '../lib/fechas';
+import { listarMantenimientos } from '../lib/mantenimientos';
 import { scopeCargos, scopePagos, scopeRecibos, scopeTareas, scopeUnidades } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { forbidden } from '../errors';
@@ -67,10 +68,23 @@ async function resumenResidente(u: AuthUser) {
     }),
     prisma.pago.aggregate({ where: { reciboConceptoUnidad: mios, ...validado, fecha_pago: { gte: inicioAnioLima() } }, _sum: { monto: true } }),
   ]);
+  // Lo mismo, a nivel mantenimiento (un recibo por departamento y mes): lo que el vecino ve y paga.
+  const unidadIds = (await prisma.unidad.findMany({ where: propias, select: { id: true } })).map((x) => x.id);
+  const una = { page: 1, pageSize: 1, orden: { campo: 'vencimiento', dir: 'asc' } } as const;
+  const [mVencidos, mRevision, mPendiente, mParcial] = await Promise.all([
+    listarMantenimientos({ unidadIds, estado: 'vencido' }, una),
+    listarMantenimientos({ unidadIds, estado: 'en_revision' }, una),
+    listarMantenimientos({ unidadIds, estado: 'pendiente' }, una),
+    listarMantenimientos({ unidadIds, estado: 'parcial' }, una),
+  ]);
+  const sig = [...mPendiente.items, ...mParcial.items].sort((a, b) => a.fecha_vencimiento.getTime() - b.fecha_vencimiento.getTime())[0];
   return {
     deuda_total: sumaMonto(deuda),
     vencidos,
     en_revision: enRevision,
+    mantenimientos_vencidos: mVencidos.total,
+    mantenimientos_en_revision: mRevision.total,
+    proximo_mantenimiento: sig ? { recibo_id: sig.recibo_id, unidad_id: sig.unidad_id, titulo: sig.titulo, monto: sig.saldo, fecha: sig.fecha_vencimiento } : null,
     proximo_vencimiento: proximo ? { cargo_id: proximo.id, monto: decimalAString(proximo.monto), fecha: proximo.reciboConcepto?.recibo?.fecha_vencimiento ?? null } : null,
     pagado_ano: sumaMonto(pagadoAnio),
   };
