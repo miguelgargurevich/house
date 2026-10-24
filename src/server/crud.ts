@@ -1,7 +1,7 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type RequestHandler, type Response } from 'express';
 import type { Rol } from './config';
 import { currentUser, requireRole, type AuthUser } from './middleware/auth';
-import { invalid, notFound } from './errors';
+import { forbidden, invalid, notFound } from './errors';
 import { listQuerySchema, parse, parseBody, parseId, parseOrden, z } from './validation';
 
 type Where = Record<string, unknown>;
@@ -13,6 +13,8 @@ export interface CrudOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delegate: any;
   readRoles: Rol[];
+  /** Acceso de lectura adicional a usuarios que no tienen un rol de `readRoles` (p. ej. la junta); su `scope` debe acotarlos. */
+  readAlso?: (user: AuthUser) => boolean;
   writeRoles: Rol[];
   /** Sólo monta los GET. */
   readOnly?: boolean;
@@ -49,6 +51,11 @@ const queryArgs = (o: CrudOptions) => ({ ...(o.include ? { include: o.include } 
 
 export function crudRouter(o: CrudOptions): Router {
   const router = Router();
+  const lectura: RequestHandler = (req, _res, next) => {
+    const user = currentUser(req);
+    if (user.rol === 'superadmin' || o.readRoles.includes(user.rol) || o.readAlso?.(user)) return next();
+    throw forbidden();
+  };
   router.use((_req, res, next) => {
     res.locals.entidad = o.entidad;
     next();
@@ -56,7 +63,7 @@ export function crudRouter(o: CrudOptions): Router {
   const fmt = async (items: unknown[], user: AuthUser) => (o.format ? o.format(items, user) : items);
   const querySchema = o.filtros ? listQuerySchema.extend(o.filtros.schema.shape) : listQuerySchema;
 
-  router.get('/', requireRole(...o.readRoles), async (req, res) => {
+  router.get('/', lectura, async (req, res) => {
     const user = currentUser(req);
     const query = parse(querySchema, req.query) as z.infer<typeof listQuerySchema> & Record<string, unknown>;
     const and: Where[] = [o.scope(user)];
@@ -73,7 +80,7 @@ export function crudRouter(o: CrudOptions): Router {
     res.json({ items: await fmt(rows, user), total, page: query.page, pageSize: query.pageSize });
   });
 
-  router.get('/:id', requireRole(...o.readRoles), async (req, res) => {
+  router.get('/:id', lectura, async (req, res) => {
     const user = currentUser(req);
     const id: Id = parseId(req);
     const row = await o.delegate.findFirst({ where: { AND: [{ id }, o.scope(user)] }, ...queryArgs(o) });

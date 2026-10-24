@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BanknotesIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../api';
+import { useAuth } from '../../auth/AuthContext';
 import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, StatusBadge, Tabs, Toolbar, fechaCorta, soles } from '../../ui';
 import type { Column } from '../../ui';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
@@ -25,6 +26,9 @@ const TEXTOS: Record<Pestana, { stat: string; tone: 'ok' | 'warn' | 'bad'; vacio
 type PagoFila = PagoRevisable;
 
 export default function Pagos() {
+  const { user } = useAuth();
+  // La junta (propietario con cargo) sólo revisa los pagos de su block: registrar pagos es de la administración.
+  const puedeRegistrar = user?.rol !== 'propietario';
   const [pestana, setPestana] = useState<Pestana>('por_validar');
   const [metodo, setMetodo] = useState('');
   const [revisando, setRevisando] = useState<PagoFila | null>(null);
@@ -56,8 +60,8 @@ export default function Pagos() {
     <>
       <PageHeader
         title="Pagos"
-        description="Revisa los pagos que registran los residentes y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta."
-        actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button>}
+        description={puedeRegistrar ? 'Revisa los pagos que registran los residentes y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.' : 'Revisa los comprobantes de los vecinos de tu block: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo.'}
+        actions={puedeRegistrar ? <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button> : undefined}
       />
       <StatStrip
         stats={[
@@ -92,13 +96,13 @@ export default function Pagos() {
             title: textos.vacio,
             description: metodo ? 'Prueba con otro filtro.' : textos.vacioDesc,
             icon: <BanknotesIcon />,
-            action: metodo || pestana !== 'validado' ? undefined : <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>,
+            action: !puedeRegistrar || metodo || pestana !== 'validado' ? undefined : <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>,
           }}
         />
       </Card>
 
       <ValidarPagoModal pago={revisando} onClose={() => setRevisando(null)} onRevisado={() => void list.reload()} />
-      {registrando && <RegistrarPagoModal onClose={() => setRegistrando(false)} onSaved={() => { if (pestana === 'validado') void list.reload(); else setPestana('validado'); /* un pago del admin queda validado */ }} />}
+      {puedeRegistrar && registrando && <RegistrarPagoModal onClose={() => setRegistrando(false)} onSaved={() => { if (pestana === 'validado') void list.reload(); else setPestana('validado'); /* un pago del admin queda validado */ }} />}
     </>
   );
 }

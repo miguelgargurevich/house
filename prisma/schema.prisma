@@ -49,6 +49,10 @@ model Usuario {
   aviso_email       Boolean                @default(true)
   aviso_whatsapp    Boolean                @default(false)
   notificaciones    Notificacion[]
+  cargo_junta       String?
+  estructura_id     Int?
+  estructura        Estructura?            @relation("JuntaEstructura", fields: [estructura_id], references: [id], onDelete: SetNull)
+  mediosPagoCreados MedioPago[]
 }
 
 model EmpresaAdministradora {
@@ -81,6 +85,7 @@ model ComplejoHabitacional {
   recibos     Recibo[]
   unidades    Unidad[]
   usuarios    Usuario[]
+  mediosPago  MedioPago[]
 }
 
 model Estructura {
@@ -96,6 +101,8 @@ model Estructura {
   hijos       Estructura[]          @relation("EstructuraPadre")
   pisos       Piso[]
   unidades    Unidad[]
+  juntaUsuarios Usuario[]           @relation("JuntaEstructura")
+  mediosPago  MedioPago[]
 }
 
 model Piso {
@@ -305,4 +312,32 @@ model Notificacion {
   @@index([estado, programada_para])
   @@index([usuario_id])
   @@index([created_at])
+}
+
+/// Cuenta bancaria o Yape/Plin (con QR) donde los vecinos pagan; la define la administradora o la junta del block.
+model MedioPago {
+  id                Int                   @id @default(autoincrement())
+  complejo_id       Int
+  estructura_id     Int?
+  tipo              String
+  banco             String?
+  tipo_cuenta       String?
+  numero_cuenta     String?
+  cci               String?
+  titular           String
+  documento_titular String?
+  celular           String?
+  qr_nombre         String?
+  qr_tipo_mime      String?
+  qr_datos          Bytes?
+  activo            Boolean               @default(true)
+  orden             Int                   @default(0)
+  creado_por_id     Int?
+  created_at        DateTime              @default(now())
+  updated_at        DateTime              @updatedAt
+  complejo          ComplejoHabitacional  @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  estructura        Estructura?           @relation(fields: [estructura_id], references: [id], onDelete: Cascade)
+  creado_por        Usuario?              @relation(fields: [creado_por_id], references: [id], onDelete: SetNull)
+
+  @@index([complejo_id, estructura_id])
 }

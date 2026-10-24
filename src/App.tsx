@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, HOME, useAuth } from './auth/AuthContext';
-import { RequireAuth, RequireRole } from './auth/guards';
+import { RequireAuth, RequireJunta, RequireRole } from './auth/guards';
 import { Shell } from './app/Shell';
 import { ToastProvider, Skeleton } from './ui';
 import Login from './pages/Login';
@@ -22,6 +22,7 @@ const AdminConceptos = lazy(() => import('./pages/admin/Conceptos'));
 const AdminUsuarios = lazy(() => import('./pages/admin/Usuarios'));
 const AdminConfiguracion = lazy(() => import('./pages/admin/Configuracion'));
 const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
+const AdminMediosPago = lazy(() => import('./pages/admin/MediosPago'));
 const PropietarioInicio = lazy(() => import('./pages/propietario/Inicio'));
 const PropietarioUnidades = lazy(() => import('./pages/propietario/Unidades'));
 const PropietarioCargos = lazy(() => import('./pages/propietario/Cargos'));
@@ -74,6 +75,11 @@ export default function App() {
           <Route path="/admin/usuarios" element={<AdminUsuarios />} />
           <Route path="/admin/configuracion" element={<AdminConfiguracion />} />
           <Route path="/admin/avisos" element={<AdminAvisos />} />
+          <Route path="/admin/medios-pago" element={<AdminMediosPago />} />
+        </Route>
+        <Route element={<RequireJunta />}>
+          <Route path="/junta/medios-pago" element={<AdminMediosPago />} />
+          <Route path="/junta/pagos" element={<AdminPagos />} />
         </Route>
         <Route element={<RequireRole roles={['propietario']} />}>
           <Route path="/propietario/inicio" element={<PropietarioInicio />} />

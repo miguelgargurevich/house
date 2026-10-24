@@ -4,6 +4,8 @@ import { api, csrfStore, setUnauthorizedHandler } from '../api';
 
 export type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad';
 
+export type CargoJunta = 'presidente' | 'tesorero' | 'secretario' | 'vocal';
+
 export interface Usuario {
   id: number;
   nombre: string;
@@ -12,6 +14,10 @@ export interface Usuario {
   empresa_id?: number | null;
   complejo_id?: number | null;
   telefono?: string | null;
+  /** Cargo en la junta directiva (sólo propietarios). */
+  cargo_junta?: CargoJunta | null;
+  /** Block al que pertenece el cargo; null = todo su condominio. */
+  estructura_id?: number | null;
 }
 
 interface AuthState {

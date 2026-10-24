@@ -27,6 +27,28 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - La auditoría de un recibo se guarda con `entidad: 'recibo'` (singular); la de pagos, `entidad: 'pago'`.
 - Los tests del recorrido dependen del orden (una sola historia); no los corras con `--test-name-pattern` aislado.
 
+## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/medios-pago`
+
+**Qué se hizo:** medios de pago por block (cuenta bancaria, Yape/Plin con QR) y cargo de junta directiva. Sin pasarela: el vecino paga por fuera y registra el comprobante.
+- Esquema (aditivo, al final de cada bloque): `Usuario.cargo_junta`, `Usuario.estructura_id` (+ relación `JuntaEstructura`), modelo `MedioPago` (FK Cascade a `ComplejoHabitacional`/`Estructura`).
+- Backend: `lib/junta.ts` (`ambitoJunta`, `puedeGestionar`, `filtroAmbito`; sólo presidente/tesorero), `scopeMediosPago` y `scopePagosJunta` en `lib/scope.ts`, `services/mediosPago.ts` (catálogo de bancos, zod por tipo, límites del QR), `routes/mediosPago.ts` (`/api/medios-pago`, `/ambitos`, QR crudo, `/api/me/medios-pago`). `crud.ts` suma `readAlso` (lectura extra acotada por `scope`); `pagos.ts` lo usa para que la junta LEA los pagos de su ámbito; `comprobantes.ts` deja ver el comprobante y validar/rechazar a la junta del ámbito (no el propio pago). `AuthUser`, login y `/me` suman `cargo_junta` y `estructura_id`. `usuarios.ts` valida/asigna el cargo y revoca sesiones.
+- Frontend: `/admin/medios-pago` (`pages/admin/MediosPago.tsx` + `_parts/medios/`), grupo «Junta» en la navegación (`navPara(user)` en `app/nav.ts`; `RequireJunta` en `auth/guards.tsx`; `auth/junta.ts`) con `/junta/medios-pago` y `/junta/pagos` que reusan `MediosPago` y `Pagos` (`Pagos` oculta «Registrar pago» a la junta); «Cargo en la junta» y columna «Cargo» en Usuarios; `PagarModal` ahora empieza en «Cómo pagar» (`ComoPagar.tsx`) y luego «Ya pagué: registrar comprobante».
+- Pruebas: `tests/medios-pago.test.ts` (32). Se ajustó el `deepEqual` del usuario de login en `tests/seguridad.test.ts` (campos nuevos). Suite completa: 216 en verde. 15 mutaciones comprobadas en rojo.
+- Docs: `API-CONTRATO.md` y `SEGURIDAD.md` (sección «Medios de pago y junta directiva»).
+
+**Próximos pasos:**
+- Revisar las pantallas en el navegador (no hubo): tabla y modal de medios de pago, «Cómo pagar» en móvil (QR de 224 px, botones de 40 px), grupo «Junta», selects de cargo en Usuarios.
+- Integrar con `main`; en el despliegue `prisma db push` agrega las 2 columnas y la tabla (aditivo, sin pérdida de datos).
+- Asignar cargos desde Usuarios (p. ej. presidente de un block) para probar el flujo completo.
+- Idea: aviso al residente cuando la junta valida/rechaza (`encolarAviso` ya existe; `validacion` aún no lo llama).
+
+**Decisiones:** «block» = `Estructura` por igualdad directa con `Unidad.estructura_id` (sin anidados). La junta no valida su propio pago. El residente no recibe el DNI/RUC del titular. `GET /api/me/medios-pago` devuelve un array plano. `GET /api/medios-pago/ambitos` existe porque la junta no puede leer `/api/estructuras`. El QR usa `bg-white` (único fondo fijo): un QR oscuro sobre fondo oscuro no se escanea.
+
+**Gotchas:**
+- Las pruebas comparten `house_test` con otras sesiones: dos suites a la vez se vacían la base entre sí (falsos rojos). Usa una propia: `TEST_DATABASE_URL=postgresql://postgres:house@localhost:5433/house_test_<tema>` (el nombre debe contener `house_test`) y `prisma db push` contra ella.
+- NO corras `prisma format`: reformatea todo `schema.prisma` y ensucia el diff.
+- Un presidente con block ve el QR/medios de su block, no los de «todo el condominio» (sólo una junta sin block los gestiona); los vecinos ven ambos.
+
 ---
 
 ## 2026-10-23 — Claude Code (Sonnet 5.5) — rama `feat/sesion-cookie`

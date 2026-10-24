@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import type { AuthUser } from '../middleware/auth';
 import { forbidden } from '../errors';
+import { ambitoJunta, filtroAmbito } from './junta';
 
 /** Empresa del administrador; un admin sin empresa no puede operar (evita `empresa_id: null` = "todas las huérfanas"). */
 export function empresaDe(user: AuthUser): number {
@@ -79,4 +80,20 @@ export function scopeTareas(u: AuthUser): Prisma.TareaMantenimientoWhereInput {
     default:
       throw forbidden();
   }
+}
+
+/** Pagos de las unidades del ámbito de la junta del usuario (presidente/tesorero). Otros usuarios → 403. */
+export function scopePagosJunta(u: AuthUser): Prisma.PagoWhereInput {
+  const a = ambitoJunta(u);
+  if (!a) throw forbidden();
+  return { reciboConceptoUnidad: { unidad: filtroAmbito(a) } };
+}
+
+/** Medios de pago: admin = su empresa; junta = su ámbito. Cualquier otro rol → 403. */
+export function scopeMediosPago(u: AuthUser): Prisma.MedioPagoWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return { complejo: { empresa_id: empresaDe(u) } };
+  const a = ambitoJunta(u);
+  if (!a) throw forbidden();
+  return filtroAmbito(a);
 }
