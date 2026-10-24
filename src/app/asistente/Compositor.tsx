@@ -8,6 +8,8 @@ interface Props {
   onChange: (v: string) => void;
   onEnviar: () => void;
   onDetener: () => void;
+  /** ↑ con el campo vacío: devuelve el último mensaje enviado (o `null`) para editarlo. */
+  onRecuperar: () => string | null;
   ocupado: boolean;
   inputRef: RefObject<HTMLTextAreaElement | null>;
 }
@@ -15,7 +17,7 @@ interface Props {
 const MAX = 4000;
 
 /** Pie SÓLIDO (sin blur) con el campo de texto: Enter envía; Mayús+Enter agrega una línea. Los ajustes viven en la cabecera. */
-export function Compositor({ valor, onChange, onEnviar, onDetener, ocupado, inputRef }: Props) {
+export function Compositor({ valor, onChange, onEnviar, onDetener, onRecuperar, ocupado, inputRef }: Props) {
   // Crece con el texto, hasta 6 líneas.
   useEffect(() => {
     const el = inputRef.current;
@@ -27,6 +29,10 @@ export function Compositor({ valor, onChange, onEnviar, onDetener, ocupado, inpu
   const enviar = (e: FormEvent) => { e.preventDefault(); if (!ocupado && valor.trim()) onEnviar(); };
   const teclas = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (!ocupado && valor.trim()) onEnviar(); }
+    else if (e.key === 'ArrowUp' && !valor && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !e.nativeEvent.isComposing) {
+      const previo = onRecuperar();
+      if (previo) { e.preventDefault(); onChange(previo); }
+    }
   };
 
   return (
@@ -55,7 +61,7 @@ export function Compositor({ valor, onChange, onEnviar, onDetener, ocupado, inpu
         )}
       </div>
       <p className="mt-1.5 flex items-center justify-between px-1 text-xs text-muted">
-        <span>Enter envía · Mayús+Enter agrega una línea</span>
+        <span>Enter envía · Mayús+Enter, línea nueva · ↑ último</span>
         <span className={cx('num', valor.length >= MAX * 0.9 && 'text-warn')} aria-hidden={valor.length < MAX * 0.9 || undefined}>{valor.length > 0 ? `${valor.length}/${MAX}` : ''}</span>
       </p>
     </form>

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AdjustmentsHorizontalIcon, ArrowLeftIcon, ChatBubbleLeftRightIcon, PencilSquareIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { AdjustmentsHorizontalIcon, ArrowDownTrayIcon, ArrowLeftIcon, ChatBubbleLeftRightIcon, PencilSquareIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { cx } from '../../ui';
 import { AjustesMenu } from './AjustesMenu';
 import { NOMBRE_PRESET } from './ajustes';
@@ -23,6 +23,8 @@ interface Props {
   onNueva: () => void;
   onHistorial: () => void;
   onVolverAlChat: () => void;
+  /** Descarga la conversación como Markdown; sin función, no hay nada que exportar. */
+  onExportar?: () => void;
   onCerrar: () => void;
 }
 
@@ -30,7 +32,7 @@ interface Props {
  * Cabecera de 44 px, esmerilada (superficie al 70 % + `backdrop-blur`): el hilo pasa por detrás. Título, «Auto/modelo · creatividad» (abre
  * los ajustes), nueva conversación, historial y cerrar. En el celular el primer botón es «Volver» (es una vista propia, no un velo).
  */
-export function CabeceraAsistente({ vista, opciones, ajustes, onAjustes, onNueva, onHistorial, onVolverAlChat, onCerrar }: Props) {
+export function CabeceraAsistente({ vista, opciones, ajustes, onAjustes, onNueva, onHistorial, onVolverAlChat, onExportar, onCerrar }: Props) {
   const [menu, setMenu] = useState(false);
   const idMenu = useId();
   const disparador = useRef<HTMLButtonElement>(null);
@@ -81,6 +83,7 @@ export function CabeceraAsistente({ vista, opciones, ajustes, onAjustes, onNueva
         </>
       )}
       <div className="ml-auto flex shrink-0 items-center">
+        {enChat && onExportar && <Boton label="Exportar conversación (Markdown)" onClick={onExportar}><ArrowDownTrayIcon className="h-5 w-5" aria-hidden="true" /></Boton>}
         {enChat && <Boton label="Ver conversaciones anteriores" onClick={onHistorial}><ChatBubbleLeftRightIcon className="h-5 w-5" aria-hidden="true" /></Boton>}
         <Boton label="Nueva conversación" onClick={onNueva}><PencilSquareIcon className="h-5 w-5" aria-hidden="true" /></Boton>
         <Boton label="Cerrar asistente" onClick={onCerrar} className="max-lg:hidden"><XMarkIcon className="h-5 w-5" aria-hidden="true" /></Boton>

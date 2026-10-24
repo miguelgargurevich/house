@@ -12,7 +12,7 @@ export interface PeticionChat {
 }
 
 export type EventoCliente =
-  | { tipo: 'meta'; conversacion_id: string }
+  | { tipo: 'meta'; conversacion_id: string; mensaje_id?: number }
   | { tipo: 'delta'; texto: string }
   | { tipo: 'fin'; modelo: string | null; proveedor: string | null; latencia_ms: number | null; modo: 'contingencia' | null }
   | { tipo: 'error'; error: ErrorChat };
@@ -59,7 +59,7 @@ export async function* enviarMensaje(deps: DepsCliente, peticion: PeticionChat, 
   try {
     for await (const ev of leerSse(r.body)) {
       const d = obj(ev.datos);
-      if (ev.evento === 'meta') { const id = str(d.conversacion_id); if (id) yield { tipo: 'meta', conversacion_id: id }; }
+      if (ev.evento === 'meta') { const id = str(d.conversacion_id); if (id) yield { tipo: 'meta', conversacion_id: id, ...(Number.isInteger(d.mensaje_id) ? { mensaje_id: d.mensaje_id as number } : {}) }; }
       else if (ev.evento === 'delta') { const t = str(d.texto); if (t) yield { tipo: 'delta', texto: t }; }
       else if (ev.evento === 'done') {
         terminoBien = true;
