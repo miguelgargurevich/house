@@ -148,3 +148,11 @@ Ver `docs/HERRAMIENTAS.md` (catálogo, argumentos, ejemplos y modelo de segurida
 
 ### Condominios
 - La empresa administradora se muestra como «Administrado por …» con su contrato vigente (desde), botón «Cambiar de administradora» (solo superadmin) y el historial de contratos.
+
+### Subida de Excel: crear recibos por departamento
+- **Endpoint**: `POST /api/recibos/excel` (solo admin/superadmin). Cuerpo `multipart/form-data` con campo `archivo` (`.xlsx`) y `complejo_id`.
+- **Formato del Excel**: ver `docs/EXCEL-RECIBOS.md` y ejemplo en `docs/ejemplos/block-1-octubre.xlsx`.
+- **Qué hace**: lee el Excel, extrae metadatos (mes, año, vencimiento), crea/encuentra los conceptos de la empresa, crea (o actualiza si ya existe) el recibo del mes+año+complejo, y crea un cargo `ReciboConceptoUnidad` por cada concepto+departamento con el monto del archivo. Es idempotente: volver a subir el mismo mes reemplaza los cargos.
+- **Respuesta**: `{recibo_id, mes, anio, unidades_procesadas, filas_saltadas, conceptos}`.
+- **Filas saltadas**: departamentos cuyo block+dpto no se encuentre en el condominio, o filas de totales/vacías.
+- Después de crear, se encolan avisos `recibo_emitido` a propietarios e inquilinos (no bloquea si falla).
