@@ -131,8 +131,8 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
       const codigo = v.unidad.trim();
       const unidadId = v.unidad_id ? Number(v.unidad_id) : null;
       const codigoActual = (editando as Fila)?.unidades?.[0]?.codigo ?? '';
-      const unidadIdActual = (editando as Fila)?.unidades?.[0]?.id ? String((editando as Fila).unidades[0].id) : '';
-      const departamentoCambio = codigo !== codigoActual || Boolean(unidadId && unidadId !== unidadIdActual);
+      const unidadIdActual = (editando as Fila)?.unidades?.[0]?.id ? String((editando as Fila)?.unidades?.[0]?.id) : '';
+      const departamentoCambio = codigo !== codigoActual || Boolean(unidadId && String(unidadId) !== unidadIdActual);
       if (nuevo || departamentoCambio) {
         if (codigo || unidadId) {
           // El departamento se escribe por su código (un condominio puede tener cientos): se busca dentro del condominio elegido.
