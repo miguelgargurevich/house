@@ -13,6 +13,8 @@ import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
+import multer from 'multer';
+import XLSX from 'xlsx';
 
 const conceptoItem = z.object({ concepto_id: idSchema, monto: montoSchema, es_recargo: z.boolean().optional() });
 
@@ -290,6 +292,176 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res)
   res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: id, unidad_id: unidadId };
   // El recibo ya se validó arriba: al cobrar la última unidad deja de tener deuda y `recibosDe` dejaría de alcanzarlo (404 tras haber cobrado).
   res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
+});
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+const limpiarMonto = (v: unknown): number | null => {
+  if (v == null) return null;
+  const s = String(v).trim().replace(/,/g, '.');
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
+function mesNumero(nombre: string): number | null {
+  const m: Record<string, number> = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
+  return m[String(nombre).trim().toLowerCase()] ?? null;
+}
+
+function fechaLima(textoFecha: string): Date | null {
+  const match = String(textoFecha).match(/(\d{1,2})\s*DE\s*([A-ZÁÉÍÓÚÜÑ]+)\s*DE\s*(\d{4})/i);
+  if (!match) return null;
+  const d = parseInt(match[1], 10);
+  const mes = mesNumero(match[2]);
+  const anio = parseInt(match[3], 10);
+  if (!mes) return null;
+  return new Date(Date.UTC(anio, mes - 1, d));
+}
+
+/** Subida de Excel con cargos por departamento: crea el recibo, los conceptos y un cargo por unidad+departamento. */
+router.post('/excel', upload.single('archivo'), requireRole('admin'), async (req, res) => {
+  const u = currentUser(req);
+  const complejoId = Number(req.body.complejo_id);
+  if (!complejoId) throw invalid('Datos inválidos: complejo_id es obligatorio', { complejo_id: 'Obligatorio' });
+  const complejo = await assertRef(prisma.complejoHabitacional, complejoId, scopeComplejos(u), 'complejo_id');
+  const empresa_id = complejo!.empresa_id as number | null;
+  if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
+
+  const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+  const primeraHoja = workbook.Sheets[workbook.SheetNames[0]];
+  if (!primeraHoja) throw invalid('El archivo no tiene hojas', { archivo: 'Sin hojas' });
+  const datos = XLSX.utils.sheet_to_json(primeraHoja, { header: 1, blankrows: false, defval: '' }) as unknown[][];
+
+  let mes: number | null = null;
+  let anio: number | null = null;
+  let fechaVencimiento: Date | null = null;
+  let descripcion = '';
+  for (const fila of datos) {
+    const filaTexto = fila.map((c) => String(c ?? '')).join(' ');
+    if (filaTexto.toLowerCase().includes('mes')) {
+      const m = filaTexto.match(/MES\s*[;:]\s*([A-Za-zÁÉÍÓÚÜÑ]+)/i);
+      if (m) mes = mesNumero(m[1]);
+      const a = filaTexto.match(/(\d{4})/);
+      if (a) anio = parseInt(a[1], 10);
+    }
+    if (filaTexto.toLowerCase().includes('vencimiento')) {
+      const f = fechaLima(filaTexto);
+      if (f) fechaVencimiento = f;
+    }
+  }
+  if (!mes || !anio) throw invalid('No se encontró el mes y año en el Excel', { archivo: 'Formato inválido' });
+  if (!fechaVencimiento) fechaVencimiento = new Date(Date.UTC(anio, mes, 1));
+
+  let filaEncabezado = -1;
+  for (let i = 0; i < datos.length; i++) {
+    if (String(datos[i]?.[0] ?? '').trim().toUpperCase() === 'BLOCK') {
+      filaEncabezado = i;
+      break;
+    }
+  }
+  if (filaEncabezado < 0) throw invalid('No se encontró la fila de encabezado (BLOCK)', { archivo: 'Formato inválido' });
+
+  const encabezado = datos[filaEncabezado];
+  const columnasConcepto: { indice: number; nombre: string }[] = [];
+  for (let i = 3; i < encabezado.length - 3; i++) {
+    const nombre = String(encabezado[i] ?? '').trim();
+    if (nombre) columnasConcepto.push({ indice: i, nombre });
+  }
+  if (!columnasConcepto.length) throw invalid('No se encontraron conceptos en el encabezado', { archivo: 'Formato inválido' });
+
+  const conceptosMap = new Map<string, number>();
+  for (const { nombre } of columnasConcepto) {
+    let c = await prisma.concepto.findFirst({ where: { nombre, empresa_id, activo: true } });
+    if (!c) {
+      c = await prisma.concepto.create({ data: { nombre, empresa_id, tipo_monto: 'fijo', activo: true } });
+    }
+    conceptosMap.set(nombre, c.id);
+  }
+
+  const resultado = await prisma.$transaction(async (tx) => {
+    const existente = await tx.recibo.findFirst({ where: { complejo_id: complejoId, mes, anio } });
+    let reciboId: number;
+    if (existente) {
+      reciboId = existente.id;
+      await tx.reciboConceptoUnidad.deleteMany({ where: { reciboConcepto: { recibo_id: reciboId } } });
+      await tx.reciboConcepto.deleteMany({ where: { recibo_id: reciboId } });
+      await tx.recibo.update({ where: { id: reciboId }, data: { fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion: descripcion || `Mantenimiento de ${mes} de ${anio}`, estado: 'emitido', creado_por_id: u.id } });
+    } else {
+      const recibo = await tx.recibo.create({
+        data: { complejo_id: complejoId, empresa_id, mes, anio, fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion: descripcion || `Mantenimiento de ${mes} de ${anio}`, estado: 'emitido', creado_por_id: u.id },
+      });
+      reciboId = recibo.id;
+    }
+    const ordenMap = new Map<number, number>();
+    let orden = 0;
+    for (const { nombre, indice: idx } of columnasConcepto) {
+      orden++;
+      const conceptoId = conceptosMap.get(nombre)!;
+      const rc = await tx.reciboConcepto.create({ data: { recibo_id: reciboId, concepto_id: conceptoId, monto: 0, es_recargo: false, orden } });
+      ordenMap.set(idx, rc.id);
+    }
+    let unidadesProcesadas = 0;
+    let filasSaltadas = 0;
+    const cargos: { recibo_concepto_id: number; unidad_id: number; monto: Prisma.Decimal }[] = [];
+    const estructuras = await tx.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true } });
+    const buscarEstructura = (block: string): number | null => {
+      const b = String(block).trim().toUpperCase().replace(/[.\-]/g, '');
+      for (const e of estructuras) {
+        const nom = String(e.nombre).trim().toUpperCase().replace(/[.\-]/g, '');
+        if (nom.includes(b) || b.includes(nom)) return e.id;
+      }
+      return null;
+    };
+    const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, include: { estructura: { select: { nombre: true } } } });
+    const buscarUnidad = (block: string, dpto: string): number | null => {
+      const estId = buscarEstructura(block);
+      if (estId == null) return null;
+      const d = String(dpto).trim();
+      for (const un of unidades) {
+        if (un.estructura_id !== estId) continue;
+        const cod = String(un.codigo ?? '');
+        if (cod.endsWith(`-${d}`) || cod.endsWith(d)) return un.id;
+      }
+      return null;
+    };
+    for (let i = filaEncabezado + 1; i < datos.length; i++) {
+      const fila = datos[i];
+      const block = String(fila[0] ?? '').trim();
+      const dpto = String(fila[1] ?? '').trim();
+      if (!block || !dpto || block.toUpperCase() === 'TOTALES') { filasSaltadas++; continue; }
+      const unidadId = buscarUnidad(block, dpto);
+      if (!unidadId) { filasSaltadas++; continue; }
+      for (const { indice: idx } of columnasConcepto) {
+        const monto = limpiarMonto(fila[idx]);
+        if (monto == null) continue;
+        const rcId = ordenMap.get(idx);
+        if (rcId) cargos.push({ recibo_concepto_id: rcId, unidad_id: unidadId, monto: new Prisma.Decimal(monto) });
+      }
+      unidadesProcesadas++;
+    }
+    if (cargos.length) {
+      await tx.reciboConceptoUnidad.createMany({ data: cargos as never });
+    }
+    return { reciboId, unidadesProcesadas, filasSaltadas, conceptosCreados: columnasConcepto.length };
+  });
+
+  try {
+    await encolarReciboEmitido(resultado.reciboId);
+    procesarPronto();
+  } catch (err) {
+    console.error('[avisos] no se pudieron encolar los avisos del recibo', resultado.reciboId, err instanceof Error ? err.message : 'error');
+  }
+
+  res.locals.entidad = 'recibo';
+  res.locals.entidadId = resultado.reciboId;
+  res.locals.accion = 'crear_desde_excel';
+  res.status(201).json({
+    recibo_id: resultado.reciboId,
+    mes, anio,
+    unidades_procesadas: resultado.unidadesProcesadas,
+    filas_saltadas: resultado.filasSaltadas,
+    conceptos: resultado.conceptosCreados,
+  });
 });
 
 router.use(crud);
