@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusIcon, ReceiptPercentIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ReceiptPercentIcon, PaperClipIcon } from '@heroicons/react/24/outline';
 import { useList, useResource } from '../../api';
 import { Button, Card, DataTable, PageHeader, SearchBox, Select, StatusBadge, Toolbar, fechaCorta, periodo } from '../../ui';
 import type { Column } from '../../ui';
 import { EmitirReciboModal } from './_parts/cobranza/EmitirReciboModal';
+import { SubirExcelModal } from './_parts/cobranza/SubirExcelModal';
 import { ProgresoCobro } from './_parts/cobranza/ProgresoCobro';
 import type { Complejo, Lista, ReciboFila } from './_parts/cobranza/comun';
 
 export default function Recibos() {
   const [complejo, setComplejo] = useState('');
   const [emitiendo, setEmitiendo] = useState(false);
+  const [subiendoExcel, setSubiendoExcel] = useState(false);
   const navigate = useNavigate();
   const abrir = (r: ReciboFila) => navigate(`/admin/recibos/${r.id}`);
   const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: complejo || undefined } });
@@ -35,7 +37,7 @@ export default function Recibos() {
       <PageHeader
         title="Recibos"
         description="Emite el mantenimiento del mes y ábrelo para ver los recibos de cada departamento, por block."
-        actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEmitiendo(true)}>Emitir recibo</Button>}
+        actions={<><Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEmitiendo(true)}>Emitir recibo</Button><Button icon={<PaperClipIcon className="h-4 w-4" />} onClick={() => setSubiendoExcel(true)}>Subir Excel</Button></>}
       />
       <Card>
         <Toolbar>
@@ -68,6 +70,7 @@ export default function Recibos() {
       </Card>
 
       {emitiendo && <EmitirReciboModal onClose={() => setEmitiendo(false)} onSaved={() => void list.reload()} />}
+      {subiendoExcel && <SubirExcelModal onClose={() => setSubiendoExcel(false)} onSaved={() => void list.reload()} />}
     </>
   );
 }
