@@ -4,6 +4,31 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5) — Seguridad: hallazgos bajos B-3 a B-6
+
+**Pedido de Miguel:** arreglar WhatsApp (mensaje de Evolution + sin timeout), bloqueo de login por cuenta, política de contraseñas y `login_fallido` con el correo tecleado. Rama `fix/seguridad-bajos` (sin push).
+
+**Qué se hizo (un commit por hallazgo, cada uno con su test; mutaciones en rojo)**
+- **B-3** `routes/whatsapp.ts`: `AbortSignal.timeout(10 s)` en toda llamada a Evolution; 504 «no respondió a tiempo» / 502 «no hay conexión» / 502 «respondió con error N»; el texto del proveedor sólo al log. Tests en `tests/whatsapp.test.ts`.
+- **B-4** `middleware/rateLimit.ts` (`BloqueoCuenta`, reloj inyectable `ahora`, opción `loginCuenta`) + `routes/auth.ts`: 10 fallos/15 min por correo desde cualquier IP → 429 con el mismo mensaje. Éxito limpia la cuenta. Tests: `tests/seguridad-login.test.ts`.
+- **B-5** `validation.ts` (`passwordSchema`: letra+número, lista de `lib/contrasenasComunes.ts`) y comparación con el correo en `routes/usuarios.ts` y `routes/me.ts`. Sólo al crear/cambiar. Tests: `tests/seguridad-contrasenas.test.ts`.
+- **B-6** `login_fallido`: cuenta real → `usuario_id`/`entidad_id`, sin `detalle`; inexistente → `{ email_enmascarado: 'm***@dominio' }`. Se ajustó la aserción de `tests/negocio.test.ts` (esperaba `{ email }`).
+- Docs: `docs/SEGURIDAD.md` (fila 4, Sesiones, Avisos) y informe marcado B-3..B-6 resueltos.
+
+**Verificación:** `npm test` 743/743 (726 + 17 nuevos), `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde.
+
+**Próximos pasos / decisiones**
+- El frontend no cambió: los formularios de contraseña sólo avisan de la longitud; el 422 del backend trae el mensaje nuevo (letra y número / común / igual al correo). Valorar mostrar la regla en el formulario.
+- Al editar un usuario SIN mandar el correo no se compara la contraseña con el correo guardado (zod no lo tiene a mano).
+- El bloqueo por cuenta vive en memoria del proceso (se reinicia con el servidor; con varias réplicas cada una cuenta aparte). Permite que un tercero bloquee un correo 15 min a propósito (riesgo aceptado, anotado en SEGURIDAD.md).
+- B-1/B-2/B-7 siguen abiertos (B-1/B-2 en la sesión `fix/migrar-xlsx`).
+
+**Gotchas**
+- `tests/helpers/env.ts` lee **`TEST_DATABASE_URL`** (por defecto `house_test`), NO `DATABASE_URL`: para usar otra base de pruebas hay que exportar `TEST_DATABASE_URL`. Mis primeras corridas fueron por error contra `house_test` (ver el resumen de la sesión).
+- Si `node_modules` es un symlink al checkout principal y alguien reinstala allí, puede quedar a medias (faltó `@prisma/client`); este worktree usa su propio `npm ci` + `npx prisma generate`.
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5) — Auditoría de seguridad completa del repo
 
 **Pedido de Miguel:** «pasale la skill de seguridad pinea sonnet para hacerlo» (revisión estilo `/security-review` sobre todo el repo, rama `chore/auditoria-seguridad`).
