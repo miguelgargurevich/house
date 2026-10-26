@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeftIcon, DocumentTextIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
-import { useResource } from '../../api';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeftIcon, DocumentTextIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { api, errorText, useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  Button, Card, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, fechaCorta,
+  Button, Card, ConfirmDialog, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, fechaCorta, useToast,
 } from '../../ui';
 import { TorresDelCondominio } from './_parts/condominio/TorresDelCondominio';
 import { ModalDeComplejo, type FilaComplejo } from './_parts/condominio/ModalDeComplejo';
@@ -31,10 +31,14 @@ export default function CondominioDetalle() {
   const complejoId = Number(id);
   const { user } = useAuth();
   const esSuper = user?.rol === 'superadmin';
+  const toast = useToast();
+  const navegar = useNavigate();
   const [params, setParams] = useSearchParams();
   const vista: Vista = esVista(params.get('vista')) ? (params.get('vista') as Vista) : 'datos';
   const [editando, setEditando] = useState<FilaComplejo | 'nuevo' | null>(null);
   const [contratos, setContratos] = useState<FilaComplejo | null>(null);
+  const [borrar, setBorrar] = useState<FilaComplejo | null>(null);
+  const [busy, setBusy] = useState(false);
   const [editandoUnidad, setEditandoUnidad] = useState<FilaUnidad | 'nuevo' | null>(null);
 
   const complejo = useResource<FilaComplejo>(Number.isInteger(complejoId) && complejoId > 0 ? `/api/complejos/${complejoId}` : null);
@@ -43,6 +47,17 @@ export default function CondominioDetalle() {
 
   const c = complejo.data;
   const irA = (v: Vista) => setParams(v === 'datos' ? {} : { vista: v });
+
+  async function eliminar() {
+    if (!borrar) return;
+    setBusy(true);
+    try {
+      await api(`/api/complejos/${borrar.id}`, { method: 'DELETE' });
+      toast.ok('Condominio eliminado');
+      setBorrar(null);
+      navegar('/admin/complejos');
+    } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
+  }
 
   return (
     <>
@@ -54,12 +69,6 @@ export default function CondominioDetalle() {
           <PageHeader
             title={c?.nombre ?? (complejo.loading ? 'Cargando…' : 'Condominio')}
             description={c ? [c.tipo, c.direccion, c.empresa?.nombre ? `Administrado por ${c.empresa.nombre}` : null].filter(Boolean).join(' · ') : undefined}
-            actions={c ? (
-              <>
-                <Button variant="secondary" icon={<DocumentTextIcon className="h-4 w-4" />} onClick={() => setContratos(c)}>Contratos</Button>
-                <Button icon={<PencilSquareIcon className="h-4 w-4" />} onClick={() => setEditando(c)}>Editar</Button>
-              </>
-            ) : undefined}
           />
           <StatStrip
             stats={[
@@ -79,6 +88,11 @@ export default function CondominioDetalle() {
         <Card>
           {c ? (
             <div className="p-5">
+              <div className="mb-4 flex flex-wrap justify-end gap-2">
+                <Button variant="secondary" icon={<DocumentTextIcon className="h-4 w-4" />} onClick={() => setContratos(c)}>Contratos</Button>
+                <Button icon={<PencilSquareIcon className="h-4 w-4" />} onClick={() => setEditando(c)}>Editar</Button>
+                <Button variant="danger" icon={<TrashIcon className="h-4 w-4" />} onClick={() => setBorrar(c)}>Eliminar</Button>
+              </div>
               <DefinitionList
                 items={[
                   { label: 'Nombre', value: c.nombre },
@@ -114,6 +128,17 @@ export default function CondominioDetalle() {
 
       <ModalDeComplejo complejo={editando} esSuper={esSuper} onClose={() => setEditando(null)} onGuardado={() => void complejo.reload()} />
       {contratos && <ContratosModal complejo={contratos} puedeCambiar={esSuper} onClose={() => setContratos(null)} onCambiado={() => void complejo.reload()} />}
+
+      <ConfirmDialog
+        open={!!borrar}
+        onClose={() => setBorrar(null)}
+        onConfirm={eliminar}
+        loading={busy}
+        danger
+        title="Eliminar condominio"
+        message={`Se eliminará «${borrar?.nombre ?? ''}». Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar condominio"
+      />
     </>
   );
 }

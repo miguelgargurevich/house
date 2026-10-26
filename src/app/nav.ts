@@ -2,7 +2,7 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
-  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, IdentificationIcon, TruckIcon, SparklesIcon,
+  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, TruckIcon, SparklesIcon,
   SunIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
@@ -30,23 +30,18 @@ const operacion: NavItem[] = [
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
   { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
   { to: '/admin/whatsapp', label: 'WhatsApp', icon: QrCodeIcon },
-];
-
-/** Personas, cada tipo en su pantalla: residentes (de un condominio), personal (de la empresa) y proveedores (directorio, sin acceso). */
-const personas: NavItem[] = [
-  { to: '/admin/residentes', label: 'Residentes', icon: UsersIcon },
-  { to: '/admin/personal', label: 'Personal', icon: IdentificationIcon },
   { to: '/admin/proveedores', label: 'Proveedores', icon: TruckIcon },
 ];
 
 export const NAV: Record<Rol, NavGroup[]> = {
   superadmin: [
-    { items: [{ to: '/superadmin/dashboard', label: 'Resumen', icon: HomeIcon }] },
-    { items: [{ to: '/superadmin/empresas', label: 'Empresas', icon: BuildingOffice2Icon }] },
-    { items: [condominios] },
+    { items: [
+      { to: '/superadmin/dashboard', label: 'Resumen', icon: HomeIcon },
+      { to: '/superadmin/empresas', label: 'Empresas', icon: BuildingOffice2Icon },
+      condominios,
+    ] },
     { label: 'Cobranza', items: cobranza },
     { label: 'Operación', items: operacion },
-    { label: 'Personas', items: personas },
     {
       label: 'Plataforma',
       items: [
@@ -57,11 +52,12 @@ export const NAV: Record<Rol, NavGroup[]> = {
     },
   ],
   admin: [
-    { items: [{ to: '/admin/dashboard', label: 'Resumen', icon: HomeIcon }] },
-    { items: [condominios] },
+    { items: [
+      { to: '/admin/dashboard', label: 'Resumen', icon: HomeIcon },
+      condominios,
+    ] },
     { label: 'Cobranza', items: cobranza },
     { label: 'Operación', items: operacion },
-    { label: 'Personas', items: personas },
     { label: 'Cuenta', items: [{ to: '/admin/configuracion', label: 'Mi empresa', icon: Cog6ToothIcon }] },
   ],
   propietario: [

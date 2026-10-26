@@ -4,6 +4,38 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-25 — OpenCode (MiniMax M3.1) — El menú sin «Personas» y las acciones dentro de la ficha de datos
+
+**Pedido de Miguel** (sobre la entrega anterior): «quita la sección personas porque residentes ya está dentro de condominios y personal dentro de empresas; sólo faltaría ubicar a proveedores en otro menu»; «hay mucho espacio entre resumen, empresa y condominio en el menu»; «en la página de empresas y condominio, deja sólo el ver ficha, los otros botones quítalos de la lista, y los editar que faltan ponlos dentro de las fichas de datos».
+
+**Qué se hizo (sin push)**
+
+- **Menú (`src/app/nav.ts`):** se elimina el grupo **Personas** (los residentes ya están en la ficha del condominio y el personal en la de la empresa) y **Proveedores** pasa al grupo **Operación** (al final). **Resumen · Empresas · Condominios** quedan en **un solo grupo sin rótulo**: antes cada uno era un grupo aparte y el `space-y-5` de la barra dejaba huecos entre ellos; ahora van juntos, separados por los 2 px de siempre.
+  - Superadmin: Resumen · Empresas · Condominios · **Cobranza** · **Operación** (Unidades, Mantenimiento, Conceptos, Avisos, WhatsApp, Proveedores) · **Plataforma**.
+  - Admin: Resumen · Condominios · **Cobranza** · **Operación** · **Cuenta**.
+  - Las rutas `/admin/residentes` y `/admin/personal` **siguen existiendo** (quedan fuera del menú): no se rompe ningún enlace guardado.
+- **Listas con sólo «Ver ficha»:** `src/pages/admin/Complejos.tsx` y `src/pages/superadmin/Empresas.tsx` pierden los botones de fila (contratos, editar, eliminar). En la lista de condominios quedan el enlace a la ficha y el alta del encabezado; en la de empresas, lo mismo.
+- **Las acciones viven en la pestaña Datos de su ficha:**
+  - `src/pages/admin/CondominioDetalle.tsx`: **Contratos · Editar · Eliminar** dentro de la tarjeta de Datos (ya no en el encabezado). El borrado pide confirmación y, al terminar, vuelve a la lista.
+  - `src/pages/superadmin/EmpresaDetalle.tsx`: **Editar · Eliminar** dentro de Datos.
+- **`src/pages/superadmin/_parts/ModalDeEmpresa.tsx` (nuevo):** el formulario de la empresa (que estaba embebido en la lista) pasa a un componente compartido, como ya se hizo con `ModalDeComplejo`. La lista lo usa para el alta; la ficha, para editar.
+
+**Verificación (números reales)**
+- `npm test` → **720/720** en verde (714 antes: +6 de `tests/torres-fichas-ui.test.ts`).
+- `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde; `eslint` sin errores en los archivos tocados (los ~1300 del repo son **preexistentes**).
+- **Mutaciones comprobadas** (se rompe el código y la prueba correspondiente se pone roja): volver a meter el grupo Personas en el menú (2 pruebas en rojo), volver a poner el botón de editar en la fila de la lista de condominios (1 en rojo), sacar el botón Editar de la pestaña Datos de la ficha del condominio (1 en rojo).
+
+**Próximos pasos**
+1. Mirarlo en el navegador: el menú sin huecos, la lista con sólo «Ver ficha» y las acciones dentro de Datos.
+2. Decidir si las pantallas sueltas `/admin/residentes` y `/admin/personal` se borran o se dejan como acceso directo.
+
+**Gotchas**
+- La barra lateral separa los grupos con `space-y-5` (`src/app/Shell.tsx`): dos ítems que van juntos tienen que **compartir grupo**; sin rótulo no hay separación visual extra.
+- `createRoles: []` y `deleteRoles: []` en `src/server/routes/empresas.ts` **no** significan «nadie»: `requireRole()` deja pasar siempre al superadmin (`src/server/crud.ts`). Por eso el alta y el borrado de empresas son del superadmin y los del admin dan 403.
+- Borrar una empresa con condominios da 409 (P2003: «La operación viola una relación con otros registros»): el mensaje lo arma `src/server/middleware/error.ts`.
+
+---
+
 ## 2026-10-25 — OpenCode (MiniMax M3.1) — Menú por objeto de trabajo, ficha del condominio y de la empresa, y las torres de punta a punta
 
 **Pedido de Miguel:** reorganizar la app (menú, fichas y torres) en **una sola entrega**: el menú ordenado por objeto de trabajo, la ficha de cada entidad con pestañas, y el hueco de las torres (que existen en el modelo y no se podían dar de alta ni asignar). Diseño pactado y escrito en `docs/superpowers/specs/2026-10-25-reorganizacion-app-torres-drill-down-design.md`.

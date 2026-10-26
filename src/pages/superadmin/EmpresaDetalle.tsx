@@ -1,11 +1,13 @@
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { useList, useResource } from '../../api';
+import { useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeftIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { api, errorText, useList, useResource } from '../../api';
 import {
-  Badge, Card, DataTable, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, fechaCorta,
+  Badge, Button, Card, ConfirmDialog, DataTable, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, fechaCorta, useToast,
 } from '../../ui';
 import type { Column } from '../../ui';
 import PersonasLista from '../admin/_parts/personas/PersonasLista';
+import { ModalDeEmpresa, type FilaEmpresa } from './_parts/ModalDeEmpresa';
 
 const VISTAS = [
   { id: 'datos', label: 'Datos' },
@@ -16,16 +18,8 @@ const VISTAS = [
 type Vista = typeof VISTAS[number]['id'];
 const esVista = (v: string | null): v is Vista => VISTAS.some(x => x.id === v);
 
-interface Empresa {
-  id: number;
-  nombre: string;
-  ruc: string | null;
-  direccion: string | null;
-  telefono: string | null;
-  email: string | null;
-  representante_legal: string | null;
+interface Empresa extends FilaEmpresa {
   fecha_inicio: string | null;
-  estado: string | null;
 }
 
 interface Complejo {
@@ -42,8 +36,13 @@ interface Complejo {
 export default function EmpresaDetalle() {
   const { id } = useParams();
   const empresaId = Number(id);
+  const toast = useToast();
+  const navegar = useNavigate();
   const [params, setParams] = useSearchParams();
   const vista: Vista = esVista(params.get('vista')) ? (params.get('vista') as Vista) : 'datos';
+  const [editando, setEditando] = useState<FilaEmpresa | null>(null);
+  const [borrar, setBorrar] = useState<FilaEmpresa | null>(null);
+  const [busy, setBusy] = useState(false);
   const empresa = useResource<Empresa>(Number.isInteger(empresaId) && empresaId > 0 ? `/api/empresas/${empresaId}` : null);
   const complejos = useList<Complejo>('/api/complejos', { params: { empresa_id: Number.isInteger(empresaId) && empresaId > 0 ? String(empresaId) : undefined }, pageSize: 100 });
 
@@ -51,6 +50,17 @@ export default function EmpresaDetalle() {
 
   const e = empresa.data;
   const irA = (v: Vista) => setParams(v === 'datos' ? {} : { vista: v });
+
+  async function eliminar() {
+    if (!borrar) return;
+    setBusy(true);
+    try {
+      await api(`/api/empresas/${borrar.id}`, { method: 'DELETE' });
+      toast.ok('Empresa eliminada');
+      setBorrar(null);
+      navegar('/superadmin/empresas');
+    } catch (err) { toast.error(errorText(err)); } finally { setBusy(false); }
+  }
 
   const columns: Column<Complejo>[] = [
     { key: 'nombre', header: 'Condominio', cell: c => (
@@ -95,6 +105,10 @@ export default function EmpresaDetalle() {
         <Card>
           {e ? (
             <div className="p-5">
+              <div className="mb-4 flex flex-wrap justify-end gap-2">
+                <Button icon={<PencilSquareIcon className="h-4 w-4" />} onClick={() => setEditando(e)}>Editar</Button>
+                <Button variant="danger" icon={<TrashIcon className="h-4 w-4" />} onClick={() => setBorrar(e)}>Eliminar</Button>
+              </div>
               <DefinitionList
                 items={[
                   { label: 'Razón social', value: e.nombre },
@@ -136,6 +150,19 @@ export default function EmpresaDetalle() {
           />
         </Card>
       </TabPanel>
+
+      <ModalDeEmpresa empresa={editando} onClose={() => setEditando(null)} onGuardado={() => void empresa.reload()} />
+
+      <ConfirmDialog
+        open={!!borrar}
+        onClose={() => setBorrar(null)}
+        onConfirm={eliminar}
+        loading={busy}
+        danger
+        title="Eliminar empresa"
+        message={`Se eliminará ${borrar?.nombre ?? 'la empresa'}. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar empresa"
+      />
     </>
   );
 }

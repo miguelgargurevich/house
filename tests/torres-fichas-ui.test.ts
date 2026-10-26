@@ -13,38 +13,43 @@ const ETIQUETAS_OLD = [
 ];
 
 describe('menú: cada grupo es un objeto de trabajo y la plataforma va al final', () => {
-  it('el superadmin termina en Plataforma, después de Personas', () => {
+  it('el superadmin termina en Plataforma y ya no tiene Personas', () => {
     const grupos = NAV.superadmin;
     assert.equal(grupos.at(-1)?.label, 'Plataforma');
-    const labels = grupos.map(g => g.label ?? null);
-    assert.deepEqual(labels, [null, null, null, 'Cobranza', 'Operación', 'Personas', 'Plataforma']);
+    assert.deepEqual(grupos.map(g => g.label ?? null), [null, 'Cobranza', 'Operación', 'Plataforma']);
     assert.deepEqual(grupos.at(-1)?.items.map(i => i.label), ['Usuarios del sistema', 'Auditoría', 'Llavero de IA']);
   });
 
   it('el admin termina en Cuenta, sin plataforma', () => {
     const grupos = NAV.admin;
     assert.equal(grupos.at(-1)?.label, 'Cuenta');
-    assert.deepEqual(grupos.map(g => g.label ?? null), [null, null, 'Cobranza', 'Operación', 'Personas', 'Cuenta']);
+    assert.deepEqual(grupos.map(g => g.label ?? null), [null, 'Cobranza', 'Operación', 'Cuenta']);
     assert.ok(!JSON.stringify(NAV.admin).includes('Plataforma'));
   });
 
-  it('Empresas y Condominios quedan sueltos arriba (la ficha es el camino principal)', () => {
-    assert.deepEqual(NAV.superadmin[1]?.items.map(i => i.label), ['Empresas']);
-    assert.deepEqual(NAV.superadmin[2]?.items.map(i => i.label), ['Condominios']);
-    assert.deepEqual(NAV.admin[1]?.items.map(i => i.label), ['Condominios']);
-    assert.equal(NAV.superadmin[1]?.label, undefined, 'no son un grupo: van sin rótulo');
-    assert.equal(NAV.superadmin[2]?.label, undefined);
-    assert.equal(NAV.admin[1]?.label, undefined);
+  it('Resumen, Empresas y Condominios van juntos arriba, sin rótulo (sin huecos entre ellos)', () => {
+    assert.deepEqual(NAV.superadmin[0]?.items.map(i => i.label), ['Resumen', 'Empresas', 'Condominios']);
+    assert.deepEqual(NAV.admin[0]?.items.map(i => i.label), ['Resumen', 'Condominios']);
+    assert.equal(NAV.superadmin[0]?.label, undefined, 'no son un grupo: van sin rótulo');
+    assert.equal(NAV.admin[0]?.label, undefined);
   });
 
-  it('Cobranza y Operación están en el orden pactado y con sus ítems', () => {
+  it('ya no hay sección Personas: los residentes van en la ficha del condominio y el personal en la de la empresa', () => {
+    for (const rol of ['superadmin', 'admin'] as const) {
+      assert.ok(!NAV[rol].some(g => g.label === 'Personas'), `${rol}: el grupo Personas`);
+      const items = NAV[rol].flatMap(g => g.items).map(i => i.label);
+      assert.ok(!items.includes('Residentes'), `${rol}: Residentes`);
+      assert.ok(!items.includes('Personal'), `${rol}: Personal`);
+    }
+  });
+
+  it('Cobranza y Operación están en el orden pactado y con sus ítems; Proveedores quedó en Operación', () => {
     const admin = NAV.admin;
     const cobranza = admin.find(g => g.label === 'Cobranza');
     const operacion = admin.find(g => g.label === 'Operación');
     assert.deepEqual(cobranza?.items.map(i => i.label), ['Recibos', 'Pagos', 'Medios de pago', 'Morosidad']);
-    assert.deepEqual(operacion?.items.map(i => i.label), ['Unidades', 'Mantenimiento', 'Conceptos', 'Avisos', 'WhatsApp']);
+    assert.deepEqual(operacion?.items.map(i => i.label), ['Unidades', 'Mantenimiento', 'Conceptos', 'Avisos', 'WhatsApp', 'Proveedores']);
     assert.ok(admin.indexOf(cobranza!) < admin.indexOf(operacion!), 'Cobranza antes que Operación');
-    assert.deepEqual(admin.find(g => g.label === 'Personas')?.items.map(i => i.label), ['Residentes', 'Personal', 'Proveedores']);
   });
 
   it('ningún rótulo del menú dice «block»', () => {
@@ -53,6 +58,68 @@ describe('menú: cada grupo es un objeto de trabajo y la plataforma va al final'
         for (const i of g.items) assert.ok(!/block/i.test(i.label), `${rol}: «${i.label}»`);
       }
     }
+  });
+});
+
+describe('las listas dejan sólo «Ver ficha»', () => {
+  /** El bloque de la última columna de una tabla: desde su clave hasta el fin de la lista de columnas. */
+  const bloqueDeAcciones = (texto: string, clave: string) => {
+    const i = texto.indexOf(`key: '${clave}'`);
+    assert.ok(i > -1, `no está la columna ${clave}`);
+    const j = texto.indexOf('\n  ];', i);
+    return texto.slice(i, j > -1 ? j : texto.length);
+  };
+
+  it('la lista de condominios sólo lleva el enlace a la ficha', () => {
+    const c = fuente('src/pages/admin/Complejos.tsx');
+    const bloque = bloqueDeAcciones(c, 'ficha');
+    assert.ok(bloque.includes('Ver ficha'), 'el enlace a la ficha');
+    for (const boton of ['IconButton', 'PencilSquareIcon', 'TrashIcon', 'DocumentTextIcon']) {
+      assert.ok(!bloque.includes(boton), `la lista ya no lleva ${boton}`);
+    }
+    assert.ok(!c.includes('ContratosModal'), 'los contratos viven en la ficha');
+  });
+
+  it('la lista de empresas sólo lleva el enlace a la ficha', () => {
+    const e = fuente('src/pages/superadmin/Empresas.tsx');
+    const bloque = bloqueDeAcciones(e, 'ficha');
+    assert.ok(bloque.includes('Ver ficha'), 'el enlace a la ficha');
+    for (const boton of ['IconButton', 'PencilSquareIcon', 'TrashIcon']) {
+      assert.ok(!bloque.includes(boton), `la lista ya no lleva ${boton}`);
+    }
+  });
+});
+
+describe('las acciones de la entidad viven en la pestaña Datos de su ficha', () => {
+  it('la ficha del condominio ofrece contratos, editar y eliminar dentro de Datos', () => {
+    const c = fuente('src/pages/admin/CondominioDetalle.tsx');
+    const iDatos = c.indexOf('id="datos"');
+    const iTorres = c.indexOf('id="torres"');
+    assert.ok(iDatos > -1 && iTorres > iDatos, 'la pestaña Datos va antes que Torres');
+    const bloque = c.slice(iDatos, iTorres);
+    assert.ok(bloque.includes('setContratos(c)'), 'contratos');
+    assert.ok(bloque.includes('setEditando(c)'), 'editar');
+    assert.ok(bloque.includes('setBorrar(c)'), 'eliminar');
+    assert.ok(!c.includes('actions={c ?'), 'las acciones ya no están en el encabezado');
+  });
+
+  it('la ficha de la empresa ofrece editar y eliminar dentro de Datos', () => {
+    const e = fuente('src/pages/superadmin/EmpresaDetalle.tsx');
+    const iDatos = e.indexOf('id="datos"');
+    const iPersonal = e.indexOf('id="personal"');
+    assert.ok(iDatos > -1 && iPersonal > iDatos, 'la pestaña Datos va antes que Personal');
+    const bloque = e.slice(iDatos, iPersonal);
+    assert.ok(bloque.includes('setEditando(e)'), 'editar');
+    assert.ok(bloque.includes('setBorrar(e)'), 'eliminar');
+  });
+
+  it('las dos fichas editan con el modal de la entidad', () => {
+    const c = fuente('src/pages/admin/CondominioDetalle.tsx');
+    assert.ok(c.includes('<ModalDeComplejo'), 'el condominio se edita con su modal');
+    const e = fuente('src/pages/superadmin/EmpresaDetalle.tsx');
+    assert.ok(e.includes('<ModalDeEmpresa'), 'la empresa se edita con su modal');
+    const lista = fuente('src/pages/superadmin/Empresas.tsx');
+    assert.ok(lista.includes('<ModalDeEmpresa'), 'la lista usa el mismo modal para el alta');
   });
 });
 
