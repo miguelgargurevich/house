@@ -3,6 +3,7 @@ import { PaperClipIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource, type Page } from '../../../../api';
 import { Alert, Button, Card, Modal, useToast } from '../../../../ui';
 import type { Complejo } from './comun';
+import { resumenSubida, type ResultadoExcel } from './resumenExcel';
 
 interface FilaComplejo extends Complejo { id: number; nombre: string }
 
@@ -11,10 +12,11 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
   const [archivo, setArchivo] = useState<File | null>(null);
   const [complejoId, setComplejoId] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [resultado, setResultado] = useState<{ recibo_id: number; mes: number; anio: number; unidades_procesadas: number; filas_saltadas: number; conceptos: number } | null>(null);
+  const [resultado, setResultado] = useState<ResultadoExcel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const complejos = useResource<Page<FilaComplejo>>('/api/complejos?pageSize=100');
+  const resumen = resultado && resumenSubida(resultado);
 
   const manejarArchivo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
@@ -33,7 +35,7 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
     fd.append('archivo', archivo);
     fd.append('complejo_id', complejoId);
     try {
-      const r = await api<{ recibo_id: number; mes: number; anio: number; unidades_procesadas: number; filas_saltadas: number; conceptos: number }>('/api/recibos/excel', { method: 'POST', body: fd });
+      const r = await api<ResultadoExcel>('/api/recibos/excel', { method: 'POST', body: fd });
       setResultado(r);
       toast.ok(`Recibo creado: ${r.unidades_procesadas} departamentos`);
       void onSaved();
@@ -61,10 +63,21 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
           {archivo && <p className="text-xs text-muted mt-1">{archivo.name} · {Math.round(archivo.size / 1024)} KB</p>}
         </div>
         {error && <Alert tone="bad">{error}</Alert>}
-        {resultado && (
+        {resumen && resumen.advertencias.length > 0 && (
+          <div className="sm:col-span-2">
+            <Alert tone="warn">
+              <p className="font-medium">{resumen.titulo} · {resumen.linea}</p>
+              <p className="mt-2">Revisa estas filas ({resumen.advertencias.length}):</p>
+              <ul className="mt-1 max-h-48 overflow-y-auto list-disc pl-5 space-y-1">
+                {resumen.advertencias.map((a, i) => <li key={i}>{a}</li>)}
+              </ul>
+            </Alert>
+          </div>
+        )}
+        {resumen && resumen.advertencias.length === 0 && (
           <Card className="sm:col-span-2 bg-ok/5 border-ok/20 p-3 rounded border">
-            <p className="text-sm text-ink"><strong>Recibo creado:</strong> {resultado.mes}/{resultado.anio}</p>
-            <p className="text-sm text-ink"><strong>{resultado.unidades_procesadas}</strong> departamentos procesados · <strong>{resultado.filas_saltadas}</strong> filas saltadas · <strong>{resultado.conceptos}</strong> conceptos.</p>
+            <p className="text-sm text-ink"><strong>{resumen.titulo}</strong></p>
+            <p className="text-sm text-ink">{resumen.linea}</p>
           </Card>
         )}
         <div className="sm:col-span-2 flex justify-end gap-2 pt-2">

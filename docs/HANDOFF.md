@@ -4,6 +4,33 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Haiku 5.5) — Mostrar las advertencias del Excel en la ventana de subida
+
+**Pedido de Miguel:** «hazlo así (mostrar las advertencias del Excel en la ventana de subida)». Rama `feat/avisos-excel` (sobre `faedbfe`), sólo frontend; sin push (lo sube la sesión principal con OK de Miguel).
+
+**Qué se hizo**
+- `src/pages/admin/_parts/cobranza/resumenExcel.ts` (nuevo, puro): `resumenSubida(r)` → título («Recibo de Octubre 2026 cargado»), línea de conteo («32 departamentos cargados · 1 fila saltada», singular/plural, la de filas se omite si son 0) y `advertencias` (lista vacía si la respuesta no las trae).
+- `SubirExcelModal.tsx`: el tipo del resultado es `ResultadoExcel` (con `advertencias?`). Con advertencias: un `Alert tone="warn"` con «Revisa estas filas (N)» y la lista (scroll, `max-h-48`). Sin ellas: el resumen en verde de siempre. Los errores (p. ej. el 409 de recibo con pagos) siguen por `errorText` en el aviso rojo.
+- `tests/resumen-excel.test.ts` (nuevo): 11 pruebas (función pura + prueba de fuente del modal).
+
+**Verificación**
+- `npm test` con `TEST_DATABASE_URL=…/house_test_avisos`: 795 pruebas, 795 pasan, 0 fallan.
+- `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit`, `npm run build`: exit 0.
+- Mutaciones (archivo copiado al scratchpad y devuelto con `cp`): quitar la pluralización → 2 rojas; quitar el `map` de la lista → 1 roja; quitar el uso de `resumenSubida` → 1 roja. Restaurados e idénticos (`cmp`).
+
+**Próximos pasos**
+- Miguel revisa en el navegador con un Excel real (`docs/ejemplos/block-1-octubre.xlsx`): la prueba de fuente no pinta nada, sólo fija el texto y la estructura.
+- Push: lo hace la sesión principal con OK de Miguel.
+
+**Decisiones**
+- Las advertencias van en `Alert tone="warn"` (aviso), no en rojo: el recibo sí se creó; son filas a revisar.
+- La función pura vive fuera del `.tsx` para poder probarla con `node:test` sin React.
+
+**Gotchas**
+- El backend limita a 100 textos y el último puede ser «… y N advertencias más»: se muestra tal cual.
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5) — No crear cargos de S/ 0.00 al subir el Excel
 
 **Pedido de Miguel:** «hazlo así (no crear cargos de S/ 0.00 al subir el Excel)». Rama `fix/cargos-cero` (sin push; Opus integra).
