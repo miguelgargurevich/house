@@ -4,6 +4,27 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5) — Migrar xlsx a 0.20.3 y leer el Excel real de la administradora
+
+**Pedido de Miguel:** migrar `xlsx` (2 avisos altos) y el problema que encontró Sonnet: `docs/ejemplos/block-1-octubre.xlsx` se rechazaba con 422. Rama `fix/migrar-xlsx` (sin push; Opus integra con cherry-pick).
+
+**Qué se hizo**
+- `fix(seguridad): xlsx 0.20.3 desde el CDN de SheetJS`: `package.json` + lock. `npm audit --omit=dev` → 0 vulnerabilidades. El test de caracterización pasó sin cambiar expectativas.
+- `fix(seguridad)`: `requireRole('admin')` antes de multer en `POST /api/recibos/excel`; un archivo de más de 10 MB da 422 (antes `MulterError` → 500).
+- `fix(recibos): leer el Excel real…`: lector puro en `src/server/lib/excelRecibos.ts` (mes en celda siguiente, año del título/vencimiento, vencimiento como texto o fecha de Excel, encabezado de conceptos en dos filas, nombres normalizados, torre por número, redondeo a 2 decimales, validación contra `TOTAL MANT` ±S/ 0.05). La ruta devuelve `advertencias`. Formato en `docs/EXCEL-RECIBOS.md`.
+
+**Próximos pasos / requiere decisión de Miguel**
+- Recibo repetido (mismo condominio/mes/año): hoy el endpoint reemplaza conceptos y cargos del recibo existente (no 409), lo que borra también cargos ya pagados o en revisión. No se cambió.
+- Montos 0 o celdas vacías generan cargo en 0 (como siempre): 352 cargos para el archivo real, 66 en cero.
+- Frontend: el modal de subida no muestra `advertencias` (no se tocó).
+- `Dockerfile`: hace `npm ci` (sin cambios); ahora necesita red hacia `cdn.sheetjs.com` en el build. No se probó el build de Docker.
+
+**Gotchas**
+- El `node_modules` del worktree es propio; nunca correr npm en `~/Projectos/house`.
+- Una fecha de Excel se toma por su día calendario local (`getFullYear/getMonth/getDate`); probado con TZ Lima, Tokio, Auckland y Honolulu.
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5) — Seguridad: hallazgos bajos B-3 a B-6
 
 **Pedido de Miguel:** arreglar WhatsApp (mensaje de Evolution + sin timeout), bloqueo de login por cuenta, política de contraseñas y `login_fallido` con el correo tecleado. Rama `fix/seguridad-bajos` (sin push).

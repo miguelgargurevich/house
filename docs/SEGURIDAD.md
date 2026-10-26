@@ -156,3 +156,4 @@ Lectura real de capturas de Yape, Plin y bancos con un proveedor de visión real
 - **Comprobante.** Uno por grupo, en el pago principal; subir con el id de otro pago del grupo se redirige al principal tras comprobar el alcance de ese pago.
 - **CSP.** `img-src 'self' data: blob:`: el comprobante y el QR se muestran como URL local descargada con la sesión; sin `blob:` el navegador los bloqueaba en producción (los scripts siguen sin `blob:`).
 - **Empresa.** Un residente no lleva `empresa_id`; el alcance de la administración sobre él viene de sus unidades/condominio, verificado en `tests/empresa-personal.test.ts` (A no ve a los de B, también con `empresa_id` null).
+- **Excel de recibos.** `xlsx` 0.20.3 (CDN de SheetJS; la 0.18.5 de npm tenía avisos altos). `POST /api/recibos/excel`: `requireRole('admin')` va antes de multer (un residente no hace que se reciban 10 MB) y el límite de 10 MB responde 422.

@@ -2,13 +2,15 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, before, describe, it } from 'node:test';
+import { Prisma } from '@prisma/client';
 import XLSX from 'xlsx';
 import { cabecerasDeSesion, iniciar, login, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
+import { buscarEstructura, codigoEncajaConDpto, leerCabecera, leerConceptos, normalizarTexto, numeroDeTorre, redondearMonto } from '../src/server/lib/excelRecibos';
 
 /**
- * Caracterización de POST /api/recibos/excel: fija lo que hace HOY con el Excel (parseo con SheetJS) para
- * poder cambiar la versión de `xlsx` sin que cambie el comportamiento.
+ * POST /api/recibos/excel: el comportamiento con el Excel (parseo con SheetJS), el Excel real de la administradora
+ * (docs/ejemplos/block-1-octubre.xlsx) y las funciones puras de src/server/lib/excelRecibos.ts.
  */
 
 let base: string;
@@ -77,7 +79,10 @@ describe('POST /api/recibos/excel: lo que crea', () => {
   it('crea el recibo, los conceptos en orden y los cargos por unidad con sus montos exactos', async () => {
     const r = await subir(T.adminA, aXlsx(filasValidas()), d.complejoA.id);
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined }, { recibo_id: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3 });
+    assert.deepEqual({ ...r.body, recibo_id: undefined }, {
+      recibo_id: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3,
+      advertencias: ['B.1 Dpto. 999: no existe la unidad; se saltó la fila', 'B.9 Dpto. 101: el condominio no tiene la torre «B.9»; se saltó la fila'],
+    });
 
     const { recibos, cargos, monto } = await estadoDelRecibo();
     assert.equal(recibos.length, 1);
@@ -95,10 +100,10 @@ describe('POST /api/recibos/excel: lo que crea', () => {
       [3, 'AGUA DPTO.', '0', false],
     ]);
 
-    // 3 unidades × 3 conceptos = 9 cargos: la celda vacía cuenta como 0; el texto no numérico no genera cargo; «7,5» se lee como 7.5.
+    // 3 unidades × 3 conceptos = 9 cargos: la celda vacía cuenta como 0; el texto no numérico no genera cargo; «7,5» se lee como 7.5; cada monto se redondea a 2 decimales.
     assert.equal(cargos.length, 8);
     assert.equal(monto('B.1-101', 'ADMINISTRACION'), '123.69');
-    assert.equal(monto('B.1-101', 'LUZ COMUN'), '8.554566210045662');
+    assert.equal(monto('B.1-101', 'LUZ COMUN'), '8.55');
     assert.equal(monto('B.1-101', 'AGUA DPTO.'), '2.53');
     assert.equal(monto('B.1-102', 'ADMINISTRACION'), '123.69');
     assert.equal(monto('B.1-102', 'LUZ COMUN'), '0');
@@ -123,23 +128,45 @@ describe('POST /api/recibos/excel: lo que crea', () => {
   it('un .xls (formato antiguo) da el mismo resultado', async () => {
     const r = await subir(T.adminA, aXlsx(filasValidas(), 'xls'), d.complejoA.id, 'recibos.xls');
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined }, { recibo_id: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3 });
+    assert.deepEqual({ ...r.body, recibo_id: undefined, advertencias: undefined }, { recibo_id: undefined, advertencias: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3 });
     const { cargos, monto } = await estadoDelRecibo();
     assert.equal(cargos.length, 8);
     assert.equal(monto('B.1-101', 'ADMINISTRACION'), '123.69');
     assert.equal(monto('B.1-102', 'AGUA DPTO.'), '75.5');
   });
 
-  it('con la estructura llamada «Block 1» (como la siembra seed:libertadores) NO cruza con «B.1»: todas las filas se saltan', async () => {
+  it('con la estructura llamada «Block 1» (como la siembra seed:libertadores) «B.1» del Excel sí cruza: es la torre 1', async () => {
     await prisma.estructura.update({ where: { id: block1Id }, data: { nombre: 'Block 1' } });
     try {
       const r = await subir(T.adminA, aXlsx(filasValidas()), d.complejoA.id);
       assert.equal(r.status, 201, r.texto);
-      assert.equal(r.body.unidades_procesadas, 0);
-      assert.equal(r.body.filas_saltadas, 6);
+      assert.equal(r.body.unidades_procesadas, 3);
+      assert.equal(r.body.filas_saltadas, 3);
     } finally {
       await prisma.estructura.update({ where: { id: block1Id }, data: { nombre: 'B.1' } });
     }
+  });
+
+  it('avisa (sin abortar) cuando la suma de los conceptos redondeados difiere de TOTAL MANT en más de S/ 0.05', async () => {
+    const filas = filasValidas();
+    filas[3][6] = 134.82; // la suma es 134.77: difiere 0.05 → todavía dentro de la tolerancia
+    filas[4][6] = 199.3; // la suma es 199.19: difiere 0.11 → advertencia
+    const r = await subir(T.adminA, aXlsx(filas), d.complejoA.id);
+    assert.equal(r.status, 201, r.texto);
+    assert.deepEqual(r.body.advertencias.filter((a: string) => a.includes('TOTAL MANT')), ['B.1 Dpto. 102: la suma de los conceptos (S/ 199.19) no coincide con TOTAL MANT (S/ 199.30)']);
+    assert.equal(r.body.unidades_procesadas, 3);
+  });
+
+  it('el mes y el vencimiento pueden venir en celdas separadas, y el vencimiento como fecha de Excel', async () => {
+    const filas = filasValidas();
+    filas[1] = [null, null, null, 'MES', 'Octubre', null, 'VENCIMIENTO:', null, new Date(2026, 10, 5) as unknown as string];
+    filas[0] = [null, 'GRUPO PRUEBA', null, 'MANTENIMIENTO DE OCTUBRE 2026'];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(filas, { cellDates: true }), 'Consolidado');
+    const r = await subir(T.adminA, XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellDates: true }) as Buffer, d.complejoA.id);
+    assert.equal(r.status, 201, r.texto);
+    const { recibos } = await estadoDelRecibo();
+    assert.equal(recibos[0].fecha_vencimiento.toISOString(), '2026-11-05T00:00:00.000Z');
   });
 
   it('sin la línea de vencimiento usa el día 1 del mes siguiente', async () => {
@@ -154,11 +181,63 @@ describe('POST /api/recibos/excel: lo que crea', () => {
 });
 
 describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
-  it('hoy se rechaza con 422: su fila «MES ⏎ Octubre» (sin «:» ni «;») no la reconoce el parseo', async () => {
-    const r = await subir(T.adminA, readFileSync('docs/ejemplos/block-1-octubre.xlsx'), d.complejoA.id, 'block-1-octubre.xlsx');
-    assert.equal(r.status, 422, r.texto);
-    assert.equal(r.body.error, 'No se encontró el mes y año en el Excel');
-    assert.deepEqual(r.body.campos, { archivo: 'Formato inválido' });
+  const CONCEPTOS = [
+    'ADMINISTRACION VRANY', 'LUZ AREAS COMUNES DEL CONDOMINIO', 'LUZ COMUN DEL BLOCK', 'AGUA COMUN DEL CONDOMINIO', 'AGUA DPTO.',
+    'FONDO DE CONTINGENCIA DEL BLOCK', 'FONDO DE CONTINGENCIA DEL CONDOMINIO', 'MANTENIMIENTO DE ASCENSOR', 'MANTENIMIENTO DE CISTERNA', 'OTROS',
+    'MULTA PAGO FUERA DE FECHA(ULTIMO DIA 2 CADA MES)',
+  ];
+  let complejoId: number;
+  before(async () => {
+    const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Los Libertadores', tipo: 'Condominio', empresa_id: d.empresaA.id } });
+    complejoId = c.id;
+    // Como seed:libertadores: 14 torres «Block 1»…«Block 14»; la 1 tiene 32 departamentos 101…804 (4 por piso, 8 pisos).
+    for (const n of [1, 2, 14]) {
+      const e = await prisma.estructura.create({ data: { nombre: `Block ${n}`, tipo: 'block', complejo_id: c.id } });
+      if (n !== 1) continue;
+      for (let piso = 1; piso <= 8; piso++) {
+        for (let k = 1; k <= 4; k++) {
+          await prisma.unidad.create({ data: { codigo: `B01-${piso}0${k}`, tipo: 'Departamento', complejo_id: c.id, empresa_id: d.empresaA.id, estructura_id: e.id, estado: 'activa' } });
+        }
+      }
+    }
+  });
+
+  it('crea el recibo de octubre 2026 con vencimiento 2026-11-02, los 11 conceptos normalizados y sus cargos con montos redondeados', async () => {
+    const r = await subir(T.adminA, readFileSync('docs/ejemplos/block-1-octubre.xlsx'), complejoId, 'block-1-octubre.xlsx');
+    assert.equal(r.status, 201, r.texto);
+    assert.deepEqual({ ...r.body, recibo_id: undefined }, { recibo_id: undefined, mes: 10, anio: 2026, unidades_procesadas: 32, filas_saltadas: 1, conceptos: 11, advertencias: [] });
+
+    const rec = await prisma.recibo.findFirstOrThrow({ where: { complejo_id: complejoId, mes: 10, anio: 2026 }, include: { reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: true } } } });
+    assert.equal(rec.fecha_vencimiento.toISOString(), '2026-11-02T00:00:00.000Z');
+    assert.deepEqual(rec.reciboConceptos.map((c) => c.concepto?.nombre), CONCEPTOS);
+
+    const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { reciboConcepto: { recibo_id: rec.id } }, include: { unidad: true, reciboConcepto: { include: { concepto: true } } } });
+    // 32 departamentos × 11 conceptos: los ceros del Excel también generan cargo (como siempre).
+    assert.equal(cargos.length, 32 * 11);
+    assert.equal(cargos.filter((c) => c.monto.gt(0)).length, 286);
+    const monto = (unidad: string, concepto: string) => cargos.find((c) => c.unidad?.codigo === unidad && c.reciboConcepto?.concepto?.nombre === concepto)?.monto.toString();
+    assert.equal(monto('B01-101', 'ADMINISTRACION VRANY'), '123.69');
+    assert.equal(monto('B01-101', 'LUZ COMUN DEL BLOCK'), '30.25');
+    assert.equal(monto('B01-101', 'AGUA COMUN DEL CONDOMINIO'), '2.53');
+    assert.equal(monto('B01-101', 'AGUA DPTO.'), '21.83');
+    assert.equal(monto('B01-101', 'LUZ AREAS COMUNES DEL CONDOMINIO'), '8.55');
+    assert.equal(monto('B01-101', 'FONDO DE CONTINGENCIA DEL CONDOMINIO'), '3');
+    assert.equal(monto('B01-501', 'AGUA DPTO.'), '95.48');
+    assert.equal(monto('B01-804', 'AGUA DPTO.'), '70.63');
+    assert.equal(monto('B01-804', 'MULTA PAGO FUERA DE FECHA(ULTIMO DIA 2 CADA MES)'), '0');
+    const totalDe = (unidad: string) => cargos.filter((c) => c.unidad?.codigo === unidad).reduce((t, c) => t.plus(c.monto), new Prisma.Decimal(0)).toFixed(2);
+    assert.equal(totalDe('B01-101'), '223.35');
+    assert.equal(totalDe('B01-501'), '297.00');
+    assert.equal(totalDe('B01-804'), '272.15');
+  });
+
+  it('un departamento que no existe da advertencia y se salta (las demás filas siguen)', async () => {
+    await prisma.unidad.deleteMany({ where: { complejo_id: complejoId, codigo: 'B01-804' } });
+    const r = await subir(T.adminA, readFileSync('docs/ejemplos/block-1-octubre.xlsx'), complejoId, 'block-1-octubre.xlsx');
+    assert.equal(r.status, 201, r.texto);
+    assert.equal(r.body.unidades_procesadas, 31);
+    assert.equal(r.body.filas_saltadas, 2);
+    assert.deepEqual(r.body.advertencias, ['B.1 Dpto. 804: no existe la unidad; se saltó la fila']);
   });
 });
 
@@ -234,5 +313,113 @@ describe('POST /api/recibos/excel: entradas inválidas', () => {
     const r = await subir(T.adminA, aXlsx(filas), d.complejoA.id);
     assert.equal(r.status, 422, r.texto);
     assert.equal(r.body.error, 'No se encontró la fila de encabezado (BLOCK)');
+  });
+});
+
+describe('excelRecibos: funciones puras', () => {
+  it('numeroDeTorre: «B.1», «B1», «B-1», «BLOCK 1», «Block 1», «TORRE 1», «T1», «1» y el número 1 son la torre 1', () => {
+    for (const v of ['B.1', 'B1', 'B-1', 'BLOCK 1', 'Block 1', 'TORRE 1', 'T1', '1', 1, ' b.1 ', 'Block\n1']) assert.equal(numeroDeTorre(v), 1, String(v));
+    assert.equal(numeroDeTorre('Block 14'), 14);
+    assert.equal(numeroDeTorre('B.14'), 14);
+    assert.equal(numeroDeTorre('B01'), 1);
+  });
+
+  it('numeroDeTorre: lo que no es una torre da null', () => {
+    for (const v of ['TOTALES', '', null, 'Piso 1', 'Estacionamiento', 'B.1A']) assert.equal(numeroDeTorre(v), null, String(v));
+  });
+
+  it('buscarEstructura: sólo si hay UNA con ese número', () => {
+    const e = [{ nombre: 'Block 1' }, { nombre: 'Block 2' }, { nombre: 'Jardín' }, { nombre: 'T2' }];
+    assert.equal(buscarEstructura(e, 1).estructura?.nombre, 'Block 1');
+    assert.equal(buscarEstructura(e, 2).motivo, 'varias');
+    assert.equal(buscarEstructura(e, 9).motivo, 'ninguna');
+  });
+
+  it('codigoEncajaConDpto compara el último tramo del código, no el sufijo («B.1-1101» no es el 101)', () => {
+    assert.equal(codigoEncajaConDpto('B.1-101', '101'), true);
+    assert.equal(codigoEncajaConDpto('B01-0101', '101'), true);
+    assert.equal(codigoEncajaConDpto('101', '101'), true);
+    assert.equal(codigoEncajaConDpto('B.1-1101', '101'), false);
+    assert.equal(codigoEncajaConDpto(null, '101'), false);
+  });
+
+  it('redondearMonto: 2 decimales, half-up, como string', () => {
+    assert.equal(redondearMonto(8.554566210045662), '8.55');
+    assert.equal(redondearMonto(30.246875), '30.25');
+    assert.equal(redondearMonto(1.005), '1.01');
+    assert.equal(redondearMonto(2.5315068493150683), '2.53');
+    assert.equal(redondearMonto(0), '0.00');
+    assert.equal(redondearMonto(123.69), '123.69');
+  });
+
+  it('normalizarTexto colapsa espacios y saltos de línea', () => {
+    assert.equal(normalizarTexto('FONDO DE \nCONTINGENCIA   DEL CONDOMINIO '), 'FONDO DE CONTINGENCIA DEL CONDOMINIO');
+  });
+
+  describe('leerCabecera', () => {
+    it('«MES: Octubre 2026» en una celda', () => {
+      assert.deepEqual(leerCabecera([[null, null, 'MES: Octubre 2026']]), { mes: 10, anio: 2026, vencimiento: null });
+    });
+    it('«MES;Octubre» y el año del título «… DE OCTUBRE 2026»', () => {
+      const c = leerCabecera([['', 'GRUPO', '', 'MANTENIMIENTO DE OCTUBRE 2026'], ['', '', 'MES;Octubre']]);
+      assert.deepEqual(c, { mes: 10, anio: 2026, vencimiento: null });
+    });
+    it('«MES» con el mes en la SIGUIENTE celda no vacía', () => {
+      const c = leerCabecera([['', 'GRUPO VRANY', '', 'MANTENIMIENTO DE OCTUBRE 2026'], ['', '', '', 'MES', '', '', 'Octubre', '', 'VENCIMIENTO:', '', '02 DE NOVIEMBRE DE 2026']]);
+      assert.deepEqual(c, { mes: 10, anio: 2026, vencimiento: new Date(Date.UTC(2026, 10, 2)) });
+    });
+    it('«MES ⏎ Octubre» en una sola celda', () => {
+      assert.equal(leerCabecera([['MES\nOctubre', '', '']]).mes, 10);
+    });
+    it('sin año en el título, el año sale del vencimiento', () => {
+      const c = leerCabecera([['', '', 'MES', 'Diciembre', 'VENCIMIENTO:', '', '05 DE ENERO DE 2027']]);
+      assert.deepEqual(c, { mes: 12, anio: 2027, vencimiento: new Date(Date.UTC(2027, 0, 5)) });
+    });
+    it('el vencimiento puede ser una fecha de Excel (la siguiente celda no vacía)', () => {
+      const c = leerCabecera([['MES', 'Octubre 2026', 'VENCIMIENTO:', '', new Date(2026, 10, 2)]]);
+      assert.equal(c.vencimiento?.toISOString(), '2026-11-02T00:00:00.000Z');
+    });
+    it('sin mes → null', () => {
+      assert.deepEqual(leerCabecera([['GRUPO', 'MESA DIRECTIVA'], ['', '2026']]), { mes: null, anio: null, vencimiento: null });
+    });
+  });
+
+  describe('leerConceptos', () => {
+    const nombres = ['ADMINISTRACION VRANY ', 'LUZ AREAS COMUNES', 'FONDO DE \nCONTINGENCIA', 'TOTAL MANT', 'DEUDA ACUMULADA', 'TOTAL'];
+    it('encabezado en dos filas: los nombres están en la fila siguiente a «BLOCK / Dpto.»', () => {
+      const datos = [['BLOCK', 'Dpto.', 'Apellidos y Nombres', 'Conceptos por cobrar', '', ''], ['', '', '', ...nombres], ['B.1', 101, 'X', 1, 2, 3, 6, 0, 6]];
+      const c = leerConceptos(datos, 0);
+      assert.equal(c.primeraFilaDatos, 2);
+      assert.deepEqual(c.conceptos, [{ indice: 3, nombre: 'ADMINISTRACION VRANY' }, { indice: 4, nombre: 'LUZ AREAS COMUNES' }, { indice: 5, nombre: 'FONDO DE CONTINGENCIA' }]);
+      assert.equal(c.columnaTotalMant, 6);
+    });
+    it('encabezado en una fila: los nombres están en la misma fila que BLOCK / Dpto.', () => {
+      const datos = [['BLOCK', 'Dpto.', 'Apellidos y Nombres', ...nombres], ['B.1', 101, 'X', 1, 2, 3, 6, 0, 6]];
+      const c = leerConceptos(datos, 0);
+      assert.equal(c.primeraFilaDatos, 1);
+      assert.equal(c.conceptos.length, 3);
+    });
+    it('TOTAL MANT, DEUDA ACUMULADA y TOTAL no son conceptos aunque vengan con otras mayúsculas o espacios', () => {
+      const c = leerConceptos([['BLOCK', 'Dpto.', 'Nombre', 'OTROS', ' total  mant ', 'Deuda\nAcumulada', 'Total']], 0);
+      assert.deepEqual(c.conceptos.map((x) => x.nombre), ['OTROS']);
+    });
+    it('un nombre repetido se usa una sola vez', () => {
+      const c = leerConceptos([['BLOCK', 'Dpto.', 'Nombre', 'OTROS', 'OTROS ']], 0);
+      assert.equal(c.conceptos.length, 1);
+      assert.deepEqual(c.duplicados, ['OTROS']);
+    });
+  });
+});
+
+describe('POST /api/recibos/excel: condominio sin torres', () => {
+  it('busca la unidad sólo por el número de departamento', async () => {
+    const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Sin torres', tipo: 'Edificio', empresa_id: d.empresaA.id } });
+    for (const n of [101, 102]) await prisma.unidad.create({ data: { codigo: `D-${n}`, tipo: 'Departamento', complejo_id: c.id, empresa_id: d.empresaA.id, estado: 'activa' } });
+    const filas = filasValidas().slice(0, 5); // B.1 101, B.1 102
+    filas[3][1] = '101'; // el departamento también puede venir como texto
+    const r = await subir(T.adminA, aXlsx(filas), c.id);
+    assert.equal(r.status, 201, r.texto);
+    assert.equal(r.body.unidades_procesadas, 2);
+    assert.deepEqual(r.body.advertencias, []);
   });
 });

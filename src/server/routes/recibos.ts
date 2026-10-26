@@ -13,6 +13,7 @@ import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
+import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
 import multer from 'multer';
 import XLSX from 'xlsx';
 
@@ -296,29 +297,8 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res)
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const limpiarMonto = (v: unknown): number | null => {
-  if (v == null) return null;
-  const s = String(v).trim().replace(/,/g, '.');
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-};
+const MAX_ADVERTENCIAS = 100;
 
-function mesNumero(nombre: string): number | null {
-  const m: Record<string, number> = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
-  return m[String(nombre).trim().toLowerCase()] ?? null;
-}
-
-function fechaLima(textoFecha: string): Date | null {
-  const match = String(textoFecha).match(/(\d{1,2})\s*DE\s*([A-ZÁÉÍÓÚÜÑ]+)\s*DE\s*(\d{4})/i);
-  if (!match) return null;
-  const d = parseInt(match[1], 10);
-  const mes = mesNumero(match[2]);
-  const anio = parseInt(match[3], 10);
-  if (!mes) return null;
-  return new Date(Date.UTC(anio, mes - 1, d));
-}
-
-/** Subida de Excel con cargos por departamento: crea el recibo, los conceptos y un cargo por unidad+departamento. */
 /** Multer lanza `MulterError` (→ 500) si el archivo pasa del límite: lo convertimos en un 422 en español. */
 const subirArchivo: RequestHandler = (req, res, next) => {
   upload.single('archivo')(req, res, (err?: unknown) => {
@@ -348,42 +328,20 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   if (!primeraHoja) throw invalid('El archivo no tiene hojas', { archivo: 'Sin hojas' });
   const datos = XLSX.utils.sheet_to_json(primeraHoja, { header: 1, blankrows: false, defval: '' }) as unknown[][];
 
-  let mes: number | null = null;
-  let anio: number | null = null;
-  let fechaVencimiento: Date | null = null;
-  let descripcion = '';
-  for (const fila of datos) {
-    const filaTexto = fila.map((c) => String(c ?? '')).join(' ');
-    if (filaTexto.toLowerCase().includes('mes')) {
-      const m = filaTexto.match(/MES\s*[;:]\s*([A-Za-zÁÉÍÓÚÜÑ]+)/i);
-      if (m) mes = mesNumero(m[1]);
-      const a = filaTexto.match(/(\d{4})/);
-      if (a) anio = parseInt(a[1], 10);
-    }
-    if (filaTexto.toLowerCase().includes('vencimiento')) {
-      const f = fechaLima(filaTexto);
-      if (f) fechaVencimiento = f;
-    }
+  const filaBlock = indiceFilaBlock(datos);
+  if (filaBlock < 0) {
+    // Sin fila BLOCK no hay datos; si además falta el mes se avisa primero de éste (como siempre).
+    if (!leerCabecera(datos).mes) throw invalid('No se encontró el mes y año en el Excel', { archivo: 'Formato inválido' });
+    throw invalid('No se encontró la fila de encabezado (BLOCK)', { archivo: 'Formato inválido' });
   }
+  const { mes, anio, vencimiento } = leerCabecera(datos.slice(0, filaBlock));
   if (!mes || !anio) throw invalid('No se encontró el mes y año en el Excel', { archivo: 'Formato inválido' });
-  if (!fechaVencimiento) fechaVencimiento = new Date(Date.UTC(anio, mes, 1));
+  const fechaVencimiento = vencimiento ?? new Date(Date.UTC(anio, mes, 1));
+  const descripcion = '';
 
-  let filaEncabezado = -1;
-  for (let i = 0; i < datos.length; i++) {
-    if (String(datos[i]?.[0] ?? '').trim().toUpperCase() === 'BLOCK') {
-      filaEncabezado = i;
-      break;
-    }
-  }
-  if (filaEncabezado < 0) throw invalid('No se encontró la fila de encabezado (BLOCK)', { archivo: 'Formato inválido' });
-
-  const encabezado = datos[filaEncabezado];
-  const columnasConcepto: { indice: number; nombre: string }[] = [];
-  for (let i = 3; i < encabezado.length - 3; i++) {
-    const nombre = String(encabezado[i] ?? '').trim();
-    if (nombre) columnasConcepto.push({ indice: i, nombre });
-  }
+  const { conceptos: columnasConcepto, primeraFilaDatos, columnaTotalMant, duplicados } = leerConceptos(datos, filaBlock);
   if (!columnasConcepto.length) throw invalid('No se encontraron conceptos en el encabezado', { archivo: 'Formato inválido' });
+  const advertencias: string[] = duplicados.map((n) => `El concepto «${n}» está repetido en el encabezado: se usó sólo la primera columna`);
 
   const conceptosMap = new Map<string, number>();
   for (const { nombre } of columnasConcepto) {
@@ -420,38 +378,44 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     let filasSaltadas = 0;
     const cargos: { recibo_concepto_id: number; unidad_id: number; monto: Prisma.Decimal }[] = [];
     const estructuras = await tx.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true } });
-    const buscarEstructura = (block: string): number | null => {
-      const b = String(block).trim().toUpperCase().replace(/[.\-]/g, '');
-      for (const e of estructuras) {
-        const nom = String(e.nombre).trim().toUpperCase().replace(/[.\-]/g, '');
-        if (nom.includes(b) || b.includes(nom)) return e.id;
-      }
-      return null;
-    };
-    const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, include: { estructura: { select: { nombre: true } } } });
-    const buscarUnidad = (block: string, dpto: string): number | null => {
-      const estId = buscarEstructura(block);
-      if (estId == null) return null;
-      const d = String(dpto).trim();
-      for (const un of unidades) {
-        if (un.estructura_id !== estId) continue;
-        const cod = String(un.codigo ?? '');
-        if (cod.endsWith(`-${d}`) || cod.endsWith(d)) return un.id;
-      }
-      return null;
-    };
-    for (let i = filaEncabezado + 1; i < datos.length; i++) {
+    const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, select: { id: true, codigo: true, estructura_id: true } });
+    for (let i = primeraFilaDatos; i < datos.length; i++) {
       const fila = datos[i];
-      const block = String(fila[0] ?? '').trim();
-      const dpto = String(fila[1] ?? '').trim();
+      const block = normalizarTexto(fila[0]);
+      const dpto = normalizarTexto(fila[1]);
       if (!block || !dpto || block.toUpperCase() === 'TOTALES') { filasSaltadas++; continue; }
-      const unidadId = buscarUnidad(block, dpto);
-      if (!unidadId) { filasSaltadas++; continue; }
+      const etiqueta = `${block} Dpto. ${dpto}`;
+      let candidatas = unidades;
+      if (estructuras.length) {
+        const numero = numeroDeTorre(block);
+        if (numero == null) { advertencias.push(`${etiqueta}: no se entiende el identificador de torre «${block}»; se saltó la fila`); filasSaltadas++; continue; }
+        const { estructura, motivo } = buscarEstructura(estructuras, numero);
+        if (!estructura) {
+          advertencias.push(`${etiqueta}: ${motivo === 'varias' ? `hay varias torres del condominio que coinciden con «${block}»` : `el condominio no tiene la torre «${block}»`}; se saltó la fila`);
+          filasSaltadas++;
+          continue;
+        }
+        candidatas = unidades.filter((un) => un.estructura_id === estructura.id);
+      }
+      const coinciden = candidatas.filter((un) => codigoEncajaConDpto(un.codigo, dpto));
+      if (coinciden.length !== 1) {
+        advertencias.push(`${etiqueta}: ${coinciden.length ? 'hay varias unidades que coinciden' : 'no existe la unidad'}; se saltó la fila`);
+        filasSaltadas++;
+        continue;
+      }
+      const unidadId = coinciden[0].id;
+      let suma = new Prisma.Decimal(0);
       for (const { indice: idx } of columnasConcepto) {
         const monto = limpiarMonto(fila[idx]);
         if (monto == null) continue;
+        const redondeado = redondearMonto(monto);
+        suma = suma.plus(redondeado);
         const rcId = ordenMap.get(idx);
-        if (rcId) cargos.push({ recibo_concepto_id: rcId, unidad_id: unidadId, monto: new Prisma.Decimal(monto) });
+        if (rcId) cargos.push({ recibo_concepto_id: rcId, unidad_id: unidadId, monto: new Prisma.Decimal(redondeado) });
+      }
+      const totalMant = columnaTotalMant == null ? null : limpiarMonto(fila[columnaTotalMant]);
+      if (totalMant != null && suma.minus(redondearMonto(totalMant)).abs().gt(TOLERANCIA_TOTAL)) {
+        advertencias.push(`${etiqueta}: la suma de los conceptos (S/ ${suma.toFixed(2)}) no coincide con TOTAL MANT (S/ ${redondearMonto(totalMant)})`);
       }
       unidadesProcesadas++;
     }
@@ -477,6 +441,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     unidades_procesadas: resultado.unidadesProcesadas,
     filas_saltadas: resultado.filasSaltadas,
     conceptos: resultado.conceptosCreados,
+    advertencias: advertencias.length > MAX_ADVERTENCIAS ? [...advertencias.slice(0, MAX_ADVERTENCIAS), `… y ${advertencias.length - MAX_ADVERTENCIAS} advertencias más`] : advertencias,
   });
 });
 
