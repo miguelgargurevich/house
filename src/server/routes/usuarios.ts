@@ -188,23 +188,25 @@ export const usuariosRouter = crudRouter({
   prepareUpdate: (d, u, e) => normalizar(d, u, e),
   // El departamento (unidad) no es una columna del usuario: es el propietario/inquilino de la unidad. Por eso el update
   // va en transacción: primero suelta el departamento anterior, luego toma el nuevo.
-  update: async (data, existing) => {
+  update: async (data, existing, user) => {
     const { unidad_id, ...datos } = data as { unidad_id?: number | null } & Record<string, unknown>;
     const id = existing.id as number;
     const rolNuevo = (datos.rol ?? existing.rol) as string | null | undefined;
     const rolViejo = existing.rol as string | null | undefined;
     const campoNuevo = rolNuevo === 'inquilino' ? 'inquilino_id' : rolNuevo === 'propietario' ? 'propietario_id' : null;
     const campoViejo = rolViejo === 'inquilino' ? 'inquilino_id' : rolViejo === 'propietario' ? 'propietario_id' : null;
+    // Un residente puede tener unidades en condominios de otra administradora: sólo se sueltan o reasignan las que quien edita alcanza.
+    const alcance = scopeUnidades(user);
     return prisma.$transaction(async (tx) => {
       await tx.usuario.update({ where: { id }, data: datos as never });
       if (unidad_id !== undefined && campoNuevo) {
         // El departamento anterior (del rol viejo) se suelta; el nuevo se toma.
-        if (campoViejo && campoViejo !== campoNuevo) await tx.unidad.updateMany({ where: { [campoViejo]: id }, data: { [campoViejo]: null } as never });
-        await tx.unidad.updateMany({ where: { [campoNuevo]: id, ...(unidad_id != null ? { id: { not: unidad_id } } : {}) }, data: { [campoNuevo]: null } as never });
+        if (campoViejo && campoViejo !== campoNuevo) await tx.unidad.updateMany({ where: { AND: [{ [campoViejo]: id }, alcance] }, data: { [campoViejo]: null } as never });
+        await tx.unidad.updateMany({ where: { AND: [{ [campoNuevo]: id, ...(unidad_id != null ? { id: { not: unidad_id } } : {}) }, alcance] }, data: { [campoNuevo]: null } as never });
         if (unidad_id != null) await tx.unidad.update({ where: { id: unidad_id }, data: { [campoNuevo]: id } as never });
       } else if (unidad_id === undefined && campoViejo && campoNuevo && campoViejo !== campoNuevo) {
         // Cambió de rol (propietario ↔ inquilino) sin cambiar de departamento: la misma unidad cambia de dueño.
-        const suyas = await tx.unidad.findMany({ where: { [campoViejo]: id }, select: { id: true } });
+        const suyas = await tx.unidad.findMany({ where: { AND: [{ [campoViejo]: id }, alcance] }, select: { id: true } });
         for (const u of suyas) await tx.unidad.update({ where: { id: u.id }, data: { [campoViejo]: null, [campoNuevo]: id } as never });
       }
       return tx.usuario.findUniqueOrThrow({ where: { id } });
