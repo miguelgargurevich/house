@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Request } from 'express';
 import { HttpError } from './errors';
 import { ROLES } from './config';
+import { esContrasenaComun } from './lib/contrasenasComunes';
 
 z.config(z.locales.es());
 
@@ -20,7 +21,21 @@ export const textoOpcional = (max = 255) =>
 
 export const emailSchema = z.string({ error: 'Debe ser un texto' }).trim().toLowerCase().max(160).pipe(z.email('Correo electrónico inválido'));
 export const telefonoSchema = z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(30).regex(/^[0-9+()\-\s]*$/, 'Teléfono inválido').nullish());
-export const passwordSchema = z.string({ error: 'Debe ser un texto' }).min(8, 'La contraseña debe tener al menos 8 caracteres').max(72, 'La contraseña admite hasta 72 caracteres');
+/** Sólo al CREAR o CAMBIAR una contraseña (nunca en el login: las cuentas existentes siguen entrando). */
+export const passwordSchema = z
+  .string({ error: 'Debe ser un texto' })
+  .min(8, 'La contraseña debe tener al menos 8 caracteres')
+  .max(72, 'La contraseña admite hasta 72 caracteres')
+  .refine((p) => /\p{L}/u.test(p) && /\d/.test(p), 'La contraseña debe incluir al menos una letra y un número')
+  .refine((p) => !esContrasenaComun(p), 'Esa contraseña es demasiado común, elige otra');
+
+/** ¿La contraseña es el correo o su parte antes de la @? (sin distinguir mayúsculas). */
+export const contrasenaIgualACorreo = (password: string, email: string): boolean => {
+  const p = password.toLowerCase();
+  const e = email.trim().toLowerCase();
+  return p === e || p === e.split('@')[0];
+};
+export const MENSAJE_PASSWORD_CORREO = 'La contraseña no puede ser igual a tu correo';
 export const rolSchema = z.enum(ROLES, { error: `Rol inválido (${ROLES.join(', ')})` });
 
 /** Monto en soles: número o texto con hasta 2 decimales; se envía a Prisma como texto para no perder precisión. */

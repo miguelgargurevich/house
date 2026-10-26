@@ -8,7 +8,7 @@ import { CARGOS_JUNTA } from '../lib/junta';
 import { empresaDe, scopeComplejos, scopeEstructuras, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { revocarDeUsuario } from '../services/sesiones';
-import { emailSchema, idSchema, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
+import { contrasenaIgualACorreo, emailSchema, idSchema, MENSAJE_PASSWORD_CORREO, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
 
 const base = z.object({
   nombre: texto(120),
@@ -24,8 +24,11 @@ const createSchema = base.extend({
   password: passwordSchema,
   /** Sólo al crear un residente: la unidad de la que es propietario o inquilino (según su rol). */
   unidad_id: idSchema.nullish(),
-});
-const updateSchema = base.partial().extend({ password: passwordSchema.optional(), unidad_id: idSchema.nullish() });
+}).refine((v) => !contrasenaIgualACorreo(v.password, v.email), { path: ['password'], message: MENSAJE_PASSWORD_CORREO });
+const updateSchema = base
+  .partial()
+  .extend({ password: passwordSchema.optional(), unidad_id: idSchema.nullish() })
+  .refine((v) => !v.password || !v.email || !contrasenaIgualACorreo(v.password, v.email), { path: ['password'], message: MENSAJE_PASSWORD_CORREO });
 
 type UnidadResidente = { id: number; codigo: string; complejo: { id: number; nombre: string } | null; estructura: { id: number; nombre: string | null } | null };
 const unidadFila = (u: UnidadResidente) => ({ id: u.id, codigo: u.codigo, complejo: u.complejo, estructura: u.estructura });

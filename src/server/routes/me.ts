@@ -5,7 +5,7 @@ import { prisma } from '../db';
 import { HttpError, conflict, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
-import { listQuerySchema, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
+import { contrasenaIgualACorreo, listQuerySchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
 import { revocarDeUsuario } from '../services/sesiones';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, listarMantenimientos, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { conResumenDeGrupo, detalleMantenimiento, pagarMantenimiento, soloPrincipales } from '../services/mantenimiento';
@@ -48,6 +48,7 @@ export function meRouter(limitePassword: RequestHandler) {
     if (!usuario?.password_hash || !(await bcrypt.compare(actual, usuario.password_hash))) {
       throw new HttpError(400, 'La contraseña actual no es correcta');
     }
+    if (contrasenaIgualACorreo(nueva, usuario.email)) throw invalid(`Datos inválidos: nueva: ${MENSAJE_PASSWORD_CORREO.toLowerCase()}`, { nueva: MENSAJE_PASSWORD_CORREO });
     if (actual === nueva) throw invalid('Datos inválidos: nueva: debe ser distinta de la actual', { nueva: 'Debe ser distinta de la actual' });
     await prisma.usuario.update({ where: { id: u.id }, data: { password_hash: await bcrypt.hash(nueva, BCRYPT_COST) } });
     await revocarDeUsuario(u.id, req.sesion!.id); // quien robó la contraseña vieja pierde su sesión
