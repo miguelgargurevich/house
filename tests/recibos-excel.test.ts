@@ -188,6 +188,17 @@ describe('POST /api/recibos/excel: entradas inválidas', () => {
     assert.equal(r.status, 403, r.texto);
   });
 
+  it('un residente que sube un archivo de más de 10 MB recibe 403 (el rol se revisa antes que multer), no 413', async () => {
+    const r = await subir(T.prop1, Buffer.alloc(11 * 1024 * 1024, 1), d.complejoA.id);
+    assert.equal(r.status, 403, r.texto);
+  });
+
+  it('un admin que sube un archivo de más de 10 MB sí recibe el límite de multer (4xx de tamaño)', async () => {
+    const r = await subir(T.adminA, Buffer.alloc(11 * 1024 * 1024, 1), d.complejoA.id);
+    assert.equal(r.status, 422, r.texto);
+    assert.equal(r.body.error, 'El archivo pesa más de 10 MB');
+  });
+
   it('sin sesión → 401', async () => {
     const r = await subir(null, aXlsx(filasValidas()), d.complejoA.id);
     assert.equal(r.status, 401, r.texto);

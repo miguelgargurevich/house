@@ -319,7 +319,18 @@ function fechaLima(textoFecha: string): Date | null {
 }
 
 /** Subida de Excel con cargos por departamento: crea el recibo, los conceptos y un cargo por unidad+departamento. */
-router.post('/excel', upload.single('archivo'), requireRole('admin'), async (req, res) => {
+/** Multer lanza `MulterError` (→ 500) si el archivo pasa del límite: lo convertimos en un 422 en español. */
+const subirArchivo: RequestHandler = (req, res, next) => {
+  upload.single('archivo')(req, res, (err?: unknown) => {
+    if (err instanceof multer.MulterError) {
+      return next(invalid(err.code === 'LIMIT_FILE_SIZE' ? 'El archivo pesa más de 10 MB' : 'Archivo inválido', { archivo: err.code === 'LIMIT_FILE_SIZE' ? 'Demasiado grande' : 'Archivo inválido' }));
+    }
+    next(err);
+  });
+};
+
+// El rol se revisa ANTES de multer: un residente no debe hacer que el servidor reciba 10 MB.
+router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   const u = currentUser(req);
   const complejoId = Number(req.body.complejo_id);
   if (!complejoId) throw invalid('Datos inválidos: complejo_id es obligatorio', { complejo_id: 'Obligatorio' });
