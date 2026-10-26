@@ -4,7 +4,39 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-25 — Claude Code (Haiku 4.5 + OpenCode/Minimax) — Sincronización de WhatsApp por administradora + «Usuarios del sistema» + departamento editable
+
+**Pedido de Miguel:** que el administrador sincronice su propio número para enviar mensajes a través de su cuenta vinculada, escaneando el QR generado por Evolution API. Además: «Usuarios globales» debía mostrar sólo las cuentas del sistema, y el departamento de un residente salía vacío y no se podía cambiar.
+
+**Qué se hizo (sin push)**
+- **Esquema ADITIVO:** `EmpresaAdministradora.whatsapp_instance` (nombre de la instancia) y `EmpresaAdministradora.whatsapp_token` (token aleatorio por instancia, generado en el servidor; nunca sale por la API). Se aplicó con `prisma db push` a `house` y `house_test`.
+- **Backend:** `src/server/routes/whatsapp.ts` con `POST /sync` (crea la instancia `house_empresa_<id>` si falta, la guarda y devuelve el QR en base64), `GET /status` (`connected` + estado de Evolution) y `DELETE /disconnect` (logout y desvincula). Admin y superadmin; sin empresa → 400; sin `EVOLUTION_URL` → 503; la instancia se resuelve siempre por `usuario.empresa_id` (nada de instancia global).
+- **Envío por la instancia de cada administradora:** `src/server/services/avisos/canales.ts` ya no usa `EVOLUTION_INSTANCE`; `cola.ts` resuelve la administradora del recibo/cargo/pago (`resolveInstance`) y, sin instancia, el aviso queda `omitida` con «Sincronización de WhatsApp no configurada para la administradora».
+- **Frontend:** página `/admin/whatsapp` (QR + polling) usando el helper `api()` — el `fetch` suelto que se había escrito rompía el CSRF (403 «Falta o no coincide el token CSRF»). Ruta en `App.tsx`, ítem en `nav.ts` y ruta conocida por el asistente (`src/server/lib/rutasApp.ts`).
+- **Usuarios del sistema:** `/superadmin/usuarios` ahora es sólo superadmins (antes mezclaba residentes y personal en pestañas); el ítem del menú se renombró a «Usuarios del sistema».
+- **Departamento de un residente:** `PUT /api/usuarios/:id` acepta `unidad_id` (así se edita): el update del usuario suelta el departamento anterior y toma el nuevo en transacción (`CrudOptions.update` nuevo en `src/server/crud.ts`); `unidad_id: null` lo deja sin departamento y cambiar de rol (propietario ↔ inquilino) mueve el mismo departamento.
+- **Limpieza:** fuera los `console.log` de depuración del chequeo de origen (`src/server/services/sesiones.ts`).
+
+**Verificación**
+- `npm test` → 652 pruebas en verde (antes 648: se actualizaron los de avisos al modelo por administradora y se agregaron `tests/whatsapp.test.ts` y dos casos de departamento en `tests/personas.test.ts`).
+- `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde; `eslint` sin errores en los archivos tocados (el repo arrastra deuda de lint previa).
+- **Mutación:** quitar la asignación del nuevo departamento (`tx.unidad.update`) pone rojo el test del cambio de departamento; se restauró el código. Otra mutación (quitar el filtro `id: {not: unidad_id}`) resultó EQUIVALENTE: no cambia lo observable.
+
+**Próximos pasos**
+1. Probar el flujo completo de escaneo con un número real (Evolution API v1 del VPS) y verificar la recepción del mensaje.
+2. Webhook de Evolution por instancia (el `whatsapp_token` ya está guardado para eso): mensajes entrantes y estado de la sesión.
+3. `npm run seed:libertadores` en la base local para tener el condominio y ver la pantalla con datos reales.
+
+**Gotchas**
+- La vinculación depende de la Evolution API (`EVOLUTION_URL`, `EVOLUTION_APIKEY`) y de su versión: las rutas usadas son de la v1 (`/instance/create`, `/instance/connect/{instancia}`, `/instance/connectionState/{instancia}`, `/instance/logout/{instancia}`).
+- En el frontend toda mutación debe ir por `api()` (cookie + `X-CSRF-Token`); un `fetch` suelto devuelve 403.
+- La instancia se llama `house_empresa_<id>`; si Evolution responde «already exists» se sigue con ella y se guarda en la administradora.
+- `EVOLUTION_INSTANCE` ya no existe: el token de cada instancia se genera y se guarda en la base.
+
+---
+
 ## 2026-10-24 — Claude Code (Sonnet 5.5) — `feat/personas`: separar Residentes, Personal y Proveedores; contrato de administración del condominio
+
 
 **Pedido de Miguel:** los usuarios no tienen empresa; es el condominio el que tiene una empresa de mantenimiento. Hay personal asociado a la empresa (seguridad, limpieza, jardines), una zona de proveedores (ascensores, gasfitería, pintura…), y residentes asociados a condominios/edificios. Todo estaba mezclado en la misma pantalla: separar y corregir. **Contrato: `docs/API-CONTRATO.md`, `docs/SEGURIDAD.md`, `DESIGN.md`, `AGENTS.md`.**
 
