@@ -209,11 +209,12 @@ describe('POST /api/recibos/excel: entradas inválidas', () => {
     assert.doesNotMatch(r.texto, /at .*\.(ts|js):\d+/);
   });
 
-  it('un ZIP cortado (xlsx corrupto): HOY da 500 {error genérico} (SheetJS lanza «Unsupported ZIP file»)', async () => {
+  it('un ZIP cortado (xlsx corrupto) → 422 en español, no 500 (SheetJS lanza «Unsupported ZIP file»)', async () => {
     const real = aXlsx(filasValidas());
     const r = await subir(T.adminA, real.subarray(0, Math.floor(real.length / 2)), d.complejoA.id);
-    assert.equal(r.status, 500, r.texto);
-    assert.deepEqual(r.body, { error: 'Error interno del servidor' });
+    assert.equal(r.status, 422, r.texto);
+    assert.equal(r.body.error, 'El archivo no es un Excel válido (.xlsx o .xls)');
+    assert.deepEqual(r.body.campos, { archivo: 'Archivo inválido' });
   });
 
   it('un Excel sin la fila BLOCK → 422', async () => {

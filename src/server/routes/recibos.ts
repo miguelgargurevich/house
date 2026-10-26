@@ -327,7 +327,12 @@ router.post('/excel', upload.single('archivo'), requireRole('admin'), async (req
   const empresa_id = complejo!.empresa_id as number | null;
   if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
 
-  const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+  } catch {
+    throw invalid('El archivo no es un Excel válido (.xlsx o .xls)', { archivo: 'Archivo inválido' });
+  }
   const primeraHoja = workbook.Sheets[workbook.SheetNames[0]];
   if (!primeraHoja) throw invalid('El archivo no tiene hojas', { archivo: 'Sin hojas' });
   const datos = XLSX.utils.sheet_to_json(primeraHoja, { header: 1, blankrows: false, defval: '' }) as unknown[][];
