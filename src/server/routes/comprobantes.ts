@@ -41,6 +41,8 @@ const cargador = (alcanceDe: (u: AuthUser) => Prisma.PagoWhereInput): RequestHan
 };
 
 const cargarPago = cargador(alcance);
+/** Subir o reemplazar: el residente con su alcance de siempre; la administración sólo si administra el condominio HOY (la anterior consulta, no escribe). */
+const cargarPagoASubir = cargador((u) => (esResidente(u) ? alcance(u) : scopePagosEscritura(u)));
 /** Validar: el admin de la empresa o la junta del ámbito de la unidad (no basta ser dueño de la unidad). */
 const cargarPagoAValidar = cargador((u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagosEscritura(u)));
 
@@ -57,7 +59,7 @@ const validacionSchema = z.discriminatedUnion('estado', [
 export const comprobantesRouter = Router();
 
 // ---------- Subir (o reemplazar) ----------
-comprobantesRouter.post('/:id/comprobante', requireRole('admin', 'propietario', 'inquilino'), cargarPago, crudo, async (req, res) => {
+comprobantesRouter.post('/:id/comprobante', requireRole('admin', 'propietario', 'inquilino'), cargarPagoASubir, crudo, async (req, res) => {
   const u = currentUser(req);
   const pago = res.locals.pago as PagoCargado;
   if (esResidente(u)) {
