@@ -170,6 +170,88 @@ describe('sincronización de WhatsApp por administradora', () => {
   });
 });
 
+describe('fallos de la Evolution API (seguridad: B-3)', () => {
+  const SECRETO = 'SECRETO-FALSO-DE-EVOLUTION-9f3a';
+  let consola: typeof console.error;
+  before(() => { consola = console.error; });
+  after(() => { console.error = consola; });
+  beforeEach(() => { console.error = () => {}; });
+
+  /** Rutas que llaman a Evolution con una instancia ya vinculada. */
+  const rutas: [string, string][] = [['POST', '/api/whatsapp/sync'], ['GET', '/api/whatsapp/status'], ['DELETE', '/api/whatsapp/disconnect']];
+  const vincular = () => prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { whatsapp_instance: 'instancia-de-a', whatsapp_token: 'tok' } });
+
+  it('toda llamada lleva un timeout (AbortSignal) para no quedar colgada', async () => {
+    await vincular();
+    responderEvo = () => new Response(JSON.stringify({ base64: 'QR', status: 'open' }), { status: 200 });
+    for (const [m, r] of rutas) {
+      aEvolution.length = 0;
+      await llamar(base, m, r, T.adminA, m === 'POST' ? {} : undefined);
+      assert.ok(aEvolution.length > 0);
+      for (const l of aEvolution) assert.ok(l.init.signal instanceof AbortSignal, `${m} ${r} sin signal`);
+    }
+  });
+
+  it('timeout de Evolution → 504 con mensaje corto', async () => {
+    await vincular();
+    const original = globalThis.fetch;
+    const base0 = globalThis.fetch;
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      if (String(input).startsWith(BASE_EVO)) throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      return base0(input, init);
+    }) as typeof fetch;
+    try {
+      for (const [m, r] of rutas) {
+        const res = await llamar(base, m, r, T.adminA, m === 'POST' ? {} : undefined);
+        assert.equal(res.status, 504, `${m} ${r}: ${res.texto}`);
+        assert.match(res.body.error, /no respondió a tiempo/);
+        assert.ok(!/aborted/i.test(res.texto), 'sin el texto técnico de la excepción');
+      }
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('sin conexión (error de red) → 502 sin el texto de la excepción', async () => {
+    await vincular();
+    const base0 = globalThis.fetch;
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      if (String(input).startsWith(BASE_EVO)) throw new TypeError(`connect ECONNREFUSED 10.0.0.7:8080 ${SECRETO}`);
+      return base0(input, init);
+    }) as typeof fetch;
+    try {
+      const res = await llamar(base, 'GET', '/api/whatsapp/status', T.adminA);
+      assert.equal(res.status, 502);
+      assert.match(res.body.error, /no hay conexión/);
+      assert.ok(!res.texto.includes(SECRETO) && !res.texto.includes('10.0.0.7'));
+    } finally {
+      globalThis.fetch = base0;
+    }
+  });
+
+  it('error de Evolution con un secreto en el cuerpo: la respuesta no lo contiene y el log tampoco lleva el token', async () => {
+    await vincular();
+    const logs: string[] = [];
+    console.error = (...a: unknown[]) => { logs.push(a.map(String).join(' ')); };
+    responderEvo = () => new Response(JSON.stringify({ message: `fallo interno ${SECRETO} apikey=${CLAVE_EVO}` }), { status: 500 });
+    for (const [m, r] of rutas) {
+      const res = await llamar(base, m, r, T.adminA, m === 'POST' ? {} : undefined);
+      assert.equal(res.status, 502, `${m} ${r}`);
+      assert.match(res.body.error, /respondió con error 500/);
+      assert.ok(!res.texto.includes(SECRETO) && !res.texto.includes(CLAVE_EVO), `${m} ${r} filtró el texto del proveedor`);
+    }
+    assert.ok(logs.some((l) => l.includes('[whatsapp]') && l.includes('500')), 'el detalle va al log');
+    assert.ok(!logs.some((l) => l.includes('tok') && l.includes('token')), 'el token no se loguea');
+  });
+
+  it('la creación de instancia que falla no deja el texto del proveedor (ni vincula la empresa)', async () => {
+    responderEvo = (url) => (url.endsWith('/instance/create') ? new Response(JSON.stringify({ message: SECRETO }), { status: 403 }) : new Response('{}', { status: 200 }));
+    const res = await llamar(base, 'POST', '/api/whatsapp/sync', T.adminA, {});
+    assert.equal(res.status, 502);
+    assert.ok(!res.texto.includes(SECRETO));
+  });
+});
+
 describe('interfaz: WhatsApp y usuarios del sistema', () => {
   it('la página de WhatsApp pide la API con `api()` (cookie + CSRF), no con fetch suelto', () => {
     const fuente = readFileSync('src/pages/admin/WhatsappSync.tsx', 'utf8');

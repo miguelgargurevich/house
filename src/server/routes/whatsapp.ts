@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { Router } from 'express';
+import { Router, type Response } from 'express';
 import { prisma } from '../db';
 import type { AuthUser } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
@@ -12,27 +12,65 @@ const baseEvolution = (): string | null => {
   return base ? base.replace(/\/+$/, '') : null;
 };
 
-/** El mensaje del proveedor, sin filtrar cabeceras ni claves. */
-const mensajeDe = (e: unknown): string => (e instanceof Error ? e.message : 'error inesperado');
+/** Tope por llamada a la Evolution API (mismo que los avisos): un proveedor colgado no deja la petición abierta. */
+const TIEMPO_MAX_MS = 10_000;
+
+/** Fallo de la Evolution API. `detalle` (texto del proveedor) sólo sirve para decidir y para el log; NUNCA se envía al cliente. */
+class EvolutionError extends Error {
+  causa: 'sin_conexion' | 'timeout' | 'error';
+  estado: number | null;
+  detalle: string;
+  constructor(causa: 'sin_conexion' | 'timeout' | 'error', estado: number | null, detalle: string) {
+    super(detalle);
+    this.causa = causa;
+    this.estado = estado;
+    this.detalle = detalle;
+  }
+}
+
+/** Respuesta al cliente: mensaje corto según la causa; el detalle va al log del servidor (sin el token). */
+function falloEvolution(res: Response, accion: string, e: unknown): Response {
+  if (!(e instanceof EvolutionError)) {
+    console.error(`[whatsapp] ${accion}: error inesperado`, e);
+    return res.status(500).json({ error: `${accion}: error inesperado` });
+  }
+  const ev = e;
+  console.error(`[whatsapp] ${accion}: ${ev.causa}${ev.estado ? ` ${ev.estado}` : ''} — ${ev.detalle.slice(0, 300)}`);
+  if (ev.causa === 'timeout') return res.status(504).json({ error: `${accion}: la instancia de WhatsApp no respondió a tiempo` });
+  if (ev.causa === 'sin_conexion') return res.status(502).json({ error: `${accion}: no hay conexión con la instancia de WhatsApp` });
+  return res.status(502).json({ error: `${accion}: la instancia de WhatsApp respondió con error ${ev.estado}` });
+}
 
 /** Llamada a la Evolution API (v1): cabecera `apikey` y cuerpo JSON. */
 async function evolutionRequest(endpoint: string, method = 'GET', body?: Record<string, unknown>): Promise<Record<string, unknown>> {
   const base = baseEvolution();
   if (!base) throw new Error('Evolution API no configurada');
-  const response = await fetch(`${base}${endpoint}`, {
-    method,
-    headers: {
-      apikey: process.env.EVOLUTION_APIKEY?.trim() ?? '',
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response: globalThis.Response;
+  try {
+    response = await fetch(`${base}${endpoint}`, {
+      method,
+      headers: {
+        apikey: process.env.EVOLUTION_APIKEY?.trim() ?? '',
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(TIEMPO_MAX_MS),
+    });
+  } catch (e) {
+    const timeout = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    throw new EvolutionError(timeout ? 'timeout' : 'sin_conexion', null, e instanceof Error ? e.message : 'error de red');
+  }
   if (!response.ok) {
     const detalle = (await response.json().catch(() => ({}))) as { message?: unknown };
-    const mensaje = typeof detalle.message === 'string' ? detalle.message : `Evolution API respondió ${response.status}`;
-    throw new Error(mensaje);
+    throw new EvolutionError('error', response.status, typeof detalle.message === 'string' ? detalle.message : '');
   }
-  return (await response.json()) as Record<string, unknown>;
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch (e) {
+    // Cuerpo cortado o no JSON (incluye el timeout durante la lectura).
+    const timeout = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    throw new EvolutionError(timeout ? 'timeout' : 'error', response.status, 'respuesta ilegible');
+  }
 }
 
 /** La empresa administradora del admin; el superadmin puede no tener ninguna. */
@@ -61,8 +99,8 @@ router.post('/sync', requireRole('admin', 'superadmin'), async (req, res) => {
       await evolutionRequest('/instance/create', 'POST', { instanceName, token, qrcode: true });
     } catch (e) {
       // Si la instancia ya existe en Evolution, se sigue con ella (el token guardado es el que vale).
-      if (!mensajeDe(e).toLowerCase().includes('already exists')) {
-        return res.status(500).json({ error: `Error al crear la instancia de WhatsApp: ${mensajeDe(e)}` });
+      if (!(e instanceof EvolutionError && e.detalle.toLowerCase().includes('already exists'))) {
+        return falloEvolution(res, 'Error al crear la instancia de WhatsApp', e);
       }
     }
     await prisma.empresaAdministradora.update({
@@ -79,7 +117,7 @@ router.post('/sync', requireRole('admin', 'superadmin'), async (req, res) => {
       status: typeof qr.status === 'string' ? qr.status : 'connecting',
     });
   } catch (e) {
-    return res.status(500).json({ error: `Error al obtener el QR: ${mensajeDe(e)}` });
+    return falloEvolution(res, 'Error al obtener el QR', e);
   }
 });
 
@@ -98,7 +136,7 @@ router.get('/status', requireRole('admin', 'superadmin'), async (req, res) => {
     const status = typeof estado.status === 'string' ? estado.status : 'unknown';
     return res.json({ connected: status === 'open', status, instance: empresa.whatsapp_instance });
   } catch (e) {
-    return res.status(500).json({ error: `Error al verificar el estado: ${mensajeDe(e)}` });
+    return falloEvolution(res, 'Error al verificar el estado', e);
   }
 });
 
@@ -120,7 +158,7 @@ router.delete('/disconnect', requireRole('admin', 'superadmin'), async (req, res
     });
     return res.json({ message: 'WhatsApp desvinculado correctamente' });
   } catch (e) {
-    return res.status(500).json({ error: `Error al desvincular WhatsApp: ${mensajeDe(e)}` });
+    return falloEvolution(res, 'Error al desvincular WhatsApp', e);
   }
 });
 
