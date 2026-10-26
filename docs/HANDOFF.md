@@ -4,6 +4,27 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5) — No crear cargos de S/ 0.00 al subir el Excel
+
+**Pedido de Miguel:** «hazlo así (no crear cargos de S/ 0.00 al subir el Excel)». Rama `fix/cargos-cero` (sin push; Opus integra).
+
+**Qué se hizo**
+- `POST /api/recibos/excel` (`src/server/routes/recibos.ts`): si el monto redondeado es 0.00 (o la celda está vacía) no se crea el `ReciboConceptoUnidad`. El `ReciboConcepto` se mantiene; la suma contra `TOTAL MANT` no cambia. Excel real: 352 celdas → 286 cargos, ninguno en 0.
+- Pruebas en `tests/recibos-excel.test.ts` (ajustadas las cuentas y un bloque nuevo «sin cargos en S/ 0.00»: 11 conceptos, detalle de B01-804 con total 272.15, todas las unidades pagan → recibo `pagado`). Docs: `docs/EXCEL-RECIBOS.md`.
+
+**Revisado (sin cambios necesarios):** `lib/mantenimientos.ts`, `services/mantenimiento.ts` (el detalle se arma desde los cargos que existen: omite el concepto en 0; una unidad sin ningún cargo da 404 «Mantenimiento», no 500), `totalesPorRecibo`/`conTotales` (por monto), `tools/gestion.ts` y `residente.ts` (cuentan cargos existentes; mejoran sin ceros). No encontré código del backend que arme un recibo impreso.
+
+**Decisiones / gotchas**
+- Una unidad con TODO en 0 queda sin mantenimiento (no aparece en la lista del periodo). Es lo coherente con «nada que cobrar».
+- Nota: el detalle del recibo (`conceptos`) sigue listando los 11 conceptos; el frontend no se tocó.
+
+**Próximos pasos / sin tocar a propósito**
+- `POST /api/recibos` (emitir a mano, `recibos.ts` ~l.139) crea un cargo por unidad con `c.monto` aunque sea 0: mismo problema, otro flujo.
+- Los cargos en 0 ya existentes en la base siguen ahí; si Miguel quiere limpiarlos, hace falta un script aparte (sólo pendientes sin pagos).
+- No revisé el frontend (¿asume un cargo por concepto en el recibo impreso o en la vista del residente?).
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5) — Migrar xlsx a 0.20.3 y leer el Excel real de la administradora
 
 **Pedido de Miguel:** migrar `xlsx` (2 avisos altos) y el problema que encontró Sonnet: `docs/ejemplos/block-1-octubre.xlsx` se rechazaba con 422. Rama `fix/migrar-xlsx` (sin push; Opus integra con cherry-pick).

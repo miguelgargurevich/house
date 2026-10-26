@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { after, before, describe, it } from 'node:test';
 import { Prisma } from '@prisma/client';
 import XLSX from 'xlsx';
-import { cabecerasDeSesion, iniciar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { cabecerasDeSesion, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
 import { buscarEstructura, codigoEncajaConDpto, leerCabecera, leerConceptos, normalizarTexto, numeroDeTorre, redondearMonto } from '../src/server/lib/excelRecibos';
 
@@ -100,13 +100,13 @@ describe('POST /api/recibos/excel: lo que crea', () => {
       [3, 'AGUA DPTO.', '0', false],
     ]);
 
-    // 3 unidades × 3 conceptos = 9 cargos: la celda vacía cuenta como 0; el texto no numérico no genera cargo; «7,5» se lee como 7.5; cada monto se redondea a 2 decimales.
-    assert.equal(cargos.length, 8);
+    // 3 unidades × 3 conceptos = 9 celdas, 7 cargos: la celda vacía vale 0 y un monto 0.00 no genera cargo; el texto no numérico tampoco; «7,5» se lee como 7.5; cada monto se redondea a 2 decimales.
+    assert.equal(cargos.length, 7);
     assert.equal(monto('B.1-101', 'ADMINISTRACION'), '123.69');
     assert.equal(monto('B.1-101', 'LUZ COMUN'), '8.55');
     assert.equal(monto('B.1-101', 'AGUA DPTO.'), '2.53');
     assert.equal(monto('B.1-102', 'ADMINISTRACION'), '123.69');
-    assert.equal(monto('B.1-102', 'LUZ COMUN'), '0');
+    assert.equal(monto('B.1-102', 'LUZ COMUN'), undefined);
     assert.equal(monto('B.1-102', 'AGUA DPTO.'), '75.5');
     assert.equal(monto('B.1-103', 'ADMINISTRACION'), '100');
     assert.equal(monto('B.1-103', 'LUZ COMUN'), undefined);
@@ -121,7 +121,7 @@ describe('POST /api/recibos/excel: lo que crea', () => {
     assert.equal(r.status, 201, r.texto);
     const { recibos, cargos, monto } = await estadoDelRecibo();
     assert.equal(recibos.length, 1);
-    assert.equal(cargos.length, 8);
+    assert.equal(cargos.length, 7);
     assert.equal(monto('B.1-101', 'ADMINISTRACION'), '200');
   });
 
@@ -130,7 +130,7 @@ describe('POST /api/recibos/excel: lo que crea', () => {
     assert.equal(r.status, 201, r.texto);
     assert.deepEqual({ ...r.body, recibo_id: undefined, advertencias: undefined }, { recibo_id: undefined, advertencias: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3 });
     const { cargos, monto } = await estadoDelRecibo();
-    assert.equal(cargos.length, 8);
+    assert.equal(cargos.length, 7);
     assert.equal(monto('B.1-101', 'ADMINISTRACION'), '123.69');
     assert.equal(monto('B.1-102', 'AGUA DPTO.'), '75.5');
   });
@@ -212,9 +212,11 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
     assert.deepEqual(rec.reciboConceptos.map((c) => c.concepto?.nombre), CONCEPTOS);
 
     const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { reciboConcepto: { recibo_id: rec.id } }, include: { unidad: true, reciboConcepto: { include: { concepto: true } } } });
-    // 32 departamentos × 11 conceptos: los ceros del Excel también generan cargo (como siempre).
-    assert.equal(cargos.length, 32 * 11);
-    assert.equal(cargos.filter((c) => c.monto.gt(0)).length, 286);
+    // 32 departamentos × 11 conceptos = 352 celdas; las 66 en S/ 0.00 no generan cargo: quedan 286 y ninguno en cero.
+    assert.equal(cargos.length, 286);
+    assert.ok(cargos.every((c) => c.monto.gt(0)));
+    // El concepto del recibo se conserva aunque todas sus celdas sean 0 (los 11 de arriba).
+    assert.equal(rec.reciboConceptos.length, 11);
     const monto = (unidad: string, concepto: string) => cargos.find((c) => c.unidad?.codigo === unidad && c.reciboConcepto?.concepto?.nombre === concepto)?.monto.toString();
     assert.equal(monto('B01-101', 'ADMINISTRACION VRANY'), '123.69');
     assert.equal(monto('B01-101', 'LUZ COMUN DEL BLOCK'), '30.25');
@@ -224,7 +226,7 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
     assert.equal(monto('B01-101', 'FONDO DE CONTINGENCIA DEL CONDOMINIO'), '3');
     assert.equal(monto('B01-501', 'AGUA DPTO.'), '95.48');
     assert.equal(monto('B01-804', 'AGUA DPTO.'), '70.63');
-    assert.equal(monto('B01-804', 'MULTA PAGO FUERA DE FECHA(ULTIMO DIA 2 CADA MES)'), '0');
+    assert.equal(monto('B01-804', 'MULTA PAGO FUERA DE FECHA(ULTIMO DIA 2 CADA MES)'), undefined);
     const totalDe = (unidad: string) => cargos.filter((c) => c.unidad?.codigo === unidad).reduce((t, c) => t.plus(c.monto), new Prisma.Decimal(0)).toFixed(2);
     assert.equal(totalDe('B01-101'), '223.35');
     assert.equal(totalDe('B01-501'), '297.00');
@@ -238,6 +240,63 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
     assert.equal(r.body.unidades_procesadas, 31);
     assert.equal(r.body.filas_saltadas, 2);
     assert.deepEqual(r.body.advertencias, ['B.1 Dpto. 804: no existe la unidad; se saltó la fila']);
+  });
+});
+
+describe('POST /api/recibos/excel: sin cargos en S/ 0.00', () => {
+  const real = () => readFileSync('docs/ejemplos/block-1-octubre.xlsx');
+  let complejoId: number;
+  let reciboId: number;
+  const get = (ruta: string) => llamar(base, 'GET', ruta, T.adminA);
+  before(async () => {
+    const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Sin ceros', tipo: 'Condominio', empresa_id: d.empresaA.id } });
+    complejoId = c.id;
+    const e = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'block', complejo_id: c.id } });
+    for (let piso = 1; piso <= 8; piso++) {
+      for (let k = 1; k <= 4; k++) await prisma.unidad.create({ data: { codigo: `B01-${piso}0${k}`, tipo: 'Departamento', complejo_id: c.id, empresa_id: d.empresaA.id, estructura_id: e.id, estado: 'activa' } });
+    }
+    const r = await subir(T.adminA, real(), complejoId);
+    assert.equal(r.status, 201, r.texto);
+    reciboId = r.body.recibo_id;
+  });
+
+  it('el recibo conserva los 11 conceptos y ningún cargo vale 0 (ni queda «pendiente» por un cero)', async () => {
+    assert.equal(await prisma.reciboConcepto.count({ where: { recibo_id: reciboId } }), 11);
+    assert.equal(await prisma.reciboConceptoUnidad.count({ where: { reciboConcepto: { recibo_id: reciboId } } }), 286);
+    assert.equal(await prisma.reciboConceptoUnidad.count({ where: { reciboConcepto: { recibo_id: reciboId }, monto: { lte: 0 } } }), 0);
+    const det = await get(`/api/recibos/${reciboId}`);
+    assert.equal(det.status, 200);
+    assert.equal(det.body.conceptos.length, 11);
+    assert.equal(det.body.cargos.length, 286);
+  });
+
+  it('el detalle de mantenimiento de una unidad con conceptos en 0 responde bien y su total cuadra con TOTAL MANT', async () => {
+    const un = await prisma.unidad.findFirstOrThrow({ where: { complejo_id: complejoId, codigo: 'B01-804' } });
+    const r = await get(`/api/recibos/${reciboId}/mantenimientos/${un.id}`);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.total, '272.15');
+    assert.equal(r.body.saldo, '272.15');
+    assert.equal(r.body.estado, 'pendiente');
+    assert.ok(r.body.conceptos.length > 0 && r.body.conceptos.length < 11, 'se omiten los conceptos en 0');
+    assert.ok(!r.body.conceptos.some((c: { concepto: string }) => c.concepto.startsWith('MULTA')));
+    assert.ok(r.body.conceptos.every((c: { monto: string }) => Number(c.monto) > 0));
+    const suma = r.body.conceptos.reduce((t: Prisma.Decimal, c: { monto: string }) => t.plus(c.monto), new Prisma.Decimal(0));
+    assert.equal(suma.toFixed(2), '272.15');
+  });
+
+  it('cuando todas las unidades pagan lo que debían, el recibo queda «pagado» y ningún mantenimiento queda pendiente', async () => {
+    const unidades = await prisma.unidad.findMany({ where: { complejo_id: complejoId }, select: { id: true } });
+    for (const un of unidades) {
+      const p = await llamar(base, 'POST', `/api/recibos/${reciboId}/mantenimientos/${un.id}/pagos`, T.adminA, { metodo_pago: 'efectivo' });
+      assert.equal(p.status, 201, JSON.stringify(p.body));
+    }
+    assert.equal(await prisma.reciboConceptoUnidad.count({ where: { reciboConcepto: { recibo_id: reciboId }, estado_pago: { not: 'pagado' } } }), 0);
+    const det = await get(`/api/recibos/${reciboId}?sin_cargos=1`);
+    assert.equal(det.body.estado_cobranza, 'pagado');
+    assert.equal(det.body.totales.pendiente, '0.00');
+    const lista = await get(`/api/recibos/${reciboId}/mantenimientos?pageSize=100`);
+    assert.equal(lista.body.total, 32);
+    assert.ok(lista.body.items.every((m: { estado: string }) => m.estado === 'pagado'));
   });
 });
 
@@ -307,7 +366,7 @@ describe('POST /api/recibos/excel: recibo repetido con pagos', () => {
     const despues = await foto();
     assert.equal(despues.recibos.length, 1);
     assert.equal(despues.recibos[0].id, antes.recibos[0].id);
-    assert.equal(despues.cargos.length, 32 * 11);
+    assert.equal(despues.cargos.length, 286);
     const viejos = new Set(antes.cargos.map((c) => c.id));
     assert.ok(despues.cargos.every((c) => !viejos.has(c.id)));
   });

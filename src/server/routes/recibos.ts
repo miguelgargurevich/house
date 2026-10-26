@@ -417,6 +417,8 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
         if (monto == null) continue;
         const redondeado = redondearMonto(monto);
         suma = suma.plus(redondeado);
+        // Un monto en S/ 0.00 no es una deuda: no se crea el cargo (nacería «pendiente» y nunca se pagaría). El concepto del recibo sí queda.
+        if (new Prisma.Decimal(redondeado).isZero()) continue;
         const rcId = ordenMap.get(idx);
         if (rcId) cargos.push({ recibo_concepto_id: rcId, unidad_id: unidadId, monto: new Prisma.Decimal(redondeado) });
       }

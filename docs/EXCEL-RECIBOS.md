@@ -40,7 +40,7 @@ Se lee la primera hoja. Las filas vacías se ignoran. El lector (`src/server/lib
 2. `Dpto.` — número de departamento (`101` o `"101"`). Se busca la unidad de esa torre cuyo código **termine** en ese número (`B01-101`, `B.1-101`, `101`; `B.1-1101` no). Si no existe (o hay varias), advertencia y se salta la fila.
 3. `Apellidos y Nombres` — referencial.
 4. Montos de cada concepto. Cada cargo se **redondea a 2 decimales** (half-up) y se guarda como Decimal.
-5. `TOTAL MANT` — se valida: si la suma de los cargos redondeados de la fila difiere de `TOTAL MANT` en más de **S/ 0.05**, advertencia para ese departamento (el cargo se crea igual).
+5. `TOTAL MANT` — se valida: si la suma de los cargos redondeados de la fila difiere de `TOTAL MANT` en más de **S/ 0.05**, advertencia para ese departamento (los cargos se crean igual).
 6. `DEUDA ACUMULADA` y `TOTAL` — referenciales.
 
 Filas sin `BLOCK`/`Dpto.` y la fila `TOTALES` se ignoran (cuentan como «saltadas», sin advertencia).
@@ -48,7 +48,7 @@ Filas sin `BLOCK`/`Dpto.` y la fila `TOTALES` se ignoran (cuentan como «saltada
 ## Reglas de negocio
 
 - Se crea un `Recibo` por mes/año con el vencimiento y todos los conceptos (monto del concepto en 0; el monto va por unidad).
-- Se crea un `ReciboConceptoUnidad` por cada concepto+departamento. **Un monto 0 o una celda vacía también genera cargo en 0** (así fue siempre); un texto no numérico no genera cargo.
+- Se crea un `ReciboConceptoUnidad` por cada concepto+departamento **con monto mayor a 0**. **Un monto que redondeado da S/ 0.00, o una celda vacía, NO genera cargo** (26-oct: un cargo en 0 nacía «pendiente», nunca se pagaba y ensuciaba avisos y estadísticas); un texto no numérico tampoco. El concepto del recibo (`ReciboConcepto`) se conserva aunque todas sus celdas sean 0, y la validación contra `TOTAL MANT` suma igual. Un departamento con todo en 0 queda sin cargos (no tiene mantenimiento que cobrar). En el Excel de ejemplo: 352 celdas → 286 cargos. Los cargos en 0 que ya existían en la base no se tocan.
 - El estado inicial de cada cargo es `pendiente`.
 - **Recibo repetido (mismo condominio, mes y año):** si ningún cargo del recibo tiene pagos (`Pago`, en cualquier `estado_validacion`) ni un `estado_pago` distinto de `pendiente`, el endpoint **reemplaza** los conceptos y cargos por los del Excel y lo deja `emitido` (sirve para corregir una subida equivocada). Si alguno los tiene, responde **409** `El recibo de <Mes> <año> ya tiene pagos registrados; no se puede reemplazar desde Excel` y no cambia nada (la comprobación va dentro de la misma transacción).
 
