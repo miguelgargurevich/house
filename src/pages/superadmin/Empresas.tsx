@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { BuildingOffice2Icon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList } from '../../api';
@@ -82,6 +83,7 @@ export default function Empresas() {
     { key: 'estado', header: 'Estado', cell: f => <StatusBadge estado={f.estado ?? 'activa'} /> },
     { key: 'acciones', header: '', align: 'right', cell: f => (
       <div className="flex justify-end gap-1">
+        <Link to={`/superadmin/empresas/${f.id}`} className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-brand hover:underline">Ver ficha</Link>
         <IconButton label={`Editar ${f.nombre}`} onClick={() => abrir(f)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Eliminar ${f.nombre}`} onClick={() => setBorrar(f)}><TrashIcon className="h-4 w-4" /></IconButton>
       </div>

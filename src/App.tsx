@@ -8,11 +8,13 @@ import Login from './pages/Login';
 
 const SuperadminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
 const SuperadminEmpresas = lazy(() => import('./pages/superadmin/Empresas'));
+const SuperadminEmpresaDetalle = lazy(() => import('./pages/superadmin/EmpresaDetalle'));
 const SuperadminUsuarios = lazy(() => import('./pages/superadmin/Usuarios'));
 const SuperadminAuditoria = lazy(() => import('./pages/superadmin/Auditoria'));
 const SuperadminLlavero = lazy(() => import('./pages/superadmin/Llavero'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminComplejos = lazy(() => import('./pages/admin/Complejos'));
+const AdminCondominioDetalle = lazy(() => import('./pages/admin/CondominioDetalle'));
 const AdminUnidades = lazy(() => import('./pages/admin/Unidades'));
 const AdminRecibos = lazy(() => import('./pages/admin/Recibos'));
 const AdminPeriodoRecibo = lazy(() => import('./pages/admin/PeriodoRecibo'));
@@ -63,6 +65,7 @@ export default function App() {
         <Route element={<RequireRole roles={['superadmin']} />}>
           <Route path="/superadmin/dashboard" element={<SuperadminDashboard />} />
           <Route path="/superadmin/empresas" element={<SuperadminEmpresas />} />
+          <Route path="/superadmin/empresas/:id" element={<SuperadminEmpresaDetalle />} />
           <Route path="/superadmin/usuarios" element={<SuperadminUsuarios />} />
           <Route path="/superadmin/auditoria" element={<SuperadminAuditoria />} />
           <Route path="/superadmin/llavero" element={<SuperadminLlavero />} />
@@ -70,6 +73,7 @@ export default function App() {
         <Route element={<RequireRole roles={['superadmin','admin']} />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/complejos" element={<AdminComplejos />} />
+          <Route path="/admin/condominios/:id" element={<AdminCondominioDetalle />} />
           <Route path="/admin/unidades" element={<AdminUnidades />} />
           <Route path="/admin/recibos" element={<AdminRecibos />} />
           <Route path="/admin/recibos/:id" element={<AdminPeriodoRecibo />} />

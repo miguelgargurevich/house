@@ -24,7 +24,7 @@ export interface Medio {
 
 export interface Ambitos {
   complejos: { id: number; nombre: string; estructuras: { id: number; nombre: string | null }[] }[];
-  /** La junta de un block sólo gestiona ese block (no puede elegir «todo el condominio»). */
+  /** La junta de una torre sólo gestiona esa torre (no puede elegir «todo el condominio»). */
   fijo: boolean;
 }
 
@@ -39,8 +39,8 @@ export const tipoLabel = (t: TipoMedio) => TIPOS.find(x => x.value === t)?.label
 
 export const BANCOS = ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Banco de la Nación', 'Mibanco', 'BanBif', 'Pichincha', 'Otro'] as const;
 
-export const nombreBlock = (e: { id: number; nombre: string | null }) => e.nombre?.trim() || `Block ${e.id}`;
-export const ambitoLabel = (m: Pick<Medio, 'estructura'>) => (m.estructura ? nombreBlock(m.estructura) : 'Todo el condominio');
+export const nombreTorre = (e: { id: number; nombre: string | null }) => e.nombre?.trim() || `Torre ${e.id}`;
+export const ambitoLabel = (m: Pick<Medio, 'estructura'>) => (m.estructura ? nombreTorre(m.estructura) : 'Todo el condominio');
 
 /** Dato con el que se paga: el número de cuenta o el celular. */
 export const datoPrincipal = (m: Pick<Medio, 'tipo' | 'numero_cuenta' | 'celular'>) => (m.tipo === 'banco' ? m.numero_cuenta : m.celular) ?? '—';

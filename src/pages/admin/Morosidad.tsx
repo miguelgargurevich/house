@@ -22,10 +22,10 @@ const texto = (r: Ref): string => (typeof r === 'string' ? r : r?.codigo ?? r?.n
 const claveFila = (m: Moroso): string => (typeof m.unidad === 'object' && m.unidad?.id ? String(m.unidad.id) : `${texto(m.unidad)}|${texto(m.propietario)}`);
 
 export default function Morosidad() {
-  const [block, setBlock] = useState('');
-  const blocks = useResource<{ items: { id: number; nombre: string | null }[] }>('/api/estructuras?pageSize=100');
-  const hayBlocks = (blocks.data?.items.length ?? 0) > 1;
-  const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100, params: { estructura_id: block || undefined } });
+  const [torre, setTorre] = useState('');
+  const torres = useResource<{ items: { id: number; nombre: string | null }[] }>('/api/estructuras?pageSize=100');
+  const hayTorres = (torres.data?.items.length ?? 0) > 1;
+  const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100, params: { estructura_id: torre || undefined } });
 
   const deudaTotal = list.items.reduce((s, m) => s + (Number(m.deuda_total) || 0), 0);
   const mayorAtraso = list.items.reduce((s, m) => Math.max(s, m.dias_max_atraso || 0), 0);
@@ -36,14 +36,14 @@ export default function Morosidad() {
   function exportar() {
     descargarCSV(
       `morosidad-${hoyISO()}.csv`,
-      ['Unidad', 'Block', 'Propietario', 'Deuda (S/)', 'Cargos vencidos', 'Días de atraso'],
+      ['Unidad', 'Torre', 'Propietario', 'Deuda (S/)', 'Cargos vencidos', 'Días de atraso'],
       list.items.map(m => [texto(m.unidad), m.estructura?.nombre ?? '', texto(m.propietario), Number(m.deuda_total).toFixed(2), m.cargos_vencidos, m.dias_max_atraso]),
     );
   }
 
   const columns: Column<Moroso>[] = [
     { key: 'unidad', header: 'Unidad', cell: m => <span className="font-medium">{texto(m.unidad) || '—'}</span> },
-    ...(hayBlocks ? [{ key: 'block', header: 'Block', hideBelow: 'sm' as const, cell: (m: Moroso) => m.estructura?.nombre ?? '—' }] : []),
+    ...(hayTorres ? [{ key: 'torre', header: 'Torre', hideBelow: 'sm' as const, cell: (m: Moroso) => m.estructura?.nombre ?? '—' }] : []),
     { key: 'propietario', header: 'Propietario', hideBelow: 'sm', cell: m => texto(m.propietario) || '—' },
     { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{soles(m.deuda_total)}</span> },
     { key: 'cargos', header: 'Cargos vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.cargos_vencidos}</span> },
@@ -69,11 +69,11 @@ export default function Morosidad() {
         ]}
       />
       <Card>
-        {hayBlocks && (
+        {hayTorres && (
           <Toolbar>
-            <Select label="Block" className="w-full sm:w-56 [&_label]:sr-only" value={block} onChange={e => setBlock(e.target.value)}>
-              <option value="">Todos los blocks</option>
-              {(blocks.data?.items ?? []).map(b => <option key={b.id} value={b.id}>{b.nombre ?? `Block ${b.id}`}</option>)}
+            <Select label="Torre" className="w-full sm:w-56 [&_label]:sr-only" value={torre} onChange={e => setTorre(e.target.value)}>
+              <option value="">Todas las torres</option>
+              {(torres.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{t.nombre ?? `Torre ${t.id}`}</option>)}
             </Select>
           </Toolbar>
         )}

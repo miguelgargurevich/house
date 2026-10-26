@@ -44,11 +44,13 @@ export const unidadesRouter = crudRouter({
     propietario: { select: { id: true, nombre: true } },
     inquilino: { select: { id: true, nombre: true } },
     complejo: { select: { id: true, nombre: true } },
+    estructura: { select: { id: true, nombre: true } },
   },
   filtros: {
-    schema: z.object({ complejo_id: idSchema.optional(), estado: z.string().max(30).optional(), propietario_id: idSchema.optional() }),
+    schema: z.object({ complejo_id: idSchema.optional(), estructura_id: idSchema.optional(), estado: z.string().max(30).optional(), propietario_id: idSchema.optional() }),
     where: (f) => ({
       ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}),
+      ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}),
       ...(f.estado ? { estado: f.estado } : {}),
       ...(f.propietario_id !== undefined ? { propietario_id: f.propietario_id } : {}),
     }),

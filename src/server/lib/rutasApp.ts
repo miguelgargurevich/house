@@ -5,12 +5,12 @@ import type { AuthUser } from '../middleware/auth';
 import { esJunta } from './junta';
 
 const OPERACION = [
-  '/admin/dashboard', '/admin/complejos', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad',
+  '/admin/dashboard', '/admin/complejos', '/admin/condominios/:id', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad',
   '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/medios-pago', '/admin/whatsapp',
 ] as const;
 
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
-  superadmin: ['/superadmin/dashboard', '/superadmin/empresas', '/superadmin/usuarios', '/superadmin/auditoria', '/superadmin/llavero', ...OPERACION],
+  superadmin: ['/superadmin/dashboard', '/superadmin/empresas', '/superadmin/empresas/:id', '/superadmin/usuarios', '/superadmin/auditoria', '/superadmin/llavero', ...OPERACION],
   admin: OPERACION,
   propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos'],
   inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos'],
@@ -28,7 +28,8 @@ export const TODAS_LAS_RUTAS: readonly string[] = [...new Set([...Object.values(
 /** Ruta actual validada: la ruta normalizada si el rol del usuario puede estar ahí; si no, `null`. */
 export function rutaPermitida(user: Pick<AuthUser, 'rol' | 'cargo_junta' | 'complejo_id' | 'estructura_id' | 'id' | 'email' | 'empresa_id'>, ruta: string | undefined): string | null {
   if (!ruta) return null;
-  const limpia = ruta.split(/[?#]/)[0]!.replace(/\/+$/, '').replace(/^(\/admin\/recibos)\/\d+$/, '$1/:id'); // el periodo de un recibo lleva su id
+  const limpia = ruta.split(/[?#]/)[0]!.replace(/\/+$/, '')
+    .replace(/^\/(admin\/recibos|admin\/condominios|superadmin\/empresas)\/\d+$/, '/$1/:id'); // el periodo de un recibo y las fichas llevan su id
   if (!limpia) return null;
   const validas: readonly string[] = [...RUTAS_POR_ROL[user.rol], ...RUTAS_COMUNES, ...(esJunta(user) ? RUTAS_JUNTA : [])];
   return validas.includes(limpia) ? limpia : null;

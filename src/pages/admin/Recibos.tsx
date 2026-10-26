@@ -9,14 +9,22 @@ import { SubirExcelModal } from './_parts/cobranza/SubirExcelModal';
 import { ProgresoCobro } from './_parts/cobranza/ProgresoCobro';
 import type { Complejo, Lista, ReciboFila } from './_parts/cobranza/comun';
 
-export default function Recibos() {
+interface Props {
+  /** Condominio fijo (ficha del condominio): sólo sus recibos y sin filtro de condominio. */
+  complejoId?: number;
+  /** Muestra el encabezado de página con los botones de emitir y subir Excel. */
+  conEncabezado?: boolean;
+}
+
+/** Lista de recibos. Se usa sola (pantalla Recibos) y dentro de la ficha del condominio. */
+export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
   const [complejo, setComplejo] = useState('');
   const [emitiendo, setEmitiendo] = useState(false);
   const [subiendoExcel, setSubiendoExcel] = useState(false);
   const navigate = useNavigate();
   const abrir = (r: ReciboFila) => navigate(`/admin/recibos/${r.id}`);
-  const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: complejo || undefined } });
-  const complejos = useResource<Lista<Complejo>>('/api/complejos?pageSize=100');
+  const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: String(complejoId ?? (complejo || '')) || undefined } });
+  const complejos = useResource<Lista<Complejo>>(complejoId ? null : '/api/complejos?pageSize=100');
 
   const columns: Column<ReciboFila>[] = [
     { key: 'periodo', header: 'Periodo', cell: r => (
@@ -34,18 +42,22 @@ export default function Recibos() {
 
   return (
     <>
-      <PageHeader
-        title="Recibos"
-        description="Emite el mantenimiento del mes y ábrelo para ver los recibos de cada departamento, por block."
-        actions={<><Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEmitiendo(true)}>Emitir recibo</Button><Button icon={<PaperClipIcon className="h-4 w-4" />} onClick={() => setSubiendoExcel(true)}>Subir Excel</Button></>}
-      />
+      {conEncabezado && (
+        <PageHeader
+          title="Recibos"
+          description="Emite el mantenimiento del mes y ábrelo para ver los recibos de cada departamento, por torre."
+          actions={<><Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEmitiendo(true)}>Emitir recibo</Button><Button icon={<PaperClipIcon className="h-4 w-4" />} onClick={() => setSubiendoExcel(true)}>Subir Excel</Button></>}
+        />
+      )}
       <Card>
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por descripción" />
-          <Select label="Condominio" className="w-full sm:w-56 [&_label]:sr-only" value={complejo} onChange={e => setComplejo(e.target.value)}>
-            <option value="">Todos los condominios</option>
-            {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </Select>
+          {!complejoId && (
+            <Select label="Condominio" className="w-full sm:w-56 [&_label]:sr-only" value={complejo} onChange={e => setComplejo(e.target.value)}>
+              <option value="">Todos los condominios</option>
+              {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </Select>
+          )}
         </Toolbar>
         <DataTable
           caption="Recibos emitidos"
@@ -73,4 +85,8 @@ export default function Recibos() {
       {subiendoExcel && <SubirExcelModal onClose={() => setSubiendoExcel(false)} onSaved={() => void list.reload()} />}
     </>
   );
+}
+
+export default function Recibos() {
+  return <ListaDeRecibos conEncabezado />;
 }

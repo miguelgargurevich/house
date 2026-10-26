@@ -6,7 +6,7 @@ import { Alert, Button, Input, Modal, Select, useToast } from '../../../../ui';
 import { Interruptor } from '../catalogo/Interruptor';
 import { ACCEPT_QR, errorDeQr, subirQr } from './qr';
 import { QrImagen } from './QrMiniatura';
-import { BANCOS, TIPOS, nombreBlock } from './tipos';
+import { BANCOS, TIPOS, nombreTorre } from './tipos';
 import type { Ambitos, Medio, TipoMedio } from './tipos';
 
 interface Form {
@@ -126,14 +126,14 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
           </Select>
         )}
         {nuevo && (ambitos.fijo
-          ? <p className="text-sm text-muted sm:col-span-2">Block: <span className="font-medium text-ink">{bloques[0] ? nombreBlock(bloques[0]) : '—'}</span></p>
+          ? <p className="text-sm text-muted sm:col-span-2">Torre: <span className="font-medium text-ink">{bloques[0] ? nombreTorre(bloques[0]) : '—'}</span></p>
           : (
-            <Select label="¿Para quién es?" className="sm:col-span-2" hint="Un medio de todo el condominio lo ven todos los blocks." {...register('estructura_id')}>
+            <Select label="¿Para quién es?" className="sm:col-span-2" hint="Un medio de todo el condominio lo ven todas las torres." {...register('estructura_id')}>
               <option value="">Todo el condominio</option>
-              {bloques.map(b => <option key={b.id} value={b.id}>{nombreBlock(b)}</option>)}
+              {bloques.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
             </Select>
           ))}
-        {!nuevo && medio !== null && <p className="text-sm text-muted sm:col-span-2">Para: <span className="font-medium text-ink">{medio.estructura ? nombreBlock(medio.estructura) : 'Todo el condominio'}</span></p>}
+        {!nuevo && medio !== null && <p className="text-sm text-muted sm:col-span-2">Para: <span className="font-medium text-ink">{medio.estructura ? nombreTorre(medio.estructura) : 'Todo el condominio'}</span></p>}
 
         <Select label="Tipo de medio" className="sm:col-span-2" {...register('tipo', { required: true })}>
           {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -195,7 +195,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
           {quitarQr && <div className="mt-3"><Alert tone="warn">El QR se quitará al guardar los cambios.</Alert></div>}
         </div>
 
-        <Interruptor className="sm:col-span-2" label="Activo" hint="Los medios inactivos no se muestran a los vecinos. Máximo 6 activos por block." {...register('activo')} />
+        <Interruptor className="sm:col-span-2" label="Activo" hint="Los medios inactivos no se muestran a los vecinos. Máximo 6 activos por torre." {...register('activo')} />
       </form>
     </Modal>
   );

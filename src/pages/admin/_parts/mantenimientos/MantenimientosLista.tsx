@@ -16,11 +16,11 @@ export const ESTADOS_FILTRO = [
 interface Props {
   reciboId: number;
   estructuraId?: number;
-  /** Casas o edificios sin block: sólo las unidades sin estructura. */
+  /** Casas o edificios sin torre: sólo las unidades sin estructura. */
   sinBlock?: boolean;
   estado?: string;
   q?: string;
-  /** Muestra la columna del block (lista plana de un condominio con varios blocks). */
+  /** Muestra la columna de la torre (lista plana de un condominio con varias torres). */
   mostrarBlock?: boolean;
   /** Barra con búsqueda por código y filtro de estado (si no, los filtros vienen de fuera). */
   conFiltros?: boolean;
@@ -79,7 +79,7 @@ export function MantenimientosLista({ reciboId, estructuraId, sinBlock, estado, 
         total={list.total}
         onPage={list.setPage}
         onRowClick={onVer}
-        empty={{ title: 'No hay departamentos con ese filtro', description: 'Prueba con otro estado, block o código.', icon: <HomeModernIcon /> }}
+        empty={{ title: 'No hay departamentos con ese filtro', description: 'Prueba con otro estado, torre o código.', icon: <HomeModernIcon /> }}
       />
     </>
   );

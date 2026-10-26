@@ -11,7 +11,7 @@ import {
   Avatar, Badge, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, Toolbar, useToast,
 } from '../../../../ui';
 import type { Column } from '../../../../ui';
-import { nombreBlock } from '../medios/tipos';
+import { nombreTorre } from '../medios/tipos';
 
 export type TipoPersona = 'residente' | 'personal' | 'superadmin';
 
@@ -21,7 +21,7 @@ interface Fila {
   empresa?: { id: number; nombre: string } | null;
   complejo?: { id: number; nombre: string } | null;
   cargo_junta?: CargoJunta | null; complejo_id?: number | null; estructura_id?: number | null;
-  /** Residentes: sus departamentos (de ahí sale su condominio y block) y si están en mora. */
+  /** Residentes: sus departamentos (de ahí sale su condominio y su torre) y si están en mora. */
   unidades?: UnidadFila[]; moroso?: boolean;
 }
 interface Form {
@@ -29,7 +29,7 @@ interface Form {
   cargo_junta: CargoJunta | ''; complejo_id: string; estructura_id: string; unidad: string; unidad_id: string;
 }
 interface Opt { id: number; nombre: string; empresa_id?: number | null }
-interface BlockOpt { id: number; nombre: string | null }
+interface TorreOpt { id: number; nombre: string | null }
 
 const CARGOS: { value: CargoJunta; label: string }[] = [
   { value: 'presidente', label: 'Presidente' },
@@ -53,11 +53,11 @@ export const departamentos = (f: Pick<Fila, 'unidades'>) => {
   const u = f.unidades ?? [];
   return u.length === 0 ? '—' : u.length === 1 ? u[0]!.codigo : `${u[0]!.codigo} +${u.length - 1}`;
 };
-/** «Los Libertadores · Block 1» del primer departamento (o el condominio de su ficha). */
+/** «Los Libertadores · Torre 1» del primer departamento (o el condominio de su ficha). */
 export const ubicacion = (f: Pick<Fila, 'unidades' | 'complejo'>) => {
   const u = f.unidades?.[0];
   if (!u) return f.complejo?.nombre ?? 'Sin condominio';
-  return [u.complejo?.nombre, u.estructura ? nombreBlock(u.estructura) : null].filter(Boolean).join(' · ') || 'Sin condominio';
+  return [u.complejo?.nombre, u.estructura ? nombreTorre(u.estructura) : null].filter(Boolean).join(' · ') || 'Sin condominio';
 };
 
 interface Props {
@@ -66,32 +66,38 @@ interface Props {
   encima?: ReactNode;
   titulo?: string;
   descripcion?: string;
+  /** Fija el condominio (ficha del condominio): la lista y el filtro quedan en ese condominio. */
+  complejoId?: number;
+  /** Fija la empresa (ficha de la empresa): el personal y su filtro quedan en esa empresa. */
+  empresaId?: number;
+  /** Oculta el encabezado de página (la lista vive dentro de una pestaña). */
+  sinEncabezado?: boolean;
 }
 
 /** Lista y alta/edición de personas. Residentes, personal y superadmins comparten esta tabla pero NO se mezclan: cada pantalla pide un tipo. */
-export default function PersonasLista({ tipo, encima, titulo, descripcion }: Props) {
+export default function PersonasLista({ tipo, encima, titulo, descripcion, complejoId, empresaId, sinEncabezado }: Props) {
   const { user } = useAuth();
   const toast = useToast();
   const esSuper = user?.rol === 'superadmin';
   const t = TEXTOS[tipo];
   const [filtroRol, setFiltroRol] = useState('');
-  const [filtroEmpresa, setFiltroEmpresa] = useState('');
-  const [filtroComplejo, setFiltroComplejo] = useState('');
-  const [filtroBlock, setFiltroBlock] = useState('');
+  const [filtroEmpresa, setFiltroEmpresa] = useState(empresaId ? String(empresaId) : '');
+  const [filtroComplejo, setFiltroComplejo] = useState(complejoId ? String(complejoId) : '');
+  const [filtroTorre, setFiltroTorre] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const list = useList<Fila>('/api/usuarios', {
     params: {
       tipo,
       rol: filtroRol,
-      empresa_id: esSuper && tipo === 'personal' ? filtroEmpresa : undefined,
-      complejo_id: tipo === 'superadmin' ? undefined : filtroComplejo,
-      estructura_id: tipo === 'residente' ? filtroBlock : undefined,
+      empresa_id: tipo === 'personal' ? (empresaId ? String(empresaId) : esSuper ? filtroEmpresa : undefined) : undefined,
+      complejo_id: tipo === 'superadmin' ? undefined : (complejoId ? String(complejoId) : filtroComplejo),
+      estructura_id: tipo === 'residente' ? filtroTorre : undefined,
       estado: tipo === 'residente' ? filtroEstado : undefined,
     },
   });
   const empresas = useResource<Page<Opt>>(esSuper && tipo === 'personal' ? '/api/empresas?pageSize=100' : null);
   const complejos = useResource<Page<Opt>>(tipo === 'superadmin' ? null : '/api/complejos?pageSize=100');
-  const bloquesFiltro = useResource<Page<BlockOpt>>(tipo === 'residente' && filtroComplejo ? `/api/estructuras?complejo_id=${filtroComplejo}&pageSize=100` : null);
+  const torresFiltro = useResource<Page<TorreOpt>>(tipo === 'residente' && filtroComplejo ? `/api/estructuras?complejo_id=${filtroComplejo}&pageSize=100` : null);
   const [editando, setEditando] = useState<Fila | 'nuevo' | null>(null);
   const [borrar, setBorrar] = useState<Fila | null>(null);
   const [busy, setBusy] = useState(false);
@@ -106,13 +112,15 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
   const exigeCondominio = esResidente && ((editando === 'nuevo' && !esSuper) || cargoElegido);
   const complejoElegido = watch('complejo_id');
   const empresaElegida = watch('empresa_id');
-  const bloquesJunta = useResource<Page<BlockOpt>>(cargoElegido && complejoElegido ? `/api/estructuras?complejo_id=${complejoElegido}&pageSize=100` : null);
+  const torresJunta = useResource<Page<TorreOpt>>(cargoElegido && complejoElegido ? `/api/estructuras?complejo_id=${complejoElegido}&pageSize=100` : null);
   // El superadmin elige la empresa del personal; el condominio donde trabaja debe ser de ella.
   const complejosDeLaEmpresa = (complejos.data?.items ?? []).filter(c => !esSuper || !esPersonal || !empresaElegida || String(c.empresa_id) === empresaElegida);
+  // Con el condominio fijo (ficha del condominio) sólo se ofrecen sus condominios: el que se está viendo.
+  const complejosVisibles = (complejos.data?.items ?? []).filter(c => !complejoId || c.id === complejoId);
 
   function abrir(f: Fila | 'nuevo') {
     reset(f === 'nuevo'
-      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: '', cargo_junta: '', complejo_id: '', estructura_id: '', unidad: '', unidad_id: '' }
+      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: empresaId ? String(empresaId) : '', cargo_junta: '', complejo_id: complejoId ? String(complejoId) : '', estructura_id: '', unidad: '', unidad_id: '' }
       : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? roles[0]!) as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', cargo_junta: f.cargo_junta ?? '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', estructura_id: f.estructura_id ? String(f.estructura_id) : '', unidad: f.unidades?.[0]?.codigo ?? '', unidad_id: f.unidades?.[0]?.id ? String(f.unidades[0].id) : '' });
     setEditando(f);
   }
@@ -123,7 +131,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
     if (v.password) body.password = v.password;
     if (esResidente) {
       body.complejo_id = v.complejo_id ? Number(v.complejo_id) : null;
-      // El cargo sólo existe para propietarios; con cargo va también el block de la junta.
+      // El cargo sólo existe para propietarios; con cargo va también la torre de la junta.
       if (v.rol === 'propietario') {
         body.cargo_junta = v.cargo_junta || null;
         if (v.cargo_junta) body.estructura_id = v.estructura_id ? Number(v.estructura_id) : null;
@@ -208,23 +216,30 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
 
   return (
     <>
-      <PageHeader title={titulo ?? t.titulo} description={descripcion ?? t.descripcion} actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>{t.nuevo}</Button>} />
+      {!sinEncabezado ? (
+        <PageHeader title={titulo ?? t.titulo} description={descripcion ?? t.descripcion} actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>{t.nuevo}</Button>} />
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">{descripcion ?? t.descripcion}</p>
+          <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>{t.nuevo}</Button>
+        </div>
+      )}
       {encima}
       <Card>
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por nombre o correo" />
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-            {tipo !== 'superadmin' && (
-              <Select label="Filtrar por condominio" className="sm:w-52" value={filtroComplejo} onChange={e => { setFiltroComplejo(e.target.value); setFiltroBlock(''); }} disabled={complejos.loading} hint={complejos.error ? 'No se pudieron cargar los condominios.' : undefined}>
+            {tipo !== 'superadmin' && !complejoId && (
+              <Select label="Filtrar por condominio" className="sm:w-52" value={filtroComplejo} onChange={e => { setFiltroComplejo(e.target.value); setFiltroTorre(''); }} disabled={complejos.loading} hint={complejos.error ? 'No se pudieron cargar los condominios.' : undefined}>
                 <option value="">Todos los condominios</option>
                 {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </Select>
             )}
             {esResidente && (
               <>
-                <Select label="Filtrar por block" className="sm:w-40" value={filtroBlock} onChange={e => setFiltroBlock(e.target.value)} disabled={!filtroComplejo || bloquesFiltro.loading}>
-                  <option value="">Todos los blocks</option>
-                  {(bloquesFiltro.data?.items ?? []).map(b => <option key={b.id} value={b.id}>{nombreBlock(b)}</option>)}
+                <Select label="Filtrar por torre" className="sm:w-40" value={filtroTorre} onChange={e => setFiltroTorre(e.target.value)} disabled={!filtroComplejo || torresFiltro.loading}>
+                  <option value="">Todas las torres</option>
+                  {(torresFiltro.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
                 </Select>
                 <Select label="Filtrar por estado" className="sm:w-40" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
                   <option value="">Todos</option>
@@ -239,7 +254,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
                 {roles.map(r => <option key={r} value={r}>{ROL_LABEL[r]}</option>)}
               </Select>
             )}
-            {esSuper && esPersonal && (
+            {esSuper && esPersonal && !empresaId && (
               <Select label="Filtrar por empresa" className="sm:w-52" value={filtroEmpresa} onChange={e => setFiltroEmpresa(e.target.value)} disabled={empresas.loading} hint={empresas.error ? 'No se pudieron cargar las empresas.' : undefined}>
                 <option value="">Todas las empresas</option>
                 {(empresas.data?.items ?? []).map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
@@ -261,7 +276,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
           onPage={list.setPage}
           empty={{
             title: `No hay ${t.titulo.toLowerCase()}`,
-            description: list.q || filtroRol || filtroEmpresa || filtroComplejo || filtroBlock || filtroEstado ? 'Prueba con otra búsqueda o quita los filtros.' : t.vacio,
+            description: list.q || filtroRol || filtroEmpresa || filtroComplejo || filtroTorre || filtroEstado ? 'Prueba con otra búsqueda o quita los filtros.' : t.vacio,
             icon: <UsersIcon />,
           }}
         />
@@ -298,7 +313,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
               {...register('complejo_id', { validate: v => !exigeCondominio || v !== '', onChange: () => setValue('estructura_id', '') })}
             >
               <option value="">{esSuper ? 'Sin condominio' : 'Elige un condominio'}</option>
-              {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              {complejosVisibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </Select>
           )}
           {esResidente && (
@@ -312,14 +327,14 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
           )}
           {esResidente && rolElegido === 'propietario' && (
             <>
-              <Select label="Cargo en la junta" className="sm:col-span-2" hint="Presidente y tesorero gestionan los medios de pago y validan los pagos de su block. Secretario y vocal no ganan permisos." {...register('cargo_junta')}>
+              <Select label="Cargo en la junta" className="sm:col-span-2" hint="Presidente y tesorero gestionan los medios de pago y validan los pagos de su torre. Secretario y vocal no ganan permisos." {...register('cargo_junta')}>
                 <option value="">Ninguno</option>
                 {CARGOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </Select>
               {cargoElegido && (
-                <Select label="Block de la junta" className="sm:col-span-2" disabled={!complejoElegido || bloquesJunta.loading} hint={bloquesJunta.error ? 'No se pudieron cargar los blocks.' : 'Sin block, la junta alcanza todo el condominio.'} {...register('estructura_id')}>
+                <Select label="Torre de la junta" className="sm:col-span-2" disabled={!complejoElegido || torresJunta.loading} hint={torresJunta.error ? 'No se pudieron cargar las torres.' : 'Sin torre, la junta alcanza todo el condominio.'} {...register('estructura_id')}>
                   <option value="">Todo el condominio</option>
-                  {(bloquesJunta.data?.items ?? []).map(b => <option key={b.id} value={b.id}>{nombreBlock(b)}</option>)}
+                  {(torresJunta.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
                 </Select>
               )}
             </>

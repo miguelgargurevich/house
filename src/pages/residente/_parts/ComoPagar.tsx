@@ -85,7 +85,7 @@ export function ComoPagar({ mant, saldo, medios, loading, error }: Props) {
       {!loading && error && <Alert tone="warn">No pudimos cargar los datos de pago ({error}). Consúltales a la junta o a la administración; igual puedes registrar tu pago.</Alert>}
       {!loading && !error && medios !== null && medios.length === 0 && <Alert tone="warn">La junta aún no cargó los datos de pago. Consúltales o pregunta a la administración.</Alert>}
       {!loading && !error && medios !== null && medios.length > 0 && (
-        <ul aria-label="Medios de pago de tu block" className="divide-y divide-line rounded border border-line">
+        <ul aria-label="Medios de pago de tu torre" className="divide-y divide-line rounded border border-line">
           {medios.map(m => <Medio key={m.id} m={m} />)}
         </ul>
       )}

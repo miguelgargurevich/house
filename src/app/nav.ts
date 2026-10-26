@@ -12,13 +12,20 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 export interface NavItem { to: string; label: string; icon: Icon }
 export interface NavGroup { label?: string; items: NavItem[] }
 
-const operacion: NavItem[] = [
-  { to: '/admin/complejos', label: 'Condominios', icon: BuildingStorefrontIcon },
-  { to: '/admin/unidades', label: 'Unidades', icon: KeyIcon },
+/** Condominios: la lista y, desde la ficha, sus torres, unidades, residentes y recibos. */
+const condominios: NavItem = { to: '/admin/complejos', label: 'Condominios', icon: BuildingStorefrontIcon };
+
+/** Cobranza: lo que se emite, se cobra y se fiscaliza. */
+const cobranza: NavItem[] = [
   { to: '/admin/recibos', label: 'Recibos', icon: ReceiptPercentIcon },
   { to: '/admin/pagos', label: 'Pagos', icon: BanknotesIcon },
   { to: '/admin/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
   { to: '/admin/morosidad', label: 'Morosidad', icon: ExclamationTriangleIcon },
+];
+
+/** Operación: el día a día del condominio. */
+const operacion: NavItem[] = [
+  { to: '/admin/unidades', label: 'Unidades', icon: KeyIcon },
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
   { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
@@ -35,20 +42,24 @@ const personas: NavItem[] = [
 export const NAV: Record<Rol, NavGroup[]> = {
   superadmin: [
     { items: [{ to: '/superadmin/dashboard', label: 'Resumen', icon: HomeIcon }] },
+    { items: [{ to: '/superadmin/empresas', label: 'Empresas', icon: BuildingOffice2Icon }] },
+    { items: [condominios] },
+    { label: 'Cobranza', items: cobranza },
+    { label: 'Operación', items: operacion },
+    { label: 'Personas', items: personas },
     {
       label: 'Plataforma',
       items: [
-        { to: '/superadmin/empresas', label: 'Empresas', icon: BuildingOffice2Icon },
         { to: '/superadmin/usuarios', label: 'Usuarios del sistema', icon: UsersIcon },
         { to: '/superadmin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
         { to: '/superadmin/llavero', label: 'Llavero de IA', icon: LockClosedIcon },
       ],
     },
-    { label: 'Operación', items: operacion },
-    { label: 'Personas', items: personas },
   ],
   admin: [
     { items: [{ to: '/admin/dashboard', label: 'Resumen', icon: HomeIcon }] },
+    { items: [condominios] },
+    { label: 'Cobranza', items: cobranza },
     { label: 'Operación', items: operacion },
     { label: 'Personas', items: personas },
     { label: 'Cuenta', items: [{ to: '/admin/configuracion', label: 'Mi empresa', icon: Cog6ToothIcon }] },
@@ -94,7 +105,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
   ],
 };
 
-/** Grupo «Junta» de presidente y tesorero: reusa las pantallas de la administración, acotadas por la API a su block. */
+/** Grupo «Junta» de presidente y tesorero: reusa las pantallas de la administración, acotadas por la API a su torre. */
 const JUNTA: NavGroup = {
   label: 'Junta',
   items: [

@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { BuildingOffice2Icon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  Button, Card, CardBody, CardHeader, DefinitionList, EmptyState, ErrorState, Input, Modal, PageHeader, Skeleton, StatusBadge, useToast,
+  Button, Card, CardBody, CardHeader, DefinitionList, EmptyState, ErrorState, Input, Modal, PageHeader, Skeleton, StatusBadge, TabPanel, Tabs, useToast,
 } from '../../ui';
+import PersonasLista from './_parts/personas/PersonasLista';
+
+const VISTAS = [
+  { id: 'datos', label: 'Datos' },
+  { id: 'personal', label: 'Personal' },
+] as const;
+
+type Vista = typeof VISTAS[number]['id'];
+const esVista = (v: string | null): v is Vista => VISTAS.some(x => x.id === v);
 
 interface Empresa {
   id: number;
@@ -25,6 +35,8 @@ export default function Configuracion() {
   const empresaId = user?.empresa_id ?? null;
   const { data, loading, error, reload } = useResource<Empresa>(empresaId ? `/api/empresas/${empresaId}` : null);
   const [abierto, setAbierto] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const vista: Vista = esVista(params.get('vista')) ? (params.get('vista') as Vista) : 'datos';
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>();
 
   function abrir() {
@@ -73,33 +85,43 @@ export default function Configuracion() {
         description={descripcion}
         actions={<Button variant="secondary" icon={<PencilSquareIcon className="h-4 w-4" />} disabled={!data} onClick={abrir}>Editar</Button>}
       />
-      <Card>
-        <CardHeader title={data?.nombre ?? 'Datos de la empresa'} description="Información legal y de contacto" action={data ? <StatusBadge estado={data.estado} /> : undefined} />
-        {error ? (
-          <ErrorState message={error} onRetry={reload} />
-        ) : loading || !data ? (
-          <CardBody>
-            <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2" aria-busy="true">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i}><Skeleton className="h-3 w-24" /><Skeleton className="mt-2 h-4 w-full max-w-[14rem]" /></div>
-              ))}
-            </div>
-          </CardBody>
-        ) : (
-          <CardBody>
-            <DefinitionList
-              items={[
-                { label: 'Razón social', value: data.nombre },
-                { label: 'RUC', value: data.ruc && <span className="num">{data.ruc}</span> },
-                { label: 'Representante legal', value: data.representante_legal },
-                { label: 'Teléfono', value: data.telefono && <span className="num">{data.telefono}</span> },
-                { label: 'Correo electrónico', value: data.email },
-                { label: 'Dirección', value: data.direccion },
-              ]}
-            />
-          </CardBody>
-        )}
-      </Card>
+      <div className="mb-4">
+        <Tabs value={vista} onChange={v => setParams(v === 'datos' ? {} : { vista: v })} items={VISTAS.map(v => ({ id: v.id, label: v.label }))} idBase="mi-empresa" label="Ficha de la empresa" />
+      </div>
+
+      <TabPanel idBase="mi-empresa" id="datos" value={vista}>
+        <Card>
+          <CardHeader title={data?.nombre ?? 'Datos de la empresa'} description="Información legal y de contacto" action={data ? <StatusBadge estado={data.estado} /> : undefined} />
+          {error ? (
+            <ErrorState message={error} onRetry={reload} />
+          ) : loading || !data ? (
+            <CardBody>
+              <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2" aria-busy="true">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i}><Skeleton className="h-3 w-24" /><Skeleton className="mt-2 h-4 w-full max-w-[14rem]" /></div>
+                ))}
+              </div>
+            </CardBody>
+          ) : (
+            <CardBody>
+              <DefinitionList
+                items={[
+                  { label: 'Razón social', value: data.nombre },
+                  { label: 'RUC', value: data.ruc && <span className="num">{data.ruc}</span> },
+                  { label: 'Representante legal', value: data.representante_legal },
+                  { label: 'Teléfono', value: data.telefono && <span className="num">{data.telefono}</span> },
+                  { label: 'Correo electrónico', value: data.email },
+                  { label: 'Dirección', value: data.direccion },
+                ]}
+              />
+            </CardBody>
+          )}
+        </Card>
+      </TabPanel>
+
+      <TabPanel idBase="mi-empresa" id="personal" value={vista}>
+        <PersonasLista tipo="personal" empresaId={empresaId ?? undefined} sinEncabezado />
+      </TabPanel>
 
       <Modal
         open={abierto}

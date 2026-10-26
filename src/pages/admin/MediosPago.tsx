@@ -8,17 +8,17 @@ import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { MedioFormModal } from './_parts/medios/MedioFormModal';
 import { ValidacionAutomaticaIA } from './_parts/medios/ValidacionAutomaticaIA';
-import { ambitoLabel, datoPrincipal, nombreBlock, tipoLabel, useAmbitos } from './_parts/medios/tipos';
+import { ambitoLabel, datoPrincipal, nombreTorre, tipoLabel, useAmbitos } from './_parts/medios/tipos';
 import type { Medio } from './_parts/medios/tipos';
 
-/** Medios de pago de los blocks. La usan la administradora (`/admin/medios-pago`) y la junta (`/junta/medios-pago`); la API ya acota cada lista a su ámbito. */
+/** Medios de pago de las torres. La usan la administradora (`/admin/medios-pago`) y la junta (`/junta/medios-pago`); la API ya acota cada lista a su ámbito. */
 export default function MediosPago() {
   const { user } = useAuth();
   const toast = useToast();
   const esJunta = user?.rol === 'propietario';
   const ambitos = useAmbitos();
   const [complejo, setComplejo] = useState('');
-  const [block, setBlock] = useState('');
+  const [torre, setTorre] = useState('');
   const [editando, setEditando] = useState<Medio | 'nuevo' | null>(null);
   const [quitar, setQuitar] = useState<Medio | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,9 +26,9 @@ export default function MediosPago() {
   const complejos = useMemo(() => ambitos.data?.complejos ?? [], [ambitos.data]);
   // Con un solo condominio no hay nada que elegir: se usa ese.
   useEffect(() => { if (complejos.length === 1 && !complejo) setComplejo(String(complejos[0]!.id)); }, [complejos, complejo]);
-  const bloques = complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
+  const torres = complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
 
-  const list = useList<Medio>('/api/medios-pago', { params: { complejo_id: complejo || undefined, estructura_id: block || undefined } });
+  const list = useList<Medio>('/api/medios-pago', { params: { complejo_id: complejo || undefined, estructura_id: torre || undefined } });
 
   async function cambiarActivo(m: Medio, activo: boolean) {
     try {
@@ -67,33 +67,33 @@ export default function MediosPago() {
     ) },
   ];
 
-  const hayFiltros = !!block || (complejos.length > 1 && !!complejo);
+  const hayFiltros = !!torre || (complejos.length > 1 && !!complejo);
   const puedeAgregar = !!ambitos.data && complejos.length > 0;
 
   return (
     <>
       <PageHeader
         title="Medios de pago"
-        description={esJunta ? 'Las cuentas y los Yape o Plin donde pagan los vecinos de tu block.' : 'Las cuentas bancarias y los Yape o Plin donde pagan los vecinos de cada block. Los define la administración o la junta directiva.'}
+        description={esJunta ? 'Las cuentas y los Yape o Plin donde pagan los vecinos de tu torre.' : 'Las cuentas bancarias y los Yape o Plin donde pagan los vecinos de cada torre. Los define la administración o la junta directiva.'}
         actions={<Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedeAgregar} onClick={() => setEditando('nuevo')}>Agregar medio de pago</Button>}
       />
       {!esJunta && <ValidacionAutomaticaIA />}
-      {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y blocks: {ambitos.error}</Alert></div>}
+      {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y las torres: {ambitos.error}</Alert></div>}
       <Card>
         <Toolbar>
           {ambitos.loading ? <Skeleton className="h-9 w-full sm:w-48" /> : (
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
               {complejos.length > 1 && (
-                <FiltroSelect label="Filtrar por condominio" value={complejo} onChange={v => { setComplejo(v); setBlock(''); }}>
+                <FiltroSelect label="Filtrar por condominio" value={complejo} onChange={v => { setComplejo(v); setTorre(''); }}>
                   <option value="">Todos los condominios</option>
                   {complejos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </FiltroSelect>
               )}
               {!ambitos.data?.fijo && (
-                <FiltroSelect label="Filtrar por block" value={block} onChange={setBlock}>
-                  <option value="">Todos los blocks</option>
+                <FiltroSelect label="Filtrar por torre" value={torre} onChange={setTorre}>
+                  <option value="">Todas las torres</option>
                   <option value="ninguna">Todo el condominio</option>
-                  {bloques.map(b => <option key={b.id} value={b.id}>{nombreBlock(b)}</option>)}
+                  {torres.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
                 </FiltroSelect>
               )}
             </div>
@@ -113,7 +113,7 @@ export default function MediosPago() {
           onPage={list.setPage}
           empty={{
             title: hayFiltros ? 'No hay medios de pago con estos filtros' : 'Aún no hay medios de pago',
-            description: hayFiltros ? 'Prueba con otro condominio o block.' : 'Agrega la cuenta o el Yape de la junta para que los vecinos sepan cómo pagar.',
+            description: hayFiltros ? 'Prueba con otro condominio o torre.' : 'Agrega la cuenta o el Yape de la junta para que los vecinos sepan cómo pagar.',
             icon: <QrCodeIcon />,
             action: puedeAgregar && !hayFiltros ? <Button onClick={() => setEditando('nuevo')}>Agregar medio de pago</Button> : undefined,
           }}
@@ -121,7 +121,7 @@ export default function MediosPago() {
       </Card>
 
       {ambitos.data && (
-        <MedioFormModal medio={editando} ambitos={ambitos.data} inicial={{ complejo_id: complejo, estructura_id: block }} onClose={() => setEditando(null)} onSaved={() => void list.reload()} />
+        <MedioFormModal medio={editando} ambitos={ambitos.data} inicial={{ complejo_id: complejo, estructura_id: torre }} onClose={() => setEditando(null)} onSaved={() => void list.reload()} />
       )}
       <ConfirmDialog
         open={!!quitar}

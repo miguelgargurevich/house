@@ -21,7 +21,7 @@ export interface Usuario {
   telefono?: string | null;
   /** Cargo en la junta directiva (sólo propietarios). */
   cargo_junta?: CargoJunta | null;
-  /** Block al que pertenece el cargo; null = todo su condominio. */
+  /** Torre a la que pertenece el cargo; null = todo su condominio. */
   estructura_id?: number | null;
 }
 

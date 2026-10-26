@@ -28,7 +28,7 @@ function useDebounced<T>(valor: T, ms = 300): T {
   return v;
 }
 
-/** Un periodo: agrupado por block si el condominio tiene más de uno (si no, directo a los departamentos). */
+/** Un periodo: agrupado por torre si el condominio tiene más de una (si no, directo a los departamentos). */
 export default function PeriodoRecibo() {
   const { id } = useParams();
   const reciboId = Number(id);
@@ -77,8 +77,8 @@ export default function PeriodoRecibo() {
         <Toolbar>
           <SearchBox value={q} onChange={setQ} placeholder="Buscar departamento (ej. B01-804)" label="Buscar departamento" />
           {agrupado && (
-            <Select label="Block" className="w-full sm:w-48 [&_label]:sr-only" value={block} onChange={e => setBlock(e.target.value)}>
-              <option value="">Todos los blocks</option>
+            <Select label="Torre" className="w-full sm:w-48 [&_label]:sr-only" value={block} onChange={e => setBlock(e.target.value)}>
+              <option value="">Todas las torres</option>
               {(bloques.data?.blocks ?? []).map(b => <option key={b.estructura_id ?? 'sin'} value={b.estructura_id ?? 'sin'}>{b.nombre}</option>)}
             </Select>
           )}

@@ -27,6 +27,10 @@ const crud = crudRouter({
   orderable: ['id', 'nombre', 'tipo'],
   defaultOrder: { nombre: 'asc' },
   include: { empresa: { select: { id: true, nombre: true } } },
+  filtros: {
+    schema: z.object({ empresa_id: idSchema.optional() }),
+    where: (f) => (f.empresa_id !== undefined ? { empresa_id: f.empresa_id } : {}),
+  },
   // Conteo de unidades y de blocks (agregado en una sola consulta por página) y el contrato de administración vigente.
   format: async (items) => {
     const ids = items.map((c) => c.id as number);

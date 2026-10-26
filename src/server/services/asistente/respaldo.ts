@@ -32,7 +32,7 @@ const REGLAS: { nombre: string; re: RegExp; entrada: (m: string) => Record<strin
   { nombre: 'medios_de_pago', re: /\b(medios? de pago|a donde pagan|cuentas?)\b/, entrada: () => ({}) },
   { nombre: 'tareas_de_mantenimiento', re: /\b(mantenimiento|reparaci\w*|tareas?|averias?)\b/, entrada: () => ({ estado: 'pendiente' }) },
   { nombre: 'avisos_recientes', re: /\b(avisos?|notificaci\w*|correos?|whatsapp|recordatorios?)\b/, entrada: () => ({ dias: 7 }) },
-  { nombre: 'condominios_y_blocks', re: /\b(condominios?|blocks?|cuantas unidades|estructura)\b/, entrada: () => ({}) },
+  { nombre: 'condominios_y_blocks', re: /\b(condominios?|blocks?|torres?|cuantas unidades|estructura)\b/, entrada: () => ({}) },
   // Plataforma
   { nombre: 'salud_de_la_ia', re: /\b(ia|asistente|modelos?|proveedores?|lento|caid[oa]|rutas?)\b/, entrada: () => ({}) },
   { nombre: 'empresas', re: /\b(empresas?)\b/, entrada: () => ({}) },

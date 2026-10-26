@@ -27,7 +27,7 @@ interface Props {
   onVer: (m: Mantenimiento) => void;
 }
 
-/** El periodo agrupado por block: una fila por block con su avance; al abrirla se lista (paginada) la de sus departamentos. */
+/** El periodo agrupado por torre: una fila por torre con su avance; al abrirla se lista (paginada) la de sus departamentos. */
 export function BloquesPeriodo({ reciboId, blocks, loading, error, onRetry, recargar, onVer }: Props) {
   const [abierto, setAbierto] = useState<number | 'sin' | null>(null);
   if (error) return <Card><ErrorState message={error} onRetry={onRetry} /></Card>;
@@ -35,7 +35,7 @@ export function BloquesPeriodo({ reciboId, blocks, loading, error, onRetry, reca
 
   return (
     <Card>
-      <ul className="divide-y divide-line" aria-label="Blocks del periodo">
+      <ul className="divide-y divide-line" aria-label="Torres del periodo">
         {blocks.map(b => {
           const clave = b.estructura_id ?? 'sin';
           const abierta = abierto === clave;

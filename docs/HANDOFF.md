@@ -4,6 +4,41 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-25 — OpenCode (MiniMax M3.1) — Menú por objeto de trabajo, ficha del condominio y de la empresa, y las torres de punta a punta
+
+**Pedido de Miguel:** reorganizar la app (menú, fichas y torres) en **una sola entrega**: el menú ordenado por objeto de trabajo, la ficha de cada entidad con pestañas, y el hueco de las torres (que existen en el modelo y no se podían dar de alta ni asignar). Diseño pactado y escrito en `docs/superpowers/specs/2026-10-25-reorganizacion-app-torres-drill-down-design.md`.
+
+**Qué se hizo (sin push)**
+
+- **Menú (`src/app/nav.ts`):** cada grupo es un objeto de trabajo. Admin: Resumen · Condominios (sueltos) · Cobranza (Recibos, Pagos, Medios de pago, Morosidad) · Operación (Unidades, Mantenimiento, Conceptos, Avisos, WhatsApp) · Personas · Cuenta. Superadmin: además Empresas suelta arriba y **Plataforma al final** (Usuarios del sistema, Auditoría, Llavero de IA). Las pantallas de personas siguen en el menú: son la vista transversal.
+- **Ficha del condominio (`src/pages/admin/CondominioDetalle.tsx`, ruta `/admin/condominios/:id`):** pestañas **Datos · Torres · Unidades · Residentes · Recibos**; la pestaña viva va en `?vista=` (se puede compartir y sobrevive al F5). Encabezado con nombre, tipo, dirección, administradora y contadores de unidades y torres; acciones Editar y Contratos. Cada pestaña reutiliza el componente que ya existía (TorresDelCondominio, ListaDeUnidades, PersonasLista, ListaDeRecibos).
+- **Ficha de la empresa (`src/pages/superadmin/EmpresaDetalle.tsx`, ruta `/superadmin/empresas/:id`):** pestañas **Datos · Personal · Condominios**. «Mi empresa» del admin (`/admin/configuracion`) gana la pestaña **Personal** con el mismo componente.
+- **Torres (el hueco que se cierra):** `src/pages/admin/_parts/condominio/TorresDelCondominio.tsx` da de alta la torre con su **cantidad de pisos** (0–60), la edita (agrega pisos, no borra los que ya tienen unidades), la borra y ofrece **«asignar las unidades que no tienen torre»** (mueve sólo las del condominio y dice cuántas). `src/pages/admin/_parts/condominio/ModalDeComplejo.tsx` (nuevo) extrae el alta/edición del condominio, que antes estaba dentro de la lista.
+- **Torres planas, con la frontera explícita:** la UI no ofrece «torre padre» y `POST/PUT /api/estructuras` rechaza `padre_id` («House trabaja con torres planas»). El motor entero (ámbito de la junta, resumen por torre, Excel) agrupa por torre directa; una torre anidada sería un dato que la app no sabría representar.
+- **Baja protegida:** `DELETE /api/estructuras/:id` devuelve 422 si la torre tiene unidades **o** usuarios de junta asignados. Si se borrara la torre de un presidente, su `estructura_id` quedaría nulo y su alcance se ampliaría **en silencio** a todo el condominio (`filtroAmbito`).
+- **Unidades de punta a punta:** `GET /api/unidades` ahora trae `include.estructura` y acepta el filtro `estructura_id`; la lista tiene columna **Torre** y filtro «Filtrar por torre»; el modal tiene selects dependientes condominio → torre → piso (al cambiar de condominio se limpian torre y piso; al cambiar de torre, el piso) y manda `estructura_id`/`piso_id`.
+- **Backend:** `src/server/routes/estructuras.ts` (cantidad_pisos con la torre y sus pisos en una transacción, pisoagregado al editar, baja protegida, `POST /:id/asignar-unidades`), `src/server/routes/unidades.ts` (include + filtro), `src/server/routes/complejos.ts` (filtro `empresa_id`), `src/server/lib/rutasApp.ts` (las dos rutas nuevas las conoce el asistente).
+- **Vocabulario:** la UI dice **torre**, no block: `nombreBlock` → `nombreTorre`, «Filtrar por torre», «Todas las torres», «Torre de la junta» (con la ayuda «Sin torre, la junta alcanza todo el condominio»), medios de pago, morosidad, periodo de recibo y pagos. El modelo sigue siendo `Estructura` y la columna `estructura_id`: no se toca el esquema.
+
+**Verificación (números reales)**
+- `npm test` → **714/714** en verde (666 antes: +21 de `tests/unidades-torres.test.ts` y +27 de `tests/torres-fichas-ui.test.ts`).
+- `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde; `eslint` sin errores en los archivos tocados (quedan 2 errores **preexistentes** en `PersonasLista.tsx` por `react-refresh/only-export-components`: exporta `departamentos` y `ubicacion`).
+- **Mutaciones comprobadas** (se rompe el código y la prueba correspondiente se pone roja): quitar el `include.estructura`; quitar el filtro `estructura_id`; permitir `padre_id`; quitar la guarda de borrado por unidades; renombrar el grupo Plataforma; no escribir la pestaña en la URL; no mandar `estructura_id` en el modal.
+
+**Próximos pasos**
+1. Revisar en navegador las dos fichas y el menú nuevo (sobre todo en móvil: la barra de pestañas se desborda).
+2. Probar el alta de torres en producción: las Torres 1–8 vinieron del seed y hay unidades cargadas sin torre; la acción «asignar las unidades que no tienen torre» las recoge.
+3. Decidir si la ficha de empresa del superadmin necesita también la pestaña Condominios con su propio resumen (hoy es una tabla con enlace a la ficha del condominio).
+
+**Gotchas**
+- `tests/tsconfig.json` tuvo que incluir `../src/vite-env.d.ts`: el test de fuente del menú importa `src/app/nav.ts`, que (por los tipos de `AuthContext`) arrastra `src/api.ts`, y sin los tipos de Vite `import.meta.env` no compila.
+- La junta de una torre no puede leer `/api/unidades` (el scope la rechaza): para comprobar que su alcance NO se amplía al borrar una torre hay que mirar `GET /api/medios-pago/ambitos` (`fijo: true` y la estructura de su torre).
+- `z.never()` y `validarRefs` rechazan `padre_id` los dos: quitar sólo el esquema no cambia lo observable (mutación equivalente); el test de fuente sí lo detecta.
+- Las pruebas comparten `house_test` y se vacían en cada archivo: un test que deja unidades con torre hace fallar a otro que cuenta las que están sin torre (hay que dejar el estado explícito).
+- `PersonasLista` sin encabezado (`sinEncabezado`) ahora muestra su propia barra con el alta: en las pestañas de las fichas hace falta, si no no había forma de crear desde ahí.
+
+---
+
 ## 2026-10-25 — OpenCode (MiniMax M3.1) — Llavero de IA: proveedores plegados por defecto + iconos de marca
 
 **Pedido de Miguel:** en la página del Llavero de IA, que los cards de los proveedores estén colapsados por defecto y se puedan expandir/contraer, y poner los iconos oficiales de los proveedores (que ya están en el proyecto My Workspace / dashboardia-llm).

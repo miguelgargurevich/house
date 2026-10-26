@@ -29,7 +29,7 @@ type PagoFila = PagoRevisable;
 
 export default function Pagos() {
   const { user } = useAuth();
-  // La administración y la junta (presidente o tesorero, en su block) registran pagos; un propietario sin cargo no llega a esta pantalla.
+  // La administración y la junta (presidente o tesorero, en su torre) registran pagos; un propietario sin cargo no llega a esta pantalla.
   const junta = esJunta(user);
   const puedeRegistrar = user?.rol !== 'propietario' || junta;
   const [pestana, setPestana] = useState<Pestana>('por_validar');
@@ -77,7 +77,7 @@ export default function Pagos() {
     <>
       <PageHeader
         title="Pagos"
-        description={junta ? 'Revisa los comprobantes de los vecinos de tu block: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo. También puedes registrar aquí los pagos que recibas directamente.' : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
+        description={junta ? 'Revisa los comprobantes de los vecinos de tu torre: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo. También puedes registrar aquí los pagos que recibas directamente.' : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
         actions={puedeRegistrar ? <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button> : undefined}
       />
       <StatStrip
