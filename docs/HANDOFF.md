@@ -4,6 +4,28 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5) — Auditoría de seguridad completa del repo
+
+**Pedido de Miguel:** «pasale la skill de seguridad pinea sonnet para hacerlo» (revisión estilo `/security-review` sobre todo el repo, rama `chore/auditoria-seguridad`).
+
+**Qué se hizo (sin push)**
+- Informe: `docs/seguridad/auditoria-2026-10-26.md` (hallazgos, revisado sin hallazgos, lo no revisado). Sin Altos; **3 Medios confirmados con test y corregidos** (un commit cada uno):
+  - `7fe0691` `GET/PUT /api/empresas` devolvía `whatsapp_token` → `omit` en `routes/empresas.ts`. Test: `tests/seguridad-whatsapp-token.test.ts`.
+  - `508afbd` la administradora anterior podía subir/reemplazar comprobantes (alcance de lectura) → `cargarPagoASubir` con `scopePagosEscritura` en `routes/comprobantes.ts`. Test: `tests/seguridad-comprobante-escritura.test.ts`.
+  - `36befae` `PUT /api/usuarios/:id` con `unidad_id`/cambio de rol soltaba unidades de otra administradora → `scopeUnidades(user)` en `routes/usuarios.ts`. Test: `tests/seguridad-unidad-residente.test.ts`.
+- `docs/SEGURIDAD.md`: puntero al informe y la regla de escritura al subir comprobantes.
+
+**Verificación:** `npm test` 720/720 al empezar → 726/726 al terminar (+6 tests); cada test nuevo falla al revertir su arreglo (mutación hecha copiando el archivo a /tmp y devolviéndolo con `cp`). `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde.
+
+**Próximos pasos / requiere decisión de Miguel**
+- `xlsx@0.18.5` (2 avisos altos, sin parche en npm; sólo lo usa `POST /api/recibos/excel`): migrar a `exceljs` o al paquete del CDN de SheetJS. No se tocó la dependencia.
+- Bajos sin arreglar (ver informe): multer antes de `requireRole` en `/api/recibos/excel`, mensajes del proveedor y falta de timeout en `routes/whatsapp.ts`, sin bloqueo por cuenta en el login, política de contraseñas, correo tecleado en `login_fallido`.
+- Un residente con unidades en dos administradoras es editable por ambas (consecuencia del modelo «residente sin empresa»): decisión de producto.
+
+**Gotchas:** `crudRouter` devuelve la fila completa del modelo: cualquier columna con credenciales (`whatsapp_token`) exige `omit`. `cargador()` en `comprobantes.ts` recibe el alcance como parámetro: subir y validar usan alcance de ESCRITURA, ver usa el de lectura.
+
+---
+
 ## 2026-10-25 — OpenCode (MiniMax M3.1) — El menú sin «Personas» y las acciones dentro de la ficha de datos
 
 **Pedido de Miguel** (sobre la entrega anterior): «quita la sección personas porque residentes ya está dentro de condominios y personal dentro de empresas; sólo faltaría ubicar a proveedores en otro menu»; «hay mucho espacio entre resumen, empresa y condominio en el menu»; «en la página de empresas y condominio, deja sólo el ver ficha, los otros botones quítalos de la lista, y los editar que faltan ponlos dentro de las fichas de datos».

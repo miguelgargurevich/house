@@ -3,6 +3,8 @@
 Fecha: 2026-10-23 · Alcance: frontend React + backend Express/Prisma + Docker. Método: revisión de código (rutas, middleware, esquema), `npm audit`, pruebas automáticas y prueba del contenedor de producción.
 
 ## Resultado
+Última revisión completa: `docs/seguridad/auditoria-2026-10-26.md` (3 hallazgos Medios corregidos; Bajos e informativos abiertos allí).
+
 Sin hallazgos críticos abiertos. El riesgo del token en `localStorage` quedó cerrado con sesiones de servidor (ver «Sesiones»). Quedan 3 recomendaciones.
 
 ## Hallazgos cerrados
@@ -86,7 +88,7 @@ Reemplazan al JWT en `localStorage`, que un XSS podía leer y que no se podía r
 
 ## Comprobantes de pago (archivos)
 - Se guardan en PostgreSQL (`ArchivoComprobante`, 1 por pago, máx. 2 MB; sin infraestructura nueva). La respuesta de cualquier lista incluye sólo metadatos: `datos` jamás sale salvo en `GET /api/pagos/:id/comprobante`.
-- Subida: cuerpo crudo con `express.raw` sólo en ese endpoint (tope 2 MB → 413); el pago se localiza y se autoriza ANTES de leer el cuerpo. Tipos permitidos JPG/PNG/WebP/PDF; el header lo manda el cliente, así que se comprueban los bytes mágicos y deben coincidir con el tipo declarado (SVG/HTML nunca entran). Se calcula sha256; el nombre se sanea (sin rutas, controles ni inversión de texto, máx. 100).
+- Subida: cuerpo crudo con `express.raw` sólo en ese endpoint (tope 2 MB → 413); el pago se localiza y se autoriza ANTES de leer el cuerpo. La administración sólo sube o reemplaza si administra el condominio HOY (alcance de escritura; la administradora anterior consulta pero recibe 404). Tipos permitidos JPG/PNG/WebP/PDF; el header lo manda el cliente, así que se comprueban los bytes mágicos y deben coincidir con el tipo declarado (SVG/HTML nunca entran). Se calcula sha256; el nombre se sanea (sin rutas, controles ni inversión de texto, máx. 100).
 - Entrega: `Content-Type` guardado, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Cache-Control: private, no-store`, nombre en `filename*` (RFC 5987). Acceso por empresa del pago (404 entre tenants) y, para residentes, sólo las unidades que tienen.
 - La validación (`PATCH /api/pagos/:id/validacion`) es de admin/superadmin y de la junta del ámbito (ver «Medios de pago y junta directiva») y atómica (`updateMany … WHERE estado_validacion='por_validar'`): dos revisiones simultáneas → una gana, la otra 409.
 - Auditoría: `subir_comprobante` (nombre, tipo, tamaño, sha256), `ver_comprobante`, `validar` y `rechazar` (con motivo); nunca el contenido (el middleware además ignora cuerpos `Buffer`).
