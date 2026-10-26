@@ -39,7 +39,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
       label: 'Plataforma',
       items: [
         { to: '/superadmin/empresas', label: 'Empresas', icon: BuildingOffice2Icon },
-        { to: '/superadmin/usuarios', label: 'Usuarios globales', icon: UsersIcon },
+        { to: '/superadmin/usuarios', label: 'Usuarios del sistema', icon: UsersIcon },
         { to: '/superadmin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
         { to: '/superadmin/llavero', label: 'Llavero de IA', icon: LockClosedIcon },
       ],
