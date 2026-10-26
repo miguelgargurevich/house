@@ -364,7 +364,8 @@ describe('auditoría', () => {
 
     await llamar(base, 'POST', '/api/auth/login', null, { email: 'seg.a@test.pe', password: 'clave-equivocada-123' });
     const fallo = await esperar(() => prisma.auditoria.findFirst({ where: { accion: 'login_fallido', usuario_id: d.seguridadA.id } }));
-    assert.deepEqual(fallo.detalle, { email: 'seg.a@test.pe' });
+    assert.equal(fallo.entidad_id, d.seguridadA.id);
+    assert.equal(fallo.detalle, null, 'con cuenta real se guarda el id, no el correo tecleado');
     assert.ok(!JSON.stringify(fallo).includes('clave-equivocada'));
     assert.ok(await prisma.auditoria.findFirst({ where: { accion: 'login', usuario_id: d.adminA.id } }));
   });

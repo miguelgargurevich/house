@@ -5,6 +5,7 @@ import { prisma } from '../db';
 import { HttpError, notFound } from '../errors';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser } from '../middleware/auth';
+import { MENSAJE_LOGIN_BLOQUEADO, type BloqueoCuenta } from '../middleware/rateLimit';
 import { borrarCookie, crearSesion, listarActivas, ponerCookie, revocarDeUsuario, revocarPropia } from '../services/sesiones';
 import { emailSchema, parse, parseBody, z } from '../validation';
 
@@ -15,6 +16,13 @@ const loginSchema = z.object({
   email: emailSchema,
   password: z.string({ error: 'Debe ser un texto' }).min(1, 'Es obligatoria').max(200),
 });
+
+/** `maria@casa.pe` → `m***@casa.pe`: deja ver el dominio (útil para detectar ataques) sin guardar lo que se tecleó. */
+export function enmascararCorreo(email: string): string {
+  const i = email.lastIndexOf('@');
+  if (i < 1) return '***';
+  return `${email[0]}***${email.slice(i)}`;
+}
 
 const usuarioPublico = {
   id: true,
@@ -48,16 +56,20 @@ const usuarioPublico = {
  *       401: { description: Credenciales inválidas }
  *       429: { description: Demasiados intentos }
  */
-export function loginRouter(limitador: RequestHandler) {
+export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
   const authRouter = Router();
   authRouter.post('/login', limitador, async (req, res) => {
     const { email, password } = parseBody(loginSchema, req);
+    // Bloqueo por cuenta (cualquier IP): responde igual que el límite por IP+correo, exista o no el correo.
+    if (cuenta.bloqueada(email)) throw new HttpError(429, MENSAJE_LOGIN_BLOQUEADO);
     const usuario = await prisma.usuario.findUnique({ where: { email }, omit: { password_hash: false } });
     const valido = await bcrypt.compare(password, usuario?.password_hash ?? HASH_FALSO);
     if (!usuario || !usuario.password_hash || !valido || !usuario.rol) {
-      await registrarAuditoria({ usuario_id: usuario?.id, accion: 'login_fallido', entidad: 'usuario', entidad_id: usuario?.id, detalle: { email }, ip: ipDe(req) });
+      cuenta.fallo(email);
+      await registrarAuditoria({ usuario_id: usuario?.id, accion: 'login_fallido', entidad: 'usuario', entidad_id: usuario?.id, detalle: usuario ? undefined : { email_enmascarado: enmascararCorreo(email) }, ip: ipDe(req) });
       throw new HttpError(401, 'Credenciales inválidas');
     }
+    cuenta.exito(email);
     const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id };
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));
     ponerCookie(res, token);

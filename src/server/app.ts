@@ -86,7 +86,7 @@ export function createApp(opts: AppOptions = {}) {
   const api = Router();
   api.use(limiters.api);
   api.get('/health', (_req, res) => { res.json({ ok: true }); }); // público: healthcheck del contenedor
-  api.use('/auth', loginRouter(limiters.login)); // único tramo público
+  api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // único tramo público
   api.use(authenticate);
   api.use(auditoria);
   api.use('/auth', sesionRouter);

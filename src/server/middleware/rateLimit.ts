@@ -4,6 +4,10 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 export interface RateLimitOptions {
   api?: number;
   login?: number;
+  /** Login: fallos por cuenta (correo), desde cualquier IP, antes del bloqueo de 15 min. */
+  loginCuenta?: number;
+  /** Sólo pruebas: reloj del bloqueo por cuenta (ms). */
+  ahora?: () => number;
   ai?: number;
   password?: number;
   llavero?: number;
@@ -29,15 +33,76 @@ function limiter(max: number, mensaje: string, keyGenerator: (req: Request) => s
   });
 }
 
+/**
+ * Bloqueo por cuenta (correo normalizado, desde cualquier IP) para el login. Complementa el límite por IP+correo,
+ * que no frena a un atacante con muchas IPs. Cuenta sólo los FALLOS: al llegar a `max` bloquea 15 min (durante el
+ * bloqueo no se prolonga: el bloqueo dura 15 min desde el último fallo que lo provocó). Un login correcto limpia los fallos de esa cuenta. Existe o no la cuenta,
+ * el comportamiento es idéntico. Estado en memoria del proceso (igual que el resto de limitadores).
+ */
+export class BloqueoCuenta {
+  private readonly cuentas = new Map<string, { fallos: number[]; hasta: number }>();
+  private static readonly TOPE_CLAVES = 5000;
+
+  private readonly max: number;
+  private readonly ahora: () => number;
+
+  constructor(max = 10, ahora: () => number = Date.now) {
+    this.max = max;
+    this.ahora = ahora;
+  }
+
+  private clave = (email: string) => email.trim().toLowerCase().slice(0, 160);
+
+  /** ¿La cuenta está bloqueada ahora? */
+  bloqueada(email: string): boolean {
+    const c = this.cuentas.get(this.clave(email));
+    return !!c && c.hasta > this.ahora();
+  }
+
+  /** Anota un intento fallido; al `max`-ésimo dentro de 15 min bloquea la cuenta 15 min. */
+  fallo(email: string): void {
+    const k = this.clave(email);
+    const t = this.ahora();
+    const c = this.cuentas.get(k) ?? { fallos: [], hasta: 0 };
+    if (c.hasta > t) return;
+    c.fallos = c.fallos.filter((f) => t - f < QUINCE_MIN);
+    c.fallos.push(t);
+    if (c.fallos.length >= this.max) {
+      c.hasta = t + QUINCE_MIN;
+      c.fallos = [];
+    }
+    this.cuentas.delete(k);
+    this.cuentas.set(k, c);
+    if (this.cuentas.size > BloqueoCuenta.TOPE_CLAVES) this.barrer(t);
+  }
+
+  /** Login correcto: la cuenta empieza de cero. */
+  exito(email: string): void {
+    this.cuentas.delete(this.clave(email));
+  }
+
+  /** Quita lo vencido; si aun así sobra, descarta las más antiguas (la memoria no crece sin límite con correos inventados). */
+  private barrer(t: number): void {
+    for (const [k, c] of this.cuentas) if (c.hasta <= t && c.fallos.every((f) => t - f >= QUINCE_MIN)) this.cuentas.delete(k);
+    for (const k of this.cuentas.keys()) {
+      if (this.cuentas.size <= BloqueoCuenta.TOPE_CLAVES) break;
+      this.cuentas.delete(k);
+    }
+  }
+}
+
+export const MENSAJE_LOGIN_BLOQUEADO = 'Demasiados intentos de inicio de sesión, intenta de nuevo en 15 minutos';
+
 const ip = (req: Request) => ipKeyGenerator(req.ip ?? '');
 
 export function crearLimitadores(opts: RateLimitOptions = {}) {
   return {
     api: limiter(opts.api ?? 300, 'Demasiadas solicitudes, intenta de nuevo en unos minutos', ip),
-    login: limiter(opts.login ?? 10, 'Demasiados intentos de inicio de sesión, intenta de nuevo en 15 minutos', (req) => {
+    login: limiter(opts.login ?? 10, MENSAJE_LOGIN_BLOQUEADO, (req) => {
       const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 160) : '';
       return `${ip(req)}|${email}`;
     }),
+    loginCuenta: new BloqueoCuenta(opts.loginCuenta ?? 10, opts.ahora),
     // Por usuario: se monta después de `authenticate`.
     ai: limiter(opts.ai ?? 20, 'Has alcanzado el límite de consultas a la IA, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
     llavero: limiter(opts.llavero ?? 20, 'Demasiadas operaciones en el llavero, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
