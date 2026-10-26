@@ -27,6 +27,8 @@ export const empresasRouter = crudRouter({
   search: ['nombre', 'ruc', 'email'],
   orderable: ['id', 'nombre', 'estado'],
   defaultOrder: { nombre: 'asc' },
+  // El token de la instancia de WhatsApp es una credencial: sólo la usa el servidor (`routes/whatsapp.ts`, `services/avisos`).
+  omit: { whatsapp_token: true },
   createSchema: base,
   updateSchema: base.partial(),
 });
