@@ -88,10 +88,12 @@ Nueva pestaña **Torres** del condominio, con su propia tabla:
 
 - Alta: nombre, tipo (`Torre` / `Block` / `Etapa`) y **cantidad de pisos** (opcional, 0–60). El servidor crea la estructura y sus pisos en una transacción.
 - Edición: nombre, tipo y cantidad de pisos (agregar pisos sólo; no se borran los que ya tienen unidades).
-- Baja: **bloqueada si la torre tiene unidades**; el mensaje dice cuántas hay y que hay que reasignarlas primero. Si no tiene unidades, se borran sus pisos y la torre.
+- Baja: **bloqueada si la torre tiene unidades o usuarios de junta asignados**; el mensaje dice cuántos hay y que hay que reasignarlos primero. Si no tiene ni unidades ni junta, se borran sus pisos y la torre.
 - La tabla muestra nombre, tipo, nº de pisos, nº de unidades y estado.
 
-Las torres son el nivel superior de la jerarquía (`Estructura.padre_id` permite anidar: Etapa → Torre). **Fuera de alcance**: la UI de anidamiento; la tabla muestra la torre y su padre como texto si lo tuviera.
+**Las torres son planas, y queda dicho.** La jerarquía `Estructura.padre_id` (Etapa → Torre) existe en el esquema pero **no se usa en ninguna parte** y `docs/SEGURIDAD.md:118` ya fijó la regla: «block» es `Estructura` por igualdad directa con `Unidad.estructura_id`, no se recorren blocks anidados. Todo el motor depende de esa regla: el ámbito de la junta (`src/server/lib/junta.ts:35-37`), el resumen de recibos por torre (`src/server/lib/mantenimientos.ts:242-252`) y la importación del Excel de mantenimiento (`src/server/routes/recibos.ts:417-425`) agrupan por igualdad directa. Si la UI dejara crear una jerarquía, esas tres piezas mentirían.
+
+Por eso la frontera queda **explícita**, no suelta: la UI no ofrece «torre padre» y `POST/PUT /api/estructuras` **rechaza `padre_id`** con un mensaje claro («House trabaja con torres planas»). Así nadie puede crear por API una torre anidada que la aplicación no sabría representar. La columna se conserva en el esquema para el día que exista un caso real, que vendría con su propio diseño (ámbito, agrupación y Excel).
 
 ### 3.5 Unidades: la torre de punta a punta
 
@@ -99,6 +101,13 @@ Las torres son el nivel superior de la jerarquía (`Estructura.padre_id` permite
 - **Modal**: select «Torre» (torres del condominio elegido) y select «Piso» (pisos de la torre elegida). Al cambiar el condominio se limpian torre y piso; al cambiar la torre se limpian los pisos.
 - La torre también se puede dejar vacía (una unidad sin torre es válida: `estructura_id` es opcional).
 - El API devuelve `estructura: {id, nombre}` y acepta el filtro `estructura_id`.
+- **Carga de unidades ya existentes**: acción en la pestaña Torres, «Asignar torre a las unidades sin torre», que asigna a una torre elegida **todas las unidades del condominio con `estructura_id` nulo** y dice cuántas movió. Cierra el hueco de las unidades cargadas antes de que existiera esta pantalla (quedan fuera de las fichas de torre hasta que se asignen). Mover unidades de una torre a otra en lote no se incluye: renombrar una torre ya actualiza todo, y el resto se edita unidad por unidad.
+
+### 3.6 La junta directiva por torre ya existe: no se duplica
+
+El cargo de presidente/tesorero con su torre se asigna hoy en la ficha de personas (`src/pages/admin/_parts/personas/PersonasLista.tsx:315-322`: «Cargo en la junta» + «Block de la junta», alimentado por `/api/estructuras?complejo_id=`). No hace falta una pantalla nueva: se **renombra** el rótulo a «Torre de la junta» y el texto de ayuda, y se deja claro que **sin torre la junta alcanza todo el condominio** (`filtroAmbito`, `src/server/lib/junta.ts:35-37`).
+
+Ahí aparece el único «suelto» real de esta lista, y por eso la guarda de borrado de una torre incluye a los usuarios de junta: si la torre de un presidente se borrara, su `estructura_id` quedaría nulo y su alcance se ampliaría **en silencio** a todo el condominio. Borrar la torre queda bloqueado y hay que reasignar el cargo primero.
 
 ### 3.6 Vocabulario
 
@@ -110,8 +119,9 @@ La UI habla de **torre** y no de block: «Filtrar por torre», «Todas las torre
 |---|---|
 | `GET /api/unidades` | `include.estructura = {id, nombre}`; nuevo filtro `estructura_id` |
 | `POST/PUT /api/unidades` | sin cambios (ya acepta `estructura_id`/`piso_id`) |
-| `POST /api/estructuras` | acepta `cantidad_pisos` (0–60, opcional) y crea la torre con sus pisos en una transacción |
-| `DELETE /api/estructuras/:id` | 422 si la torre tiene unidades; si no, borra la torre y sus pisos |
+| `POST /api/estructuras` | acepta `cantidad_pisos` (0–60, opcional) y crea la torre con sus pisos en una transacción; rechaza `padre_id` («House trabaja con torres planas») |
+| `DELETE /api/estructuras/:id` | 422 si la torre tiene unidades **o** usuarios de junta; si no, borra la torre y sus pisos |
+| `POST /api/estructuras/:id/asignar-unidades` | asigna a la torre las unidades del condominio sin torre; devuelve cuántas movió |
 | `GET /api/complejos` | nuevo filtro `empresa_id` |
 
 Todo con zod (`parseBody`/`parseQuery`), en español, y respecting el alcance del tenant (`scopeComplejos`, `scopeEstructuras`, `scopeUnidades`): un admin de otra empresa recibe **404**, no 403.
@@ -140,21 +150,24 @@ Todo con zod (`parseBody`/`parseQuery`), en español, y respecting el alcance de
 
 ## 6. Pruebas
 
-- **Backend** (`tests/unidades-torres.test.ts`): la lista trae `estructura`; el filtro `estructura_id` acota; crear torre con `cantidad_pisos` crea los pisos; borrar una torre con unidades devuelve 422; borrar una torre vacía borra sus pisos; `GET /api/complejos?empresa_id=` acota; un admin de otra empresa recibe 404.
-- **Frontend** (tests de fuente, el repo no tiene testing-library): la ficha tiene pestañas con `aria-selected` y la pestaña viva en `?vista=`; la tabla de unidades tiene columna y filtro de torre; el modal manda `estructura_id`/`piso_id` y limpia la torre al cambiar de condominio; el menú tiene Plataforma al final y los grupos Cobranza/Operación en el orden pactado; el rótulo dice «torre» y no «block».
-- **Mutación**: `useState(false)` de la torre, `hidden={!abierto}`, el `include` de `estructura`, el `422` del borrado y el orden del menú se comprueban rompiendo el código a propósito.
+- **Backend** (`tests/unidades-torres.test.ts`): la lista trae `estructura`; el filtro `estructura_id` acota; crear torre con `cantidad_pisos` crea los pisos; `POST` con `padre_id` lo rechaza; borrar una torre con unidades devuelve 422; borrar una torre con presidente de junta devuelve 422 (y no amplía su ámbito); borrar una torre vacía borra sus pisos; «asignar torre a las unidades sin torre» mueve sólo las que no tienen torre y devuelve el conteo; `GET /api/complejos?empresa_id=` acota; un admin de otra empresa recibe 404.
+- **Frontend** (tests de fuente, el repo no tiene testing-library): la ficha tiene pestañas con `aria-selected` y la pestaña viva en `?vista=`; la tabla de unidades tiene columna y filtro de torre; el modal manda `estructura_id`/`piso_id` y limpia la torre al cambiar de condominio; la pestaña Torres ofrece el alta con pisos y la acción de asignar las unidades sin torre; el menú tiene Plataforma al final y los grupos Cobranza/Operación en el orden pactado; el rótulo dice «torre» y no «block» en medios de pago, morosidad y junta.
+- **Mutación**: `useState(false)` de la torre, `hidden={!abierto}`, el `include` de `estructura`, el `422` del borrado, el rechazo de `padre_id` y el orden del menú se comprueban rompiendo el código a propósito.
 
 ## 7. Riesgos y gotchas
 
 - **El deploy mueve backend y frontend a la vez**: es una app con los dos; el build del VPS tarda 6–10 min y la RAM no da para dos builds (no pushear otra cosa mientras tanto).
 - **Torres existentes sin unidades**: el seed las dejó así; la nueva pestaña las lista tal cual, sin migrar nada.
-- **Unidades con `estructura_id` NULL**: siguen siendo válidas; el filtro por torre no las esconde.
-- **`Estructura.padre_id`**: el modelo admite anidamiento; esta entrega no lo gestiona (queda fuera de alcance) y no se rompe.
+- **Unidades con `estructura_id` NULL**: siguen siendo válidas; el filtro por torre no las esconde y la acción «asignar torre a las unidades sin torre» las recoge.
+- **Borrar una torre con junta asignada ampliaría el alcance en silencio** (`filtroAmbito`): por eso el borrado se bloquea también por usuarios de junta.
+- **Torres planas**: `padre_id` se rechaza en la API; el motor (ámbito de junta, resumen por torre, Excel) agrupa por igualdad directa y `docs/SEGURIDAD.md:118` ya lo dice. Nadie puede crear datos que la app no represente.
 - **`scopeUsuarios`**: el Personal de la ficha de Empresa lo ve el superadmin; el admin ve su propia empresa por el alcance.
 
-## 8. Fuera de alcance (YAGNI)
+## 8. Lo que queda fuera, y por qué no queda suelto
 
-- Anidamiento de torres (Etapa → Torre) en la UI.
-- Mover unidades entre torres en lote.
-- Configuración de la junta directiva por torre (ya existe `Usuario.estructura_id` para eso, pero no se toca).
-- Rediseño visual del resto de pantallas: sólo cambia el orden del menú.
+| Fuera | Por qué no deja nada suelto |
+|---|---|
+| Anidar torres (Etapa → Torre) | Frontera explícita: la UI no lo ofrece y la API rechaza `padre_id`. El motor entero agrupa por torre directa y ya está documentado en `SEGURIDAD.md:118`. |
+| Mover unidades de una torre a otra en lote | Renombrar una torre ya actualiza todo; el resto se edita unidad por unidad. Lo que sí faltaba (unidades cargadas sin torre) tiene su acción acotada. |
+| Pantalla nueva de junta directiva | Ya existe en la ficha de personas; sólo se unifica el vocabulario con «torre». |
+| Rediseño visual del resto de pantallas | Sólo cambia el orden del menú; las pantallas nuevas siguen el kit actual. |
