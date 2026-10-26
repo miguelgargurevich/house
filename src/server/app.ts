@@ -15,6 +15,7 @@ import { auditoriaRouter } from './routes/auditoria';
 import { llaveroRouter } from './routes/llavero';
 import { mcpRouter } from './routes/mcp';
 import { tokensApiRouter } from './routes/tokensApi';
+import { whatsappRouter } from './routes/whatsapp';
 import { loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
 import { comprobantesRouter } from './routes/comprobantes';
@@ -115,6 +116,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/proveedores', proveedoresRouter);
   api.use('/tareas', tareasRouter);
   api.use('/auditoria', auditoriaRouter);
+  api.use('/whatsapp', whatsappRouter);
   app.use('/api', api);
   app.use('/api', notFoundHandler);
 

@@ -6,7 +6,7 @@ import { esJunta } from './junta';
 
 const OPERACION = [
   '/admin/dashboard', '/admin/complejos', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad',
-  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/medios-pago',
+  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/medios-pago', '/admin/whatsapp',
 ] as const;
 
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {

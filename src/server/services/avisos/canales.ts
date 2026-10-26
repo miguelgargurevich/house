@@ -17,7 +17,7 @@ export type ResultadoEnvio = { resultado: 'ok' } | { resultado: 'omitida'; motiv
 
 const VARIABLES: Record<Canal, readonly string[]> = {
   email: ['RESEND_API_KEY', 'MAIL_FROM'],
-  whatsapp: ['EVOLUTION_URL', 'EVOLUTION_INSTANCE', 'EVOLUTION_APIKEY'],
+  whatsapp: ['EVOLUTION_URL', 'EVOLUTION_APIKEY'],
 };
 
 const definida = (env: NodeJS.ProcessEnv, k: string) => !!env[k]?.trim();
@@ -56,13 +56,14 @@ export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asu
   });
 }
 
-/** WhatsApp por la Evolution API del VPS (`sendText`); el texto es el cuerpo. */
-export async function enviarWhatsapp(deps: DepsAvisos, celular: string | null, cuerpo: string): Promise<ResultadoEnvio> {
+/** WhatsApp por la Evolution API del VPS (`sendText`); el texto es el cuerpo. La instancia es la de la administradora. */
+export async function enviarWhatsapp(deps: DepsAvisos, instancia: string | null, celular: string | null, cuerpo: string): Promise<ResultadoEnvio> {
   if (!estadoCanales(deps.env).whatsapp.configurado) return { resultado: 'omitida', motivo: NO_CONFIGURADO };
+  if (!instancia?.trim()) return { resultado: 'omitida', motivo: 'Sincronización de WhatsApp no configurada para la administradora' };
   const numero = normalizarCelular(celular);
   if (!numero) return { resultado: 'omitida', motivo: celular ? 'Celular inválido' : 'Sin celular' };
   const base = deps.env.EVOLUTION_URL!.trim().replace(/\/+$/, '');
-  return llamar(deps, 'Evolution', `${base}/message/sendText/${encodeURIComponent(deps.env.EVOLUTION_INSTANCE!.trim())}`, {
+  return llamar(deps, 'Evolution', `${base}/message/sendText/${encodeURIComponent(instancia.trim())}`, {
     method: 'POST',
     headers: { apikey: deps.env.EVOLUTION_APIKEY!.trim(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ number: numero, text: cuerpo }),

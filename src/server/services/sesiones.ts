@@ -118,5 +118,7 @@ export function origenPermitido(req: Request): boolean {
   } catch {
     return false; // incluye `Origin: null`
   }
-  return url.host === req.get('host') || parseCorsOrigins().includes(url.origin);
+  const origin = url.origin;
+  const allowed = parseCorsOrigins();
+  return url.host === req.get('host') || allowed.includes(origin);
 }

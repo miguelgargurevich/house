@@ -163,6 +163,32 @@ function resultadoSinCanal(canal: string): ResultadoEnvio {
 }
 
 /**
+ * Resuelve la instancia de WhatsApp de la administradora responsable de la notificación.
+ */
+async function resolveInstance(n: { ref_entidad: string | null; ref_id: number | null }): Promise<string | null> {
+  if (!n.ref_entidad || n.ref_id == null) return null;
+  if (n.ref_entidad === 'recibo') {
+    const r = await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { empresa: { select: { whatsapp_instance: true } } } });
+    return r?.empresa?.whatsapp_instance ?? null;
+  }
+  if (n.ref_entidad === 'cargo') {
+    const c = await prisma.reciboConceptoUnidad.findUnique({
+      where: { id: n.ref_id },
+      select: { reciboConcepto: { select: { recibo: { select: { empresa: { select: { whatsapp_instance: true } } } } } } }
+    });
+    return c?.reciboConcepto?.recibo?.empresa?.whatsapp_instance ?? null;
+  }
+  if (n.ref_entidad === 'pago') {
+    const p = await prisma.pago.findUnique({
+      where: { id: n.ref_id },
+      select: { reciboConceptoUnidad: { select: { reciboConcepto: { select: { recibo: { select: { empresa: { select: { whatsapp_instance: true } } } } } } } } }
+    });
+    return p?.reciboConceptoUnidad?.reciboConcepto?.recibo?.empresa?.whatsapp_instance ?? null;
+  }
+  return null;
+}
+
+/**
  * Envía las `pendiente` con `programada_para <= ahora`. Cada una se «arrienda» antes de enviar (se corre su
  * `programada_para` unos minutos), así dos procesos no mandan el mismo aviso. Los fallos se reintentan con espera
  * creciente (`ESPERA_MIN`) hasta `MAX_INTENTOS`; después quedan en `error` con un motivo corto.
@@ -182,10 +208,17 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
       data: { programada_para: new Date(ahora.getTime() + ARRENDAMIENTO_MIN * MIN) },
     });
     if (tomada.count === 0) continue;
-    const r: ResultadoEnvio =
-      n.canal === 'email' ? await enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo)
-      : n.canal === 'whatsapp' ? await enviarWhatsapp(deps, n.usuario.telefono, n.cuerpo)
-      : resultadoSinCanal(n.canal);
+
+    let r: ResultadoEnvio;
+    if (n.canal === 'email') {
+      r = await enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo);
+    } else if (n.canal === 'whatsapp') {
+      // La instancia es la de la administradora que emitió el recibo (no una global).
+      r = await enviarWhatsapp(deps, await resolveInstance(n), n.usuario.telefono, n.cuerpo);
+    } else {
+      r = resultadoSinCanal(n.canal);
+    }
+
     if (r.resultado === 'ok') {
       await prisma.notificacion.update({ where: { id: n.id }, data: { estado: 'enviada', enviada_at: deps.ahora(), intentos: n.intentos + 1, error: null } });
       resumen.enviadas++;

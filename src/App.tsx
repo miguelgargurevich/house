@@ -26,6 +26,7 @@ const AdminProveedores = lazy(() => import('./pages/admin/Proveedores'));
 const AdminConfiguracion = lazy(() => import('./pages/admin/Configuracion'));
 const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
 const AdminMediosPago = lazy(() => import('./pages/admin/MediosPago'));
+const AdminWhatsappSync = lazy(() => import('./pages/admin/WhatsappSync'));
 const PropietarioInicio = lazy(() => import('./pages/propietario/Inicio'));
 const PropietarioUnidades = lazy(() => import('./pages/propietario/Unidades'));
 const PropietarioCargos = lazy(() => import('./pages/propietario/Cargos'));
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/admin/configuracion" element={<AdminConfiguracion />} />
           <Route path="/admin/avisos" element={<AdminAvisos />} />
           <Route path="/admin/medios-pago" element={<AdminMediosPago />} />
+          <Route path="/admin/whatsapp" element={<AdminWhatsappSync />} />
         </Route>
         <Route element={<RequireJunta />}>
           <Route path="/junta/medios-pago" element={<AdminMediosPago />} />

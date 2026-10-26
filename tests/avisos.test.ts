@@ -17,7 +17,6 @@ const ENV_OK: NodeJS.ProcessEnv = {
   RESEND_API_KEY: CLAVE_RESEND,
   MAIL_FROM: 'Casa <avisos@ejemplo.test>',
   EVOLUTION_URL: 'https://evo.ejemplo.test/',
-  EVOLUTION_INSTANCE: 'instancia-falsa',
   EVOLUTION_APIKEY: CLAVE_EVO,
 };
 
@@ -64,9 +63,13 @@ beforeEach(async () => {
   await prisma.usuario.updateMany({ data: { aviso_email: true, aviso_whatsapp: false } });
   await prisma.usuario.updateMany({ data: { telefono: null } });
   await prisma.reciboConceptoUnidad.updateMany({ data: { estado_pago: 'pendiente' } });
+  await prisma.empresaAdministradora.updateMany({ data: { whatsapp_instance: null, whatsapp_token: null } });
 });
 afterEach(() => {
-  for (const [k, v] of restaurar) (v === undefined ? delete process.env[k] : (process.env[k] = v));
+  for (const [k, v] of restaurar) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
   restaurar.clear();
 });
 const fijarEnv = (env: NodeJS.ProcessEnv) => {
@@ -233,8 +236,11 @@ describe('eventos de pago: encolarAviso exportado', () => {
 
 describe('envío por canal', () => {
   const AHORA = new Date('2026-10-23T15:00:00Z');
-  const sembrarUna = async (canal: 'email' | 'whatsapp', usuario_id = d.propietario1.id) =>
-    prisma.notificacion.create({ data: { usuario_id, canal, tipo: 'recibo_emitido', asunto: 'Asunto de prueba', cuerpo: 'Cuerpo de prueba', ref_entidad: 'recibo', ref_id: 1, programada_para: new Date(AHORA.getTime() - MIN) } });
+  const sembrarUna = async (canal: 'email' | 'whatsapp', usuario_id = d.propietario1.id, ref_id = d.reciboVencidoA.id) =>
+    prisma.notificacion.create({ data: { usuario_id, canal, tipo: 'recibo_emitido', asunto: 'Asunto de prueba', cuerpo: 'Cuerpo de prueba', ref_entidad: 'recibo', ref_id, programada_para: new Date(AHORA.getTime() - MIN) } });
+  /** La administradora que emitió el recibo es la que tiene la instancia vinculada. */
+  const vincular = async (empresa_id: number, instancia: string) =>
+    prisma.empresaAdministradora.update({ where: { id: empresa_id }, data: { whatsapp_instance: instancia, whatsapp_token: 'token-de-prueba' } });
 
   it('sin variables del canal: omitida «Canal no configurado», sin llamar a la red ni dar error', async () => {
     await sembrarUna('email');
@@ -254,6 +260,7 @@ describe('envío por canal', () => {
     await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { telefono: '+51 987 654 321' } });
     await sembrarUna('email');
     await sembrarUna('whatsapp');
+    await vincular(d.empresaA.id, 'instancia-falsa');
     const { deps, llamadas } = crearDeps(AHORA, ENV_OK);
     const r = await procesarCola(deps);
     assert.deepEqual(r, { enviadas: 2, omitidas: 0, fallos: 0, errores: 0 });
@@ -274,9 +281,37 @@ describe('envío por canal', () => {
     assert.equal((await procesarCola(deps)).enviadas, 0, 'lo enviado no se reenvía');
   });
 
+  it('cada administradora manda por SU instancia (no hay una global)', async () => {
+    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { telefono: '987654321' } });
+    await prisma.usuario.update({ where: { id: d.propietarioB.id }, data: { telefono: '987654321' } });
+    await sembrarUna('whatsapp', d.propietario1.id, d.reciboVencidoA.id);
+    await sembrarUna('whatsapp', d.propietarioB.id, d.reciboB.id);
+    await vincular(d.empresaA.id, 'instancia-de-a');
+    await vincular(d.empresaB.id, 'instancia-de-b');
+    const { deps, llamadas } = crearDeps(AHORA, ENV_OK);
+    assert.equal((await procesarCola(deps)).enviadas, 2);
+    const urls = llamadas.map((l) => l.url).sort();
+    assert.deepEqual(urls, [
+      'https://evo.ejemplo.test/message/sendText/instancia-de-a',
+      'https://evo.ejemplo.test/message/sendText/instancia-de-b',
+    ]);
+  });
+
+  it('sin instancia vinculada en la administradora: omitida, sin llamar a la red', async () => {
+    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { telefono: '987654321' } });
+    await sembrarUna('whatsapp');
+    const { deps, llamadas } = crearDeps(AHORA, ENV_OK);
+    assert.equal((await procesarCola(deps)).omitidas, 1);
+    assert.equal(llamadas.length, 0);
+    const [n] = await notifs();
+    assert.equal(n!.estado, 'omitida');
+    assert.equal(n!.error, 'Sincronización de WhatsApp no configurada para la administradora');
+  });
+
   it('celular inválido: omitida, sin llamar a Evolution', async () => {
     await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { telefono: '12345' } });
     await sembrarUna('whatsapp');
+    await vincular(d.empresaA.id, 'instancia-falsa');
     const { deps, llamadas } = crearDeps(AHORA, ENV_OK);
     await procesarCola(deps);
     assert.equal(llamadas.length, 0);
@@ -450,7 +485,7 @@ describe('API de notificaciones', () => {
     let r = await llamar(base, 'GET', '/api/notificaciones/canales', T.adminA);
     assert.deepEqual(r.body, {
       email: { configurado: false, faltan: ['RESEND_API_KEY', 'MAIL_FROM'] },
-      whatsapp: { configurado: false, faltan: ['EVOLUTION_URL', 'EVOLUTION_INSTANCE', 'EVOLUTION_APIKEY'] },
+      whatsapp: { configurado: false, faltan: ['EVOLUTION_URL', 'EVOLUTION_APIKEY'] },
     });
     fijarEnv(ENV_OK);
     r = await llamar(base, 'GET', '/api/notificaciones/canales', T.super);

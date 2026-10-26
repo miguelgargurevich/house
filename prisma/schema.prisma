@@ -71,6 +71,8 @@ model EmpresaAdministradora {
   fecha_inicio        DateTime?
   fecha_fin           DateTime?
   estado              String?                @default("activa")
+  whatsapp_instance   String?
+  whatsapp_token      String?
   complejos           ComplejoHabitacional[]
   contratos           ContratoAdministracion[]
   proveedores         Proveedor[]

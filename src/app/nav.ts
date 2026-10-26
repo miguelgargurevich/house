@@ -22,6 +22,7 @@ const operacion: NavItem[] = [
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
   { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
+  { to: '/admin/whatsapp', label: 'WhatsApp', icon: QrCodeIcon },
 ];
 
 /** Personas, cada tipo en su pantalla: residentes (de un condominio), personal (de la empresa) y proveedores (directorio, sin acceso). */
