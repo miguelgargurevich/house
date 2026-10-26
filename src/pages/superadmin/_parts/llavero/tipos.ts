@@ -60,6 +60,19 @@ export interface DatosLlavero {
   consultas_recientes: ConsultaReciente[];
 }
 
+/** Resumen de las claves de un proveedor, visible aunque el grupo esté plegado. */
+export function resumenClaves(claves: Clave[]): string {
+  if (claves.length === 0) return 'Sin clave guardada.';
+  const n = claves.length;
+  const base = `${n} ${n === 1 ? 'clave' : 'claves'}`;
+  const pausadas = claves.filter(c => !c.habilitada).length;
+  const reservas = claves.filter(c => c.reserva).length;
+  const extras: string[] = [];
+  if (pausadas > 0) extras.push(`${pausadas} pausada${pausadas === 1 ? '' : 's'}`);
+  if (reservas > 0) extras.push(`${reservas} de reserva`);
+  return extras.length > 0 ? `${base} · ${extras.join(' · ')}` : base;
+}
+
 /** Etiqueta propuesta al agregar: `principal` para la primera, luego `clave-2`, `clave-3`… la primera libre. */
 export function etiquetaSugerida(usadas: string[]): string {
   if (usadas.length === 0) return 'principal';

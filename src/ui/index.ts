@@ -1,5 +1,7 @@
 export * from './Button';
 export * from './Card';
+export * from './IconoProveedor';
+export * from './proveedoresIcono';
 export * from './Badge';
 export * from './Field';
 export * from './Modal';

@@ -4,6 +4,34 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-25 — OpenCode (MiniMax M3.1) — Llavero de IA: proveedores plegados por defecto + iconos de marca
+
+**Pedido de Miguel:** en la página del Llavero de IA, que los cards de los proveedores estén colapsados por defecto y se puedan expandir/contraer, y poner los iconos oficiales de los proveedores (que ya están en el proyecto My Workspace / dashboardia-llm).
+
+**Qué se hizo (sin push)**
+- **Iconos de marca:** `src/ui/proveedoresIcono.ts` (mapa slug → logo/color/monograma, sin React, testeable) y `src/ui/IconoProveedor.tsx` (el componente). Portado de `apps/frontend/app/components/common/ProviderIcon.tsx` de My Workspace: logo real para Gemini, OpenAI, NVIDIA y Ollama; monograma con el color oficial de la marca para Groq, OpenRouter, DeepSeek, Mistral, Cerebras, Cohere y SambaNova; gris con iniciales para LLM7 y Kilo (la librería no trae su logo). Se agregó `react-icons@5.7.0` (la misma versión que fija My Workspace); antes el repo sólo usaba `@heroicons/react`.
+- **Plegado por defecto:** `GrupoProveedor` arranca con `useState(false)`: la cabecera (logo, nombre, descripción, resumen y chevron) siempre visible; las filas de claves quedan en `hidden` hasta que se despliega. Botón con `aria-expanded`/`aria-controls` (patrón disclosure) y el chevron gira 180° al abrir. «Agregar clave» queda FUERA del botón que pliega: agregar una clave no pliega ni despliega el grupo.
+- **Resumen de claves:** `resumenClaves()` en `_parts/llavero/tipos.ts` («Sin clave guardada.», «2 claves · 1 pausada · 1 de reserva»), visible aunque el grupo esté plegado.
+- **«Cómo se usan»:** los proveedores del orden llevan su icono.
+
+**Verificación**
+- `npm test` → 666 en verde (652 antes + 14 de `tests/llavero-ui.test.ts`).
+- `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde; `eslint` sin errores en los archivos tocados (el repo arrastra deuda de lint previa: 1319 errores en otros archivos).
+- **Mutación:** `useState(false)→useState(true)`, `hidden={!abierto}→hidden={false}` y quitar `rotate-180` ponen rojos los tres tests correspondientes; se restauró el código.
+- **HTML real (SSR con `renderToStaticMarkup`):** `aria-expanded="false"`, `aria-controls="llavero-claves-gemini"`, `<ul … hidden>`, SVG del logo presente y «Agregar otra clave» después del cierre del botón que pliega.
+
+**Próximos pasos**
+1. Revisar en navegador (claro y oscuro, móvil) el plegado y el tamaño de los iconos.
+2. Decidir si el estado de plegado debe conservarse entre recargas (hoy se reinicia en cada visita).
+3. Si se quiere el logo real de LLM7 o Kilo, hace falta un SVG propio: la librería no lo trae.
+
+**Gotchas**
+- La primera corrida de `npm test` falló en `tests/personas.test.ts` (500 al crear un condominio y la lista de herramientas del asistente) y las corridas siguientes pasaron 666/666: el estado de `house_test` cambia entre sesiones; si vuelve a fallar, aplicar el esquema con `DATABASE_URL=…house_test npx prisma db push` y repetir.
+- El repo no tiene `testing-library`: el comportamiento de UI se fija con tests de fuente (`tests/llavero-ui.test.ts`) y con SSR manual; `tsx` fuera del repo compila JSX clásico, hay que pasar `--tsconfig tsconfig.app.json`.
+- `react-icons` entra al chunk del Llavero (~19,7 kB sin comprimir en el build de Vite); Vite lo elimina por árbol.
+
+---
+
 ## 2026-10-25 — Claude Code (Haiku 4.5 + OpenCode/Minimax) — Sincronización de WhatsApp por administradora + «Usuarios del sistema» + departamento editable
 
 **Pedido de Miguel:** que el administrador sincronice su propio número para enviar mensajes a través de su cuenta vinculada, escaneando el QR generado por Evolution API. Además: «Usuarios globales» debía mostrar sólo las cuentas del sistema, y el departamento de un residente salía vacío y no se podía cambiar.
