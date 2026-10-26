@@ -50,7 +50,7 @@ Filas sin `BLOCK`/`Dpto.` y la fila `TOTALES` se ignoran (cuentan como «saltada
 - Se crea un `Recibo` por mes/año con el vencimiento y todos los conceptos (monto del concepto en 0; el monto va por unidad).
 - Se crea un `ReciboConceptoUnidad` por cada concepto+departamento. **Un monto 0 o una celda vacía también genera cargo en 0** (así fue siempre); un texto no numérico no genera cargo.
 - El estado inicial de cada cargo es `pendiente`.
-- **Recibo repetido (mismo condominio, mes y año):** no se duplica ni da 409; el endpoint es idempotente y **reemplaza** los conceptos y cargos del recibo existente por los del Excel (y lo deja `emitido`). Requiere decisión de Miguel: al reemplazar se borran también los cargos que ya estuvieran pagados o en revisión.
+- **Recibo repetido (mismo condominio, mes y año):** si ningún cargo del recibo tiene pagos (`Pago`, en cualquier `estado_validacion`) ni un `estado_pago` distinto de `pendiente`, el endpoint **reemplaza** los conceptos y cargos por los del Excel y lo deja `emitido` (sirve para corregir una subida equivocada). Si alguno los tiene, responde **409** `El recibo de <Mes> <año> ya tiene pagos registrados; no se puede reemplazar desde Excel` y no cambia nada (la comprobación va dentro de la misma transacción).
 
 ## Endpoint
 

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { Router, type RequestHandler } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { forbidden, notFound, invalid } from '../errors';
+import { conflict, forbidden, notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
 import { ambitoJunta, filtroAmbito } from '../lib/junta';
@@ -298,6 +298,7 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res)
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const MAX_ADVERTENCIAS = 100;
+const NOMBRES_MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 /** Multer lanza `MulterError` (→ 500) si el archivo pasa del límite: lo convertimos en un 422 en español. */
 const subirArchivo: RequestHandler = (req, res, next) => {
@@ -357,6 +358,12 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     let reciboId: number;
     if (existente) {
       reciboId = existente.id;
+      // Reemplazar borra los cargos: si alguno ya tiene pagos (en cualquier estado) o no está pendiente, los pagos quedarían huérfanos y la deuda reaparecería.
+      const conPagos = await tx.reciboConceptoUnidad.findFirst({
+        where: { reciboConcepto: { recibo_id: reciboId }, OR: [{ pagos: { some: {} } }, { estado_pago: { notIn: ['pendiente'] } }] },
+        select: { id: true },
+      });
+      if (conPagos) throw conflict(`El recibo de ${NOMBRES_MES[mes - 1]} ${anio} ya tiene pagos registrados; no se puede reemplazar desde Excel`);
       await tx.reciboConceptoUnidad.deleteMany({ where: { reciboConcepto: { recibo_id: reciboId } } });
       await tx.reciboConcepto.deleteMany({ where: { recibo_id: reciboId } });
       await tx.recibo.update({ where: { id: reciboId }, data: { fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion: descripcion || `Mantenimiento de ${mes} de ${anio}`, estado: 'emitido', creado_por_id: u.id } });

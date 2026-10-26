@@ -241,6 +241,78 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
   });
 });
 
+describe('POST /api/recibos/excel: recibo repetido con pagos', () => {
+  const real = () => readFileSync('docs/ejemplos/block-1-octubre.xlsx');
+  let complejoId: number;
+  before(async () => {
+    const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Repetido', tipo: 'Condominio', empresa_id: d.empresaA.id } });
+    complejoId = c.id;
+    const e = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'block', complejo_id: c.id } });
+    for (let piso = 1; piso <= 8; piso++) {
+      for (let k = 1; k <= 4; k++) await prisma.unidad.create({ data: { codigo: `B01-${piso}0${k}`, tipo: 'Departamento', complejo_id: c.id, empresa_id: d.empresaA.id, estructura_id: e.id, estado: 'activa' } });
+    }
+  });
+  const limpiar = async () => {
+    const rcs = await prisma.reciboConcepto.findMany({ where: { recibo: { complejo_id: complejoId } }, select: { id: true } });
+    const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { recibo_concepto_id: { in: rcs.map((r) => r.id) } }, select: { id: true } });
+    await prisma.pago.deleteMany({ where: { recibo_concepto_unidad_id: { in: cargos.map((c) => c.id) } } });
+    await prisma.reciboConceptoUnidad.deleteMany({ where: { recibo_concepto_id: { in: rcs.map((r) => r.id) } } });
+    await prisma.reciboConcepto.deleteMany({ where: { recibo: { complejo_id: complejoId } } });
+    await prisma.recibo.deleteMany({ where: { complejo_id: complejoId } });
+  };
+  const foto = async () => {
+    const recibos = await prisma.recibo.findMany({ where: { complejo_id: complejoId }, orderBy: { id: 'asc' } });
+    const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { reciboConcepto: { recibo: { complejo_id: complejoId } } }, orderBy: { id: 'asc' } });
+    const pagos = await prisma.pago.findMany({ where: { reciboConceptoUnidad: { reciboConcepto: { recibo: { complejo_id: complejoId } } } }, orderBy: { id: 'asc' } });
+    return { recibos, cargos, pagos };
+  };
+  const MENSAJE = 'El recibo de Octubre 2026 ya tiene pagos registrados; no se puede reemplazar desde Excel';
+
+  it('con un pago registrado en un cargo → 409 y no cambia nada (mismo recibo, mismos cargos, el pago sigue enlazado)', async () => {
+    await limpiar();
+    const r1 = await subir(T.adminA, real(), complejoId);
+    assert.equal(r1.status, 201, r1.texto);
+    const antes = await foto();
+    const cargo = antes.cargos.find((c) => c.monto.gt(0))!;
+    const pago = await prisma.pago.create({ data: { recibo_concepto_unidad_id: cargo.id, monto: cargo.monto, usuario_id: d.adminA.id, estado_validacion: 'por_validar' } });
+
+    const r2 = await subir(T.adminA, real(), complejoId);
+    assert.equal(r2.status, 409, r2.texto);
+    assert.deepEqual(r2.body, { error: MENSAJE });
+
+    const despues = await foto();
+    assert.deepEqual(despues.recibos, antes.recibos);
+    assert.deepEqual(despues.cargos.map((c) => c.id), antes.cargos.map((c) => c.id));
+    assert.deepEqual(despues.pagos.map((p) => [p.id, p.recibo_concepto_unidad_id]), [[pago.id, cargo.id]]);
+  });
+
+  it('un cargo con estado_pago «pagado» sin fila de Pago también da 409', async () => {
+    await limpiar();
+    assert.equal((await subir(T.adminA, real(), complejoId)).status, 201);
+    const antes = await foto();
+    await prisma.reciboConceptoUnidad.update({ where: { id: antes.cargos[0].id }, data: { estado_pago: 'pagado' } });
+    const r = await subir(T.adminA, real(), complejoId);
+    assert.equal(r.status, 409, r.texto);
+    assert.equal(r.body.error, MENSAJE);
+    const despues = await foto();
+    assert.deepEqual(despues.cargos.map((c) => c.id), antes.cargos.map((c) => c.id));
+  });
+
+  it('sin pagos se reemplaza como siempre: 201, un solo recibo y cargos nuevos', async () => {
+    await limpiar();
+    assert.equal((await subir(T.adminA, real(), complejoId)).status, 201);
+    const antes = await foto();
+    const r = await subir(T.adminA, real(), complejoId);
+    assert.equal(r.status, 201, r.texto);
+    const despues = await foto();
+    assert.equal(despues.recibos.length, 1);
+    assert.equal(despues.recibos[0].id, antes.recibos[0].id);
+    assert.equal(despues.cargos.length, 32 * 11);
+    const viejos = new Set(antes.cargos.map((c) => c.id));
+    assert.ok(despues.cargos.every((c) => !viejos.has(c.id)));
+  });
+});
+
 describe('POST /api/recibos/excel: entradas inválidas', () => {
   it('sin archivo → 422', async () => {
     const r = await subir(T.adminA, null, d.complejoA.id);

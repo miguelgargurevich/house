@@ -14,7 +14,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - `fix(recibos): leer el Excel real…`: lector puro en `src/server/lib/excelRecibos.ts` (mes en celda siguiente, año del título/vencimiento, vencimiento como texto o fecha de Excel, encabezado de conceptos en dos filas, nombres normalizados, torre por número, redondeo a 2 decimales, validación contra `TOTAL MANT` ±S/ 0.05). La ruta devuelve `advertencias`. Formato en `docs/EXCEL-RECIBOS.md`.
 
 **Próximos pasos / requiere decisión de Miguel**
-- Recibo repetido (mismo condominio/mes/año): hoy el endpoint reemplaza conceptos y cargos del recibo existente (no 409), lo que borra también cargos ya pagados o en revisión. No se cambió.
+- Recibo repetido (mismo condominio/mes/año): RESUELTO en `fix(recibos): no reemplazar desde Excel un recibo que ya tiene pagos` — 409 si algún cargo tiene `Pago` o `estado_pago` ≠ `pendiente`; sin pagos se reemplaza como antes. Un 409 puede haber creado antes `Concepto`s nuevos de la empresa (se crean fuera de la transacción); no afecta recibos.
 - Montos 0 o celdas vacías generan cargo en 0 (como siempre): 352 cargos para el archivo real, 66 en cero.
 - Frontend: el modal de subida no muestra `advertencias` (no se tocó).
 - `Dockerfile`: hace `npm ci` (sin cambios); ahora necesita red hacia `cdn.sheetjs.com` en el build. No se probó el build de Docker.
