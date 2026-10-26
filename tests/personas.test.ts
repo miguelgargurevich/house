@@ -512,6 +512,41 @@ describe('residentes y personal: listados separados', () => {
     assert.equal((await alta({ rol: 'propietario', unidad_id: 999999 })).status, 422);
   });
 
+  it('editar el departamento de un residente: suelta el anterior, toma el nuevo y quitarlo lo deja sin departamento', async () => {
+    const libre1 = await prisma.unidad.create({ data: { codigo: 'T-401', tipo: 'Departamento', complejo_id: c1, empresa_id: d.empresaA.id, estado: 'activa' } });
+    const libre2 = await prisma.unidad.create({ data: { codigo: 'T-402', tipo: 'Departamento', complejo_id: c1, empresa_id: d.empresaA.id, estado: 'activa' } });
+    const alta = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Vecino Editable', email: `editable${++seq}@personas.pe`, password: 'ClaveSegura123', rol: 'propietario', complejo_id: c1, unidad_id: libre1.id });
+    assert.equal(alta.status, 201, JSON.stringify(alta.body));
+    const id = alta.body.id as number;
+
+    const cambio = await llamar(base, 'PUT', `/api/usuarios/${id}`, T.adminA, { unidad_id: libre2.id });
+    assert.equal(cambio.status, 200, JSON.stringify(cambio.body));
+    assert.equal((await prisma.unidad.findUniqueOrThrow({ where: { id: libre1.id } })).propietario_id, null, 'suelta el departamento anterior');
+    assert.equal((await prisma.unidad.findUniqueOrThrow({ where: { id: libre2.id } })).propietario_id, id, 'toma el nuevo');
+
+    const deC = (await llamar(base, 'GET', `/api/usuarios?tipo=residente&complejo_id=${c1}&pageSize=100`, T.adminA)).body.items as { id: number; unidades: { codigo: string }[] }[];
+    assert.equal(deC.find((u) => u.id === id)!.unidades[0]!.codigo, 'T-402', 'la lista muestra el departamento nuevo');
+
+    const quitar = await llamar(base, 'PUT', `/api/usuarios/${id}`, T.adminA, { unidad_id: null });
+    assert.equal(quitar.status, 200, JSON.stringify(quitar.body));
+    assert.equal((await prisma.unidad.findUniqueOrThrow({ where: { id: libre2.id } })).propietario_id, null, 'lo deja sin departamento');
+    const despues = (await llamar(base, 'GET', `/api/usuarios?tipo=residente&complejo_id=${c1}&pageSize=100`, T.adminA)).body.items as { id: number; unidades: { codigo: string }[] }[];
+    assert.deepEqual(despues.find((u) => u.id === id)!.unidades, [], 'ya no tiene departamento');
+  });
+
+  it('cambiar de rol (propietario ↔ inquilino) deja el departamento con el nuevo rol', async () => {
+    const libre = await prisma.unidad.create({ data: { codigo: 'T-403', tipo: 'Departamento', complejo_id: c1, empresa_id: d.empresaA.id, estado: 'activa' } });
+    const alta = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Vecino Que Cambia', email: `cambia${++seq}@personas.pe`, password: 'ClaveSegura123', rol: 'propietario', complejo_id: c1, unidad_id: libre.id });
+    assert.equal(alta.status, 201, JSON.stringify(alta.body));
+    const id = alta.body.id as number;
+
+    const cambio = await llamar(base, 'PUT', `/api/usuarios/${id}`, T.adminA, { rol: 'inquilino' });
+    assert.equal(cambio.status, 200, JSON.stringify(cambio.body));
+    const unidad = await prisma.unidad.findUniqueOrThrow({ where: { id: libre.id } });
+    assert.equal(unidad.propietario_id, null, 'ya no es propietario');
+    assert.equal(unidad.inquilino_id, id, 'pasa a inquilino del mismo departamento');
+  });
+
   it('personal: se crea con la empresa del admin y, opcionalmente, el condominio donde trabaja (de su empresa)', async () => {
     const r = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Jardinero', email: 'jardinero@personas.pe', password: 'ClaveSegura123', rol: 'jardineria', complejo_id: c1 });
     assert.equal(r.status, 201, JSON.stringify(r.body));

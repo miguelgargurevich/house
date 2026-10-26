@@ -25,7 +25,7 @@ const createSchema = base.extend({
   /** Sólo al crear un residente: la unidad de la que es propietario o inquilino (según su rol). */
   unidad_id: idSchema.nullish(),
 });
-const updateSchema = base.partial().extend({ password: passwordSchema.optional() });
+const updateSchema = base.partial().extend({ password: passwordSchema.optional(), unidad_id: idSchema.nullish() });
 
 type UnidadResidente = { id: number; codigo: string; complejo: { id: number; nombre: string } | null; estructura: { id: number; nombre: string | null } | null };
 const unidadFila = (u: UnidadResidente) => ({ id: u.id, codigo: u.codigo, complejo: u.complejo, estructura: u.estructura });
@@ -89,14 +89,17 @@ async function normalizar(data: Record<string, unknown>, user: AuthUser, existin
     await assertRef(prisma.empresaAdministradora, out.empresa_id, {}, 'empresa_id');
   }
   await normalizarJunta(out, user, existing);
-  // Al crear un residente se le puede dar de una vez su departamento (propietario o inquilino de esa unidad, libre, del condominio elegido).
+  // Al crear o editar un residente se le puede dar su departamento (propietario o inquilino de esa unidad, libre, del condominio elegido).
   if (out.unidad_id != null) {
     if (rolFinal !== 'propietario' && rolFinal !== 'inquilino') throw invalid('Datos inválidos: unidad_id: sólo un propietario o inquilino tiene departamento', { unidad_id: 'Sólo para residentes' });
-    if (out.complejo_id == null) throw invalid('Datos inválidos: complejo_id: elige el condominio de la unidad', { complejo_id: 'Elige el condominio' });
-    const unidad = await assertRef(prisma.unidad, out.unidad_id, scopeUnidades(user), 'unidad_id', { complejo_id: out.complejo_id });
-    if (unidad![rolFinal === 'propietario' ? 'propietario_id' : 'inquilino_id'] != null) {
+    const campo = rolFinal === 'propietario' ? 'propietario_id' : 'inquilino_id';
+    // El condominio sale de la unidad: si no viene en el cuerpo, se toma el de la unidad (la ficha puede estar vacía).
+    const unidad = await assertRef(prisma.unidad, out.unidad_id, scopeUnidades(user), 'unidad_id', out.complejo_id != null ? { complejo_id: out.complejo_id } : {});
+    const dueno = unidad![campo] as number | null;
+    if (dueno != null && dueno !== existing?.id) {
       throw invalid(`Datos inválidos: unidad_id: la unidad ya tiene ${rolFinal === 'propietario' ? 'propietario' : 'inquilino'}`, { unidad_id: `Ya tiene ${rolFinal}` });
     }
+    if (out.complejo_id == null && unidad!.complejo_id != null) out.complejo_id = unidad!.complejo_id;
   }
   if (out.password !== undefined) {
     out.password_hash = await bcrypt.hash(out.password, BCRYPT_COST);
@@ -183,6 +186,30 @@ export const usuariosRouter = crudRouter({
     });
   },
   prepareUpdate: (d, u, e) => normalizar(d, u, e),
+  // El departamento (unidad) no es una columna del usuario: es el propietario/inquilino de la unidad. Por eso el update
+  // va en transacción: primero suelta el departamento anterior, luego toma el nuevo.
+  update: async (data, existing) => {
+    const { unidad_id, ...datos } = data as { unidad_id?: number | null } & Record<string, unknown>;
+    const id = existing.id as number;
+    const rolNuevo = (datos.rol ?? existing.rol) as string | null | undefined;
+    const rolViejo = existing.rol as string | null | undefined;
+    const campoNuevo = rolNuevo === 'inquilino' ? 'inquilino_id' : rolNuevo === 'propietario' ? 'propietario_id' : null;
+    const campoViejo = rolViejo === 'inquilino' ? 'inquilino_id' : rolViejo === 'propietario' ? 'propietario_id' : null;
+    return prisma.$transaction(async (tx) => {
+      await tx.usuario.update({ where: { id }, data: datos as never });
+      if (unidad_id !== undefined && campoNuevo) {
+        // El departamento anterior (del rol viejo) se suelta; el nuevo se toma.
+        if (campoViejo && campoViejo !== campoNuevo) await tx.unidad.updateMany({ where: { [campoViejo]: id }, data: { [campoViejo]: null } as never });
+        await tx.unidad.updateMany({ where: { [campoNuevo]: id, ...(unidad_id != null ? { id: { not: unidad_id } } : {}) }, data: { [campoNuevo]: null } as never });
+        if (unidad_id != null) await tx.unidad.update({ where: { id: unidad_id }, data: { [campoNuevo]: id } as never });
+      } else if (unidad_id === undefined && campoViejo && campoNuevo && campoViejo !== campoNuevo) {
+        // Cambió de rol (propietario ↔ inquilino) sin cambiar de departamento: la misma unidad cambia de dueño.
+        const suyas = await tx.unidad.findMany({ where: { [campoViejo]: id }, select: { id: true } });
+        for (const u of suyas) await tx.unidad.update({ where: { id: u.id }, data: { [campoViejo]: null, [campoNuevo]: id } as never });
+      }
+      return tx.usuario.findUniqueOrThrow({ where: { id } });
+    });
+  },
   // Cambiar el rol o la contraseña de alguien cierra sus sesiones abiertas (borrar al usuario las elimina por cascada).
   afterUpdate: async (e, d) => {
     const cambia = (k: string) => d[k] !== undefined && d[k] !== e[k];

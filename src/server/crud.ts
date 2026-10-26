@@ -43,6 +43,8 @@ export interface CrudOptions {
   format?: (items: any[], user: AuthUser) => Promise<any[]> | any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
   /** Reemplaza el create estándar (p. ej. recibos, que generan cargos). Debe devolver la fila creada. */
   create?: (data: Record<string, unknown>, user: AuthUser) => Promise<Record<string, unknown>>;
+  /** Reemplaza el update estándar (p. ej. reasignar el departamento de un residente). Debe devolver la fila actualizada. */
+  update?: (data: Record<string, unknown>, existing: Record<string, unknown>, user: AuthUser) => Promise<Record<string, unknown>>;
 }
 
 /** 'campo' o 'relacion.campo' (anidado) → filtro `contains` sin distinguir mayúsculas. */
@@ -112,7 +114,10 @@ export function crudRouter(o: CrudOptions): Router {
     if (!existing) throw notFound();
     let data = parseBody(updateSchema, req) as Record<string, unknown>;
     if (o.prepareUpdate) data = await o.prepareUpdate(data, user, existing);
-    const row = await o.delegate.update({ where: { id }, data, ...queryArgs(o) });
+    const updated = o.update
+      ? await o.update(data, existing, user)
+      : await o.delegate.update({ where: { id }, data, ...queryArgs(o) });
+    const row = o.update ? await o.delegate.findFirst({ where: { id: updated.id }, ...queryArgs(o) }) : updated;
     if (o.afterUpdate) await o.afterUpdate(existing, data);
     res.locals.entidadId = id;
     res.json((await fmt([row], user))[0]);

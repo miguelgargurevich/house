@@ -147,6 +147,9 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion }: Pro
           }
           if (!hit) { toast.error(`No encontré el departamento «${codigo}» en ese condominio.`); return; }
           body.unidad_id = hit.id;
+        } else {
+          // Se quitó el departamento: el backend suelta la unidad anterior.
+          body.unidad_id = null;
         }
       }
     }
