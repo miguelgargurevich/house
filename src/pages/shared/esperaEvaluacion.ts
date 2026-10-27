@@ -19,6 +19,9 @@ export const AVISO_TARDA_RESIDENTE = 'Lo revisará una persona si la IA no respo
 export const AGOTADA_GESTION = 'La IA no respondió a tiempo. Puedes reintentar o validarlo tú.';
 export const AGOTADA_RESIDENTE = 'Tu comprobante quedó en revisión: la administración lo validará.';
 
+/** El motivo que deja el servidor cuando el condominio no tiene el módulo de IA (`MOTIVO_SIN_MODULO` en `services/evaluacion.ts`): no es un fallo. */
+export const esMotivoSinModulo = (motivo: string | null | undefined): boolean => /^Disponible con el módulo/i.test(motivo ?? '');
+
 type EstadoEv = 'pendiente' | 'completada' | 'error' | 'no_disponible';
 
 /** Mensaje para quien valida cuando la evaluación no dio resultado (error, sin IA o sin respuesta a tiempo). */

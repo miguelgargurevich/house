@@ -16,6 +16,7 @@ export const MENSAJE_ERROR = {
 /** Del código de estado (y del texto que mandó el servidor) a una causa. Los mensajes propios del servidor (validación, modelo fijo) se respetan. */
 export function errorDeRespuesta(status: number, mensajeServidor?: string): ErrorChat {
   if (status === 401) return { causa: 'sesion', mensaje: MENSAJE_ERROR.sesion };
+  if (status === 403 && /asistente activo/i.test(mensajeServidor ?? '')) return { causa: 'sin_modulo', mensaje: mensajeServidor! }; // módulo «Asistente con IA» apagado: no se reintenta
   if (status === 429) return /saturad|cuota/i.test(mensajeServidor ?? '') ? { causa: 'saturado', mensaje: MENSAJE_ERROR.saturado } : { causa: 'limite_uso', mensaje: MENSAJE_ERROR.limite_uso };
   if (status === 504 || status === 408) return { causa: 'tiempo', mensaje: MENSAJE_ERROR.tiempo };
   if (status === 500 && /no está configurada/i.test(mensajeServidor ?? '')) return { causa: 'no_configurado', mensaje: MENSAJE_ERROR.no_configurado };

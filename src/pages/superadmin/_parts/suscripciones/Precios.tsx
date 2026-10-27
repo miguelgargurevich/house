@@ -1,0 +1,142 @@
+import { useEffect, useState } from 'react';
+import { api, errorText, useResource } from '../../../../api';
+import { Alert, Button, Card, CardBody, CardHeader, ErrorState, Input, Skeleton, Textarea, soles, useToast } from '../../../../ui';
+import { MODULO_NOMBRE, type ModuloClave } from '../../../shared/_parts/comercial';
+
+interface Modulo { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; activo: boolean }
+interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean }
+interface Config {
+  igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean;
+  pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
+}
+interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config }
+
+/** Precio base → lo que ve el público (base × (1 + tasa)). Sólo para mostrar junto al campo; el servidor es quien lo aplica de verdad. */
+const conIgv = (base: string, tasa: string): string => {
+  const n = Number(base);
+  return Number.isFinite(n) ? soles(Math.round(n * (1 + Number(tasa)) * 100) / 100) : '—';
+};
+
+function FilaModulo({ m, tasa, onGuardado }: { m: Modulo; tasa: string; onGuardado: () => void }) {
+  const toast = useToast();
+  const [precio, setPrecio] = useState(m.precio_por_unidad);
+  const [activo, setActivo] = useState(m.activo);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setPrecio(m.precio_por_unidad); setActivo(m.activo); }, [m]);
+  async function guardar() {
+    setBusy(true);
+    try { await api(`/api/comercial/modulos/${m.clave}`, { method: 'PUT', json: { precio_por_unidad: precio, activo } }); toast.ok(`«${MODULO_NOMBRE[m.clave as ModuloClave] ?? m.nombre}» actualizado`); onGuardado(); } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
+  }
+  return (
+    <li className="flex flex-wrap items-end gap-3 py-3">
+      <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{m.nombre}</p><p className="text-xs text-muted">Se muestra al público: <span className="num">{conIgv(precio, tasa)}</span> por depto al mes</p></div>
+      <Input label="Precio base (S/, sin IGV)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
+      <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={activo} onChange={e => setActivo(e.target.checked)} />A la venta</label>
+      <Button size="sm" loading={busy} onClick={() => void guardar()}>Guardar</Button>
+    </li>
+  );
+}
+
+function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: () => void }) {
+  const toast = useToast();
+  const [precio, setPrecio] = useState(p.precio_por_unidad);
+  const [visible, setVisible] = useState(p.visible);
+  const [carac, setCarac] = useState(p.caracteristicas.join('\n'));
+  const [modulos, setModulos] = useState(p.modulos_incluidos);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setPrecio(p.precio_por_unidad); setVisible(p.visible); setCarac(p.caracteristicas.join('\n')); setModulos(p.modulos_incluidos); }, [p]);
+  async function guardar() {
+    setBusy(true);
+    try {
+      await api(`/api/comercial/planes/${p.clave}`, { method: 'PUT', json: { precio_por_unidad: precio, visible, modulos_incluidos: modulos, caracteristicas: carac.split('\n').map(x => x.trim()).filter(Boolean) } });
+      toast.ok(`Plan ${p.nombre} actualizado`);
+      onGuardado();
+    } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
+  }
+  return (
+    <li className="space-y-3 py-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{p.nombre}</p><p className="text-xs text-muted">Se muestra al público: <span className="num">{conIgv(precio, tasa)}</span> por depto al mes</p></div>
+        <Input label="Precio base (S/, sin IGV)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
+        <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={visible} onChange={e => setVisible(e.target.checked)} />Visible</label>
+      </div>
+      <fieldset>
+        <legend className="text-xs text-muted">Módulos que trae</legend>
+        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+          {(Object.keys(MODULO_NOMBRE) as ModuloClave[]).map(m => (
+            <label key={m} className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={modulos.includes(m)} onChange={() => setModulos(x => (x.includes(m) ? x.filter(c => c !== m) : [...x, m]))} />{MODULO_NOMBRE[m]}</label>
+          ))}
+        </div>
+      </fieldset>
+      <Textarea label="Viñetas de la página de precios (una por línea)" value={carac} onChange={e => setCarac(e.target.value)} rows={4} />
+      <Button size="sm" loading={busy} onClick={() => void guardar()}>Guardar plan</Button>
+    </li>
+  );
+}
+
+function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void }) {
+  const toast = useToast();
+  const [f, setF] = useState({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento) });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setF({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento) }); }, [c]);
+  const t = (k: keyof Config) => ({ value: (f[k] as string | null) ?? '', onChange: (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value })) });
+  async function guardar() {
+    setBusy(true); setError(null);
+    try {
+      await api('/api/comercial/configuracion', { method: 'PUT', json: { ...f, dias_gracia: Number(f.dias_gracia), dias_aviso_vencimiento: Number(f.dias_aviso_vencimiento) } });
+      toast.ok('Configuración guardada');
+      onGuardado();
+    } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
+  return (
+    <div className="space-y-4">
+      {error && <Alert tone="bad">{error}</Alert>}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Input label="Tasa de IGV" inputMode="decimal" hint="0.18 = 18 %" {...t('igv_tasa')} />
+        <Input label="Días de gracia" type="number" min={0} max={90} {...t('dias_gracia')} />
+        <Input label="Avisar de vencimiento (días antes)" type="number" min={1} max={60} {...t('dias_aviso_vencimiento')} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input label="Correo para avisos (registros y solicitudes)" type="email" {...t('correo_superadmin')} />
+        <Input label="URL pública (enlaces de los correos)" placeholder="https://house.gargurevich.dev" {...t('url_publica')} />
+      </div>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={f.registro_abierto} onChange={e => setF(x => ({ ...x, registro_abierto: e.target.checked }))} />Registro público abierto</label>
+      <h3 className="pt-2 text-sm font-semibold">Datos de pago (los ve el cliente en Mi plan)</h3>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input label="Titular" {...t('pago_titular')} />
+        <Input label="Banco" {...t('pago_banco')} />
+        <Input label="Cuenta" {...t('pago_cuenta')} />
+        <Input label="CCI" {...t('pago_cci')} />
+        <Input label="Yape" {...t('pago_yape')} />
+      </div>
+      <Textarea label="Instrucciones" maxLength={500} {...t('pago_instrucciones')} />
+      <Button loading={busy} onClick={() => void guardar()}>Guardar configuración</Button>
+    </div>
+  );
+}
+
+/** Precios (base, sin IGV), planes, plazos y datos de pago: todo se edita aquí; nada vive en el código ni en variables de entorno. */
+export function PreciosYPagos() {
+  const { data, loading, error, reload } = useResource<Catalogo>('/api/comercial/catalogo');
+  if (loading && !data) return <Skeleton className="h-64 w-full" />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+  if (!data) return null;
+  const tasa = data.configuracion.igv_tasa;
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader title="Módulos" description="Precio BASE por departamento al mes (lo que tú ganas). Al público se le muestra con IGV." />
+        <CardBody><ul className="divide-y divide-line">{data.modulos.map(m => <FilaModulo key={m.clave} m={m} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
+      </Card>
+      <Card>
+        <CardHeader title="Planes" description="Gratis y cortesía no cobran. Un plan oculto no sale en la página de precios." />
+        <CardBody><ul className="divide-y divide-line">{data.planes.map(p => <FilaPlan key={p.clave} p={p} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
+      </Card>
+      <Card>
+        <CardHeader title="IGV, plazos y datos de pago" />
+        <CardBody><Configuracion c={data.configuracion} onGuardado={reload} /></CardBody>
+      </Card>
+    </div>
+  );
+}

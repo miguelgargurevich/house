@@ -5,8 +5,9 @@ import { Alert, Badge, Button, Spinner, fechaCorta, soles } from '../../ui';
 import type { Tone } from '../../ui';
 import {
   AVISO_TARDA_GESTION, AVISO_TARDA_MS, AVISO_TARDA_RESIDENTE, INTERVALO_EVALUACION_MS,
-  estaEvaluando, etiquetaReintento, faseDeEspera, mensajeSinResultado,
+  esMotivoSinModulo, estaEvaluando, etiquetaReintento, faseDeEspera, mensajeSinResultado,
 } from './esperaEvaluacion';
+import { AvisoModulo } from './_parts/AvisoModulo';
 import type { FaseEspera } from './esperaEvaluacion';
 
 // ---------- Lo que ve quien valida (admin y junta) ----------
@@ -74,6 +75,8 @@ interface Props {
 export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, puedeReevaluar, reevaluando, onReevaluar, errorReevaluar, fase = 'normal' }: Props) {
   const evaluando = estaEvaluando(ev?.estado, reevaluando, fase);
   const sinResultado = evaluando ? null : ev ? mensajeSinResultado(ev.estado, ev.error, fase === 'agotada') : null;
+  // Condominio sin el módulo de IA: no es un fallo, es un plan; se dice así y no se ofrece «Reintentar».
+  const sinModulo = !evaluando && ev?.estado === 'no_disponible' && esMotivoSinModulo(ev.error);
   const x = ev?.estado === 'completada' ? ev.extraido : null;
   const c = ev?.estado === 'completada' ? ev.coincidencias : null;
   const filas: { etiqueta: string; detectado: string | null; esperado?: string; ok: Comprobacion }[] = x && c ? [
@@ -95,7 +98,8 @@ export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, 
       {!ev && !evaluando && <p className="mt-2 text-sm text-muted">Aún no se evaluó este comprobante.</p>}
       {evaluando && <p className="mt-2 flex items-center gap-2 text-sm text-muted" role="status"><Spinner />Leyendo el comprobante…</p>}
       {evaluando && fase === 'tarda' && <div className="mt-2"><Alert tone="warn">{AVISO_TARDA_GESTION}</Alert></div>}
-      {sinResultado && <div className="mt-2"><Alert tone="warn">{sinResultado}</Alert></div>}
+      {sinModulo && <AvisoModulo modulo="ia_vouchers" className="mt-2" />}
+      {sinResultado && !sinModulo && <div className="mt-2"><Alert tone="warn">{sinResultado}</Alert></div>}
 
       {!evaluando && filas.length > 0 && (
         <>
@@ -135,7 +139,7 @@ export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, 
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted">{validadoPorIA ? 'Validado automáticamente por la IA.' : 'La IA ayuda; la decisión final es tuya.'}</p>
-        {puedeReevaluar && <Button size="sm" variant="secondary" loading={evaluando} onClick={onReevaluar}>{etiquetaReintento(ev?.estado, fase)}</Button>}
+        {puedeReevaluar && !sinModulo && <Button size="sm" variant="secondary" loading={evaluando} onClick={onReevaluar}>{etiquetaReintento(ev?.estado, fase)}</Button>}
       </div>
     </section>
   );

@@ -1,9 +1,10 @@
 import { Badge, Card, CardBody, CardHeader, Skeleton } from '../../../../ui';
 import { Link } from 'react-router-dom';
 import { useResource } from '../../../../api';
+import { AvisoModulo } from '../../../shared/_parts/AvisoModulo';
 
 type Canal = 'email' | 'whatsapp';
-type Estado = Record<Canal, { configurado: boolean; faltan: string[]; sinNumero?: boolean }>;
+type Estado = Record<Canal, { configurado: boolean; faltan: string[]; sinNumero?: boolean }> & { sin_modulo_whatsapp?: boolean };
 
 const NOMBRE: Record<Canal, { titulo: string; detalle: string }> = {
   email: { titulo: 'Correo', detalle: 'Se envía por Resend.' },
@@ -38,6 +39,7 @@ export function Canales() {
             ))}
           </ul>
         )}
+        {data?.sin_modulo_whatsapp && <AvisoModulo modulo="whatsapp_avisos" className="mt-4" />}
       </CardBody>
     </Card>
   );

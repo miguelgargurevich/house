@@ -149,6 +149,16 @@ describe('Mi plan: cada empresa ve y cambia sólo lo suyo (otro tenant → 404)'
   });
 });
 
+describe('aviso «Disponible con el módulo» en Avisos › Canales', () => {
+  it('el admin sin el módulo de WhatsApp lo ve (sin_modulo_whatsapp); con el módulo no; el superadmin nunca', async () => {
+    assert.equal((await llamar(base, 'GET', '/api/notificaciones/canales', T.adminA)).body.sin_modulo_whatsapp, true);
+    await fijar(d.complejoA.id, { plan_clave: 'gratis', modulos: ['whatsapp_avisos'], vigente_hasta: new Date(HOY + 20 * DIA) });
+    assert.equal((await llamar(base, 'GET', '/api/notificaciones/canales', T.adminA)).body.sin_modulo_whatsapp, false);
+    assert.equal((await llamar(base, 'GET', '/api/notificaciones/canales', T.adminB)).body.sin_modulo_whatsapp, true, 'otra empresa: su propio plan');
+    assert.equal((await llamar(base, 'GET', '/api/notificaciones/canales', T.super)).body.sin_modulo_whatsapp, false);
+  });
+});
+
 describe('Suscripciones y precios: sólo el superadmin (403 al resto)', () => {
   const rutas: [string, string, unknown][] = [
     ['GET', '/api/comercial/suscripciones', undefined],

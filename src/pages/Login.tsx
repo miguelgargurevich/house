@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ReceiptPercentIcon, SparklesIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 import { HOME, useAuth } from '../auth/AuthContext';
 import { Alert, Button, Input } from '../ui';
-import { errorText } from '../api';
+import { api, ApiError, errorText } from '../api';
 
 const DEMO = [
   ['Superadmin', 'miguel.gargurevich@admin.com', 'admin1234'],
@@ -23,19 +23,33 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sinVerificar, setSinVerificar] = useState(false);
+  const [reenviado, setReenviado] = useState(false);
 
   if (user) return <Navigate to={HOME[user.rol]} replace />;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setSinVerificar(false);
+    setReenviado(false);
     setBusy(true);
     try {
       const u = await login(email.trim(), password);
       nav(HOME[u.rol], { replace: true });
     } catch (err) {
       setError(errorText(err));
+      setSinVerificar(err instanceof ApiError && err.code === 'CORREO_NO_VERIFICADO');
     } finally { setBusy(false); }
+  }
+
+  async function reenviar() {
+    try {
+      await api('/api/publico/reenviar-verificacion', { method: 'POST', json: { email: email.trim() } });
+      setReenviado(true);
+    } catch (err) {
+      setError(errorText(err));
+    }
   }
 
   return (
@@ -54,10 +68,15 @@ export default function Login() {
 
           <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
             {error && <Alert tone="bad">{error}</Alert>}
+            {sinVerificar && (reenviado
+              ? <Alert tone="ok">Listo: si tu cuenta está pendiente, te enviamos un enlace nuevo. Revisa tu correo.</Alert>
+              : <Button variant="secondary" className="w-full" onClick={() => void reenviar()}>Reenviarme el enlace de confirmación</Button>)}
             <Input label="Correo electrónico" type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} />
             <Input label="Contraseña" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} />
             <Button type="submit" loading={busy} className="w-full" disabled={!email || !password}>Ingresar</Button>
           </form>
+
+          <p className="mt-6 text-center text-sm text-muted">¿Primera vez? <Link to="/registro" className="font-medium text-brand underline">Crea tu cuenta gratis</Link> · <Link to="/precios" className="font-medium text-brand underline">Ver precios</Link></p>
 
           {import.meta.env.DEV && (
             <div className="mt-8 border-t border-line pt-5">

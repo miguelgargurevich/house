@@ -8,7 +8,7 @@ import { chatOk, instalarIA } from './helpers/ia';
 import { hoyLima } from '../src/server/lib/fechas';
 import { procesarCola } from '../src/server/services/avisos/cola';
 import type { DepsAvisos } from '../src/server/services/avisos/canales';
-import { barrerEvaluaciones, esperarEvaluaciones, MOTIVO_SIN_MODULO } from '../src/server/services/evaluacion';
+import { barrerEvaluaciones, esperarEvaluaciones, iniciarEvaluacion, MOTIVO_SIN_MODULO } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
 import { atenderMensaje } from '../src/server/services/canales/entrante';
@@ -104,6 +104,21 @@ describe('módulo «IA que lee y valida vouchers»', () => {
     const v = await llamar(base, 'PATCH', `/api/pagos/${pagoId}/validacion`, T.adminA, { estado: 'validado' });
     assert.equal(v.status, 200, v.texto);
     assert.equal(v.body.validado_por_ia ?? false, false);
+  });
+
+  it('iniciarEvaluacion sin módulo no arranca nada en segundo plano (false) y la marca queda «no disponible» al instante; con módulo arranca (true)', async () => {
+    const pagoId = await pagoConVoucher();
+    await esperarEvaluaciones();
+    llamadasIA = [];
+    await fijarPlan('gratis');
+    assert.equal(await iniciarEvaluacion(pagoId, 'subida'), false);
+    assert.equal(llamadasIA.length, 0);
+    const ev = await prisma.evaluacionComprobante.findUniqueOrThrow({ where: { pago_id: pagoId } });
+    assert.deepEqual({ estado: ev.estado, intentos: ev.intentos, error: ev.error }, { estado: 'no_disponible', intentos: 0, error: MOTIVO_SIN_MODULO }, 'sin pasar por «pendiente»: la pantalla no muestra «Evaluando…»');
+    await fijarPlan('cortesia');
+    assert.equal(await iniciarEvaluacion(pagoId, 'subida'), true);
+    await esperarEvaluaciones();
+    assert.equal((await prisma.evaluacionComprobante.findUniqueOrThrow({ where: { pago_id: pagoId } })).estado, 'completada');
   });
 
   it('sin el módulo, aunque el condominio tenga la validación automática encendida, no valida sola', async () => {

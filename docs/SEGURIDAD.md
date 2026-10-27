@@ -187,6 +187,25 @@ Pantallas `/admin/medios-pago` y `/junta/*`, API `/api/medios-pago`. Código en 
 - **Auditoría**: `evaluar_comprobante` (estado, intento, proveedor, modelo, veredicto, confianza), `reevaluar_comprobante` (origen manual) y `validar` por IA; nunca la imagen ni el texto del modelo ni lo leído.
 - **Riesgo aceptado**: la lectura de un modelo de visión puede equivocarse; por eso la autovalidación exige coincidencia exacta de monto, destino y fecha y está apagada por defecto. Un voucher falso que reproduzca bien monto, destino y fecha pasaría la lectura: la IA no verifica contra el banco. Quien active la validación automática asume ese riesgo.
 
+## Registro público, planes y cobro manual (27-oct-2026)
+
+**Superficie nueva SIN sesión** (`/api/publico/*`, antes de `authenticate`; no pasa por la auditoría genérica, registra a mano):
+
+- `GET /planes` y `GET /cotizar`: sólo precios **con IGV** (el precio base —lo que gana Miguel— no sale), nombres de planes y módulos. Nunca datos de pago, correos ni cuentas. Probado: la respuesta no contiene ningún dato de `ConfiguracionComercial` fuera de `registro_abierto`.
+- `POST /registro`: crea EN UNA TRANSACCIÓN `EmpresaAdministradora` + `Usuario(admin)` + `ComplejoHabitacional` (con su contrato y suscripción Gratis) y un token de verificación. Defensas:
+  - **Verificación de correo obligatoria**: el usuario nace con `correo_verificado = false`; `POST /auth/login` responde 403 `CORREO_NO_VERIFICADO` (sólo si la contraseña es correcta; con la mala sigue el 401 de siempre) y no crea sesión. Las cuentas existentes y las que crea el superadmin tienen `true`.
+  - **Token de un solo uso**: 32 bytes aleatorios (base64url) en el enlace; en la base sólo el SHA-256; vence a las 24 h; se consume con un `UPDATE … WHERE usado_at IS NULL AND expira_at > ahora` (dos clics a la vez → uno solo gana). Inexistente, vencido o usado dan el MISMO 400 `ENLACE_INVALIDO`.
+  - **Sin enumerar correos**: correo nuevo o ya registrado → el mismo 202 y el mismo cuerpo; el hash bcrypt se calcula siempre (el tiempo no delata); a la dueña de un correo ya registrado se le avisa por correo («ya tienes una cuenta»), a quien dejó una cuenta sin verificar se le manda otro enlace. Dos registros simultáneos con el mismo correo: el segundo hace rollback completo (sin empresas huérfanas).
+  - **Límites** (en memoria del proceso, como el resto): 5 registros por hora por IP, 3 por hora por correo (cuenta exista o no), 20 verificaciones por 15 min por IP. El reenvío comparte los límites del registro y espera 60 s entre envíos por cuenta.
+  - **Señuelo** (`sitio_web`, campo oculto): lleno ⇒ mismo 202 sin crear nada. Campos con tope de largo (nombre 120, empresa y condominio 160, celular 30, contraseña 72), departamentos 1–5000, contraseña con las reglas de `passwordSchema` y distinta del correo.
+  - **Interruptor**: `ConfiguracionComercial.registro_abierto = false` ⇒ 503.
+  - El enlace del correo sale de `ConfiguracionComercial.url_publica` (base de datos), **nunca** de la cabecera `Host` (enlaces envenenables). Auditoría: `registro_publico` y `verificar_correo` con el correo enmascarado.
+- **Riesgo aceptado**: el registro envía un correo por intento válido (acotado por los límites). Sin CAPTCHA por ahora; si hay abuso real, agregarlo delante de `/registro`.
+
+**Puerta por módulo** (`services/comercial/modulos.ts`): una sola función decide si un condominio tiene un módulo; la usan la evaluación con IA (sin módulo no se llama a la IA ni al OCR), los avisos por WhatsApp/Telegram (se omiten) y el asistente web y los bots (403 `MODULO_NO_ACTIVO`). Vencida pasada la gracia = Gratis; **nunca se borra ni se bloquea un dato**. Un condominio sin fila de suscripción cuenta como Gratis (falla cerrado). Caché por proceso de 30 s invalidada en cada escritura (con varias réplicas, un cambio tarda hasta 30 s en verse en las demás).
+
+**Mi plan / Suscripciones**: Mi plan es sólo del rol `admin` y usa `scopeComplejos` (otra empresa ⇒ 404, no 403); el superadmin usa Suscripciones (los endpoints de Mi plan le responden 403). Registrar pagos, cambiar plan o módulos, editar precios y datos de pago: sólo `superadmin` (403 al resto, 401 sin sesión). Todo queda en `Auditoria`; en la edición de la configuración sólo se guarda QUÉ campos cambiaron (los datos bancarios no van al detalle). Una solicitud del cliente NO activa nada: sólo el pago registrado por el superadmin.
+
 ## Riesgos aceptados
 - Ninguno abierto por ahora. El antiguo «token en `localStorage` / sin revocación» está cerrado por las sesiones de arriba.
 

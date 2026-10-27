@@ -48,6 +48,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
         { to: '/superadmin/usuarios', label: 'Usuarios del sistema', icon: UsersIcon },
         { to: '/superadmin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
         { to: '/superadmin/llavero', label: 'Llavero de IA', icon: LockClosedIcon },
+        { to: '/superadmin/suscripciones', label: 'Suscripciones', icon: CreditCardIcon },
       ],
     },
   ],
@@ -58,7 +59,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
     ] },
     { label: 'Cobranza', items: cobranza },
     { label: 'Operación', items: operacion },
-    { label: 'Cuenta', items: [{ to: '/admin/configuracion', label: 'Mi empresa', icon: Cog6ToothIcon }] },
+    { label: 'Cuenta', items: [{ to: '/admin/configuracion', label: 'Mi empresa', icon: Cog6ToothIcon }, { to: '/admin/mi-plan', label: 'Mi plan', icon: CreditCardIcon }] },
   ],
   propietario: [
     { items: [

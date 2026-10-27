@@ -81,7 +81,7 @@ export function Mensajes({ mensajes, verMetricas, onNavegar, onCopiar, onEditar,
             {m.estado === 'error' && m.error && (
               <div className={cx('select-text', m.texto ? 'mt-2' : undefined)}>
                 <Alert tone="bad">{m.error.mensaje}</Alert>
-                {i === ultimo && (
+                {i === ultimo && m.error.causa !== 'sin_modulo' && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {m.error.causa === 'modelo' ? (
                       <>

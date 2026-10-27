@@ -21,7 +21,7 @@ export interface OpcionesChat {
   max_tokens: number;
 }
 
-export type CausaError = 'no_configurado' | 'saturado' | 'limite_uso' | 'sin_conexion' | 'tiempo' | 'caido' | 'cortada' | 'sesion' | 'modelo' | 'otro';
+export type CausaError = 'no_configurado' | 'saturado' | 'limite_uso' | 'sin_conexion' | 'tiempo' | 'caido' | 'cortada' | 'sesion' | 'modelo' | 'sin_modulo' | 'otro';
 export interface ErrorChat { causa: CausaError; mensaje: string }
 
 export interface MensajeChat {

@@ -16,7 +16,11 @@ export const csrfHeader = (): Record<string, string> => (csrf ? { 'X-CSRF-Token'
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) { super(message); this.status = status; }
+  /** Código estable del servidor (p. ej. `MODULO_NO_ACTIVO`, `CORREO_NO_VERIFICADO`) para que la pantalla reaccione sin leer el texto. */
+  code?: string;
+  /** Con `MODULO_NO_ACTIVO`: qué módulo falta. */
+  modulo?: string;
+  constructor(message: string, status: number, code?: string, modulo?: string) { super(message); this.status = status; this.code = code; this.modulo = modulo; }
 }
 
 let onUnauthorized: (() => void) | null = null;
@@ -37,7 +41,7 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
   if (!res.ok) {
     if (res.status === 401 && csrf) onUnauthorized?.(); // la sesión se perdió (vencida, revocada o cerrada en otro lado)
     const msg = typeof data?.error === 'string' ? data.error : data?.error?.message ?? 'No se pudo completar la operación';
-    throw new ApiError(msg, res.status);
+    throw new ApiError(msg, res.status, typeof data?.code === 'string' ? data.code : undefined, typeof data?.modulo === 'string' ? data.modulo : undefined);
   }
   return data as T;
 }

@@ -1,10 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, HOME, useAuth } from './auth/AuthContext';
 import { RequireAuth, RequireJunta, RequireRole } from './auth/guards';
 import { Shell } from './app/Shell';
 import { ToastProvider, Skeleton } from './ui';
 import Login from './pages/Login';
+import Portada from './pages/publico/Portada';
 
 const SuperadminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
 const SuperadminEmpresas = lazy(() => import('./pages/superadmin/Empresas'));
@@ -12,6 +13,11 @@ const SuperadminEmpresaDetalle = lazy(() => import('./pages/superadmin/EmpresaDe
 const SuperadminUsuarios = lazy(() => import('./pages/superadmin/Usuarios'));
 const SuperadminAuditoria = lazy(() => import('./pages/superadmin/Auditoria'));
 const SuperadminLlavero = lazy(() => import('./pages/superadmin/Llavero'));
+const SuperadminSuscripciones = lazy(() => import('./pages/superadmin/Suscripciones'));
+const Precios = lazy(() => import('./pages/publico/Precios'));
+const Registro = lazy(() => import('./pages/publico/Registro'));
+const VerificarCorreo = lazy(() => import('./pages/publico/VerificarCorreo'));
+const AdminMiPlan = lazy(() => import('./pages/admin/MiPlan'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminComplejos = lazy(() => import('./pages/admin/Complejos'));
 const AdminCondominioDetalle = lazy(() => import('./pages/admin/CondominioDetalle'));
@@ -48,8 +54,11 @@ function Fallback() {
 
 function Landing() {
   const { user, loading } = useAuth();
+  const { pathname } = useLocation();
   if (loading) return null;
-  return <Navigate to={user ? HOME[user.rol] : '/login'} replace />;
+  // Sin sesión, la raíz es la portada; cualquier otra ruta desconocida lleva al inicio de sesión.
+  if (!user) return pathname === '/' ? <Portada /> : <Navigate to="/login" replace />;
+  return <Navigate to={HOME[user.rol]} replace />;
 }
 
 export default function App() {
@@ -60,6 +69,9 @@ export default function App() {
           <Suspense fallback={<div className="p-8"><Fallback /></div>}>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/registro" element={<Registro />} />
+              <Route path="/precios" element={<Precios />} />
+              <Route path="/verificar-correo" element={<VerificarCorreo />} />
               <Route element={<RequireAuth />}>
                 <Route element={<Shell />}>
         <Route element={<RequireRole roles={['superadmin']} />}>
@@ -69,6 +81,7 @@ export default function App() {
           <Route path="/superadmin/usuarios" element={<SuperadminUsuarios />} />
           <Route path="/superadmin/auditoria" element={<SuperadminAuditoria />} />
           <Route path="/superadmin/llavero" element={<SuperadminLlavero />} />
+          <Route path="/superadmin/suscripciones" element={<SuperadminSuscripciones />} />
         </Route>
         <Route element={<RequireRole roles={['superadmin','admin']} />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
@@ -88,6 +101,9 @@ export default function App() {
           <Route path="/admin/avisos" element={<AdminAvisos />} />
           <Route path="/admin/medios-pago" element={<AdminMediosPago />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsappSync />} />
+        </Route>
+        <Route element={<RequireRole roles={['admin']} />}>
+          <Route path="/admin/mi-plan" element={<AdminMiPlan />} />
         </Route>
         <Route element={<RequireJunta />}>
           <Route path="/junta/medios-pago" element={<AdminMediosPago />} />

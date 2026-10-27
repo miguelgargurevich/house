@@ -223,3 +223,37 @@ Tabla nueva `ConfiguracionTelegram` (fila única: `token_enc`, `ultimos4`, `bot_
 
 ### Esquema de WhatsApp (aditivo)
 Tablas nuevas `CanalVinculado`, `CodigoVinculacion`, `CanalWebhook`, `MensajeCanal`, `CanalPendiente` (ver `prisma/schema.prisma`); ninguna columna existente cambia.
+
+## Comercial: planes, módulos por condominio y cobro manual (27-oct-2026)
+
+Montos: `string` con 2 decimales, en soles. **Precios BASE (sin IGV) en la base; al público siempre con IGV** (`base × (1 + igv_tasa)`, 2 decimales). Un total se calcula sobre la base y el IGV se aplica UNA vez (`Cotizacion`: `base`, `igv`, `total_mes`, `total_anio`, `igv_tasa`).
+
+Error de módulo apagado: **403** `{ error, code: 'MODULO_NO_ACTIVO', modulo: 'ia_vouchers' | 'whatsapp_avisos' | 'asistente' }` (el chat de IA lo da como `{ error: { code, message }, code, modulo }`). Login de cuenta sin verificar: **403** `{ error, code: 'CORREO_NO_VERIFICADO' }`.
+
+### Público (sin sesión ni CSRF) — `/api/publico`
+- `GET /planes` → `{ moneda: 'PEN', igv_incluido: true, planes: [{ clave, nombre, descripcion, precio_por_unidad (con IGV), modulos_incluidos, caracteristicas }], modulos: [{ clave, nombre, descripcion, precio_por_unidad (con IGV) }], registro_abierto }`. Sólo planes visibles y módulos a la venta.
+- `GET /cotizar?unidades=N&plan=pro&modulos=a,b` → `{ unidades, total_mes, total_anio, igv_incluido: true }`. 422 si el plan no existe o no es visible.
+- `POST /registro` `{ nombre, email, celular, password, empresa, condominio, unidades, sitio_web? }` → **202** `{ mensaje }` SIEMPRE el mismo (exista o no el correo). 422 campos inválidos; 429 límites; 503 registro cerrado.
+- `POST /verificar-correo` `{ token }` → 200 `{ ok: true }` · 400 `ENLACE_INVALIDO` (inexistente, vencido o usado).
+- `POST /reenviar-verificacion` `{ email }` → 202 `{ mensaje }` (igual exista o no).
+
+### Mi plan — `/api/comercial/mi-plan` (sólo rol `admin`; otra empresa → 404; superadmin y demás → 403)
+- `GET /mi-plan` → `{ condominios: VistaSuscripcion[], pagar: { titular, banco, cuenta, cci, yape, instrucciones, igv_tasa, dias_gracia }, catalogo }`.
+  `VistaSuscripcion`: `complejo_id, complejo, empresa, plan { clave, nombre }, modulos_activos, modulos_sueltos, estado ('gratis'|'solicitada'|'activa'|'por_vencer'|'vencida'), vigente_hasta, dias_para_vencer, en_gracia, unidades_facturables (en vivo), cotizacion, solicitud { plan, modulos, en, cotizacion } | null, referencia_pago ('HOUSE-<id>-<AAAAMM>')`.
+- `POST /mi-plan/:complejoId/solicitud` `{ plan?: 'pro'|'administradora', modulos?: [...] }` → vista. Deja la suscripción en `solicitada` y avisa por correo al superadmin; NO activa nada. 422 si no pide nada o pide algo no disponible.
+- `DELETE /mi-plan/:complejoId/solicitud` → 204.
+- `GET /mi-plan/:complejoId/pagos` → `{ items: [{ id, base, igv, monto, fecha_pago, medio, operacion, periodo_desde, periodo_hasta, ... }] }`.
+
+### Suscripciones y precios — `/api/comercial` (sólo superadmin; 403 al resto, 401 sin sesión; todo auditado)
+- `GET /suscripciones?estado=&q=&empresa_id=&page=&pageSize=` → lista paginada de `VistaSuscripcion` (con `notas`), «solicitada» y «por_vencer» primero.
+- `PATCH /suscripciones/:complejoId` `{ plan_clave?, modulos?, vigente_hasta? (null = no vence), notas? }`. Elegir plan o módulos resuelve la solicitud.
+- `POST /suscripciones/:complejoId/pagos` `{ monto (con IGV), fecha_pago, medio ('transferencia'|'yape'|'plin'|'efectivo'|'otro'), operacion?, periodo_desde, periodo_hasta, voucher_ref?, notas? }` → **201** `{ pago, suscripcion }`. Extiende `vigente_hasta` hasta `periodo_hasta` (nunca lo acorta), activa lo solicitado, desglosa base + IGV con la tasa vigente. 409: misma operación repetida, o condominio en Gratis sin módulos / cortesía. `GET` del mismo path → historial.
+- `GET /catalogo` → `{ planes, modulos, configuracion }` con precios BASE. `PUT /modulos/:clave` `{ nombre?, descripcion?, precio_por_unidad?, activo? }` · `PUT /planes/:clave` `{ nombre?, descripcion?, precio_por_unidad?, modulos_incluidos?, caracteristicas?, igv_incluido?, visible? }` · `PUT /configuracion` `{ igv_tasa?, dias_gracia?, dias_aviso_vencimiento?, correo_superadmin?, url_publica?, registro_abierto?, pago_* }`.
+
+### Otros cambios
+- `GET /api/notificaciones/canales` agrega `sin_modulo_whatsapp: boolean`.
+- Avisos por WhatsApp sin módulo: `Notificacion.estado = 'omitida'`, `error = 'Plan sin WhatsApp'` (Telegram: `'Plan sin asistente'`). La evaluación sin módulo de IA queda `no_disponible` con el motivo «Disponible con el módulo «IA que lee y valida vouchers»…».
+- `POST /api/pagos/:id/evaluacion` sin el módulo → 403 `MODULO_NO_ACTIVO`.
+
+### Esquema (aditivo)
+`ModuloComercial`, `PlanComercial`, `SuscripcionCondominio` (`complejo_id` único; `plan_clave`, `modulos`, `estado`, `vigente_hasta`, solicitud, marcas de avisos por periodo, `proveedor_pago`/`proveedor_ref` reservados para el cobro con tarjeta), `PagoSuscripcion`, `ConfiguracionComercial` (fila id = 1), `TokenVerificacionCorreo`, `Usuario.correo_verificado` (default true).

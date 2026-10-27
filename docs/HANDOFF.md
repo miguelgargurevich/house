@@ -4,6 +4,45 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Comercial v1: planes, módulos por condominio, registro público y cobro manual
+
+**Pedido de Miguel (textual):** «revisa el proyecto de invoice, busca la seccion comercial para que los usuarios se registren .. algo de eso cree y podemos reutilizar para la parte comercial "Comercial Planes, módulos por condominio, página de precios, cobro de la suscripción"» → «Primera versión con cobro manual (transferencia/Yape y la activación la hago yo); el cobro con tarjeta después.»
+
+**Qué se hizo**
+- **Modelo** (aditivo): `ModuloComercial`, `PlanComercial`, `SuscripcionCondominio`, `PagoSuscripcion`, `ConfiguracionComercial` (fila única), `TokenVerificacionCorreo` y `Usuario.correo_verificado` (default `true`). Seed idempotente que SOLO crea lo que falta (no pisa precios editados): módulos IA vouchers S/ 1,00 · WhatsApp S/ 1,00 · Asistente S/ 0,50 (BASE); planes gratis 0 · pro 2,50 · administradora 2,00 · cortesía 0 (oculto). IGV 18 %, gracia 7 días, aviso 5 días antes. `SuscripcionCondominio` y el cobro con tarjeta: `proveedor_pago`/`proveedor_ref` quedan reservados, sin implementar.
+- **Puerta por módulo** (`services/comercial/modulos.ts`, una consulta + caché de 30 s invalidable): IA de vouchers (`evaluacion.ts`: sin módulo no se llama a IA ni a OCR; queda `no_disponible` con motivo; pedirla a mano → 403), avisos por WhatsApp (`avisos/cola.ts`: `omitida` «Plan sin WhatsApp», el correo sigue; Telegram «Plan sin asistente»), asistente web y bots (`prepararTurno` + `atenderMensaje`: «Tu condominio no tiene el asistente activo…»). Vencida pasada la gracia = Gratis; **no se borra ni bloquea ningún dato**.
+- **Registro público** `/registro` → una transacción (empresa + admin + condominio Gratis + contrato + token), correo de verificación obligatorio, sin enumerar correos, límites por IP y por correo, señuelo. Detalle en `SEGURIDAD.md`.
+- **Pantallas**: portada `/`, `/precios` (calculadora y tabla; todo precio sale de la API), `/registro`, `/verificar-correo`, Login con «reenviar enlace», **Mi plan** (admin), **Suscripciones** (superadmin: lista, registrar pago, plan/módulos, historial, precios y datos de pago), avisos «Disponible con el módulo X» en el panel de evaluación, Avisos › Canales y el chat de IA.
+- **Vencimientos** en el ciclo del planificador de avisos (cada 15 min, sólo si `AVISOS_PLANIFICADOR`/producción): correo N días antes, al vencer (con los días de gracia) y al apagarse; idempotente por periodo (`aviso_*_para`).
+- **Migración a cortesía**: al arrancar el servidor, UNA vez (marca `ConfiguracionComercial.migracion_cortesia_at`), los condominios que ya existen pasan a plan `cortesia` con todos los módulos y sin vencimiento → producción se comporta igual que hoy. Manual y en seco: `npx tsx scripts/migrar-comercial.ts --seco` (sin `--seco` aplica).
+- **Pruebas**: +108 (modelo, registro, puertas, API, pantallas). Helper `tests/helpers/app.ts`: `sembrar()` deja los dos condominios en cortesía (como producción) y `darCortesia(...ids)`; `vaciarBase()` re-siembra el catálogo; la caché va en 0 en pruebas.
+
+**Cómo activar un pago (Miguel)**
+1. El cliente pide un plan/módulos en **Mi plan** → te llega un correo (a `correo_superadmin`) con el monto y la referencia `HOUSE-<id>-<AAAAMM>`; en Suscripciones aparece primero como «Solicitada».
+2. Cuando llega su transferencia/Yape: **Suscripciones › Registrar pago** (monto con IGV, fecha, medio, N.º de operación, periodo cubierto). Eso activa lo solicitado y extiende `vigente_hasta` hasta el fin del periodo. Una misma operación no se puede registrar dos veces.
+3. Sin solicitud previa: **Plan** (cambia plan/módulos, con vigencia) y luego Registrar pago. «Vigente hasta» vacío = no vence.
+- Renovar: Registrar pago con el periodo siguiente (se suma al vencimiento actual, nunca lo acorta). Vencida: 7 días de gracia con los módulos encendidos; después se apagan y un pago los vuelve a encender.
+
+**Cómo cambiar precios**: Suscripciones › «Precios y pagos». Precio BASE (sin IGV) por módulo y por plan; al lado se ve lo que verá el público. IGV, días de gracia, aviso, correo de avisos, URL pública y datos de pago en la misma pestaña. Todo en la base (nada en variables de entorno); cambia al instante la página pública y Mi plan.
+
+**POR CONFIRMAR con Miguel (no los inventé)**
+- **IGV 18 %** como tasa vigente y que los precios publicados sean base × 1,18 (S/ 1,18 · 1,18 · 0,59 · Pro 2,95 · Administradora 2,36). Editable en Precios y pagos.
+- **Datos bancarios / Yape reales**: la configuración se crea VACÍA de datos de pago (Mi plan avisa «aún no hay datos»). Cárgalos antes de abrir el registro. Lo mismo con `correo_superadmin` (sin él no llegan los avisos de registros ni solicitudes). `url_publica` arranca en `https://house.gargurevich.dev`: confírmala.
+- **Plan Administradora**: hoy es S/ 2,00 fijo por depto con los tres módulos; el «descuento por volumen» (tramos) NO está modelado.
+- El correo depende de Resend (`RESEND_API_KEY`/`MAIL_FROM`, ya en producción). Sin ellos el registro crea la cuenta pero nadie puede verificar el correo.
+
+**Decisiones / gotchas**
+- Un condominio **sin fila de suscripción es Gratis**: los condominios que se creen DESPUÉS del despliegue (por el superadmin o el admin) NACEN sin módulos de pago; si quieres que sean cortesía, ponlos en Suscripciones › Plan. El registro público les crea su fila Gratis.
+- `ContratoAdministracion` NO se reutilizó (es administradora↔condominio, no la suscripción a House).
+- Solicitar no activa nada; sólo registrar un pago (o el cambio manual del superadmin) lo hace.
+- El asistente se evalúa por persona: basta UN condominio con el módulo entre los suyos (administradora con varios); superadmin siempre. Un admin sin empresa ni condominio ya no puede usar el asistente (se ajustó un caso de `asistente.test.ts`).
+- `voucher` del pago de suscripción: sólo `voucher_ref` (texto libre: nombre/ID del comprobante); no se sube archivo en esta versión.
+- Con varias réplicas, un cambio de plan puede tardar hasta 30 s en verse en las otras (caché por proceso).
+- Probar la app compilada DENTRO de `.claude/worktrees/…`: `res.sendFile` devuelve 404 por la carpeta con punto en la ruta (pasa con cualquier ruta SPA, no sólo las nuevas); en producción (`/app/dist`) no ocurre. Para ver `dist/` en local, sírvelo desde una carpeta sin punto.
+- Pendiente (siguiente fase): cobro con tarjeta (Culqi o Mercado Pago) sobre `proveedor_pago`/`proveedor_ref`; subir el voucher del pago; tramos de descuento por volumen; CAPTCHA si hay abuso del registro.
+
+---
+
 ## 2026-10-27 — Claude Code (Opus 5.5) — Alerta de secretos de GitHub en la prueba de Telegram
 
 - GitHub avisó «Telegram Bot Token» en `tests/bot-telegram.test.ts` (commit 7949052). **Falso positivo**: era el token de ejemplo de la documentación de Telegram; el token real del bot está sólo cifrado en producción.
