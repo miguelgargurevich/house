@@ -23,8 +23,9 @@ const MIN = 60_000;
 const sha = (t: string) => createHash('sha256').update(t).digest('hex');
 
 const TG = 'https://api.telegram.org';
-const TOKEN = '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw0';
-const TOKEN2 = '987654321:BBHdqTcvCH1vGWJxfSeofSAs0K5PALDsbw1';
+// Tokens FALSOS armados en tiempo de ejecución: un literal con forma de token real dispara el escáner de secretos de GitHub.
+const TOKEN = ['123456789', 'prueba'.padEnd(36, 'x')].join(':');
+const TOKEN2 = ['987654321', 'prueba2'.padEnd(36, 'y')].join(':');
 const BOT = 'house_pruebas_bot';
 const URL_WEBHOOK = 'https://house.gargurevich.dev/api/canales/telegram';
 
