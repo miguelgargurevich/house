@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { MESES as NOMBRES_DE_MES } from './periodo';
 
 /**
  * Lectura del Excel de cargos por departamento (POST /api/recibos/excel). Funciones puras: reciben las filas
@@ -8,7 +9,8 @@ import { Prisma } from '@prisma/client';
 
 export type Fila = unknown[];
 
-const MESES: Record<string, number> = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
+/** Los nombres de mes de `lib/periodo.ts` más «septiembre»: el Excel de la administradora puede traer cualquiera de las dos grafías. */
+const MESES: Record<string, number> = { ...Object.fromEntries(NOMBRES_DE_MES.map((n, i) => [n, i + 1])), septiembre: 9 };
 const NOMBRES_MES = Object.keys(MESES).join('|');
 
 /** Columnas que no son conceptos de cobro (comparación normalizada, sin mayúsculas). */
@@ -117,7 +119,7 @@ export function leerCabecera(filas: Fila[]): Cabecera {
     }
   }
   if (mes && anio == null) {
-    const titulo = new RegExp(`\\b${Object.keys(MESES).find((k) => MESES[k] === mes)}\\s+(?:DE\\s+)?(\\d{4})\\b`, 'i');
+    const titulo = new RegExp(`\\b(?:${Object.keys(MESES).filter((k) => MESES[k] === mes).join('|')})\\s+(?:DE\\s+)?(\\d{4})\\b`, 'i');
     for (const fila of filas) {
       for (const c of fila) {
         const m = normalizarTexto(c).match(titulo);

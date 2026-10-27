@@ -6,9 +6,11 @@ import { prisma } from '../db';
 import { HttpError, conflict, forbidden, notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
-import { ambitoJunta, filtroAmbito } from '../lib/junta';
+import { ambitoJunta, filtroAmbito, filtroReciboAmbito } from '../lib/junta';
+import { descripcionRecibo, periodoTexto } from '../lib/periodo';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { scopeComplejos, scopeConceptos, scopeRecibos, scopeRecibosEscritura, scopeUnidades, scopeUsuarios } from '../lib/scope';
+import { bloquearPeriodo, recibosDelPeriodo } from '../services/reciboUnico';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
@@ -26,6 +28,8 @@ const conceptoItem = z.object({ concepto_id: idSchema, monto: montoSchema, es_re
 const createSchema = z
   .object({
     complejo_id: idSchema,
+    /** Torre del recibo. Sin torre (o null): en un condominio sin torres, el recibo único; en uno con torres, «todas las torres» (un recibo por torre). */
+    estructura_id: idSchema.nullish(),
     mes: z.number().int().min(1).max(12),
     anio: z.number().int().min(2000).max(2100),
     fecha_emision: fechaSchema,
@@ -76,6 +80,99 @@ function conTotales(r: { id: number; fecha_vencimiento: Date }, t: Totales | und
   return { totales, estado_cobranza };
 }
 
+const includeRecibo = { complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } } satisfies Prisma.ReciboInclude;
+
+async function formatearRecibos<T extends { id: number; fecha_vencimiento: Date }>(items: T[]) {
+  const t = await totalesPorRecibo(items.map((r) => r.id));
+  return items.map((r) => ({ ...r, ...conTotales(r, t.get(r.id)) }));
+}
+
+/** Un recibo por cada torre con unidades activas (y uno sin torre si quedan unidades sin torre); sin torres, uno solo. */
+interface RecibosAEmitir { estructuraId: number | null; torre: string | null; unidades: number[] }
+
+async function planDeEmision(tx: Prisma.TransactionClient, complejoId: number, estructuraId: number | null | undefined): Promise<RecibosAEmitir[]> {
+  const estructuras = await tx.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true }, orderBy: { id: 'asc' } });
+  const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, select: { id: true, estructura_id: true }, orderBy: { id: 'asc' } });
+  if (estructuraId != null) {
+    const torre = estructuras.find((e) => e.id === estructuraId);
+    if (!torre) throw invalid('Datos inválidos: estructura_id: la torre no existe en ese condominio', { estructura_id: 'No es una torre de este condominio' });
+    return [{ estructuraId, torre: torre.nombre, unidades: unidades.filter((u) => u.estructura_id === estructuraId).map((u) => u.id) }];
+  }
+  const plan: RecibosAEmitir[] = estructuras
+    .map((e) => ({ estructuraId: e.id as number | null, torre: e.nombre, unidades: unidades.filter((u) => u.estructura_id === e.id).map((u) => u.id) }))
+    .filter((g) => g.unidades.length > 0);
+  const sinTorre = unidades.filter((u) => u.estructura_id == null || !estructuras.some((e) => e.id === u.estructura_id)).map((u) => u.id);
+  // Sin torres (o unidades que quedaron sin torre) hay UN recibo sin torre; un condominio sin unidades también lo emite, vacío, como siempre.
+  if (sinTorre.length > 0 || plan.length === 0) plan.push({ estructuraId: null, torre: null, unidades: sinTorre });
+  return plan;
+}
+
+/**
+ * Emite el recibo del periodo: uno por torre (o el de la torre pedida), cada uno con sus conceptos y un cargo por cada unidad activa DE ESA
+ * torre, todo en una sola transacción. Si alguno de esos recibos ya existe, no se crea ninguno (409 con la torre en el mensaje).
+ */
+async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser) {
+  const complejo = await assertRef(prisma.complejoHabitacional, d.complejo_id, scopeComplejos(user), 'complejo_id');
+  const empresa_id = complejo!.empresa_id as number | null;
+  const ids = [...new Set(d.conceptos.map((c) => c.concepto_id))];
+  if (ids.length) {
+    const validos = await prisma.concepto.count({
+      where: { AND: [{ id: { in: ids } }, scopeConceptos(user), { activo: true }, { empresa_id }] },
+    });
+    if (validos !== ids.length) throw invalid('Datos inválidos: conceptos: algún concepto no existe, está inactivo o es de otra empresa', { conceptos: 'Concepto inválido' });
+  }
+  const emitidos = await prisma.$transaction(async (tx) => {
+    await bloquearPeriodo(tx, d.complejo_id, d.mes, d.anio);
+    const plan = await planDeEmision(tx, d.complejo_id, d.estructura_id);
+    const creados: number[] = [];
+    for (const g of plan) {
+      const { mismo, general } = await recibosDelPeriodo(tx, { complejoId: d.complejo_id, estructuraId: g.estructuraId, mes: d.mes, anio: d.anio });
+      const donde = `${periodoTexto(d.mes, d.anio)}${g.torre ? ` · ${g.torre}` : ''}`;
+      if (mismo) throw conflict(`Ya existe el recibo de ${donde}`);
+      if (general) throw conflict(`Ya existe un recibo de ${periodoTexto(d.mes, d.anio)} sin torre que cobra a unidades de ${g.torre ?? 'esta torre'}`);
+    }
+    for (const g of plan) {
+      const descripcion = d.descripcion ? (plan.length > 1 && g.torre ? `${d.descripcion} · ${g.torre}` : d.descripcion).slice(0, 300) : descripcionRecibo(d.mes, d.anio, g.torre);
+      const recibo = await tx.recibo.create({
+        data: {
+          complejo_id: d.complejo_id,
+          estructura_id: g.estructuraId,
+          empresa_id,
+          mes: d.mes,
+          anio: d.anio,
+          fecha_emision: d.fecha_emision,
+          fecha_vencimiento: d.fecha_vencimiento,
+          descripcion,
+          estado: 'emitido',
+          creado_por_id: user.id,
+        },
+      });
+      for (const [i, c] of d.conceptos.entries()) {
+        const rc = await tx.reciboConcepto.create({
+          data: { recibo_id: recibo.id, concepto_id: c.concepto_id, monto: c.monto, es_recargo: c.es_recargo ?? false, orden: i + 1 },
+        });
+        if (g.unidades.length) {
+          await tx.reciboConceptoUnidad.createMany({
+            data: g.unidades.map((u) => ({ recibo_concepto_id: rc.id, unidad_id: u, monto: c.monto, estado_pago: 'pendiente' })),
+          });
+        }
+      }
+      creados.push(recibo.id);
+    }
+    return creados;
+  });
+  // Avisos al propietario e inquilino de cada unidad con cargo. Un fallo aquí nunca debe deshacer la emisión.
+  for (const id of emitidos) {
+    try {
+      await encolarReciboEmitido(id);
+      procesarPronto();
+    } catch (err) {
+      console.error('[avisos] no se pudieron encolar los avisos del recibo', id, err instanceof Error ? err.message : 'error');
+    }
+  }
+  return emitidos;
+}
+
 const crud = crudRouter({
   entidad: 'recibo',
   delegate: prisma.recibo,
@@ -86,16 +183,18 @@ const crud = crudRouter({
   search: ['descripcion'],
   orderable: ['id', 'mes', 'anio', 'fecha_emision', 'fecha_vencimiento', 'estado', 'created_at'],
   defaultOrder: { fecha_emision: 'desc' },
-  include: { complejo: { select: { id: true, nombre: true } } },
+  include: includeRecibo,
   filtros: {
     schema: z.object({
       complejo_id: idSchema.optional(),
+      estructura_id: idSchema.optional(),
       estado: z.string().max(30).optional(),
       mes: z.coerce.number().int().min(1).max(12).optional(),
       anio: z.coerce.number().int().min(2000).max(2100).optional(),
     }),
     where: (f) => ({
       ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}),
+      ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}),
       ...(f.estado ? { estado: f.estado } : {}),
       ...(f.mes !== undefined ? { mes: f.mes } : {}),
       ...(f.anio !== undefined ? { anio: f.anio } : {}),
@@ -103,57 +202,25 @@ const crud = crudRouter({
   },
   createSchema,
   updateSchema,
-  async format(items) {
-    const t = await totalesPorRecibo(items.map((r) => r.id));
-    return items.map((r) => ({ ...r, ...conTotales(r, t.get(r.id)) }));
-  },
-  // Crea el recibo, sus conceptos y un cargo por cada unidad activa del complejo, en una sola transacción.
+  format: formatearRecibos,
+  // El POST real es `router.post('/')` (declarado antes que el CRUD: puede emitir varios recibos a la vez); esto es sólo el respaldo si se llegara aquí.
   async create(data, user) {
-    const d = data as z.infer<typeof createSchema>;
-    const complejo = await assertRef(prisma.complejoHabitacional, d.complejo_id, scopeComplejos(user), 'complejo_id');
-    const empresa_id = complejo!.empresa_id as number | null;
-    const ids = [...new Set(d.conceptos.map((c) => c.concepto_id))];
-    if (ids.length) {
-      const validos = await prisma.concepto.count({
-        where: { AND: [{ id: { in: ids } }, scopeConceptos(user), { activo: true }, { empresa_id }] },
-      });
-      if (validos !== ids.length) throw invalid('Datos inválidos: conceptos: algún concepto no existe, está inactivo o es de otra empresa', { conceptos: 'Concepto inválido' });
-    }
-    const emitido = await prisma.$transaction(async (tx) => {
-      const recibo = await tx.recibo.create({
-        data: {
-          complejo_id: d.complejo_id,
-          empresa_id,
-          mes: d.mes,
-          anio: d.anio,
-          fecha_emision: d.fecha_emision,
-          fecha_vencimiento: d.fecha_vencimiento,
-          descripcion: d.descripcion,
-          estado: 'emitido',
-          creado_por_id: user.id,
-        },
-      });
-      const unidades = await tx.unidad.findMany({ where: { complejo_id: d.complejo_id, estado: 'activa' }, select: { id: true } });
-      for (const [i, c] of d.conceptos.entries()) {
-        const rc = await tx.reciboConcepto.create({
-          data: { recibo_id: recibo.id, concepto_id: c.concepto_id, monto: c.monto, es_recargo: c.es_recargo ?? false, orden: i + 1 },
-        });
-        if (unidades.length) {
-          await tx.reciboConceptoUnidad.createMany({
-            data: unidades.map((u) => ({ recibo_concepto_id: rc.id, unidad_id: u.id, monto: c.monto, estado_pago: 'pendiente' })),
-          });
-        }
-      }
-      return recibo;
+    const [id] = await emitirRecibos(data as z.infer<typeof createSchema>, user);
+    return { id: id! };
+  },
+  // Cambiar mes o año no puede dejar dos recibos de la misma torre en el mismo periodo.
+  async prepareUpdate(data, _user, existing) {
+    if (data.mes === undefined && data.anio === undefined) return data;
+    const mes = (data.mes as number | undefined) ?? (existing.mes as number);
+    const anio = (data.anio as number | undefined) ?? (existing.anio as number);
+    const complejoId = existing.complejo_id as number | null;
+    if (complejoId == null) return data;
+    await prisma.$transaction(async (tx) => {
+      await bloquearPeriodo(tx, complejoId, mes, anio);
+      const { mismo, general } = await recibosDelPeriodo(tx, { complejoId, estructuraId: existing.estructura_id as number | null, mes, anio, excluirId: existing.id as number });
+      if (mismo || general) throw conflict(`Ya existe un recibo de ${periodoTexto(mes, anio)} para esa torre`);
     });
-    // Avisos al propietario e inquilino de cada unidad con cargo. Un fallo aquí nunca debe deshacer la emisión.
-    try {
-      await encolarReciboEmitido(emitido.id);
-      procesarPronto();
-    } catch (err) {
-      console.error('[avisos] no se pudieron encolar los avisos del recibo', emitido.id, err instanceof Error ? err.message : 'error');
-    }
-    return emitido;
+    return data;
   },
 });
 
@@ -168,11 +235,11 @@ const adminOJunta: RequestHandler = (req, _res, next) => {
   if (esAdmin(u) || ambitoJunta(u)) return next();
   throw forbidden();
 };
-/** Recibos que alcanza: la administración por empresa; la junta, los de su condominio. */
+/** Recibos que alcanza: la administración por empresa; la junta, los de su torre (o los del condominio si no tiene torre). */
 function recibosDe(u: AuthUser): Prisma.ReciboWhereInput {
   if (esAdmin(u)) return scopeRecibos(u);
   const a = ambitoJunta(u);
-  return a ? { complejo_id: a.complejo_id } : { id: -1 };
+  return a ? filtroReciboAmbito(a) : { id: -1 };
 }
 /** Unidades que alcanza: la administración por empresa; la junta, las de su block (o de su condominio). */
 function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
@@ -181,15 +248,34 @@ function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
   return a ? filtroAmbito(a) : { id: -1 };
 }
 
-/** Periodos emitidos que alcanza (para elegir dónde registrar un pago). Se declara antes de GET /:id. */
+/** Emitir el recibo del periodo: uno por torre (o el de la torre elegida). Responde el primero y la lista completa en `recibos`. */
+router.post('/', requireRole('admin'), async (req, res) => {
+  const user = currentUser(req);
+  const d = parseBody(createSchema, req);
+  const ids = await emitirRecibos(d, user);
+  const filas = await prisma.recibo.findMany({ where: { id: { in: ids } }, include: includeRecibo, orderBy: { id: 'asc' } });
+  const recibos = await formatearRecibos(filas);
+  res.locals.entidad = 'recibo';
+  res.locals.entidadId = ids[0];
+  res.locals.auditDetalle = { recibo_ids: ids, mes: d.mes, anio: d.anio, torres: filas.map((r) => r.estructura?.nombre ?? null) };
+  res.status(201).json({ ...recibos[0], recibos });
+});
+
+/**
+ * Periodos emitidos que alcanza (para elegir dónde registrar un pago). Se declara antes de GET /:id. Cada torre tiene su recibo: se traen
+ * los últimos 24 MESES (no 24 recibos) y de cada mes todos sus recibos, para que N torres no se coman los meses.
+ */
 router.get('/periodos', adminOJunta, async (req, res) => {
-  const items = await prisma.recibo.findMany({
-    where: esAdmin(currentUser(req)) ? scopeRecibosEscritura(currentUser(req)) : recibosDe(currentUser(req)), // los periodos donde SE PUEDE cobrar
-    orderBy: [{ anio: 'desc' }, { mes: 'desc' }, { id: 'desc' }],
-    take: 24,
-    select: { id: true, mes: true, anio: true, descripcion: true, fecha_emision: true, fecha_vencimiento: true, estado: true, complejo: { select: { id: true, nombre: true } } },
-  });
-  res.json({ items, total: items.length, page: 1, pageSize: 24 });
+  const where = esAdmin(currentUser(req)) ? scopeRecibosEscritura(currentUser(req)) : recibosDe(currentUser(req)); // los periodos donde SE PUEDE cobrar
+  const meses = await prisma.recibo.findMany({ where, distinct: ['anio', 'mes'], orderBy: [{ anio: 'desc' }, { mes: 'desc' }], take: 24, select: { anio: true, mes: true } });
+  const items = meses.length
+    ? await prisma.recibo.findMany({
+        where: { AND: [where, { OR: meses.map((m) => ({ anio: m.anio, mes: m.mes })) }] },
+        orderBy: [{ anio: 'desc' }, { mes: 'desc' }, { estructura: { nombre: 'asc' } }, { id: 'desc' }],
+        select: { id: true, mes: true, anio: true, descripcion: true, fecha_emision: true, fecha_vencimiento: true, estado: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } },
+      })
+    : [];
+  res.json({ items, total: items.length, page: 1, pageSize: items.length });
 });
 
 // Detalle ampliado: conceptos y cargos por unidad (se declara antes del CRUD para tomar GET /:id).
@@ -200,6 +286,7 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
     where: { AND: [{ id }, scopeRecibos(user)] },
     include: {
       complejo: { select: { id: true, nombre: true } },
+      estructura: { select: { id: true, nombre: true } },
       reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: { select: { id: true, nombre: true } } } },
     },
   });
@@ -354,7 +441,6 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, voucherOpcional,
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const MAX_ADVERTENCIAS = 100;
-const NOMBRES_MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 /** Multer lanza `MulterError` (→ 500) si el archivo pasa del límite: lo convertimos en un 422 en español. */
 const subirArchivo: RequestHandler = (req, res, next) => {
@@ -394,7 +480,6 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   const { mes, anio, vencimiento } = leerCabecera(datos.slice(0, filaBlock));
   if (!mes || !anio) throw invalid('No se encontró el mes y año en el Excel', { archivo: 'Formato inválido' });
   const fechaVencimiento = vencimiento ?? new Date(Date.UTC(anio, mes, 1));
-  const descripcion = '';
 
   const { conceptos: columnasConcepto, primeraFilaDatos, columnaTotalMant, duplicados } = leerConceptos(datos, filaBlock);
   if (!columnasConcepto.length) throw invalid('No se encontraron conceptos en el encabezado', { archivo: 'Formato inválido' });
@@ -410,38 +495,14 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   }
 
   const resultado = await prisma.$transaction(async (tx) => {
-    const existente = await tx.recibo.findFirst({ where: { complejo_id: complejoId, mes, anio } });
-    let reciboId: number;
-    if (existente) {
-      reciboId = existente.id;
-      // Reemplazar borra los cargos: si alguno ya tiene pagos (en cualquier estado) o no está pendiente, los pagos quedarían huérfanos y la deuda reaparecería.
-      const conPagos = await tx.reciboConceptoUnidad.findFirst({
-        where: { reciboConcepto: { recibo_id: reciboId }, OR: [{ pagos: { some: {} } }, { estado_pago: { notIn: ['pendiente'] } }] },
-        select: { id: true },
-      });
-      if (conPagos) throw conflict(`El recibo de ${NOMBRES_MES[mes - 1]} ${anio} ya tiene pagos registrados; no se puede reemplazar desde Excel`);
-      await tx.reciboConceptoUnidad.deleteMany({ where: { reciboConcepto: { recibo_id: reciboId } } });
-      await tx.reciboConcepto.deleteMany({ where: { recibo_id: reciboId } });
-      await tx.recibo.update({ where: { id: reciboId }, data: { fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion: descripcion || `Mantenimiento de ${mes} de ${anio}`, estado: 'emitido', creado_por_id: u.id } });
-    } else {
-      const recibo = await tx.recibo.create({
-        data: { complejo_id: complejoId, empresa_id, mes, anio, fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion: descripcion || `Mantenimiento de ${mes} de ${anio}`, estado: 'emitido', creado_por_id: u.id },
-      });
-      reciboId = recibo.id;
-    }
-    const ordenMap = new Map<number, number>();
-    let orden = 0;
-    for (const { nombre, indice: idx } of columnasConcepto) {
-      orden++;
-      const conceptoId = conceptosMap.get(nombre)!;
-      const rc = await tx.reciboConcepto.create({ data: { recibo_id: reciboId, concepto_id: conceptoId, monto: 0, es_recargo: false, orden } });
-      ordenMap.set(idx, rc.id);
-    }
-    let unidadesProcesadas = 0;
+    // Cada torre tiene SU recibo: el Excel de un block sólo crea o reemplaza el de ese block y no toca los de las demás torres.
+    await bloquearPeriodo(tx, complejoId, mes, anio);
     let filasSaltadas = 0;
-    const cargos: { recibo_concepto_id: number; unidad_id: number; monto: Prisma.Decimal }[] = [];
     const estructuras = await tx.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true } });
     const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, select: { id: true, codigo: true, estructura_id: true } });
+    // Filas del Excel agrupadas por torre (sin torres en el condominio: un solo grupo, sin torre).
+    const grupos = new Map<number | null, { torre: string | null; cargos: { idx: number; unidadId: number; monto: Prisma.Decimal }[]; unidades: number }>();
+    if (!estructuras.length) grupos.set(null, { torre: null, cargos: [], unidades: 0 });
     for (let i = primeraFilaDatos; i < datos.length; i++) {
       const fila = datos[i];
       const block = normalizarTexto(fila[0]);
@@ -449,6 +510,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
       if (!block || !dpto || block.toUpperCase() === 'TOTALES') { filasSaltadas++; continue; }
       const etiqueta = `${block} Dpto. ${dpto}`;
       let candidatas = unidades;
+      let estructuraId: number | null = null;
       if (estructuras.length) {
         const numero = numeroDeTorre(block);
         if (numero == null) { advertencias.push(`${etiqueta}: no se entiende el identificador de torre «${block}»; se saltó la fila`); filasSaltadas++; continue; }
@@ -458,8 +520,11 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
           filasSaltadas++;
           continue;
         }
+        estructuraId = estructura.id;
+        if (!grupos.has(estructuraId)) grupos.set(estructuraId, { torre: estructura.nombre, cargos: [], unidades: 0 });
         candidatas = unidades.filter((un) => un.estructura_id === estructura.id);
       }
+      const grupo = grupos.get(estructuraId)!;
       const coinciden = candidatas.filter((un) => codigoEncajaConDpto(un.codigo, dpto));
       if (coinciden.length !== 1) {
         advertencias.push(`${etiqueta}: ${coinciden.length ? 'hay varias unidades que coinciden' : 'no existe la unidad'}; se saltó la fila`);
@@ -475,33 +540,74 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
         suma = suma.plus(redondeado);
         // Un monto en S/ 0.00 no es una deuda: no se crea el cargo (nacería «pendiente» y nunca se pagaría). El concepto del recibo sí queda.
         if (new Prisma.Decimal(redondeado).isZero()) continue;
-        const rcId = ordenMap.get(idx);
-        if (rcId) cargos.push({ recibo_concepto_id: rcId, unidad_id: unidadId, monto: new Prisma.Decimal(redondeado) });
+        grupo.cargos.push({ idx, unidadId, monto: new Prisma.Decimal(redondeado) });
       }
       const totalMant = columnaTotalMant == null ? null : limpiarMonto(fila[columnaTotalMant]);
       if (totalMant != null && suma.minus(redondearMonto(totalMant)).abs().gt(TOLERANCIA_TOTAL)) {
         advertencias.push(`${etiqueta}: la suma de los conceptos (S/ ${suma.toFixed(2)}) no coincide con TOTAL MANT (S/ ${redondearMonto(totalMant)})`);
       }
-      unidadesProcesadas++;
+      grupo.unidades++;
     }
-    if (cargos.length) {
-      await tx.reciboConceptoUnidad.createMany({ data: cargos as never });
+    if (!grupos.size) throw invalid('El Excel no trae filas de ninguna torre del condominio', { archivo: 'Sin filas válidas' });
+
+    const porTorre: { recibo_id: number; estructura_id: number | null; torre: string | null; accion: 'creado' | 'reemplazado'; unidades_procesadas: number }[] = [];
+    const ordenados = [...grupos.entries()].sort(([a], [b]) => (a ?? 0) - (b ?? 0));
+    for (const [estructuraId, g] of ordenados) {
+      const donde = `${periodoTexto(mes, anio)}${g.torre ? ` · ${g.torre}` : ''}`;
+      const { mismo, general } = await recibosDelPeriodo(tx, { complejoId, estructuraId, mes, anio });
+      if (general) throw conflict(`Ya existe un recibo de ${periodoTexto(mes, anio)} sin torre que cobra a unidades de ${g.torre ?? 'esta torre'}; asígnale su torre antes de subir el Excel de ese block`);
+      const descripcion = descripcionRecibo(mes, anio, g.torre);
+      let reciboId: number;
+      if (mismo) {
+        reciboId = mismo.id;
+        // Reemplazar borra los cargos: si alguno ya tiene pagos (en cualquier estado) o no está pendiente, los pagos quedarían huérfanos y la deuda reaparecería.
+        const conPagos = await tx.reciboConceptoUnidad.findFirst({
+          where: { reciboConcepto: { recibo_id: reciboId }, OR: [{ pagos: { some: {} } }, { estado_pago: { notIn: ['pendiente'] } }] },
+          select: { id: true },
+        });
+        if (conPagos) throw conflict(`El recibo de ${donde} ya tiene pagos registrados; no se puede reemplazar desde Excel`);
+        await tx.reciboConceptoUnidad.deleteMany({ where: { reciboConcepto: { recibo_id: reciboId } } });
+        await tx.reciboConcepto.deleteMany({ where: { recibo_id: reciboId } });
+        await tx.recibo.update({ where: { id: reciboId }, data: { fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion, estado: 'emitido', creado_por_id: u.id } });
+      } else {
+        const recibo = await tx.recibo.create({
+          data: { complejo_id: complejoId, estructura_id: estructuraId, empresa_id, mes, anio, fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion, estado: 'emitido', creado_por_id: u.id },
+        });
+        reciboId = recibo.id;
+      }
+      const ordenMap = new Map<number, number>();
+      let orden = 0;
+      for (const { nombre, indice: idx } of columnasConcepto) {
+        orden++;
+        const rc = await tx.reciboConcepto.create({ data: { recibo_id: reciboId, concepto_id: conceptosMap.get(nombre)!, monto: 0, es_recargo: false, orden } });
+        ordenMap.set(idx, rc.id);
+      }
+      if (g.cargos.length) {
+        await tx.reciboConceptoUnidad.createMany({ data: g.cargos.map((c) => ({ recibo_concepto_id: ordenMap.get(c.idx)!, unidad_id: c.unidadId, monto: c.monto })) as never });
+      }
+      porTorre.push({ recibo_id: reciboId, estructura_id: estructuraId, torre: g.torre, accion: mismo ? 'reemplazado' : 'creado', unidades_procesadas: g.unidades });
     }
-    return { reciboId, unidadesProcesadas, filasSaltadas, conceptosCreados: columnasConcepto.length };
+    return { porTorre, unidadesProcesadas: porTorre.reduce((s, r) => s + r.unidades_procesadas, 0), filasSaltadas, conceptosCreados: columnasConcepto.length };
   });
 
-  try {
-    await encolarReciboEmitido(resultado.reciboId);
-    procesarPronto();
-  } catch (err) {
-    console.error('[avisos] no se pudieron encolar los avisos del recibo', resultado.reciboId, err instanceof Error ? err.message : 'error');
+  for (const r of resultado.porTorre) {
+    try {
+      await encolarReciboEmitido(r.recibo_id);
+      procesarPronto();
+    } catch (err) {
+      console.error('[avisos] no se pudieron encolar los avisos del recibo', r.recibo_id, err instanceof Error ? err.message : 'error');
+    }
   }
 
+  const primero = resultado.porTorre[0]!;
   res.locals.entidad = 'recibo';
-  res.locals.entidadId = resultado.reciboId;
+  res.locals.entidadId = primero.recibo_id;
   res.locals.accion = 'crear_desde_excel';
+  res.locals.auditDetalle = { recibo_ids: resultado.porTorre.map((r) => r.recibo_id), torres: resultado.porTorre.map((r) => r.torre), mes, anio };
   res.status(201).json({
-    recibo_id: resultado.reciboId,
+    recibo_id: primero.recibo_id,
+    // Un recibo por torre: `recibo_id` es el de la primera; `recibos` trae todos con su torre y lo que se hizo con cada uno.
+    recibos: resultado.porTorre,
     mes, anio,
     unidades_procesadas: resultado.unidadesProcesadas,
     filas_saltadas: resultado.filasSaltadas,

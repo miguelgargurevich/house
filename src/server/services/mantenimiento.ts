@@ -249,7 +249,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
 
 // ---------- Pagos agrupados en listas ----------
 /** A cada pago con `grupo` le agrega `mantenimiento` (total del grupo, cuántos conceptos, periodo y unidad). Los sueltos quedan igual. */
-export async function conResumenDeGrupo<T extends { id: number; grupo: string | null; unidad?: { id: number; codigo: string } | null; recibo?: { id: number; mes: number; anio: number } | null }>(items: T[]) {
+export async function conResumenDeGrupo<T extends { id: number; grupo: string | null; unidad?: { id: number; codigo: string; estructura?: { id: number; nombre: string | null } | null } | null; recibo?: { id: number; mes: number; anio: number } | null }>(items: T[]) {
   const grupos = [...new Set(items.map((p) => p.grupo).filter((g): g is string => g != null))];
   const sumas = grupos.length ? await prisma.pago.groupBy({ by: ['grupo'], where: { grupo: { in: grupos } }, _sum: { monto: true }, _count: { _all: true } }) : [];
   const porGrupo = new Map(sumas.map((s) => [s.grupo, s]));
@@ -264,6 +264,7 @@ export async function conResumenDeGrupo<T extends { id: number; grupo: string | 
         numero: numeroMantenimiento(p.recibo.anio, p.recibo.mes, p.unidad.codigo),
         recibo_id: p.recibo.id,
         unidad_id: p.unidad.id,
+        torre: p.unidad.estructura?.nombre ?? null,
         total: new Prisma.Decimal(g._sum.monto ?? 0).toFixed(2),
         conceptos: g._count._all,
       },

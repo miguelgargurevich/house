@@ -35,11 +35,11 @@ export function filtroEstadoCargo(estado: EstadoCargo, hoy = hoyLima()): Prisma.
 export const selectComprobante = { id: true, nombre: true, tipo_mime: true, tamano: true, created_at: true } satisfies Prisma.ArchivoComprobanteSelect;
 
 export const includeCargo = {
-  unidad: { select: { id: true, codigo: true } },
+  unidad: { select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } } } },
   reciboConcepto: {
     select: {
       concepto: { select: { id: true, nombre: true } },
-      recibo: { select: { id: true, mes: true, anio: true, descripcion: true, fecha_vencimiento: true } },
+      recibo: { select: { id: true, mes: true, anio: true, descripcion: true, fecha_vencimiento: true, estructura: { select: { id: true, nombre: true } } } },
     },
   },
   pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], include: { comprobante: { select: selectComprobante }, evaluacion: { select: { estado: true, veredicto: true } } } },
@@ -69,8 +69,8 @@ export const includePago = {
   reciboConceptoUnidad: {
     select: {
       id: true,
-      unidad: { select: { id: true, codigo: true } },
-      reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { id: true, mes: true, anio: true } } } },
+      unidad: { select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } } } },
+      reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { id: true, mes: true, anio: true, estructura: { select: { id: true, nombre: true } } } } } },
     },
   },
 } satisfies Prisma.PagoInclude;

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import type { AuthUser } from '../middleware/auth';
 
 export const CARGOS_JUNTA = ['presidente', 'tesorero', 'secretario', 'vocal'] as const;
@@ -34,4 +35,15 @@ export function puedeGestionar(user: AuthUser, objetivo: { complejo_id: number |
 /** Mismo criterio que `puedeGestionar`, como filtro Prisma para modelos con `complejo_id` y `estructura_id` (unidades, medios de pago). */
 export function filtroAmbito(a: AmbitoJunta): { complejo_id: number; estructura_id?: number } {
   return a.estructura_id == null ? { complejo_id: a.complejo_id } : { complejo_id: a.complejo_id, estructura_id: a.estructura_id };
+}
+
+/**
+ * Recibos que alcanza la junta: cada torre tiene su propio recibo, así que la junta de un block sólo ve los de SU block (el de otra torre
+ * es 404) más los recibos del condominio sin torre (generales o viejos que mezclan torres: ahí la lista de departamentos ya se acota a sus
+ * unidades). Una junta sin block ve todos los del condominio.
+ */
+export function filtroReciboAmbito(a: AmbitoJunta): Prisma.ReciboWhereInput {
+  return a.estructura_id == null
+    ? { complejo_id: a.complejo_id }
+    : { complejo_id: a.complejo_id, OR: [{ estructura_id: a.estructura_id }, { estructura_id: null }] };
 }

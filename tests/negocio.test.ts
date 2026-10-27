@@ -42,7 +42,7 @@ describe('residentes: /api/me/*', () => {
     assert.equal(vencido.estado_pago, 'pendiente');
     assert.deepEqual(vencido.concepto, { nombre: 'Mantenimiento' });
     assert.equal(vencido.unidad.codigo, 'A-101');
-    assert.deepEqual(Object.keys(vencido.recibo).sort(), ['anio', 'descripcion', 'fecha_vencimiento', 'id', 'mes']);
+    assert.deepEqual(Object.keys(vencido.recibo).sort(), ['anio', 'descripcion', 'estructura', 'fecha_vencimiento', 'id', 'mes']);
     assert.deepEqual(vencido.pagos, []);
     assert.equal(vencido.monto, '150');
   });
@@ -207,7 +207,7 @@ describe('recibos y cargos (admin)', () => {
     assert.equal(detalle.body.conceptos.length, 2);
     assert.equal(detalle.body.cargos.length, 4);
     assert.deepEqual(Object.keys(detalle.body.cargos[0]).sort(), ['concepto', 'estado', 'id', 'monto', 'unidad']);
-    assert.deepEqual(detalle.body.cargos[0].unidad, { id: d.unidadA1.id, codigo: 'A-101' });
+    assert.deepEqual(detalle.body.cargos[0].unidad, { id: d.unidadA1.id, codigo: 'A-101', estructura: null });
     assert.equal(detalle.body.cargos[0].concepto.nombre, 'Mantenimiento');
     assert.equal(detalle.body.cargos[0].estado, 'pendiente');
     assert.equal(detalle.body.complejo.nombre, 'Complejo A');
@@ -240,7 +240,7 @@ describe('recibos y cargos (admin)', () => {
     const q = await llamar(base, 'GET', '/api/recibo-concepto-unidades?q=A-102', T.adminA);
     assert.ok(q.body.items.length >= 1 && q.body.items.every((c: { unidad: { codigo: string } }) => c.unidad.codigo === 'A-102'));
     const c = q.body.items[0];
-    assert.deepEqual(Object.keys(c.recibo).sort(), ['anio', 'descripcion', 'fecha_vencimiento', 'id', 'mes']);
+    assert.deepEqual(Object.keys(c.recibo).sort(), ['anio', 'descripcion', 'estructura', 'fecha_vencimiento', 'id', 'mes']);
     assert.equal(c.concepto.nombre, 'Mantenimiento');
     assert.ok(!(await llamar(base, 'GET', '/api/recibo-concepto-unidades?pageSize=100', T.adminA)).body.items.some((x: { id: number }) => x.id === d.cargoB1.id));
   });

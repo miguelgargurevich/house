@@ -149,7 +149,7 @@ describe('residente: mis mantenimientos (uno por recibo y departamento)', () => 
     assert.equal(propio[0].saldo, '115.00');
     assert.equal(propio[0].estado, 'pendiente');
     assert.equal(propio[0].numero, '2026-09-A-101');
-    assert.equal(propio[0].titulo, 'Mantenimiento de septiembre de 2026 · A-101');
+    assert.equal(propio[0].titulo, 'Mantenimiento de setiembre de 2026 · A-101');
     assert.ok(r.body.items.every((x: any) => x.unidad.codigo === 'A-101')); // eslint-disable-line @typescript-eslint/no-explicit-any
     // el inquilino de la misma unidad también lo ve
     const inq = await llamar(base, 'GET', '/api/me/mantenimientos?pageSize=100', T.inq1);

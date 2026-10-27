@@ -68,9 +68,10 @@ after(async () => {
   await prisma.$disconnect();
 });
 
+// Sólo el recibo de la torre B.1: el recibo sembrado de octubre (sin torre, de otras unidades) ya no lo toca el Excel.
 const estadoDelRecibo = async () => {
-  const recibos = await prisma.recibo.findMany({ where: { complejo_id: d.complejoA.id, mes: 10, anio: 2026 }, include: { reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: true } } } });
-  const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { reciboConcepto: { recibo: { complejo_id: d.complejoA.id, mes: 10, anio: 2026 } } }, include: { unidad: true, reciboConcepto: { include: { concepto: true } } } });
+  const recibos = await prisma.recibo.findMany({ where: { complejo_id: d.complejoA.id, estructura_id: block1Id, mes: 10, anio: 2026 }, include: { reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: true } } } });
+  const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { reciboConcepto: { recibo: { complejo_id: d.complejoA.id, estructura_id: block1Id, mes: 10, anio: 2026 } } }, include: { unidad: true, reciboConcepto: { include: { concepto: true } } } });
   const monto = (unidad: string, concepto: string) => cargos.find((c) => c.unidad?.codigo === unidad && c.reciboConcepto?.concepto?.nombre === concepto)?.monto.toString();
   return { recibos, cargos, monto };
 };
@@ -79,8 +80,8 @@ describe('POST /api/recibos/excel: lo que crea', () => {
   it('crea el recibo, los conceptos en orden y los cargos por unidad con sus montos exactos', async () => {
     const r = await subir(T.adminA, aXlsx(filasValidas()), d.complejoA.id);
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined }, {
-      recibo_id: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3,
+    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, {
+      recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3,
       advertencias: ['B.1 Dpto. 999: no existe la unidad; se saltó la fila', 'B.9 Dpto. 101: el condominio no tiene la torre «B.9»; se saltó la fila'],
     });
 
@@ -91,7 +92,8 @@ describe('POST /api/recibos/excel: lo que crea', () => {
     assert.equal(rec.estado, 'emitido');
     assert.equal(rec.empresa_id, d.empresaA.id);
     assert.equal(rec.creado_por_id, d.adminA.id);
-    assert.equal(rec.descripcion, 'Mantenimiento de 10 de 2026');
+    assert.equal(rec.descripcion, 'Mantenimiento de octubre de 2026 · B.1');
+    assert.equal(rec.estructura_id, block1Id);
     assert.equal(rec.fecha_vencimiento.toISOString(), '2026-11-02T00:00:00.000Z');
     assert.equal(rec.fecha_emision.getTime(), hoyLima().getTime());
     assert.deepEqual(rec.reciboConceptos.map((c) => [c.orden, c.concepto?.nombre, c.monto.toString(), c.es_recargo]), [
@@ -128,7 +130,7 @@ describe('POST /api/recibos/excel: lo que crea', () => {
   it('un .xls (formato antiguo) da el mismo resultado', async () => {
     const r = await subir(T.adminA, aXlsx(filasValidas(), 'xls'), d.complejoA.id, 'recibos.xls');
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined, advertencias: undefined }, { recibo_id: undefined, advertencias: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3 });
+    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined, advertencias: undefined }, { recibo_id: undefined, recibos: undefined, advertencias: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3 });
     const { cargos, monto } = await estadoDelRecibo();
     assert.equal(cargos.length, 7);
     assert.equal(monto('B.1-101', 'ADMINISTRACION'), '123.69');
@@ -205,7 +207,7 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
   it('crea el recibo de octubre 2026 con vencimiento 2026-11-02, los 11 conceptos normalizados y sus cargos con montos redondeados', async () => {
     const r = await subir(T.adminA, readFileSync('docs/ejemplos/block-1-octubre.xlsx'), complejoId, 'block-1-octubre.xlsx');
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined }, { recibo_id: undefined, mes: 10, anio: 2026, unidades_procesadas: 32, filas_saltadas: 1, conceptos: 11, advertencias: [] });
+    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, { recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 32, filas_saltadas: 1, conceptos: 11, advertencias: [] });
 
     const rec = await prisma.recibo.findFirstOrThrow({ where: { complejo_id: complejoId, mes: 10, anio: 2026 }, include: { reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: true } } } });
     assert.equal(rec.fecha_vencimiento.toISOString(), '2026-11-02T00:00:00.000Z');
@@ -325,7 +327,7 @@ describe('POST /api/recibos/excel: recibo repetido con pagos', () => {
     const pagos = await prisma.pago.findMany({ where: { reciboConceptoUnidad: { reciboConcepto: { recibo: { complejo_id: complejoId } } } }, orderBy: { id: 'asc' } });
     return { recibos, cargos, pagos };
   };
-  const MENSAJE = 'El recibo de Octubre 2026 ya tiene pagos registrados; no se puede reemplazar desde Excel';
+  const MENSAJE = 'El recibo de octubre de 2026 · Block 1 ya tiene pagos registrados; no se puede reemplazar desde Excel';
 
   it('con un pago registrado en un cargo → 409 y no cambia nada (mismo recibo, mismos cargos, el pago sigue enlazado)', async () => {
     await limpiar();

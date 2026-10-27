@@ -23,10 +23,14 @@ async function validarRefs(d: Record<string, unknown>, user: AuthUser, existing?
   if (unidadId != null) {
     const unidad = await assertRef(prisma.unidad, unidadId, scopeUnidades(user), 'unidad_id');
     if (rc) {
-      const recibo = await prisma.recibo.findUnique({ where: { id: rc.recibo_id as number }, select: { empresa_id: true, complejo: { select: { empresa_id: true } } } });
+      const recibo = await prisma.recibo.findUnique({ where: { id: rc.recibo_id as number }, select: { empresa_id: true, estructura_id: true, complejo: { select: { empresa_id: true } } } });
       // La unidad debe ser del condominio que hoy administra la empresa (el recibo pudo emitirlo la anterior).
       if (recibo && unidad!.empresa_id !== (recibo.complejo?.empresa_id ?? recibo.empresa_id)) {
         throw invalid('Datos inválidos: unidad_id: la unidad es de otra empresa', { unidad_id: 'Es de otra empresa' });
+      }
+      // Cada torre tiene su propio recibo: un cargo de un recibo de torre sólo puede ser de una unidad de esa torre.
+      if (recibo?.estructura_id != null && unidad!.estructura_id !== recibo.estructura_id) {
+        throw invalid('Datos inválidos: unidad_id: la unidad no es de la torre de este recibo', { unidad_id: 'No es de la torre del recibo' });
       }
     }
   }
@@ -51,11 +55,14 @@ export const cargosRouter = crudRouter({
       estado: z.enum(['pendiente', 'pagado', 'vencido', 'en_revision']).optional(),
       unidad_id: idSchema.optional(),
       recibo_id: idSchema.optional(),
+      estructura_id: idSchema.optional(),
+      complejo_id: idSchema.optional(),
     }),
     where: (f) => ({
       ...(f.estado ? filtroEstadoCargo(f.estado as EstadoCargo) : {}),
       ...(f.unidad_id !== undefined ? { unidad_id: f.unidad_id } : {}),
       ...(f.recibo_id !== undefined ? { reciboConcepto: { recibo_id: f.recibo_id } } : {}),
+      ...(f.estructura_id !== undefined || f.complejo_id !== undefined ? { unidad: { ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}), ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}) } } : {}),
     }),
   },
   createSchema: base,

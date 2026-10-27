@@ -7,17 +7,16 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { z } from '../validation';
 import { hoyLima } from './fechas';
+import { nombreMes } from './periodo';
 
 export type EstadoMantenimiento = 'pagado' | 'en_revision' | 'parcial' | 'vencido' | 'pendiente';
 export const ESTADOS_MANTENIMIENTO = ['pagado', 'en_revision', 'parcial', 'vencido', 'pendiente'] as const;
-
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 /** `2026-10-B01-804`: periodo + código de la unidad; estable y legible. */
 export const numeroMantenimiento = (anio: number, mes: number, codigo: string) => `${anio}-${String(mes).padStart(2, '0')}-${codigo}`;
 
 /** «Mantenimiento de octubre de 2026 · B01-804». */
-export const tituloMantenimiento = (anio: number, mes: number, codigo: string) => `Mantenimiento de ${MESES[mes - 1] ?? mes} de ${anio} · ${codigo}`;
+export const tituloMantenimiento = (anio: number, mes: number, codigo: string) => `Mantenimiento de ${nombreMes(mes)} de ${anio} · ${codigo}`;
 
 type Num = Prisma.Decimal | number | string | null | undefined;
 const dec = (v: Num) => new Prisma.Decimal(v ?? 0);

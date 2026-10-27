@@ -71,12 +71,14 @@ export const pagosRouter = crudRouter({
   // Una fila por pago del mantenimiento (el principal de cada grupo); los pagos sueltos antiguos salen como siempre.
   format: (items) => conResumenDeGrupo(items.map((p) => formatearPago(p, 'completa'))), // los lee el admin o la junta: ven la evaluación completa
   filtros: {
-    schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional() }),
+    schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional() }),
     where: (f) => ({
       ...soloPrincipales,
       ...(f.metodo_pago ? { metodo_pago: f.metodo_pago } : {}),
       ...(f.estado_validacion ? { estado_validacion: f.estado_validacion } : {}),
       ...(f.recibo_concepto_unidad_id !== undefined ? { recibo_concepto_unidad_id: f.recibo_concepto_unidad_id } : {}),
+      // Torre y condominio son de la unidad del cargo pagado.
+      ...(f.estructura_id !== undefined || f.complejo_id !== undefined ? { reciboConceptoUnidad: { unidad: { ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}), ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}) } } } : {}),
     }),
   },
   createSchema: base,
