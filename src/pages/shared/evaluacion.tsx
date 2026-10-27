@@ -3,6 +3,11 @@ import { CheckCircleIcon, ExclamationTriangleIcon, MinusCircleIcon, XCircleIcon 
 import { api } from '../../api';
 import { Alert, Badge, Button, Spinner, fechaCorta, soles } from '../../ui';
 import type { Tone } from '../../ui';
+import {
+  AVISO_TARDA_GESTION, AVISO_TARDA_MS, AVISO_TARDA_RESIDENTE, INTERVALO_EVALUACION_MS,
+  estaEvaluando, etiquetaReintento, faseDeEspera, mensajeSinResultado,
+} from './esperaEvaluacion';
+import type { FaseEspera } from './esperaEvaluacion';
 
 // ---------- Lo que ve quien valida (admin y junta) ----------
 export type VeredictoIA = 'coincide' | 'revisar' | 'no_coincide' | 'ilegible';
@@ -18,6 +23,8 @@ export interface EvaluacionCompleta {
   extraido: {
     monto: number | null; moneda: string | null; fecha: string | null; numero_operacion: string | null; medio: string | null;
     estado_operacion: string; destinatario_nombre: string | null; destino_numero: string | null;
+    /** Sólo en lecturas por OCR: el «Mensaje» que escribió quien pagó. */
+    mensaje?: string | null;
   } | null;
   proveedor: string | null;
   error: string | null;
@@ -59,11 +66,14 @@ interface Props {
   reevaluando: boolean;
   onReevaluar: () => void;
   errorReevaluar?: string | null;
+  /** Cuánto lleva esperando una evaluación pendiente (`useEvaluacionCompleta`); sin ella, no se avisa de la demora. */
+  fase?: FaseEspera;
 }
 
 /** Panel «Evaluación automática» del modal de validar: la IA lee el comprobante y el código lo compara con lo esperado. */
-export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, puedeReevaluar, reevaluando, onReevaluar, errorReevaluar }: Props) {
-  const evaluando = reevaluando || ev?.estado === 'pendiente';
+export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, puedeReevaluar, reevaluando, onReevaluar, errorReevaluar, fase = 'normal' }: Props) {
+  const evaluando = estaEvaluando(ev?.estado, reevaluando, fase);
+  const sinResultado = evaluando ? null : ev ? mensajeSinResultado(ev.estado, ev.error, fase === 'agotada') : null;
   const x = ev?.estado === 'completada' ? ev.extraido : null;
   const c = ev?.estado === 'completada' ? ev.coincidencias : null;
   const filas: { etiqueta: string; detectado: string | null; esperado?: string; ok: Comprobacion }[] = x && c ? [
@@ -72,19 +82,20 @@ export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, 
     { etiqueta: 'Fecha', detectado: fechaDia(x.fecha), esperado: 'Dentro del rango del recibo', ok: c.fecha },
     { etiqueta: 'N.º de operación', detectado: x.numero_operacion, ok: x.numero_operacion ? true : null },
     { etiqueta: 'Estado de la operación', detectado: ESTADOS_OP[x.estado_operacion] ?? x.estado_operacion, esperado: 'Exitosa', ok: c.estado_operacion },
+    ...(x.mensaje ? [{ etiqueta: 'Mensaje del voucher', detectado: x.mensaje, ok: null as Comprobacion }] : []),
   ] : [];
 
   return (
     <section aria-label="Evaluación automática" className="rounded border border-line p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-medium">Evaluación automática</h3>
-        {evaluando ? <Badge tone="info">Evaluando…</Badge> : <VeredictoBadge evaluacion={ev} />}
+        {evaluando ? <Badge tone="info">Evaluando…</Badge> : ev?.estado === 'pendiente' ? <Badge tone="warn">Sin respuesta</Badge> : <VeredictoBadge evaluacion={ev} />}
       </div>
 
       {!ev && !evaluando && <p className="mt-2 text-sm text-muted">Aún no se evaluó este comprobante.</p>}
       {evaluando && <p className="mt-2 flex items-center gap-2 text-sm text-muted" role="status"><Spinner />Leyendo el comprobante…</p>}
-      {!evaluando && ev?.estado === 'no_disponible' && <p className="mt-2 text-sm text-muted">{ev.error ?? 'La evaluación automática no está disponible.'} Valida el pago a mano.</p>}
-      {!evaluando && ev?.estado === 'error' && <div className="mt-2"><Alert tone="warn">No se pudo evaluar el comprobante{ev.error ? `: ${ev.error}` : ''}. Puedes volver a intentarlo o validarlo a mano.</Alert></div>}
+      {evaluando && fase === 'tarda' && <div className="mt-2"><Alert tone="warn">{AVISO_TARDA_GESTION}</Alert></div>}
+      {sinResultado && <div className="mt-2"><Alert tone="warn">{sinResultado}</Alert></div>}
 
       {!evaluando && filas.length > 0 && (
         <>
@@ -118,12 +129,13 @@ export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, 
       )}
 
       {!evaluando && ev?.estado === 'completada' && ev.resumen && <p className="mt-3 text-sm">{ev.resumen}</p>}
+      {!evaluando && ev?.estado === 'completada' && ev.proveedor === 'ocr' && <p className="mt-2 text-xs text-muted">Esta lectura la hizo el OCR propio porque la IA no respondió: es menos fiable y nunca valida sola.</p>}
 
       {errorReevaluar && <div className="mt-3"><Alert tone="bad">{errorReevaluar}</Alert></div>}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-muted">{validadoPorIA ? 'Validado automáticamente por la IA.' : 'La IA ayuda; la decisión final es tuya.'}</p>
-        {puedeReevaluar && <Button size="sm" variant="secondary" loading={evaluando} onClick={onReevaluar}>Volver a evaluar</Button>}
+        {puedeReevaluar && <Button size="sm" variant="secondary" loading={evaluando} onClick={onReevaluar}>{etiquetaReintento(ev?.estado, fase)}</Button>}
       </div>
     </section>
   );
@@ -137,18 +149,24 @@ export function useEvaluacionCompleta(pagoId: number | null, inicial: Evaluacion
   const [ev, setEv] = useState<EvaluacionCompleta | null>(inicial);
   const [validadoPorIA, setValidadoPorIA] = useState(false);
   const [esperando, setEsperando] = useState(false);
+  const [fase, setFase] = useState<FaseEspera>('normal');
+  /** Se suma al pedir otra evaluación: reinicia el conteo de la espera aunque el estado siga «pendiente». */
+  const [ciclo, setCiclo] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const vivo = useRef(true);
 
   useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
-  useEffect(() => { setEv(inicial); setValidadoPorIA(false); setError(null); setEsperando(false); }, [pagoId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setEv(inicial); setValidadoPorIA(false); setError(null); setEsperando(false); setFase('normal'); }, [pagoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pendiente = esperando || ev?.estado === 'pendiente';
   useEffect(() => {
-    if (pagoId === null || !pendiente) return;
-    let intentos = 0;
+    if (pagoId === null || !pendiente) { setFase('normal'); return; }
+    const desde = Date.now();
+    setFase('normal');
     const t = setInterval(() => {
-      intentos += 1;
+      const f = faseDeEspera(Date.now() - desde);
+      setFase(f);
+      if (f === 'agotada') { clearInterval(t); setEsperando(false); return; } // ~3 min: no se queda dando vueltas para siempre; el panel muestra el estado
       api<{ evaluacion: EvaluacionCompleta | null; validado_por_ia: boolean }>(`/api/pagos/${pagoId}/evaluacion`)
         .then(r => {
           if (!vivo.current) return;
@@ -157,15 +175,15 @@ export function useEvaluacionCompleta(pagoId: number | null, inicial: Evaluacion
           if (r.evaluacion && r.evaluacion.estado !== 'pendiente') setEsperando(false);
         })
         .catch(() => undefined);
-      if (intentos >= 40) { clearInterval(t); setEsperando(false); } // ~2 min: no se queda dando vueltas para siempre
-    }, 3000);
+    }, INTERVALO_EVALUACION_MS);
     return () => clearInterval(t);
-  }, [pagoId, pendiente]);
+  }, [pagoId, pendiente, ciclo]);
 
   const reevaluar = useCallback(async () => {
     if (pagoId === null) return;
     setError(null);
     setEsperando(true);
+    setCiclo(c => c + 1);
     try {
       const r = await api<{ evaluacion: EvaluacionCompleta | null }>(`/api/pagos/${pagoId}/evaluacion`, { method: 'POST', json: {} });
       if (vivo.current) setEv(r.evaluacion);
@@ -175,9 +193,9 @@ export function useEvaluacionCompleta(pagoId: number | null, inicial: Evaluacion
   }, [pagoId]);
 
   /** Sigue la evaluación que el servidor acaba de iniciar al subir el comprobante, sin pedir otra. */
-  const seguir = useCallback(() => { setError(null); setEsperando(true); }, []);
+  const seguir = useCallback(() => { setError(null); setEsperando(true); setCiclo(c => c + 1); }, []);
 
-  return { ev, validadoPorIA, esperando, error, reevaluar, seguir };
+  return { ev, validadoPorIA, esperando, fase, error, reevaluar, seguir };
 }
 
 // ---------- Lo que ve el residente ----------
@@ -191,10 +209,24 @@ const MENSAJES: Record<EstadoEvaluacionResidente, { tone: 'info' | 'ok' | 'warn'
   no_disponible: { tone: 'info', texto: 'Tu comprobante quedó en revisión: la administración lo validará.' },
 };
 
-/** Mensaje de la revisión automática para el residente (nunca detalla qué encontró la IA). */
+/**
+ * Mensaje de la revisión automática para el residente (nunca detalla qué encontró la IA). Si «evaluando» se alarga (> 20 s) le dice que, si la IA
+ * no responde, lo revisará una persona: no se queda mirando un spinner sin explicación.
+ */
 export function EstadoEvaluacion({ estado }: { estado: EstadoEvaluacionResidente }) {
+  const [tarda, setTarda] = useState(false);
+  useEffect(() => {
+    setTarda(false);
+    if (estado !== 'evaluando') return;
+    const t = setTimeout(() => setTarda(true), AVISO_TARDA_MS);
+    return () => clearTimeout(t);
+  }, [estado]);
   const m = MENSAJES[estado];
-  return <Alert tone={m.tone}>{estado === 'evaluando' ? <span className="flex items-center gap-2"><Spinner />{m.texto}</span> : m.texto}</Alert>;
+  return (
+    <Alert tone={m.tone}>
+      {estado === 'evaluando' ? <span className="flex items-center gap-2"><Spinner />{m.texto}{tarda && <> {AVISO_TARDA_RESIDENTE}</>}</span> : m.texto}
+    </Alert>
+  );
 }
 
 /** Insignia de pagos validados por la IA; no muestra nada en los demás. */
@@ -203,8 +235,8 @@ export function ValidadoPorIABadge({ validado }: { validado?: boolean }) {
 }
 
 /**
- * Tras subir la captura: consulta el estado simple cada 3 s, máximo 30 s (10 consultas), y se detiene al salir de «evaluando».
- * Si pasa el tiempo sin respuesta devuelve `null`: el pago sigue su curso y la revisión se verá en «Mis pagos».
+ * Tras subir la captura: consulta el estado simple cada 3 s, máximo ~3 min, y se detiene al salir de «evaluando».
+ * Si pasa el tiempo sin respuesta muestra «no disponible» (quedó en revisión de una persona), nunca un spinner infinito.
  */
 export function useEvaluacionResidente(pagoId: number | null) {
   const [estado, setEstado] = useState<EstadoEvaluacionResidente | null>(null);
@@ -212,10 +244,10 @@ export function useEvaluacionResidente(pagoId: number | null) {
   useEffect(() => {
     if (pagoId === null) { setEstado(null); setValidadoPorIA(false); return; }
     let vivo = true;
-    let intentos = 0;
+    const desde = Date.now();
     setEstado('evaluando');
     const consultar = () => {
-      intentos += 1;
+      if (faseDeEspera(Date.now() - desde) === 'agotada') { clearInterval(t); if (vivo) setEstado(prev => (prev === 'evaluando' ? 'no_disponible' : prev)); return; }
       api<{ evaluacion: EvaluacionResidente | null; validado_por_ia: boolean }>(`/api/pagos/${pagoId}/evaluacion`)
         .then(r => {
           if (!vivo) return;
@@ -224,9 +256,8 @@ export function useEvaluacionResidente(pagoId: number | null) {
           if (e && e !== 'evaluando') { setEstado(e); clearInterval(t); }
         })
         .catch(() => undefined);
-      if (intentos >= 10) { clearInterval(t); if (vivo) setEstado(prev => (prev === 'evaluando' ? null : prev)); }
     };
-    const t = setInterval(consultar, 3000);
+    const t = setInterval(consultar, INTERVALO_EVALUACION_MS);
     return () => { vivo = false; clearInterval(t); };
   }, [pagoId]);
   return { estado, validadoPorIA };

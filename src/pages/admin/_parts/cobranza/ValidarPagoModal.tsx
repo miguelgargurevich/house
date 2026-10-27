@@ -196,6 +196,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               reevaluando={ia.esperando}
               onReevaluar={() => void ia.reevaluar()}
               errorReevaluar={ia.error}
+              fase={ia.fase}
             />
           )}
 

@@ -34,8 +34,8 @@ describe('detalle del pago: adjuntar el comprobante', () => {
 
   it('el estado de la IA se muestra con el mismo panel que el de la revisión (sin pedir otra evaluación)', () => {
     assert.match(MODAL, /\{comprobante && \(\s*<EvaluacionPanel/);
-    assert.match(EVALUACION, /const seguir = useCallback\(\(\) => \{ setError\(null\); setEsperando\(true\); \}, \[\]\);/);
-    assert.match(EVALUACION, /return \{ ev, validadoPorIA, esperando, error, reevaluar, seguir \};/);
+    assert.match(EVALUACION, /const seguir = useCallback\(\(\) => \{ setError\(null\); setEsperando\(true\); setCiclo\(c => c \+ 1\); \}, \[\]\);/);
+    assert.match(EVALUACION, /return \{ ev, validadoPorIA, esperando, fase, error, reevaluar, seguir \};/);
     // Al cambiar de pago no debe arrastrarse la marca «validado por la IA» del anterior.
     assert.match(EVALUACION, /setEv\(inicial\); setValidadoPorIA\(false\);/);
   });

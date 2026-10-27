@@ -4,6 +4,7 @@ import { Alert, Button, Spinner } from '../../../../ui';
 import { ComprobanteVista } from '../../../shared/ComprobanteVista';
 import { EvaluacionPanel } from '../../../shared/evaluacion';
 import type { EvaluacionCompleta } from '../../../shared/evaluacion';
+import { faseDeEspera } from '../../../shared/esperaEvaluacion';
 import type { DetalleMantenimiento } from '../../../shared/mantenimiento/tipos';
 import { INTERVALO_SEGUIMIENTO_MS, MAX_CONSULTAS_SEGUIMIENTO, faseVoucher, motivoEnRevision, sigueRevisando } from './faseVoucher';
 import type { PagoSeguimiento } from './faseVoucher';
@@ -24,6 +25,7 @@ export function SeguimientoVoucher({ reciboId, unidadId, pagoId, inicial, onList
   const [lecturas, setLecturas] = useState(0);
   const [agotado, setAgotado] = useState(false);
   const consultas = useRef(0);
+  const [consultasHechas, setConsultasHechas] = useState(0);
 
   const pago = (detalle.pagos.find(p => p.id === pagoId) ?? null) as (PagoSeguimiento & { evaluacion: EvaluacionCompleta | null; monto: string }) | null;
   const fase = faseVoucher(pago, lecturas, agotado);
@@ -34,6 +36,7 @@ export function SeguimientoVoucher({ reciboId, unidadId, pagoId, inicial, onList
     let vivo = true;
     const t = setInterval(() => {
       consultas.current += 1;
+      setConsultasHechas(consultas.current);
       api<DetalleMantenimiento>(`/api/recibos/${reciboId}/mantenimientos/${unidadId}`)
         .then(d => {
           if (!vivo) return;
@@ -55,7 +58,7 @@ export function SeguimientoVoucher({ reciboId, unidadId, pagoId, inicial, onList
       {fase === 'en_revision' && <Alert tone="warn">Pago registrado: queda en revisión. {motivoEnRevision(pago, agotado)} Ábrelo en el historial de pagos para validarlo o rechazarlo.</Alert>}
       {fase === 'rechazado' && <Alert tone="bad">El pago fue rechazado{pago?.motivo_rechazo ? `: ${pago.motivo_rechazo}` : ''}.</Alert>}
       {pago && (
-        <EvaluacionPanel evaluacion={pago.evaluacion} montoEsperado={detalle.total} validadoPorIA={pago.validado_por_ia} puedeReevaluar={false} reevaluando={false} onReevaluar={() => undefined} />
+        <EvaluacionPanel evaluacion={pago.evaluacion} montoEsperado={detalle.total} validadoPorIA={pago.validado_por_ia} puedeReevaluar={false} reevaluando={false} onReevaluar={() => undefined} fase={agotado ? 'agotada' : faseDeEspera(consultasHechas * INTERVALO_SEGUIMIENTO_MS)} />
       )}
       <ComprobanteVista pagoId={pagoId} descripcion="Voucher adjunto al pago" />
       <Button onClick={onListo}>Listo</Button>
