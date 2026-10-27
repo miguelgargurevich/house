@@ -2,7 +2,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
-import { cabecerasDeSesion, esperar, iniciar, llamar, login, PASSWORD, prisma, vaciarBase } from './helpers/app';
+import { cabecerasDeSesion, darCortesia, esperar, iniciar, llamar, login, PASSWORD, prisma, vaciarBase } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
 import { llaveroDeps } from '../src/server/services/llavero';
 
@@ -38,6 +38,7 @@ before(async () => {
   const costa = await prisma.empresaAdministradora.create({ data: { nombre: 'Administradora Costa' } });
   const alamos = await prisma.complejoHabitacional.create({ data: { nombre: 'Condominio Los Álamos', tipo: 'Edificio', empresa_id: andina.id } });
   const brisas = await prisma.complejoHabitacional.create({ data: { nombre: 'Condominio Las Brisas', tipo: 'Edificio', empresa_id: costa.id } });
+  await darCortesia(alamos.id, brisas.id);
   const enAlamos = { empresa_id: andina.id, complejo_id: alamos.id };
 
   const marta = await usuario('Marta Quispe', 'marta@andina.test', 'admin', { empresa_id: andina.id });

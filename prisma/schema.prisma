@@ -62,6 +62,10 @@ model Usuario {
   canalesVinculados CanalVinculado[]
   codigosVinculacion CodigoVinculacion[]
   canalPendientes   CanalPendiente[]
+  /// false sólo en cuentas creadas por el registro público hasta que abren el enlace del correo. Las cuentas existentes y las que crea el superadmin quedan en true.
+  correo_verificado Boolean                @default(true)
+  tokensVerificacion TokenVerificacionCorreo[]
+  pagosSuscripcionRegistrados PagoSuscripcion[] @relation("PagoSuscripcionRegistrador")
 }
 
 model EmpresaAdministradora {
@@ -86,6 +90,7 @@ model EmpresaAdministradora {
   usuarios            Usuario[]
   canalesVinculados   CanalVinculado[]
   canalWebhook        CanalWebhook?
+  pagosSuscripcion    PagoSuscripcion[]
 }
 
 model ComplejoHabitacional {
@@ -107,6 +112,8 @@ model ComplejoHabitacional {
   validacion_automatica_ia Boolean @default(false)
   /// Mora (S/) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
   mora_monto  Decimal @default(20.00)
+  suscripcion SuscripcionCondominio?
+  pagosSuscripcion PagoSuscripcion[]
 }
 
 /// Quién administra un condominio y desde cuándo. Un solo contrato vigente (`fecha_fin` null) por condominio; `ComplejoHabitacional.empresa_id` es la empresa de ese contrato.
@@ -715,4 +722,124 @@ model CanalPendiente {
 
   @@index([vinculo_id])
   @@index([expira_at])
+}
+
+// ---------- Comercial: planes, módulos por condominio y cobro manual de la suscripción ----------
+
+/// Complemento que se vende por departamento al mes. Precio BASE (sin IGV). `activo`: se ofrece a la venta (no apaga a quien ya lo tiene).
+model ModuloComercial {
+  clave             String   @id
+  nombre            String
+  descripcion       String?
+  precio_por_unidad Decimal  @default(0)
+  activo            Boolean  @default(true)
+  orden             Int      @default(0)
+  updated_at        DateTime @updatedAt
+}
+
+/// Plan de la oferta (gratis, pro, administradora, cortesia). `precio_por_unidad` es BASE (sin IGV) salvo `igv_incluido`.
+model PlanComercial {
+  clave             String   @id
+  nombre            String
+  descripcion       String?
+  precio_por_unidad Decimal  @default(0)
+  /// Claves de `ModuloComercial` que el plan trae sin cobrar aparte.
+  modulos_incluidos String[]
+  /// Viñetas de la página de precios.
+  caracteristicas   String[]
+  /// true = `precio_por_unidad` ya trae el IGV; false (por defecto) = es el precio base y el IGV se suma.
+  igv_incluido      Boolean  @default(false)
+  visible           Boolean  @default(true)
+  orden             Int      @default(0)
+  updated_at        DateTime @updatedAt
+}
+
+/// Suscripción de UN condominio. Sin fila = Gratis. Nunca se borran datos: vencida pasada la gracia sólo apaga los módulos.
+model SuscripcionCondominio {
+  id                    Int                  @id @default(autoincrement())
+  complejo_id           Int                  @unique
+  complejo              ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  plan_clave            String               @default("gratis")
+  /// Módulos sueltos activos además de los que trae el plan.
+  modulos               String[]
+  /// gratis | solicitada | activa | por_vencer | vencida. El estado que manda para apagar módulos se calcula con `vigente_hasta` (ver services/comercial/estado.ts).
+  estado                String               @default("gratis")
+  vigente_hasta         DateTime?
+  solicitud_plan        String?
+  solicitud_modulos     String[]
+  solicitada_at         DateTime?
+  notas                 String?
+  /// Para el cobro con tarjeta que vendrá después (Culqi / Mercado Pago). Sin uso todavía.
+  proveedor_pago        String?
+  proveedor_ref         String?
+  /// `vigente_hasta` para el que ya se envió cada aviso: evita repetirlo (idempotente por periodo).
+  aviso_por_vencer_para DateTime?
+  aviso_vencida_para    DateTime?
+  aviso_apagada_para    DateTime?
+  created_at            DateTime             @default(now())
+  updated_at            DateTime             @updatedAt
+
+  @@index([estado])
+}
+
+/// Pago de la suscripción registrado a mano por el superadmin (transferencia, Yape…). Montos en soles; `monto` = base + IGV.
+model PagoSuscripcion {
+  id                Int                    @id @default(autoincrement())
+  complejo_id       Int
+  complejo          ComplejoHabitacional   @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  empresa_id        Int?
+  empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id], onDelete: SetNull)
+  monto_base        Decimal
+  igv               Decimal
+  monto             Decimal
+  fecha_pago        DateTime
+  medio             String
+  operacion         String?
+  periodo_desde     DateTime
+  periodo_hasta     DateTime
+  voucher_ref       String?
+  notas             String?
+  registrado_por_id Int?
+  registrado_por    Usuario?               @relation("PagoSuscripcionRegistrador", fields: [registrado_por_id], references: [id], onDelete: SetNull)
+  proveedor_pago    String?
+  proveedor_ref     String?
+  created_at        DateTime               @default(now())
+
+  @@index([complejo_id, fecha_pago])
+  @@index([empresa_id])
+}
+
+/// Fila única (id = 1): IGV, plazos y datos de pago que ve el cliente. Todo editable por el superadmin; nada va en variables de entorno.
+model ConfiguracionComercial {
+  id                     Int      @id
+  igv_tasa               Decimal  @default(0.18)
+  dias_gracia            Int      @default(7)
+  dias_aviso_vencimiento Int      @default(5)
+  /// A esta dirección llegan los avisos de registros nuevos y de solicitudes de plan.
+  correo_superadmin      String?
+  /// Base de los enlaces de los correos (https://…). Nunca se toma de la cabecera Host de la petición.
+  url_publica            String?
+  registro_abierto       Boolean  @default(true)
+  /// Cuándo se dejaron en «cortesía» los condominios que ya existían al estrenar la capa comercial (una sola vez; ver services/comercial/migracion.ts).
+  migracion_cortesia_at  DateTime?
+  pago_titular           String?
+  pago_banco             String?
+  pago_cuenta            String?
+  pago_cci               String?
+  pago_yape              String?
+  pago_instrucciones     String?
+  updated_at             DateTime @updatedAt
+}
+
+/// Enlace de un solo uso para verificar el correo del registro público. Sólo se guarda el hash del token.
+model TokenVerificacionCorreo {
+  id         Int       @id @default(autoincrement())
+  usuario_id Int
+  usuario    Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  token_hash String    @unique
+  expira_at  DateTime
+  usado_at   DateTime?
+  created_at DateTime  @default(now())
+
+  @@index([usuario_id])
 }

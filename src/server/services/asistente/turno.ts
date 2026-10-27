@@ -5,6 +5,7 @@ import path from 'node:path';
 import { HttpError } from '../../errors';
 import type { AuthUser } from '../../middleware/auth';
 import { MENSAJE_CORTO } from '../modelos/seleccion';
+import { MENSAJE_SIN_ASISTENTE, moduloActivoPara, moduloNoActivo } from '../comercial/modulos';
 import { construirCadena } from '../rotacion';
 import type { AjustesAplicados } from '../../lib/parametrosChat';
 import { construirContexto, respuestaContingencia, type DatosContexto } from './contexto';
@@ -46,9 +47,11 @@ export interface Preparado {
 
 /**
  * Todo lo que puede fallar ANTES de responder: hay IA configurada, la conversación es del usuario, se guarda el mensaje y se arma el
- * historial (en el servidor) y el contexto verificado. Lanza `HttpError` (500 sin IA, 404 conversación ajena).
+ * historial (en el servidor) y el contexto verificado. Lanza `HttpError` (403 sin el módulo del asistente, 500 sin IA, 404 conversación ajena).
  */
 export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: AjustesAplicados, opts: { conversacionId?: string; ruta?: string }): Promise<Preparado> {
+  // Módulo «Asistente con IA»: lo usan el chat web y los bots (que pasan por aquí), así que esta es la única puerta.
+  if (!(await moduloActivoPara(user, 'asistente'))) throw moduloNoActivo('asistente', MENSAJE_SIN_ASISTENTE);
   if ((await construirCadena()).length === 0) throw new HttpError(500, MENSAJES_ERROR.sin_configurar.mensaje);
   const { id } = await obtenerOCrear(user.id, opts.conversacionId, mensaje);
   const historial = await historialDe(id); // ANTES de guardar el mensaje nuevo

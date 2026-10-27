@@ -11,6 +11,7 @@ import { limites } from './limites';
 import type { MedioEntrante, MensajeEntrante, Transporte } from './transporte';
 import { manejarMedio, manejarRespuestaPendiente } from './voucher';
 import { intentarVincular, leerCodigo, revocarVinculo, vinculoVigente, type CanalBot } from './vinculos';
+import { MENSAJE_SIN_ASISTENTE, moduloActivoPara } from '../comercial/modulos';
 
 export const MAX_TEXTO = 4000;
 
@@ -142,7 +143,10 @@ export async function atenderMensaje(t: Transporte, e: MensajeEntrante): Promise
   }
 
   try {
+    // El bot (chat y voucher por foto) es parte del módulo «Asistente con IA»: sin él sólo responde el aviso (y sigue valiendo desvincular y el menú).
+    const sinAsistente = !(await moduloActivoPara(user, 'asistente'));
     if (e.medio) {
+      if (sinAsistente) return void (await decir(MENSAJE_SIN_ASISTENTE));
       await decir(await manejarMedio({ transporte: t, vinculoId: vinculo.id, empresaId, user, medio: e.medio }));
       return;
     }
@@ -158,6 +162,7 @@ export async function atenderMensaje(t: Transporte, e: MensajeEntrante): Promise
     }
     if (cmd === 'menu') return void (await decir(menuDe(t.canal, user.rol, esJunta(user))));
 
+    if (sinAsistente) return void (await decir(MENSAJE_SIN_ASISTENTE));
     const respuestaVoucher = await manejarRespuestaPendiente({ canal: t.canal, vinculoId: vinculo.id, empresaId, user, texto });
     if (respuestaVoucher != null) return void (await decir(respuestaVoucher));
 

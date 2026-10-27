@@ -4,6 +4,11 @@ import bcrypt from 'bcrypt';
 import { createApp, type AppOptions } from '../../src/server/app';
 import { prisma } from '../../src/server/db';
 import { hoyLima } from '../../src/server/lib/fechas';
+import { sembrarCatalogoComercial } from '../../src/server/services/comercial/catalogo';
+import { comercialDeps, invalidarComercial } from '../../src/server/services/comercial/modulos';
+
+// Sin caché en las pruebas: las filas se escriben directo en la base y los ids se reinician en cada `vaciarBase`.
+comercialDeps.ttlMs = 0;
 
 export { prisma };
 export const PASSWORD = 'Passw0rd!123';
@@ -69,8 +74,18 @@ export async function login(base: string, email: string, password = PASSWORD): P
 
 export async function vaciarBase() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "Auditoria","EstadoIA","ClaveIntegracion","GatewayIA","DominioGatewayPermitido","ConfiguracionOcr","ConfiguracionTelegram","Pago","ReciboConceptoUnidad","ReciboConcepto","Recibo","Concepto","TareaMantenimiento","Unidad","Piso","Estructura","Usuario","ComplejoHabitacional","EmpresaAdministradora" RESTART IDENTITY CASCADE`,
+    `TRUNCATE TABLE "PagoSuscripcion","SuscripcionCondominio","TokenVerificacionCorreo","Auditoria","EstadoIA","ClaveIntegracion","GatewayIA","DominioGatewayPermitido","ConfiguracionOcr","ConfiguracionTelegram","Pago","ReciboConceptoUnidad","ReciboConcepto","Recibo","Concepto","TareaMantenimiento","Unidad","Piso","Estructura","Usuario","ComplejoHabitacional","EmpresaAdministradora" RESTART IDENTITY CASCADE`,
   );
+  // Planes, módulos y configuración (no se vacían con el resto): se dejan como el seed los crea.
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE "ModuloComercial","PlanComercial","ConfiguracionComercial"`);
+  await sembrarCatalogoComercial(prisma);
+  invalidarComercial();
+}
+
+/** Condominios en «cortesía» (todos los módulos, sin vencimiento): como están hoy los de producción. */
+export async function darCortesia(...complejoIds: number[]) {
+  await prisma.suscripcionCondominio.createMany({ data: complejoIds.map((complejo_id) => ({ complejo_id, plan_clave: 'cortesia', modulos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'], estado: 'activa' })), skipDuplicates: true });
+  invalidarComercial();
 }
 
 const DIA = 86_400_000;
@@ -86,6 +101,7 @@ export async function sembrar() {
   const empresaB = await prisma.empresaAdministradora.create({ data: { nombre: 'Empresa B' } });
   const complejoA = await prisma.complejoHabitacional.create({ data: { nombre: 'Complejo A', tipo: 'Edificio', empresa_id: empresaA.id } });
   const complejoB = await prisma.complejoHabitacional.create({ data: { nombre: 'Complejo B', tipo: 'Edificio', empresa_id: empresaB.id } });
+  await darCortesia(complejoA.id, complejoB.id);
 
   const superadmin = await usuario('Super', 'super@test.pe', 'superadmin');
   const adminA = await usuario('Admin A', 'admin.a@test.pe', 'admin', { empresa_id: empresaA.id });

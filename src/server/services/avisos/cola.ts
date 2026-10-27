@@ -4,6 +4,7 @@ import { diasEntre, hoyLima } from '../../lib/fechas';
 import { enviarTelegram } from '../canales/telegram';
 import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { montoMoraTexto } from '../mora';
+import { moduloActivo } from '../comercial/modulos';
 import { fechaTexto, periodoTexto, plantilla, solesTexto, type TipoAviso } from './plantillas';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
@@ -226,6 +227,21 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
   return null;
 }
 
+/** Condominio al que se refiere un aviso (por su recibo): de él depende el módulo de WhatsApp. null = aviso de la plataforma (sin condominio). */
+async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number | null }): Promise<number | null> {
+  if (!n.ref_entidad || n.ref_id == null) return null;
+  if (n.ref_entidad === 'recibo') return (await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
+  const porCargo = { unidad: { select: { complejo_id: true } }, reciboConcepto: { select: { recibo: { select: { complejo_id: true } } } } } as const;
+  const cargo = n.ref_entidad === 'cargo'
+    ? await prisma.reciboConceptoUnidad.findUnique({ where: { id: n.ref_id }, select: porCargo })
+    : n.ref_entidad === 'pago'
+      ? (await prisma.pago.findUnique({ where: { id: n.ref_id }, select: { reciboConceptoUnidad: { select: porCargo } } }))?.reciboConceptoUnidad
+      : null;
+  return cargo?.unidad?.complejo_id ?? cargo?.reciboConcepto?.recibo?.complejo_id ?? null;
+}
+
+export const MOTIVO_SIN_WHATSAPP = 'Plan sin WhatsApp';
+
 /**
  * Envía las `pendiente` con `programada_para <= ahora`. Cada una se «arrienda» antes de enviar (se corre su
  * `programada_para` unos minutos), así dos procesos no mandan el mismo aviso. Los fallos se reintentan con espera
@@ -251,10 +267,21 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
     if (n.canal === 'email') {
       r = await enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo);
     } else if (n.canal === 'whatsapp') {
+      // Sin el módulo «Avisos por WhatsApp» el aviso se omite (el correo sigue). Los avisos de la plataforma (sin condominio) no dependen de un plan.
+      // El resultado de un voucher mandado por el bot (pago validado/rechazado) también sale si el condominio tiene el asistente, que es quien lo trae.
+      const complejoId = await complejoDeAviso(n);
+      const permitido = (complejoId == null && n.ref_entidad === 'ia')
+        || (await moduloActivo(complejoId, 'whatsapp_avisos'))
+        || ((n.tipo === 'pago_validado' || n.tipo === 'pago_rechazado') && (await moduloActivo(complejoId, 'asistente')));
       // La instancia es la de la administradora que emitió el recibo (no una global).
-      r = await enviarWhatsapp(deps, await resolveInstance(n), (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, n.cuerpo);
+      r = permitido
+        ? await enviarWhatsapp(deps, await resolveInstance(n), (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, n.cuerpo)
+        : { resultado: 'omitida', motivo: MOTIVO_SIN_WHATSAPP };
     } else if (n.canal === 'telegram') {
-      r = await enviarTelegram(deps, await chatVinculado(n.usuario_id), n.cuerpo);
+      // El bot de Telegram es parte del módulo «Asistente con IA».
+      r = (await moduloActivo(await complejoDeAviso(n), 'asistente'))
+        ? await enviarTelegram(deps, await chatVinculado(n.usuario_id), n.cuerpo)
+        : { resultado: 'omitida', motivo: 'Plan sin asistente' };
     } else {
       r = resultadoSinCanal(n.canal);
     }

@@ -11,7 +11,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   if (res.headersSent) return next(err);
 
   if (err instanceof HttpError) {
-    res.status(err.status).json(err.campos ? { error: err.message, campos: err.campos } : { error: err.message });
+    res.status(err.status).json({ error: err.message, ...(err.campos ? { campos: err.campos } : {}), ...(err.code ? { code: err.code, ...err.extra } : {}) });
     return;
   }
   if (err instanceof Prisma.PrismaClientKnownRequestError) {

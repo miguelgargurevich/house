@@ -69,6 +69,8 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
       await registrarAuditoria({ usuario_id: usuario?.id, accion: 'login_fallido', entidad: 'usuario', entidad_id: usuario?.id, detalle: usuario ? undefined : { email_enmascarado: enmascararCorreo(email) }, ip: ipDe(req) });
       throw new HttpError(401, 'Credenciales inválidas');
     }
+    // Cuenta del registro público sin confirmar: la contraseña era correcta (no se delata nada), pero no entra hasta abrir el enlace del correo.
+    if (!usuario.correo_verificado) throw new HttpError(403, 'Confirma tu correo para entrar: te enviamos un enlace al registrarte.', undefined, 'CORREO_NO_VERIFICADO');
     cuenta.exito(email);
     const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id };
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));

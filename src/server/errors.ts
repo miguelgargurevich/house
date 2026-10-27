@@ -1,10 +1,15 @@
 export class HttpError extends Error {
   status: number;
   campos?: Record<string, string>;
-  constructor(status: number, message: string, campos?: Record<string, string>) {
+  /** Código estable para que la pantalla reaccione (p. ej. `MODULO_NO_ACTIVO`); va junto a `extra` en la respuesta. */
+  code?: string;
+  extra?: Record<string, string | number | boolean | null>;
+  constructor(status: number, message: string, campos?: Record<string, string>, code?: string, extra?: Record<string, string | number | boolean | null>) {
     super(message);
     this.status = status;
     this.campos = campos;
+    this.code = code;
+    this.extra = extra;
   }
 }
 

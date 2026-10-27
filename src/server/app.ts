@@ -31,6 +31,8 @@ import { meRouter } from './routes/me';
 import { mediosPagoMeRouter, mediosPagoRouter } from './routes/mediosPago';
 import { notificacionesRouter } from './routes/notificaciones';
 import { pagosRouter } from './routes/pagos';
+import { publicoRouter } from './routes/publico';
+import { comercialRouter } from './routes/comercial';
 import { pisosRouter } from './routes/pisos';
 import { proveedoresRouter } from './routes/proveedores';
 import { reciboConceptosRouter } from './routes/reciboConceptos';
@@ -92,7 +94,8 @@ export function createApp(opts: AppOptions = {}) {
   const api = Router();
   api.use(limiters.api);
   api.get('/health', (_req, res) => { res.json({ ok: true }); }); // público: healthcheck del contenedor
-  api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // único tramo público
+  api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // tramo público: inicio de sesión
+  api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion })); // tramo público: planes, registro y verificación del correo
   api.use(authenticate);
   api.use(auditoria);
   api.use('/auth', sesionRouter);
@@ -124,6 +127,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/tareas', tareasRouter);
   api.use('/auditoria', auditoriaRouter);
   api.use('/whatsapp', whatsappRouter);
+  api.use('/comercial', comercialRouter);
   app.use('/api', api);
   app.use('/api', notFoundHandler);
 

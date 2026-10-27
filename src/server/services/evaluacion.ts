@@ -16,6 +16,7 @@ import { ajustarPorOcr, leerConOcr, type LecturaOcr } from './ocrVoucher';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
 import { aplicarFechaDelVoucher, decidirFechaEvaluada, type DecisionFecha } from './fechaVoucher';
 import { avisarResultado, cerrarPago } from './validacionPago';
+import { exigirModulo, moduloActivo } from './comercial/modulos';
 
 /** Eslabones que se prueban como máximo por evaluación (con dos claves de Gemini caídas todavía llega al gateway de respaldo). */
 export const MAX_INTENTOS_IA = 4;
@@ -32,6 +33,7 @@ const MAX_POR_BARRIDO = 10;
 const MIN_LLAMADA_MS = 1_000;
 export const MOTIVO_ABANDONADA = 'La evaluación no terminó (el servidor se reinició o se cayó)';
 
+export const MOTIVO_SIN_MODULO = 'Disponible con el módulo «IA que lee y valida vouchers»: este comprobante queda para validación manual.';
 export const MOTIVO_SIN_CLAVE = 'Configura una clave de Gemini u OpenAI en el Llavero para evaluar comprobantes con IA.';
 export const MOTIVO_PDF = 'Los PDF sólo se pueden leer con Gemini: configura una clave de Gemini en el Llavero o pide una captura en imagen.';
 
@@ -109,8 +111,34 @@ export async function tomarEvaluacion(pagoId: number, modo: 'subida' | 'manual')
   }
 }
 
-/** Arranca la evaluación en segundo plano. `false` si otra ya estaba en curso (sólo en modo manual). */
+/** Condominio del pago (por su departamento o, si no, por su recibo): de él depende el módulo de IA. */
+async function complejoDelPago(pagoId: number): Promise<number | null> {
+  const p = await prisma.pago.findUnique({
+    where: { id: pagoId },
+    select: { reciboConceptoUnidad: { select: { unidad: { select: { complejo_id: true } }, reciboConcepto: { select: { recibo: { select: { complejo_id: true } } } } } } },
+  });
+  const c = p?.reciboConceptoUnidad;
+  return c?.unidad?.complejo_id ?? c?.reciboConcepto?.recibo?.complejo_id ?? null;
+}
+
+/** Sin el módulo de IA no se llama a ninguna IA: la evaluación queda «no disponible» (con el motivo) y el pago sigue por validación manual. */
+async function marcarSinModulo(pagoId: number): Promise<void> {
+  const ahora = evaluacionDeps.ahora();
+  await prisma.evaluacionComprobante.upsert({
+    where: { pago_id: pagoId },
+    create: { pago_id: pagoId, estado: 'no_disponible', error: MOTIVO_SIN_MODULO, evaluada_at: ahora },
+    update: { ...REINICIO, estado: 'no_disponible', error: MOTIVO_SIN_MODULO, evaluada_at: ahora },
+  });
+}
+
+/**
+ * Arranca la evaluación en segundo plano. `false` si otra ya estaba en curso (sólo en modo manual) o si el condominio no tiene el módulo de IA
+ * (al subir un comprobante se deja la marca «no disponible»; pedirla a mano responde 403 `MODULO_NO_ACTIVO`).
+ */
 export async function iniciarEvaluacion(pagoId: number, modo: 'subida' | 'manual'): Promise<boolean> {
+  const complejoId = await complejoDelPago(pagoId);
+  if (modo === 'manual') await exigirModulo(complejoId, 'ia_vouchers');
+  else if (!(await moduloActivo(complejoId, 'ia_vouchers'))) { await marcarSinModulo(pagoId); return false; }
   if (!(await tomarEvaluacion(pagoId, modo))) return false;
   enSegundoPlano(() => ejecutar(pagoId, 1));
   return true;
@@ -274,7 +302,7 @@ const pagoParaEvaluar = {
     select: {
       id: true,
       unidad: { select: { complejo_id: true, estructura_id: true, complejo: { select: { validacion_automatica_ia: true } } } },
-      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true, mes: true, anio: true } } } },
+      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true, mes: true, anio: true, complejo_id: true } } } },
     },
   },
 } satisfies Prisma.PagoInclude;
@@ -295,6 +323,13 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   if (!pago || !archivo) return; // el pago o su comprobante ya no existen
   const sha = archivo.sha256;
   const final = (data: Prisma.EvaluacionComprobanteUncheckedUpdateManyInput) => guardar(pagoId, sha, { intentos: intento, reintentar_at: null, ...data });
+
+  // Un reintento o un barrido puede llegar cuando el plan ya venció: sin el módulo no se llama a la IA ni al OCR.
+  const cargo0 = pago.reciboConceptoUnidad;
+  if (!(await moduloActivo(cargo0?.unidad?.complejo_id ?? cargo0?.reciboConcepto?.recibo?.complejo_id, 'ia_vouchers'))) {
+    if (await final({ estado: 'no_disponible', error: MOTIVO_SIN_MODULO, evaluada_at: evaluacionDeps.ahora() })) await auditar(pagoId, { estado: 'no_disponible', intento });
+    return;
+  }
 
   const salida = await leerConRotacion({ mime: archivo.tipo_mime, base64: Buffer.from(archivo.datos).toString('base64') });
   let lectura: Lectura | null = salida.tipo === 'texto' ? parsearLectura(salida.texto) : null; // el texto del modelo no se guarda ni se obedece: sólo cuenta si valida el esquema estricto

@@ -3,6 +3,7 @@ import { prisma } from '../../db';
 import { isProduction } from '../../config';
 import { depsReales, type DepsAvisos } from './canales';
 import { encolarRecordatorios, procesarCola } from './cola';
+import { procesarVencimientos } from '../comercial/vencimientos';
 
 /** Clave del bloqueo asesor de Postgres: sólo una réplica trabaja a la vez. */
 export const LOCK_AVISOS = 7_302_301;
@@ -27,7 +28,9 @@ export async function ciclo(deps: DepsAvisos = depsReales()) {
       const [{ ok }] = await tx.$queryRaw<{ ok: boolean }[]>(Prisma.sql`SELECT pg_try_advisory_xact_lock(${LOCK_AVISOS}) AS ok`);
       if (!ok) return null;
       const encoladas = await encolarRecordatorios(deps.ahora());
-      return { encoladas, ...(await procesarCola(deps)) };
+      // Vencimientos de los planes: un fallo aquí nunca frena los avisos de cobranza.
+      const vencimientos = await procesarVencimientos({ ahora: deps.ahora(), deps }).catch((err) => { console.error('[comercial] los vencimientos fallaron:', err instanceof Error ? err.message : 'error'); return null; });
+      return { encoladas, ...(await procesarCola(deps)), vencimientos };
     },
     { timeout: 10 * 60_000, maxWait: 10_000 },
   );

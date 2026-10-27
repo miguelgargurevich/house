@@ -5,6 +5,7 @@ import { conflict, notFound } from '../errors';
 import { scopeNotificaciones } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { estadoCanales, CANALES, TIPOS, procesarPronto } from '../services/avisos';
+import { moduloActivoPara } from '../services/comercial/modulos';
 import { idSchema, parseId, z } from '../validation';
 
 const ESTADOS = ['pendiente', 'enviada', 'error', 'omitida'] as const;
@@ -76,7 +77,8 @@ router.get('/canales', async (req, res) => {
     const empresa = await prisma.empresaAdministradora.findUnique({ where: { id: empresaId }, select: { whatsapp_instance: true } });
     if (!empresa?.whatsapp_instance) estado.whatsapp = { configurado: false, faltan: [], sinNumero: true };
   }
-  res.json(estado);
+  // Sin el módulo «Avisos por WhatsApp» en ninguno de sus condominios, los avisos por WhatsApp se omiten («Plan sin WhatsApp»): la pantalla lo dice.
+  res.json({ ...estado, sin_modulo_whatsapp: !(await moduloActivoPara(currentUser(req), 'whatsapp_avisos')) });
 });
 
 /** Conteo por estado dentro del alcance del usuario (para la franja de cifras). */

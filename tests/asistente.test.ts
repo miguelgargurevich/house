@@ -870,9 +870,11 @@ describe('contexto verificado por rol', () => {
     const seg = bloque(await sistema(T.seg));
     assert.match(seg, /Rol: Personal de seguridad/);
     assert.ok(!seg.includes('Deuda') && !tieneGestion(seg));
-    // Un admin sin empresa no ve nada de gestión (igual que las APIs).
+    // Un admin sin empresa no ve nada de gestión (igual que las APIs): sin condominio no hay módulo de asistente, así que ni siquiera se llama a la IA.
     const huerfano = await login(base, 'admin.huerfano@test.pe');
-    assert.ok(!tieneGestion(bloque(await sistema(huerfano))));
+    const sinEmpresa = await llamar(base, 'POST', '/api/ai-chat', huerfano, { message: MSG });
+    assert.equal(sinEmpresa.status, 403);
+    assert.equal(sinEmpresa.body.code, 'MODULO_NO_ACTIVO');
   });
 
   it('un intento de inyección en el mensaje NO altera los datos verificados; los textos de la base van limpios', async () => {

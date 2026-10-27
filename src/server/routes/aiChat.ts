@@ -66,6 +66,7 @@ async function leerEntrada(req: Request): Promise<{ mensaje: string; conversacio
 const manejarPrevio = (res: Response, err: unknown) => {
   if (err instanceof HttpError) {
     if (err.status === 422) return res.status(422).json(err.campos ? { error: err.message, campos: err.campos } : { error: err.message });
+    if (err.code) return res.status(err.status).json({ error: { code: err.status, message: err.message }, code: err.code, ...err.extra }); // MODULO_NO_ACTIVO: la pantalla muestra el aviso de plan
     return fallo(res, err.status, err.message);
   }
   throw err;

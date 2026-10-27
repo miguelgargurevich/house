@@ -16,14 +16,21 @@ export interface RateLimitOptions {
   mcp?: number;
   /** `/mcp`: intentos con token inválido por IP cada 15 min. */
   mcpFallos?: number;
+  /** Registro público: intentos por IP por hora. */
+  registroIp?: number;
+  /** Registro público: intentos por correo (exista o no) por hora. */
+  registroCorreo?: number;
+  /** Verificación de correo: intentos por IP cada 15 min. */
+  verificacion?: number;
 }
 
 const QUINCE_MIN = 15 * 60 * 1000;
+const UNA_HORA = 60 * 60 * 1000;
 
-function limiter(max: number, mensaje: string, keyGenerator: (req: Request) => string, extra: { soloFallos?: boolean } = {}): RequestHandler {
+function limiter(max: number, mensaje: string, keyGenerator: (req: Request) => string, extra: { soloFallos?: boolean; ventanaMs?: number } = {}): RequestHandler {
   return rateLimit({
     ...(extra.soloFallos ? { skipSuccessfulRequests: true } : {}),
-    windowMs: QUINCE_MIN,
+    windowMs: extra.ventanaMs ?? QUINCE_MIN,
     limit: max,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
@@ -109,6 +116,10 @@ export function crearLimitadores(opts: RateLimitOptions = {}) {
     evaluacion: limiter(opts.evaluacion ?? 20, 'Has pedido demasiadas evaluaciones de comprobantes, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
     // Sólo cuenta los 4xx de `/mcp` (token inválido): una IP que tantea tokens se frena; un cliente con token válido no gasta este cupo.
     mcpFallos: limiter(opts.mcpFallos ?? 30, 'Demasiados intentos con un token inválido, intenta de nuevo más tarde', ip, { soloFallos: true }),
+    // Registro público: por IP y por correo (cuenta todos los intentos, exista o no la cuenta: no delata nada).
+    registroIp: limiter(opts.registroIp ?? 5, 'Demasiados registros desde esta conexión, intenta de nuevo más tarde', ip, { ventanaMs: UNA_HORA }),
+    registroCorreo: limiter(opts.registroCorreo ?? 3, 'Demasiados intentos con este correo, intenta de nuevo más tarde', (req) => `c${typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 160) : ip(req)}`, { ventanaMs: UNA_HORA }),
+    verificacion: limiter(opts.verificacion ?? 20, 'Demasiados intentos, intenta de nuevo en unos minutos', ip),
     password: limiter(opts.password ?? 10, 'Demasiados intentos de cambio de contraseña, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
   };
 }

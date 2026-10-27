@@ -5,6 +5,8 @@ import { iniciarTareasAsistente } from './server/services/asistente/planificador
 import { prisma } from './server/db';
 import { crearContratosIniciales } from './server/lib/contratosIniciales';
 import { migrarOcrDesdeEnv } from './server/lib/gatewaysDatos';
+import { sembrarCatalogoComercial } from './server/services/comercial/catalogo';
+import { migracionInicial } from './server/services/comercial/migracion';
 
 const PORT = Number(process.env.PORT) || 4000;
 iniciarLimpieza();
@@ -16,6 +18,12 @@ if ((process.env.CONTRATOS_INICIALES ?? (process.env.NODE_ENV === 'production' ?
 migrarOcrDesdeEnv()
   .then((r) => { if (r !== 'ya_configurado' && r !== 'sin_variable') console.log(`[ocr] migración desde variables de entorno: ${r}`); })
   .catch((e) => console.error('[ocr] no se pudo migrar la configuración del OCR', e instanceof Error ? e.message : 'error'));
+// Capa comercial: crea los planes, módulos y la configuración que falten (sin pisar lo editado) y, UNA sola vez, deja los condominios que ya existen
+// en «cortesía» con todos los módulos: producción se comporta igual que antes. Idempotente; en seco: `npx tsx scripts/migrar-comercial.ts --seco`.
+sembrarCatalogoComercial(prisma)
+  .then(() => migracionInicial(prisma))
+  .then((r) => { if (r.aplicada) console.log(`[comercial] condominios existentes dejados en cortesía: ${r.creadas}`); })
+  .catch((e) => console.error('[comercial] no se pudo preparar el catálogo comercial', e instanceof Error ? e.message : 'error'));
 app.listen(PORT, () => {
   console.log(`Servidor backend escuchando en puerto ${PORT}`);
   if (planificadorActivo()) iniciarPlanificador();
