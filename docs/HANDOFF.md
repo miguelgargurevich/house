@@ -4,6 +4,37 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Llavero de gateways propios, dominios permitidos y OCR en la base (anti-SSRF)
+
+**Pedido de Miguel (textual):** «hay dond registrar el gw? en house?» → «seria mejor construir un llavero de gateways no crees o gregarlo al que ya existe .. otra seccion que opinas» → (misma pantalla, sección «Gateways propios») «si hazlo» → «nada de variables de entorno todo en BD asi como las llaves de IA y sus proveedores». Rama `feat/llavero-gateways` (sobre `origin/main` f5c3f99); **sin push**. Precisión del orquestador sobre el OCR: el servicio ya corre como `house-ocr` en la red interna de Coolify (`http://house-ocr:5050`, sin dominio público) → sólo destinos internos de una lista fija EN EL CÓDIGO, o un https público con las barreras de los gateways.
+
+**Qué se hizo**
+- **Esquema** (aditivo; `db push` sin `--accept-data-loss` corre en producción): `GatewayIA`, `DominioGatewayPermitido`, `ConfiguracionOcr`, y `ClaveIntegracion.gateway_id` (FK, cascada). Se dejó `@@unique([proveedor, etiqueta])` intacto: cambiarlo hacía fallar `db push` en el contenedor; por eso la etiqueta de una clave de gateway se guarda como `g<id>:<etiqueta>` (la API la devuelve sin el prefijo).
+- **Resolución única de proveedor** (`lib/gateways.ts › proveedorDeFila`): catálogo por id, o un `ProveedorIA` `openai-compatible` construido desde su `GatewayIA` (`id: 'gateway'`, `gatewayId`). Rotación, evaluación, asistente, sync de modelos, «Probar», canary, recuperación, salud y la vista del Llavero pasan por ella. **Una sola salida de red**: `services/llavero.ts › fetchProveedor`.
+- **Anti-SSRF** (`lib/gateways.ts`, `lib/gatewaysDatos.ts`): barrera 1 = URL (https, sin credenciales, 443, sin IP literal, host EXACTO de `DominioGatewayPermitido`); barrera 2, la de fondo = en CADA llamada se resuelve el host y se rechaza si ALGUNA IP no es pública (10/8, 127/8, 169.254/16, 100.64/10, ULA, ::1, `::ffff:` interna, 6to4, Teredo…); `fetchFijado` conecta a la IP ya validada (lookup fijo, sin re-resolver; TLS y Host siguen siendo del dominio), nunca sigue redirecciones y respeta el `signal`. Quitar un dominio, pausar el gateway o alterar su URL en la base: sale de la cadena Y cualquier llamada pendiente se bloquea sin petición (falla cerrado); la pantalla lo dice.
+- **Sólo superadmin**, auditado sin claves (`gateway-ia`, `dominio-gateway`, `ocr-config`, `clave-ia`). Rutas nuevas en `/api/llavero`: `POST|PATCH|DELETE /gateways`, `POST|DELETE /dominios`, `PUT /gateway` (clave de un gateway), `PUT|PATCH|DELETE /ocr`; `GET /` suma `gateways`, `dominios_permitidos`, `ocr` (ver `docs/API-CONTRATO.md`).
+- **OCR a la base** (`ConfiguracionOcr`): `interno` (destino de `OCR_DESTINOS_INTERNOS`, hoy sólo `house-ocr`) o `publico` (mismas barreras que un gateway). `http://otro-servicio:5432` y `http://postgres:5432` se rechazan (prueba). Clave cifrada (AAD `clave:ocr:comprobantes`). `migrarOcrDesdeEnv` corre al arrancar (`src/server.ts`): si la base no tiene fila y hay `OCR_BASE_URL`, la migra UNA vez y el código deja de leer esas variables.
+- **Migración del `dashboardia` fijo**: `npx tsx scripts/migrar-gateway-dashboardia.ts [--seco]` (idempotente, transaccional; re-cifra las claves porque la AAD cambia; conserva estado/reserva/modelo). La entrada ya no está en el catálogo.
+- **Pantalla Llavero**: «Gateways propios» bajo «Proveedores» (lista con dominio, visión sí/no, estado; Agregar/Editar/Pausar/Quitar; las claves de cada gateway con el MISMO componente `GrupoProveedor`), «Dominios permitidos» y «OCR de comprobantes».
+
+**Qué se verificó:** suite completa en verde, tipos, build y 54 mutaciones sobre las barreras (todas en rojo; ver el resumen del commit). El script de migración se corrió contra `house_test_gw` (seco, real, repetido).
+
+**Próximos pasos (los hace la sesión principal con OK de Miguel)**
+1. **En el MISMO despliegue** correr `npx tsx scripts/migrar-gateway-dashboardia.ts --seco` y luego sin `--seco` dentro del contenedor (si no, las claves `dashboardia` quedan sin uso: el id ya no existe en el catálogo).
+2. Cargar en el Llavero el dominio `omniroute.gargurevich.dev` y registrar OmniRoute si se quiere (no se agregó nada por defecto salvo `api.dashboardia.gargurevich.dev`).
+3. En producción, el OCR `http://house-ocr:5050` se migra solo desde `OCR_BASE_URL` al primer arranque; después se pueden quitar `OCR_BASE_URL` y `OCR_API_KEY` de Coolify (la clave real no la tocó nadie en esta sesión).
+4. No se probó la pantalla en un navegador.
+
+**Decisiones y gotchas**
+- Se tocaron archivos fuera de `Permitidos:` porque la resolución de proveedor los exigía (cambios mínimos): `src/server.ts` (migración del OCR al arrancar), `routes/aiChat.ts` (nombre del gateway), `services/asistente/{prueba,canary,recuperacion,salud,vistaLlavero}.ts` (cargar `gateway` y resolver con `proveedorDeFila`), `tests/helpers/app.ts` (el TRUNCATE incluye las tablas nuevas) y `tests/helpers/gateways.ts` (nuevo).
+- Un OCR/gateway PÚBLICO que pase a apuntar a la red interna se bloquea (por diseño). El OCR interno NO pasa por DNS: es una red de confianza con lista fija en el código.
+- Un `https` público en `OCR_BASE_URL` se agrega a la lista de dominios al migrarlo (lo puso el operador); un destino `http` ajeno no se migra (`url_no_valida`, queda en el log).
+- «Quitar» el OCR deja la fila vacía y pausada (no se borra) para que el entorno no la resucite en el siguiente arranque.
+- Aceptado/pendiente: `lib/modelosMalos.ts` indexa por `proveedor` = `gateway` (un modelo malo en un gateway lo es 10 min para todos); la evaluación guarda `proveedor: 'gateway'`, no el nombre; el canary agrupa todas las claves de gateway como un solo «proveedor».
+- Las pruebas que registran gateways usan `tests/helpers/gateways.ts` (`dnsFalso()` inyecta el resolver; nunca DNS real). Cualquier prueba nueva de IA que use un gateway debe llamarlo en `before`.
+
+---
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — La fecha del voucher sólo se aplica si el comprobante coincide, y la IA lee el periodo del mensaje
 
 **Pedido de Miguel (textual):** «Sí: que la fecha del voucher solo se aplique si la IA no marca que no coincide, que la IA también lea el periodo del mensaje, y restaura la fecha del pago de B01-804.» Rama `fix/fecha-y-periodo` (sobre `origin/main` f5c3f99); **sin push**.

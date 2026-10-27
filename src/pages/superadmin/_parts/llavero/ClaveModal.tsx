@@ -47,7 +47,10 @@ export function ClaveModal({ proveedor, existente, etiquetasUsadas, onClose, onG
     setGuardando(true);
     setError(undefined);
     try {
-      await api(`/api/llavero/${proveedor.id}`, { method: 'PUT', json: { clave: clave.trim(), etiqueta: etiqueta.trim().toLowerCase(), modelo: modelo.trim() } });
+      const cuerpo = { clave: clave.trim(), etiqueta: etiqueta.trim().toLowerCase(), modelo: modelo.trim() };
+      // Un gateway propio se guarda en una ruta fija con su id: el id del catálogo no aplica.
+      if (proveedor.gatewayId !== undefined) await api('/api/llavero/gateway', { method: 'PUT', json: { ...cuerpo, gateway_id: proveedor.gatewayId } });
+      else await api(`/api/llavero/${proveedor.id}`, { method: 'PUT', json: cuerpo });
       setClave('');
       toast.ok(existente ? `Clave de ${proveedor.nombre} actualizada` : `Clave de ${proveedor.nombre} guardada`);
       onGuardada();
@@ -96,7 +99,7 @@ export function ClaveModal({ proveedor, existente, etiquetasUsadas, onClose, onG
           placeholder={proveedor?.modeloPorDefecto}
           hint="Si lo dejas vacío se usa el modelo por defecto."
         />
-        {proveedor && (
+        {proveedor && proveedor.urlParaConseguirKey && (
           <a href={proveedor.urlParaConseguirKey} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover">
             Conseguir una clave
             <ArrowTopRightOnSquareIcon className="h-4 w-4" aria-hidden="true" />

@@ -5,10 +5,15 @@ import { Alert, Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, Skeleto
 import { ClaveModal } from './_parts/llavero/ClaveModal';
 import { Actividad } from './_parts/llavero/Actividad';
 import { ComoSeUsan } from './_parts/llavero/ComoSeUsan';
+import { DominiosPermitidos } from './_parts/llavero/DominiosPermitidos';
+import { GatewayModal } from './_parts/llavero/GatewayModal';
+import { GatewaysSeccion } from './_parts/llavero/GatewaysSeccion';
 import { GrupoProveedor } from './_parts/llavero/GrupoProveedor';
 import { ModeloModal } from './_parts/llavero/ModeloModal';
+import { OcrSeccion } from './_parts/llavero/OcrSeccion';
 import { SaludBanner } from './_parts/llavero/SaludBanner';
-import type { Clave, DatosLlavero, Proveedor } from './_parts/llavero/tipos';
+import { clavesDeProveedor, proveedorDeGateway } from './_parts/llavero/tipos';
+import type { Clave, DatosLlavero, Gateway, Proveedor } from './_parts/llavero/tipos';
 
 const REFRESCO_MS = 20_000;
 
@@ -21,6 +26,9 @@ export default function Llavero() {
   const [sincronizando, setSincronizando] = useState<number | null>(null);
   const [modelo, setModelo] = useState<{ proveedor: Proveedor; clave: Clave } | null>(null);
   const [quitando, setQuitando] = useState(false);
+  const [gatewayModal, setGatewayModal] = useState<{ existente: Gateway | null } | null>(null);
+  const [quitarGw, setQuitarGw] = useState<Gateway | null>(null);
+  const [quitandoGw, setQuitandoGw] = useState(false);
 
   // Mientras la página está visible se refresca la lista para ver los enfriamientos; no toca modales ni foco.
   useEffect(() => {
@@ -28,7 +36,7 @@ export default function Llavero() {
     return () => clearInterval(t);
   }, [reload]);
 
-  const clavesDe = (p: Proveedor) => data?.claves.filter(c => c.proveedor === p.id) ?? [];
+  const clavesDe = (p: Proveedor) => clavesDeProveedor(data?.claves ?? [], p);
   const nombre = (p: Proveedor, c: Clave) => (clavesDe(p).length > 1 ? `${p.nombre} (${c.etiqueta})` : p.nombre);
 
   async function probar(p: Proveedor, c: Clave) {
@@ -77,11 +85,30 @@ export default function Llavero() {
     } catch (e) { toast.error(errorText(e)); } finally { setQuitando(false); }
   }
 
+  async function pausarGateway(g: Gateway, habilitado: boolean) {
+    try {
+      await api(`/api/llavero/gateways/${g.id}`, { method: 'PATCH', json: { habilitado } });
+      toast.ok(habilitado ? `${g.nombre} reanudado` : `${g.nombre} en pausa: sus claves no se usan`);
+      await reload();
+    } catch (e) { toast.error(errorText(e)); }
+  }
+
+  async function quitarGateway() {
+    if (!quitarGw) return;
+    setQuitandoGw(true);
+    try {
+      await api(`/api/llavero/gateways/${quitarGw.id}`, { method: 'DELETE' });
+      toast.ok(`Gateway ${quitarGw.nombre} eliminado`);
+      setQuitarGw(null);
+      await reload();
+    } catch (e) { toast.error(errorText(e)); } finally { setQuitandoGw(false); }
+  }
+
   const sinConfigurar = !!data && !data.configurado;
 
   return (
     <>
-      <PageHeader title="Llavero de IA" description="Claves de los proveedores de IA que usa el asistente. Se guardan cifradas; nunca se vuelven a mostrar." />
+      <PageHeader title="Llavero de IA" description="Claves de los proveedores de IA y de tus gateways propios, y el OCR de comprobantes. Se guardan cifradas; nunca se vuelven a mostrar." />
 
       {sinConfigurar && (
         <div className="mb-4">
@@ -110,7 +137,7 @@ export default function Llavero() {
           <EmptyState icon={<LockClosedIcon />} title="No hay proveedores disponibles" description="El servidor no devolvió ningún proveedor de IA." />
         ) : data ? (
           <>
-            <ComoSeUsan orden={data.orden} proveedores={data.proveedores} />
+            <ComoSeUsan orden={data.orden} proveedores={[...data.proveedores, ...data.gateways.map(proveedorDeGateway)]} />
             <ul className="divide-y divide-line">
               {data.proveedores.map(p => (
                 <GrupoProveedor
@@ -132,11 +159,46 @@ export default function Llavero() {
                 />
               ))}
             </ul>
+            <GatewaysSeccion
+              gateways={data.gateways}
+              claves={data.claves}
+              maxClaves={data.max_claves_por_proveedor}
+              deshabilitado={sinConfigurar}
+              probando={probando}
+              sincronizando={sincronizando}
+              onAgregarGateway={() => setGatewayModal({ existente: null })}
+              onEditarGateway={g => setGatewayModal({ existente: g })}
+              onPausarGateway={(g, h) => void pausarGateway(g, h)}
+              onQuitarGateway={g => setQuitarGw(g)}
+              onAgregarClave={g => setEditando({ proveedor: proveedorDeGateway(g), existente: null })}
+              onProbar={(g, c) => void probar(proveedorDeGateway(g), c)}
+              onSincronizar={(g, c) => void sincronizar(proveedorDeGateway(g), c)}
+              onCambiar={(g, c) => setEditando({ proveedor: proveedorDeGateway(g), existente: c })}
+              onCambiarModelo={(g, c) => setModelo({ proveedor: proveedorDeGateway(g), clave: c })}
+              onAlternar={(g, c, h) => void alternar(proveedorDeGateway(g), c, h)}
+              onReserva={(g, c, r) => void reserva(proveedorDeGateway(g), c, r)}
+              onQuitarClave={(g, c) => setQuitar({ proveedor: proveedorDeGateway(g), clave: c })}
+            />
+            <DominiosPermitidos dominios={data.dominios_permitidos} gateways={data.gateways} deshabilitado={false} onCambio={() => void reload()} />
+            <OcrSeccion ocr={data.ocr} deshabilitado={sinConfigurar} onCambio={() => void reload()} />
           </>
         ) : null}
       </Card>
 
       {data && <Actividad cambios={data.cambios_recientes} consultas={data.consultas_recientes} />}
+
+      <GatewayModal open={gatewayModal !== null} existente={gatewayModal?.existente ?? null} onClose={() => setGatewayModal(null)} onGuardado={() => void reload()} />
+
+      <ConfirmDialog
+        open={!!quitarGw}
+        onClose={() => setQuitarGw(null)}
+        onConfirm={quitarGateway}
+        loading={quitandoGw}
+        danger
+        title="Quitar gateway"
+        message={`Se eliminará ${quitarGw?.nombre ?? 'el gateway'} y sus ${quitarGw?.claves ?? 0} claves. Tendrás que volver a pegarlas para recuperarlas.`}
+        confirmLabel="Quitar gateway"
+      />
 
       <ModeloModal objetivo={modelo} onClose={() => setModelo(null)} onGuardado={() => void reload()} />
 

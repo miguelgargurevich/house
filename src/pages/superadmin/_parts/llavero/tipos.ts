@@ -7,6 +7,8 @@ export interface UsoClave {
 export interface Clave {
   id: number;
   proveedor: string;
+  /** Sólo en las claves de un gateway propio. */
+  gateway_id: number | null;
   etiqueta: string;
   ultimos4: string;
   modelo: string | null;
@@ -47,6 +49,52 @@ export interface Proveedor {
   descripcion: string;
   urlParaConseguirKey: string;
   modeloPorDefecto: string;
+  /** Sólo en los gateways propios: id de su `GatewayIA` (las claves se agregan con `gateway_id`, no con el id del proveedor). */
+  gatewayId?: number;
+}
+
+export type EstadoGateway = 'ok' | 'pausado' | 'dominio_no_permitido';
+export interface Gateway {
+  id: number;
+  nombre: string;
+  base_url: string;
+  dominio: string;
+  modelo_por_defecto: string | null;
+  modelo_vision: string | null;
+  vision: boolean;
+  prioridad: number;
+  habilitado: boolean;
+  estado: EstadoGateway;
+  claves: number;
+}
+export interface DominioPermitido { id: number; dominio: string; creado: string }
+
+export interface DestinoInterno { id: string; url: string }
+export type OcrVista =
+  | { configurado: false; destinos_internos: DestinoInterno[] }
+  | { configurado: true; destinos_internos: DestinoInterno[]; modo: 'interno' | 'publico'; destino_interno: string | null; base_url: string | null; url: string | null; ultimos4: string | null; tiene_clave: boolean; habilitado: boolean; estado: 'ok' | 'pausado' | 'invalido' };
+
+/** Un gateway visto como proveedor, para reusar la lista de claves, «Probar», «Cambiar modelo»… Su id (`gw-<id>`) coincide con el del orden de rotación. */
+export function proveedorDeGateway(g: Gateway): Proveedor {
+  return {
+    id: `gw-${g.id}`,
+    gatewayId: g.id,
+    nombre: g.nombre,
+    descripcion: `${g.dominio} · ${g.vision ? 'lee imágenes (visión)' : 'sin visión'}`,
+    urlParaConseguirKey: '',
+    modeloPorDefecto: g.modelo_por_defecto ?? '',
+  };
+}
+
+/** Las claves de un proveedor del catálogo o de un gateway concreto. */
+export const clavesDeProveedor = (claves: Clave[], p: Proveedor) =>
+  claves.filter(c => (p.gatewayId !== undefined ? c.gateway_id === p.gatewayId : c.proveedor === p.id && c.gateway_id === null));
+
+/** Texto de lo que le pasa a un gateway que no está en servicio (null = en servicio). */
+export function avisoDeGateway(g: Gateway): string | null {
+  if (g.estado === 'dominio_no_permitido') return `El dominio ${g.dominio} ya no está en la lista de dominios permitidos: sus claves NO se usan. Vuelve a agregarlo en «Dominios permitidos» para reactivarlo.`;
+  if (g.estado === 'pausado') return 'Pausado: sus claves no se usan hasta que lo reanudes.';
+  return null;
 }
 
 export interface DatosLlavero {
@@ -55,6 +103,9 @@ export interface DatosLlavero {
   proveedores: Proveedor[];
   orden: string[];
   max_claves_por_proveedor: number;
+  gateways: Gateway[];
+  dominios_permitidos: DominioPermitido[];
+  ocr: OcrVista;
   salud: Salud;
   cambios_recientes: CambioModelo[];
   consultas_recientes: ConsultaReciente[];
