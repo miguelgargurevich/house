@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Opus 5.5) — OCR como app propia de Coolify
+
+**Pedido de Miguel (textual):** «Pasa el ocr a su propia app en coolify y sigue con el bot de wasap».
+
+- App Coolify **house-ocr** (uuid `m07uar2fuca4qp4pqbgrowwf`, proyecto House › production): repo `miguelgargurevich/house`, rama `main`, build pack Dockerfile, base `/ocr-service`, puerto 5050, **sin dominio**, alias de red `house-ocr` (`custom_network_aliases`), env `OCR_API_KEY` (la misma de antes) y `WEB_CONCURRENCY`. Cada push a main la puede redesplegar.
+- House no cambió: `ConfiguracionOcr` apunta a `http://house-ocr:5050`, que ahora resuelve al contenedor de Coolify. Probado desde el contenedor de House: lectura del voucher de B01-804 en 0,7 s.
+- El contenedor viejo `house-ocr` (docker suelto, imagen `house-ocr:1`, carpeta `/opt/house-ocr`) quedó **apagado, sin reinicio automático y sin borrar** por si hay que volver atrás. Borrarlo cuando se confirme.
+- Bot de WhatsApp: GRUPO VRANY aún no tiene instancia; Miguel conseguirá un número exclusivo para el bot (WhatsApp Business) y lo vincula por QR en House. No usar su número personal: su instancia entrega los mensajes a My Workspace y Evolution admite un solo webhook por instancia.
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Bot de WhatsApp: asistente + voucher por foto (Fases A y B)
 
 **Pedido de Miguel (textual):** «tambien quiero un bot en telegram o donde sea para que ... haga lo del asistente» → «Sí: planea el bot de WhatsApp primero (asistente + voucher por foto), Telegram después» → «Pasa el ocr a su propia app en coolify y sigue con el bot de wasap». Rama `feat/bot-whatsapp` (worktree sobre `origin/main` 0bf8b12); **sin push** (lo sube la sesión principal con OK de Miguel). Telegram NO está: queda para otra tarea (la capa común ya es genérica por `canal`).
