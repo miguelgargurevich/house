@@ -101,7 +101,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
             {registrando && d && (
               <section aria-labelledby="reg-pago" className="rounded border border-line p-4">
                 <h3 id="reg-pago" className="mb-3 text-sm font-semibold">Registrar el pago del mantenimiento</h3>
-                <FormPagoMantenimiento reciboId={reciboId} unidadId={unidadId} saldo={d.saldo} onRegistrado={tras} />
+                <FormPagoMantenimiento reciboId={reciboId} unidadId={unidadId} saldo={d.saldo} onRegistrado={tras} onPagoCreado={onCambio} />
               </section>
             )}
             {d.estado === 'en_revision' && <Alert tone="info">Hay un pago esperando validación: ábrelo en el historial para revisarlo.</Alert>}

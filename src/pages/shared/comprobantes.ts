@@ -41,6 +41,19 @@ export async function subirComprobante(pagoId: number, archivo: File): Promise<C
   return (await res.json()) as ComprobanteMeta;
 }
 
+/**
+ * Registra el pago de un mantenimiento CON voucher en una sola petición (`multipart/form-data`: los campos y el archivo en `voucher`).
+ * El servidor verifica el archivo antes de crear nada: si falla, no queda ningún pago a medias y se puede reintentar. Sin Content-Type: el navegador pone el boundary.
+ */
+export async function registrarPagoConVoucher<T>(ruta: string, campos: Record<string, string>, archivo: File): Promise<T> {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(campos)) fd.append(k, v);
+  fd.append('voucher', archivo, archivo.name);
+  const res = await fetch(`${BASE}${ruta}`, { method: 'POST', headers: { ...csrfHeader(), Accept: 'application/json' }, body: fd, credentials: 'same-origin' });
+  if (!res.ok) throw new Error(await mensajeDe(res));
+  return (await res.json()) as T;
+}
+
 /** Descarga el archivo con la sesión y lo expone como URL local (un <img src> no puede mandar la cabecera CSRF ni manejar errores). */
 export async function descargarComprobante(pagoId: number, señal?: AbortSignal): Promise<{ url: string; tipo: string }> {
   const res = await fetch(`${BASE}/api/pagos/${pagoId}/comprobante`, { credentials: 'same-origin', signal: señal });
