@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BuildingLibraryIcon, DevicePhoneMobileIcon, PencilSquareIcon, PlusIcon, QrCodeIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { BuildingLibraryIcon, DevicePhoneMobileIcon, PencilSquareIcon, PlusIcon, QrCodeIcon, ReceiptPercentIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Alert, Button, Card, ConfirmDialog, DataTable, IconButton, PageHeader, Skeleton, Toolbar, useToast } from '../../ui';
@@ -8,7 +8,7 @@ import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { MedioFormModal } from './_parts/medios/MedioFormModal';
 import { ValidacionAutomaticaIA } from './_parts/medios/ValidacionAutomaticaIA';
-import { ambitoLabel, datoPrincipal, nombreTorre, tipoLabel, useAmbitos } from './_parts/medios/tipos';
+import { ambitoLabel, datoPrincipal, monedaCorta, nombreTorre, tipoLabel, useAmbitos } from './_parts/medios/tipos';
 import type { Medio } from './_parts/medios/tipos';
 
 /** Medios de pago de las torres. La usan la administradora (`/admin/medios-pago`) y la junta (`/junta/medios-pago`); la API ya acota cada lista a su ámbito. */
@@ -52,8 +52,8 @@ export default function MediosPago() {
   const columns: Column<Medio>[] = [
     { key: 'tipo', header: 'Medio', cell: m => (
       <span className="flex items-center gap-2.5 font-medium">
-        {m.tipo === 'banco' ? <BuildingLibraryIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : <DevicePhoneMobileIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />}
-        <span>{tipoLabel(m.tipo)}<span className="block text-xs font-normal text-muted">{m.tipo === 'banco' ? (m.banco ?? '') : m.tiene_qr ? 'Con código QR' : 'Sin código QR'}</span></span>
+        {m.tipo === 'banco' ? <BuildingLibraryIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : m.tipo === 'recaudacion' ? <ReceiptPercentIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : <DevicePhoneMobileIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />}
+        <span>{tipoLabel(m.tipo)}<span className="block text-xs font-normal text-muted">{m.tipo === 'banco' ? `${m.entidad ?? ''} · ${monedaCorta(m.moneda)}` : m.tipo === 'recaudacion' ? [m.entidad, m.servicio].filter(Boolean).join(' · ') : m.tiene_qr ? 'Con código QR' : 'Sin código QR'}</span></span>
       </span>
     ) },
     { key: 'titular', header: 'Titular', cell: m => <span className="block max-w-[12rem]"><span className="block truncate">{m.titular}</span><span className="block truncate text-xs text-muted">{ambitoLabel(m)}</span></span> },

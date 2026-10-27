@@ -57,6 +57,9 @@ export interface EntidadCatalogo { nombre: string; grupo: string; largo_ahorros:
 export interface Catalogo { grupos: { grupo: string; etiqueta: string; entidades: EntidadCatalogo[] }[] }
 export const useCatalogo = () => useResource<Catalogo>('/api/medios-pago/catalogo');
 
+/** Nombre corto de la moneda para las listas («Soles» / «Dólares»). */
+export const monedaCorta = (m: Moneda) => (m === 'USD' ? 'Dólares' : 'Soles');
+
 export const MONEDAS: { value: Moneda; label: string }[] = [
   { value: 'PEN', label: 'Soles (S/)' },
   { value: 'USD', label: 'Dólares (US$)' },
