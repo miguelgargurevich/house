@@ -4,9 +4,19 @@ import { scopeComplejos, scopeEstructuras, scopePisos, scopeUnidades, scopeUsuar
 import type { AuthUser } from '../middleware/auth';
 import { idSchema, texto, textoOpcional, z } from '../validation';
 
+/** Tipos admitidos (minúscula, sin tilde). Espejo de `src/pages/admin/_parts/unidades/tipoUnidad.ts`. */
+export const TIPOS_UNIDAD = ['departamento', 'casa', 'local', 'estacionamiento', 'deposito'] as const;
+
+/** «Depósito», « CASA » → `deposito`, `casa`: el formulario viejo mandaba la inicial en mayúscula. */
+const normalizarTipo = (tipo: string) => tipo.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase();
+
+const tipoSchema = texto(40)
+  .transform(normalizarTipo)
+  .pipe(z.enum(TIPOS_UNIDAD, { error: `Tipo inválido (${TIPOS_UNIDAD.join(', ')})` }));
+
 const base = z.object({
   codigo: texto(60),
-  tipo: texto(40),
+  tipo: tipoSchema,
   estructura_id: idSchema.nullish(),
   piso_id: idSchema.nullish(),
   complejo_id: idSchema,
