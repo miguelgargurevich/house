@@ -4,6 +4,35 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Evaluación rápida del comprobante: modelo de visión correcto, fallar rápido, reintento persistido, aviso en pantalla, gateway Dashboard IA y OCR propio
+
+**Pedido de Miguel (textual):** «(captura: Detalle del pago B01-804, «Evaluación automática · Evaluando… · Leyendo el comprobante…») la ia se qued apensando mucho tiempo.. revisa, quiza tambien podemos usar el ocr que monte en el vps revisa» → «Sí: arma el arreglo de la evaluación (modelo de visión correcto, fallar rápido, reintento que sobreviva al deploy, aviso en pantalla y el gateway Qwen-VL como respaldo) · «tengo un ocr que hice para el proyecto de portal de delarers, revisa»». Rama `fix/evaluacion-rapida` (sobre `origin/main` 7dd0f98); **sin push**.
+
+**Qué se hizo**
+- **Modelo de visión por clave** (`services/evaluacion.ts`, `modeloDeVision`): el modelo fijado en la clave se usa SÓLO si `ModeloIA.vision === true` para esa clave o es una familia conocida; si el catálogo dice `false`, o no se sabe, `proveedor.modeloVision`. Era el 404 de producción (clave 13 de OpenRouter con nemotron de texto).
+- **Fallar rápido**: `evaluacionDeps.topeLlamadaMs` = 20 s (antes 45) y `topeIntentoMs` = 60 s para toda la rotación; agotado, no se prueba otra clave. `MAX_INTENTOS_IA` 3 → 4 para que, con dos claves de Gemini caídas, todavía se llegue al gateway.
+- **Reintento persistido**: columna `EvaluacionComprobante.reintentar_at` (+ índice). `barrerEvaluaciones()` toma las vencidas con un UPDATE atómico (sin doble ejecución entre réplicas/barridos) y retoma las «pendientes» sin dueño > 5 min (con intentos < 2) o las pasa a `error`. Corre desde `asistente/planificador.ts` (a los 10 s de arrancar y cada minuto; `EVALUACION_BARRIDO=off` lo apaga; en `NODE_ENV=test` no arranca solo). El `setTimeout` quedó sólo como acelerador.
+- **Aviso en pantalla** (`pages/shared/evaluacion.tsx` + lógica pura nueva `pages/shared/esperaEvaluacion.ts`): a los 20 s «La IA está tardando más de lo normal; puedes validarlo tú» (admin/junta) / «Lo revisará una persona si la IA no responde» (residente); a los 3 min el cliente deja de consultar y muestra el estado; en `error`/`no_disponible`/sin respuesta el botón dice «Reintentar» (reusa `POST /api/pagos/:id/evaluacion`).
+- **Gateway Dashboard IA**: proveedor `dashboardia` en `PROVEEDORES_IA` (prioridad 2; las demás se corrieron +1, mismo orden relativo). **Sin clave**: Miguel la agrega en el Llavero. Acepta `content` como string (con o sin ```json) o lista de partes.
+- **OCR propio**: `ocr-service/` (copia del del portal de dealers + imágenes JPG/PNG/WebP; probado de verdad con Flask test client + Tesseract) y `services/ocrVoucher.ts` (cliente + lector de reglas BCP/Interbank/BBVA/Scotiabank/Yape/Plin). Sólo corre si la IA ya no dará lectura y hay `OCR_BASE_URL`. `proveedor: 'ocr'`, confianza ≤ 0,6, nunca valida solo, no aplica la fecha, alerta p. ej. mes distinto del recibo.
+- Docs: `docs/SEGURIDAD.md` (sección de evaluación), `docs/API-CONTRATO.md`, `.env.example`, `ocr-service/README.md`. Pruebas: `tests/evaluacion-rapida.test.ts` (nueva) y un ajuste en `tests/evaluacion-ia.test.ts` (tope de 4 claves).
+
+**Próximos pasos (de la sesión principal / Miguel)**
+1. `npx prisma db push` en producción (columna nueva nullable `reintentar_at`).
+2. Desplegar `ocr-service/` en Coolify (puerto 5050) con `OCR_API_KEY`, y en House `OCR_BASE_URL` + `OCR_API_KEY`. Sin eso el OCR no se usa (todo lo demás sí).
+3. Agregar la clave del gateway `dashboardia` en el Llavero (y revisar que su `urlParaConseguirKey` sea el panel correcto).
+4. Cambiar en la clave 13 de OpenRouter el modelo fijado por uno con visión o dejarlo en Auto (ahora ya no se usa para imágenes, pero sigue siendo su modelo de chat).
+
+**Decisiones**
+- El OCR entra sólo al final (tras agotar el reintento de la IA): una IA que falla por 503 merece un segundo intento antes de bajar a una lectura menos fiable.
+- Fechas leídas por OCR NO se aplican al pago (confianza baja); la lógica de `fechaVoucher.ts` no se tocó.
+- `esperaEvaluacion.ts` es un archivo nuevo (la lógica pura se prueba de verdad, como `faseVoucher.ts`); el repo no pinta componentes.
+
+**Gotchas**
+- Las claves del gateway también entran en la cadena del **chat** del asistente (es un proveedor más, prioridad 2): si no se quiere, márcala «reserva» en el Llavero (va al final también para visión).
+- El texto OCR de los vouchers de prueba es el de Tesseract real sobre una captura SINTÉTICA del caso del BCP; los demás bancos son textos escritos a mano según su formato conocido: falta contrastarlos con capturas reales.
+- Los barridos toman TODA evaluación vencida: las pruebas vacían `EvaluacionComprobante` en `beforeEach` por eso.
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Reglas de cobranza: fecha del voucher, recordatorios 2 días antes y el día, mora de S/ 20 en el recibo siguiente
 
 **Pedido de Miguel (textual):** «la fecha de pago se calcula del voucher de pago, la fecha de corte de pago es hasta el 5 de cada mes, deben haber avisos al correo y wasap como alertas que se acerca la fecha de pago si no subió el voucher aún, 2 días antes y el mismo día 1 aviso. la mora es de 20 soles» · decisiones: corte = «El 2, como el Excel» (día de vencimiento del recibo), mora «En el recibo del mes siguiente». Rama `feat/reglas-cobranza` (sobre `origin/main` 8002435); **sin push**. Reglas completas en `docs/COBRANZA.md` (doc nueva).
