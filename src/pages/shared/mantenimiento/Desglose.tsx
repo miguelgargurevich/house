@@ -1,5 +1,6 @@
 import { Badge, StatusBadge, fechaCorta, soles } from '../../../ui';
 import { metodoLabel } from '../../admin/_parts/cobranza/comun';
+import { textoFechaPago } from './fechaPago';
 import type { ConceptoMantenimiento, PagoMantenimiento } from './tipos';
 
 /** Los conceptos del mantenimiento: sólo el desglose (no se pagan por separado). */
@@ -17,7 +18,10 @@ export function ConceptosTabla({ conceptos, total }: { conceptos: ConceptoManten
         <tbody className="divide-y divide-line">
           {conceptos.map(c => (
             <tr key={c.cargo_id}>
-              <td className="py-2 pr-3">{c.concepto}{c.es_recargo && <span className="ml-1.5 text-xs text-muted">recargo</span>}</td>
+              <td className="py-2 pr-3">
+                {c.concepto}{c.es_recargo && <span className="ml-1.5 text-xs text-muted">recargo</span>}
+                {c.motivo && <span className="block text-xs text-muted">{c.motivo}</span>}
+              </td>
               <td className="num py-2 text-right">{soles(c.monto)}</td>
             </tr>
           ))}
@@ -39,7 +43,7 @@ export function HistorialPagos({ pagos, onVer }: { pagos: PagoMantenimiento[]; o
         const cuerpo = (
           <>
             <span className="min-w-0">
-              <span className="block text-sm font-medium">{fechaCorta(p.fecha_pago)} · {metodoLabel(p.metodo_pago)}{p.referencia ? <span className="num text-muted"> · {p.referencia}</span> : null}</span>
+              <span className="block text-sm font-medium" title={textoFechaPago(p.fecha_origen)}>{fechaCorta(p.fecha_pago)} · {metodoLabel(p.metodo_pago)}{p.referencia ? <span className="num text-muted"> · {p.referencia}</span> : null}</span>
               <span className="block truncate text-xs text-muted">
                 {p.suelto ? `Pago del concepto ${p.conceptos.join(', ')}` : `Pago del mantenimiento completo`}
                 {p.estado_validacion === 'rechazado' && p.motivo_rechazo ? ` · Motivo: ${p.motivo_rechazo}` : ''}

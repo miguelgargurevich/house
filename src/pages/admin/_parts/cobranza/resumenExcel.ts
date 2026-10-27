@@ -20,6 +20,8 @@ export interface ResultadoExcel {
   filas_saltadas: number;
   conceptos: number;
   advertencias?: string[];
+  /** Mora por pago fuera de fecha del mes anterior que se agregó a este recibo; `mensaje` es null si a nadie. */
+  mora?: { monto: string; cantidad: number; mensaje: string | null };
 }
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
@@ -35,5 +37,7 @@ export function resumenSubida(r: ResultadoExcel) {
     /** Un renglón por torre: «Block 1: creado (32 departamentos)». */
     torres: recibos.filter(x => x.torre).map(x => `${x.torre}: ${x.accion === 'creado' ? 'creado' : 'reemplazado'} (${plural(x.unidades_procesadas, 'departamento', 'departamentos')})`),
     advertencias: r.advertencias ?? [],
+    /** «Se agregó mora de S/ 20 a 3 departamentos: B01-101, …»; null si no se agregó mora. */
+    mora: r.mora?.mensaje ?? null,
   };
 }

@@ -54,11 +54,20 @@ Filas sin `BLOCK`/`Dpto.` y la fila `TOTALES` se ignoran (cuentan como «saltada
 - **Recibo repetido (mismo condominio, TORRE, mes y año):** si ningún cargo del recibo de ESA torre tiene pagos (`Pago`, en cualquier `estado_validacion`) ni un `estado_pago` distinto de `pendiente`, el endpoint **reemplaza** los conceptos y cargos por los del Excel y lo deja `emitido` (sirve para corregir una subida equivocada). Si alguno los tiene, responde **409** `El recibo de octubre de 2026 · Block 1 ya tiene pagos registrados; no se puede reemplazar desde Excel` (con la torre) y no cambia nada. Todo va en UNA transacción con un candado por (condominio, mes, año): si falla una torre del archivo no se crea ninguna, y dos subidas simultáneas del mismo periodo se hacen cola (no hay recibos duplicados).
 - **Recibo viejo sin torre:** si ya existe un recibo del mismo mes SIN torre que cobra a unidades de la torre del Excel (un recibo emitido antes de que existiera el recibo por torre), se responde **409** y no se crea el recibo de la torre (se cobraría dos veces). Se arregla corriendo `scripts/migrar-recibos-por-torre.ts`, que le asigna su torre.
 
+## Multa y mora
+
+La columna `MULTA PAGO FUERA DE FECHA(ULTIMO DIA 2 CADA MES)` (cualquier concepto cuyo nombre diga «multa» o «mora») se trata así al crear el recibo de la torre (reglas completas en `docs/COBRANZA.md`):
+
+- Una unidad con monto **> 0** en esa columna: se respeta tal cual (no se le suma mora encima).
+- Una unidad con 0 o vacío que **pagó tarde** el recibo del mes anterior de la misma torre: el sistema pone en esa columna el monto de mora del condominio (`mora_monto`, S/ 20 por defecto), con el motivo «Pago fuera de fecha del recibo de setiembre de 2026».
+- Sin esa columna en el Excel, la mora entra como el concepto «Multa por pago fuera de fecha» (recargo).
+- Reimportar el mismo Excel reemplaza el recibo y recalcula: nunca suma dos moras. La respuesta trae `mora` con la cantidad, la lista de departamentos y el mensaje «Se agregó mora de S/ 20 a N departamentos».
+
 ## Endpoint
 
 `POST /api/recibos/excel` — cuerpo: `multipart/form-data` con campo `archivo` (el `.xlsx`) y `complejo_id`.
 
-Responde 201 con `recibo_id` (el de la primera torre), `recibos` (`[{recibo_id, estructura_id, torre, accion: 'creado'|'reemplazado', unidades_procesadas}]`, uno por torre del archivo), `mes`, `anio`, `unidades_procesadas` (todas las torres), `filas_saltadas`, `conceptos` y `advertencias` (lista de textos en español; máximo 100). El mes se lee con «setiembre» o «septiembre».
+Responde 201 con `mora` (ver arriba), `recibo_id` (el de la primera torre), `recibos` (`[{recibo_id, estructura_id, torre, accion: 'creado'|'reemplazado', unidades_procesadas}]`, uno por torre del archivo), `mes`, `anio`, `unidades_procesadas` (todas las torres), `filas_saltadas`, `conceptos` y `advertencias` (lista de textos en español; máximo 100). El mes se lee con «setiembre» o «septiembre».
 
 Errores: 403 si no eres admin (el rol se revisa antes de recibir el archivo); 422 si falta el archivo o `complejo_id`, el archivo pesa más de 10 MB, no es un Excel válido o no tiene mes/año, fila `BLOCK` ni conceptos, o (condominio con torres) ninguna fila del archivo es de una torre del condominio.
 

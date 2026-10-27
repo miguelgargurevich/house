@@ -53,7 +53,11 @@ export interface ConceptoMantenimiento {
   cobrado: string;
   en_revision: string;
   saldo: string;
+  /** Por qué se cobra (hoy sólo la mora): «Pago fuera de fecha del recibo de octubre de 2026». */
+  motivo?: string | null;
 }
+
+export type FechaOrigen = 'declarada' | 'voucher' | 'no_leida' | 'invalida' | 'manual';
 
 export interface PagoMantenimiento {
   /** Pago principal del grupo (o el pago suelto): con este id se ve el comprobante y se valida. */
@@ -65,6 +69,8 @@ export interface PagoMantenimiento {
   metodo_pago: string | null;
   referencia: string | null;
   fecha_pago: string;
+  /** De dónde salió la fecha: la del voucher que leyó la IA, la declarada (sin leer), una fecha leída que no se aplicó o corregida a mano. */
+  fecha_origen?: FechaOrigen;
   estado_validacion: 'por_validar' | 'validado' | 'rechazado';
   motivo_rechazo: string | null;
   validado_por_ia: boolean;

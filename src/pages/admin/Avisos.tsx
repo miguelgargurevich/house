@@ -28,6 +28,7 @@ interface Aviso {
 const TIPO: Record<string, string> = {
   recibo_emitido: 'Recibo emitido',
   por_vencer: 'Por vencer',
+  vence_hoy: 'Vence hoy',
   vencido: 'Vencido',
   pago_validado: 'Pago validado',
   pago_rechazado: 'Pago rechazado',

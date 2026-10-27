@@ -8,11 +8,15 @@ import type { ComprobanteMeta } from '../../../shared/comprobantes';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../../shared/comprobantes';
 import { EvaluacionPanel, useEvaluacionCompleta } from '../../../shared/evaluacion';
 import type { EvaluacionCompleta } from '../../../shared/evaluacion';
+import { fechaPorRevisar, textoFechaPago } from '../../../shared/mantenimiento/fechaPago';
+import type { FechaOrigen } from '../../../shared/mantenimiento/tipos';
 import { metodoLabel } from './comun';
 
 export interface PagoRevisable {
   id: number;
   fecha_pago: string;
+  /** De dónde salió `fecha_pago`: la del voucher (leída por la IA), la declarada, o una que no se pudo leer/aplicar. */
+  fecha_origen?: FechaOrigen;
   monto: number | string;
   metodo_pago: string | null;
   referencia: string | null;
@@ -131,7 +135,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
                   { label: 'Departamento', value: pago.unidad && <><span className="num">{pago.unidad.codigo}</span>{pago.unidad.estructura?.nombre ? ` · ${pago.unidad.estructura.nombre}` : ''}</> },
                   ...(pago.unidad?.complejo ? [{ label: 'Condominio', value: pago.unidad.complejo.nombre }] : []),
                   { label: 'Pagó', value: pago.usuario?.nombre },
-                  { label: 'Fecha', value: fechaCorta(pago.fecha_pago) },
+                  { label: pago.fecha_origen === 'voucher' ? 'Fecha del voucher' : 'Fecha del pago', value: <>{fechaCorta(pago.fecha_pago)}<span className="ml-2 text-xs text-muted">{textoFechaPago(pago.fecha_origen)}</span></> },
                   { label: 'Método', value: metodoLabel(pago.metodo_pago) },
                   { label: 'Referencia', value: pago.referencia && <span className="num">{pago.referencia}</span> },
                   ...(pago.observaciones ? [{ label: 'Observaciones', value: pago.observaciones }] : []),
@@ -140,6 +144,14 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               />
             </div>
           </div>
+
+          {fechaPorRevisar(pago.fecha_origen) && (
+            <Alert tone="warn">
+              {pago.fecha_origen === 'invalida'
+                ? 'La IA leyó en el voucher una fecha futura o demasiado antigua: no se aplicó y el pago queda para tu revisión. Mientras tanto se usa la fecha declarada.'
+                : 'La IA no pudo leer la fecha del voucher: se usa la fecha declarada por quien registró el pago. Revísala contra el comprobante.'}
+            </Alert>
+          )}
 
           {pago.estado_validacion === 'rechazado' && <Alert tone="bad">Motivo del rechazo: {pago.motivo_rechazo ?? 'sin motivo indicado'}</Alert>}
 

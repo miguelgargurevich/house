@@ -68,6 +68,7 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
             {resumen.torres.map(t => <li key={t}>{t}</li>)}
           </ul>
         )}
+        {resumen?.mora && <div className="sm:col-span-2"><Alert tone="info">{resumen.mora}</Alert></div>}
         {resumen && resumen.advertencias.length > 0 && (
           <div className="sm:col-span-2">
             <Alert tone="warn">

@@ -4,6 +4,40 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Reglas de cobranza: fecha del voucher, recordatorios 2 días antes y el día, mora de S/ 20 en el recibo siguiente
+
+**Pedido de Miguel (textual):** «la fecha de pago se calcula del voucher de pago, la fecha de corte de pago es hasta el 5 de cada mes, deben haber avisos al correo y wasap como alertas que se acerca la fecha de pago si no subió el voucher aún, 2 días antes y el mismo día 1 aviso. la mora es de 20 soles» · decisiones: corte = «El 2, como el Excel» (día de vencimiento del recibo), mora «En el recibo del mes siguiente». Rama `feat/reglas-cobranza` (sobre `origin/main` 8002435); **sin push**. Reglas completas en `docs/COBRANZA.md` (doc nueva).
+
+**Qué se hizo**
+- **Fecha = voucher** (`services/fechaVoucher.ts`, enganchado en `evaluacion.ts`): la lectura de la IA fija `Pago.fecha_pago` de TODO el grupo (y la fecha de los cargos ya pagados) si el comprobante es legible, la operación no está pendiente/fallida y la fecha no es futura ni anterior a la emisión − 60 días. Si no se lee → queda la declarada y `fecha_origen = 'no_leida'`; si es futura/muy antigua → `'invalida'`, no se aplica y la validación automática NO valida el pago. `PATCH /api/pagos/:id { fecha_pago }` la deja `'manual'` (nadie la pisa). Auditoría `fecha_pago_voucher {origen, anterior, nueva}`. Esquema: `Pago.fecha_origen` (default `declarada`) y `Pago.fecha_declarada`.
+- **Recordatorios** (`services/avisos/cola.ts`, `plantillas.ts`): `por_vencer` exactamente a 2 días (antes ≤ 3) y tipo nuevo `vence_hoy` el día del vencimiento, correo y WhatsApp, sólo si el cargo sigue `pendiente` (sin voucher). Día de Lima. Los textos dicen dpto. y torre, piden el voucher y avisan de la mora (si `mora_monto` > 0).
+- **Mora** (`services/mora.ts`, usada por `routes/recibos.ts` en el Excel y en `POST /api/recibos`): al crear el recibo de un mes se mira el del mes anterior de la MISMA torre; «pagó tarde» = al cierre del día de vencimiento (inclusive, Lima) sin pagos (validados o por validar, no rechazados) con `fecha_pago` ≤ vencimiento que cubran cada cargo. Multa del Excel > 0 se respeta; 0/vacía + tarde → S/ 20 en esa columna; sin columna → concepto «Multa por pago fuera de fecha» (recargo), con el motivo en `observaciones`. `ComplejoHabitacional.mora_monto` (Decimal, default 20.00; editable en la ficha del condominio, 0 = sin mora). Respuesta con `mora {monto, cantidad, departamentos, mensaje}`.
+- **Pantallas mínimas**: detalle del pago (fecha del voucher + origen + advertencia si no se leyó/no se aplicó), recibo del residente (motivo bajo la línea de mora), ficha del condominio (mora editable), ventana del Excel (mensaje de la mora), lista de avisos (`vence_hoy`).
+- **Pruebas**: `tests/reglas-cobranza.test.ts` (44) con IA falsa y reloj inyectado (`evaluacionDeps.ahora`, `moraDeps.ahora`, `encolarRecordatorios(ahora)`); se ajustaron `avisos.test.ts` (2 → días exactos y vence_hoy), `recibos-excel.test.ts` (campo `mora`) y `evaluacion-ia.test.ts` (paginación: la fecha del voucher ordena por detrás de pagos con hora).
+
+**Decisiones**
+- `por_vencer` es EXACTAMENTE a 2 días, sin recuperación: un recibo emitido a 2 días o menos de vencer sólo recibe `vence_hoy` (ya recibió el «recibo emitido»). Si el planificador cayera un día entero, ese aviso se pierde.
+- «Sin voucher» = cargo `pendiente` (la regla de siempre: `en_revision` y `pagado` no reciben). Un residente que registró el pago pero aún no subió el archivo ya está `en_revision` y no recibe recordatorios.
+- La mora sólo se evalúa si hoy (Lima) es posterior al vencimiento del recibo anterior; si no, se avisa en `advertencias` y no se agrega nada (reimportar después sí la agrega). Se aplica a toda unidad presente en el Excel (aunque todos sus montos sean 0).
+- Un cargo `pagado` sin ningún `Pago` (dato anterior al flujo de pagos) cuenta por la fecha del propio cargo; sin fecha, beneficio de la duda (no es mora).
+- La fecha del voucher se guarda al mediodía UTC del día leído (la medianoche UTC se vería un día antes en Lima).
+
+**Gotchas (importante antes de subir el Excel de noviembre)**
+- **Los 32 propietarios del Block 1 de Los Libertadores tienen correo PROVISIONAL: hoy no les llega ningún aviso** (ni estos). Hay que cargar correos/celulares reales. No se tocó.
+- Al desplegar, `mora_monto` queda en 20.00 en TODOS los condominios (default) y la mora se aplicará sola al crear el siguiente recibo de cada torre. El de octubre del Block 1 (vence el 2-nov) ya existe: la mora entra con el recibo de noviembre.
+- «Pagó tarde» usa `Pago.fecha_pago`. Los pagos anteriores al despliegue (y los que la administración registra sin voucher) tienen la fecha DECLARADA (por defecto, el momento del registro): si la administración registró hoy el pago de alguien que pagó a tiempo, saldría «tarde». Antes de subir noviembre conviene revisar los pagos de octubre del Block 1: corregir la fecha (`PATCH /api/pagos/:id`, queda `manual`) o adjuntar el voucher y/o repetir la evaluación (`POST /api/pagos/:id/evaluacion`), que ahora aplica la fecha leída.
+- Reemplazar un recibo desde Excel que ya tiene pagos sigue dando 409: si hubiera que corregir la mora, se corrige con la fecha de los pagos y se reimporta ANTES de que haya pagos en el recibo nuevo.
+- `agregarMora` devuelve las unidades aunque ya las tuviera (el guard de idempotencia evita duplicar, pero el mensaje repetiría la lista).
+- Al desplegar, `prisma db push` agrega 3 columnas con default (`fecha_origen`, `fecha_declarada` nullable, `mora_monto`): sin pérdida de datos.
+
+**Próximos pasos:** (1) OK de Miguel y push; (2) cargar correos/celulares reales del Block 1; (3) revisar las fechas de los pagos de octubre antes del Excel de noviembre; (4) probar en el navegador el detalle del pago, la ficha del condominio y la ventana del Excel (el repo no pinta componentes).
+
+**No verificado**
+- Ninguna pantalla se probó en navegador (sólo pruebas de la fuente y de `textoFechaPago`/`resumenSubida`). La IA real y el envío real de correo/WhatsApp no se ejecutaron (todo con `fetch`/reloj inyectados); el planificador de producción no se corrió. No se probó contra la base `house` ni producción.
+- Mutaciones: ver el resumen de la sesión (todas las probadas en rojo; M6 y M13 por una sola barrera son equivalentes porque hay una segunda barrera).
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5, delegado) — Asistente, tanda 1: junta y residentes, estado del pago, contacto de la administración, proveedores
 
 **Pedido de Miguel:** captura del asistente: «quiénes son la junta» → «No tengo registrada la lista de los miembros de la junta»; «hay residentes con cargo» → «No tengo registrada esa información… pantalla de Personas» · «qué otras herramientas consideras que puedan faltar» → «sí dale» (tanda 1: junta y residentes, estado del pago/voucher, contacto de la administración, proveedores). Rama `feat/asistente-tanda1` (sobre `origin/main` 741b731); **sin push**. Última entrada previa: el recibo por torre (abajo).

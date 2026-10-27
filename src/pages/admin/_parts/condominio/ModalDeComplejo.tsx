@@ -16,11 +16,13 @@ export interface FilaComplejo {
   unidades_count?: number;
   /** Número de torres del condominio. */
   blocks_count?: number;
+  /** Mora (S/) por pago fuera de fecha, en el recibo del mes siguiente; «0.00» = sin mora. */
+  mora_monto?: string;
   /** Contrato de administración vigente (desde cuándo la administra su empresa). */
   contrato_vigente?: { id: number; fecha_inicio: string } | null;
 }
 
-interface Form { nombre: string; tipo: string; direccion: string; descripcion: string; empresa_id: string }
+interface Form { nombre: string; tipo: string; direccion: string; descripcion: string; empresa_id: string; mora_monto: string }
 
 /** Alta/edición de un condominio. La administradora se elige al crear; después se cambia con «Cambiar de administradora». */
 export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { complejo: FilaComplejo | 'nuevo' | null; esSuper: boolean; onClose: () => void; onGuardado: () => void }) {
@@ -33,12 +35,12 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
   useEffect(() => {
     if (!complejo) return;
     reset(complejo === 'nuevo'
-      ? { nombre: '', tipo: 'Condominio', direccion: '', descripcion: '', empresa_id: '' }
-      : { nombre: complejo.nombre, tipo: complejo.tipo, direccion: complejo.direccion ?? '', descripcion: complejo.descripcion ?? '', empresa_id: complejo.empresa_id ? String(complejo.empresa_id) : '' });
+      ? { nombre: '', tipo: 'Condominio', direccion: '', descripcion: '', empresa_id: '', mora_monto: '20.00' }
+      : { nombre: complejo.nombre, tipo: complejo.tipo, direccion: complejo.direccion ?? '', descripcion: complejo.descripcion ?? '', empresa_id: complejo.empresa_id ? String(complejo.empresa_id) : '', mora_monto: Number(complejo.mora_monto ?? 20).toFixed(2) });
   }, [complejo, reset]);
 
   async function guardar(v: Form) {
-    const body: Record<string, unknown> = { nombre: v.nombre.trim(), tipo: v.tipo, direccion: v.direccion.trim() || null, descripcion: v.descripcion.trim() || null };
+    const body: Record<string, unknown> = { nombre: v.nombre.trim(), tipo: v.tipo, direccion: v.direccion.trim() || null, descripcion: v.descripcion.trim() || null, mora_monto: v.mora_monto.trim().replace(',', '.') };
     // La administradora se elige al crear; después se cambia con «Cambiar de administradora» (cierra un contrato y abre otro).
     if (esSuper && nuevo) body.empresa_id = Number(v.empresa_id);
     try {
@@ -68,6 +70,14 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
           </Select>
         )}
         <Input label="Dirección" className="sm:col-span-2" placeholder="Av. Arequipa 1234, Lince" {...register('direccion')} />
+        <Input
+          label="Mora por pago fuera de fecha (S/)"
+          className="sm:col-span-2"
+          inputMode="decimal"
+          hint="Se agrega al recibo del mes siguiente a quien no pagó a tiempo (hasta el día de vencimiento, según la fecha de su voucher). Pon 0 si no cobras mora."
+          error={errors.mora_monto && 'Ingresa un monto válido, con hasta 2 decimales'}
+          {...register('mora_monto', { required: true, pattern: /^\d{1,6}([.,]\d{1,2})?$/ })}
+        />
         <Textarea label="Descripción" className="sm:col-span-2" {...register('descripcion')} />
       </form>
     </Modal>

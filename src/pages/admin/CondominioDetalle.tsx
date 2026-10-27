@@ -4,7 +4,7 @@ import { ArrowLeftIcon, DocumentTextIcon, PencilSquareIcon, TrashIcon } from '@h
 import { api, errorText, useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  Button, Card, ConfirmDialog, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, fechaCorta, useToast,
+  Button, Card, ConfirmDialog, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, fechaCorta, soles, useToast,
 } from '../../ui';
 import { TorresDelCondominio } from './_parts/condominio/TorresDelCondominio';
 import { ModalDeComplejo, type FilaComplejo } from './_parts/condominio/ModalDeComplejo';
@@ -100,6 +100,7 @@ export default function CondominioDetalle() {
                   { label: 'Dirección', value: c.direccion },
                   { label: 'Administrado por', value: c.empresa?.nombre ?? '—' },
                   { label: 'Contrato vigente', value: c.contrato_vigente ? `Desde ${fechaCorta(c.contrato_vigente.fecha_inicio)}` : 'Sin contrato vigente' },
+                  { label: 'Mora por pago fuera de fecha', value: c.mora_monto != null ? (Number(c.mora_monto) > 0 ? `${soles(c.mora_monto)} en el recibo del mes siguiente` : 'Sin mora') : '—' },
                   { label: 'Descripción', value: c.descripcion },
                 ]}
               />
