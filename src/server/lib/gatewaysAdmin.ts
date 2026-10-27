@@ -45,6 +45,7 @@ export interface EntradaGateway {
   modelo_vision?: string | null;
   vision?: boolean;
   prioridad?: number;
+  prioridad_vision?: number | null;
 }
 
 async function exigirNombreLibre(nombre: string, exceptoId?: number) {
@@ -57,7 +58,7 @@ export async function crearGateway(e: EntradaGateway, usuarioId: number) {
   const { url } = comoCampo('base_url', () => validarUrlDestino(e.base_url, dominios));
   await exigirNombreLibre(e.nombre);
   return prisma.gatewayIA.create({
-    data: { nombre: e.nombre, base_url: url, modelo_por_defecto: e.modelo_por_defecto || null, modelo_vision: e.modelo_vision || null, vision: e.vision ?? false, prioridad: e.prioridad ?? 20, creado_por_id: usuarioId },
+    data: { nombre: e.nombre, base_url: url, modelo_por_defecto: e.modelo_por_defecto || null, modelo_vision: e.modelo_vision || null, vision: e.vision ?? false, prioridad: e.prioridad ?? 20, prioridad_vision: e.prioridad_vision ?? null, creado_por_id: usuarioId },
   });
 }
 
@@ -79,6 +80,7 @@ export async function ajustarGateway(id: number, a: AjusteGateway) {
   if (a.modelo_vision !== undefined) data.modelo_vision = a.modelo_vision || null;
   if (a.vision !== undefined) data.vision = a.vision;
   if (a.prioridad !== undefined) data.prioridad = a.prioridad;
+  if (a.prioridad_vision !== undefined) data.prioridad_vision = a.prioridad_vision;
   if (a.habilitado !== undefined) data.habilitado = a.habilitado;
   const fila = await prisma.gatewayIA.update({ where: { id }, data });
   if (urlCambia) {

@@ -6,7 +6,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError } from '../errors';
-import { parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
+import { cooldownDeps, estaEnfriando, parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
 import { hoyLima } from '../lib/fechas';
 import { PROMPT_SISTEMA, PROMPT_USUARIO, parsearLectura, type Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
@@ -197,12 +197,23 @@ type Salida =
   | { tipo: 'fallo'; transitorio: boolean; mensaje: string };
 
 /**
+ * Orden de la LECTURA de comprobantes: el de la cadena, pero un gateway con `prioridad_vision` va por ese número (menor = antes). Se mantienen los
+ * grupos de la cadena (normales libres, normales enfriadas, reserva libres, reserva enfriadas) y, a igualdad, el orden de la cadena (sort estable).
+ * Sin `prioridad_vision` en ninguna clave, el resultado es el de la cadena. El chat no pasa por aquí.
+ */
+function ordenarParaVision(cadena: Eslabon[], ahora = cooldownDeps.ahora()): Eslabon[] {
+  const grupo = (e: Eslabon) => Number(e.reserva) * 2 + Number(estaEnfriando(e.cooldownKey, ahora));
+  const posicion = (e: Eslabon) => e.proveedor.prioridadVision ?? e.proveedor.prioridad;
+  return [...cadena].sort((a, b) => grupo(a) - grupo(b) || posicion(a) - posicion(b));
+}
+
+/**
  * Recorre la cadena (≤ 4 eslabones con visión): rota ante 429, 5xx, tiempo agotado, red, claves rechazadas y peticiones que ese proveedor no acepta.
  * Falla rápido: cada llamada tiene su tope (`topeLlamadaMs`) y todo el intento el suyo (`topeIntentoMs`); al agotarse no se prueba otra clave.
  */
 async function leerConRotacion(a: Archivo): Promise<Salida> {
   const todas = await construirCadena();
-  const conVision = todas.filter((e) => e.proveedor.vision);
+  const conVision = ordenarParaVision(todas.filter((e) => e.proveedor.vision));
   if (conVision.length === 0) return { tipo: 'sin_clave', motivo: MOTIVO_SIN_CLAVE };
   const esPdf = a.mime === 'application/pdf';
   const cadena = conVision.filter((e) => !esPdf || e.proveedor.visionPdf);

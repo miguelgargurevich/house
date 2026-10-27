@@ -362,6 +362,8 @@ model GatewayIA {
   vision             Boolean   @default(false)
   /// Posición en la rotación frente al catálogo (menor = antes). El catálogo usa 1-14.
   prioridad          Int       @default(20)
+  /// Posición SÓLO para leer comprobantes (menor = antes). null = usa `prioridad`. No cambia la rotación del chat.
+  prioridad_vision   Int?
   habilitado         Boolean   @default(true)
   creado_por_id      Int?
   creado_por         Usuario?  @relation("GatewaysCreados", fields: [creado_por_id], references: [id], onDelete: SetNull)

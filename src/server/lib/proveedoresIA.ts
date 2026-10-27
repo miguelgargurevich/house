@@ -12,6 +12,8 @@ export interface ProveedorIA {
   modeloPorDefecto: string;
   variableDeEntorno: string;
   prioridad: number;
+  /** Sólo en los gateways propios: prioridad para leer comprobantes (null/ausente = usa `prioridad`). */
+  prioridadVision?: number | null;
   /** ¿Lee imágenes? Sólo estos proveedores sirven para evaluar comprobantes. */
   vision: boolean;
   /** Modelo con visión por defecto (la clave puede cambiarlo con su campo `modelo`). */

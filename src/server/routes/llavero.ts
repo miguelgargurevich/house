@@ -26,6 +26,7 @@ const gatewaySchema = z.object({
   modelo_vision: modeloOpcional,
   vision: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
   prioridad: z.number({ error: 'Debe ser un número' }).int().min(1, 'Entre 1 y 99').max(99, 'Entre 1 y 99').optional(),
+  prioridad_vision: z.number({ error: 'Debe ser un número' }).int().min(0, 'Entre 0 y 99').max(99, 'Entre 0 y 99').nullish(),
 });
 const gatewayAjusteSchema = gatewaySchema.partial().extend({ habilitado: z.boolean({ error: 'Debe ser verdadero o falso' }).optional() })
   .refine((v) => Object.values(v).some((x) => x !== undefined), 'Indica al menos un campo');

@@ -13,7 +13,8 @@ import {
 import { evaluacionDeps, esperarEvaluaciones, MARCA_REINTENTO, MOTIVO_PDF, MOTIVO_SIN_CLAVE, UMBRAL_AUTOVALIDACION } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
 import { dnsFalso, restaurarDns, registrarDashboardia } from './helpers/gateways';
-import { olvidarTodoUso } from '../src/server/services/rotacion';
+import { construirCadena, olvidarTodoUso } from '../src/server/services/rotacion';
+import { ajustarGateway } from '../src/server/lib/gatewaysAdmin';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
 const DIA = 86_400_000;
@@ -408,6 +409,58 @@ describe('evaluación: sin IA, PDF y proveedores', () => {
     assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('dashboardia'), claveDe('openrouter'), claveDe('openai')]);
     assert.equal(ev.estado, 'pendiente', 'sigue «evaluando» hasta el reintento');
     assert.equal(ev.error, MARCA_REINTENTO);
+  });
+});
+
+describe('evaluación: prioridad para leer comprobantes (prioridad_vision del gateway)', () => {
+  const dashboardia = () => prisma.gatewayIA.findFirstOrThrow({ where: { nombre: 'Dashboard IA' } });
+  // El gateway persiste entre pruebas (sólo se vacían las claves): cada una arranca sin prioridad de visión.
+  beforeEach(async () => {
+    await prisma.gatewayIA.updateMany({ data: { prioridad_vision: null } });
+  });
+
+  it('con prioridad_vision = 0 el gateway lee antes que Gemini; si falla, Gemini queda de respaldo y, enfriado el gateway, la siguiente lectura empieza por Gemini', async () => {
+    await claves('gemini', 'dashboardia');
+    await ajustarGateway((await dashboardia()).id, { prioridad_vision: 0 });
+    responder = (l) => (l.clave === claveDe('dashboardia') ? estado(500) : ok(lec()));
+    const primera = await evaluado();
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('dashboardia'), claveDe('gemini')]);
+    assert.equal(primera.ev.estado, 'completada');
+    assert.equal(primera.ev.proveedor, 'gemini');
+    llamadas = [];
+    await evaluado();
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini')], 'el gateway está enfriado: no va primero');
+  });
+
+  it('con prioridad_vision = 0 y el gateway sano, la lectura sale por él (Gemini no se llama)', async () => {
+    await claves('gemini', 'dashboardia');
+    await ajustarGateway((await dashboardia()).id, { prioridad_vision: 0 });
+    const { ev } = await evaluado();
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('dashboardia')]);
+    assert.equal(ev.proveedor, 'gateway');
+  });
+
+  it('sin prioridad_vision (null) la lectura sigue el orden de siempre: Gemini primero', async () => {
+    await claves('gemini', 'dashboardia');
+    assert.equal((await dashboardia()).prioridad_vision, null);
+    const { ev } = await evaluado();
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini')]);
+    assert.equal(ev.proveedor, 'gemini');
+  });
+
+  it('una clave de reserva va después de las normales aunque su número sea menor: Gemini (reserva, 1) queda tras el gateway (normal, 50)', async () => {
+    await claves('gemini', 'dashboardia');
+    await ajustarGateway((await dashboardia()).id, { prioridad_vision: 50 });
+    await prisma.claveIntegracion.updateMany({ where: { proveedor: 'gemini' }, data: { reserva: true } });
+    const { ev } = await evaluado();
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('dashboardia')]);
+    assert.equal(ev.proveedor, 'gateway');
+  });
+
+  it('el chat no cambia: su cadena sigue por la prioridad general (Gemini 1, gateway 2) aunque prioridad_vision lo adelante', async () => {
+    await claves('gemini', 'dashboardia');
+    await ajustarGateway((await dashboardia()).id, { prioridad_vision: 0 });
+    assert.deepEqual((await construirCadena()).map((e) => e.proveedor.id), ['gemini', 'gateway']);
   });
 });
 

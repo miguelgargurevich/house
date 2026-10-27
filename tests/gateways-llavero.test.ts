@@ -166,6 +166,21 @@ describe('registrar un gateway: las barreras al guardar (y nada sale a la red)',
     assert.equal(llamadas.length, 0, 'registrar no llama a nadie');
   });
 
+  it('prioridad_vision: entero de 0 a 99 o null; por omisión null (usa la prioridad); se edita y vuelve en la lista', async () => {
+    await dominio(DOMINIO_DASHBOARDIA);
+    const g = await crearGw({ prioridad_vision: 0 });
+    assert.equal(g.status, 201, JSON.stringify(g.body));
+    assert.equal(g.body.prioridad_vision, 0);
+    assert.equal((await crearGw({ nombre: 'Sin prioridad de visión' })).body.prioridad_vision, null);
+    assert.equal((await crearGw({ nombre: 'Negativa', prioridad_vision: -1 })).status, 422);
+    assert.equal((await crearGw({ nombre: 'Alta', prioridad_vision: 100 })).status, 422);
+    const r = await llamar(base, 'PATCH', `/api/llavero/gateways/${g.body.id}`, T.super, { prioridad_vision: 7 });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.prioridad_vision, 7);
+    assert.equal((await llamar(base, 'PATCH', `/api/llavero/gateways/${g.body.id}`, T.super, { prioridad_vision: null })).body.prioridad_vision, null);
+    assert.equal(r.body.prioridad, 2, 'la prioridad general no se toca');
+  });
+
   const MALAS: [string, string, RegExp][] = [
     ['http', `http://${DOMINIO_DASHBOARDIA}/v1`, /https/],
     ['IP literal v4', 'https://93.184.216.34/v1', /dirección IP/],

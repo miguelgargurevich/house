@@ -48,7 +48,7 @@ export async function listarGateways() {
   const n = new Map(conteos.map((c) => [c.gateway_id, c._count._all]));
   return filas.map((g) => ({
     id: g.id, nombre: g.nombre, base_url: g.base_url, dominio: hostDe(g.base_url), modelo_por_defecto: g.modelo_por_defecto, modelo_vision: g.modelo_vision,
-    vision: g.vision, prioridad: g.prioridad, habilitado: g.habilitado, estado: estadoDeGateway(g, dominios), claves: n.get(g.id) ?? 0,
+    vision: g.vision, prioridad: g.prioridad, prioridad_vision: g.prioridad_vision, habilitado: g.habilitado, estado: estadoDeGateway(g, dominios), claves: n.get(g.id) ?? 0,
   }));
 }
 

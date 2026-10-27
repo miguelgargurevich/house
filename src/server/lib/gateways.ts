@@ -219,6 +219,7 @@ export interface FilaGateway {
   modelo_vision: string | null;
   vision: boolean;
   prioridad: number;
+  prioridad_vision?: number | null;
   habilitado: boolean;
 }
 
@@ -236,6 +237,7 @@ export function proveedorDeGateway(g: FilaGateway): ProveedorIA {
     modeloPorDefecto: g.modelo_por_defecto ?? '',
     variableDeEntorno: '',
     prioridad: g.prioridad,
+    prioridadVision: g.prioridad_vision ?? null,
     vision: g.vision,
     modeloVision: g.modelo_vision ?? g.modelo_por_defecto ?? '',
     visionPdf: false,
