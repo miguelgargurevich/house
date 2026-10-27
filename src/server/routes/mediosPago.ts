@@ -6,12 +6,12 @@ import { ambitoJunta, esJunta, puedeGestionar } from '../lib/junta';
 import { scopeComplejos, scopeMediosPago } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { detectarTipo, dispositionInline, sanearNombre } from '../services/comprobantes';
-import { MAX_ACTIVOS, MAX_QR, TIPOS_QR, ajusteSchema, columnas, medioSchema, ultimos4, type TipoQr } from '../services/mediosPago';
+import { ENTIDADES, GRUPOS_ENTIDAD, MAX_ACTIVOS, MAX_QR, TIPOS_QR, ajusteSchema, camposDePago, columnas, medioSchema, nombreEntidad, ultimos4, type TipoQr } from '../services/mediosPago';
 import { boolQuery, idSchema, listQuerySchema, parse, parseBody, parseId, z } from '../validation';
 
-/** Fila sin los bytes del QR (nunca salen en las listas) y con `tiene_qr`. */
-function formatear<T extends { qr_tipo_mime: string | null }>(m: T) {
-  return { ...m, tiene_qr: m.qr_tipo_mime != null };
+/** Fila sin los bytes del QR (nunca salen en las listas), con `tiene_qr` y el nombre real de la entidad (si es «Otro», el que escribió la junta). */
+function formatear<T extends { qr_tipo_mime: string | null; banco: string | null; banco_otro: string | null }>(m: T) {
+  return { ...m, tiene_qr: m.qr_tipo_mime != null, entidad: nombreEntidad(m) };
 }
 
 const ocultarQr = { qr_datos: true } as const;
@@ -52,9 +52,11 @@ async function verificarTope(ambito: { complejo_id: number; estructura_id: numbe
   if (activos >= MAX_ACTIVOS) throw invalid(`Datos inválidos: activo: máximo ${MAX_ACTIVOS} medios de pago activos por block`, { activo: `Máximo ${MAX_ACTIVOS} activos` });
 }
 
-const detalleAuditoria = (m: { tipo: string; complejo_id: number; estructura_id: number | null; numero_cuenta?: string | null; celular?: string | null }) => ({
-  tipo: m.tipo, complejo_id: m.complejo_id, estructura_id: m.estructura_id, ultimos4: ultimos4(m), // nunca el número completo
-});
+type MedioAuditable = { tipo: string; complejo_id: number; estructura_id: number | null; banco?: string | null; banco_otro?: string | null; servicio?: string | null; numero_cuenta?: string | null; celular?: string | null };
+/** Lo mínimo: tipo y ámbito, y los últimos 4 del número (nunca completo). Una recaudación no tiene número: guarda entidad y servicio (nunca datos del vecino). */
+const detalleAuditoria = (m: MedioAuditable) => m.tipo === 'recaudacion'
+  ? { tipo: m.tipo, complejo_id: m.complejo_id, estructura_id: m.estructura_id, entidad: nombreEntidad({ banco: m.banco ?? null, banco_otro: m.banco_otro }), servicio: m.servicio ?? null }
+  : { tipo: m.tipo, complejo_id: m.complejo_id, estructura_id: m.estructura_id, ultimos4: ultimos4(m) };
 
 /** Carga el medio dentro del alcance de quien llama ANTES de leer el cuerpo (un QR crudo no se descarga para un ajeno). */
 const cargarMedio: RequestHandler = async (req, res, next) => {
@@ -119,6 +121,11 @@ mediosPagoRouter.get('/ambitos', async (req, res) => {
   });
   // `fijo`: la junta de un block sólo gestiona ese block (no puede elegir «todo el condominio»).
   res.json({ complejos, fijo: junta?.estructura_id != null });
+});
+
+/** Fuente única de las entidades (con sus formatos habituales, sólo para avisos) para el formulario. */
+mediosPagoRouter.get('/catalogo', (_req, res) => {
+  res.json({ grupos: GRUPOS_ENTIDAD.map((g) => ({ ...g, entidades: ENTIDADES.filter((x) => x.grupo === g.grupo) })) });
 });
 
 mediosPagoRouter.get('/', async (req, res) => {
@@ -219,7 +226,7 @@ mediosPagoMeRouter.get('/', requireRole('propietario', 'inquilino'), async (req,
   if (u.rol === 'superadmin') throw forbidden();
   const { cargo_id } = parse(z.object({ cargo_id: idSchema }), req.query);
   const donde = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
-  const cargo = await prisma.reciboConceptoUnidad.findFirst({ where: { id: cargo_id, unidad: donde }, select: { unidad: { select: { complejo_id: true, estructura_id: true } } } });
+  const cargo = await prisma.reciboConceptoUnidad.findFirst({ where: { id: cargo_id, unidad: donde }, select: { unidad: { select: { codigo: true, complejo_id: true, estructura_id: true } } } });
   if (!cargo) throw notFound('Cargo');
   const filas = await prisma.medioPago.findMany({
     where: { activo: true, ...medioDeUnidades(cargo.unidad ? [cargo.unidad] : []) },
@@ -228,9 +235,10 @@ mediosPagoMeRouter.get('/', requireRole('propietario', 'inquilino'), async (req,
   });
   const delBlock = filas.filter((m) => m.estructura_id != null);
   const delCondominio = filas.filter((m) => m.estructura_id == null);
-  // Sin creado_por_id ni documento del titular: el vecino sólo necesita lo que sirve para pagar.
+  // Sin creado_por_id ni documento del titular: el vecino sólo necesita lo que sirve para pagar. La instrucción de recaudación lleva SU código de unidad.
   res.json([...delBlock, ...delCondominio].map((m) => ({
     id: m.id, tipo: m.tipo, ambito: m.estructura_id != null ? 'block' : 'condominio', banco: m.banco, tipo_cuenta: m.tipo_cuenta,
     numero_cuenta: m.numero_cuenta, cci: m.cci, titular: m.titular, celular: m.celular, tiene_qr: m.qr_tipo_mime != null, orden: m.orden,
+    ...camposDePago(m, cargo.unidad?.codigo ?? null),
   })));
 });

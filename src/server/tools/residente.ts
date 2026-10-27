@@ -6,6 +6,7 @@ import { estadoCargo, filtroEstadoCargo, noPagado } from '../lib/cargos';
 import { listarMantenimientos, type EstadoMantenimiento } from '../lib/mantenimientos';
 import type { AuthUser } from '../middleware/auth';
 import { medioDeUnidades } from '../services/asistente/contexto';
+import { camposDePago, codigoUnidadDelMedio } from '../services/mediosPago';
 import { z } from '../validation';
 import { MAX_FILAS, cortar, dato, defineHerramienta, fechaDia, instante, monto, paginacion, pagina, periodoDe, respuesta, sinAcceso } from './base';
 
@@ -156,22 +157,26 @@ export const misPagos = defineHerramienta({
 
 export const mediosParaPagar = defineHerramienta({
   nombre: 'medios_para_pagar',
-  descripcion: 'A dónde pagar: los medios de pago ACTIVOS del block y del condominio de la persona que escribe (cuenta bancaria, Yape o Plin). Úsala para «¿cómo/dónde pago?». House no cobra: el pago se hace por fuera y luego se registra el comprobante. Ejemplo: {}.',
+  descripcion: 'A dónde pagar: los medios de pago ACTIVOS del block y del condominio de la persona que escribe (cuenta bancaria, Yape, Plin o cuenta recaudadora: «Pago de servicios» de su banco, con `instruccion`). Úsala para «¿cómo/dónde pago?». House no cobra: el pago se hace por fuera y luego se registra el comprobante. Ejemplo: {}.',
   entrada: z.strictObject({}),
   roles: RESIDENTE,
   solo_lectura: true,
   async ejecutar(u) {
-    const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), take: 50, select: { complejo_id: true, estructura_id: true } });
+    const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), orderBy: { codigo: 'asc' }, take: 50, select: { codigo: true, complejo_id: true, estructura_id: true } });
     const medios = await prisma.medioPago.findMany({
       where: { activo: true, ...medioDeUnidades(unidades) },
       orderBy: [{ orden: 'asc' }, { id: 'asc' }],
       take: 20,
-      select: { tipo: true, banco: true, tipo_cuenta: true, numero_cuenta: true, cci: true, titular: true, celular: true, estructura_id: true, qr_nombre: true },
+      select: { tipo: true, banco: true, banco_otro: true, tipo_cuenta: true, numero_cuenta: true, cci: true, moneda: true, servicio: true, codigo_pago: true, codigo_instruccion: true, titular: true, celular: true, complejo_id: true, estructura_id: true, qr_nombre: true },
     });
-    const filas = [...medios.filter((m) => m.estructura_id != null), ...medios.filter((m) => m.estructura_id == null)].map((m) => ({
-      tipo: dato(m.tipo, 20), banco: dato(m.banco, 40), tipo_cuenta: dato(m.tipo_cuenta, 20), numero_cuenta: dato(m.numero_cuenta, 30), cci: dato(m.cci, 30),
-      titular: dato(m.titular), celular: dato(m.celular, 20), tiene_qr: m.qr_nombre != null, ambito: m.estructura_id != null ? 'block' : 'condominio',
-    }));
+    const filas = [...medios.filter((m) => m.estructura_id != null), ...medios.filter((m) => m.estructura_id == null)].map((m) => {
+      const c = camposDePago(m, codigoUnidadDelMedio({ complejo_id: m.complejo_id, estructura_id: m.estructura_id }, unidades));
+      return {
+        tipo: dato(m.tipo, 20), banco: dato(c.entidad, 60), tipo_cuenta: dato(m.tipo_cuenta, 20), numero_cuenta: dato(m.numero_cuenta, 30), cci: dato(m.cci, 30), moneda: c.moneda,
+        servicio: dato(c.servicio, 80), instruccion: dato(c.instruccion, 300),
+        titular: dato(m.titular), celular: dato(m.celular, 20), tiene_qr: m.qr_nombre != null, ambito: m.estructura_id != null ? 'block' : 'condominio',
+      };
+    });
     return respuesta({ filas, nota: filas.length ? null : 'Todavía no hay medios de pago publicados para tu block; consulta con la administración.' });
   },
 });

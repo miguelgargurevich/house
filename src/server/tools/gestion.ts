@@ -9,6 +9,7 @@ import {
   empresaDe, scopeCargos, scopeComplejos, scopeMediosPago, scopeNotificaciones, scopePagos, scopePagosJunta, scopeRecibos, scopeTareas, scopeUnidades,
 } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
+import { camposDePago } from '../services/mediosPago';
 import { z } from '../validation';
 import {
   cortar, dato, defineHerramienta, fechaDia, fechaIsoSchema, idPositivo, instante, monto, nombreCorto, paginacion, pagina, paginarLista, periodoDe, periodoSchema,
@@ -519,7 +520,7 @@ export const cobranzaPorMes = defineHerramienta({
 
 export const mediosDePago = defineHerramienta({
   nombre: 'medios_de_pago',
-  descripcion: 'Medios de pago ACTIVOS (cuentas bancarias, Yape, Plin) de los condominios y blocks de tu alcance, tal como los ve el vecino. Úsala para «¿a dónde pagan los del Block B?». Ejemplo: {"condominio_id":1}.',
+  descripcion: 'Medios de pago ACTIVOS (cuentas bancarias, Yape, Plin, cuentas recaudadoras) de los condominios y blocks de tu alcance, tal como los ve el vecino. Úsala para «¿a dónde pagan los del Block B?». Ejemplo: {"condominio_id":1}.',
   entrada: z.strictObject({ condominio_id: idPositivo.optional(), estructura_id: idPositivo.optional(), ...paginacion }),
   roles: GESTION,
   junta: true,
@@ -533,16 +534,20 @@ export const mediosDePago = defineHerramienta({
       skip: p.skip,
       take: p.take,
       // Sin documento del titular, sin bytes del QR.
-      select: { id: true, tipo: true, banco: true, tipo_cuenta: true, numero_cuenta: true, cci: true, titular: true, celular: true, qr_nombre: true, estructura_id: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } },
+      select: { id: true, tipo: true, banco: true, banco_otro: true, tipo_cuenta: true, numero_cuenta: true, cci: true, moneda: true, servicio: true, codigo_pago: true, codigo_instruccion: true, titular: true, celular: true, qr_nombre: true, estructura_id: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } },
     });
     const c = cortar(filas, p);
     return respuesta({
       alcance: ALCANCE_TEXTO[al.tipo],
-      filas: c.filas.map((m) => ({
-        id: m.id, tipo: dato(m.tipo, 20), banco: dato(m.banco, 40), tipo_cuenta: dato(m.tipo_cuenta, 20), numero_cuenta: dato(m.numero_cuenta, 30), cci: dato(m.cci, 30),
-        titular: dato(m.titular), celular: dato(m.celular, 20), tiene_qr: m.qr_nombre != null,
-        condominio: dato(m.complejo?.nombre), block: dato(m.estructura?.nombre), ambito: m.estructura_id != null ? 'block' : 'condominio',
-      })),
+      filas: c.filas.map((m) => {
+        const v = camposDePago(m, null); // sin unidad: «departamento» se lee «el código de tu departamento»
+        return {
+          id: m.id, tipo: dato(m.tipo, 20), banco: dato(v.entidad, 60), tipo_cuenta: dato(m.tipo_cuenta, 20), numero_cuenta: dato(m.numero_cuenta, 30), cci: dato(m.cci, 30), moneda: v.moneda,
+          servicio: dato(v.servicio, 80), instruccion: dato(v.instruccion, 300),
+          titular: dato(m.titular), celular: dato(m.celular, 20), tiene_qr: m.qr_nombre != null,
+          condominio: dato(m.complejo?.nombre), block: dato(m.estructura?.nombre), ambito: m.estructura_id != null ? 'block' : 'condominio',
+        };
+      }),
       hay_mas: c.hay_mas,
       siguiente_cursor: c.siguiente_cursor,
     });

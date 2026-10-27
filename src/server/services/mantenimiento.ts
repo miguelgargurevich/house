@@ -14,6 +14,7 @@ import { hoyLima } from '../lib/fechas';
 import { conVistaResidente, selectEvaluacion } from '../lib/evaluacionVista';
 import { cuentaCargo, estadoMantenimiento, numeroMantenimiento, repartirSaldos, sumarCuentas, tituloMantenimiento, type CuentaMantenimiento, type EstadoMantenimiento } from '../lib/mantenimientos';
 import { medioDeUnidades } from '../routes/mediosPago';
+import { camposDePago } from './mediosPago';
 
 export interface DatosPago {
   metodo_pago: string;
@@ -222,6 +223,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     medios_pago: medios.map((m) => ({
       id: m.id, tipo: m.tipo, ambito: m.estructura_id != null ? 'block' : 'condominio', banco: m.banco, tipo_cuenta: m.tipo_cuenta,
       numero_cuenta: m.numero_cuenta, cci: m.cci, titular: m.titular, celular: m.celular, tiene_qr: m.qr_tipo_mime != null,
+      ...camposDePago(m, unidad.codigo), // moneda, nombre real de la entidad e instrucción de recaudación con el código de ESTA unidad
     })),
   };
 }

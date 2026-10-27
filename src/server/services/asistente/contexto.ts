@@ -13,6 +13,7 @@ import { rutaPermitida } from '../../lib/rutasApp';
 import { scopeCargos, scopePagos, scopePagosJunta, scopeTareas } from '../../lib/scope';
 import type { AuthUser } from '../../middleware/auth';
 import { fechaTexto, solesTexto } from '../avisos/plantillas';
+import { camposDePago, codigoUnidadDelMedio } from '../mediosPago';
 
 export interface MedioParaPagar {
   tipo: string;
@@ -22,6 +23,9 @@ export interface MedioParaPagar {
   cci: string | null;
   titular: string;
   celular: string | null;
+  moneda: 'PEN' | 'USD';
+  /** Recaudación: «Paga desde Pago de servicios en … → …, con el código: …» (con el código de SU unidad). */
+  instruccion: string | null;
   /** `block` si es del block de la unidad; `condominio` si vale para todo el condominio. */
   ambito: 'block' | 'condominio';
 }
@@ -100,7 +104,7 @@ async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
     where: { activo: true, ...medioDeUnidades(unidades) },
     orderBy: [{ orden: 'asc' }, { id: 'asc' }],
     take: 6,
-    select: { tipo: true, banco: true, tipo_cuenta: true, numero_cuenta: true, cci: true, titular: true, celular: true, estructura_id: true },
+    select: { tipo: true, banco: true, banco_otro: true, tipo_cuenta: true, numero_cuenta: true, cci: true, moneda: true, servicio: true, codigo_pago: true, codigo_instruccion: true, titular: true, celular: true, complejo_id: true, estructura_id: true },
   });
   const fecha = proximo?.reciboConcepto?.recibo?.fecha_vencimiento;
   return {
@@ -111,10 +115,14 @@ async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
     proximo_vencimiento: proximo && fecha ? { fecha: fechaTexto(fecha), monto: decimalAString(proximo.monto), concepto: proximo.reciboConcepto?.concepto?.nombre ? limpiarTexto(proximo.reciboConcepto.concepto.nombre) : null } : null,
     ultimos_pagos: pagos.map((p) => ({ monto: decimalAString(p.monto), fecha: fechaTexto(p.fecha_pago), estado: ESTADO_PAGO[p.estado_validacion] ?? p.estado_validacion })),
     // Los del block primero, luego los del condominio (igual que la pantalla de pago).
-    medios: [...medios.filter((m) => m.estructura_id != null), ...medios.filter((m) => m.estructura_id == null)].map((m) => ({
-      tipo: m.tipo, banco: m.banco ? limpiarTexto(m.banco, 40) : null, tipo_cuenta: m.tipo_cuenta, numero_cuenta: m.numero_cuenta ? limpiarTexto(m.numero_cuenta, 30) : null,
-      cci: m.cci ? limpiarTexto(m.cci, 30) : null, titular: limpiarTexto(m.titular, 80), celular: m.celular ? limpiarTexto(m.celular, 20) : null, ambito: m.estructura_id != null ? 'block' : 'condominio',
-    })),
+    medios: [...medios.filter((m) => m.estructura_id != null), ...medios.filter((m) => m.estructura_id == null)].map((m) => {
+      const c = camposDePago(m, codigoUnidadDelMedio({ complejo_id: m.complejo_id, estructura_id: m.estructura_id }, unidades));
+      return {
+        tipo: m.tipo, banco: c.entidad ? limpiarTexto(c.entidad, 60) : null, tipo_cuenta: m.tipo_cuenta, numero_cuenta: m.numero_cuenta ? limpiarTexto(m.numero_cuenta, 30) : null,
+        cci: m.cci ? limpiarTexto(m.cci, 30) : null, titular: limpiarTexto(m.titular, 80), celular: m.celular ? limpiarTexto(m.celular, 20) : null, moneda: c.moneda,
+        instruccion: c.instruccion ? limpiarTexto(c.instruccion, 300) : null, ambito: m.estructura_id != null ? 'block' : 'condominio',
+      } satisfies MedioParaPagar;
+    }),
   };
 }
 
@@ -176,7 +184,8 @@ export async function cargarDatos(user: AuthUser, ruta?: string): Promise<DatosC
 }
 
 const medioTexto = (m: MedioParaPagar, i: number): string => {
-  if (m.tipo === 'banco') return `${i + 1}. ${m.banco ?? 'Banco'}${m.tipo_cuenta ? `, cuenta de ${m.tipo_cuenta}` : ''}${m.numero_cuenta ? ` N.º ${m.numero_cuenta}` : ''}${m.cci ? `, CCI ${m.cci}` : ''}, a nombre de ${m.titular}`;
+  if (m.tipo === 'banco') return `${i + 1}. ${m.banco ?? 'Banco'}${m.tipo_cuenta ? `, cuenta de ${m.tipo_cuenta}` : ''}${m.numero_cuenta ? ` N.º ${m.numero_cuenta}` : ''}${m.cci ? `, CCI ${m.cci}` : ''}, a nombre de ${m.titular}, cuenta en ${m.moneda === 'USD' ? 'dólares' : 'soles'}`;
+  if (m.tipo === 'recaudacion') return `${i + 1}. ${m.instruccion ?? `Pago de servicios en ${m.banco ?? 'tu banco'}`} (a nombre de ${m.titular})`;
   return `${i + 1}. ${m.tipo === 'yape' ? 'Yape' : 'Plin'}${m.celular ? ` al ${m.celular}` : ''}, a nombre de ${m.titular}`;
 };
 

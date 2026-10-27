@@ -213,7 +213,7 @@ async function guardar(pagoId: number, sha256: string, data: Prisma.EvaluacionCo
   return r.count === 1;
 }
 
-const medioParaContraste = (m: { tipo: string; titular: string; celular: string | null; numero_cuenta: string | null; cci: string | null }): MedioParaContraste => m;
+const medioParaContraste = (m: { tipo: string; titular: string; celular: string | null; numero_cuenta: string | null; cci: string | null; servicio: string | null }): MedioParaContraste => m;
 
 async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const pago = await prisma.pago.findUnique({ where: { id: pagoId }, include: pagoParaEvaluar });
@@ -254,7 +254,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const medios = unidad?.complejo_id != null
     ? await prisma.medioPago.findMany({
         where: { activo: true, complejo_id: unidad.complejo_id, OR: [{ estructura_id: null }, ...(unidad.estructura_id != null ? [{ estructura_id: unidad.estructura_id }] : [])] },
-        select: { tipo: true, titular: true, celular: true, numero_cuenta: true, cci: true },
+        select: { tipo: true, titular: true, celular: true, numero_cuenta: true, cci: true, servicio: true },
       })
     : [];
   const [mismoArchivo, mismaOperacion] = await Promise.all([

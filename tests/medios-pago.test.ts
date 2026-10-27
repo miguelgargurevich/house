@@ -216,10 +216,11 @@ describe('medios de pago: validación por tipo', () => {
   it('banco: catálogo cerrado, tipo de cuenta, número, CCI, titular y documento', async () => {
     assert.equal((await intentar(banco({ banco: 'Banco Inventado' }))).status, 422);
     assert.equal((await intentar(banco({ tipo_cuenta: 'plazo-fijo' }))).status, 422);
-    assert.equal((await intentar(banco({ numero_cuenta: '1234567' }))).status, 422); // 7
-    assert.equal((await intentar(banco({ numero_cuenta: '1'.repeat(21) }))).status, 422);
+    assert.equal((await intentar(banco({ numero_cuenta: '12345' }))).status, 422); // 5: menos de 6 dígitos
+    assert.equal((await intentar(banco({ numero_cuenta: '1'.repeat(26) }))).status, 422); // 26: más de 25
     assert.equal((await intentar(banco({ numero_cuenta: '1234abcd5678' }))).status, 422);
     assert.equal((await intentar(banco({ numero_cuenta: '--------' }))).status, 422);
+    assert.equal((await intentar(banco({ numero_cuenta: '12-3-45--' }))).status, 422); // 5 dígitos entre guiones
     assert.equal((await intentar(banco({ cci: '1234567890123456789' }))).status, 422); // 19
     assert.equal((await intentar(banco({ cci: '1234567890123456789a' }))).status, 422);
     assert.equal((await intentar(banco({ titular: '' }))).status, 422);
@@ -236,7 +237,7 @@ describe('medios de pago: validación por tipo', () => {
     assert.equal(r.body.numero_cuenta, '194-1234567-8-90');
     assert.equal((await intentar(banco({ cci: '', documento_titular: '20123456789' }))).status, 201);
     await limpiar();
-    for (const b of ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Banco de la Nación', 'Mibanco', 'BanBif', 'Pichincha', 'Otro']) {
+    for (const b of ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Banco de la Nación', 'Mibanco', 'BanBif', 'Pichincha']) {
       assert.equal((await intentar(banco({ banco: b }))).status, 201, b);
       await limpiar();
     }
@@ -422,7 +423,9 @@ describe('medios de pago: lo que ve el residente (GET /api/me/medios-pago)', () 
     const r = await llama(T.prop1, 'GET', `/api/me/medios-pago?cargo_id=${cargoA1}`);
     assert.equal(r.body[0].tiene_qr, true);
     assert.doesNotMatch(r.texto, /creado_por|documento_titular|qr_datos|12345678"|qr_tipo_mime|updated_at/);
-    assert.deepEqual(Object.keys(r.body[0]).sort(), ['ambito', 'banco', 'cci', 'celular', 'id', 'numero_cuenta', 'orden', 'tiene_qr', 'tipo', 'tipo_cuenta', 'titular']);
+    assert.deepEqual(Object.keys(r.body[0]).sort(), [
+      'ambito', 'banco', 'cci', 'celular', 'codigo_pago', 'entidad', 'id', 'instruccion', 'moneda', 'moneda_nombre', 'numero_cuenta', 'orden', 'servicio', 'tiene_qr', 'tipo', 'tipo_cuenta', 'titular',
+    ]);
   });
 
   it('el inquilino ve los de la unidad que habita; sin medios la lista es vacía', async () => {
@@ -616,5 +619,263 @@ describe('medios de pago: auditoría', () => {
     assert.equal(filas[0]!.entidad_id, id);
     assert.equal(filas[5]!.entidad_id, yapeId);
     assert.equal((filas[0]!.detalle as { estructura_id: number }).estructura_id, e1.id);
+  });
+});
+
+describe('medios de pago: más entidades, moneda y formatos', () => {
+  beforeEach(limpiar);
+  const ambito = () => ({ complejo_id: d.complejoA.id, estructura_id: e1.id });
+  const intentar = (cuerpo: Record<string, unknown>) => llama(T.adminA, 'POST', '/api/medios-pago', { ...ambito(), ...cuerpo });
+
+  it('el catálogo sólo lo piden quienes gestionan y trae grupos con formatos y códigos', async () => {
+    const r = await llama(T.presi1, 'GET', '/api/medios-pago/catalogo');
+    assert.equal(r.status, 200, r.texto);
+    assert.deepEqual(r.body.grupos.map((g: { grupo: string }) => g.grupo), ['banco', 'caja', 'financiera', 'otra']);
+    const todas = r.body.grupos.flatMap((g: { entidades: { nombre: string }[] }) => g.entidades);
+    assert.equal(todas.length, 29);
+    assert.deepEqual(todas.find((x: { nombre: string }) => x.nombre === 'BCP'), { nombre: 'BCP', grupo: 'banco', largo_ahorros: 14, largo_corriente: 13, codigo_cci: '002' });
+    assert.equal((await llama(T.adminA, 'GET', '/api/medios-pago/catalogo')).status, 200);
+    for (const quien of ['secre1', 'prop1', 'inq1', 'mttoA'] as const) assert.equal((await llama(T[quien], 'GET', '/api/medios-pago/catalogo')).status, 403, quien);
+    assert.equal((await llama(null, 'GET', '/api/medios-pago/catalogo')).status, 401);
+  });
+
+  it('acepta cada entidad del catálogo (cajas y financieras incluidas); «Otro» pide su nombre', async () => {
+    const catalogo = (await llama(T.adminA, 'GET', '/api/medios-pago/catalogo')).body.grupos.flatMap((g: { entidades: { nombre: string }[] }) => g.entidades.map((x) => x.nombre)) as string[];
+    for (const nombre of catalogo) {
+      const extra = nombre === 'Otro' ? { banco_otro: 'Caja Rural de Prueba' } : {};
+      const r = await intentar(banco({ banco: nombre, ...extra }));
+      assert.equal(r.status, 201, `${nombre}: ${r.texto}`);
+      assert.equal(r.body.entidad, nombre === 'Otro' ? 'Caja Rural de Prueba' : nombre);
+      await limpiar();
+    }
+  });
+
+  it('«Otro» sin nombre → 422 al crear y al editar; con nombre se guarda; con otra entidad el nombre se ignora', async () => {
+    for (const extra of [{}, { banco_otro: '' }, { banco_otro: '   ' }, { banco_otro: null }]) {
+      const r = await intentar(banco({ banco: 'Otro', ...extra }));
+      assert.equal(r.status, 422, JSON.stringify(extra));
+      assert.ok(r.body.campos.banco_otro, 'el error apunta a banco_otro');
+    }
+    assert.equal((await intentar(banco({ banco: 'Otro', banco_otro: 'x'.repeat(61) }))).status, 422);
+    assert.equal(await prisma.medioPago.count(), 0);
+    const ok = await intentar(banco({ banco: 'Otro', banco_otro: '  Caja Rural Prueba  ' }));
+    assert.equal(ok.status, 201, ok.texto);
+    assert.equal(ok.body.banco_otro, 'Caja Rural Prueba');
+    assert.equal((await intentar(banco({ banco: 'Otro', banco_otro: 'x'.repeat(60) }))).status, 201);
+    const bcp = await intentar(banco({ banco: 'BCP', banco_otro: 'Se ignora' }));
+    assert.equal(bcp.status, 201);
+    assert.equal(bcp.body.banco_otro, null);
+    assert.equal((await llama(T.adminA, 'PUT', `/api/medios-pago/${ok.body.id}`, banco({ banco: 'Otro' }))).status, 422, 'al editar también se pide el nombre');
+    assert.equal((await llama(T.adminA, 'PUT', `/api/medios-pago/${ok.body.id}`, banco({ banco: 'BCP', banco_otro: 'Se ignora' }))).body.banco_otro, null, 'al pasar a una entidad de la lista el nombre se limpia');
+  });
+
+  it('moneda: PEN por defecto, USD aceptada, otra → 422; editar sin moneda la conserva; yape/plin son soles', async () => {
+    const pen = await intentar(banco());
+    assert.equal(pen.body.moneda, 'PEN');
+    const usd = await intentar(banco({ moneda: 'USD' }));
+    assert.equal(usd.status, 201, usd.texto);
+    assert.equal(usd.body.moneda, 'USD');
+    assert.equal((await intentar(banco({ moneda: 'EUR' }))).status, 422);
+    assert.equal((await intentar(banco({ moneda: 'usd' }))).status, 422);
+    const sinMoneda = await llama(T.adminA, 'PUT', `/api/medios-pago/${usd.body.id}`, banco({ titular: 'Nuevo titular' }));
+    assert.equal(sinMoneda.body.moneda, 'USD', 'un cliente que no manda moneda no la pisa');
+    assert.equal((await llama(T.adminA, 'PUT', `/api/medios-pago/${usd.body.id}`, banco({ moneda: 'PEN' }))).body.moneda, 'PEN');
+    const dolares = await llama(T.adminA, 'PUT', `/api/medios-pago/${usd.body.id}`, banco({ moneda: 'USD' }));
+    assert.equal(dolares.body.moneda, 'USD');
+    const aYape = await llama(T.adminA, 'PUT', `/api/medios-pago/${usd.body.id}`, yape({ moneda: 'USD' }));
+    assert.equal(aYape.body.moneda, 'PEN', 'una billetera es en soles');
+    // sin fila vieja: lo que la base pone por defecto
+    const fila = await prisma.medioPago.create({ data: { complejo_id: d.complejoA.id, tipo: 'yape', celular: '987654321', titular: 'Sin moneda' } });
+    assert.equal(fila.moneda, 'PEN');
+  });
+
+  it('el servidor acepta de 6 a 25 caracteres aunque no calce el largo habitual del banco; fuera de ese rango, 422', async () => {
+    for (const [b, numero] of [['BCP', '123456'], ['BCP', '1'.repeat(20)], ['BBVA', '12345678'], ['Scotiabank', '1'.repeat(25)], ['Banco de la Nación', '123-456'], ['Interbank', '12-3456-789-012345-6789']] as const) {
+      const r = await intentar(banco({ banco: b, numero_cuenta: numero }));
+      assert.equal(r.status, 201, `${b} ${numero}: ${r.texto}`);
+      assert.equal(r.body.numero_cuenta, numero);
+    }
+    await limpiar(); // el tope de 6 activos por block no es lo que se prueba aquí
+    for (const numero of ['12345', '1'.repeat(26), '12-34-5', '12345a', '']) {
+      assert.equal((await intentar(banco({ numero_cuenta: numero }))).status, 422, `«${numero}»`);
+    }
+    // el CCI sí sigue siendo de 20 dígitos exactos, y su código de banco NO bloquea
+    assert.equal((await intentar(banco({ cci: '1'.repeat(19) }))).status, 422);
+    assert.equal((await intentar(banco({ cci: '1'.repeat(21) }))).status, 422);
+    const raro = await intentar(banco({ banco: 'BBVA', cci: `002${'0'.repeat(17)}` })); // 002 es de BCP
+    assert.equal(raro.status, 201, 'el aviso del código de banco no rechaza');
+  });
+});
+
+describe('medios de pago: cuenta recaudadora', () => {
+  beforeEach(limpiar);
+  const ambito = () => ({ complejo_id: d.complejoA.id, estructura_id: e1.id });
+  const recaudacion = (extra: Record<string, unknown> = {}) => ({ tipo: 'recaudacion', banco: 'BCP', servicio: 'Condominio Los Libertadores', codigo_pago: 'departamento', titular: 'Junta Directiva Block 1', ...extra });
+  const intentar = (cuerpo: Record<string, unknown>, quien = T.adminA) => llama(quien, 'POST', '/api/medios-pago', { ...ambito(), ...cuerpo });
+
+  it('crea con departamento, dni u otro (con instrucción) y no guarda número de cuenta, CCI ni celular', async () => {
+    const dep = await intentar(recaudacion({ numero_cuenta: '12345678901234', cci: CCI, celular: '987654321', documento_titular: '12345678', tipo_cuenta: 'ahorros' }));
+    assert.equal(dep.status, 201, dep.texto);
+    assert.deepEqual([dep.body.tipo, dep.body.banco, dep.body.servicio, dep.body.codigo_pago, dep.body.codigo_instruccion, dep.body.moneda], ['recaudacion', 'BCP', 'Condominio Los Libertadores', 'departamento', null, 'PEN']);
+    assert.deepEqual([dep.body.numero_cuenta, dep.body.cci, dep.body.celular, dep.body.documento_titular, dep.body.tipo_cuenta], [null, null, null, null, null]);
+    assert.equal((await intentar(recaudacion({ codigo_pago: 'dni', codigo_instruccion: 'se descarta' }))).body.codigo_instruccion, null, 'sólo «otro» lleva instrucción');
+    const otro = await intentar(recaudacion({ banco: 'Otro', banco_otro: 'Caja Rural X', codigo_pago: 'otro', codigo_instruccion: 'Tu código de socio' }));
+    assert.equal(otro.status, 201, otro.texto);
+    assert.equal(otro.body.entidad, 'Caja Rural X');
+    assert.equal(otro.body.codigo_instruccion, 'Tu código de socio');
+  });
+
+  it('exige servicio, código de pago válido, titular, instrucción si es «otro» y nombre si la entidad es «Otro»; respeta los máximos', async () => {
+    const casos: [Record<string, unknown>, string][] = [
+      [{ servicio: undefined }, 'servicio'], [{ servicio: '' }, 'servicio'], [{ servicio: '   ' }, 'servicio'], [{ servicio: 'x'.repeat(81) }, 'servicio'],
+      [{ codigo_pago: undefined }, 'codigo_pago'], [{ codigo_pago: 'celular' }, 'codigo_pago'],
+      [{ codigo_pago: 'otro' }, 'codigo_instruccion'], [{ codigo_pago: 'otro', codigo_instruccion: '' }, 'codigo_instruccion'], [{ codigo_pago: 'otro', codigo_instruccion: 'x'.repeat(121) }, 'codigo_instruccion'],
+      [{ titular: '' }, 'titular'], [{ titular: undefined }, 'titular'],
+      [{ banco: 'Otro' }, 'banco_otro'], [{ banco: 'Banco Inventado' }, 'banco'], [{ banco: undefined }, 'banco'],
+    ];
+    for (const [extra, campo] of casos) {
+      const r = await intentar(recaudacion(extra));
+      assert.equal(r.status, 422, JSON.stringify(extra));
+      assert.ok(r.body.campos[campo], `${JSON.stringify(extra)} → campos.${campo}: ${r.texto}`);
+    }
+    assert.equal(await prisma.medioPago.count(), 0);
+    assert.equal((await intentar(recaudacion({ servicio: 'x'.repeat(80) }))).status, 201);
+    assert.equal((await intentar(recaudacion({ codigo_pago: 'otro', codigo_instruccion: 'x'.repeat(120) }))).status, 201);
+  });
+
+  it('cuenta para el tope de 6 activos y se puede editar y cambiar de tipo sin dejar restos', async () => {
+    for (let i = 0; i < 6; i++) assert.equal((await intentar(recaudacion({ servicio: `Servicio ${i}` }))).status, 201);
+    const r7 = await intentar(recaudacion({ servicio: 'Servicio 7' }));
+    assert.equal(r7.status, 422);
+    assert.match(r7.body.error, /máximo 6/);
+    assert.equal((await intentar(yape())).status, 422, 'el tope es de todos los tipos juntos');
+    const inactivo = await intentar(recaudacion({ servicio: 'Servicio 8', activo: false }));
+    assert.equal(inactivo.status, 201);
+    const edit = await llama(T.adminA, 'PUT', `/api/medios-pago/${inactivo.body.id}`, recaudacion({ servicio: 'Servicio 8 (nuevo)', codigo_pago: 'dni', activo: false }));
+    assert.equal(edit.status, 200, edit.texto);
+    assert.equal(edit.body.servicio, 'Servicio 8 (nuevo)');
+    assert.equal(edit.body.codigo_pago, 'dni');
+    const aBanco = await llama(T.adminA, 'PUT', `/api/medios-pago/${inactivo.body.id}`, banco({ activo: false }));
+    assert.deepEqual([aBanco.body.servicio, aBanco.body.codigo_pago, aBanco.body.codigo_instruccion], [null, null, null]);
+    const deNuevo = await llama(T.adminA, 'PUT', `/api/medios-pago/${inactivo.body.id}`, recaudacion({ activo: false }));
+    assert.deepEqual([deNuevo.body.numero_cuenta, deNuevo.body.cci, deNuevo.body.documento_titular], [null, null, null]);
+  });
+
+  it('la junta del block la crea en su ámbito; otra junta y otra empresa no la ven ni la editan (404)', async () => {
+    const r = await llama(T.presi1, 'POST', '/api/medios-pago', recaudacion());
+    assert.equal(r.status, 201, r.texto);
+    assert.equal(r.body.estructura_id, e1.id);
+    const id = r.body.id;
+    assert.equal((await llama(T.presi2, 'POST', '/api/medios-pago', recaudacion({ ...ambito() }))).status, 404, 'no crea en un block ajeno');
+    const lista = async (t: string) => ((await llama(t, 'GET', '/api/medios-pago')).body.items as { id: number }[]).map((m) => m.id);
+    assert.deepEqual(await lista(T.presi1), [id]);
+    assert.deepEqual(await lista(T.presi2), []);
+    assert.deepEqual(await lista(T.presiB), []);
+    assert.deepEqual(await lista(T.adminB), []);
+    for (const quien of ['presi2', 'presiB', 'adminB'] as const) {
+      assert.equal((await llama(T[quien], 'PUT', `/api/medios-pago/${id}`, recaudacion({ servicio: 'Cambiado' }))).status, 404, `PUT ${quien}`);
+      assert.equal((await llama(T[quien], 'PATCH', `/api/medios-pago/${id}`, { activo: false })).status, 404, `PATCH ${quien}`);
+      assert.equal((await llama(T[quien], 'DELETE', `/api/medios-pago/${id}`)).status, 404, `DELETE ${quien}`);
+    }
+    assert.equal((await prisma.medioPago.findUniqueOrThrow({ where: { id } })).servicio, 'Condominio Los Libertadores');
+    assert.equal((await llama(T.tesor1, 'PUT', `/api/medios-pago/${id}`, recaudacion({ servicio: 'Cambiado por tesorería' }))).status, 200);
+  });
+
+  it('el vecino del block ve la instrucción con SU código de unidad (propietario e inquilino); el de otro block no la ve', async () => {
+    await crear(T.presi1, recaudacion());
+    const medioTodo = await crear(T.adminA, recaudacion({ complejo_id: d.complejoA.id, estructura_id: null, servicio: 'Servicio del condominio', codigo_pago: 'dni' }));
+    const r = await llama(T.prop1, 'GET', `/api/me/medios-pago?cargo_id=${d.cargoVencidoA1.id}`);
+    assert.equal(r.status, 200, r.texto);
+    assert.equal(r.body.length, 2);
+    const delBlock = r.body[0];
+    assert.equal(delBlock.tipo, 'recaudacion');
+    assert.equal(delBlock.instruccion, 'Paga desde Pago de servicios en BCP → Condominio Los Libertadores, con el código: A-101');
+    assert.deepEqual([delBlock.entidad, delBlock.servicio, delBlock.codigo_pago, delBlock.moneda, delBlock.moneda_nombre], ['BCP', 'Condominio Los Libertadores', 'departamento', 'PEN', 'Soles']);
+    assert.deepEqual([delBlock.numero_cuenta, delBlock.cci, delBlock.celular], [null, null, null]);
+    assert.equal(r.body[1].id, medioTodo);
+    assert.equal(r.body[1].instruccion, 'Paga desde Pago de servicios en BCP → Servicio del condominio, con el código: tu DNI');
+    assert.equal((await llama(T.inq1, 'GET', `/api/me/medios-pago?cargo_id=${d.cargoVencidoA1.id}`)).body[0].instruccion, delBlock.instruccion, 'el inquilino de la misma unidad');
+    // Con otra unidad el código cambia (no es un texto fijo)
+    await prisma.unidad.update({ where: { id: d.unidadA1.id }, data: { codigo: 'B01-804' } });
+    try {
+      assert.match((await llama(T.prop1, 'GET', `/api/me/medios-pago?cargo_id=${d.cargoVencidoA1.id}`)).body[0].instruccion, /con el código: B01-804$/);
+    } finally { await prisma.unidad.update({ where: { id: d.unidadA1.id }, data: { codigo: 'A-101' } }); }
+    // El vecino del otro block sólo ve el del condominio
+    // sesión nueva: las pruebas de cargos de junta cerraron la anterior
+    const deBlock2 = await llama(await login(base, 'prop2@test.pe'), 'GET', `/api/me/medios-pago?cargo_id=${d.cargoA2.id}`);
+    assert.equal(deBlock2.status, 200, deBlock2.texto);
+    assert.deepEqual(deBlock2.body.map((m: { id: number }) => m.id), [medioTodo]);
+    assert.doesNotMatch(deBlock2.texto, /Condominio Los Libertadores/);
+  });
+
+  it('con «Otro»: el vecino ve el nombre escrito y la instrucción de la junta tal cual', async () => {
+    await crear(T.adminA, recaudacion({ ...ambito(), banco: 'Otro', banco_otro: 'Caja Rural X', codigo_pago: 'otro', codigo_instruccion: 'Tu código de socio' }));
+    const [m] = (await llama(T.prop1, 'GET', `/api/me/medios-pago?cargo_id=${d.cargoVencidoA1.id}`)).body;
+    assert.equal(m.entidad, 'Caja Rural X');
+    assert.equal(m.instruccion, 'Paga desde Pago de servicios en Caja Rural X → Condominio Los Libertadores, con el código: Tu código de socio');
+  });
+
+  it('el recibo (detalle del mantenimiento) lleva moneda, entidad e instrucción con el código de ESA unidad', async () => {
+    await crear(T.presi1, banco({ moneda: 'USD', banco: 'Otro', banco_otro: 'Caja Rural X' }));
+    await crear(T.presi1, recaudacion());
+    const r = await llama(T.prop1, 'GET', `/api/me/mantenimientos/${d.reciboVencidoA.id}/${d.unidadA1.id}`);
+    assert.equal(r.status, 200, r.texto);
+    const [cuenta, recaud] = r.body.medios_pago;
+    assert.deepEqual([cuenta.entidad, cuenta.moneda, cuenta.moneda_nombre], ['Caja Rural X', 'USD', 'Dólares']);
+    assert.equal(recaud.instruccion, 'Paga desde Pago de servicios en BCP → Condominio Los Libertadores, con el código: A-101');
+    assert.doesNotMatch(r.texto, /documento_titular|creado_por|qr_datos/);
+  });
+
+  it('auditoría: sólo tipo, ámbito, entidad y servicio; nunca el código, la instrucción ni datos del vecino', async () => {
+    const antes = (await prisma.auditoria.aggregate({ _max: { id: true } }))._max.id ?? 0;
+    const id = await crear(T.presi1, recaudacion({ codigo_pago: 'otro', codigo_instruccion: 'Código-secreto-de-socio' }));
+    await llama(T.presi1, 'PUT', `/api/medios-pago/${id}`, recaudacion({ servicio: 'Servicio nuevo', codigo_pago: 'otro', codigo_instruccion: 'Código-secreto-de-socio' }));
+    await llama(T.presi1, 'DELETE', `/api/medios-pago/${id}`);
+    const filas = await esperar(async () => {
+      const f = await prisma.auditoria.findMany({ where: { entidad: 'medio-pago', id: { gt: antes } }, orderBy: { id: 'asc' } });
+      return f.length >= 3 ? f : null;
+    });
+    assert.deepEqual(filas.map((f) => f.accion), ['crear', 'editar', 'eliminar']);
+    assert.deepEqual(filas[0]!.detalle, { tipo: 'recaudacion', complejo_id: d.complejoA.id, estructura_id: e1.id, entidad: 'BCP', servicio: 'Condominio Los Libertadores' });
+    assert.equal((filas[1]!.detalle as { servicio: string }).servicio, 'Servicio nuevo');
+    assert.doesNotMatch(JSON.stringify(filas.map((f) => f.detalle)), /Código-secreto|A-101|ultimos4|987654321/);
+  });
+});
+
+describe('medios de pago: un medio de antes sigue leyéndose', () => {
+  beforeEach(limpiar);
+  // Tal como quedó en producción: «Otro» sin nombre y sin las columnas nuevas (la base les pone el valor por defecto).
+  const viejo = () => prisma.medioPago.create({ data: { complejo_id: d.complejoA.id, estructura_id: e1.id, tipo: 'banco', banco: 'Otro', tipo_cuenta: 'ahorros', numero_cuenta: '12345678', titular: 'Medio viejo', activo: true } });
+
+  it('el listado, la administradora y el vecino lo leen: «Otra entidad», en soles', async () => {
+    const m = await viejo();
+    assert.equal(m.moneda, 'PEN');
+    assert.equal(m.banco_otro, null);
+    const lista = await llama(T.adminA, 'GET', '/api/medios-pago');
+    assert.equal(lista.status, 200, lista.texto);
+    assert.deepEqual([lista.body.items[0].banco, lista.body.items[0].entidad, lista.body.items[0].moneda], ['Otro', 'Otra entidad', 'PEN']);
+    const vecino = await llama(T.prop1, 'GET', `/api/me/medios-pago?cargo_id=${d.cargoVencidoA1.id}`);
+    assert.deepEqual([vecino.body[0].entidad, vecino.body[0].moneda_nombre, vecino.body[0].numero_cuenta], ['Otra entidad', 'Soles', '12345678']);
+  });
+
+  it('se puede activar, desactivar y reordenar sin tocarlo; para editar sus datos se pide el nombre', async () => {
+    const m = await viejo();
+    assert.equal((await llama(T.adminA, 'PATCH', `/api/medios-pago/${m.id}`, { orden: 2 })).status, 200);
+    assert.equal((await llama(T.adminA, 'PATCH', `/api/medios-pago/${m.id}`, { activo: false })).status, 200);
+    const sinNombre = await llama(T.adminA, 'PUT', `/api/medios-pago/${m.id}`, banco({ banco: 'Otro', numero_cuenta: '12345678' }));
+    assert.equal(sinNombre.status, 422);
+    assert.ok(sinNombre.body.campos.banco_otro);
+    const conNombre = await llama(T.adminA, 'PUT', `/api/medios-pago/${m.id}`, banco({ banco: 'Otro', banco_otro: 'Caja Rural X', numero_cuenta: '12345678' }));
+    assert.equal(conNombre.status, 200, conNombre.texto);
+    assert.equal(conNombre.body.entidad, 'Caja Rural X');
+    assert.equal(conNombre.body.moneda, 'PEN', 'sigue en soles');
+  });
+
+  it('la junta de otro block no lo ve ni lo edita (404)', async () => {
+    const m = await viejo();
+    assert.deepEqual(((await llama(T.presi2, 'GET', '/api/medios-pago')).body.items as unknown[]), []);
+    for (const metodo of ['PUT', 'PATCH', 'DELETE']) {
+      assert.equal((await llama(T.presi2, metodo, `/api/medios-pago/${m.id}`, metodo === 'PATCH' ? { activo: false } : banco({ banco: 'Otro', banco_otro: 'X' }))).status, 404, metodo);
+    }
   });
 });

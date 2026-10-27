@@ -15,11 +15,13 @@ export interface Coincidencias {
 }
 
 export interface MedioParaContraste {
-  tipo: string; // banco | yape | plin
+  tipo: string; // banco | yape | plin | recaudacion
   titular: string;
   celular: string | null;
   numero_cuenta: string | null;
   cci: string | null;
+  /** Recaudación: nombre del servicio tal como aparece en «Pago de servicios» (no tiene número de cuenta). */
+  servicio?: string | null;
 }
 
 export interface Esperado {
@@ -81,19 +83,29 @@ const terminaEn = (completo: string | null, cola: string) => {
   return d.length > 0 && cola.length >= 3 && d.endsWith(cola);
 };
 
-/** `null` si no hay medios activos o la IA no extrajo ni número ni nombre de destino. */
+const esRecaudacion = (m: MedioParaContraste) => m.tipo === 'recaudacion';
+const hayDatosDeDestino = (l: Pick<Lectura, 'destino_numero' | 'destinatario_nombre'>) => !!(l.destino_numero || l.destinatario_nombre);
+
+/**
+ * `null` si no hay medios activos, la IA no extrajo ni número ni nombre de destino, o NO es comparable: con una cuenta recaudadora activa el
+ * comprobante de «Pago de servicios» puede no traer ni cuenta ni el nombre del servicio, así que lo que no coincide no se da por distinto.
+ * Una recaudación sólo se compara por el nombre del servicio (o el titular); nunca por la entidad sola (cualquier pago al mismo banco coincidiría).
+ */
 export function contrastarDestino(l: Pick<Lectura, 'medio' | 'destino_numero' | 'destinatario_nombre'>, medios: MedioParaContraste[]): Comprobacion {
   if (medios.length === 0) return null;
-  if (!l.destino_numero && !l.destinatario_nombre) return null;
+  if (!hayDatosDeDestino(l)) return null;
   const cola = l.destino_numero ?? '';
   const billetera = l.medio === 'yape' || l.medio === 'plin';
   const bancario = l.medio === 'transferencia' || l.medio === 'deposito';
-  return medios.some((m) => {
+  const coincide = medios.some((m) => {
     if (nombreCoincide(l.destinatario_nombre, m.titular)) return true;
+    if (esRecaudacion(m)) return !!m.servicio && nombreCoincide(l.destinatario_nombre, m.servicio);
     if (!cola) return false;
     if (m.tipo === 'banco') return !billetera && (terminaEn(m.numero_cuenta, cola) || terminaEn(m.cci, cola));
     return !bancario && terminaEn(m.celular, cola);
   });
+  if (coincide) return true;
+  return medios.some(esRecaudacion) ? null : false;
 }
 
 export function contrastarMonto(l: Pick<Lectura, 'monto' | 'moneda'>, esperado: string): Comprobacion {
@@ -130,6 +142,7 @@ export function contrastar(l: Lectura, esperado: Esperado, medios: MedioParaCont
   if (l.moneda === 'USD') alertas.push('El comprobante está en dólares');
   if (coincidencias.monto === false && l.moneda !== 'USD') alertas.push('El monto del comprobante no coincide con lo que se debe');
   if (coincidencias.destino === false) alertas.push('El destino no coincide con los medios de pago activos');
+  if (coincidencias.destino === null && hayDatosDeDestino(l) && medios.some(esRecaudacion)) alertas.push('El destino no se pudo comparar con la cuenta recaudadora: revísalo a mano');
   if (coincidencias.fecha === false) alertas.push('La fecha del comprobante está fuera del rango esperado');
 
   const duplicado = dup.archivoEnPago != null || dup.operacionEnPago != null;

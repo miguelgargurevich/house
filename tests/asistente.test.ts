@@ -753,6 +753,27 @@ describe('contexto verificado por rol', () => {
     assert.ok(!s3.includes('A-102'));
   });
 
+  it('medios ampliados: moneda, nombre real de la entidad e instrucción de recaudación con SU código; sin los de otro condominio', async () => {
+    await prisma.medioPago.createMany({
+      data: [
+        { complejo_id: D.complejoA.id, tipo: 'banco', banco: 'Otro', banco_otro: 'Caja Rural X', tipo_cuenta: 'corriente', numero_cuenta: '55512345', titular: 'Cuenta en dólares', moneda: 'USD', activo: true, orden: 3 },
+        { complejo_id: D.complejoA.id, tipo: 'recaudacion', banco: 'BCP', servicio: 'Condominio\nLos Libertadores <b>', codigo_pago: 'departamento', titular: 'Junta de A', activo: true, orden: 4 },
+        { complejo_id: D.complejoB.id, tipo: 'recaudacion', banco: 'BBVA', servicio: 'Servicio de B', codigo_pago: 'dni', titular: 'Junta de B', activo: true },
+      ],
+    });
+    const s = bloque(await sistema(T.prop1));
+    assert.match(s, /2\. BCP, cuenta de ahorros N\.º 19412345678, CCI 00219400000000000000, a nombre de Condominio A, cuenta en soles/);
+    assert.match(s, /3\. Caja Rural X, cuenta de corriente N\.º 55512345, a nombre de Cuenta en dólares, cuenta en dólares/);
+    assert.match(s, /4\. Paga desde Pago de servicios en BCP → Condominio Los Libertadores b , con el código: A-101 \(a nombre de Junta de A\)/);
+    assert.ok(!/Servicio de B|Junta de B/.test(s), 'nada de otro condominio');
+    assert.ok(!/[<>]/.test(s.slice(s.indexOf('MEDIOS DE PAGO'))), 'el texto de la junta va limpio');
+    // El inquilino de la misma unidad y la contingencia usan la misma fuente
+    assert.match(bloque(await sistema(T.inq1)), /con el código: A-101/);
+    await prisma.medioPago.deleteMany({ where: { tipo: 'recaudacion' } });
+    await prisma.medioPago.deleteMany({ where: { banco: 'Otro' } });
+    await prisma.medioPago.deleteMany({ where: { complejo_id: D.complejoB.id, tipo: 'recaudacion' } });
+  });
+
   it('con un pago en revisión y uno validado: cuenta los cargos en revisión y lista los últimos pagos', async () => {
     await prisma.reciboConceptoUnidad.update({ where: { id: D.cargoVencidoA1.id }, data: { estado_pago: 'en_revision' } });
     await prisma.pago.create({ data: { recibo_concepto_unidad_id: D.cargoVencidoA1.id, monto: 150, usuario_id: D.propietario1.id, estado_validacion: 'por_validar', fecha_pago: new Date('2026-10-20T12:00:00Z') } });

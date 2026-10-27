@@ -249,6 +249,29 @@ describe('contraste (por código): matriz', () => {
     assert.equal(contrastarDestino(L(), []), null, 'sin medios activos');
   });
 
+  it('cuenta recaudadora: se compara por el nombre del servicio; si no coincide es «no comparable» (null), nunca un rechazo', () => {
+    const recaudacion: MedioParaContraste = { tipo: 'recaudacion', titular: 'Junta de Propietarios Los Olivos', celular: null, numero_cuenta: null, cci: null, servicio: 'Condominio Los Libertadores' };
+    const q = (extra: Partial<Lectura>, medios = [recaudacion]) => contrastarDestino(L({ medio: 'transferencia', destinatario_nombre: null, destino_numero: null, ...extra }), medios);
+    assert.equal(q({ destinatario_nombre: 'CONDOMINIO LOS LIBERTADORES - SURCO' }), true, 'el nombre del servicio');
+    assert.equal(q({ destinatario_nombre: 'Junta de Propietarios Los Olivos' }), true, 'el titular, como en cualquier medio');
+    assert.equal(q({ destinatario_nombre: 'Luz del Sur' }), null, 'no comparable: el comprobante no trae el servicio');
+    assert.equal(q({ destino_numero: '4321' }), null, 'un número no sirve para comparar una recaudación');
+    assert.equal(q({}), null, 'sin datos de destino');
+    assert.equal(q({ destinatario_nombre: 'BCP' }, [{ ...recaudacion, servicio: null }]), null, 'la entidad sola no basta para dar por bueno el destino');
+    assert.equal(q({ destinatario_nombre: 'Pedro Castillo', destino_numero: '999' }, [yape, recaudacion]), null, 'con una recaudación activa, lo que no calza no se da por distinto');
+    assert.equal(q({ destino_numero: '4321' }, [yape, recaudacion]), null);
+    assert.equal(q({ medio: 'yape', destino_numero: '4321' }, [yape, recaudacion]), true, 'la billetera sigue comparándose con su celular');
+    assert.equal(q({ destinatario_nombre: 'Pedro Castillo', destino_numero: '999' }, [yape]), false, 'sin recaudación, la regla de siempre');
+    const c = contrastar(L({ medio: 'transferencia', destinatario_nombre: 'Luz del Sur', destino_numero: null }), esperado, [recaudacion], sinDup);
+    assert.equal(c.coincidencias.destino, null);
+    assert.equal(c.veredicto, 'revisar', 'ni coincide ni se rechaza: lo revisa una persona');
+    assert.ok(c.alertas.includes('El destino no se pudo comparar con la cuenta recaudadora: revísalo a mano'));
+    assert.ok(!c.alertas.some((a) => /no coincide con los medios/.test(a)));
+    const bien = contrastar(L({ medio: 'transferencia', destinatario_nombre: 'Condominio Los Libertadores', destino_numero: null }), esperado, [recaudacion], sinDup);
+    assert.equal(bien.veredicto, 'coincide');
+    assert.deepEqual(bien.alertas, []);
+  });
+
   it('veredictos: coincide, revisar, no_coincide e ilegible', () => {
     const c = (l: Partial<Lectura>, dup: Duplicados = sinDup, medios = [yape]) => contrastar(L(l), esperado, medios, dup);
     assert.equal(c({}).veredicto, 'coincide');
@@ -674,6 +697,26 @@ describe('validación automática', () => {
     assert.equal(p.estado_validacion, 'por_validar');
     assert.equal(p.validado_por_ia, false);
     assert.equal((await prisma.complejoHabitacional.findUniqueOrThrow({ where: { id: d.complejoA.id } })).validacion_automatica_ia, false);
+  });
+
+  it('cuenta recaudadora: si el comprobante trae el servicio se valida solo; si no es comparable queda por validar (sin rechazo ni error)', async () => {
+    await claves('openai');
+    await configurar(d.complejoA.id, true);
+    await prisma.medioPago.deleteMany();
+    await prisma.medioPago.create({ data: { complejo_id: d.complejoA.id, tipo: 'recaudacion', banco: 'BCP', servicio: 'Condominio Los Libertadores', codigo_pago: 'departamento', titular: 'Junta Los Libertadores', creado_por_id: d.adminA.id } });
+    responder = () => ok(lec({ medio: 'transferencia', destinatario_nombre: 'CONDOMINIO LOS LIBERTADORES', destino_numero: null }));
+    const coincide = await evaluado();
+    assert.equal(coincide.ev.estado, 'completada');
+    assert.equal(coincide.ev.veredicto, 'coincide');
+    assert.equal((await pagoDb(coincide.pagoId)).estado_validacion, 'validado');
+    responder = () => ok(lec({ medio: 'transferencia', destinatario_nombre: 'Luz del Sur', destino_numero: '5678' }));
+    const incierto = await evaluado();
+    assert.equal(incierto.ev.estado, 'completada', 'no rompe la evaluación');
+    assert.equal(incierto.ev.veredicto, 'revisar');
+    assert.deepEqual(incierto.ev.coincidencias, { monto: true, destino: null, fecha: true, estado_operacion: true });
+    const p = await pagoDb(incierto.pagoId);
+    assert.equal(p.estado_validacion, 'por_validar', 'no se valida solo ni se rechaza');
+    assert.equal(p.validado_por_ia, false);
   });
 
   it('encendida y coincide exacto: valida con la misma actualización atómica, marca validado_por_ia, audita y avisa', async () => {

@@ -387,16 +387,26 @@ model Notificacion {
   @@index([created_at])
 }
 
-/// Cuenta bancaria o Yape/Plin (con QR) donde los vecinos pagan; la define la administradora o la junta del block.
+/// Cuenta bancaria, Yape/Plin (con QR) o cuenta recaudadora (el vecino paga desde «Pago de servicios» de su banco) donde los vecinos pagan; la define la administradora o la junta del block.
 model MedioPago {
   id                Int                   @id @default(autoincrement())
   complejo_id       Int
   estructura_id     Int?
   tipo              String
   banco             String?
+  /// Nombre de la entidad cuando `banco` es «Otro» (obligatorio al crear o editar; un medio antiguo puede no tenerlo).
+  banco_otro        String?
   tipo_cuenta       String?
   numero_cuenta     String?
   cci               String?
+  /// PEN | USD. Sólo informa al vecino: nada se convierte.
+  moneda            String                @default("PEN")
+  /// Recaudación: nombre del servicio tal como aparece en «Pago de servicios» de la app del banco.
+  servicio          String?
+  /// Recaudación: qué código escribe el vecino: departamento | dni | otro.
+  codigo_pago       String?
+  /// Recaudación con `codigo_pago = otro`: qué debe escribir el vecino.
+  codigo_instruccion String?
   titular           String
   documento_titular String?
   celular           String?
