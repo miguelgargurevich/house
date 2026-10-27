@@ -59,28 +59,31 @@ export const miDeuda = defineHerramienta({
       prisma.reciboConceptoUnidad.findFirst({
         where: { AND: [mios, filtroEstadoCargo('pendiente')] },
         orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'asc' } } }, { id: 'asc' }],
-        select: { monto: true, unidad: { select: { codigo: true } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { fecha_vencimiento: true } } } } },
+        select: { monto: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { fecha_vencimiento: true } } } } },
       }),
       prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [mios, noPagado] }, _sum: { monto: true } }),
     ]);
     // Las 50 con más deuda (quien tiene muchas unidades no revienta la respuesta); `unidades_con_deuda` dice cuántas hay en total.
     const mayores = [...porUnidad].sort((a, b) => Number(b._sum.monto ?? 0) - Number(a._sum.monto ?? 0)).slice(0, MAX_FILAS);
-    const unidades = await prisma.unidad.findMany({ where: { AND: [unidadesPropias(u), { id: { in: mayores.map((g) => g.unidad_id).filter((x): x is number => x != null) } }] }, select: { id: true, codigo: true } });
-    const codigo = new Map(unidades.map((x) => [x.id, x.codigo]));
+    const unidades = await prisma.unidad.findMany({ where: { AND: [unidadesPropias(u), { id: { in: mayores.map((g) => g.unidad_id).filter((x): x is number => x != null) } }] }, select: { id: true, codigo: true, estructura: { select: { nombre: true } } } });
+    const ficha = new Map(unidades.map((x) => [x.id, x]));
     return respuesta({
       deuda_total: monto(deuda._sum.monto),
       cargos_vencidos: vencidos,
       cargos_en_revision: enRevision,
-      proximo_vencimiento: proximo ? { fecha: fechaDia(proximo.reciboConcepto?.recibo?.fecha_vencimiento), monto: monto(proximo.monto), concepto: dato(proximo.reciboConcepto?.concepto?.nombre), unidad: dato(proximo.unidad?.codigo, 30) } : null,
+      proximo_vencimiento: proximo ? { fecha: fechaDia(proximo.reciboConcepto?.recibo?.fecha_vencimiento), monto: monto(proximo.monto), concepto: dato(proximo.reciboConcepto?.concepto?.nombre), unidad: dato(proximo.unidad?.codigo, 30), block: dato(proximo.unidad?.estructura?.nombre) } : null,
       unidades_con_deuda: porUnidad.length,
-      por_unidad: mayores.map((g) => ({ unidad: dato(g.unidad_id == null ? null : codigo.get(g.unidad_id), 30), deuda: monto(g._sum.monto) })),
+      por_unidad: mayores.map((g) => {
+        const x = g.unidad_id == null ? undefined : ficha.get(g.unidad_id);
+        return { unidad: dato(x?.codigo, 30), block: dato(x?.estructura?.nombre), deuda: monto(g._sum.monto) };
+      }),
     });
   },
 });
 
 export const misRecibos = defineHerramienta({
   nombre: 'mis_recibos',
-  descripcion: 'Los recibos de la persona que escribe. Cada mes recibe UN mantenimiento por departamento que agrupa todos sus conceptos (agua, luz de áreas comunes, limpieza, seguridad, mora…): `mantenimientos` trae cada uno con su total, saldo, estado y el desglose por concepto (los pagos son del mantenimiento completo); `filas` es el detalle plano por concepto. Estados: pendiente, vencido, en_revision, pagado. Úsala para «¿qué recibos tengo vencidos?» o «¿qué incluye mi mantenimiento de octubre?». Ejemplo: {"estado":"vencido"}.',
+  descripcion: 'Los recibos de la persona que escribe. Cada block tiene su propio recibo cada mes y cada departamento recibe UN mantenimiento que agrupa todos sus conceptos (agua, luz de áreas comunes, limpieza, seguridad, mora…): `mantenimientos` trae cada uno con su total, saldo, estado y el desglose por concepto (los pagos son del mantenimiento completo); `filas` es el detalle plano por concepto. Estados: pendiente, vencido, en_revision, pagado. Úsala para «¿qué recibos tengo vencidos?» o «¿qué incluye mi mantenimiento de octubre?». Ejemplo: {"estado":"vencido"}.',
   entrada: z.strictObject({ estado: z.enum(ESTADOS_CARGO).optional(), ...paginacion }),
   roles: RESIDENTE,
   solo_lectura: true,
@@ -91,7 +94,7 @@ export const misRecibos = defineHerramienta({
       orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'desc' } } }, { id: 'desc' }],
       skip: p.skip,
       take: p.take,
-      select: { id: true, monto: true, estado_pago: true, unidad: { select: { codigo: true } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
+      select: { id: true, monto: true, estado_pago: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
     });
     const c = cortar(filas, p);
     // Lo mismo agrupado: un mantenimiento por departamento y mes, con su desglose (los más recientes; `pendiente` incluye el pago parcial).
@@ -106,7 +109,7 @@ export const misRecibos = defineHerramienta({
       : [];
     return respuesta({
       mantenimientos: mant.items.map((m) => ({
-        mantenimiento: dato(m.titulo), unidad: dato(m.unidad.codigo, 30), total: m.total, pagado: m.cobrado, en_revision: m.en_revision, saldo: m.saldo, estado: m.estado, vencimiento: fechaDia(m.fecha_vencimiento),
+        mantenimiento: dato(m.titulo), unidad: dato(m.unidad.codigo, 30), block: dato(m.unidad.estructura?.nombre), total: m.total, pagado: m.cobrado, en_revision: m.en_revision, saldo: m.saldo, estado: m.estado, vencimiento: fechaDia(m.fecha_vencimiento),
         conceptos: desglose
           .filter((x) => x.unidad_id === m.unidad_id && x.reciboConcepto?.recibo_id === m.recibo_id)
           .sort((a, b) => (a.reciboConcepto?.orden ?? 0) - (b.reciboConcepto?.orden ?? 0))
@@ -114,7 +117,7 @@ export const misRecibos = defineHerramienta({
       })),
       total_mantenimientos: mant.total,
       filas: c.filas.map((x) => ({
-        unidad: dato(x.unidad?.codigo, 30), concepto: dato(x.reciboConcepto?.concepto?.nombre), periodo: periodoDe(x.reciboConcepto?.recibo?.anio, x.reciboConcepto?.recibo?.mes),
+        unidad: dato(x.unidad?.codigo, 30), block: dato(x.unidad?.estructura?.nombre), concepto: dato(x.reciboConcepto?.concepto?.nombre), periodo: periodoDe(x.reciboConcepto?.recibo?.anio, x.reciboConcepto?.recibo?.mes),
         monto: monto(x.monto), estado: estadoCargo(x.estado_pago, x.reciboConcepto?.recibo?.fecha_vencimiento), vencimiento: fechaDia(x.reciboConcepto?.recibo?.fecha_vencimiento),
       })),
       hay_mas: c.hay_mas,
@@ -138,13 +141,13 @@ export const misPagos = defineHerramienta({
       take: p.take,
       select: {
         id: true, monto: true, fecha_pago: true, metodo_pago: true, estado_validacion: true, motivo_rechazo: true,
-        reciboConceptoUnidad: { select: { unidad: { select: { codigo: true } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true } } } } } },
+        reciboConceptoUnidad: { select: { unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true } } } } } },
       },
     });
     const c = cortar(filas, p);
     return respuesta({
       filas: c.filas.map((x) => ({
-        id: x.id, unidad: dato(x.reciboConceptoUnidad?.unidad?.codigo, 30), concepto: dato(x.reciboConceptoUnidad?.reciboConcepto?.concepto?.nombre),
+        id: x.id, unidad: dato(x.reciboConceptoUnidad?.unidad?.codigo, 30), block: dato(x.reciboConceptoUnidad?.unidad?.estructura?.nombre), concepto: dato(x.reciboConceptoUnidad?.reciboConcepto?.concepto?.nombre),
         periodo: periodoDe(x.reciboConceptoUnidad?.reciboConcepto?.recibo?.anio, x.reciboConceptoUnidad?.reciboConcepto?.recibo?.mes),
         monto: monto(x.monto), fecha_pago: instante(x.fecha_pago), metodo: dato(x.metodo_pago, 30), estado: x.estado_validacion,
         motivo_rechazo: x.estado_validacion === 'rechazado' ? dato(x.motivo_rechazo, 200) : null,
@@ -167,14 +170,14 @@ export const mediosParaPagar = defineHerramienta({
       where: { activo: true, ...medioDeUnidades(unidades) },
       orderBy: [{ orden: 'asc' }, { id: 'asc' }],
       take: 20,
-      select: { tipo: true, banco: true, banco_otro: true, tipo_cuenta: true, numero_cuenta: true, cci: true, moneda: true, servicio: true, codigo_pago: true, codigo_instruccion: true, titular: true, celular: true, complejo_id: true, estructura_id: true, qr_nombre: true },
+      select: { tipo: true, banco: true, banco_otro: true, tipo_cuenta: true, numero_cuenta: true, cci: true, moneda: true, servicio: true, codigo_pago: true, codigo_instruccion: true, titular: true, celular: true, complejo_id: true, estructura_id: true, qr_nombre: true, estructura: { select: { nombre: true } } },
     });
     const filas = [...medios.filter((m) => m.estructura_id != null), ...medios.filter((m) => m.estructura_id == null)].map((m) => {
       const c = camposDePago(m, codigoUnidadDelMedio({ complejo_id: m.complejo_id, estructura_id: m.estructura_id }, unidades));
       return {
         tipo: dato(m.tipo, 20), banco: dato(c.entidad, 60), tipo_cuenta: dato(m.tipo_cuenta, 20), numero_cuenta: dato(m.numero_cuenta, 30), cci: dato(m.cci, 30), moneda: c.moneda,
         servicio: dato(c.servicio, 80), instruccion: dato(c.instruccion, 300),
-        titular: dato(m.titular), celular: dato(m.celular, 20), tiene_qr: m.qr_nombre != null, ambito: m.estructura_id != null ? 'block' : 'condominio',
+        titular: dato(m.titular), celular: dato(m.celular, 20), tiene_qr: m.qr_nombre != null, ambito: m.estructura_id != null ? 'block' : 'condominio', block: dato(m.estructura?.nombre),
       };
     });
     return respuesta({ filas, nota: filas.length ? null : 'Todavía no hay medios de pago publicados para tu block; consulta con la administración.' });

@@ -260,7 +260,7 @@ describe('residente e inquilino: sólo lo suyo', () => {
   it('recibos (gestión) dice cuántos departamentos recibieron el mantenimiento', async () => {
     const r = await datos(U.adminA, 'recibos');
     assert.ok(r.filas.length >= 2);
-    const vencido = r.filas.find((f: any) => /2026-08|agosto/i.test(f.periodo) && f.cargos === 3); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const vencido = r.filas.find((f: any) => /agosto de 2026/.test(f.periodo) && f.cargos === 3); // eslint-disable-line @typescript-eslint/no-explicit-any
     assert.equal(vencido.departamentos, 2, 'A-101 y A-102, aunque haya 3 cargos');
     assert.equal(vencido.cargos, 3);
   });
@@ -448,13 +448,13 @@ describe('límites, cursor y entradas inválidas', () => {
 });
 
 describe('formato', () => {
-  it('montos como texto con 2 decimales y moneda PEN; fechas ISO; periodo AAAA-MM', async () => {
+  it('montos como texto con 2 decimales y moneda PEN; fechas ISO; periodo «agosto de 2026»', async () => {
     const c = await datos(U.adminA, 'cargos', { estado: 'vencido' });
     assert.equal(c.moneda, 'PEN');
     for (const f of c.filas) {
       assert.match(f.monto, /^\d+\.\d{2}$/);
       assert.match(f.vencimiento, /^\d{4}-\d{2}-\d{2}$/);
-      assert.match(f.periodo, /^\d{4}-\d{2}$/);
+      assert.match(f.periodo, /^[a-zé]+ de \d{4}$/);
       assert.equal(f.estado, 'vencido');
     }
     const p = await datos(U.adminA, 'pagos');

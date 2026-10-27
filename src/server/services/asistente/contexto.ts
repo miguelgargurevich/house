@@ -2,7 +2,7 @@
 // reglas de alcance que las APIs: empresa del administrador, ámbito de la junta, unidades propias del residente. Sin correos, sin
 // teléfonos de personas y sin datos de terceros. Lo único «ajeno» que aparece son los medios de pago ACTIVOS del block del propio
 // residente (lo que ya ve en su pantalla de pago), con sus textos limpios para que no sirvan de vía de inyección.
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { ROLES_OPERATIVOS, type Rol } from '../../config';
 import { cooldownDeps } from '../../lib/cooldown';
@@ -31,7 +31,7 @@ export interface MedioParaPagar {
 }
 
 export interface SituacionResidente {
-  unidades: { codigo: string; condominio: string | null }[];
+  unidades: { codigo: string; condominio: string | null; block: string | null }[];
   deuda_total: string;
   vencidos: number;
   en_revision: number;
@@ -45,6 +45,8 @@ export interface SituacionGestion {
   por_cobrar: string;
   morosos: number;
   pagos_por_validar: number;
+  /** Por cobrar y unidades morosas de cada block (los 12 con más deuda); cada block tiene su propio recibo. */
+  blocks: { nombre: string; por_cobrar: string; morosos: number }[];
   empresas?: number;
   usuarios?: number;
 }
@@ -89,7 +91,7 @@ async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
   const propias: Prisma.UnidadWhereInput = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
   const mios: Prisma.ReciboConceptoUnidadWhereInput = { unidad: propias };
   const [unidades, deuda, vencidos, enRevision, proximo, pagos] = await Promise.all([
-    prisma.unidad.findMany({ where: propias, orderBy: { codigo: 'asc' }, take: 10, select: { codigo: true, complejo_id: true, estructura_id: true, complejo: { select: { nombre: true } } } }),
+    prisma.unidad.findMany({ where: propias, orderBy: { codigo: 'asc' }, take: 10, select: { codigo: true, complejo_id: true, estructura_id: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } } }),
     prisma.reciboConceptoUnidad.aggregate({ where: { AND: [mios, noPagado] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido')] } }),
     prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision')] } }),
@@ -108,7 +110,7 @@ async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
   });
   const fecha = proximo?.reciboConcepto?.recibo?.fecha_vencimiento;
   return {
-    unidades: unidades.map((x) => ({ codigo: limpiarTexto(x.codigo, 30), condominio: x.complejo ? limpiarTexto(x.complejo.nombre) : null })),
+    unidades: unidades.map((x) => ({ codigo: limpiarTexto(x.codigo, 30), condominio: x.complejo ? limpiarTexto(x.complejo.nombre) : null, block: x.estructura?.nombre ? limpiarTexto(x.estructura.nombre) : null })),
     deuda_total: decimalAString(deuda._sum.monto),
     vencidos,
     en_revision: enRevision,
@@ -126,6 +128,22 @@ async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
   };
 }
 
+/** Por cobrar y morosos por block: las unidades con deuda se reparten en memoria entre sus blocks (sin block, «Sin block»). */
+async function desglosePorBlock(deuda: { unidad_id: number | null; _sum: { monto: Prisma.Decimal | null } }[], morosos: { unidad_id: number | null }[]): Promise<SituacionGestion['blocks']> {
+  const ids = [...new Set(deuda.map((d) => d.unidad_id).filter((x): x is number => x != null))];
+  if (!ids.length) return [];
+  const unidades = await prisma.unidad.findMany({ where: { id: { in: ids } }, select: { id: true, estructura: { select: { nombre: true } } } });
+  const bloqueDe = new Map(unidades.map((x) => [x.id, x.estructura?.nombre ? limpiarTexto(x.estructura.nombre) : 'Sin block']));
+  const por = new Map<string, { por_cobrar: Prisma.Decimal; morosos: number }>();
+  const cuenta = (n: string) => por.get(n) ?? por.set(n, { por_cobrar: new Prisma.Decimal(0), morosos: 0 }).get(n)!;
+  for (const d of deuda) if (d.unidad_id != null) { const f = cuenta(bloqueDe.get(d.unidad_id) ?? 'Sin block'); f.por_cobrar = f.por_cobrar.plus(d._sum.monto ?? 0); }
+  for (const m of morosos) if (m.unidad_id != null) cuenta(bloqueDe.get(m.unidad_id) ?? 'Sin block').morosos++;
+  return [...por.entries()]
+    .map(([nombre, v]) => ({ nombre, por_cobrar: decimalAString(v.por_cobrar), morosos: v.morosos }))
+    .sort((a, b) => Number(b.por_cobrar) - Number(a.por_cobrar) || a.nombre.localeCompare(b.nombre, 'es', { numeric: true }))
+    .slice(0, 12);
+}
+
 async function situacionGestion(u: AuthUser): Promise<SituacionGestion | null> {
   let cargos: Prisma.ReciboConceptoUnidadWhereInput;
   let pagos: Prisma.PagoWhereInput;
@@ -139,12 +157,13 @@ async function situacionGestion(u: AuthUser): Promise<SituacionGestion | null> {
     if (!a) return null;
     cargos = { unidad: filtroAmbito(a) }; pagos = scopePagosJunta(u); alcance = 'junta';
   }
-  const [porCobrar, morosos, porValidar] = await Promise.all([
+  const [porCobrar, morosos, porValidar, deudaPorUnidad] = await Promise.all([
     prisma.reciboConceptoUnidad.aggregate({ where: { AND: [cargos, noPagado] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
     prisma.pago.count({ where: { AND: [pagos, { estado_validacion: 'por_validar' }] } }),
+    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, noPagado] }, _sum: { monto: true } }),
   ]);
-  const g: SituacionGestion = { alcance, por_cobrar: decimalAString(porCobrar._sum.monto), morosos: morosos.length, pagos_por_validar: porValidar };
+  const g: SituacionGestion = { alcance, por_cobrar: decimalAString(porCobrar._sum.monto), morosos: morosos.length, pagos_por_validar: porValidar, blocks: await desglosePorBlock(deudaPorUnidad, morosos) };
   if (alcance === 'plataforma') {
     [g.empresas, g.usuarios] = await Promise.all([prisma.empresaAdministradora.count(), prisma.usuario.count()]);
   }
@@ -203,16 +222,18 @@ export function bloqueDe(d: DatosContexto): string {
 
   const r = d.residente;
   if (r) {
-    l.push('', `SUS UNIDADES: ${r.unidades.length ? r.unidades.map((x) => `${x.codigo}${x.condominio ? ` (${x.condominio})` : ''}`).join('; ') : 'ninguna registrada'}`);
+    l.push('', `SUS UNIDADES: ${r.unidades.length ? r.unidades.map((x) => `${x.codigo}${x.condominio || x.block ? ` (${[x.condominio, x.block].filter(Boolean).join(' · ')})` : ''}`).join('; ') : 'ninguna registrada'}`);
     l.push('SU SITUACIÓN DE PAGOS:', `- Deuda total (incluye lo que está en revisión): ${solesTexto(r.deuda_total)}`, `- Cargos vencidos: ${r.vencidos}`, `- Cargos en revisión: ${r.en_revision}`);
     l.push(r.proximo_vencimiento ? `- Próximo vencimiento: ${r.proximo_vencimiento.fecha} por ${solesTexto(r.proximo_vencimiento.monto)}${r.proximo_vencimiento.concepto ? ` (${r.proximo_vencimiento.concepto})` : ''}` : '- Próximo vencimiento: no tiene cargos por vencer');
     l.push(r.ultimos_pagos.length ? `- Últimos pagos: ${r.ultimos_pagos.map((p) => `${solesTexto(p.monto)} el ${p.fecha} (${p.estado})`).join('; ')}` : '- Últimos pagos: ninguno registrado');
+    l.push('(El block de cada unidad va junto a su código: cada block tiene su propio recibo, sus vecinos y sus cuentas.)');
     l.push(r.medios.length ? ['MEDIOS DE PAGO ACTIVOS DE SU BLOCK:', ...r.medios.map(medioTexto)].join('\n') : 'MEDIOS DE PAGO ACTIVOS DE SU BLOCK: todavía no hay ninguno publicado (debe consultarlo con la administración).');
   }
   const g = d.gestion;
   if (g) {
     const donde = g.alcance === 'plataforma' ? 'de toda la plataforma' : g.alcance === 'empresa' ? 'de su empresa' : 'de su ámbito de junta';
     l.push('', `SITUACIÓN ${donde.toUpperCase()}:`, `- Por cobrar: ${solesTexto(g.por_cobrar)}`, `- Unidades morosas: ${g.morosos}`, `- Pagos por validar: ${g.pagos_por_validar}`);
+    if (g.blocks.length) l.push('- Por block (cada block tiene su propio recibo):', ...g.blocks.map((b) => `  · ${b.nombre}: por cobrar ${solesTexto(b.por_cobrar)}; ${b.morosos} ${b.morosos === 1 ? 'unidad morosa' : 'unidades morosas'}`));
     if (g.empresas !== undefined) l.push(`- Empresas: ${g.empresas}; usuarios: ${g.usuarios}`);
   }
   if (d.mantenimiento) l.push('', 'SUS TAREAS:', `- Abiertas: ${d.mantenimiento.abiertas} (pendientes: ${d.mantenimiento.pendientes}; en progreso: ${d.mantenimiento.en_progreso})`);

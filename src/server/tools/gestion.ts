@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { estadoCargo, filtroEstadoCargo, noPagado } from '../lib/cargos';
 import { hoyLima, mesesAtras } from '../lib/fechas';
-import { ambitoJunta, filtroAmbito } from '../lib/junta';
+import { ambitoJunta, filtroAmbito, filtroReciboAmbito } from '../lib/junta';
 import {
   empresaDe, scopeCargos, scopeComplejos, scopeMediosPago, scopeNotificaciones, scopePagos, scopePagosJunta, scopeRecibos, scopeTareas, scopeUnidades,
 } from '../lib/scope';
@@ -41,7 +41,7 @@ export function alcanceGestion(u: AuthUser): Alcance {
     cargos: { unidad: filtroAmbito(a) },
     pagos: scopePagosJunta(u),
     unidades: filtroAmbito(a),
-    recibos: { complejo_id: a.complejo_id },
+    recibos: filtroReciboAmbito(a),
     complejos: { id: a.complejo_id },
     medios: scopeMediosPago(u),
   };
@@ -62,6 +62,16 @@ const porPeriodo = (periodo?: string): Prisma.ReciboConceptoUnidadWhereInput =>
   periodo ? { reciboConcepto: { recibo: { anio: Number(periodo.slice(0, 4)), mes: Number(periodo.slice(5, 7)) } } } : {};
 const porUnidad = (codigo?: string): Prisma.ReciboConceptoUnidadWhereInput => (codigo ? { unidad: { codigo: { equals: codigo, mode: 'insensitive' } } } : {});
 
+/** Filtros de ubicación de las herramientas de cobranza: condominio y block (ids de `condominios_y_blocks`). Se suman al alcance, nunca lo amplían. */
+const ubicacion = {
+  condominio_id: idPositivo.optional().describe('Filtra por condominio (id de `condominios_y_blocks`).'),
+  estructura_id: idPositivo.optional().describe('Filtra por block (id de `condominios_y_blocks`).'),
+};
+type Ubicacion = { condominio_id?: number; estructura_id?: number };
+const unidadEn = (e: Ubicacion): Prisma.UnidadWhereInput => ({ ...(e.condominio_id ? { complejo_id: e.condominio_id } : {}), ...(e.estructura_id ? { estructura_id: e.estructura_id } : {}) });
+const cargosEn = (e: Ubicacion): Prisma.ReciboConceptoUnidadWhereInput => (e.condominio_id || e.estructura_id ? { unidad: unidadEn(e) } : {});
+const pagosEn = (e: Ubicacion): Prisma.PagoWhereInput => (e.condominio_id || e.estructura_id ? { reciboConceptoUnidad: { unidad: unidadEn(e) } } : {});
+
 const ESTADOS_CARGO = ['pagado', 'pendiente', 'vencido', 'en_revision'] as const;
 const ESTADOS_PAGO = ['por_validar', 'validado', 'rechazado'] as const;
 
@@ -69,7 +79,7 @@ const selectCargo = {
   id: true,
   monto: true,
   estado_pago: true,
-  unidad: { select: { codigo: true, complejo: { select: { nombre: true } } } },
+  unidad: { select: { codigo: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } } },
   reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } },
 } satisfies Prisma.ReciboConceptoUnidadSelect;
 type CargoFila = Prisma.ReciboConceptoUnidadGetPayload<{ select: typeof selectCargo }>;
@@ -77,6 +87,7 @@ const filaCargo = (c: CargoFila) => ({
   id: c.id,
   unidad: dato(c.unidad?.codigo, 30),
   condominio: dato(c.unidad?.complejo?.nombre),
+  block: dato(c.unidad?.estructura?.nombre),
   concepto: dato(c.reciboConcepto?.concepto?.nombre),
   periodo: periodoDe(c.reciboConcepto?.recibo?.anio, c.reciboConcepto?.recibo?.mes),
   monto: monto(c.monto),
@@ -94,12 +105,14 @@ const selectPago = {
   validado_por_ia: true,
   usuario: { select: { nombre: true } },
   evaluacion: { select: { estado: true, veredicto: true } },
-  reciboConceptoUnidad: { select: { unidad: { select: { codigo: true } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true } } } } } },
+  reciboConceptoUnidad: { select: { unidad: { select: { codigo: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true } } } } } },
 } satisfies Prisma.PagoSelect;
 type PagoFila = Prisma.PagoGetPayload<{ select: typeof selectPago }>;
 const filaPago = (p: PagoFila) => ({
   id: p.id,
   unidad: dato(p.reciboConceptoUnidad?.unidad?.codigo, 30),
+  condominio: dato(p.reciboConceptoUnidad?.unidad?.complejo?.nombre),
+  block: dato(p.reciboConceptoUnidad?.unidad?.estructura?.nombre),
   concepto: dato(p.reciboConceptoUnidad?.reciboConcepto?.concepto?.nombre),
   periodo: periodoDe(p.reciboConceptoUnidad?.reciboConcepto?.recibo?.anio, p.reciboConceptoUnidad?.reciboConcepto?.recibo?.mes),
   monto: monto(p.monto),
@@ -135,14 +148,14 @@ export const resumenCobranza = defineHerramienta({
   nombre: 'resumen_cobranza',
   descripcion:
     'Resumen de la cobranza: emitido, cobrado, por cobrar, vencido, cargos por estado, unidades morosas y pagos por validar. Úsala para «¿cómo vamos con la cobranza?», «¿cuánto nos deben?» o «¿cuánto se cobró en septiembre?». ' +
-    'Sin `periodo` es el acumulado de todos los recibos; con `periodo` (AAAA-MM) solo los recibos de ese mes. Ejemplo: {"periodo":"2026-09"}.',
-  entrada: z.strictObject({ periodo: periodoSchema.optional().describe('Mes de los recibos, AAAA-MM. Omítelo para el acumulado.') }),
+    'Sin `periodo` es el acumulado de todos los recibos; con `periodo` (AAAA-MM) solo los recibos de ese mes. Cada block tiene su propio recibo: con `estructura_id` (o `condominio_id`) los números son solo de ese block. Ejemplo: {"periodo":"2026-09","estructura_id":3}.',
+  entrada: z.strictObject({ periodo: periodoSchema.optional().describe('Mes de los recibos, AAAA-MM. Omítelo para el acumulado.'), ...ubicacion }),
   roles: GESTION,
   junta: true,
   solo_lectura: true,
   async ejecutar(u, e) {
     const al = alcanceGestion(u);
-    const F: Prisma.ReciboConceptoUnidadWhereInput = { AND: [al.cargos, porPeriodo(e.periodo)] };
+    const F: Prisma.ReciboConceptoUnidadWhereInput = { AND: [al.cargos, porPeriodo(e.periodo), cargosEn(e)] };
     const con = (x: Prisma.ReciboConceptoUnidadWhereInput) => ({ AND: [F, x] });
     const [emitido, cobrado, porCobrar, vencido, conteos, morosos, porValidar] = await Promise.all([
       prisma.reciboConceptoUnidad.aggregate({ where: F, _sum: { monto: true } }),
@@ -151,13 +164,13 @@ export const resumenCobranza = defineHerramienta({
       prisma.reciboConceptoUnidad.aggregate({ where: con(filtroEstadoCargo('vencido')), _sum: { monto: true }, _count: { _all: true } }),
       Promise.all(ESTADOS_CARGO.map((s) => prisma.reciboConceptoUnidad.count({ where: con(filtroEstadoCargo(s)) }))),
       prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: con(filtroEstadoCargo('vencido')) }),
-      prisma.pago.count({ where: { AND: [al.pagos, { estado_validacion: 'por_validar' }] } }),
+      prisma.pago.count({ where: { AND: [al.pagos, pagosEn(e), { estado_validacion: 'por_validar' }] } }),
     ]);
     const em = new Prisma.Decimal(sumaDe(emitido) ?? 0);
     const co = new Prisma.Decimal(sumaDe(cobrado) ?? 0);
     return respuesta({
       alcance: ALCANCE_TEXTO[al.tipo],
-      periodo: e.periodo ?? 'acumulado',
+      periodo: e.periodo ? periodoDe(Number(e.periodo.slice(0, 4)), Number(e.periodo.slice(5, 7))) : 'acumulado',
       emitido: monto(em),
       cobrado: monto(co),
       por_cobrar: monto(sumaDe(porCobrar)),
@@ -318,12 +331,13 @@ export const detalleUnidad = defineHerramienta({
 export const recibos = defineHerramienta({
   nombre: 'recibos',
   descripcion:
-    'Recibos emitidos (uno por periodo y condominio) con su total emitido, cobrado y por cobrar, y cuántos departamentos recibieron su mantenimiento (cada departamento recibe UN mantenimiento al mes con todos los conceptos; los pagos son del mantenimiento completo). Úsala para «¿qué recibos hay de septiembre?» o «recibos con cargos vencidos». ' +
+    'Recibos emitidos (uno por periodo, condominio y block: cada block tiene su propio recibo cada mes) con su total emitido, cobrado y por cobrar, y cuántos departamentos recibieron su mantenimiento (cada departamento recibe UN mantenimiento al mes con todos los conceptos; los pagos son del mantenimiento completo). Úsala para «¿qué recibos hay de septiembre?» o «recibos con cargos vencidos». ' +
     'Con `unidad` los totales son solo de esa unidad; con `estado` solo salen recibos que tengan cargos en ese estado. Ejemplo: {"periodo":"2026-09","estado":"vencido"}.',
   entrada: z.strictObject({
     periodo: periodoSchema.optional(),
     estado: z.enum(ESTADOS_CARGO).optional().describe('Estado de los cargos del recibo.'),
     unidad: textoCorto(30).optional().describe('Código de unidad.'),
+    ...ubicacion,
     ...paginacion,
   }),
   roles: GESTION,
@@ -336,11 +350,11 @@ export const recibos = defineHerramienta({
     const periodo = e.periodo ? { anio: Number(e.periodo.slice(0, 4)), mes: Number(e.periodo.slice(5, 7)) } : {};
     const necesitaCargos = al.tipo === 'junta' || e.unidad !== undefined || e.estado !== undefined;
     const filas = await prisma.recibo.findMany({
-      where: { AND: [al.recibos, periodo, necesitaCargos ? { reciboConceptos: { some: { reciboConceptoUnidades: { some: cargosDelFiltro } } } } : {}] },
+      where: { AND: [al.recibos, periodo, e.condominio_id ? { complejo_id: e.condominio_id } : {}, e.estructura_id ? { estructura_id: e.estructura_id } : {}, necesitaCargos ? { reciboConceptos: { some: { reciboConceptoUnidades: { some: cargosDelFiltro } } } } : {}] },
       orderBy: [{ anio: 'desc' }, { mes: 'desc' }, { id: 'desc' }],
       skip: p.skip,
       take: p.take,
-      select: { id: true, mes: true, anio: true, descripcion: true, estado: true, fecha_emision: true, fecha_vencimiento: true, complejo: { select: { nombre: true } } },
+      select: { id: true, mes: true, anio: true, descripcion: true, estado: true, fecha_emision: true, fecha_vencimiento: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } },
     });
     const c = cortar(filas, p);
     const rcs = await prisma.reciboConcepto.findMany({ where: { recibo_id: { in: c.filas.map((r) => r.id) } }, select: { id: true, recibo_id: true } });
@@ -363,7 +377,7 @@ export const recibos = defineHerramienta({
       filas: c.filas.map((r) => {
         const s = porRecibo.get(r.id) ?? { emitido: new Prisma.Decimal(0), cobrado: new Prisma.Decimal(0), cargos: 0 };
         return {
-          id: r.id, periodo: periodoDe(r.anio, r.mes), descripcion: dato(r.descripcion, 120), estado: dato(r.estado, 20), condominio: dato(r.complejo?.nombre),
+          id: r.id, periodo: periodoDe(r.anio, r.mes), descripcion: dato(r.descripcion, 120), estado: dato(r.estado, 20), condominio: dato(r.complejo?.nombre), block: dato(r.estructura?.nombre),
           emision: fechaDia(r.fecha_emision), vencimiento: fechaDia(r.fecha_vencimiento),
           departamentos: departamentos.get(r.id) ?? 0, cargos: s.cargos, emitido: monto(s.emitido), cobrado: monto(s.cobrado), por_cobrar: monto(s.emitido.minus(s.cobrado)),
         };
@@ -386,6 +400,7 @@ export const cargos = defineHerramienta({
     unidad: textoCorto(30).optional().describe('Código de unidad.'),
     vence_desde: fechaIsoSchema.optional(),
     vence_hasta: fechaIsoSchema.optional(),
+    ...ubicacion,
     ...paginacion,
   }),
   roles: GESTION,
@@ -398,7 +413,7 @@ export const cargos = defineHerramienta({
     const filas = await prisma.reciboConceptoUnidad.findMany({
       where: {
         AND: [
-          al.cargos, porPeriodo(e.periodo), porUnidad(e.unidad),
+          al.cargos, porPeriodo(e.periodo), porUnidad(e.unidad), cargosEn(e),
           e.estado ? filtroEstadoCargo(e.estado) : {},
           e.concepto ? { reciboConcepto: { concepto: { nombre: { contains: e.concepto, mode: 'insensitive' } } } } : {},
           v ? { reciboConcepto: { recibo: { fecha_vencimiento: v } } } : {},
@@ -414,7 +429,7 @@ export const cargos = defineHerramienta({
   },
 });
 
-async function listarPagos(u: AuthUser, e: { estado?: (typeof ESTADOS_PAGO)[number]; metodo?: string; desde?: string; hasta?: string; unidad?: string; limite: number; cursor?: string }, antiguosPrimero = false) {
+async function listarPagos(u: AuthUser, e: { estado?: (typeof ESTADOS_PAGO)[number]; metodo?: string; desde?: string; hasta?: string; unidad?: string; condominio_id?: number; estructura_id?: number; limite: number; cursor?: string }, antiguosPrimero = false) {
   const al = alcanceGestion(u);
   const p = pagina(e);
   const rango = rangoFechas(e.desde, e.hasta);
@@ -422,6 +437,7 @@ async function listarPagos(u: AuthUser, e: { estado?: (typeof ESTADOS_PAGO)[numb
     where: {
       AND: [
         al.pagos,
+        pagosEn(e),
         e.estado ? { estado_validacion: e.estado } : {},
         e.metodo ? { metodo_pago: { equals: e.metodo, mode: 'insensitive' } } : {},
         rango ? { fecha_pago: rango } : {},
@@ -440,7 +456,7 @@ async function listarPagos(u: AuthUser, e: { estado?: (typeof ESTADOS_PAGO)[numb
 export const pagos = defineHerramienta({
   nombre: 'pagos',
   descripcion:
-    'Pagos registrados (con o sin comprobante): monto, fecha, método, estado de validación y unidad. Úsala para «¿qué pagos llegaron esta semana?», «pagos rechazados» o «pagos de la A-101». ' +
+    'Pagos registrados (con o sin comprobante): monto, fecha, método, estado de validación, unidad y block. Úsala para «¿qué pagos llegaron esta semana?», «pagos rechazados» o «pagos de la A-101». ' +
     'Estados: por_validar, validado, rechazado. Fechas AAAA-MM-DD (hora de Lima). Ejemplo: {"estado":"validado","desde":"2026-10-01","hasta":"2026-10-15"}.',
   entrada: z.strictObject({
     estado: z.enum(ESTADOS_PAGO).optional(),
@@ -448,6 +464,7 @@ export const pagos = defineHerramienta({
     desde: fechaIsoSchema.optional(),
     hasta: fechaIsoSchema.optional(),
     unidad: textoCorto(30).optional().describe('Código de unidad.'),
+    ...ubicacion,
     ...paginacion,
   }),
   roles: GESTION,
@@ -459,7 +476,7 @@ export const pagos = defineHerramienta({
 export const pagosPorValidar = defineHerramienta({
   nombre: 'pagos_por_validar',
   descripcion: 'Pagos con comprobante que esperan validación (los más antiguos primero), con la lectura de la IA del comprobante. Úsala para «¿qué tengo pendiente de validar?». Solo lista: validar o rechazar se hace en la pantalla de Pagos. Ejemplo: {"limite":10}.',
-  entrada: z.strictObject({ ...paginacion }),
+  entrada: z.strictObject({ ...ubicacion, ...paginacion }),
   roles: GESTION,
   junta: true,
   solo_lectura: true,
@@ -470,14 +487,14 @@ export const cobranzaPorConcepto = defineHerramienta({
   nombre: 'cobranza_por_concepto',
   descripcion:
     'Emitido, cobrado y por cobrar por concepto (mantenimiento, agua, cuota extraordinaria…) de un año o de un mes. Úsala para «¿qué concepto se paga menos?». Sin `anio` usa el año actual. Ejemplo: {"anio":2026,"mes":9}.',
-  entrada: z.strictObject({ anio: z.number().int().min(2000).max(2100).optional(), mes: z.number().int().min(1).max(12).optional() }),
+  entrada: z.strictObject({ anio: z.number().int().min(2000).max(2100).optional(), mes: z.number().int().min(1).max(12).optional(), ...ubicacion }),
   roles: GESTION,
   junta: true,
   solo_lectura: true,
   async ejecutar(u, e) {
     const al = alcanceGestion(u);
     const anio = e.anio ?? hoyLima().getUTCFullYear();
-    const sumas = await sumasPorRC({ AND: [al.cargos, { reciboConcepto: { recibo: { anio, ...(e.mes ? { mes: e.mes } : {}) } } }] });
+    const sumas = await sumasPorRC({ AND: [al.cargos, cargosEn(e), { reciboConcepto: { recibo: { anio, ...(e.mes ? { mes: e.mes } : {}) } } }] });
     const rcs = await prisma.reciboConcepto.findMany({ where: { id: { in: [...sumas.keys()] } }, select: { id: true, concepto_id: true, concepto: { select: { nombre: true } } } });
     const porConcepto = new Map<number | null, { nombre: string | null; emitido: Prisma.Decimal; cobrado: Prisma.Decimal; cargos: number }>();
     for (const rc of rcs) {
@@ -499,7 +516,7 @@ export const cobranzaPorMes = defineHerramienta({
   nombre: 'cobranza_por_mes',
   descripcion:
     'Evolución mensual de los últimos N meses: emitido (cargos de los recibos del mes) frente a cobrado (pagos validados con fecha en el mes). Úsala para tendencias: «¿cómo nos fue estos 6 meses?». N entre 1 y 24 (6 por omisión). Ejemplo: {"meses":12}.',
-  entrada: z.strictObject({ meses: z.number().int().min(1).max(24).default(6) }),
+  entrada: z.strictObject({ meses: z.number().int().min(1).max(24).default(6), ...ubicacion }),
   roles: GESTION,
   junta: true,
   solo_lectura: true,
@@ -508,10 +525,10 @@ export const cobranzaPorMes = defineHerramienta({
     const serie = await Promise.all(
       mesesAtras(e.meses).map(async (m) => {
         const [emitido, cobrado] = await Promise.all([
-          prisma.reciboConceptoUnidad.aggregate({ where: { AND: [al.cargos, { reciboConcepto: { recibo: { anio: m.anio, mes: m.mes } } }] }, _sum: { monto: true } }),
-          prisma.pago.aggregate({ where: { AND: [al.pagos, { estado_validacion: 'validado' }, { fecha_pago: { gte: m.desde, lt: m.hasta } }] }, _sum: { monto: true } }),
+          prisma.reciboConceptoUnidad.aggregate({ where: { AND: [al.cargos, cargosEn(e), { reciboConcepto: { recibo: { anio: m.anio, mes: m.mes } } }] }, _sum: { monto: true } }),
+          prisma.pago.aggregate({ where: { AND: [al.pagos, pagosEn(e), { estado_validacion: 'validado' }, { fecha_pago: { gte: m.desde, lt: m.hasta } }] }, _sum: { monto: true } }),
         ]);
-        return { periodo: m.clave, emitido: monto(sumaDe(emitido)), cobrado: monto(sumaDe(cobrado)) };
+        return { periodo: periodoDe(m.anio, m.mes), emitido: monto(sumaDe(emitido)), cobrado: monto(sumaDe(cobrado)) };
       }),
     );
     return respuesta({ alcance: ALCANCE_TEXTO[al.tipo], filas: serie });

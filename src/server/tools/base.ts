@@ -6,6 +6,7 @@ import type { Rol } from '../config';
 import { forbidden, invalid } from '../errors';
 import { decimalAString } from '../lib/cargos';
 import { esJunta } from '../lib/junta';
+import { periodoTexto } from '../lib/periodo';
 import type { AuthUser } from '../middleware/auth';
 import { limpiarTexto } from '../services/asistente/contexto';
 import { z } from '../validation';
@@ -78,7 +79,8 @@ export const fechaDia = (d: Date | null | undefined): string | null => (d ? d.to
 const LIMA_MS = 5 * 3_600_000;
 /** Instante → ISO con la hora de Lima (-05:00). */
 export const instante = (d: Date | null | undefined): string | null => (d ? `${new Date(d.getTime() - LIMA_MS).toISOString().slice(0, 19)}-05:00` : null);
-export const periodoDe = (anio: number | null | undefined, mes: number | null | undefined): string | null => (anio && mes ? `${anio}-${String(mes).padStart(2, '0')}` : null);
+/** «octubre de 2026» (el asistente lo lee y lo dice tal cual; la ENTRADA `periodo` sigue siendo AAAA-MM). */
+export const periodoDe = (anio: number | null | undefined, mes: number | null | undefined): string | null => (anio && mes ? periodoTexto(mes, anio) : null);
 /** Persona: sólo nombre de pila y primer apellido. Nunca correo, teléfono ni documento. */
 export function nombreCorto(nombre: string | null | undefined): string | null {
   const p = limpiarTexto(nombre, 120).split(' ').filter(Boolean);

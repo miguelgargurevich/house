@@ -1,3 +1,5 @@
+import { periodoTexto } from '../../lib/periodo';
+
 export const TIPOS = ['recibo_emitido', 'por_vencer', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
@@ -19,9 +21,7 @@ export interface DatosAviso {
   motivo?: string;
 }
 
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'];
-
-export const periodoTexto = (mes: number, anio: number) => `${MESES[mes - 1] ?? mes} de ${anio}`;
+export { periodoTexto };
 
 export function solesTexto(valor: { toFixed(d: number): string } | number | string): string {
   const [ent, dec] = (typeof valor === 'object' ? valor.toFixed(2) : Number(valor).toFixed(2)).split('.');
