@@ -32,14 +32,17 @@ const nombres = (u: AuthUser) => herramientasDe(u).map((h) => h.nombre);
 
 const GESTION = ['resumen_cobranza', 'morosos', 'buscar_unidad', 'detalle_unidad', 'recibos', 'cargos', 'pagos', 'pagos_por_validar', 'cobranza_por_concepto', 'cobranza_por_mes', 'medios_de_pago', 'condominios_y_blocks', 'tareas_de_mantenimiento', 'avisos_recientes'];
 const RESIDENTE = ['mis_unidades', 'mi_deuda', 'mis_recibos', 'mis_pagos', 'medios_para_pagar'];
+// Tanda 1 (ver `herramientas-tanda1.test.ts`): las tres que también tiene el residente y la cuarta, sólo de administración y junta.
+const COMUNES_NUEVAS = ['junta_y_residentes', 'estado_de_pago', 'contacto_administracion'];
+const NUEVAS = [...COMUNES_NUEVAS, 'proveedores'];
 const SUPERADMIN = ['empresas', 'salud_de_la_ia', 'auditoria_reciente'];
 // Argumentos de cada herramienta de gestión para recorrerlas todas.
 const ARGS: Record<string, unknown> = { detalle_unidad: { codigo: 'A-101' }, buscar_unidad: { texto: '101' } };
 
 describe('catálogo', () => {
-  it('son 22 herramientas, todas de solo lectura, con nombre único y descripción útil', () => {
-    assert.equal(CATALOGO.length, 22);
-    assert.deepEqual(new Set(CATALOGO.map((h) => h.nombre)), new Set([...GESTION, ...RESIDENTE, ...SUPERADMIN]));
+  it('son 26 herramientas, todas de solo lectura, con nombre único y descripción útil', () => {
+    assert.equal(CATALOGO.length, 26);
+    assert.deepEqual(new Set(CATALOGO.map((h) => h.nombre)), new Set([...GESTION, ...RESIDENTE, ...NUEVAS, ...SUPERADMIN]));
     for (const h of CATALOGO) {
       assert.equal(h.solo_lectura, true, h.nombre);
       assert.ok(h.descripcion.length >= 60 && /Ejemplo/.test(h.descripcion), `${h.nombre}: descripción pobre`);
@@ -50,17 +53,17 @@ describe('catálogo', () => {
   });
 
   it('cada rol recibe sólo lo suyo: residentes mis_*, gestión sin las del residente, personal sin cobranza', () => {
-    assert.deepEqual(nombres(U.prop1).sort(), [...RESIDENTE].sort());
-    assert.deepEqual(nombres(U.inq1).sort(), [...RESIDENTE].sort());
-    assert.deepEqual(nombres(U.adminA).sort(), [...GESTION].sort());
-    assert.deepEqual(nombres(U.super).sort(), [...GESTION, ...SUPERADMIN].sort());
+    assert.deepEqual(nombres(U.prop1).sort(), [...RESIDENTE, ...COMUNES_NUEVAS].sort());
+    assert.deepEqual(nombres(U.inq1).sort(), [...RESIDENTE, ...COMUNES_NUEVAS].sort());
+    assert.deepEqual(nombres(U.adminA).sort(), [...GESTION, ...NUEVAS].sort());
+    assert.deepEqual(nombres(U.super).sort(), [...GESTION, ...NUEVAS, ...SUPERADMIN].sort());
     assert.deepEqual(nombres(U.mttoA), []);
     assert.deepEqual(nombres(U.segA), []);
     // La junta (presidente/tesorero) suma la gestión de su ámbito (sin mantenimiento ni avisos); secretario y vocal no ganan nada.
     const junta = nombres(U.juntaBlock1);
-    assert.ok(RESIDENTE.every((n) => junta.includes(n)) && junta.includes('morosos') && junta.includes('pagos_por_validar'));
+    assert.ok(RESIDENTE.every((n) => junta.includes(n)) && junta.includes('morosos') && junta.includes('pagos_por_validar') && NUEVAS.every((n) => junta.includes(n)));
     assert.ok(!junta.includes('tareas_de_mantenimiento') && !junta.includes('avisos_recientes') && !SUPERADMIN.some((n) => junta.includes(n)));
-    assert.deepEqual(nombres(U.vocal).sort(), [...RESIDENTE].sort());
+    assert.deepEqual(nombres(U.vocal).sort(), [...RESIDENTE, ...COMUNES_NUEVAS].sort());
   });
 
   it('los esquemas para Gemini no llevan lo que Gemini rechaza', () => {
@@ -73,7 +76,7 @@ describe('catálogo', () => {
 
 describe('quién puede ejecutar qué (el rol se revalida en cada llamada)', () => {
   it('mantenimiento y seguridad no ejecutan nada, ni siquiera nombrándolo', async () => {
-    for (const u of [U.mttoA, U.segA]) for (const n of [...GESTION, ...RESIDENTE, ...SUPERADMIN]) {
+    for (const u of [U.mttoA, U.segA]) for (const n of [...GESTION, ...RESIDENTE, ...NUEVAS, ...SUPERADMIN]) {
       const r = await usar(u, n, ARGS[n] ?? {});
       assert.equal(r.ok, false, `${u.rol} ejecutó ${n}`);
     }
@@ -228,7 +231,9 @@ describe('residente e inquilino: sólo lo suyo', () => {
     assert.equal((await datos(U.propB, 'mis_pagos')).filas.length, 1);
   });
   it('los residentes no tienen ningún argumento para mirar otra unidad o persona', async () => {
-    for (const h of herramientasDe(U.prop1)) {
+    // Las `mis_*`: ni un argumento de unidad o persona. Las de la tanda 1 sí traen filtros (unidad, condominio), pero sólo ACOTAN dentro de lo propio:
+    // `herramientas-tanda1.test.ts` prueba que con la unidad o el condominio de otro no sale nada ajeno.
+    for (const h of herramientasDe(U.prop1).filter((x) => !NUEVAS.includes(x.nombre))) {
       const props = Object.keys((descriptorDe(h).inputSchema as any).properties ?? {}); // eslint-disable-line @typescript-eslint/no-explicit-any
       assert.ok(!props.some((p) => /unidad|usuario|codigo|condominio|persona|propietario/.test(p)), `${h.nombre} admite ${props}`);
     }
@@ -331,7 +336,8 @@ describe('campos prohibidos', () => {
       const r = await usar(u, n, ARGS[n] ?? {});
       if (!r.ok) continue; // p. ej. el admin huérfano
       const mediosOk = ['medios_de_pago', 'medios_para_pagar'].includes(n);
-      assert.deepEqual(hallazgosProhibidos(r.datos, '$', mediosOk), [], `${u.rol} ${n}`);
+      // Única excepción: el contacto de la EMPRESA (administradora o proveedor), en `contacto`, y sólo en estas dos herramientas.
+      assert.deepEqual(hallazgosProhibidos(r.datos, '$', mediosOk, ['contacto_administracion', 'proveedores'].includes(n)), [], `${u.rol} ${n}`);
     }
   });
   it('un correo escrito dentro de un texto de la base (la referencia de un pago) sale omitido', async () => {

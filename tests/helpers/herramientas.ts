@@ -59,7 +59,11 @@ export async function usuarioDe(id: number): Promise<AuthUser> {
 }
 
 /** Recorre un JSON y devuelve la ruta de cada clave o texto que no debería salir nunca. */
-export function hallazgosProhibidos(valor: unknown, ruta = '$', permitirContactoMedios = false): string[] {
+/**
+ * `permitirContactoInstitucional`: la única excepción es `contacto: { nombre?, telefono, correo }` (de una empresa), con un teléfono y un correo
+ * que tengan forma de teléfono y de correo. Cualquier otro `correo`, `telefono` o «@» sigue siendo un hallazgo.
+ */
+export function hallazgosProhibidos(valor: unknown, ruta = '$', permitirContactoMedios = false, permitirContactoInstitucional = false): string[] {
   const out: string[] = [];
   const CLAVE = /^(e?mail|correo|telefono|tel|whatsapp|dni|documento|documento_titular|password|contrasena|hash|token|api_?key|clave|secret|bytes|datos|qr_datos|ip)(_.*)?$/i;
   const ir = (v: unknown, r: string) => {
@@ -70,6 +74,15 @@ export function hallazgosProhibidos(valor: unknown, ruta = '$', permitirContacto
     } else if (Array.isArray(v)) v.forEach((x, i) => ir(x, `${r}[${i}]`));
     else if (v && typeof v === 'object') {
       for (const [k, x] of Object.entries(v)) {
+        if (permitirContactoInstitucional && k === 'contacto' && x && typeof x === 'object' && !Array.isArray(x)) {
+          for (const [ck, cv] of Object.entries(x)) {
+            if (ck === 'correo' && (cv === null || (typeof cv === 'string' && /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(cv)))) continue;
+            if (ck === 'telefono' && (cv === null || (typeof cv === 'string' && /^[0-9+()\-\s]{1,30}$/.test(cv)))) continue;
+            if (CLAVE.test(ck)) out.push(`${r}.${k}.${ck}: campo prohibido`);
+            ir(cv, `${r}.${k}.${ck}`);
+          }
+          continue;
+        }
         if (CLAVE.test(k)) out.push(`${r}.${k}: campo prohibido`);
         if (k === 'celular' && !permitirContactoMedios) out.push(`${r}.${k}: celular fuera de los medios de pago`);
         ir(x, `${r}.${k}`);

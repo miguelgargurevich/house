@@ -120,7 +120,7 @@ describe('protocolo MCP', () => {
 
     const lista = await rpc(token, { id: 3, method: 'tools/list' });
     const tools = lista.body.result.tools as { name: string; description: string; inputSchema: any; annotations: any }[]; // eslint-disable-line @typescript-eslint/no-explicit-any
-    assert.equal(tools.length, 14);
+    assert.equal(tools.length, 18, 'las 14 de gestión + junta_y_residentes, estado_de_pago, contacto_administracion y proveedores');
     assert.ok(tools.every((x) => x.inputSchema.type === 'object' && x.annotations.readOnlyHint === true && x.annotations.destructiveHint === false && x.description.length > 40));
     assert.ok(tools.some((x) => x.name === 'morosos') && !tools.some((x) => x.name === 'mi_deuda' || x.name === 'empresas'));
 
@@ -155,11 +155,11 @@ describe('protocolo MCP', () => {
     }
     assert.equal((await fetch(`${base}/mcp/otra`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: '{}' })).status, 404);
   });
-  it('cada rol ve su lista: residente 5, junta gestión+suyas, mantenimiento ninguno, superadmin 17', async () => {
+  it('cada rol ve su lista: residente 8, junta gestión+suyas, mantenimiento ninguno, superadmin 21', async () => {
     const n = async (sesion: string) => (await rpc((await crear(sesion)).token, { id: 1, method: 'tools/list' })).body.result.tools.length;
-    assert.equal(await n(T.prop1), 5);
-    assert.equal(await n(T.super), 17);
-    assert.equal(await n(T.adminB), 14);
+    assert.equal(await n(T.prop1), 8);
+    assert.equal(await n(T.super), 21);
+    assert.equal(await n(T.adminB), 18);
   });
   it('un cuerpo enorme se rechaza (32 kb)', async () => {
     const { token } = await crear(T.adminA);
@@ -193,13 +193,13 @@ describe('el token hereda EXACTAMENTE el alcance de su dueño', () => {
     const sesion = await login(base, 'nuevo.prop@test.pe');
     const { token } = await crear(sesion);
     const nombres = async () => (await rpc(token, { id: 1, method: 'tools/list' })).body.result.tools.map((x: any) => x.name); // eslint-disable-line @typescript-eslint/no-explicit-any
-    assert.equal((await nombres()).length, 5);
+    assert.equal((await nombres()).length, 8);
     await prisma.usuario.update({ where: { id: u.id }, data: { cargo_junta: 'tesorero' } });
     const con = await nombres();
-    assert.ok(con.includes('morosos') && con.length > 5);
+    assert.ok(con.includes('morosos') && con.length > 8);
     assert.deepEqual(datosDe(await llamarHerramienta(token, 'morosos')).filas.map((f: any) => f.unidad), ['A-101']); // eslint-disable-line @typescript-eslint/no-explicit-any
     await prisma.usuario.update({ where: { id: u.id }, data: { cargo_junta: 'vocal' } });
-    assert.equal((await nombres()).length, 5);
+    assert.equal((await nombres()).length, 8);
     assert.equal((await llamarHerramienta(token, 'morosos')).body.error.code, -32602, 'tools/call revalida el rol');
   });
   it('ninguna respuesta de MCP lleva correos, teléfonos, hashes ni tokens', async () => {

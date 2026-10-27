@@ -90,5 +90,50 @@ export function nombreCorto(nombre: string | null | undefined): string | null {
 }
 export const respuesta = <T extends Record<string, unknown>>(r: T) => ({ moneda: MONEDA, aviso: AVISO_DATOS, ...r });
 
+// ---------- Contacto institucional ----------
+const CORREO_INSTITUCIONAL = /^[^\s@<>"'`]{1,64}@[^\s@<>"'`]+\.[a-z]{2,}$/i;
+const TELEFONO_INSTITUCIONAL = /^[0-9+()\-\s]{1,30}$/;
+
+/**
+ * Correo y teléfono de una EMPRESA (la administradora o un proveedor), nunca de una persona (`Usuario`). Es la ÚNICA excepción a la salida
+ * segura de `tools/index.ts` (`depurar`): se respeta sólo si la herramienta está en `HERRAMIENTAS_CON_CONTACTO_INSTITUCIONAL`; en cualquier
+ * otra se quita. El constructor es privado: se crea con `deEmpresa` / `deProveedor`, que sólo se usan en `tools/institucional.ts` (una prueba lo vigila).
+ */
+export class ContactoInstitucional {
+  readonly #nombre: string | null | undefined;
+  readonly #correo: string | null;
+  readonly #telefono: string | null;
+
+  private constructor(nombre: string | null | undefined, correo: string | null, telefono: string | null) {
+    this.#nombre = nombre;
+    this.#correo = correo;
+    this.#telefono = telefono;
+  }
+
+  /** Datos institucionales de `EmpresaAdministradora` (su `email` y `telefono`, no los de sus usuarios). */
+  static deEmpresa(e: { email: string | null; telefono: string | null }): ContactoInstitucional {
+    return new ContactoInstitucional(undefined, e.email, e.telefono);
+  }
+
+  /** Datos de contacto de un `Proveedor` (su persona de contacto, su teléfono y su correo). */
+  static deProveedor(p: { contacto_nombre: string | null; email: string | null; telefono: string | null }): ContactoInstitucional {
+    return new ContactoInstitucional(dato(p.contacto_nombre, 120), p.email, p.telefono);
+  }
+
+  /** Lo que sale: correo y teléfono sólo si tienen la forma de un correo/teléfono (un texto con instrucciones no pasa); el nombre ya viene limpio. */
+  salida(): Record<string, string | null> {
+    const correo = this.#correo?.trim() ?? '';
+    const telefono = this.#telefono?.trim() ?? '';
+    return {
+      ...(this.#nombre === undefined ? {} : { nombre: this.#nombre }),
+      telefono: TELEFONO_INSTITUCIONAL.test(telefono) ? telefono : null,
+      correo: correo.length <= 120 && CORREO_INSTITUCIONAL.test(correo) ? correo : null,
+    };
+  }
+}
+
+/** Herramientas cuyo contacto institucional puede salir. Una herramienta nueva NO está aquí a menos que se agregue a propósito (y se pruebe). */
+export const HERRAMIENTAS_CON_CONTACTO_INSTITUCIONAL: ReadonlySet<string> = new Set(['contacto_administracion', 'proveedores']);
+
 /** Sin ámbito (p. ej. un admin sin empresa) no hay datos. */
 export const sinAcceso = () => forbidden('Tu usuario no tiene acceso a estos datos');

@@ -34,3 +34,33 @@ export function rutaPermitida(user: Pick<AuthUser, 'rol' | 'cargo_junta' | 'comp
   const validas: readonly string[] = [...RUTAS_POR_ROL[user.rol], ...RUTAS_COMUNES, ...(esJunta(user) ? RUTAS_JUNTA : [])];
   return validas.includes(limpia) ? limpia : null;
 }
+
+// ---------- Dónde se ve cada cosa en el menú actual ----------
+// «Personas» ya no existe en el menú: los residentes están en la ficha del condominio, el personal en la ficha de la empresa y los
+// proveedores en Operación. Las herramientas del asistente (y su prompt) nombran las pantallas con estos textos; una prueba exige que
+// el enlace sea una ruta real.
+export type Seccion = 'residentes' | 'personal' | 'proveedores';
+
+const DONDE_VER: Record<Seccion, Partial<Record<Rol, { texto: string; ruta: string }>>> = {
+  residentes: {
+    admin: { texto: 'Condominios › abre el condominio › pestaña Residentes', ruta: '/admin/complejos' },
+    superadmin: { texto: 'Condominios › abre el condominio › pestaña Residentes', ruta: '/admin/complejos' },
+  },
+  personal: {
+    admin: { texto: 'Mi empresa › pestaña Personal', ruta: '/admin/configuracion' },
+    superadmin: { texto: 'Empresas › abre la empresa › pestaña Personal', ruta: '/superadmin/empresas' },
+  },
+  proveedores: {
+    admin: { texto: 'Operación › Proveedores', ruta: '/admin/proveedores' },
+    superadmin: { texto: 'Operación › Proveedores', ruta: '/admin/proveedores' },
+  },
+};
+
+/** «Condominios › abre el condominio › pestaña Residentes ([Condominios](/admin/complejos))», o `null` si ese rol no tiene esa pantalla (junta y residentes). */
+export function dondeVer(rol: Rol, seccion: Seccion): string | null {
+  const d = DONDE_VER[seccion][rol];
+  return d ? `${d.texto} (${d.ruta})` : null;
+}
+
+/** Rutas que `dondeVer` puede citar (para la prueba contra `App.tsx`). */
+export const RUTAS_DONDE_VER: readonly string[] = [...new Set(Object.values(DONDE_VER).flatMap((p) => Object.values(p).map((d) => d.ruta)))];

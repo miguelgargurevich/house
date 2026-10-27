@@ -10,16 +10,24 @@ const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 const CODIGO_UNIDAD = /\b([a-z]{1,3}-?\d{1,4}[a-z]?)\b/i;
 const MAX_ELEGIDAS = 2;
 /** Una herramienta específica ya cubre a la genérica de su familia («pagos por validar» no necesita además `pagos`). */
-const CUBRE: Record<string, string[]> = { pagos_por_validar: ['pagos'], detalle_unidad: ['pagos', 'recibos', 'cargos'], mi_deuda: ['mis_recibos'], medios_para_pagar: [] };
+const CUBRE: Record<string, string[]> = { pagos_por_validar: ['pagos'], detalle_unidad: ['pagos', 'recibos', 'cargos'], mi_deuda: ['mis_recibos'], medios_para_pagar: [], estado_de_pago: ['mis_pagos', 'pagos'] };
+/** Rubros de `proveedores` que el mensaje nombra (sólo los inequívocos; si no, sin filtro). */
+const RUBRO_EN_MENSAJE: [RegExp, string][] = [[/ascensor/, 'ascensores'], [/gasfiter|gasfiteri/, 'gasfiteria'], [/electric/, 'electricidad'], [/pintur|pintor/, 'pintura'], [/fumig/, 'fumigacion'], [/cerraj/, 'cerrajeria'], [/carpinter/, 'carpinteria'], [/jardin/, 'jardineria']];
 
 /** Reglas por herramienta, en orden de prioridad: la primera que coincide gana, hasta 2. */
 const REGLAS: { nombre: string; re: RegExp; entrada: (m: string) => Record<string, unknown> }[] = [
   // Residente / inquilino
   { nombre: 'mi_deuda', re: /\b(debo|deuda|adeudo|adeudas?|saldo|cuanto pago|vence|vencimiento|proximo recibo)\b/, entrada: () => ({}) },
   { nombre: 'mis_recibos', re: /\b(recibos?|cargos?|vencid[oa]s?)\b/, entrada: (m) => (/vencid/.test(m) ? { estado: 'vencido', limite: 10 } : { limite: 10 }) },
+  // El estado de UN pago, su voucher y lo que leyó la IA (antes de `mis_pagos`, que cubre).
+  { nombre: 'estado_de_pago', re: /\b(voucher|que leyo|leyo la ia|evaluacion (de|del)|estado (de|del) (mi |el )?pago|por que .{0,30}rechaz\w*)\b/, entrada: (m) => { const c = CODIGO_UNIDAD.exec(m)?.[1]; return { ...(c ? { unidad: c.toUpperCase() } : {}), limite: 10 }; } },
   { nombre: 'mis_pagos', re: /\b(pagos|mi pago|pague|pagaron|validad[oa]s?|validaron|comprobante|rechazad[oa]s?)\b/, entrada: () => ({ limite: 10 }) },
   { nombre: 'medios_para_pagar', re: /\b(donde pago|como pago|como pagar|donde pagar|cuenta|yape|plin|banco|transferencia|deposito)\b/, entrada: () => ({}) },
   { nombre: 'mis_unidades', re: /\b(mis unidades|mi unidad|departamentos?|casas?)\b/, entrada: () => ({}) },
+  // Personas e instituciones (junta, administradora, proveedores): residentes y gestión
+  { nombre: 'junta_y_residentes', re: /\b(junta|presidente|presidenta|tesorer[oa]|secretari[oa]|vocal|con cargo|residentes|quienes? vive(n)?|lista de vecinos)\b/, entrada: (m) => (/\b(residentes|vive(n)?|vecinos)\b/.test(m) ? { limite: 20 } : { solo_junta: true }) },
+  { nombre: 'contacto_administracion', re: /\b(quien administra|empresa administradora|administradora|contacto (de la )?administracion|(telefono|correo|numero|whatsapp) de la administracion|a quien (le )?(reclamo|llamo|escribo))\b/, entrada: () => ({}) },
+  { nombre: 'proveedores', re: /\b(proveedor(es)? de|proveedores|gasfiter\w*|electricista|ascensor(es)?|fumigaci\w*|cerrajer\w*|pintor(es)?)\b/, entrada: (m) => { const r = RUBRO_EN_MENSAJE.find(([re]) => re.test(m))?.[1]; return r ? { rubro: r } : {}; } },
   // Gestión
   { nombre: 'detalle_unidad', re: CODIGO_UNIDAD, entrada: (m) => ({ codigo: (CODIGO_UNIDAD.exec(m)?.[1] ?? '').toUpperCase() }) },
   { nombre: 'morosos', re: /\b(moros\w*|deben|deudores|atrasad\w*|quienes deben|mayor deuda)\b/, entrada: () => ({ limite: 10 }) },

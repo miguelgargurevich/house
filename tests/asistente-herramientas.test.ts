@@ -74,16 +74,16 @@ const unaRonda = (...pedidos: { nombre: string; args?: unknown }[]) => (l: Llama
 
 describe('qué herramientas se le ofrecen al modelo (sólo las del rol)', () => {
   for (const proveedor of ['groq', 'gemini'] as const) {
-    it(`${proveedor}: el administrador recibe las de gestión; el residente sólo mis_*; mantenimiento ninguna`, async () => {
+    it(`${proveedor}: el administrador recibe las de gestión; el residente sólo las suyas; mantenimiento ninguna`, async () => {
       await guardar(proveedor, `${proveedor}-prueba-00001`);
       await chat(T.adminA);
       const admin = herramientasDeclaradas(chats().at(-1)!);
-      assert.ok(admin.includes('morosos') && admin.includes('resumen_cobranza') && !admin.includes('mi_deuda') && !admin.includes('empresas') && admin.length === 14, admin.join());
+      assert.ok(admin.includes('morosos') && admin.includes('resumen_cobranza') && !admin.includes('mi_deuda') && !admin.includes('empresas') && admin.length === 18, admin.join());
       await chat(T.prop1);
       const prop = herramientasDeclaradas(chats().at(-1)!);
-      assert.deepEqual(prop.sort(), ['medios_para_pagar', 'mi_deuda', 'mis_pagos', 'mis_recibos', 'mis_unidades']);
+      assert.deepEqual(prop.sort(), ['contacto_administracion', 'estado_de_pago', 'junta_y_residentes', 'medios_para_pagar', 'mi_deuda', 'mis_pagos', 'mis_recibos', 'mis_unidades']);
       await chat(T.super);
-      assert.equal(herramientasDeclaradas(chats().at(-1)!).length, 17);
+      assert.equal(herramientasDeclaradas(chats().at(-1)!).length, 21);
       await chat(T.mtto);
       const mtto = chats().at(-1)!;
       assert.deepEqual(herramientasDeclaradas(mtto), []);

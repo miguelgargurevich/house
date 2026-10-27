@@ -6,8 +6,11 @@ import { cooldownDeps } from '../lib/cooldown';
 import { registrarAuditoria } from '../middleware/audit';
 import type { AuthUser } from '../middleware/auth';
 import { z } from '../validation';
-import { MAX_FILAS, puedeUsar, type Herramienta } from './base';
+import { ContactoInstitucional, HERRAMIENTAS_CON_CONTACTO_INSTITUCIONAL, MAX_FILAS, puedeUsar, type Herramienta } from './base';
 import { HERRAMIENTAS_GESTION } from './gestion';
+import { HERRAMIENTAS_INSTITUCIONAL } from './institucional';
+import { HERRAMIENTAS_PERSONAS } from './personas';
+import { HERRAMIENTAS_PAGO } from './estadoPago';
 import { HERRAMIENTAS_RESIDENTE } from './residente';
 import { HERRAMIENTAS_SUPERADMIN } from './superadmin';
 
@@ -16,7 +19,7 @@ export type Origen = 'asistente' | 'mcp';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- el catálogo mezcla esquemas distintos; cada una se valida con el suyo
 export type HerramientaAny = Herramienta<any>;
-export const CATALOGO: readonly HerramientaAny[] = [...HERRAMIENTAS_GESTION, ...HERRAMIENTAS_RESIDENTE, ...HERRAMIENTAS_SUPERADMIN];
+export const CATALOGO: readonly HerramientaAny[] = [...HERRAMIENTAS_GESTION, ...HERRAMIENTAS_RESIDENTE, ...HERRAMIENTAS_PERSONAS, ...HERRAMIENTAS_PAGO, ...HERRAMIENTAS_INSTITUCIONAL, ...HERRAMIENTAS_SUPERADMIN];
 const porNombre = new Map(CATALOGO.map((h) => [h.nombre, h]));
 if (porNombre.size !== CATALOGO.length) throw new Error('Hay herramientas con el mismo nombre');
 
@@ -56,12 +59,21 @@ export function esquemaParaGemini(s: unknown): unknown {
 const CLAVE_PROHIBIDA = /^(e?mail|correo|telefono|tel|whatsapp|dni|documento|doc_numero|password|contrasena|hash|token|api_?key|clave|secret|secreto|bytes|datos_qr|qr_datos|comprobante_datos|ip)(_.*)?$/i;
 const CORREO = /[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}/gi;
 
-/** Quita campos prohibidos y correos escritos dentro de un texto. Devuelve cuántas cosas quitó (los tests exigen 0 en el catálogo actual). */
-export function depurar(valor: unknown, cuenta = { n: 0 }): { valor: unknown; quitados: number } {
+/**
+ * Quita campos prohibidos y correos escritos dentro de un texto. Devuelve cuántas cosas quitó (los tests exigen 0 en el catálogo actual).
+ * Única excepción: un `ContactoInstitucional` (correo/teléfono de una empresa) sale sólo si `herramienta` está en la lista blanca; si no, se quita.
+ * Un campo `correo`/`telefono` suelto sigue quitándose siempre, también en esas herramientas.
+ */
+export function depurar(valor: unknown, cuenta = { n: 0 }, herramienta?: string): { valor: unknown; quitados: number } {
+  const contactoPermitido = herramienta !== undefined && HERRAMIENTAS_CON_CONTACTO_INSTITUCIONAL.has(herramienta);
   const ir = (v: unknown): unknown => {
     if (typeof v === 'string') {
       const t = v.replace(CORREO, () => { cuenta.n++; return '[correo omitido]'; });
       return t;
+    }
+    if (v instanceof ContactoInstitucional) {
+      if (!contactoPermitido) { cuenta.n++; return '[contacto omitido]'; }
+      return Object.fromEntries(Object.entries(v.salida()).map(([k, x]) => [k, k === 'correo' || k === 'telefono' ? x : ir(x)]));
     }
     if (Array.isArray(v)) return v.map(ir);
     if (v && typeof v === 'object') {
@@ -143,7 +155,7 @@ export async function ejecutarHerramienta(u: AuthUser, nombre: string, entradaCr
   }
   try {
     const bruto = await h.ejecutar(u, entrada.data);
-    const { valor } = depurar(bruto);
+    const { valor } = depurar(bruto, undefined, nombre);
     const desde = typeof (entrada.data as { cursor?: unknown }).cursor === 'string' ? Number(/^o(\d+)$/.exec((entrada.data as { cursor: string }).cursor)?.[1] ?? 0) : 0;
     const datos = acotar(valor as Json, opts.maxCaracteres ?? MAX_CARACTERES[opts.origen], desde);
     const filas = Array.isArray(datos.filas) ? datos.filas.length : null;
