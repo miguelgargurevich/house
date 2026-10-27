@@ -4,6 +4,46 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5, delegado) — Un recibo por torre (modelo, Excel, emisión, alcance de la junta, torre visible en toda la app, «setiembre»)
+
+**Pedido de Miguel:** «en recibos tengo el recibo de octubre pero debe ser por block (Torre) porque cuando entro esos son los vecinos del block .. así cada block tiene su propio recibo» · «igual acá cómo sé de qué Block es el recibo?» · «en recibos igual considera en toda la aplicación y revisa cuántos más hay así». Rama `feat/recibo-por-torre` (sobre `origin/main` 2058a68); **sin push** (lo sube la sesión principal con OK de Miguel). Última entrada previa: el administrador adjunta el voucher (abajo).
+
+**Qué se hizo** (la auditoría completa con archivo:línea está en `../auditoria-recibo-por-torre.md`: 63 sin torre, 10 meses como número, 22 «un recibo por mes»; todo cubierto, ver «No aplicó»)
+- **Modelo**: `Recibo.estructura_id Int?` (+ relación e índice `(complejo, estructura, mes, año)`). `null` = condominio sin torres, recibo general o recibo viejo que mezcla torres. **Sin `@@unique` a propósito**: (1) Postgres no compara NULL con NULL, no cubriría los recibos sin torre; (2) un `@@unique` nuevo hace que `prisma db push` exija `--accept-data-loss` y el contenedor arranca con `db push` a secas (`Dockerfile`: abortaría). Columna y índice nuevos son aditivos: el `db push` sobre una base con datos pasó sin warnings.
+- **Unicidad** `services/reciboUnico.ts`: candado de transacción (`pg_advisory_xact_lock(complejo, anio*100+mes)`) + comprobación en la MISMA transacción, en emisión, Excel y edición de mes/año. Un recibo SIN torre que ya cobra a unidades de esa torre también es choque (409): evita cobrar dos veces mientras no se corre la migración.
+- **Migración** `scripts/migrar-recibos-por-torre.ts [--seco]` (idempotente): asigna la torre a cada recibo sin torre cuyos cargos son TODOS de una misma torre (y reescribe la descripción automática «Mantenimiento de 10 de 2026» → «Mantenimiento de octubre de 2026 · Block 1»); los que mezclan torres, sin cargos, de condominios sin torres o duplicados sólo se informan.
+- **Excel** (`POST /api/recibos/excel`): agrupa filas por torre y crea/reemplaza UN recibo por torre en una sola transacción; el Excel del Block 2 ya no toca el del Block 1 (ni lo reemplaza ni lo bloquea con su 409). «Ya tiene pagos» es por recibo de torre y el mensaje dice la torre. Respuesta: `recibo_id` (el primero) + `recibos[]`.
+- **Emitir recibo** (`POST /api/recibos`): `estructura_id` elige la torre; sin él, «todas las torres» = un recibo por torre (+ uno sin torre si quedan unidades sin torre); condominio sin torres: uno solo, `estructura_id` null. Duplicado → 409 con la torre y no se crea ninguno.
+- **Alcance**: la junta de un block sólo ve los recibos de SU block (404 a otra torre) + los recibos sin torre del condominio (su lista de departamentos ya se acota a sus unidades). `lib/junta.ts#filtroReciboAmbito` lo usan las rutas y las herramientas del asistente. `validarRefs` de cargos: la unidad debe ser de la torre del recibo (422). `/periodos`: últimos 24 MESES completos.
+- **Torre visible/filtrable (A)**: API (recibos, cargos, pagos, panel `por_torre`, morosidad con `complejo`+`resumen`, notificaciones con `contexto`, `/me/unidades`, avisos con departamento+torre y firma del condominio, herramientas y contexto del asistente con `block` y filtros `estructura_id`/`condominio_id`) y pantallas (Recibos, Emitir, Subir Excel, Periodo, Pagos, Validar, Registrar pago, Recibo imprimible con cuentas del block separadas de las del condominio, Morosidad, Panel, Avisos, residente). Componentes nuevos: `SelectoresUbicacion.tsx`, `torres.ts` (puro), `useTorres.ts`.
+- **Meses (B)**: UNA ayuda en el servidor (`src/server/lib/periodo.ts`) y UNA en el frontend (`src/ui/format.ts#periodo/tituloRecibo`); «setiembre» en todas las salidas; el lector del Excel acepta «septiembre» y «setiembre». `numeroMantenimiento` NO cambió. `periodoDe` del asistente → «octubre de 2026» (la ENTRADA `periodo` sigue siendo AAAA-MM).
+- **Periodo con recibos por torre**: un recibo de torre va directo a sus departamentos (sin selector ni vista agrupada); un recibo viejo multi-torre sigue agrupado.
+- Docs: `API-CONTRATO.md` (sección «Un recibo por torre») y `EXCEL-RECIBOS.md`.
+- Pruebas: `tests/recibo-por-torre.test.ts` (26: Excel por torre, el caso real con el Excel de `docs/ejemplos`, emisión, unicidad con concurrencia, junta, migración), `tests/torre-visible.test.ts` (19, API + asistente + avisos) y `tests/torre-ui.test.ts` (21, ayudas puras + fuente). 19 mutaciones, todas en rojo.
+
+**Próximos pasos (Opus, al desplegar)**
+1. Tras el deploy (el arranque hace `prisma db push`, que sólo añade la columna y el índice): `npx tsx scripts/migrar-recibos-por-torre.ts --seco` en producción y, si dice lo esperado (el recibo de octubre 2026 de Los Libertadores → «Block 1», 286 cargos), sin `--seco`. **Mientras no se corra, el Excel del Block 1 de octubre responde 409 («recibo sin torre que cobra a unidades del Block 1»)** — a propósito; el del Block 2 sí pasa.
+2. Miguel debe probar en el navegador: filtros Torre/Condominio, Emitir con «todas las torres», Subir Excel de dos blocks, el periodo de un recibo de torre, el recibo imprimible (cuentas del block vs del condominio) y el panel por torre. El repo no pinta componentes: las pantallas se probaron por tsc/build y pruebas de fuente.
+3. Opcional: un índice parcial `CREATE UNIQUE INDEX … WHERE estructura_id IS NULL` a mano (no lo crea `db push`); el código ya lo impone.
+
+**Decisiones**
+- Sin torre elegida en un condominio CON torres = «todas las torres» (compatible con quien no manda `estructura_id`); la UI lo pone explícito.
+- La junta de un block ve también los recibos sin torre (generales/viejos) del condominio: la lista de departamentos ya está acotada a sus unidades, y así un recibo viejo no migrado no «desaparece» para ella.
+- `recibos_emitidos` del panel = periodos (condominio+mes+año); el conteo bruto sigue en `recibos_total`.
+- El `format` de las notificaciones ahora agrega `contexto`; el cuerpo sigue sin viajar en el listado.
+
+**No aplicó / no se hizo**
+- No se tocó `prisma/seed*.ts` (los recibos sembrados quedan sin torre; el seed no rompió). `src/api.ts` no estaba permitido: `useList` no expone campos extra, por eso las cifras de Morosidad usan un `useResource` aparte.
+- No se probó en navegador ni contra producción; la migración se probó sólo contra bases de prueba locales (`house_test_torre`).
+
+**Gotchas**
+- Dos pruebas de otros módulos (voucher-admin con la IA falsa, y «GET /api/llavero») fallaron UNA vez cada una, en corridas completas distintas, por esperas de ~5 s con el equipo ocupado; pasaron solas y en la corrida siguiente. La línea base (antes de tocar nada) fue 900/900.
+- El script de migración recorre TODA la base (también otros condominios): en pruebas filtra por los ids propios.
+- El recibo de seed de octubre (sin torre) ya no lo reemplaza el Excel de una torre: `recibos-excel.test.ts` mira sólo el recibo de la torre B.1.
+- `/api/estructuras` es sólo de admin: `SelectoresUbicacion` tiene `oculto` (pasa `null` a `useResource`) para que la junta, que usa la pantalla de Pagos, no la pida.
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5) — El administrador adjunta el voucher al registrar el pago y la IA lo revisa
 
 **Pedido de Miguel:** «…o como administrador subir el voucher de pago» → «Sí, arregla las tres» (esta parte: que el ADMINISTRADOR suba el voucher y la IA lo analice; «al subirlo debería analizarlo con IA, si está ok marcarlo como pagado o enviado»). Rama `feat/voucher-admin` (sobre `adb0bc0`); sin push (lo sube la sesión principal con OK de Miguel). Última entrada previa: medios de pago ampliados (entidades, moneda, cuenta recaudadora).

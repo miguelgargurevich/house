@@ -47,18 +47,20 @@ Filas sin `BLOCK`/`Dpto.` y la fila `TOTALES` se ignoran (cuentan como «saltada
 
 ## Reglas de negocio
 
-- Se crea un `Recibo` por mes/año con el vencimiento y todos los conceptos (monto del concepto en 0; el monto va por unidad).
+- **Cada torre/block tiene su propio recibo mensual** (26-oct). Las filas del Excel se agrupan por la columna `BLOCK` y se crea o reemplaza **un `Recibo` por torre** (con `estructura_id` y la descripción «Mantenimiento de octubre de 2026 · Block 1»). Un Excel de UNA sola torre sólo toca el recibo de ESA torre; las demás no se tocan. En un condominio SIN torres hay un solo recibo, sin torre.
+- Cada recibo lleva el vencimiento y todos los conceptos (monto del concepto en 0; el monto va por unidad).
 - Se crea un `ReciboConceptoUnidad` por cada concepto+departamento **con monto mayor a 0**. **Un monto que redondeado da S/ 0.00, o una celda vacía, NO genera cargo** (26-oct: un cargo en 0 nacía «pendiente», nunca se pagaba y ensuciaba avisos y estadísticas); un texto no numérico tampoco. El concepto del recibo (`ReciboConcepto`) se conserva aunque todas sus celdas sean 0, y la validación contra `TOTAL MANT` suma igual. Un departamento con todo en 0 queda sin cargos (no tiene mantenimiento que cobrar). En el Excel de ejemplo: 352 celdas → 286 cargos. Los cargos en 0 que ya existían en la base no se tocan.
 - El estado inicial de cada cargo es `pendiente`.
-- **Recibo repetido (mismo condominio, mes y año):** si ningún cargo del recibo tiene pagos (`Pago`, en cualquier `estado_validacion`) ni un `estado_pago` distinto de `pendiente`, el endpoint **reemplaza** los conceptos y cargos por los del Excel y lo deja `emitido` (sirve para corregir una subida equivocada). Si alguno los tiene, responde **409** `El recibo de <Mes> <año> ya tiene pagos registrados; no se puede reemplazar desde Excel` y no cambia nada (la comprobación va dentro de la misma transacción).
+- **Recibo repetido (mismo condominio, TORRE, mes y año):** si ningún cargo del recibo de ESA torre tiene pagos (`Pago`, en cualquier `estado_validacion`) ni un `estado_pago` distinto de `pendiente`, el endpoint **reemplaza** los conceptos y cargos por los del Excel y lo deja `emitido` (sirve para corregir una subida equivocada). Si alguno los tiene, responde **409** `El recibo de octubre de 2026 · Block 1 ya tiene pagos registrados; no se puede reemplazar desde Excel` (con la torre) y no cambia nada. Todo va en UNA transacción con un candado por (condominio, mes, año): si falla una torre del archivo no se crea ninguna, y dos subidas simultáneas del mismo periodo se hacen cola (no hay recibos duplicados).
+- **Recibo viejo sin torre:** si ya existe un recibo del mismo mes SIN torre que cobra a unidades de la torre del Excel (un recibo emitido antes de que existiera el recibo por torre), se responde **409** y no se crea el recibo de la torre (se cobraría dos veces). Se arregla corriendo `scripts/migrar-recibos-por-torre.ts`, que le asigna su torre.
 
 ## Endpoint
 
 `POST /api/recibos/excel` — cuerpo: `multipart/form-data` con campo `archivo` (el `.xlsx`) y `complejo_id`.
 
-Responde 201 con `recibo_id`, `mes`, `anio`, `unidades_procesadas`, `filas_saltadas`, `conceptos` y `advertencias` (lista de textos en español; máximo 100). El frontend aún no muestra las `advertencias`.
+Responde 201 con `recibo_id` (el de la primera torre), `recibos` (`[{recibo_id, estructura_id, torre, accion: 'creado'|'reemplazado', unidades_procesadas}]`, uno por torre del archivo), `mes`, `anio`, `unidades_procesadas` (todas las torres), `filas_saltadas`, `conceptos` y `advertencias` (lista de textos en español; máximo 100). El mes se lee con «setiembre» o «septiembre».
 
-Errores: 403 si no eres admin (el rol se revisa antes de recibir el archivo); 422 si falta el archivo o `complejo_id`, el archivo pesa más de 10 MB, no es un Excel válido o no tiene mes/año, fila `BLOCK` ni conceptos.
+Errores: 403 si no eres admin (el rol se revisa antes de recibir el archivo); 422 si falta el archivo o `complejo_id`, el archivo pesa más de 10 MB, no es un Excel válido o no tiene mes/año, fila `BLOCK` ni conceptos, o (condominio con torres) ninguna fila del archivo es de una torre del condominio.
 
 ## Notas
 

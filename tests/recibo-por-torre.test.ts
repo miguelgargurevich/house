@@ -2,6 +2,7 @@
 // junta. Caso real que motivó todo: el Excel de octubre del Block 2 buscaba «el recibo del condominio» y se topaba con el del Block 1.
 import './helpers/env';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, before, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
 import XLSX from 'xlsx';
@@ -454,5 +455,56 @@ describe('script migrar-recibos-por-torre', () => {
     assert.equal(r.status, 201, r.texto);
     assert.equal((await prisma.recibo.findUniqueOrThrow({ where: { id: viejo.id } })).estructura_id, b1.id);
     assert.equal((await recibosDe()).length, 2);
+  });
+});
+
+describe('con el Excel REAL de docs/ejemplos (el escenario de producción)', () => {
+  const real = () => readFileSync('docs/ejemplos/block-1-octubre.xlsx');
+  /** El mismo archivo con el block cambiado (B.1 → B.2): lo que mandaría la administradora para el Block 2. */
+  function comoBlock2(): Buffer {
+    const wb = XLSX.read(real(), { type: 'buffer' });
+    const hoja = wb.Sheets[wb.SheetNames[0]];
+    for (const celda of Object.keys(hoja)) if (celda.startsWith('A') && hoja[celda].v === 'B.1') hoja[celda].v = 'B.2';
+    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+  }
+  let complejo: number;
+  let bloque1: number;
+  before(async () => {
+    const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Libertadores real', tipo: 'Condominio', empresa_id: d.empresaA.id } });
+    complejo = c.id;
+    bloque1 = (await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'block', complejo_id: c.id } })).id;
+    const bloque2 = await prisma.estructura.create({ data: { nombre: 'Block 2', tipo: 'block', complejo_id: c.id } });
+    for (const [e, pref] of [[bloque1, 'B01'], [bloque2.id, 'B02']] as const) {
+      for (let piso = 1; piso <= 8; piso++) for (let k = 1; k <= 4; k++) await prisma.unidad.create({ data: { codigo: `${pref}-${piso}0${k}`, tipo: 'Departamento', complejo_id: c.id, empresa_id: d.empresaA.id, estructura_id: e, estado: 'activa' } });
+    }
+  });
+
+  it('octubre del Block 1 con un pago (como B01-804 en producción) y luego el Excel del Block 2: 201, y el Block 1 queda intacto (286 cargos, su pago)', async () => {
+    const r1 = await subir(T.adminA, real(), complejo);
+    assert.equal(r1.status, 201, r1.texto);
+    const idB1: number = r1.body.recibo_id;
+    assert.equal(r1.body.recibos[0].torre, 'Block 1');
+    assert.equal((await cargosDeRecibo(idB1)).length, 286);
+    const b804 = await prisma.unidad.findFirstOrThrow({ where: { complejo_id: complejo, codigo: 'B01-804' } });
+    const pago = await llamar(base, 'POST', `/api/recibos/${idB1}/mantenimientos/${b804.id}/pagos`, T.adminA, { metodo_pago: 'transferencia' });
+    assert.equal(pago.status, 201, pago.texto);
+    const antes = await foto(idB1);
+
+    // Antes de este cambio: 409 por el pago del Block 1 (o, sin pagos, REEMPLAZABA los cargos del Block 1).
+    const r2 = await subir(T.adminA, comoBlock2(), complejo);
+    assert.equal(r2.status, 201, r2.texto);
+    assert.equal(r2.body.recibos.length, 1);
+    assert.equal(r2.body.recibos[0].torre, 'Block 2');
+    assert.equal(r2.body.recibos[0].accion, 'creado');
+    assert.deepEqual(await foto(idB1), antes);
+    const recibos = await prisma.recibo.findMany({ where: { complejo_id: complejo }, orderBy: { id: 'asc' } });
+    assert.deepEqual(recibos.map((x) => x.descripcion), ['Mantenimiento de octubre de 2026 · Block 1', 'Mantenimiento de octubre de 2026 · Block 2']);
+    assert.equal((await cargosDeRecibo(r2.body.recibo_id)).length, 286);
+    assert.ok((await cargosDeRecibo(r2.body.recibo_id)).every((c) => c.unidad?.codigo.startsWith('B02-')));
+    // Y subir otra vez el Excel del Block 1 sigue protegido por SU pago.
+    const r3 = await subir(T.adminA, real(), complejo);
+    assert.equal(r3.status, 409);
+    assert.match(r3.body.error, /Block 1/);
+    assert.ok(bloque1);
   });
 });
