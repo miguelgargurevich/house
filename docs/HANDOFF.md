@@ -4,6 +4,36 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5, delegado) — Asistente, tanda 1: junta y residentes, estado del pago, contacto de la administración, proveedores
+
+**Pedido de Miguel:** captura del asistente: «quiénes son la junta» → «No tengo registrada la lista de los miembros de la junta»; «hay residentes con cargo» → «No tengo registrada esa información… pantalla de Personas» · «qué otras herramientas consideras que puedan faltar» → «sí dale» (tanda 1: junta y residentes, estado del pago/voucher, contacto de la administración, proveedores). Rama `feat/asistente-tanda1` (sobre `origin/main` 741b731); **sin push**. Última entrada previa: el recibo por torre (abajo).
+
+**Qué se hizo** (solo backend del asistente, sin frontend ni esquema; catálogo 22 → 26 herramientas)
+- **`junta_y_residentes`** (`tools/personas.ts`): admin/superadmin (su empresa / plataforma), junta presidente-tesorero (SU block) y residentes. La junta de un block = cargos de ese block + cargos de todo el condominio (`estructura_id` null). El residente (también secretario/vocal) recibe SOLO la junta de sus blocks (unidades + block de su perfil) con cargo y nombre, sin departamento y con `filas: []` + nota de privacidad; no hay argumento que le abra la lista de vecinos.
+- **`estado_de_pago`** (`tools/estadoPago.ts`): pagos principales del mantenimiento (monto = total del grupo), estado, motivo del rechazo, `tiene_voucher` (nunca el archivo) y la evaluación de la IA. `lib/evaluacionVista.ts` gana `vistaGestion` (admin/junta: veredicto, confianza, alertas, lo que leyó con solo 3–4 últimos dígitos del destino); el residente sigue con `estadoParaResidente` (estado simple).
+- **`contacto_administracion`** y **`proveedores`** (`tools/institucional.ts`): contacto de EMPRESAS. La excepción a la salida segura es un tipo, `ContactoInstitucional` (`tools/base.ts`; constructor privado, fábricas `deEmpresa`/`deProveedor`), que `depurar(valor, cuenta, herramienta)` respeta solo si la herramienta está en `HERRAMIENTAS_CON_CONTACTO_INSTITUCIONAL` (esas dos); en otra se omite. Correo/teléfono se validan por forma. Una prueba exige que las fábricas solo se usen en `institucional.ts`.
+- **Enlaces y textos**: `lib/rutasApp.ts` → `dondeVer(rol, seccion)` (residentes → Condominios › ficha › pestaña Residentes; personal → Mi empresa › pestaña Personal / Empresas › ficha; proveedores → Operación › Proveedores). `src/config/ai-system-prompt.txt` ya no dice «Personas», explica las herramientas nuevas y ajusta la regla 2 de privacidad (conserva la frase «otras personas ni de otras unidades»).
+- **Respaldo sin herramientas** (`services/asistente/respaldo.ts`): reglas por palabras clave para las 4 nuevas (las preguntas de Miguel funcionan también con un modelo sin tool-calling).
+- Docs: `docs/HERRAMIENTAS.md` (Etapa 4 + «Contacto institucional») y `docs/SEGURIDAD.md` («Datos de contacto que el asistente puede dar»).
+- Pruebas: `tests/herramientas-tanda1.test.ts` (47) + ajustes de cuentas en `herramientas.test.ts`, `mcp.test.ts`, `asistente-herramientas.test.ts` (residente 5→8 herramientas, admin 14→18, superadmin 17→21) y `hallazgosProhibidos` del helper (admite `contacto` institucional).
+
+**Decisiones**
+- «Junta» con permisos = presidente/tesorero (`esJunta`, como en todo el repo). Secretario y vocal son residentes comunes: ven la junta, no a los vecinos.
+- «Para todos los roles» en `contacto_administracion` = admin, superadmin, propietario, inquilino y junta. Mantenimiento/seguridad/limpieza/jardinería siguen SIN herramientas (hay pruebas que lo exigen y el brief dice que mantenimiento no las tiene).
+- Proveedores para la junta: solo los enlazados a SU condominio (`ProveedorComplejo`) cuya empresa lo administra hoy (si no hay enlace, no se muestra).
+- El residente ve la evaluación de la IA en versión simple (como la pantalla); la administración y la junta, la completa.
+- Se tocó `src/config/ai-system-prompt.txt`, que no estaba en «Permitidos» literal, porque el punto 5 del brief pide ajustar el prompt.
+
+**Gotchas**
+- Los residentes sin ninguna unidad no salen en `filas` de `junta_y_residentes` (sí en `junta` si tienen cargo).
+- La regex de correos de `depurar` también se come el paréntesis pegado al correo («(a@b.pe)» → «[correo omitido])»); es el comportamiento previo.
+- `nombreCorto` con 3 palabras devuelve las 2 primeras («Presidente de B» → «Presidente de»): cuidado al elegir nombres de fixtures.
+- Las pruebas de `estado_de_pago` siembran evaluaciones a mano (`EvaluacionComprobante`); no corren IA.
+
+**Próximos pasos:** (1) OK de Miguel y push; (2) probar con un modelo real que admita herramientas las 4 preguntas de la captura; (3) tanda 2 si Miguel la pide.
+
+---
+
 ## 2026-10-26 — Claude Code (Haiku 5.5, delegado) — Adjuntar el comprobante desde el detalle de un pago ya registrado
 
 **Pedido de Miguel:** «como o donde se adjunta el comprobante?» (el detalle de un pago validado decía «Este pago no tiene comprobante adjunto.») → «Sí, agrega el botón «Adjuntar comprobante» en el detalle del pago, con el análisis de IA». Rama `feat/adjuntar-comprobante` (worktree `.claude/worktrees/adjuntar-comprobante`); **sin push**.
