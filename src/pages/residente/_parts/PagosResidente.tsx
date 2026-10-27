@@ -7,12 +7,10 @@ import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '..
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
 import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, PageHeader, Skeleton, StatusBadge, fechaCorta, soles, useToast } from '../../../ui';
 import type { Column } from '../../../ui';
+import { ZonaImprimible } from '../../shared/mantenimiento/ZonaImprimible';
 import { Pager } from './Pager';
 import { estadoVisible, metodoLabel, montoPago, nombrePago } from './tipos';
 import type { PagoResidente } from './tipos';
-
-// Al imprimir sólo se ve el comprobante (el resto de la página se oculta).
-const PRINT_CSS = '@media print{body *{visibility:hidden}#comprobante,#comprobante *{visibility:visible}#comprobante{position:fixed;left:0;top:0;width:100%;padding:24px}}';
 
 const EMPTY = { title: 'Aún no has registrado pagos', description: 'Cuando pagues un mantenimiento, el comprobante quedará guardado aquí.', icon: <BanknotesIcon /> };
 
@@ -40,6 +38,37 @@ export function PagosResidente() {
       void list.reload();
     } catch (er) { toast.error(errorText(er)); }
     finally { setSubiendo(false); }
+  }
+
+  // El mismo comprobante se muestra en el modal y se repite en la zona de impresión (ver ZonaImprimible).
+  function comprobante(p: PagoResidente) {
+    return (
+      <>
+        <p className="num mb-5 text-3xl font-semibold">{soles(montoPago(p))}</p>
+        <DefinitionList
+          items={[
+            { label: 'N.º de pago', value: <span className="num">{String(p.id).padStart(6, '0')}</span> },
+            { label: 'Fecha', value: fechaCorta(p.fecha_pago) },
+            { label: p.mantenimiento ? 'Mantenimiento' : 'Concepto', value: nombrePago(p) },
+            ...(p.mantenimiento ? [{ label: 'Incluye', value: `${p.mantenimiento.conceptos} conceptos del mes` }] : []),
+            { label: 'Unidad', value: p.unidad?.codigo },
+            { label: 'Método', value: metodoLabel(p.metodo_pago) },
+            { label: 'Referencia', value: p.referencia && <span className="num">{p.referencia}</span> },
+            { label: 'Estado', value: <StatusBadge estado={estadoVisible(p.estado_validacion)} /> },
+            ...(p.estado_validacion === 'validado' && p.validado_at ? [{ label: 'Validado el', value: fechaCorta(p.validado_at) }] : []),
+            ...(p.comprobante ? [{ label: 'Comprobante adjunto', value: `${p.comprobante.nombre} · ${tamanoLegible(p.comprobante.tamano)}` }] : []),
+            ...(p.observaciones ? [{ label: 'Observaciones', value: p.observaciones }] : []),
+          ]}
+        />
+        <p className="mt-5 text-xs text-muted">
+          {p.estado_validacion === 'validado'
+            ? (p.validado_por_ia ? 'Pago validado automáticamente por la inteligencia artificial.' : 'Pago validado por la administración.')
+            : p.estado_validacion === 'rechazado'
+              ? `Pago rechazado: ${p.motivo_rechazo ?? 'sin motivo indicado'}.`
+              : 'Pago registrado por el residente; está en revisión y queda sujeto a la validación del administrador.'}
+        </p>
+      </>
+    );
   }
 
   const columns: Column<PagoResidente>[] = [
@@ -124,35 +153,8 @@ export function PagosResidente() {
           </>
         }
       >
-        {ver && (
-          <div id="comprobante">
-            <style>{PRINT_CSS}</style>
-            <h2 className="mb-4 hidden text-lg font-semibold print:block">Comprobante de pago · House</h2>
-            <p className="num mb-5 text-3xl font-semibold">{soles(montoPago(ver))}</p>
-            <DefinitionList
-              items={[
-                { label: 'N.º de pago', value: <span className="num">{String(ver.id).padStart(6, '0')}</span> },
-                { label: 'Fecha', value: fechaCorta(ver.fecha_pago) },
-                { label: ver.mantenimiento ? 'Mantenimiento' : 'Concepto', value: nombrePago(ver) },
-                ...(ver.mantenimiento ? [{ label: 'Incluye', value: `${ver.mantenimiento.conceptos} conceptos del mes` }] : []),
-                { label: 'Unidad', value: ver.unidad?.codigo },
-                { label: 'Método', value: metodoLabel(ver.metodo_pago) },
-                { label: 'Referencia', value: ver.referencia && <span className="num">{ver.referencia}</span> },
-                { label: 'Estado', value: <StatusBadge estado={estadoVisible(ver.estado_validacion)} /> },
-                ...(ver.estado_validacion === 'validado' && ver.validado_at ? [{ label: 'Validado el', value: fechaCorta(ver.validado_at) }] : []),
-                ...(ver.comprobante ? [{ label: 'Comprobante adjunto', value: `${ver.comprobante.nombre} · ${tamanoLegible(ver.comprobante.tamano)}` }] : []),
-                ...(ver.observaciones ? [{ label: 'Observaciones', value: ver.observaciones }] : []),
-              ]}
-            />
-            <p className="mt-5 text-xs text-muted">
-              {ver.estado_validacion === 'validado'
-                ? (ver.validado_por_ia ? 'Pago validado automáticamente por la inteligencia artificial.' : 'Pago validado por la administración.')
-                : ver.estado_validacion === 'rechazado'
-                  ? `Pago rechazado: ${ver.motivo_rechazo ?? 'sin motivo indicado'}.`
-                  : 'Pago registrado por el residente; está en revisión y queda sujeto a la validación del administrador.'}
-            </p>
-          </div>
-        )}
+        {ver && <div>{comprobante(ver)}</div>}
+        {ver && <ZonaImprimible><h2 className="mb-4 text-lg font-semibold">Comprobante de pago · House</h2>{comprobante(ver)}</ZonaImprimible>}
         {estadoIA && <div className="mt-4 print:hidden"><EstadoEvaluacion estado={estadoIA} /></div>}
         {ver?.estado_validacion === 'rechazado' && <div className="mt-4 print:hidden"><Alert tone="bad">Tu pago fue rechazado: {ver.motivo_rechazo ?? 'sin motivo indicado'}. Vuelve a pagar el mantenimiento desde Mis recibos.</Alert></div>}
         {ver?.comprobante && (

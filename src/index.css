@@ -77,3 +77,16 @@
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* Impresión: sólo sale #zona-imprimible (el recibo o el comprobante, al final de <body>). Lo demás se oculta con
+   display:none —no visibility, que deja el hueco de la página en blanco— y la zona no tiene alto máximo ni scroll. */
+#zona-imprimible { display: none; }
+
+@media print {
+  body > *:not(#zona-imprimible) { display: none !important; }
+  #zona-imprimible { display: block !important; position: static; width: auto; max-height: none; overflow: visible; }
+  #zona-imprimible tr { break-inside: avoid; }
+  #zona-imprimible thead { display: table-header-group; }
+  #zona-imprimible tfoot { display: table-footer-group; }
+  @page { size: A4 portrait; margin: 16mm; }
+}

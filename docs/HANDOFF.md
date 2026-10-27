@@ -4,6 +4,35 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Haiku 5.5, delegado) — Imprimir el recibo y el comprobante: sólo el recibo, completo, desde la página 1
+
+**Pedido de Miguel:** «imprimir recibo de mantenimiento…» → «Sí, arregla las tres» (esta sesión: IMPRIMIR el recibo). Rama `fix/impresion-recibo` (worktree `.claude/worktrees/impresion-recibo`); sin push (lo sube la sesión principal con OK de Miguel).
+
+**Qué se hizo**
+- **Causa** (Safari, captura de Miguel): `visibility:hidden` dejaba el hueco de todo lo demás (página 1 en blanco) y el recibo vivía dentro del modal con alto máximo y scroll, así que salía cortado. Lo mismo en el comprobante del residente.
+- `src/pages/shared/mantenimiento/ZonaImprimible.tsx` (nuevo): monta lo imprimible con un portal al final de `<body>`, fuera de `#root`.
+- `ReciboImprimible.tsx`: el recibo es `ReciboArticulo` (un componente); se muestra en el modal y se repite en la zona de impresión. Se quitó su `<style>`.
+- `PagosResidente.tsx`: `comprobante(p)` igual: modal y zona. Se quitó su `<style>`.
+- `src/index.css` (bloque «Impresión»): en pantalla `#zona-imprimible` oculta; en `@media print`, `body > *:not(#zona-imprimible) { display:none !important }`, la zona con alto y scroll libres, `tr { break-inside: avoid }`, encabezado y pie de tabla repetidos, `@page A4 portrait` con 16 mm.
+- `tests/impresion-recibo.test.ts` (12 pruebas, de fuente): `display:none` (no `visibility`), zona sin `max-height`/`overflow`/posición fija, filas que no se parten, A4, zona en `<body>`, recibo y comprobante completos dentro de la zona.
+
+**Verificación**
+- `TEST_DATABASE_URL=…/house_test_impresion npm test`: 852 pruebas, 852 pasan, 0 fallan.
+- `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit`: exit 0. `npm run build`: «✓ built».
+- Mutaciones (archivo copiado al scratchpad, verificado con `cmp`, devuelto con `cp`): `visibility:hidden` en vez de `display:none` → rojo; alto/scroll en la zona → rojo; quitar `break-inside` de las filas → rojo; quitar la zona del recibo en `ReciboImprimible.tsx` → rojo. Todas restauradas.
+- Chromium headless (binario ya en la caché de Playwright, `--print-to-pdf`, sin instalar nada) sobre una página de prueba con el CSS compilado y 60 conceptos: **2 páginas A4**; la página 1 tiene cabecera, conceptos y total; la página 2 sigue la tabla con el pie y «Dónde pagar»; «Menú de la app» no sale.
+
+**No verificado**
+- Safari (donde falló) y el modal real de la app: la prueba de pantalla fue con una página de prueba, no con la app levantada. Miguel debe imprimir un recibo largo desde Safari.
+- El paquete `playwright` no está en el repo: no se instaló.
+
+**Decisiones y gotchas**
+- El recibo está dos veces en el DOM (modal en pantalla y zona oculta para imprimir). Sólo la zona lleva `id="zona-imprimible"`, así que el id es único.
+- `ZonaImprimible` vive en `shared/mantenimiento/` porque esa carpeta era la permitida para esta sesión; si otros usos la necesitan, moverla a `src/ui/`.
+- Los `print:hidden` que quedan en el modal del residente no hacen nada ya: el modal no se imprime, sólo la zona.
+
+---
+
 ## 2026-10-26 — Claude Code (Haiku 5.5) — Tipo de unidad: al editar ya no sale vacío
 
 **Pedido de Miguel:** «en editar unidad el tipo está vacío, debió marcar departamento» → «Sí, arregla las tres» (esta sesión: el TIPO de unidad). Rama `fix/tipo-unidad` (worktree `.claude/worktrees/tipo-unidad`, sobre `adb0bc0`); sin push (lo sube la sesión principal con OK de Miguel).
