@@ -7,7 +7,7 @@ import { avisoDeGateway, clavesDeProveedor, proveedorDeGateway, type Clave, type
 const leer = (ruta: string) => readFileSync(new URL(`../src/pages/superadmin/${ruta}`, import.meta.url), 'utf8');
 const gw = (over: Partial<Gateway> = {}): Gateway => ({
   id: 7, nombre: 'Dashboard IA', base_url: 'https://api.dashboardia.gargurevich.dev/v1', dominio: 'api.dashboardia.gargurevich.dev', modelo_por_defecto: 'qwen3-vl-flash',
-  modelo_vision: 'qwen3-vl-flash', vision: true, prioridad: 2, habilitado: true, estado: 'ok', claves: 1, ...over,
+  modelo_vision: 'qwen3-vl-flash', vision: true, prioridad: 2, prioridad_vision: null, habilitado: true, estado: 'ok', claves: 1, ...over,
 });
 const clave = (over: Partial<Clave>): Clave => ({ id: 1, proveedor: 'groq', gateway_id: null, etiqueta: 'principal', ...over }) as unknown as Clave;
 
@@ -48,6 +48,12 @@ describe('cableado de la pantalla', () => {
     assert.match(leer('_parts/llavero/GatewaysSeccion.tsx'), /Agregar gateway/);
     assert.match(leer('_parts/llavero/OcrSeccion.tsx'), /OCR de comprobantes/);
     assert.match(leer('_parts/llavero/DominiosPermitidos.tsx'), /Dominios permitidos/);
+  });
+
+  it('el modal pide la prioridad para leer comprobantes (sólo con visión) y la manda como prioridad_vision (null si va vacía)', () => {
+    const modal = leer('_parts/llavero/GatewayModal.tsx');
+    assert.match(modal, /\{vision && <Input label="Prioridad para leer comprobantes \(opcional; menor = primero\)"/);
+    assert.match(modal, /prioridad_vision: prioridadVision\.trim\(\) \? Number\(prioridadVision\) : null/);
   });
 
   it('la clave de un gateway se guarda con su gateway_id en la ruta fija; la de un proveedor, por su id', () => {

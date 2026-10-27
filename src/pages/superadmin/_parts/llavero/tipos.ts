@@ -63,6 +63,8 @@ export interface Gateway {
   modelo_vision: string | null;
   vision: boolean;
   prioridad: number;
+  /** Sólo para leer comprobantes; null = usa `prioridad`. */
+  prioridad_vision: number | null;
   habilitado: boolean;
   estado: EstadoGateway;
   claves: number;

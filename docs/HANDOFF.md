@@ -4,6 +4,34 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Haiku 5.5, delegado) — Dashboard IA primero en la lectura de comprobantes (`prioridad_vision`)
+
+**Pedido de Miguel (textual):** «Sí, pon Dashboard IA primero en la rotación de visión y deja Gemini como respaldo.» Rama `feat/prioridad-vision` (worktree sobre `origin/main` 177a3a6); **sin push** (lo sube la sesión principal con OK de Miguel).
+
+**Qué se hizo**
+- **Esquema** (aditivo, nullable): `GatewayIA.prioridad_vision Int?`. `null` = usa `prioridad`.
+- **`lib/proveedoresIA.ts`**: `ProveedorIA.prioridadVision?` (sólo gateways). **`lib/gateways.ts`**: `proveedorDeGateway` lo llena con `prioridad_vision`; el catálogo no lo tiene.
+- **`services/evaluacion.ts › ordenarParaVision`** (sólo la lectura de comprobantes): ordena por `prioridadVision ?? prioridad` manteniendo los grupos de la cadena (normales libres, normales enfriadas, reserva libres, reserva enfriadas); a igualdad, el orden de la cadena. Sin `prioridad_vision` en ninguna clave, el orden es el de siempre.
+- **API** (`routes/llavero.ts`, `lib/gatewaysAdmin.ts`): `prioridad_vision` opcional, entero 0–99 o null, en crear y editar. Listado (`gatewaysDatos.ts`) lo devuelve.
+- **Pantalla** (`GatewayModal.tsx`): campo «Prioridad para leer comprobantes (opcional; menor = primero)», visible sólo con «Lee imágenes (visión)» activo.
+
+**Verificado**
+- `tests/evaluacion-ia.test.ts`: 5 pruebas nuevas (gateway con `prioridad_vision = 0` va antes que Gemini y Gemini responde si falla; sano → sólo gateway; null → como antes; reserva al final aunque el número sea menor; el chat no cambia).
+- `tests/gateways-llavero.test.ts`: rango 0–99, null, 422 fuera de rango, edición.
+- `tests/gateways-ui.test.ts`: el modal pide el campo y lo manda como `prioridad_vision`.
+- Mutaciones (en rojo y restauradas con `cmp`): ignorar `prioridadVision` → 2 pruebas fallan; quitar el grupo de reserva → 1 prueba falla.
+
+**Próximos pasos**
+- Tras subir el cambio al servidor (`db push` con columna nullable): el Dashboard IA en producción sigue con `prioridad_vision` null hasta que Miguel lo fije en la pantalla. Para el orden pedido: `prioridad_vision = 0` en «Dashboard IA».
+
+**Decisiones**
+- El campo del modal se muestra sólo con visión activa (un gateway sin visión nunca lee comprobantes).
+- La auditoría de `editar` no incluye `prioridad_vision` (igual que hoy con `prioridad`): el PATCH ya queda en `Auditoria`.
+
+**Gotchas**
+- `gatewayAjusteSchema` acepta `null` para limpiar; `undefined` no toca el campo.
+- El gateway «Dashboard IA» persiste entre pruebas de `evaluacion-ia` (sólo se vacían las claves): la suite resetea `prioridad_vision` en su bloque.
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Llavero de gateways propios, dominios permitidos y OCR en la base (anti-SSRF)
 
 **Pedido de Miguel (textual):** «hay dond registrar el gw? en house?» → «seria mejor construir un llavero de gateways no crees o gregarlo al que ya existe .. otra seccion que opinas» → (misma pantalla, sección «Gateways propios») «si hazlo» → «nada de variables de entorno todo en BD asi como las llaves de IA y sus proveedores». Rama `feat/llavero-gateways` (sobre `origin/main` f5c3f99); **sin push**. Precisión del orquestador sobre el OCR: el servicio ya corre como `house-ocr` en la red interna de Coolify (`http://house-ocr:5050`, sin dominio público) → sólo destinos internos de una lista fija EN EL CÓDIGO, o un https público con las barreras de los gateways.
