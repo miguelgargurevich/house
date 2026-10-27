@@ -189,11 +189,13 @@ Cada torre/block tiene SU recibo mensual (sus vecinos, su junta y sus cuentas). 
 - Después de crear, se encolan avisos `recibo_emitido` a propietarios e inquilinos (no bloquea si falla).
 
 ## Bot de WhatsApp (vincular, webhook y voucher por foto)
-Ver `docs/SEGURIDAD.md › Bot de WhatsApp`. Telegram usará los mismos modelos y endpoints (`canal` ya es un parámetro; hoy sólo `whatsapp`).
+Ver `docs/SEGURIDAD.md › Bot de WhatsApp` y `› Bot de Telegram` (mismos modelos y endpoints; `canal` = `whatsapp` | `telegram`).
 
-### Vincular el propio WhatsApp — `/api/me/canales` (sesión + CSRF; cualquier rol con empresa)
+### Vincular el propio WhatsApp o Telegram — `/api/me/canales` (sesión + CSRF; cualquier rol con empresa)
 - `GET /api/me/canales` → `{ vinculos: [{ id, canal, identificador (enmascarado: «+51 ••• ••• 123»), verificado_at, empresa: {id, nombre} }], codigo_vigente: { canal, expira_at } | null, destinos: [{ empresa: {id, nombre}, disponible, numero }] }`. `destinos` = las empresas con las que la persona tiene relación (la suya, o las de sus unidades); `disponible` = la empresa ya vinculó su WhatsApp; `numero` = el número del edificio al que se manda el código (sólo dígitos; `null` si Evolution no lo informa). Nunca devuelve el código.
-- `POST /api/me/canales/whatsapp/codigo` (cuerpo `{}`) → 201 `{ canal, codigo ("123456"), expira_at, vigencia_min: 10, destinos }`. Reemplaza el código anterior de la persona. 409 si ninguna de sus empresas tiene WhatsApp vinculado (o no tiene empresa: superadmin), 429 tras 5 códigos en 15 min, 422 con otro canal (Telegram todavía no).
+- `POST /api/me/canales/whatsapp/codigo` (cuerpo `{}`) → 201 `{ canal, codigo ("123456"), expira_at, vigencia_min: 10, destinos }`. Reemplaza el código anterior de la persona. 409 si ninguna de sus empresas tiene WhatsApp vinculado (o no tiene empresa: superadmin), 429 tras 5 códigos en 15 min, 422 con un canal desconocido.
+- `GET /api/me/canales` además trae `telegram: { disponible, bot_usuario }`: `disponible` = el superadmin activó el bot de Telegram Y la persona tiene alguna empresa (el superadmin no); `bot_usuario` = el @ del bot (sin «@»), `null` si no está disponible. El `identificador` de un vínculo de Telegram sale enmascarado como «Telegram ••• 123».
+- `POST /api/me/canales/telegram/codigo` (cuerpo `{}`) → 201 `{ canal: 'telegram', codigo, expira_at, vigencia_min: 10, destinos: [], telegram: { bot_usuario, enlace: "https://t.me/<bot>?start=<codigo>" } }`. 409 si el bot no está activo o la persona no tiene empresa; mismo tope de 5 códigos / 15 min (429). El código se manda al bot como `/start <código>` (o a secas) y el `chat.id` del mensaje queda vinculado, con la empresa de la persona.
 - `DELETE /api/me/canales/:id` → 204. Sólo el vínculo PROPIO (ajeno o ya revocado → 404). Libera el número y borra los vouchers pendientes de ese vínculo.
 - Auditoría: `canal_vinculado` · `generar_codigo` / `desvincular` (y `vincular` cuando llega el código por WhatsApp). El código nunca va a la auditoría.
 
@@ -203,5 +205,21 @@ Ver `docs/SEGURIDAD.md › Bot de WhatsApp`. Telegram usará los mismos modelos 
 - Comandos de texto (sin IA): `menu`, `desvincular`; un código de 6 dígitos desde un número sin vínculo vincula; una imagen/PDF de un residente vinculado registra su voucher (con varios pendientes pregunta «¿Cuál pagaste?» y espera un número, 15 min).
 - Registro en Evolution: lo hace House solo. `POST /api/whatsapp/sync` y `GET /api/whatsapp/status` (cuando la sesión está `open`) llaman a `POST {EVOLUTION_URL}/webhook/set/{instancia}` con `{ webhook: { enabled: true, url: "<ENLACE_APP>/api/canales/whatsapp/<instancia>", headers: { "x-house-secret": <secreto> }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT"] } }`. Ambas respuestas ganan el campo `webhook`: `"registrado" | "ya_estaba" | "error"` (un error NO impide vincular el número ni pedir el QR). Es idempotente: si ya está registrado para esa URL no se toca (ni se rota el secreto). `DELETE /api/whatsapp/disconnect` borra el webhook.
 
-### Esquema (aditivo)
+### Webhook de Telegram — `POST /api/canales/telegram` (público; sin sesión ni CSRF)
+- Autenticación: cabecera `X-Telegram-Bot-Api-Secret-Token` con el `secret_token` que House registró en `setWebhook` (comparado en tiempo constante contra su hash). Ausente, malo, bot sin configurar o pausado → 401 `{error}` sin efectos; 429 tras 30 fallos por IP en 15 min; cuerpo > 64 kB → 413. El secreto se valida ANTES de leer el cuerpo.
+- Update atendido: `message` de un chat `private` y de una persona (no bot). Responde SIEMPRE `200 {ok:true}` aunque se ignore (grupos, canales, ediciones, `channel_post`, callbacks…); el procesamiento es posterior, en fila por chat, e idempotente por `update_id`.
+- Entradas: texto, `/start [código]`, `/menu`, `/desvincular`, foto (la de mayor resolución) o documento (PDF/imagen, ≤ 2 MB). Respuestas en texto plano (sin `parse_mode`), ≤ 4.000 caracteres por mensaje.
+
+### Bot de Telegram en el Llavero — `/api/llavero/telegram` (sólo superadmin; 403 al resto; escrituras con el limitador del Llavero)
+- `GET /api/llavero` suma `telegram: { configurado, habilitado, bot_usuario, bot_nombre, ultimos4, enlace, webhook_url, webhook_registrado_at, llavero_configurado }`. NUNCA el token ni el secreto.
+- `PUT /api/llavero/telegram` `{ token, activar? }` → la vista. `getMe` valida el token (formato inválido o rechazado por Telegram → 422 `{error, campos:{token}}`, sin guardar nada; sin `LLAVERO_ENC_KEY` → 409); se guarda cifrado y, salvo `activar: false`, se llama a `setWebhook` con un secreto nuevo. Si `setWebhook` falla → 502, el token queda guardado y el bot PAUSADO. Cambiar de token borra el webhook del bot anterior.
+- `POST /api/llavero/telegram/probar` (cuerpo `{}`) → la vista, tras `getMe` con el token guardado (refresca el @usuario). 404 sin bot; 422 si Telegram lo rechaza.
+- `PATCH /api/llavero/telegram` `{ habilitado }` → activar = `setWebhook` (secreto nuevo, el anterior muere); pausar = `deleteWebhook` + secreto descartado. 404 sin bot.
+- `DELETE /api/llavero/telegram` → 204. `deleteWebhook` (si se puede) y la fila queda sin token ni secreto. 404 sin bot.
+- Auditoría: `telegram-config` · `editar`/`eliminar` con `{ bot_usuario, habilitado, ultimos4 }`; jamás el token.
+
+### Esquema de Telegram (aditivo)
+Tabla nueva `ConfiguracionTelegram` (fila única: `token_enc`, `ultimos4`, `bot_usuario`, `bot_nombre`, `habilitado`, `secreto_hash`, `webhook_url`, `webhook_registrado_at`, `actualizado_por_id`). `Notificacion.canal` admite también `'telegram'` (es texto libre; sin cambio de columna). `CanalVinculado.canal` ya admitía `'telegram'`.
+
+### Esquema de WhatsApp (aditivo)
 Tablas nuevas `CanalVinculado`, `CodigoVinculacion`, `CanalWebhook`, `MensajeCanal`, `CanalPendiente` (ver `prisma/schema.prisma`); ninguna columna existente cambia.

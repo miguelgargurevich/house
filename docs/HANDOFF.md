@@ -4,6 +4,50 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Bot de Telegram: asistente + voucher por foto (Fase C)
+
+**Pedido de Miguel (textual):** «planea el bot de WhatsApp primero (asistente + voucher por foto), Telegram después» → (WhatsApp ya integrado) «hazlo» (arrancar Telegram). Regla obligatoria: «nada de variables de entorno todo en BD». Rama `feat/bot-telegram` (worktree sobre `origin/main` 280e012); **sin push** (lo sube la sesión principal con OK de Miguel).
+
+**Qué se hizo**
+- **Refactor mínimo de la capa común** (`services/canales/`): `transporte.ts` define `Transporte { canal, identificador, empresaId | null, responder(texto), descargarMedio(medio) }` y `MensajeEntrante`. `entrante.ts` gana `atenderMensaje(transporte, mensaje)` (todo lo común: límites, vínculo, código, comandos, voucher, asistente); `procesarEntrante(instancia, empresaId, e)` de WhatsApp queda como un envoltorio fino (Evolution: `responder` + `getBase64FromMediaMessage`) con la MISMA firma. `voucher.ts` ya no sabe de Evolution (`bajarArchivo` usa el transporte; acepta base64 o bytes) y el canal va a la observación/auditoría del pago. Los textos del bot salen de `mensajes(canal)`.
+- **Esquema** (aditivo): tabla `ConfiguracionTelegram` (fila única id = 1: `token_enc`, `ultimos4`, `bot_usuario`, `bot_nombre`, `habilitado`, `secreto_hash`, `webhook_url`, `webhook_registrado_at`).
+- **Llavero**: sección «Bot de Telegram» (`TelegramSeccion.tsx`) y `/api/llavero/telegram` (PUT guardar+probar+activar, POST `/probar`, PATCH activar/pausar, DELETE quitar). Sólo superadmin, auditado sin el token. Al guardar/activar: `getMe` + `setWebhook` a `<ENLACE_APP>/api/canales/telegram` con `secret_token` aleatorio (sólo su hash en la base), `allowed_updates: ['message']`, `drop_pending_updates`. Al pausar/quitar: `deleteWebhook`.
+- **Webhook** `POST /api/canales/telegram` (`routes/canalesWebhook.ts › canalesTelegramRouter`, montado antes del JSON global): secreto en tiempo constante antes de leer el cuerpo (64 kB), ignora no-privados/bots/ediciones/canales, idempotente por `update_id` (`MensajeCanal` con `instancia='telegram'`), 200 rápido y cola por chat.
+- **Vinculación**: `chat.id` privado; `/start <código>` o código a secas; Mi perfil (`TelegramPerfil.tsx`) muestra el código y el enlace `https://t.me/<bot>?start=<código>`. Bot GLOBAL: la empresa del vínculo sale de la persona del código (`intentarVincular` acepta `empresaId: null`). Sin vínculo sólo «Vincula tu Telegram desde Mi perfil en House».
+- **Asistente y voucher**: mismas herramientas, permisos, límites y conversación por vínculo que WhatsApp. Respuestas en TEXTO PLANO sin `parse_mode` (`aTextoPlano`), ≤ 4.000. Foto (mayor resolución) o documento: tope 2 MB por `file_size` del mensaje, luego `getFile`, y corte durante la descarga (`telegram.ts › leerConTope`).
+- **Avisos** (`avisos/cola.ts`): `pago_validado`/`pago_rechazado` también por Telegram al chat vinculado (`Notificacion.canal = 'telegram'`).
+- **Docs**: `SEGURIDAD.md › Bot de Telegram`, `API-CONTRATO.md` (webhook, Llavero, `/api/me/canales`).
+
+**Pasos para Miguel (producción)**
+1. En Telegram, abre **@BotFather** → `/newbot` → nombre y @usuario (termina en `bot`) → copia el **token** (`123456789:AA…`).
+2. Desplegar (el arranque corre `prisma db push` sin `--accept-data-loss`; sólo se añade una tabla). **No hay variables nuevas** (usa `LLAVERO_ENC_KEY`, que ya está).
+3. Entra a House como superadmin → **Llavero** → sección **«Bot de Telegram»** → «Configurar bot» → pega el token → «Guardar y probar». Debe aparecer `@tu_bot` y el estado «En uso». Eso ya registró el webhook (puedes usar «Probar» para repetir `getMe`, «Pausar»/«Activar», «Quitar»).
+4. Cada persona entra a **Mi perfil** → «Asistente por Telegram» → «Vincular Telegram» → toca el enlace (abre el bot con el código ya puesto) y pulsa «Iniciar». También sirve escribirle el código de 6 dígitos al bot.
+5. Prueba sugerida con tu cuenta: `/menu`, «¿cuánto debo?», una foto de voucher (con varios pendientes pregunta «¿Cuál pagaste?»), y `/desvincular`.
+
+**Decisiones**
+- **Token en tabla propia** (no en `ClaveIntegracion`): ésta es una lista de claves de proveedores de IA con rotación, modelos, reserva y prueba por chat; el bot es una sola fila con ciclo de vida distinto (webhook), igual que `ConfiguracionOcr`. Mismo cifrado (`secretBox`, AAD `telegram:bot`).
+- **Secreto del webhook sólo hasheado** y rotado en cada activación (no depende de `LLAVERO_ENC_KEY` para validar; no se puede recuperar).
+- **Empresa de un residente con unidades en varias empresas**: la de menor id (no hay selector; es la limitación honesta del bot global).
+- **Texto plano** en vez de HTML de Telegram: cero superficie de inyección de etiquetas (se aceptaba cualquiera de las dos).
+- **Aviso por Telegram a todo vínculo vigente** (como WhatsApp: vincular es la aceptación), no sólo si el voucher se mandó por Telegram: el pago no guarda por qué canal llegó. Fácil de afinar usando la observación del pago.
+- Cubo de fallos de vinculación GLOBAL más holgado (300/15 min) para Telegram: sin empresa conocida, un cubo de 30 dejaría que unas pocas cuentas bloqueen a todos.
+- `tests/bot-whatsapp.test.ts`: UNA expectativa cambió (la que decía «Telegram todavía no → 422» ahora es 409: Telegram existe pero sin bot activo). El resto, intacto.
+
+**Gotchas**
+- `Notificacion.canal` ya es texto libre, pero la pantalla `/admin/avisos` (`src/pages/admin/Avisos.tsx`, fuera del alcance de esta tarea) tiene el tipo `'email' | 'whatsapp'`, su filtro no ofrece Telegram y la celda «Canal» saldría vacía para esas filas. Pendiente de una tarea de frontend.
+- Las pruebas del webhook de Telegram usan `esperarCanales()` (exportado por `routes/canalesWebhook.ts`) y esperan la auditoría con `esperar(...)` (`registrarAuditoria` se llama sin `await`).
+- `getMe`, `setWebhook`, `getFile` y la descarga están probados SÓLO contra un Telegram falso; falta la prueba con el bot real.
+- Quitar el bot no revoca los vínculos de las personas (quedan, mudos).
+
+**Próximos pasos**
+- Probar con el bot real (paso 5 de arriba) y revisar `getWebhookInfo` si algo no llega.
+- Mostrar «Telegram» en `/admin/avisos` (tipo, filtro y etiqueta).
+- Selector de empresa para residentes con unidades en varias administradoras (si aparece el caso).
+- Límites y cola por chat siguen en memoria del proceso (si hay varias réplicas, pasarlos a la base).
+
+---
+
 ## 2026-10-27 — Claude Code (Opus 5.5) — OCR como app propia de Coolify
 
 **Pedido de Miguel (textual):** «Pasa el ocr a su propia app en coolify y sigue con el bot de wasap».
