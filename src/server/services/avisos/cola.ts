@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { diasEntre, hoyLima } from '../../lib/fechas';
 import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, type ResultadoEnvio } from './canales';
+import { montoMoraTexto } from '../mora';
 import { fechaTexto, periodoTexto, plantilla, solesTexto, type TipoAviso } from './plantillas';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
@@ -45,9 +46,9 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
       },
     };
   }
-  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true } } } });
+  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true, mora_monto: true } } } });
   if (!recibo) return null;
-  const soloPendientes = tipo === 'por_vencer' || tipo === 'vencido';
+  const soloPendientes = tipo === 'por_vencer' || tipo === 'vence_hoy' || tipo === 'vencido';
   const cargos = await prisma.reciboConceptoUnidad.findMany({
     where: {
       AND: [
@@ -76,6 +77,8 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
       monto: solesTexto(total),
       vencimiento: fechaTexto(recibo.fecha_vencimiento),
       dias: diasEntre(hoyLima(ahora), recibo.fecha_vencimiento),
+      // Los recordatorios avisan de la mora (si el condominio la cobra) para que el vecino suba su voucher a tiempo.
+      ...((tipo === 'por_vencer' || tipo === 'vence_hoy') && recibo.complejo && new Prisma.Decimal(recibo.complejo.mora_monto).gt(0) ? { mora: montoMoraTexto(new Prisma.Decimal(recibo.complejo.mora_monto)) } : {}),
       condominio: recibo.complejo?.nombre ?? null,
       departamentos: [...porUnidad.values()].sort((a, b) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true })).map((x) => ({ codigo: x.codigo, torre: x.torre, monto: solesTexto(x.monto) })),
     },
@@ -127,20 +130,25 @@ export async function encolarReciboEmitido(reciboId: number, opts: { ahora?: Dat
   return creadas;
 }
 
-const DIAS_ANTES = 3;
+/** Días antes del vencimiento en que sale el recordatorio `por_vencer` (el otro es `vence_hoy`, el día mismo). */
+export const DIAS_ANTES = 2;
 /** Cuántos días atrás se sigue avisando un vencido (por si el planificador estuvo caído). */
 const DIAS_GRACIA_VENCIDO = 3;
 
 /**
- * Encola `por_vencer` (faltan ≤ 3 días) y `vencido` (venció ayer o hasta 3 días atrás) para los cargos pendientes.
- * Repetir la llamada no duplica nada. Un recibo emitido hoy no recibe `por_vencer` hoy: ya se avisó al emitirlo.
+ * Los recordatorios de pago de cada recibo y unidad SIN voucher son exactamente dos: `por_vencer` (faltan 2 días) y `vence_hoy` (el día del
+ * vencimiento), cada uno por correo y WhatsApp. Si el vecino ya subió su voucher (el cargo está `en_revision` o `pagado`) no se manda ninguno.
+ * Además `vencido` (venció ayer o hasta 3 días atrás). «Hoy» y «faltan 2 días» son del calendario de Lima (`America/Lima`, sin horario de verano).
+ * Repetir la llamada no duplica nada (una fila por usuario, canal, tipo y recibo). Un recibo emitido hoy no recibe recordatorios hoy: ya se avisó al emitirlo.
  */
 export async function encolarRecordatorios(ahora: Date): Promise<number> {
   const hoy = hoyLima(ahora);
   const dia = 86_400_000;
   let creadas = 0;
+  const delDia = (dias: number): Prisma.ReciboWhereInput => ({ fecha_vencimiento: { gte: new Date(hoy.getTime() + dias * dia), lt: new Date(hoy.getTime() + (dias + 1) * dia) }, fecha_emision: { lt: hoy } });
   const tandas: { tipo: TipoAviso; where: Prisma.ReciboWhereInput }[] = [
-    { tipo: 'por_vencer', where: { fecha_vencimiento: { gte: hoy, lte: new Date(hoy.getTime() + DIAS_ANTES * dia) }, fecha_emision: { lt: hoy } } },
+    { tipo: 'por_vencer', where: delDia(DIAS_ANTES) },
+    { tipo: 'vence_hoy', where: delDia(0) },
     { tipo: 'vencido', where: { fecha_vencimiento: { gte: new Date(hoy.getTime() - DIAS_GRACIA_VENCIDO * dia), lt: hoy } } },
   ];
   for (const { tipo, where } of tandas) {

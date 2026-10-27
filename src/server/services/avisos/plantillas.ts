@@ -1,6 +1,6 @@
 import { periodoTexto } from '../../lib/periodo';
 
-export const TIPOS = ['recibo_emitido', 'por_vencer', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida'] as const;
+export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
 export const ENLACE_APP = 'https://house.gargurevich.dev';
@@ -17,6 +17,8 @@ export interface DatosAviso {
   vencimiento: string;
   /** Días que faltan para vencer (negativo si ya venció). Sólo para `por_vencer`. */
   dias?: number;
+  /** Mora (ya formateada, p. ej. `S/ 20`) que se agrega al recibo del mes siguiente si no se paga a tiempo. Sin ella, el recordatorio no la menciona. */
+  mora?: string;
   /** Motivo del rechazo (`pago_rechazado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
   motivo?: string;
   /** Condominio del recibo: firma el mensaje. */
@@ -52,6 +54,9 @@ function departamentos(d: DatosAviso): string {
   return `Departamentos:\n${ds.map((x) => `- ${uno(x)}${x.monto ? `: ${x.monto}` : ''}`).join('\n')}\n\n`;
 }
 
+/** La mora se dice sólo en los recordatorios y sólo si el condominio la cobra. */
+const avisoMora = (d: DatosAviso) => (d.mora ? ` Si el pago llega después de esa fecha, se agregará una mora de ${d.mora} a tu recibo del mes siguiente.` : '');
+
 function cuando(dias: number | undefined): string {
   if (dias === undefined) return 'pronto';
   if (dias <= 0) return 'hoy';
@@ -72,7 +77,12 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
     case 'por_vencer':
       return {
         asunto: `Tu recibo de ${d.periodo} vence ${cuando(d.dias)}`,
-        cuerpo: `${hola}\n\nTe recordamos que tu recibo de ${d.periodo} vence ${cuando(d.dias)} (${d.vencimiento}). Tienes pendiente ${d.monto}.\n\n${departamentos(d)}Puedes pagarlo a tiempo desde ${ENLACE_APP}.\n\n${firma(d)}`,
+        cuerpo: `${hola}\n\nTe recordamos que tu recibo de ${d.periodo} vence ${cuando(d.dias)} (${d.vencimiento}). Tienes pendiente ${d.monto} y aún no recibimos tu voucher de pago.\n\n${departamentos(d)}Paga y sube tu voucher desde ${ENLACE_APP} a más tardar el ${d.vencimiento}.${avisoMora(d)}\n\n${firma(d)}`,
+      };
+    case 'vence_hoy':
+      return {
+        asunto: `Tu recibo de ${d.periodo} vence hoy`,
+        cuerpo: `${hola}\n\nHoy ${d.vencimiento} vence tu recibo de ${d.periodo} y aún no recibimos tu voucher de pago. Tienes pendiente ${d.monto}.\n\n${departamentos(d)}Paga y sube tu voucher hoy desde ${ENLACE_APP}.${avisoMora(d)}\n\n${firma(d)}`,
       };
     case 'vencido':
       return {

@@ -176,15 +176,16 @@ describe('recibo emitido', () => {
 describe('recordatorios por fecha (reloj inyectado)', () => {
   const ref = () => d.reciboFuturoA.fecha_vencimiento.getTime();
 
-  it('por_vencer: aparece 3 días antes, no antes, y repetir el planificador no duplica', async () => {
-    assert.equal(await encolarRecordatorios(new Date(ref() - 4 * DIA + 12 * 3600_000)), 0, '4 días antes aún no');
-    const tres = new Date(ref() - 3 * DIA + 12 * 3600_000);
-    assert.equal(await encolarRecordatorios(tres), 2, 'propietario e inquilino de A-101');
+  it('por_vencer: sale exactamente 2 días antes (ni 3 ni 1), y repetir el planificador no duplica', async () => {
+    assert.equal(await encolarRecordatorios(new Date(ref() - 3 * DIA + 12 * 3600_000)), 0, '3 días antes aún no');
+    const dos = new Date(ref() - 2 * DIA + 12 * 3600_000);
+    assert.equal(await encolarRecordatorios(dos), 2, 'propietario e inquilino de A-101');
     const n = await notifs();
     assert.ok(n.every((x) => x.tipo === 'por_vencer' && x.ref_id === d.reciboFuturoA.id));
-    assert.match(n[0]!.asunto, /vence en 3 días/);
-    assert.equal(await encolarRecordatorios(tres), 0);
-    assert.equal(await encolarRecordatorios(new Date(tres.getTime() + 2 * MIN)), 0);
+    assert.match(n[0]!.asunto, /vence en 2 días/);
+    assert.equal(await encolarRecordatorios(dos), 0);
+    assert.equal(await encolarRecordatorios(new Date(dos.getTime() + 2 * MIN)), 0);
+    assert.equal(await encolarRecordatorios(new Date(ref() - DIA + 12 * 3600_000)), 0, 'a 1 día ya no sale otro por_vencer');
     assert.equal((await notifs()).length, 2);
   });
 
@@ -209,12 +210,14 @@ describe('recordatorios por fecha (reloj inyectado)', () => {
     assert.deepEqual((await notifs({ tipo: 'vencido', ref_id: d.reciboVencidoA.id })).length, 0);
   });
 
-  it('un recibo emitido hoy no recibe por_vencer el mismo día (ya se avisó al emitirlo)', async () => {
+  it('un recibo emitido hoy no recibe por_vencer el mismo día (ya se avisó al emitirlo); el día del vencimiento sí recibe vence_hoy', async () => {
     const hoy = hoyLima();
     await prisma.recibo.update({ where: { id: d.reciboFuturoA.id }, data: { fecha_emision: hoy, fecha_vencimiento: new Date(hoy.getTime() + 2 * DIA) } });
     try {
       assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + 12 * 3600_000)), 0);
-      assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + DIA + 12 * 3600_000)), 2, 'al día siguiente sí');
+      assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + DIA + 12 * 3600_000)), 0, 'a 1 día no hay por_vencer');
+      assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + 2 * DIA + 12 * 3600_000)), 2, 'el día del vencimiento: vence_hoy');
+      assert.ok((await notifs()).every((x) => x.tipo === 'vence_hoy'));
     } finally {
       await prisma.recibo.update({ where: { id: d.reciboFuturoA.id }, data: { fecha_emision: new Date(hoy.getTime() - 60 * DIA), fecha_vencimiento: d.reciboFuturoA.fecha_vencimiento } });
     }

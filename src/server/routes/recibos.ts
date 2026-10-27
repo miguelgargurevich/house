@@ -17,6 +17,7 @@ import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
 import { detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
 import { detalleMantenimiento, pagarMantenimiento, type ComprobanteAdjunto } from '../services/mantenimiento';
 import { iniciarEvaluacion } from '../services/evaluacion';
+import { agregarMora, esConceptoMora, informeDeMora, type InformeMora, type UnidadConMora } from '../services/mora';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
@@ -111,16 +112,24 @@ async function planDeEmision(tx: Prisma.TransactionClient, complejoId: number, e
  * Emite el recibo del periodo: uno por torre (o el de la torre pedida), cada uno con sus conceptos y un cargo por cada unidad activa DE ESA
  * torre, todo en una sola transacción. Si alguno de esos recibos ya existe, no se crea ninguno (409 con la torre en el mensaje).
  */
-async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser) {
+async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser): Promise<{ ids: number[]; mora: InformeMora; avisosMora: string[] }> {
   const complejo = await assertRef(prisma.complejoHabitacional, d.complejo_id, scopeComplejos(user), 'complejo_id');
   const empresa_id = complejo!.empresa_id as number | null;
+  const montoMora = new Prisma.Decimal((complejo!.mora_monto as Prisma.Decimal | undefined) ?? 0);
   const ids = [...new Set(d.conceptos.map((c) => c.concepto_id))];
+  let multaPropia = false;
   if (ids.length) {
-    const validos = await prisma.concepto.count({
+    const validos = await prisma.concepto.findMany({
       where: { AND: [{ id: { in: ids } }, scopeConceptos(user), { activo: true }, { empresa_id }] },
+      select: { id: true, nombre: true },
     });
-    if (validos !== ids.length) throw invalid('Datos inválidos: conceptos: algún concepto no existe, está inactivo o es de otra empresa', { conceptos: 'Concepto inválido' });
+    if (validos.length !== ids.length) throw invalid('Datos inválidos: conceptos: algún concepto no existe, está inactivo o es de otra empresa', { conceptos: 'Concepto inválido' });
+    // Si quien emite ya incluye una multa con monto (> 0) para todas las unidades, se respeta y no se agrega mora encima.
+    const multas = new Set(validos.filter((c) => esConceptoMora(c.nombre)).map((c) => c.id));
+    multaPropia = d.conceptos.some((c) => multas.has(c.concepto_id) && new Prisma.Decimal(c.monto).gt(0));
   }
+  const moraPorRecibo: { reciboId: number; torre: string | null; unidades: UnidadConMora[] }[] = [];
+  const avisosMora: string[] = [];
   const emitidos = await prisma.$transaction(async (tx) => {
     await bloquearPeriodo(tx, d.complejo_id, d.mes, d.anio);
     const plan = await planDeEmision(tx, d.complejo_id, d.estructura_id);
@@ -158,6 +167,10 @@ async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser) {
         }
       }
       creados.push(recibo.id);
+      // Mora de S/ 20 (configurable) para quien pagó fuera de fecha el recibo del mes anterior de ESTA torre.
+      const mora = await agregarMora(tx, { reciboId: recibo.id, complejoId: d.complejo_id, estructuraId: g.estructuraId, empresaId: empresa_id, mes: d.mes, anio: d.anio, unidadIds: g.unidades, monto: montoMora, respetar: multaPropia ? new Set(g.unidades) : undefined });
+      moraPorRecibo.push({ reciboId: recibo.id, torre: g.torre, unidades: mora.unidades });
+      if (mora.aviso) avisosMora.push(g.torre ? `${g.torre}: ${mora.aviso}` : mora.aviso);
     }
     return creados;
   });
@@ -170,7 +183,7 @@ async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser) {
       console.error('[avisos] no se pudieron encolar los avisos del recibo', id, err instanceof Error ? err.message : 'error');
     }
   }
-  return emitidos;
+  return { ids: emitidos, mora: informeDeMora(montoMora, moraPorRecibo), avisosMora };
 }
 
 const crud = crudRouter({
@@ -205,7 +218,7 @@ const crud = crudRouter({
   format: formatearRecibos,
   // El POST real es `router.post('/')` (declarado antes que el CRUD: puede emitir varios recibos a la vez); esto es sólo el respaldo si se llegara aquí.
   async create(data, user) {
-    const [id] = await emitirRecibos(data as z.infer<typeof createSchema>, user);
+    const { ids: [id] } = await emitirRecibos(data as z.infer<typeof createSchema>, user);
     return { id: id! };
   },
   // Cambiar mes o año no puede dejar dos recibos de la misma torre en el mismo periodo.
@@ -252,13 +265,14 @@ function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
 router.post('/', requireRole('admin'), async (req, res) => {
   const user = currentUser(req);
   const d = parseBody(createSchema, req);
-  const ids = await emitirRecibos(d, user);
+  const { ids, mora, avisosMora } = await emitirRecibos(d, user);
   const filas = await prisma.recibo.findMany({ where: { id: { in: ids } }, include: includeRecibo, orderBy: { id: 'asc' } });
   const recibos = await formatearRecibos(filas);
   res.locals.entidad = 'recibo';
   res.locals.entidadId = ids[0];
-  res.locals.auditDetalle = { recibo_ids: ids, mes: d.mes, anio: d.anio, torres: filas.map((r) => r.estructura?.nombre ?? null) };
-  res.status(201).json({ ...recibos[0], recibos });
+  res.locals.auditDetalle = { recibo_ids: ids, mes: d.mes, anio: d.anio, torres: filas.map((r) => r.estructura?.nombre ?? null), mora: mora.cantidad };
+  // `mora`: a quiénes se les agregó la mora por pago fuera de fecha del mes anterior (mensaje listo para mostrar); `advertencias`: lo que no se pudo evaluar.
+  res.status(201).json({ ...recibos[0], recibos, mora, advertencias: avisosMora });
 });
 
 /**
@@ -485,6 +499,11 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   if (!columnasConcepto.length) throw invalid('No se encontraron conceptos en el encabezado', { archivo: 'Formato inválido' });
   const advertencias: string[] = duplicados.map((n) => `El concepto «${n}» está repetido en el encabezado: se usó sólo la primera columna`);
 
+  // La multa que ya trae el Excel de la administradora («MULTA PAGO FUERA DE FECHA…»): si una unidad la trae con monto > 0 se respeta y no se le suma mora encima.
+  const columnasMora = new Set(columnasConcepto.filter((c) => esConceptoMora(c.nombre)).map((c) => c.indice));
+  const montoMora = new Prisma.Decimal((complejo!.mora_monto as Prisma.Decimal | undefined) ?? 0);
+  const moraPorRecibo: { reciboId: number; torre: string | null; unidades: UnidadConMora[] }[] = [];
+
   const conceptosMap = new Map<string, number>();
   for (const { nombre } of columnasConcepto) {
     let c = await prisma.concepto.findFirst({ where: { nombre, empresa_id, activo: true } });
@@ -501,8 +520,9 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     const estructuras = await tx.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true } });
     const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, select: { id: true, codigo: true, estructura_id: true } });
     // Filas del Excel agrupadas por torre (sin torres en el condominio: un solo grupo, sin torre).
-    const grupos = new Map<number | null, { torre: string | null; cargos: { idx: number; unidadId: number; monto: Prisma.Decimal }[]; unidades: number }>();
-    if (!estructuras.length) grupos.set(null, { torre: null, cargos: [], unidades: 0 });
+    const grupos = new Map<number | null, { torre: string | null; cargos: { idx: number; unidadId: number; monto: Prisma.Decimal }[]; unidades: number; unidadIds: Set<number>; multa: Map<number, Prisma.Decimal> }>();
+    const nuevoGrupo = (torre: string | null) => ({ torre, cargos: [], unidades: 0, unidadIds: new Set<number>(), multa: new Map<number, Prisma.Decimal>() });
+    if (!estructuras.length) grupos.set(null, nuevoGrupo(null));
     for (let i = primeraFilaDatos; i < datos.length; i++) {
       const fila = datos[i];
       const block = normalizarTexto(fila[0]);
@@ -521,7 +541,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
           continue;
         }
         estructuraId = estructura.id;
-        if (!grupos.has(estructuraId)) grupos.set(estructuraId, { torre: estructura.nombre, cargos: [], unidades: 0 });
+        if (!grupos.has(estructuraId)) grupos.set(estructuraId, nuevoGrupo(estructura.nombre));
         candidatas = unidades.filter((un) => un.estructura_id === estructura.id);
       }
       const grupo = grupos.get(estructuraId)!;
@@ -532,12 +552,14 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
         continue;
       }
       const unidadId = coinciden[0].id;
+      grupo.unidadIds.add(unidadId);
       let suma = new Prisma.Decimal(0);
       for (const { indice: idx } of columnasConcepto) {
         const monto = limpiarMonto(fila[idx]);
         if (monto == null) continue;
         const redondeado = redondearMonto(monto);
         suma = suma.plus(redondeado);
+        if (columnasMora.has(idx)) grupo.multa.set(unidadId, (grupo.multa.get(unidadId) ?? new Prisma.Decimal(0)).plus(redondeado));
         // Un monto en S/ 0.00 no es una deuda: no se crea el cargo (nacería «pendiente» y nunca se pagaría). El concepto del recibo sí queda.
         if (new Prisma.Decimal(redondeado).isZero()) continue;
         grupo.cargos.push({ idx, unidadId, monto: new Prisma.Decimal(redondeado) });
@@ -551,6 +573,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     if (!grupos.size) throw invalid('El Excel no trae filas de ninguna torre del condominio', { archivo: 'Sin filas válidas' });
 
     const porTorre: { recibo_id: number; estructura_id: number | null; torre: string | null; accion: 'creado' | 'reemplazado'; unidades_procesadas: number }[] = [];
+    const avisosMora: string[] = [];
     const ordenados = [...grupos.entries()].sort(([a], [b]) => (a ?? 0) - (b ?? 0));
     for (const [estructuraId, g] of ordenados) {
       const donde = `${periodoTexto(mes, anio)}${g.torre ? ` · ${g.torre}` : ''}`;
@@ -585,9 +608,19 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
       if (g.cargos.length) {
         await tx.reciboConceptoUnidad.createMany({ data: g.cargos.map((c) => ({ recibo_concepto_id: ordenMap.get(c.idx)!, unidad_id: c.unidadId, monto: c.monto })) as never });
       }
+      // Mora de S/ 20 (configurable) para quien pagó fuera de fecha el recibo del mes anterior de ESTA torre. Se calcula al crear el recibo: reemplazarlo desde Excel
+      // borra sus cargos y vuelve a calcular, así que reimportar el mismo archivo nunca suma dos moras.
+      const columnaMora = columnasConcepto.find((c) => columnasMora.has(c.indice));
+      const mora = await agregarMora(tx, {
+        reciboId, complejoId, estructuraId, empresaId: empresa_id, mes, anio, unidadIds: [...g.unidadIds], monto: montoMora,
+        respetar: new Set([...g.multa].filter(([, m]) => m.gt(0)).map(([id]) => id)),
+        reciboConceptoId: columnaMora ? ordenMap.get(columnaMora.indice) : undefined,
+      });
+      moraPorRecibo.push({ reciboId, torre: g.torre, unidades: mora.unidades });
+      if (mora.aviso) avisosMora.push(g.torre ? `${g.torre}: ${mora.aviso}` : mora.aviso);
       porTorre.push({ recibo_id: reciboId, estructura_id: estructuraId, torre: g.torre, accion: mismo ? 'reemplazado' : 'creado', unidades_procesadas: g.unidades });
     }
-    return { porTorre, unidadesProcesadas: porTorre.reduce((s, r) => s + r.unidades_procesadas, 0), filasSaltadas, conceptosCreados: columnasConcepto.length };
+    return { porTorre, avisosMora, unidadesProcesadas: porTorre.reduce((s, r) => s + r.unidades_procesadas, 0), filasSaltadas, conceptosCreados: columnasConcepto.length };
   });
 
   for (const r of resultado.porTorre) {
@@ -603,7 +636,9 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   res.locals.entidad = 'recibo';
   res.locals.entidadId = primero.recibo_id;
   res.locals.accion = 'crear_desde_excel';
-  res.locals.auditDetalle = { recibo_ids: resultado.porTorre.map((r) => r.recibo_id), torres: resultado.porTorre.map((r) => r.torre), mes, anio };
+  const mora = informeDeMora(montoMora, moraPorRecibo);
+  advertencias.push(...resultado.avisosMora);
+  res.locals.auditDetalle = { recibo_ids: resultado.porTorre.map((r) => r.recibo_id), torres: resultado.porTorre.map((r) => r.torre), mes, anio, mora: mora.cantidad };
   res.status(201).json({
     recibo_id: primero.recibo_id,
     // Un recibo por torre: `recibo_id` es el de la primera; `recibos` trae todos con su torre y lo que se hizo con cada uno.
@@ -612,6 +647,8 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     unidades_procesadas: resultado.unidadesProcesadas,
     filas_saltadas: resultado.filasSaltadas,
     conceptos: resultado.conceptosCreados,
+    // `mora`: a quiénes se les agregó la mora por pago fuera de fecha del mes anterior, con el mensaje listo para mostrar.
+    mora,
     advertencias: advertencias.length > MAX_ADVERTENCIAS ? [...advertencias.slice(0, MAX_ADVERTENCIAS), `… y ${advertencias.length - MAX_ADVERTENCIAS} advertencias más`] : advertencias,
   });
 });

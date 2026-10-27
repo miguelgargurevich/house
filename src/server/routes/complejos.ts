@@ -7,6 +7,12 @@ import { empresaDe, scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { fechaSchema, idSchema, parseBody, parseId, texto, textoOpcional, z } from '../validation';
 
+/** Monto en soles con hasta 2 decimales; 0 es válido (el condominio no cobra mora). */
+const moraSchema = z
+  .union([z.number(), z.string()], { error: 'Monto inválido' })
+  .transform((v) => String(v).trim())
+  .pipe(z.string().regex(/^\d{1,6}(\.\d{1,2})?$/, 'Monto inválido (máx. 2 decimales)'));
+
 const base = z.object({
   nombre: texto(160),
   tipo: texto(40),
@@ -15,6 +21,8 @@ const base = z.object({
   empresa_id: idSchema.nullish(),
   /** Valida solo los pagos que la IA lee como coincidencia exacta. Sólo admin/superadmin editan complejos (la junta no). */
   validacion_automatica_ia: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
+  /** Mora (S/) que se agrega en el recibo del mes siguiente a quien pagó fuera de fecha; 0 = sin mora (por defecto 20.00). */
+  mora_monto: moraSchema.optional(),
 });
 
 const crud = crudRouter({

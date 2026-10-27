@@ -98,6 +98,8 @@ export const pagosRouter = crudRouter({
   async afterUpdate(existing, d) {
     const grupo = existing.grupo as string | null;
     if (grupo) await prisma.pago.updateMany({ where: { grupo }, data: d as Prisma.PagoUpdateManyMutationInput });
+    // Quien corrige la fecha a mano manda sobre la que leyó la IA del voucher: ninguna evaluación posterior la pisa (`services/fechaVoucher.ts`).
+    if (d.fecha_pago !== undefined) await prisma.pago.updateMany({ where: grupo ? { grupo } : { id: existing.id as number }, data: { fecha_origen: 'manual', fecha_declarada: null } });
   },
   // Al borrar un pago el cargo se reabre si deja de estar cubierto; borrar el de un mantenimiento borra todo el grupo.
   async afterDelete(existing) {

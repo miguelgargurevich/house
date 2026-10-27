@@ -13,6 +13,7 @@ import { registrarAuditoria } from '../middleware/audit';
 import { cabecerasDe, llaveroDeps } from './llavero';
 import { contrastar, type MedioParaContraste, MIN_OPERACION } from './contraste';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
+import { aplicarFechaDelVoucher, decidirFecha } from './fechaVoucher';
 import { avisarResultado, cerrarPago } from './validacionPago';
 
 /** Eslabones que se prueban como máximo por evaluación. */
@@ -224,7 +225,10 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
 
   const salida = await leerConRotacion({ mime: archivo.tipo_mime, base64: Buffer.from(archivo.datos).toString('base64') });
   if (salida.tipo === 'sin_clave') {
-    if (await final({ estado: 'no_disponible', error: salida.motivo, evaluada_at: evaluacionDeps.ahora() })) await auditar(pagoId, { estado: 'no_disponible', intento });
+    if (await final({ estado: 'no_disponible', error: salida.motivo, evaluada_at: evaluacionDeps.ahora() })) {
+      await auditar(pagoId, { estado: 'no_disponible', intento });
+      await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'No hay IA disponible para leer el comprobante' });
+    }
     return;
   }
   if (salida.tipo === 'fallo') {
@@ -233,7 +237,10 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
       if (await final({ error: MARCA_REINTENTO })) evaluacionDeps.programar(() => enSegundoPlano(() => reintentar(pagoId)), evaluacionDeps.reintentoMs);
       return;
     }
-    if (await final({ estado: 'error', error: salida.mensaje, evaluada_at: evaluacionDeps.ahora() })) await auditar(pagoId, { estado: 'error', intento });
+    if (await final({ estado: 'error', error: salida.mensaje, evaluada_at: evaluacionDeps.ahora() })) {
+      await auditar(pagoId, { estado: 'error', intento });
+      await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'La IA no pudo leer el comprobante' });
+    }
     return;
   }
 
@@ -242,6 +249,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
     // El texto del modelo no se guarda ni se obedece: si no valida contra el esquema estricto, es un error.
     if (await final({ estado: 'error', proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo, error: 'La respuesta de la IA no se pudo validar', evaluada_at: evaluacionDeps.ahora() })) {
       await auditar(pagoId, { estado: 'error', intento, proveedor: salida.eslabon.proveedor.id });
+      await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'La respuesta de la IA no se pudo validar' });
     }
     return;
   }
@@ -291,9 +299,13 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   if (!guardada) return; // reemplazaron el comprobante mientras tanto: la nueva evaluación manda
   await auditar(pagoId, { estado: 'completada', intento, proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo, veredicto: c.veredicto, confianza: c.confianza });
 
+  // La fecha del pago es la del voucher: se aplica ANTES de una posible validación automática (que guarda esa fecha en los cargos).
+  const decision = decidirFecha(lectura, { hoy: evaluacionDeps.ahora(), emision: recibo?.fecha_emision ?? hoyLima(pago.created_at) });
+  const fecha = await aplicarFechaDelVoucher(pagoId, decision);
   const duplicado = mismoArchivo != null || mismaOperacion != null;
-  if (c.veredicto === 'coincide' && c.confianza >= UMBRAL_AUTOVALIDACION && !duplicado && unidad?.complejo?.validacion_automatica_ia === true) {
-    await validarSola(pagoId, pago.recibo_concepto_unidad_id, pago.fecha_pago, sha, c.veredicto, c.confianza);
+  // Una fecha leída pero no creíble (futura o muy antigua) deja el pago para que una persona lo revise: la IA no lo valida sola.
+  if (c.veredicto === 'coincide' && c.confianza >= UMBRAL_AUTOVALIDACION && !duplicado && decision.tipo !== 'invalida' && unidad?.complejo?.validacion_automatica_ia === true) {
+    await validarSola(pagoId, pago.recibo_concepto_unidad_id, fecha?.fecha_pago ?? pago.fecha_pago, sha, c.veredicto, c.confianza);
   }
 }
 

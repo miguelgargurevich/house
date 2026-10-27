@@ -735,7 +735,7 @@ describe('validación automática', () => {
     assert.deepEqual(aud.detalle, { por: 'ia', veredicto: 'coincide', confianza: 1 });
     const avisos = await prisma.notificacion.findMany({ where: { tipo: 'pago_validado', ref_entidad: 'pago', ref_id: pagoId } });
     assert.deepEqual(avisos.map((a) => a.usuario_id).sort(), [d.propietario1.id, d.inquilino1.id].sort());
-    const vista = await llamar(base, 'GET', '/api/me/pagos', T.prop1);
+    const vista = await llamar(base, 'GET', '/api/me/pagos?pageSize=100', T.prop1); // la fecha del pago es la del voucher (sólo el día): ordena por detrás de los pagos con hora
     const mio = vista.body.items.find((x: { id: number }) => x.id === pagoId);
     assert.equal(mio.validado_por_ia, true);
     assert.deepEqual(mio.evaluacion, { estado: 'revisado' });

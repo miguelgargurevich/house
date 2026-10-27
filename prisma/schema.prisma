@@ -99,6 +99,8 @@ model ComplejoHabitacional {
   proveedores ProveedorComplejo[]
   /// Si está activa, un comprobante que la IA lee como «coincide» (confianza alta, sin duplicados) valida el pago solo. Nunca rechaza.
   validacion_automatica_ia Boolean @default(false)
+  /// Mora (S/) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
+  mora_monto  Decimal @default(20.00)
 }
 
 /// Quién administra un condominio y desde cuándo. Un solo contrato vigente (`fecha_fin` null) por condominio; `ComplejoHabitacional.empresa_id` es la empresa de ese contrato.
@@ -293,6 +295,10 @@ model Pago {
   grupo                     String?
   /// El pago que representa al grupo: lleva el comprobante y la evaluación de la IA (que compara contra el TOTAL del grupo).
   grupo_principal           Boolean               @default(false)
+  /// De dónde salió `fecha_pago`: declarada | voucher (leída por la IA) | no_leida | invalida (leída pero futura o muy antigua) | manual. Ver `services/fechaVoucher.ts`.
+  fecha_origen              String                @default("declarada")
+  /// La fecha que declaró quien registró el pago, guardada al aplicar la del voucher (para restaurarla si un voucher posterior no se lee).
+  fecha_declarada           DateTime?
 
   @@index([estado_validacion])
   @@index([grupo])

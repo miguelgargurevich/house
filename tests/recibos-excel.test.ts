@@ -13,6 +13,9 @@ import { buscarEstructura, codigoEncajaConDpto, leerCabecera, leerConceptos, nor
  * (docs/ejemplos/block-1-octubre.xlsx) y las funciones puras de src/server/lib/excelRecibos.ts.
  */
 
+/** Sin recibo del mes anterior no hay a quién cobrarle mora: la respuesta lo dice con la mora vacía (S/ 20 por defecto). */
+const SIN_MORA = { monto: '20.00', cantidad: 0, departamentos: [], mensaje: null };
+
 let base: string;
 let cerrar: () => Promise<void>;
 let d: Datos;
@@ -81,7 +84,7 @@ describe('POST /api/recibos/excel: lo que crea', () => {
     const r = await subir(T.adminA, aXlsx(filasValidas()), d.complejoA.id);
     assert.equal(r.status, 201, r.texto);
     assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, {
-      recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3,
+      recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3, mora: SIN_MORA,
       advertencias: ['B.1 Dpto. 999: no existe la unidad; se saltó la fila', 'B.9 Dpto. 101: el condominio no tiene la torre «B.9»; se saltó la fila'],
     });
 
@@ -130,7 +133,7 @@ describe('POST /api/recibos/excel: lo que crea', () => {
   it('un .xls (formato antiguo) da el mismo resultado', async () => {
     const r = await subir(T.adminA, aXlsx(filasValidas(), 'xls'), d.complejoA.id, 'recibos.xls');
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined, advertencias: undefined }, { recibo_id: undefined, recibos: undefined, advertencias: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3 });
+    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined, advertencias: undefined }, { recibo_id: undefined, recibos: undefined, advertencias: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3, mora: SIN_MORA });
     const { cargos, monto } = await estadoDelRecibo();
     assert.equal(cargos.length, 7);
     assert.equal(monto('B.1-101', 'ADMINISTRACION'), '123.69');
@@ -207,7 +210,7 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
   it('crea el recibo de octubre 2026 con vencimiento 2026-11-02, los 11 conceptos normalizados y sus cargos con montos redondeados', async () => {
     const r = await subir(T.adminA, readFileSync('docs/ejemplos/block-1-octubre.xlsx'), complejoId, 'block-1-octubre.xlsx');
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, { recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 32, filas_saltadas: 1, conceptos: 11, advertencias: [] });
+    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, { recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 32, filas_saltadas: 1, conceptos: 11, mora: SIN_MORA, advertencias: [] });
 
     const rec = await prisma.recibo.findFirstOrThrow({ where: { complejo_id: complejoId, mes: 10, anio: 2026 }, include: { reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: true } } } });
     assert.equal(rec.fecha_vencimiento.toISOString(), '2026-11-02T00:00:00.000Z');

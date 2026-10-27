@@ -137,7 +137,7 @@ export interface DetalleMantenimiento {
   unidad: { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null };
   propietario: { id: number; nombre: string } | null;
   inquilino: { id: number; nombre: string } | null;
-  conceptos: { cargo_id: number; concepto: string; es_recargo: boolean; monto: string; cobrado: string; en_revision: string; saldo: string }[];
+  conceptos: { cargo_id: number; concepto: string; es_recargo: boolean; monto: string; cobrado: string; en_revision: string; saldo: string; motivo: string | null }[];
   pagos: PagoDeMantenimiento[];
   medios_pago: unknown[];
 }
@@ -153,6 +153,8 @@ export interface PagoDeMantenimiento {
   metodo_pago: string | null;
   referencia: string | null;
   fecha_pago: Date;
+  /** De dónde salió `fecha_pago`: declarada | voucher | no_leida | invalida | manual (ver `services/fechaVoucher.ts`). */
+  fecha_origen: string;
   estado_validacion: string;
   motivo_rechazo: string | null;
   validado_por_ia: boolean;
@@ -191,7 +193,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     const base = { ...p, evaluacion: p.evaluacion };
     const vista = o.vista === 'completa' ? base : conVistaResidente(base);
     return {
-      id: p.id, grupo: p.grupo, suelto, monto: monto.toFixed(2), conceptos, metodo_pago: p.metodo_pago, referencia: p.referencia, fecha_pago: p.fecha_pago,
+      id: p.id, grupo: p.grupo, suelto, monto: monto.toFixed(2), conceptos, metodo_pago: p.metodo_pago, referencia: p.referencia, fecha_pago: p.fecha_pago, fecha_origen: p.fecha_origen,
       estado_validacion: p.estado_validacion, motivo_rechazo: p.motivo_rechazo, validado_por_ia: p.validado_por_ia,
       registrado_por: p.usuario ?? null, comprobante: p.comprobante, evaluacion: vista.evaluacion,
     };
@@ -236,7 +238,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     inquilino: unidad.inquilino,
     conceptos: cargos.map((c, i) => {
       const x = cuentaCargo(cuentas[i]);
-      return { cargo_id: c.id, concepto: c.reciboConcepto?.concepto?.nombre ?? 'Concepto', es_recargo: c.reciboConcepto?.es_recargo ?? false, monto: x.total.toFixed(2), cobrado: x.cobrado.toFixed(2), en_revision: x.en_revision.toFixed(2), saldo: x.saldo.toFixed(2) };
+      return { cargo_id: c.id, concepto: c.reciboConcepto?.concepto?.nombre ?? 'Concepto', es_recargo: c.reciboConcepto?.es_recargo ?? false, monto: x.total.toFixed(2), cobrado: x.cobrado.toFixed(2), en_revision: x.en_revision.toFixed(2), saldo: x.saldo.toFixed(2), motivo: c.observaciones ?? null };
     }),
     pagos,
     medios_pago: medios.map((m) => ({
