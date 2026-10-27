@@ -19,6 +19,10 @@ export interface DatosAviso {
   dias?: number;
   /** Motivo del rechazo (`pago_rechazado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
   motivo?: string;
+  /** Condominio del recibo: firma el mensaje. */
+  condominio?: string | null;
+  /** Departamentos a los que se refiere (con su torre): cada torre tiene su propio recibo y el vecino puede tener unidades en más de una. */
+  departamentos?: { codigo: string; torre: string | null; monto?: string }[];
 }
 
 export { periodoTexto };
@@ -36,7 +40,17 @@ export function fechaTexto(f: Date): string {
 }
 
 const primerNombre = (n: string) => n.trim().split(/\s+/)[0] || 'vecino';
-const cierre = `Entra a ${ENLACE_APP}.\n\n— Administración de tu condominio`;
+const firma = (d: DatosAviso) => `— Administración${d.condominio ? ` de ${d.condominio}` : ' de tu condominio'}`;
+const cierre = (d: DatosAviso) => `Entra a ${ENLACE_APP}.\n\n${firma(d)}`;
+
+/** «Departamento: B01-804 (Block 1).» o, con varios, uno por línea con su monto: nunca se fusionan unidades de torres distintas sin decirlo. */
+function departamentos(d: DatosAviso): string {
+  const ds = d.departamentos ?? [];
+  const uno = (x: { codigo: string; torre: string | null }) => `${x.codigo}${x.torre ? ` (${x.torre})` : ''}`;
+  if (ds.length === 0) return '';
+  if (ds.length === 1) return `Departamento: ${uno(ds[0]!)}.\n\n`;
+  return `Departamentos:\n${ds.map((x) => `- ${uno(x)}${x.monto ? `: ${x.monto}` : ''}`).join('\n')}\n\n`;
+}
 
 function cuando(dias: number | undefined): string {
   if (dias === undefined) return 'pronto';
@@ -53,27 +67,27 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
     case 'recibo_emitido':
       return {
         asunto: `Tu recibo de ${d.periodo} ya está disponible`,
-        cuerpo: `${hola}\n\nYa emitimos tu recibo de ${d.periodo}${d.concepto ? ` (${d.concepto})` : ''}. Total a pagar: ${d.monto}. Vence el ${d.vencimiento}.\n\nRevísalo y págalo desde ${ENLACE_APP}.\n\n— Administración de tu condominio`,
+        cuerpo: `${hola}\n\nYa emitimos tu recibo de ${d.periodo}${d.concepto ? ` (${d.concepto})` : ''}. Total a pagar: ${d.monto}. Vence el ${d.vencimiento}.\n\n${departamentos(d)}Revísalo y págalo desde ${ENLACE_APP}.\n\n${firma(d)}`,
       };
     case 'por_vencer':
       return {
         asunto: `Tu recibo de ${d.periodo} vence ${cuando(d.dias)}`,
-        cuerpo: `${hola}\n\nTe recordamos que tu recibo de ${d.periodo} vence ${cuando(d.dias)} (${d.vencimiento}). Tienes pendiente ${d.monto}.\n\nPuedes pagarlo a tiempo desde ${ENLACE_APP}.\n\n— Administración de tu condominio`,
+        cuerpo: `${hola}\n\nTe recordamos que tu recibo de ${d.periodo} vence ${cuando(d.dias)} (${d.vencimiento}). Tienes pendiente ${d.monto}.\n\n${departamentos(d)}Puedes pagarlo a tiempo desde ${ENLACE_APP}.\n\n${firma(d)}`,
       };
     case 'vencido':
       return {
         asunto: `Tu recibo de ${d.periodo} está vencido`,
-        cuerpo: `${hola}\n\nTu recibo de ${d.periodo} venció el ${d.vencimiento} y aún tienes pendiente ${d.monto}. Regulariza tu pago cuanto antes para evitar recargos.\n\n${cierre}`,
+        cuerpo: `${hola}\n\nTu recibo de ${d.periodo} venció el ${d.vencimiento} y aún tienes pendiente ${d.monto}. Regulariza tu pago cuanto antes para evitar recargos.\n\n${departamentos(d)}${cierre(d)}`,
       };
     case 'pago_validado':
       return {
         asunto: `Validamos tu pago de ${d.periodo}`,
-        cuerpo: `${hola}\n\nValidamos tu pago de ${d.monto}${por} (${d.periodo}). ¡Gracias por estar al día!\n\n${cierre}`,
+        cuerpo: `${hola}\n\nValidamos tu pago de ${d.monto}${por} (${d.periodo}). ¡Gracias por estar al día!\n\n${departamentos(d)}${cierre(d)}`,
       };
     case 'pago_rechazado':
       return {
         asunto: `No pudimos validar tu pago de ${d.periodo}`,
-        cuerpo: `${hola}\n\nNo pudimos validar tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Revisa el detalle y vuelve a enviar tu comprobante.\n\n${cierre}`,
+        cuerpo: `${hola}\n\nNo pudimos validar tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Revisa el detalle y vuelve a enviar tu comprobante.\n\n${departamentos(d)}${cierre(d)}`,
       };
     case 'ia_caida':
       return {

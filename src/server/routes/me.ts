@@ -73,7 +73,7 @@ export function meRouter(limitePassword: RequestHandler) {
         where,
         orderBy: [orderBy, { id: 'asc' }],
         ...page(q),
-        include: { complejo: { select: { id: true, nombre: true, direccion: true } }, propietario: { select: { id: true, nombre: true } }, inquilino: { select: { id: true, nombre: true } } },
+        include: { complejo: { select: { id: true, nombre: true, direccion: true } }, estructura: { select: { id: true, nombre: true } }, propietario: { select: { id: true, nombre: true } }, inquilino: { select: { id: true, nombre: true } } },
       }),
     ]);
     res.json({ items, total, page: q.page, pageSize: q.pageSize });

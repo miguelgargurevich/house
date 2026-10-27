@@ -29,7 +29,7 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
     if (cargoId == null) return null;
     const c = await prisma.reciboConceptoUnidad.findUnique({
       where: { id: cargoId },
-      select: { monto: true, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
+      select: { monto: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
     });
     const recibo = c?.reciboConcepto?.recibo;
     if (!c || !recibo) return null;
@@ -40,10 +40,12 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
         concepto: c.reciboConcepto?.concepto?.nombre,
         monto: solesTexto(c.monto),
         vencimiento: fechaTexto(recibo.fecha_vencimiento),
+        condominio: c.unidad?.complejo?.nombre ?? null,
+        departamentos: c.unidad ? [{ codigo: c.unidad.codigo, torre: c.unidad.estructura?.nombre ?? null }] : [],
       },
     };
   }
-  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true } });
+  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true } } } });
   if (!recibo) return null;
   const soloPendientes = tipo === 'por_vencer' || tipo === 'vencido';
   const cargos = await prisma.reciboConceptoUnidad.findMany({
@@ -54,10 +56,17 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
         soloPendientes ? cargoPendiente : {},
       ],
     },
-    select: { monto: true, reciboConcepto: { select: { concepto: { select: { nombre: true } } } } },
+    select: { monto: true, unidad: { select: { id: true, codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } } } } },
   });
   if (!cargos.length) return null;
   const total = cargos.reduce((s, c) => s.plus(c.monto), new Prisma.Decimal(0));
+  // Total por departamento: cada torre tiene su recibo, pero un recibo viejo (o un vecino con dos departamentos) puede juntar varios; se dicen uno por uno.
+  const porUnidad = new Map<number, { codigo: string; torre: string | null; monto: Prisma.Decimal }>();
+  for (const c of cargos) {
+    if (!c.unidad) continue;
+    const x = porUnidad.get(c.unidad.id) ?? { codigo: c.unidad.codigo, torre: c.unidad.estructura?.nombre ?? null, monto: new Prisma.Decimal(0) };
+    porUnidad.set(c.unidad.id, { ...x, monto: x.monto.plus(c.monto) });
+  }
   const conceptos = [...new Set(cargos.map((c) => c.reciboConcepto?.concepto?.nombre).filter((n): n is string => !!n))];
   return {
     datos: {
@@ -67,6 +76,8 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
       monto: solesTexto(total),
       vencimiento: fechaTexto(recibo.fecha_vencimiento),
       dias: diasEntre(hoyLima(ahora), recibo.fecha_vencimiento),
+      condominio: recibo.complejo?.nombre ?? null,
+      departamentos: [...porUnidad.values()].sort((a, b) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true })).map((x) => ({ codigo: x.codigo, torre: x.torre, monto: solesTexto(x.monto) })),
     },
   };
 }

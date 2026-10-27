@@ -125,7 +125,7 @@ describe('dashboard por rol', () => {
   it('admin: forma del resumen con sus números y sólo su empresa', async () => {
     const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.adminB);
     assert.equal(r.status, 200);
-    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'morosos', 'pagos_por_validar', 'recibos_emitidos', 'tareas_abiertas', 'unidades_total']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'morosos', 'pagos_por_validar', 'por_torre', 'recibos_emitidos', 'recibos_total', 'tareas_abiertas', 'unidades_total']);
     assert.equal(r.body.recibos_emitidos, 1);
     assert.equal(r.body.cargos_pendientes_monto, '90.00');
     assert.equal(r.body.morosos, 1);
@@ -270,13 +270,13 @@ describe('recibos y cargos (admin)', () => {
     assert.equal(r.status, 200);
     const a101 = r.body.items.find((x: { unidad: { codigo: string } }) => x.unidad.codigo === 'A-101');
     assert.ok(a101);
-    assert.deepEqual(Object.keys(a101).sort(), ['cargos_vencidos', 'deuda_total', 'dias_max_atraso', 'estructura', 'propietario', 'unidad']);
+    assert.deepEqual(Object.keys(a101).sort(), ['cargos_vencidos', 'complejo', 'deuda_total', 'dias_max_atraso', 'estructura', 'propietario', 'unidad']);
     assert.equal(a101.deuda_total, '150.00');
     assert.equal(a101.cargos_vencidos, 1);
     assert.equal(a101.dias_max_atraso, 30);
     assert.deepEqual(a101.propietario, { id: d.propietario1.id, nombre: 'Propietario 1' });
     assert.ok(!r.body.items.some((x: { unidad: { codigo: string } }) => x.unidad.codigo === 'B-101'));
-    assert.deepEqual(Object.keys(r.body).sort(), ['items', 'page', 'pageSize', 'total']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['items', 'page', 'pageSize', 'resumen', 'total']);
     const global = await llamar(base, 'GET', '/api/reportes/morosidad?orden=codigo:desc&pageSize=1', T.super);
     assert.equal(global.body.items.length, 1);
     assert.equal(global.body.items[0].unidad.codigo, 'B-101');
