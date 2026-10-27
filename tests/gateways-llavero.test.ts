@@ -608,7 +608,7 @@ describe('migración del dashboardia fijo → gateway «Dashboard IA»', () => {
     const r = await migrarDashboardia({ seco: false });
     assert.deepEqual(r, { seco: false, dominio: 'creado', gateway: 'creado', claves_migradas: 1, claves_ya_en_gateway: 0 });
     const g = await prisma.gatewayIA.findFirstOrThrow();
-    assert.deepEqual([g.nombre, g.base_url, g.modelo_por_defecto, g.modelo_vision, g.vision, g.prioridad, g.habilitado], ['Dashboard IA', URL_DASHBOARDIA, 'qwen3-vl-flash', 'qwen3-vl-flash', true, 2, true]);
+    assert.deepEqual([g.nombre, g.base_url, g.modelo_por_defecto, g.modelo_vision, g.vision, g.prioridad, g.habilitado], ['Dashboard IA', URL_DASHBOARDIA, 'nvidia/nemotron-3.5-super-vl-120b-a12b', 'nvidia/nemotron-3.5-super-vl-120b-a12b', true, 2, true]);
     assert.ok(await prisma.dominioGatewayPermitido.findUnique({ where: { dominio: DOMINIO_DASHBOARDIA } }));
     const c = await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: legada.id } });
     assert.deepEqual([c.proveedor, c.gateway_id, c.etiqueta, c.habilitada, c.reserva, c.estado, c.modelo, c.ultimos4, c.ultimo_uso_at?.toISOString()], ['gateway', g.id, `g${g.id}:principal`, false, true, 'ok', 'qwen3-vl-flash', KEY.slice(-4), ULTIMO_USO.toISOString()]);
