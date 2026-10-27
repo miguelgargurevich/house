@@ -11,7 +11,6 @@ export function useOpciones(path: string | null) {
 }
 
 export const TIPOS_COMPLEJO = ['Edificio', 'Condominio', 'Conjunto residencial'] as const;
-export const TIPOS_UNIDAD = ['Departamento', 'Casa', 'Local', 'Estacionamiento', 'Depósito'] as const;
 export const TIPOS_MONTO = [
   { value: 'fijo', label: 'Fijo' },
   { value: 'variable', label: 'Variable' },

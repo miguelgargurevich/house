@@ -9,6 +9,7 @@ import { FiltroSelect } from '../catalogo/FiltroSelect';
 import { useOpciones } from '../catalogo/opciones';
 import { ModalDeUnidad } from './ModalDeUnidad';
 import { ESTADOS_UNIDAD, nombreTorre, type FilaUnidad, type Torre } from './tipos';
+import { etiquetaTipoUnidad } from './tipoUnidad';
 
 interface Props {
   /** Condominio fijo: la lista muestra sólo sus unidades y no ofrece el filtro de condominio. */
@@ -46,9 +47,9 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
 
   const columns: Column<FilaUnidad>[] = [
     { key: 'codigo', header: 'Código', cell: f => (
-      <div className="min-w-0"><p className="font-medium num">{f.codigo}</p><p className="truncate text-xs text-muted sm:hidden">{f.tipo}{f.estructura ? ` · ${nombreTorre(f.estructura)}` : ''}</p></div>
+      <div className="min-w-0"><p className="font-medium num">{f.codigo}</p><p className="truncate text-xs text-muted sm:hidden">{etiquetaTipoUnidad(f.tipo)}{f.estructura ? ` · ${nombreTorre(f.estructura)}` : ''}</p></div>
     ) },
-    { key: 'tipo', header: 'Tipo', hideBelow: 'sm', cell: f => f.tipo },
+    { key: 'tipo', header: 'Tipo', hideBelow: 'sm', cell: f => etiquetaTipoUnidad(f.tipo) },
     { key: 'torre', header: 'Torre', hideBelow: 'sm', cell: f => f.estructura ? nombreTorre(f.estructura) : <span className="text-muted">Sin torre</span> },
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: f => f.complejo?.nombre ?? '—' },
     { key: 'propietario', header: 'Propietario', hideBelow: 'md', cell: f => f.propietario?.nombre ?? <span className="text-muted">Sin asignar</span> },

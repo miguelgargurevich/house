@@ -4,6 +4,30 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Haiku 5.5) — Tipo de unidad: al editar ya no sale vacío
+
+**Pedido de Miguel:** «en editar unidad el tipo está vacío, debió marcar departamento» → «Sí, arregla las tres» (esta sesión: el TIPO de unidad). Rama `fix/tipo-unidad` (worktree `.claude/worktrees/tipo-unidad`, sobre `adb0bc0`); sin push (lo sube la sesión principal con OK de Miguel).
+
+**Causa:** el formulario usaba `Departamento`, `Depósito`… con mayúscula, pero la base guarda `departamento` (minúscula, como el seed). Al editar, el `<select>` no encontraba el valor y quedaba vacío.
+
+**Qué se hizo**
+- `src/pages/admin/_parts/unidades/tipoUnidad.ts` (nuevo, módulo puro): `TIPOS_UNIDAD` canónico (`departamento`, `casa`, `local`, `estacionamiento`, `deposito`) con etiquetas («Depósito»), `normalizarTipoUnidad` y `etiquetaTipoUnidad`.
+- `ModalDeUnidad.tsx`: al editar normaliza el tipo antes de preseleccionarlo; alta nace con `departamento`; si llega un tipo viejo fuera de la lista, aparece como opción para no dejar el select vacío.
+- `ListaDeUnidades.tsx`: columna y línea del móvil muestran la etiqueta.
+- `src/server/routes/unidades.ts`: `tipo` pasa por normalización (minúscula, sin tilde, recorte) y `z.enum`; fuera de la lista → 422 `campos.tipo` «Tipo inválido (departamento, casa, …)». Sin cambios de esquema ni migración de datos.
+- `catalogo/opciones.ts`: se quitó el `TIPOS_UNIDAD` viejo (su único consumidor era el modal).
+
+**Verificación**
+- `npm test` (base `house_test_tipo`): 855 pruebas, 855 pasan, 0 fallan. `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build`: exit 0.
+- Pruebas nuevas: `tests/unidades-tipo.test.ts` (HTTP: «Departamento», «Depósito», «  CASA », edición, «Oficina» y «Bodega» → 422) y `tests/unidades-tipo-ui.test.ts` (módulo puro + fuente del formulario y de la lista).
+- Mutaciones (archivo copiado al scratchpad, restaurado con `cp` + `cmp`), todas en rojo: quitar la normalización del servidor (4 fallos); normalizar como identidad (1 fallo); el modal sin `normalizarTipoUnidad` al editar (1 fallo).
+
+**Próximos pasos / gotchas**
+- No hay migración: las unidades viejas siguen guardadas con su capitalización y la lista las muestra bien vía `etiquetaTipoUnidad`. Si una unidad vieja tiene un tipo fuera de la lista (p. ej. «Oficina»), al guardarla sin cambiar el tipo el servidor responderá 422: la administradora debe elegir uno de la lista.
+- Las otras dos sesiones (impresión de recibo y voucher de pago) no se tocaron.
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5) — Medios de pago ampliados: más entidades, moneda, avisos de formato y cuenta recaudadora
 
 **Pedido de Miguel:** «considera otros bancos y otros formatos de cuenta» → «Sí, constrúyelo con la propuesta completa: más entidades con «Otro» con nombre, moneda, formatos por banco como aviso, CCI con código de banco y la cuenta recaudadora». Rama `feat/medios-ampliados` (sobre `322538b`); sin push (lo sube la sesión principal con OK de Miguel).
