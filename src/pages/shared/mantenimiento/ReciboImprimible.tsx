@@ -6,7 +6,9 @@ import type { DetalleMantenimiento, MedioPagoMant } from './tipos';
 const PRINT_CSS = '@media print{body *{visibility:hidden}#recibo-imprimible,#recibo-imprimible *{visibility:visible}#recibo-imprimible{position:absolute;left:0;top:0;width:100%;padding:0}@page{margin:16mm}}';
 
 function lineaMedio(m: MedioPagoMant): string {
-  if (m.tipo === 'banco') return `${m.banco ?? 'Banco'} · cuenta ${m.tipo_cuenta === 'corriente' ? 'corriente' : 'de ahorros'} ${m.numero_cuenta ?? ''}${m.cci ? ` · CCI ${m.cci}` : ''} · a nombre de ${m.titular}`;
+  const entidad = m.entidad ?? m.banco ?? 'Banco';
+  if (m.tipo === 'banco') return `${entidad} · cuenta ${m.tipo_cuenta === 'corriente' ? 'corriente' : 'de ahorros'} en ${m.moneda_nombre.toLowerCase()} ${m.numero_cuenta ?? ''}${m.cci ? ` · CCI ${m.cci}` : ''} · a nombre de ${m.titular}`;
+  if (m.tipo === 'recaudacion') return `${m.instruccion ?? `Pago de servicios en ${entidad}`} · a nombre de ${m.titular}`;
   return `${m.tipo === 'yape' ? 'Yape' : 'Plin'} ${m.celular ?? ''} · a nombre de ${m.titular}`;
 }
 

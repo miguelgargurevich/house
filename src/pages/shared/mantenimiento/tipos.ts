@@ -26,9 +26,17 @@ export interface Mantenimiento {
 
 export interface MedioPagoMant {
   id: number;
-  tipo: 'banco' | 'yape' | 'plin';
+  tipo: 'banco' | 'yape' | 'plin' | 'recaudacion';
   ambito: 'block' | 'condominio';
   banco: string | null;
+  /** Nombre real de la entidad (si es «Otro», el que escribió la junta). */
+  entidad: string | null;
+  moneda: 'PEN' | 'USD';
+  /** «Soles» o «Dólares». */
+  moneda_nombre: string;
+  servicio: string | null;
+  /** Recaudación: «Paga desde Pago de servicios en … → …, con el código: …» (con el código de TU unidad). */
+  instruccion: string | null;
   tipo_cuenta: 'ahorros' | 'corriente' | null;
   numero_cuenta: string | null;
   cci: string | null;

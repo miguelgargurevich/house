@@ -4,6 +4,35 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5) — Medios de pago ampliados: más entidades, moneda, avisos de formato y cuenta recaudadora
+
+**Pedido de Miguel:** «considera otros bancos y otros formatos de cuenta» → «Sí, constrúyelo con la propuesta completa: más entidades con «Otro» con nombre, moneda, formatos por banco como aviso, CCI con código de banco y la cuenta recaudadora». Rama `feat/medios-ampliados` (sobre `322538b`); sin push (lo sube la sesión principal con OK de Miguel).
+
+**Qué se hizo**
+- **Esquema** (`prisma/schema.prisma`, sólo columnas nuevas con default o nullable): `MedioPago.banco_otro`, `moneda` (`PEN` por defecto), `servicio`, `codigo_pago`, `codigo_instruccion`. `tipo` ahora admite `recaudacion`. Prod aplica `db push` al arrancar: las filas existentes quedan en soles y sin nombre de «Otro».
+- **Servicio** (`services/mediosPago.ts`): `ENTIDADES` (29: 16 bancos, 10 cajas municipales, 2 financieras y «Otro»; con `grupo`, largos habituales y `codigo_cci`) es la ÚNICA fuente; `GET /api/medios-pago/catalogo` la sirve al formulario (el duplicado `BANCOS` del frontend se eliminó). Reglas: número de cuenta 6–25 (dígitos y guiones, ≥ 6 dígitos); CCI sigue en 20 dígitos exactos; `Otro` exige `banco_otro` (≤ 60) al crear y al editar (422 `campos.banco_otro`; un medio viejo se LEE igual como «Otra entidad»); `moneda` `PEN|USD` (omitida al editar = se conserva); recaudación = entidad + `servicio` (≤ 80) + `codigo_pago` (`departamento|dni|otro`) + `codigo_instruccion` (≤ 120, obligatoria con `otro`); sin número, CCI ni celular.
+- **Vecino** (`GET /api/me/medios-pago`, detalle del mantenimiento/recibo, asistente y herramientas `medios_para_pagar`/`medios_de_pago`): `entidad` real, `moneda`/`moneda_nombre`, `servicio` e `instruccion` («Paga desde Pago de servicios en BCP → <servicio>, con el código: B01-804»; la arma el CÓDIGO con el código real de la unidad). Textos de la junta limpios (`limpiarTexto`/`dato`) antes de ir al modelo.
+- **Auditoría**: recaudación guarda `{tipo, complejo_id, estructura_id, entidad, servicio}`; el resto, `ultimos4` como siempre.
+- **IA de comprobantes** (`contraste.ts`): una recaudación se compara por el nombre del servicio (o el titular), nunca por la entidad sola; si no coincide el destino queda «no comparable» (`null`) con una alerta, el veredicto es `revisar`: no valida solo ni rechaza.
+- **Frontend**: `avisos.ts` (lógica pura: `avisoLargoCuenta`, `avisoCci`; sólo avisan, nunca bloquean); `MedioFormModal.tsx` (entidades en `<optgroup>`, nombre si «Otro», moneda, avisos, formulario de recaudación; sin QR para recaudación); `ComoPagar.tsx` y `ReciboImprimible.tsx` muestran entidad real, moneda e instrucción.
+- Docs: `API-CONTRATO.md` y `SEGURIDAD.md`.
+
+**Verificación**
+- `npm test` (base `house_test`): 836 pruebas, 836 pasan, 0 fallan. `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build`: exit 0; eslint de los archivos tocados limpio.
+- 21 mutaciones (archivo copiado al scratchpad y devuelto con `cp` + `cmp`), todas en rojo: regex de cuenta, «Otro» sin nombre, código de unidad fijo, instrucción de `otro`, moneda pisada al editar, servicio opcional, CCI de 19, nombre real, auditoría de recaudación, código ausente en el vecino y en el recibo, contraste (no comparable / siempre coincide), herramientas y asistente (sin instrucción / sin moneda / sin nombre real), avisos de largo y de CCI, pantalla del vecino, y scope del medio (otro ámbito edita).
+
+**Próximos pasos / decisiones**
+- `src/pages/admin/MediosPago.tsx` (la LISTA de la administradora) NO estaba en el alcance y no se tocó: en la columna del tipo muestra `m.banco` (un medio «Otro» se ve «Otro», no su nombre) y una recaudación muestra «Con/Sin código QR» en vez de entidad/servicio. Cambio chico: usar `m.entidad` y, si `m.tipo === 'recaudacion'`, `m.servicio`. `datoPrincipal` (tipos.ts) ya devuelve el servicio en la columna «Cuenta o celular».
+- Miguel debe probar el formulario y «Cómo pagar» en el navegador (las pruebas de pantalla son de fuente: fijan estructura y textos, no pintan).
+- Con una cuenta recaudadora activa, un comprobante cuyo destino no coincide queda «no comparable» aunque haya otras cuentas (no se rechaza): decisión para no dar por distinto un comprobante de «Pago de servicios» que no trae el nombre del servicio.
+- `moneda` sólo aplica a `banco`; yape/plin/recaudación se guardan en `PEN`. Nada se convierte: si el recibo es en soles y la cuenta en dólares, el vecino ve el aviso en «Cómo pagar».
+
+**Gotchas**
+- El código de `departamento` sale de la unidad del cargo (vecino y recibo); en el asistente, de la primera unidad del vecino que cae en el ámbito del medio; en `medios_de_pago` (gestión) no hay unidad y se lee «el código de tu departamento».
+- Las pruebas de `medios-pago.test.ts` que usan a `prop2` tras las de «cargo en la junta» deben iniciar sesión de nuevo (esas pruebas cierran su sesión).
+
+---
+
 ## 2026-10-26 — Claude Code (Haiku 5.5) — Mostrar las advertencias del Excel en la ventana de subida
 
 **Pedido de Miguel:** «hazlo así (mostrar las advertencias del Excel en la ventana de subida)». Rama `feat/avisos-excel` (sobre `faedbfe`), sólo frontend; sin push (lo sube la sesión principal con OK de Miguel).

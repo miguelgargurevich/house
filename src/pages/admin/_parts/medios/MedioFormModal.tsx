@@ -6,7 +6,8 @@ import { Alert, Button, Input, Modal, Select, useToast } from '../../../../ui';
 import { Interruptor } from '../catalogo/Interruptor';
 import { ACCEPT_QR, errorDeQr, subirQr } from './qr';
 import { QrImagen } from './QrMiniatura';
-import { BANCOS, TIPOS, nombreTorre } from './tipos';
+import { avisoCci, avisoLargoCuenta } from './avisos';
+import { CODIGOS_PAGO, ENTIDAD_OTRA, MONEDAS, TIPOS, nombreTorre, useCatalogo } from './tipos';
 import type { Ambitos, Medio, TipoMedio } from './tipos';
 
 interface Form {
@@ -14,10 +15,16 @@ interface Form {
   complejo_id: string;
   /** '' = todo el condominio. */
   estructura_id: string;
+  /** La entidad (también en una cuenta recaudadora). */
   banco: string;
+  banco_otro: string;
   tipo_cuenta: string;
   numero_cuenta: string;
   cci: string;
+  moneda: string;
+  servicio: string;
+  codigo_pago: string;
+  codigo_instruccion: string;
   documento_titular: string;
   celular: string;
   titular: string;
@@ -39,7 +46,7 @@ const vacio = (inicial: Props['inicial'], ambitos: Ambitos): Form => {
   const complejo = inicial?.complejo_id || (unico ? String(unico.id) : '');
   const bloques = ambitos.complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
   const estructura = ambitos.fijo ? String(bloques[0]?.id ?? '') : /^\d+$/.test(inicial?.estructura_id ?? '') ? inicial!.estructura_id : '';
-  return { tipo: 'banco', complejo_id: complejo, estructura_id: estructura, banco: 'BCP', tipo_cuenta: 'ahorros', numero_cuenta: '', cci: '', documento_titular: '', celular: '', titular: '', activo: true };
+  return { tipo: 'banco', complejo_id: complejo, estructura_id: estructura, banco: 'BCP', banco_otro: '', tipo_cuenta: 'ahorros', numero_cuenta: '', cci: '', moneda: 'PEN', servicio: '', codigo_pago: 'departamento', codigo_instruccion: '', documento_titular: '', celular: '', titular: '', activo: true };
 };
 
 export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Props) {
@@ -57,7 +64,8 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
       ? vacio(inicial, ambitos)
       : {
           tipo: medio.tipo, complejo_id: String(medio.complejo_id), estructura_id: medio.estructura_id ? String(medio.estructura_id) : '',
-          banco: medio.banco ?? 'BCP', tipo_cuenta: medio.tipo_cuenta ?? 'ahorros', numero_cuenta: medio.numero_cuenta ?? '', cci: medio.cci ?? '',
+          banco: medio.banco ?? 'BCP', banco_otro: medio.banco_otro ?? '', tipo_cuenta: medio.tipo_cuenta ?? 'ahorros', numero_cuenta: medio.numero_cuenta ?? '', cci: medio.cci ?? '',
+          moneda: medio.moneda ?? 'PEN', servicio: medio.servicio ?? '', codigo_pago: medio.codigo_pago ?? 'departamento', codigo_instruccion: medio.codigo_instruccion ?? '',
           documento_titular: medio.documento_titular ?? '', celular: medio.celular ?? '', titular: medio.titular, activo: medio.activo,
         });
     setArchivo(null); setErrorArchivo(undefined); setQuitarQr(false);
@@ -73,6 +81,14 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
 
   const tipo = watch('tipo');
   const complejoId = watch('complejo_id');
+  const banco = watch('banco');
+  const codigoPago = watch('codigo_pago');
+  const catalogo = useCatalogo().data;
+  const entidades = useMemo(() => catalogo?.grupos.flatMap(g => g.entidades) ?? [], [catalogo]);
+  const reglas = entidades.find(x => x.nombre === banco);
+  // Avisos, nunca errores: el servidor sólo exige 6 a 25 caracteres y un CCI de 20 dígitos.
+  const avisoLargo = tipo === 'banco' ? avisoLargoCuenta(reglas, watch('tipo_cuenta'), watch('numero_cuenta') ?? '') : null;
+  const avisoCodigo = tipo === 'banco' ? avisoCci(reglas, watch('cci') ?? '', entidades) : null;
   const bloques = useMemo(() => ambitos.complejos.find(c => String(c.id) === complejoId)?.estructuras ?? [], [ambitos, complejoId]);
   const unCondominio = ambitos.complejos.length === 1;
 
@@ -86,9 +102,12 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
   }
 
   async function guardar(v: Form) {
+    const otra = v.banco === ENTIDAD_OTRA ? v.banco_otro.trim() : null;
     const datos = v.tipo === 'banco'
-      ? { banco: v.banco, tipo_cuenta: v.tipo_cuenta, numero_cuenta: v.numero_cuenta.trim(), cci: v.cci.trim() || null, documento_titular: v.documento_titular.trim() || null }
-      : { celular: v.celular.trim() };
+      ? { banco: v.banco, banco_otro: otra, tipo_cuenta: v.tipo_cuenta, numero_cuenta: v.numero_cuenta.trim(), moneda: v.moneda, cci: v.cci.trim() || null, documento_titular: v.documento_titular.trim() || null }
+      : v.tipo === 'recaudacion'
+        ? { banco: v.banco, banco_otro: otra, servicio: v.servicio.trim(), codigo_pago: v.codigo_pago, codigo_instruccion: v.codigo_pago === 'otro' ? v.codigo_instruccion.trim() : null }
+        : { celular: v.celular.trim() };
     const cuerpo = { tipo: v.tipo, titular: v.titular.trim(), activo: v.activo, ...datos };
     try {
       const guardado = await api<{ id: number }>(nuevo ? '/api/medios-pago' : `/api/medios-pago/${(medio as Medio).id}`, {
@@ -98,7 +117,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
       // El medio ya está guardado: si el QR falla no se repite el guardado, se avisa y se puede reintentar al editar.
       let qrOk = true;
       try {
-        if (archivo) await subirQr(guardado.id, archivo);
+        if (archivo && v.tipo !== 'recaudacion') await subirQr(guardado.id, archivo);
         else if (quitarQr) await api(`/api/medios-pago/${guardado.id}/qr`, { method: 'DELETE' });
       } catch (e) { qrOk = false; toast.error(`El medio de pago se guardó, pero el QR no: ${errorText(e)}`); }
       if (qrOk) toast.ok(nuevo ? 'Medio de pago agregado' : 'Cambios guardados');
@@ -139,27 +158,75 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
           {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </Select>
 
-        {tipo === 'banco' ? (
+        {(tipo === 'banco' || tipo === 'recaudacion') && (
           <>
-            <Select label="Banco" {...register('banco', { required: true })}>{BANCOS.map(b => <option key={b} value={b}>{b}</option>)}</Select>
+            <Select label={tipo === 'recaudacion' ? 'Entidad donde paga el vecino' : 'Entidad'} className={banco === ENTIDAD_OTRA ? undefined : 'sm:col-span-2'} {...register('banco', { required: true })}>
+              {catalogo
+                ? catalogo.grupos.map(g => (
+                    <optgroup key={g.grupo} label={g.etiqueta}>
+                      {g.entidades.map(x => <option key={x.nombre} value={x.nombre}>{x.nombre === ENTIDAD_OTRA ? 'Otra entidad (escribe el nombre)' : x.nombre}</option>)}
+                    </optgroup>
+                  ))
+                : <option value={banco}>{banco === ENTIDAD_OTRA ? 'Otra entidad' : banco}</option>}
+            </Select>
+            {banco === ENTIDAD_OTRA && (
+              <Input
+                label="Nombre de la entidad" autoComplete="off" maxLength={60}
+                error={errors.banco_otro && 'Escribe el nombre de la entidad (hasta 60 caracteres)'}
+                {...register('banco_otro', { validate: v => v.trim().length > 0 && v.trim().length <= 60 })}
+              />
+            )}
+          </>
+        )}
+
+        {tipo === 'banco' && (
+          <>
             <Select label="Tipo de cuenta" {...register('tipo_cuenta', { required: true })}>
               <option value="ahorros">Ahorros</option>
               <option value="corriente">Corriente</option>
             </Select>
+            <Select label="Moneda" hint="Sólo informa al vecino: House no convierte nada." {...register('moneda', { required: true })}>
+              {MONEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </Select>
             <Input
               label="Número de cuenta" inputMode="numeric" autoComplete="off" className="sm:col-span-2"
-              hint="De 8 a 20 dígitos; puedes separarlos con guiones."
-              error={errors.numero_cuenta && 'Usa de 8 a 20 dígitos (guiones permitidos)'}
-              {...register('numero_cuenta', { required: true, validate: v => /^[\d-]{8,20}$/.test(v.replace(/\s/g, '')) && v.replace(/\D/g, '').length >= 8 })}
+              hint="De 6 a 25 caracteres: dígitos y guiones."
+              error={errors.numero_cuenta && 'Usa de 6 a 25 caracteres (dígitos y guiones, al menos 6 dígitos)'}
+              {...register('numero_cuenta', { required: true, validate: v => /^[\d-]{6,25}$/.test(v.replace(/\s/g, '')) && v.replace(/\D/g, '').length >= 6 })}
             />
+            {avisoLargo && <p role="status" className="text-sm text-warn sm:col-span-2 -mt-2">Aviso: {avisoLargo} Puedes guardarlo igual.</p>}
             <Input
               label="CCI (opcional)" inputMode="numeric" autoComplete="off" className="sm:col-span-2"
               hint="Código interbancario de 20 dígitos, para transferencias desde otros bancos."
               error={errors.cci && 'El CCI tiene 20 dígitos'}
               {...register('cci', { validate: v => v.trim() === '' || /^\d{20}$/.test(v.replace(/\s/g, '')) })}
             />
+            {avisoCodigo && <p role="status" className="text-sm text-warn sm:col-span-2 -mt-2">Aviso: {avisoCodigo} Puedes guardarlo igual.</p>}
           </>
-        ) : (
+        )}
+
+        {tipo === 'recaudacion' && (
+          <>
+            <Input
+              label="Servicio" autoComplete="off" maxLength={80} className="sm:col-span-2"
+              hint="Escríbelo tal como aparece en «Pago de servicios» de la app del banco."
+              error={errors.servicio && 'Escribe el nombre del servicio (hasta 80 caracteres)'}
+              {...register('servicio', { validate: v => v.trim().length > 0 && v.trim().length <= 80 })}
+            />
+            <Select label="Código que escribe el vecino" className={codigoPago === 'otro' ? undefined : 'sm:col-span-2'} hint="Con «departamento», cada vecino verá el código de SU unidad." {...register('codigo_pago', { required: true })}>
+              {CODIGOS_PAGO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </Select>
+            {codigoPago === 'otro' && (
+              <Input
+                label="¿Qué debe escribir?" autoComplete="off" maxLength={120}
+                error={errors.codigo_instruccion && 'Indica qué código debe escribir (hasta 120 caracteres)'}
+                {...register('codigo_instruccion', { validate: v => v.trim().length > 0 && v.trim().length <= 120 })}
+              />
+            )}
+          </>
+        )}
+
+        {(tipo === 'yape' || tipo === 'plin') && (
           <Input
             label={`Celular de ${tipo === 'yape' ? 'Yape' : 'Plin'}`} inputMode="tel" autoComplete="off" className="sm:col-span-2"
             hint="9 dígitos, empieza con 9."
@@ -177,23 +244,25 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
           />
         )}
 
-        <div className="sm:col-span-2">
-          <Input
-            label="Código QR (opcional)" type="file" accept={ACCEPT_QR}
-            hint="Imagen PNG, JPG o WebP de hasta 500 KB. Los vecinos podrán escanearla para pagar."
-            error={errorArchivo} onChange={elegirArchivo}
-            className="[&_input]:h-auto [&_input]:py-2"
-          />
-          {(vista || tieneQr) && medio !== null && (
-            <div className="mt-3 flex items-center gap-4">
-              {vista
-                ? <img src={vista} alt="Vista previa del código QR que subirás" className="h-28 w-28 rounded border border-line bg-white object-contain" />
-                : <QrImagen id={(medio as Medio).id} version={(medio as Medio).updated_at} alt={`Código QR actual de ${(medio as Medio).titular}`} className="h-28 w-28" />}
-              {!vista && <Button variant="secondary" size="sm" onClick={() => setQuitarQr(true)}>Quitar QR</Button>}
-            </div>
-          )}
-          {quitarQr && <div className="mt-3"><Alert tone="warn">El QR se quitará al guardar los cambios.</Alert></div>}
-        </div>
+        {tipo !== 'recaudacion' && (
+          <div className="sm:col-span-2">
+            <Input
+              label="Código QR (opcional)" type="file" accept={ACCEPT_QR}
+              hint="Imagen PNG, JPG o WebP de hasta 500 KB. Los vecinos podrán escanearla para pagar."
+              error={errorArchivo} onChange={elegirArchivo}
+              className="[&_input]:h-auto [&_input]:py-2"
+            />
+            {(vista || tieneQr) && medio !== null && (
+              <div className="mt-3 flex items-center gap-4">
+                {vista
+                  ? <img src={vista} alt="Vista previa del código QR que subirás" className="h-28 w-28 rounded border border-line bg-white object-contain" />
+                  : <QrImagen id={(medio as Medio).id} version={(medio as Medio).updated_at} alt={`Código QR actual de ${(medio as Medio).titular}`} className="h-28 w-28" />}
+                {!vista && <Button variant="secondary" size="sm" onClick={() => setQuitarQr(true)}>Quitar QR</Button>}
+              </div>
+            )}
+            {quitarQr && <div className="mt-3"><Alert tone="warn">El QR se quitará al guardar los cambios.</Alert></div>}
+          </div>
+        )}
 
         <Interruptor className="sm:col-span-2" label="Activo" hint="Los medios inactivos no se muestran a los vecinos. Máximo 6 activos por torre." {...register('activo')} />
       </form>

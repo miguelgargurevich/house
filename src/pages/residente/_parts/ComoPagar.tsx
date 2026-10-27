@@ -43,21 +43,29 @@ function Dato({ etiqueta, valor, copiar }: { etiqueta: string; valor: string; co
   );
 }
 
-const NOMBRE = { banco: 'Cuenta bancaria', yape: 'Yape', plin: 'Plin' } as const;
+const NOMBRE = { banco: 'Cuenta bancaria', yape: 'Yape', plin: 'Plin', recaudacion: 'Pago de servicios' } as const;
 
 function Medio({ m }: { m: MedioResidente }) {
-  const titulo = m.tipo === 'banco' ? `${m.banco ?? 'Banco'} · cuenta de ${m.tipo_cuenta === 'corriente' ? 'corriente' : 'ahorros'}` : NOMBRE[m.tipo];
+  const entidad = m.entidad ?? m.banco ?? 'Banco';
+  const titulo = m.tipo === 'banco' ? `${entidad} · cuenta de ${m.tipo_cuenta === 'corriente' ? 'corriente' : 'ahorros'} en ${m.moneda_nombre.toLowerCase()}`
+    : m.tipo === 'recaudacion' ? `${NOMBRE.recaudacion} · ${entidad}` : NOMBRE[m.tipo];
   return (
     <li className="space-y-3 p-4">
       <p className="text-sm font-semibold">{titulo}</p>
-      {m.tipo === 'banco' ? (
+      {m.tipo === 'banco' && (
         <>
           {m.numero_cuenta && <Dato etiqueta="Número de cuenta" valor={m.numero_cuenta} copiar />}
           {m.cci && <Dato etiqueta="CCI" valor={m.cci} copiar />}
+          {m.moneda === 'USD' && <p className="text-sm text-muted">Esta cuenta es en <strong>dólares</strong>: si tu recibo es en soles, consulta con la junta o la administración antes de pagar.</p>}
         </>
-      ) : (
-        m.celular && <Dato etiqueta={`Número de ${NOMBRE[m.tipo]}`} valor={m.celular} copiar />
       )}
+      {m.tipo === 'recaudacion' && (
+        <>
+          {m.instruccion && <p className="text-sm">{m.instruccion}</p>}
+          {m.servicio && <Dato etiqueta="Servicio" valor={m.servicio} copiar />}
+        </>
+      )}
+      {(m.tipo === 'yape' || m.tipo === 'plin') && m.celular && <Dato etiqueta={`Número de ${NOMBRE[m.tipo]}`} valor={m.celular} copiar />}
       <Dato etiqueta="A nombre de" valor={m.titular} />
       {m.tiene_qr && (
         <div className="pt-1">
