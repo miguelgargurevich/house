@@ -89,7 +89,7 @@ export function GatewayModal({ open, existente, onClose, onGuardado }: Props) {
         />
         <Input label="Modelo por defecto (opcional)" autoComplete="off" spellCheck={false} value={modelo} onChange={e => setModelo(e.target.value)} hint="Si lo dejas vacío se usa el que el gateway liste al sincronizar." />
         <Interruptor label="Lee imágenes (visión)" hint="Sólo los gateways con visión sirven para evaluar comprobantes." checked={vision} onChange={e => setVision(e.target.checked)} />
-        {vision && <Input label="Modelo de visión" autoComplete="off" spellCheck={false} value={modeloVision} onChange={e => setModeloVision(e.target.value)} placeholder={modelo || 'qwen3-vl-flash'} hint="El que recibe la imagen del comprobante." />}
+        {vision && <Input label="Modelo de visión" autoComplete="off" spellCheck={false} value={modeloVision} onChange={e => setModeloVision(e.target.value)} placeholder={modelo || 'nvidia/nemotron-3.5-super-vl-120b-a12b'} hint="El que recibe la imagen del comprobante." />}
         {vision && <Input label="Prioridad para leer comprobantes (opcional; menor = primero)" inputMode="numeric" autoComplete="off" value={prioridadVision} onChange={e => setPrioridadVision(e.target.value.replace(/\D/g, ''))} placeholder={prioridad || '20'} hint="Sólo cambia el orden de la lectura de comprobantes; el chat sigue con la prioridad general. Vacío = la misma." />}
         <Input label="Prioridad (opcional)" inputMode="numeric" autoComplete="off" value={prioridad} onChange={e => setPrioridad(e.target.value.replace(/\D/g, ''))} placeholder="20" hint="1 a 99; menor = antes. Los proveedores de arriba ocupan 1 a 14; por omisión va después de ellos." />
       </form>

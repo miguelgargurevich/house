@@ -494,6 +494,15 @@ describe('API de notificaciones', () => {
     r = await llamar(base, 'GET', '/api/notificaciones/canales', T.super);
     assert.deepEqual(r.body, { email: { configurado: true, faltan: [] }, whatsapp: { configurado: true, faltan: [] } });
     for (const secreto of [CLAVE_RESEND, CLAVE_EVO, 'ejemplo.test', 'instancia-falsa']) assert.ok(!r.texto.includes(secreto), `filtra ${secreto}`);
+    // El servidor configurado no basta para el admin: su empresa debe tener el número de WhatsApp vinculado.
+    const empresaA = (await prisma.usuario.findFirstOrThrow({ where: { email: (await llamar(base, 'GET', '/api/auth/me', T.adminA)).body.email } })).empresa_id!;
+    await prisma.empresaAdministradora.update({ where: { id: empresaA }, data: { whatsapp_instance: null } });
+    r = await llamar(base, 'GET', '/api/notificaciones/canales', T.adminA);
+    assert.deepEqual(r.body.whatsapp, { configurado: false, faltan: [], sinNumero: true });
+    assert.deepEqual(r.body.email, { configurado: true, faltan: [] });
+    await prisma.empresaAdministradora.update({ where: { id: empresaA }, data: { whatsapp_instance: 'instancia-falsa' } });
+    r = await llamar(base, 'GET', '/api/notificaciones/canales', T.adminA);
+    assert.deepEqual(r.body.whatsapp, { configurado: true, faltan: [] });
     delete process.env.EVOLUTION_APIKEY;
     assert.deepEqual(estadoCanales().whatsapp, { configurado: false, faltan: ['EVOLUTION_APIKEY'] });
     process.env.EVOLUTION_URL = '   ';

@@ -65,9 +65,18 @@ const lista = crudRouter({
 const router = Router();
 router.use(requireRole('admin'));
 
-/** Qué canales tienen sus variables. `faltan` son nombres de variables, nunca valores. */
-router.get('/canales', (_req, res) => {
-  res.json(estadoCanales());
+/**
+ * Qué canales tienen sus variables. `faltan` son nombres de variables, nunca valores. Para WhatsApp, además, la empresa del admin debe tener
+ * su número vinculado (instancia de Evolution): sin él los avisos se omiten aunque el servidor esté configurado.
+ */
+router.get('/canales', async (req, res) => {
+  const estado = estadoCanales();
+  const empresaId = currentUser(req).empresa_id;
+  if (estado.whatsapp.configurado && empresaId != null) {
+    const empresa = await prisma.empresaAdministradora.findUnique({ where: { id: empresaId }, select: { whatsapp_instance: true } });
+    if (!empresa?.whatsapp_instance) estado.whatsapp = { configurado: false, faltan: [], sinNumero: true };
+  }
+  res.json(estado);
 });
 
 /** Conteo por estado dentro del alcance del usuario (para la franja de cifras). */

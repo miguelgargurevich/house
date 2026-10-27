@@ -23,7 +23,7 @@ const VARIABLES: Record<Canal, readonly string[]> = {
 const definida = (env: NodeJS.ProcessEnv, k: string) => !!env[k]?.trim();
 
 /** Qué canales tienen sus variables; `faltan` son NOMBRES de variables, nunca valores. */
-export function estadoCanales(env: NodeJS.ProcessEnv = process.env): Record<Canal, { configurado: boolean; faltan: string[] }> {
+export function estadoCanales(env: NodeJS.ProcessEnv = process.env): Record<Canal, { configurado: boolean; faltan: string[]; sinNumero?: boolean }> {
   const una = (c: Canal) => {
     const faltan = VARIABLES[c].filter((k) => !definida(env, k));
     return { configurado: faltan.length === 0, faltan };

@@ -1,8 +1,9 @@
 import { Badge, Card, CardBody, CardHeader, Skeleton } from '../../../../ui';
+import { Link } from 'react-router-dom';
 import { useResource } from '../../../../api';
 
 type Canal = 'email' | 'whatsapp';
-type Estado = Record<Canal, { configurado: boolean; faltan: string[] }>;
+type Estado = Record<Canal, { configurado: boolean; faltan: string[]; sinNumero?: boolean }>;
 
 const NOMBRE: Record<Canal, { titulo: string; detalle: string }> = {
   email: { titulo: 'Correo', detalle: 'Se envía por Resend.' },
@@ -25,10 +26,14 @@ export function Canales() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{NOMBRE[c].titulo}</p>
                   <p className="text-xs text-muted">
-                    {data[c].configurado ? NOMBRE[c].detalle : <>Falta definir: <span className="font-medium text-ink">{data[c].faltan.join(', ')}</span></>}
+                    {data[c].configurado
+                      ? NOMBRE[c].detalle
+                      : data[c].sinNumero
+                        ? <>Falta vincular el número de WhatsApp de tu administración. <Link to="/admin/whatsapp" className="font-medium text-brand underline">Vincularlo</Link></>
+                        : <>Falta definir: <span className="font-medium text-ink">{data[c].faltan.join(', ')}</span></>}
                   </p>
                 </div>
-                <Badge tone={data[c].configurado ? 'ok' : 'warn'}>{data[c].configurado ? 'Configurado' : 'No configurado'}</Badge>
+                <Badge tone={data[c].configurado ? 'ok' : 'warn'}>{data[c].configurado ? 'Configurado' : data[c].sinNumero ? 'Sin número' : 'No configurado'}</Badge>
               </li>
             ))}
           </ul>

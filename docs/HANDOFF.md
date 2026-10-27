@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Opus 5.5) — Cuatro detalles de pantalla tras la revisión en navegador
+
+**Pedido de Miguel (textual):** «Sí: arregla los cuatro detalles después de integrar Telegram.»
+
+- **Avisos › Canales**: WhatsApp ya no dice «Configurado» sólo porque el servidor tiene Evolution; si la empresa del admin no tiene número vinculado (`whatsapp_instance`), `/api/notificaciones/canales` devuelve `sinNumero: true` y la tarjeta dice «Sin número» con enlace a `/admin/whatsapp`. Prueba en `tests/avisos.test.ts` (mutación en rojo).
+- **Dominios permitidos**: si se pega una URL completa, la pantalla se queda con el dominio (`soloDominio`); el servidor valida igual que antes.
+- **Modal de gateway**: el ejemplo del modelo de visión es `nvidia/nemotron-3.5-super-vl-120b-a12b`.
+- **Interruptor** (`catalogo/Interruptor.tsx`): `aria-label` con su etiqueta (antes los lectores leían «on»). `Badge` ya no parte el texto en dos líneas (`whitespace-nowrap`).
+- Revisado en navegador (local, escritorio y 375 px): Llavero (dominios, gateway con prioridad 0 para comprobantes, OCR, bot de Telegram), condominio (mora S/ 20), detalle de pago, Mi perfil, Avisos. Suite 1431/1431 (una corrida previa tuvo 1 falla intermitente que no se repitió).
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Bot de Telegram: asistente + voucher por foto (Fase C)
 
 **Pedido de Miguel (textual):** «planea el bot de WhatsApp primero (asistente + voucher por foto), Telegram después» → (WhatsApp ya integrado) «hazlo» (arrancar Telegram). Regla obligatoria: «nada de variables de entorno todo en BD». Rama `feat/bot-telegram` (worktree sobre `origin/main` 280e012); **sin push** (lo sube la sesión principal con OK de Miguel).
