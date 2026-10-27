@@ -69,7 +69,7 @@ export async function login(base: string, email: string, password = PASSWORD): P
 
 export async function vaciarBase() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE "Auditoria","EstadoIA","ClaveIntegracion","Pago","ReciboConceptoUnidad","ReciboConcepto","Recibo","Concepto","TareaMantenimiento","Unidad","Piso","Estructura","Usuario","ComplejoHabitacional","EmpresaAdministradora" RESTART IDENTITY CASCADE`,
+    `TRUNCATE TABLE "Auditoria","EstadoIA","ClaveIntegracion","GatewayIA","DominioGatewayPermitido","ConfiguracionOcr","Pago","ReciboConceptoUnidad","ReciboConcepto","Recibo","Concepto","TareaMantenimiento","Unidad","Piso","Estructura","Usuario","ComplejoHabitacional","EmpresaAdministradora" RESTART IDENTITY CASCADE`,
   );
 }
 

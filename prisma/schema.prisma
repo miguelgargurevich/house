@@ -42,6 +42,7 @@ model Usuario {
   unidadesInquilino Unidad[]               @relation("InquilinoUnidad")
   auditorias        Auditoria[]
   clavesIntegracion ClaveIntegracion[]
+  gatewaysCreados   GatewayIA[]            @relation("GatewaysCreados")
   sesiones          Sesion[]
   empresa_id        Int?
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
@@ -342,8 +343,52 @@ model ClaveIntegracion {
   aviso_modelo      String?
   modelos           ModeloIA[]
   sincronizaciones  SyncModelosIA[]
+  /// Sólo las claves de un gateway propio (`proveedor = 'gateway'`) lo llevan; las del catálogo fijo, no.
+  gateway_id        Int?
+  gateway           GatewayIA? @relation(fields: [gateway_id], references: [id], onDelete: Cascade)
 
+  /// Las claves de un gateway guardan su etiqueta como `g<id>:<etiqueta>` para que esta unicidad sirva sin cambiarla (cambiarla hace fallar `db push` en producción).
   @@unique([proveedor, etiqueta])
+  @@index([gateway_id])
+}
+
+/// Gateway propio compatible con OpenAI. Sólo el superadmin lo crea; su dominio debe estar en `DominioGatewayPermitido`.
+model GatewayIA {
+  id                 Int       @id @default(autoincrement())
+  nombre             String    @unique
+  base_url           String
+  modelo_por_defecto String?
+  modelo_vision      String?
+  vision             Boolean   @default(false)
+  /// Posición en la rotación frente al catálogo (menor = antes). El catálogo usa 1-14.
+  prioridad          Int       @default(20)
+  habilitado         Boolean   @default(true)
+  creado_por_id      Int?
+  creado_por         Usuario?  @relation("GatewaysCreados", fields: [creado_por_id], references: [id], onDelete: SetNull)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  claves             ClaveIntegracion[]
+}
+
+/// Dominios (host exacto) a los que un gateway u OCR público puede apuntar. Sólo el superadmin la edita; no es la barrera de fondo (esa es la red).
+model DominioGatewayPermitido {
+  id            Int      @id @default(autoincrement())
+  dominio       String   @unique
+  creado_por_id Int?
+  created_at    DateTime @default(now())
+}
+
+/// Servicio de OCR de comprobantes (una sola fila, id = 1). `modo`: 'interno' (destino de la lista FIJA del código) o 'publico' (https con las barreras de los gateways).
+model ConfiguracionOcr {
+  id                 Int      @id @default(1)
+  modo               String
+  destino_interno    String?
+  base_url           String?
+  api_key_enc        String?
+  ultimos4           String?
+  habilitado         Boolean  @default(true)
+  actualizado_por_id Int?
+  updated_at         DateTime @updatedAt
 }
 
 /// Sesión del lado del servidor: la cookie `house_sesion` lleva un token opaco; aquí sólo se guarda su sha256.

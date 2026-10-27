@@ -5,8 +5,11 @@
  * Es menos fiable que la IA y lo trata así: la lectura sale con la misma forma que la de la IA (`Lectura`), pero `evaluacion.ts` la marca
  * `proveedor: 'ocr'`, topa su confianza en `TOPE_CONFIANZA_OCR` y NUNCA la usa para validar sola ni para fijar la fecha del pago: sólo informa
  * y alerta (p. ej. el mensaje dice «Setiembre» y el recibo es de octubre). El texto del OCR viene de una imagen de terceros: no es confiable.
- * La URL del servicio sale SÓLO de `OCR_BASE_URL` (env); nadie la aporta desde la API.
+ * El destino sale de la BASE (Llavero › «OCR de comprobantes»), nunca de variables de entorno: un destino INTERNO de la lista fija del código
+ * (`OCR_DESTINOS_INTERNOS`) o un https público que pasa las mismas barreras anti-SSRF que los gateways (`lib/gateways.ts`).
  */
+import { ocrParaUso } from '../lib/gatewaysDatos';
+import { fetchFijado, type InitFijado } from '../lib/gateways';
 import { lecturaSchema, limpiarTexto, type Lectura } from '../lib/lecturaComprobante';
 import { alertaDePeriodo, mesDelMensaje, MES_RE, MESES, MIN_OPERACION, norm, type Contraste } from './contraste';
 
@@ -19,31 +22,17 @@ const MAX_TEXTO_OCR = 20_000;
 
 // ---------- Llamada al servicio ----------
 export const ocrDeps = {
-  fetch: (url: string, init: RequestInit): Promise<Response> => fetch(url, init),
+  // Con `destino` (un OCR público ya resuelto y validado) conecta a esa IP; un destino interno de la lista fija va directo.
+  fetch: (url: string, init: InitFijado): Promise<Response> => (init.destino ? fetchFijado(url, init) : fetch(url, init)),
   /** Tope de la llamada: Tesseract tarda unos segundos por captura. */
   topeMs: 25_000,
 };
 
-export interface ConfigOcr { baseUrl: string; apiKey: string | null }
-
-/** `OCR_BASE_URL` (http/https) y `OCR_API_KEY`; sin la URL, el OCR no existe y la evaluación sigue como antes. */
-export function configOcr(env: NodeJS.ProcessEnv = process.env): ConfigOcr | null {
-  const crudo = env.OCR_BASE_URL?.trim();
-  if (!crudo) return null;
-  try {
-    const u = new URL(crudo);
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-    return { baseUrl: u.toString().replace(/\/+$/, ''), apiKey: env.OCR_API_KEY?.trim() || null };
-  } catch {
-    return null;
-  }
-}
-
-/** Manda el archivo al OCR y devuelve su texto; `null` si no hay OCR configurado o falla (nunca lanza ni loguea el contenido). */
+/** Manda el archivo al OCR y devuelve su texto; `null` si no hay OCR configurado (o dejó de ser válido) o falla (nunca lanza ni loguea el contenido). */
 export async function extraerTexto(a: { mime: string; bytes: Uint8Array }): Promise<string | null> {
-  const cfg = configOcr();
-  if (!cfg) return null;
   try {
+    const cfg = await ocrParaUso();
+    if (!cfg) return null;
     const form = new FormData();
     form.append('file', new Blob([a.bytes as BlobPart], { type: a.mime }), 'comprobante');
     const r = await ocrDeps.fetch(`${cfg.baseUrl}/api/extract`, {
@@ -51,6 +40,7 @@ export async function extraerTexto(a: { mime: string; bytes: Uint8Array }): Prom
       headers: cfg.apiKey ? { 'X-API-Key': cfg.apiKey } : {},
       body: form,
       redirect: 'manual',
+      ...(cfg.destino ? { destino: cfg.destino } : {}),
       signal: AbortSignal.timeout(ocrDeps.topeMs),
     });
     if (!r.ok) {

@@ -12,6 +12,7 @@ import {
 } from '../src/server/services/contraste';
 import { evaluacionDeps, esperarEvaluaciones, MARCA_REINTENTO, MOTIVO_PDF, MOTIVO_SIN_CLAVE, UMBRAL_AUTOVALIDACION } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
+import { dnsFalso, restaurarDns, registrarDashboardia } from './helpers/gateways';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
@@ -83,7 +84,11 @@ async function evaluado(opts: Parameters<typeof pagoConComprobante>[0] = {}) {
 }
 
 const claves = async (...proveedores: string[]) => {
-  for (const p of proveedores) await guardarClaveLlavero({ proveedor: p, clave: `clave-falsa-${p}-0001`, usuarioId: d.superadmin.id });
+  for (const p of proveedores) {
+    // «dashboardia» ya no es del catálogo: es el gateway propio registrado por la migración.
+    if (p === 'dashboardia') await guardarClaveLlavero({ proveedor: 'gateway', gatewayId: (await registrarDashboardia(d.superadmin.id)).id, clave: claveDe(p), usuarioId: d.superadmin.id });
+    else await guardarClaveLlavero({ proveedor: p, clave: claveDe(p), usuarioId: d.superadmin.id });
+  }
 };
 const claveDe = (p: string) => `clave-falsa-${p}-0001`;
 const configurar = (id: number, valor: boolean) => prisma.complejoHabitacional.update({ where: { id }, data: { validacion_automatica_ia: valor } });
@@ -106,6 +111,7 @@ let programados: { fn: () => void; ms: number }[] = [];
 
 before(async () => {
   process.env.LLAVERO_ENC_KEY = ENC;
+  dnsFalso();
   d = await sembrar();
   ({ base, cerrar } = await iniciar({ rateLimits: { api: 100_000, login: 100_000, ai: 100_000, llavero: 100_000, evaluacion: 100_000 } }));
   const hash = await bcrypt.hash(PASSWORD, 4);
@@ -128,6 +134,7 @@ before(async () => {
 });
 after(async () => {
   llaveroDeps.fetch = fetchOriginal;
+  restaurarDns();
   Object.assign(evaluacionDeps, relojOriginal);
   delete process.env.LLAVERO_ENC_KEY;
   await esperarEvaluaciones();

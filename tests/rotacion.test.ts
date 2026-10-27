@@ -436,7 +436,7 @@ describe('GET /api/llavero', () => {
     await chat();
     const r = await llamar(base, 'GET', '/api/llavero', T.super);
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body.orden, ['gemini', 'dashboardia', 'groq', 'openrouter', 'openai', 'deepseek', 'mistral', 'cerebras', 'sambanova', 'nvidia', 'cohere', 'ollama', 'llm7', 'kilo']);
+    assert.deepEqual(r.body.orden, ['gemini', 'groq', 'openrouter', 'openai', 'deepseek', 'mistral', 'cerebras', 'sambanova', 'nvidia', 'cohere', 'ollama', 'llm7', 'kilo']);
     assert.equal(r.body.max_claves_por_proveedor, 5);
     const fa = r.body.claves.find((c: { id: number }) => c.id === a.body.id);
     const fb = r.body.claves.find((c: { id: number }) => c.id === b.body.id);

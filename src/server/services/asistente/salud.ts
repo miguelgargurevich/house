@@ -3,6 +3,7 @@
 import { prisma } from '../../db';
 import { claveCooldown, cooldownDeps, enfriandoHasta } from '../../lib/cooldown';
 import { modelosMalosVigentes } from '../../lib/modelosMalos';
+import { proveedorDeFila } from '../../lib/gateways';
 import { proveedorPorId } from '../../lib/proveedoresIA';
 import { llaveroConfigurado } from '../../lib/secretBox';
 import { encolarAviso, procesarPronto } from '../avisos';
@@ -43,10 +44,10 @@ const iso = (ms: number) => new Date(ms).toISOString();
 async function calcularRutas(): Promise<RutaSalud[]> {
   const rutas: RutaSalud[] = [];
   const ahora = cooldownDeps.ahora();
-  const claves = llaveroConfigurado() ? await prisma.claveIntegracion.findMany({ where: { habilitada: true }, orderBy: [{ proveedor: 'asc' }, { id: 'asc' }] }) : [];
+  const claves = llaveroConfigurado() ? await prisma.claveIntegracion.findMany({ where: { habilitada: true }, orderBy: [{ proveedor: 'asc' }, { id: 'asc' }], include: { gateway: true } }) : [];
   for (const f of claves) {
-    const p = proveedorPorId(f.proveedor);
-    if (!p) continue;
+    const p = proveedorDeFila(f);
+    if (!p || (f.gateway && !f.gateway.habilitado)) continue;
     const base = { proveedor: p.id, reserva: f.reserva, clave_id: f.id };
     if (f.estado === ESTADO_RECHAZADA) {
       rutas.push({ ...base, modelo: f.modelo ?? p.modeloPorDefecto, estado: /saldo/i.test(f.estado_detalle ?? '') ? 'sin_saldo' : 'rechazada', hasta: null });

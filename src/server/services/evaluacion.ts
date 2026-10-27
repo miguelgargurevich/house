@@ -10,7 +10,7 @@ import { parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
 import { hoyLima } from '../lib/fechas';
 import { PROMPT_SISTEMA, PROMPT_USUARIO, parsearLectura, type Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
-import { cabecerasDe, llaveroDeps } from './llavero';
+import { cabecerasDe, fetchProveedor } from './llavero';
 import { contrastar, type MedioParaContraste, MIN_OPERACION } from './contraste';
 import { ajustarPorOcr, leerConOcr, type LecturaOcr } from './ocrVoucher';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
@@ -165,7 +165,7 @@ async function consultarVision(e: Eslabon, modelo: string, a: Archivo, topeMs: n
           { role: 'user', content: [{ type: 'text', text: PROMPT_USUARIO }, { type: 'image_url', image_url: { url: `data:${a.mime};base64,${a.base64}` } }] },
         ],
       };
-  const r = await llaveroDeps.fetch(url, {
+  const r = await fetchProveedor(e.proveedor, url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...cabecerasDe(e.proveedor, e.clave) },
     body: JSON.stringify(cuerpo),

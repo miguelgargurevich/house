@@ -5,7 +5,7 @@ import {
   MARGEN_RAZONAMIENTO, PRESUPUESTO_PENSAR_GEMINI, aceptaTopK, admiteEsfuerzo, geminiAdmitePensar,
   type Esfuerzo, type ParametrosGeneracion,
 } from '../../lib/modelosIA';
-import { cabecerasDe, llaveroDeps } from '../llavero';
+import { cabecerasDe, fetchProveedor } from '../llavero';
 import type { Eslabon } from '../rotacion';
 
 export interface MensajeTurno { rol: 'user' | 'assistant'; texto: string }
@@ -202,7 +202,7 @@ export async function llamarProveedor(e: Eslabon, modelo: string, turno: Turno, 
   const limpiar = () => { if (timer) clearTimeout(timer); timer = undefined; o.signal?.removeEventListener('abort', cancelaUsuario); };
 
   try {
-    const r = await llaveroDeps.fetch(url, {
+    const r = await fetchProveedor(e.proveedor, url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: o.stream ? 'text/event-stream' : 'application/json', ...cabecerasDe(e.proveedor, e.clave) },
       body: JSON.stringify(cuerpo),

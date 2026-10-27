@@ -3,8 +3,8 @@
 import { prisma } from '../../db';
 import { notFound } from '../../errors';
 import { claveCooldown, cooldownDeps, limpiar } from '../../lib/cooldown';
-import { proveedorPorId } from '../../lib/proveedoresIA';
-import { exigirConfigurado } from '../llavero';
+import { proveedorDeFila } from '../../lib/gateways';
+import { PUBLICA, exigirConfigurado, publica } from '../llavero';
 import { retirarModelo } from '../modelos/retiro';
 import { elegirModeloAuto } from '../modelos/seleccion';
 import { sincronizarClave } from '../modelos/sync';
@@ -54,20 +54,15 @@ export async function pruebaDeChat(e: Eslabon): Promise<ResultadoPrueba> {
   return { tipo, modelo, detalle: detalleDePrueba(tipo, modelo), fallo: r };
 }
 
-const PUBLICA_PRUEBA = {
-  id: true, proveedor: true, etiqueta: true, ultimos4: true, modelo: true, habilitada: true, reserva: true, aviso_modelo: true,
-  estado: true, estado_detalle: true, probada_at: true, ultimo_uso_at: true,
-} as const;
-
 /**
  * «Probar»: 1) `GET /models` (sincroniza el catálogo); 2) una consulta mínima de chat. `ok` sólo si respondió texto.
  * Una clave ya rechazada sigue rechazada mientras la prueba no salga bien.
  */
 export async function probar(id: number) {
   exigirConfigurado();
-  const f = await prisma.claveIntegracion.findUnique({ where: { id } });
+  const f = await prisma.claveIntegracion.findUnique({ where: { id }, include: { gateway: true } });
   if (!f) throw notFound('Clave');
-  if (!proveedorPorId(f.proveedor)) throw notFound('Proveedor');
+  if (!proveedorDeFila(f)) throw notFound('Proveedor');
 
   let estado: string;
   let detalle: string | null;
@@ -77,7 +72,7 @@ export async function probar(id: number) {
     estado = 'error';
     detalle = sync?.error ?? 'No se pudo conectar con el proveedor';
   } else {
-    const fresca = await prisma.claveIntegracion.findUniqueOrThrow({ where: { id } }); // el sync pudo soltar el modelo fijado
+    const fresca = await prisma.claveIntegracion.findUniqueOrThrow({ where: { id }, include: { gateway: true } }); // el sync pudo soltar el modelo fijado
     const e = eslabonDeFila(fresca);
     if (!e) { estado = 'error'; detalle = 'No se pudo leer la clave guardada'; }
     else {
@@ -88,6 +83,6 @@ export async function probar(id: number) {
   }
   if (estado === 'ok') { limpiar(claveCooldown(f.proveedor, f.id)); olvidarCausa(claveCooldown(f.proveedor, f.id)); }
   if (estado === 'error' && f.estado === ESTADO_RECHAZADA) estado = ESTADO_RECHAZADA;
-  const fila = await prisma.claveIntegracion.update({ where: { id }, data: { estado, estado_detalle: detalle, probada_at: new Date(cooldownDeps.ahora()) }, select: PUBLICA_PRUEBA });
+  const fila = publica(await prisma.claveIntegracion.update({ where: { id }, data: { estado, estado_detalle: detalle, probada_at: new Date(cooldownDeps.ahora()) }, select: PUBLICA }));
   return { ...fila, modelo_probado: modeloProbado, sync: sync ? { ok: sync.ok, nuevos: sync.nuevos, deprecados: sync.deprecados, revividos: sync.revividos, total: sync.total } : null };
 }

@@ -51,7 +51,7 @@ export async function ejecutarCanary(opts: { maxPorPasada?: number } = {}): Prom
   const pasadasQueQuedan = Math.max(1, Math.floor((finDelDiaLima(ahora) - ahora) / CADA_CANARY_MS));
   const porPasada = Math.max(1, Math.min(opts.maxPorPasada ?? Math.floor(restante / pasadasQueQuedan), restante));
 
-  const filas = await prisma.claveIntegracion.findMany({ where: { habilitada: true, estado: { not: ESTADO_RECHAZADA } }, orderBy: [{ proveedor: 'asc' }, { id: 'asc' }] });
+  const filas = await prisma.claveIntegracion.findMany({ where: { habilitada: true, estado: { not: ESTADO_RECHAZADA } }, orderBy: [{ proveedor: 'asc' }, { id: 'asc' }], include: { gateway: true } });
   const porProveedor = new Map<string, typeof filas>();
   for (const f of filas) {
     if (estaEnfriando(claveCooldown(f.proveedor, f.id), ahora)) continue; // las enfriadas ya tienen su espera

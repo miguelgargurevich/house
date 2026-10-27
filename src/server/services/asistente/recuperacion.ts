@@ -18,7 +18,7 @@ export const reintentosDe = (claveId: number) => reintentos.get(claveId) ?? 0;
 
 export async function recuperarRechazadas(): Promise<{ revisadas: number; rehabilitadas: number }> {
   const ahora = cooldownDeps.ahora();
-  const filas = await prisma.claveIntegracion.findMany({ where: { habilitada: true, estado: ESTADO_RECHAZADA }, orderBy: { id: 'asc' } });
+  const filas = await prisma.claveIntegracion.findMany({ where: { habilitada: true, estado: ESTADO_RECHAZADA }, orderBy: { id: 'asc' }, include: { gateway: true } });
   let revisadas = 0;
   let rehabilitadas = 0;
   for (const f of filas) {

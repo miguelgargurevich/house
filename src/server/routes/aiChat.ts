@@ -36,7 +36,7 @@ const tituloSchema = z.object({
 async function modelosElegibles() {
   const filas = await prisma.modeloIA.findMany({
     where: { estado: { not: 'deprecado' }, categoria: { not: 'otro' }, clave: { habilitada: true, estado: { not: ESTADO_RECHAZADA } } },
-    select: { modelo_id: true, nombre: true, categoria: true, gratis: true, clave: { select: { proveedor: true } } },
+    select: { modelo_id: true, nombre: true, categoria: true, gratis: true, clave: { select: { proveedor: true, gateway: { select: { nombre: true } } } } },
     orderBy: [{ modelo_id: 'asc' }],
   });
   const vistos = new Set<string>();
@@ -44,7 +44,7 @@ async function modelosElegibles() {
   for (const f of filas) {
     if (vistos.has(f.modelo_id)) continue;
     vistos.add(f.modelo_id);
-    salida.push({ id: f.modelo_id, nombre: f.nombre ?? f.modelo_id, categoria: f.categoria as Categoria, proveedor: proveedorPorId(f.clave.proveedor)?.nombre ?? f.clave.proveedor, gratis: f.gratis });
+    salida.push({ id: f.modelo_id, nombre: f.nombre ?? f.modelo_id, categoria: f.categoria as Categoria, proveedor: f.clave.gateway?.nombre ?? proveedorPorId(f.clave.proveedor)?.nombre ?? f.clave.proveedor, gratis: f.gratis });
   }
   return salida;
 }

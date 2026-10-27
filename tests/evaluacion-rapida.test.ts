@@ -8,12 +8,15 @@ import { cabecerasDeSesion, iniciar, llamar, login, prisma, sembrar, type Datos 
 import { limpiarTodo } from '../src/server/lib/cooldown';
 import { hoyLima } from '../src/server/lib/fechas';
 import { PROVEEDORES_IA, proveedorPorId } from '../src/server/lib/proveedoresIA';
+import { proveedorDeFila } from '../src/server/lib/gateways';
 import {
   barrerEvaluaciones, evaluacionDeps, esperarEvaluaciones, MARCA_REINTENTO, modeloDeVision, MOTIVO_ABANDONADA, MOTIVO_SIN_CLAVE, sabeVer,
 } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
+import { guardarOcr } from '../src/server/lib/gatewaysAdmin';
+import { dnsFalso, restaurarDns, registrarDashboardia } from './helpers/gateways';
 import {
-  ALERTA_OCR, alertasDeOcr, configOcr, extraerTexto, leerVoucherDeTexto, numeroDeTexto, ocrDeps, TOPE_CONFIANZA_OCR,
+  ALERTA_OCR, alertasDeOcr, extraerTexto, leerVoucherDeTexto, numeroDeTexto, ocrDeps, TOPE_CONFIANZA_OCR,
 } from '../src/server/services/ocrVoucher';
 import { construirCadena, olvidarTodoUso, type Eslabon } from '../src/server/services/rotacion';
 import { barridoDeEvaluacionesActivo } from '../src/server/services/asistente/planificador';
@@ -83,7 +86,13 @@ async function evaluado(mes = 1) {
 }
 const evaluacionDe = (pagoId: number) => prisma.evaluacionComprobante.findUniqueOrThrow({ where: { pago_id: pagoId } });
 
-const claves = async (...proveedores: string[]) => { for (const p of proveedores) await guardarClaveLlavero({ proveedor: p, clave: claveDe(p), usuarioId: d.superadmin.id }); };
+const claves = async (...proveedores: string[]) => {
+  for (const p of proveedores) {
+    // «dashboardia» ya no es del catálogo: es el gateway propio registrado por la migración.
+    if (p === 'dashboardia') await guardarClaveLlavero({ proveedor: 'gateway', gatewayId: (await registrarDashboardia(d.superadmin.id)).id, clave: claveDe(p), usuarioId: d.superadmin.id });
+    else await guardarClaveLlavero({ proveedor: p, clave: claveDe(p), usuarioId: d.superadmin.id });
+  }
+};
 const claveDe = (p: string) => `clave-falsa-${p}-0001`;
 const configurar = (id: number, valor: boolean) => prisma.complejoHabitacional.update({ where: { id }, data: { validacion_automatica_ia: valor } });
 
@@ -96,6 +105,7 @@ const avanzar = (ms: number) => { const t = Date.now() + ms; evaluacionDeps.ahor
 
 before(async () => {
   process.env.LLAVERO_ENC_KEY = ENC;
+  dnsFalso();
   d = await sembrar();
   ({ base, cerrar } = await iniciar({ rateLimits: { api: 100_000, login: 100_000, ai: 100_000, llavero: 100_000, evaluacion: 100_000 } }));
   T = { adminA: await login(base, 'admin.a@test.pe'), prop1: await login(base, 'prop1@test.pe') };
@@ -108,6 +118,7 @@ before(async () => {
 });
 after(async () => {
   llaveroDeps.fetch = fetchOriginal;
+  restaurarDns();
   Object.assign(evaluacionDeps, relojOriginal);
   Object.assign(ocrDeps, ocrOriginal);
   delete process.env.LLAVERO_ENC_KEY;
@@ -123,6 +134,8 @@ beforeEach(async () => {
   delete process.env.OCR_BASE_URL;
   delete process.env.OCR_API_KEY;
   await prisma.claveIntegracion.deleteMany(); // también borra su catálogo de modelos
+  await prisma.configuracionOcr.deleteMany();
+  dnsFalso();
   await prisma.evaluacionComprobante.deleteMany(); // los barridos toman TODA evaluación vencida: que no queden las de otras pruebas
   await prisma.medioPago.deleteMany();
   await prisma.medioPago.create({ data: { complejo_id: d.complejoA.id, tipo: 'yape', celular: '987654321', titular: 'María Pérez García', creado_por_id: d.adminA.id } });
@@ -431,25 +444,27 @@ describe('4. aviso en pantalla por tiempo', () => {
 
 // =====================================================================================================
 describe('5. gateway Dashboard IA como respaldo', () => {
-  it('está en el catálogo (y por tanto en el Llavero): constante, openai-compatible, con visión, después de Gemini', () => {
-    const p = proveedorPorId('dashboardia')!;
-    assert.ok(p);
+  it('ya no es del catálogo fijo: es el primer gateway propio (visión, prioridad 2, después de Gemini)', async () => {
+    assert.equal(proveedorPorId('dashboardia'), undefined);
+    assert.equal(PROVEEDORES_IA.some((x) => x.id === 'dashboardia'), false);
+    const g = await registrarDashboardia(d.superadmin.id);
+    const fila = await prisma.claveIntegracion.create({ data: { proveedor: 'gateway', gateway_id: g.id, etiqueta: `g${g.id}:principal`, api_key_enc: 'x', ultimos4: 'xxxx' }, include: { gateway: true } });
+    const p = proveedorDeFila(fila)!;
     assert.equal(p.tipo, 'openai-compatible');
     assert.equal(p.baseUrl, 'https://api.dashboardia.gargurevich.dev/v1');
     assert.equal(p.vision, true);
     assert.equal(p.modeloVision, 'nvidia/nemotron-3.5-super-vl-120b-a12b');
     assert.equal(p.visionPdf, false);
-    assert.equal(p.variableDeEntorno, 'DASHBOARDIA_API_KEY');
-    const orden = [...PROVEEDORES_IA].sort((a, b) => a.prioridad - b.prioridad).map((x) => x.id);
-    assert.equal(orden[0], 'gemini');
-    assert.equal(orden[1], 'dashboardia');
-    assert.equal(new Set(PROVEEDORES_IA.map((x) => x.prioridad)).size, PROVEEDORES_IA.length, 'prioridades únicas');
+    assert.equal(p.prioridad, 2);
+    assert.equal(p.gatewayId, g.id);
   });
 
-  it('el Llavero lo ofrece para que se agregue la clave', async () => {
+  it('el Llavero lo ofrece como gateway para que se agregue la clave', async () => {
+    await registrarDashboardia(d.superadmin.id);
     const r = await llamar(base, 'GET', '/api/llavero', await login(base, 'super@test.pe'));
     assert.equal(r.status, 200);
-    assert.ok(JSON.stringify(r.body).includes('dashboardia'));
+    assert.equal(r.body.gateways[0].nombre, 'Dashboard IA');
+    assert.equal(r.body.gateways[0].estado, 'ok');
   });
 
   it('entra en la rotación de visión después de Gemini y lee la respuesta con ```json de choices[0].message.content', async () => {
@@ -463,14 +478,33 @@ describe('5. gateway Dashboard IA como respaldo', () => {
     assert.equal(l.cuerpo.response_format, undefined, 'sin response_format: el gateway puede responder dentro de ```json');
     assert.equal(l.cuerpo.messages[1].content[1].type, 'image_url');
     assert.equal(ev.estado, 'completada');
-    assert.equal(ev.proveedor, 'dashboardia');
+    assert.equal(ev.proveedor, 'gateway');
     assert.equal(ev.modelo, 'nvidia/nemotron-3.5-super-vl-120b-a12b');
     assert.equal(ev.veredicto, 'coincide');
   });
 
+  it('un dominio permitido que resuelve a una IP interna: el gateway NO recibe llamada y la evaluación sigue con la siguiente clave', async () => {
+    await claves('gemini', 'dashboardia', 'openai');
+    dnsFalso({ 'api.dashboardia.gargurevich.dev': ['169.254.169.254'] });
+    responder = (l) => (l.clave === claveDe('gemini') ? estado(503) : ok(lec()));
+    const { ev } = await evaluado();
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('openai')], 'el gateway no salió');
+    assert.equal(ev.proveedor, 'openai');
+    assert.equal(ev.estado, 'completada');
+  });
+
+  it('quitar el dominio de la lista saca al gateway de la rotación de la evaluación (falla cerrado)', async () => {
+    await claves('gemini', 'dashboardia', 'openai');
+    await prisma.dominioGatewayPermitido.deleteMany();
+    responder = (l) => (l.clave === claveDe('gemini') ? estado(503) : ok(lec()));
+    const { ev } = await evaluado();
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('openai')]);
+    assert.equal(ev.proveedor, 'openai');
+  });
+
   it('también lee un content en partes ({type:text}) y no confunde un modelo de texto del gateway con visión', async () => {
     await claves('dashboardia');
-    await prisma.claveIntegracion.updateMany({ where: { proveedor: 'dashboardia' }, data: { modelo: 'llama-3.3-70b' } });
+    await prisma.claveIntegracion.updateMany({ where: { proveedor: 'gateway' }, data: { modelo: 'llama-3.3-70b' } });
     responder = () => new Response(JSON.stringify({ choices: [{ message: { content: [{ type: 'text', text: lec() }] } }] }), { status: 200 });
     const { ev } = await evaluado();
     assert.equal(llamadas[0]!.cuerpo.model, 'nvidia/nemotron-3.5-super-vl-120b-a12b', 'el modelo de texto fijado en la clave no recibe la imagen');
@@ -562,24 +596,21 @@ describe('6a. lector de reglas del OCR (textos fijos)', () => {
 });
 
 describe('6b. llamada al servicio OCR', () => {
-  it('sin OCR_BASE_URL (o con una que no es http/https) el OCR no existe y no se llama a nada', async () => {
+  it('sin OCR en la base el OCR no existe y no se llama a nada (aunque OCR_BASE_URL esté en el entorno)', async () => {
     let llamado = false;
     ocrDeps.fetch = async () => { llamado = true; return new Response('{}'); };
-    assert.equal(configOcr({}), null);
-    assert.equal(configOcr({ OCR_BASE_URL: 'ftp://x' }), null);
-    assert.equal(configOcr({ OCR_BASE_URL: 'no es una url' }), null);
-    assert.deepEqual(configOcr({ OCR_BASE_URL: ' https://ocr.ejemplo.dev/ ', OCR_API_KEY: ' k ' }), { baseUrl: 'https://ocr.ejemplo.dev', apiKey: 'k' });
+    process.env.OCR_BASE_URL = 'https://ocr.ejemplo.dev';
+    process.env.OCR_API_KEY = 'clave-ocr-env';
     assert.equal(await extraerTexto({ mime: 'image/png', bytes: PNG() }), null);
     assert.equal(llamado, false);
   });
 
   it('manda el archivo como multipart a /api/extract con X-API-Key y devuelve el texto; un error del servicio es null', async () => {
-    process.env.OCR_BASE_URL = 'https://ocr.ejemplo.dev';
-    process.env.OCR_API_KEY = 'clave-ocr-falsa';
+    await guardarOcr({ modo: 'interno', clave: 'clave-ocr-falsa' }, d.superadmin.id);
     let visto: { url: string; cabeceras: Record<string, string>; cuerpo: unknown } | null = null;
     ocrDeps.fetch = async (url, init) => { visto = { url, cabeceras: init.headers as Record<string, string>, cuerpo: init.body }; return new Response(JSON.stringify({ text: BCP, pages: 1, blocks: [] })); };
     assert.equal(await extraerTexto({ mime: 'image/png', bytes: PNG() }), BCP);
-    assert.equal(visto!.url, 'https://ocr.ejemplo.dev/api/extract');
+    assert.equal(visto!.url, 'http://house-ocr:5050/api/extract');
     assert.equal(visto!.cabeceras['X-API-Key'], 'clave-ocr-falsa');
     assert.ok(visto!.cuerpo instanceof FormData && (visto!.cuerpo as FormData).get('file') instanceof Blob);
     ocrDeps.fetch = async () => new Response('{"error":"x"}', { status: 500 });
@@ -591,16 +622,15 @@ describe('6b. llamada al servicio OCR', () => {
 });
 
 describe('6c. OCR como última red de la evaluación', () => {
-  const conOcr = (texto: string) => {
-    process.env.OCR_BASE_URL = 'https://ocr.ejemplo.dev';
-    process.env.OCR_API_KEY = 'clave-ocr-falsa';
+  const conOcr = async (texto: string) => {
+    await guardarOcr({ modo: 'interno', clave: 'clave-ocr-falsa' }, d.superadmin.id);
     ocrDeps.fetch = async () => new Response(JSON.stringify({ text: texto, pages: 1, blocks: [] }));
   };
   /** Un voucher de Yape que coincide en TODO con lo esperado (S/ 100 al celular …321, de hoy, exitoso). */
   const YAPE_PERFECTO = `¡Yapeaste!\nS/ 100\nMaria Perez Garcia\n${DD}/${MM}/${AAAA} | 09:14 a. m.\nCelular: *** *** 321\nCódigo de operación\n1234567\nMensaje: Octubre B1 804`;
 
   it('sin clave de IA y con OCR: completa con proveedor «ocr», confianza ≤ 0,6, nunca «coincide», y alerta del mes del mensaje', async () => {
-    conOcr(BCP.replace('JUNTA DE PROPIETARIOS LIBERTADORES', 'MARIA PEREZ GARCIA'));
+    await conOcr(BCP.replace('JUNTA DE PROPIETARIOS LIBERTADORES', 'MARIA PEREZ GARCIA'));
     const { ev, pagoId } = await evaluado(10);
     assert.equal(ev.estado, 'completada');
     assert.equal(ev.proveedor, 'ocr');
@@ -617,7 +647,7 @@ describe('6c. OCR como última red de la evaluación', () => {
 
   it('un voucher perfecto leído por OCR NUNCA valida solo, ni con la validación automática encendida, y no aplica su fecha', async () => {
     await configurar(d.complejoA.id, true);
-    conOcr(YAPE_PERFECTO);
+    await conOcr(YAPE_PERFECTO);
     const { ev, pagoId } = await evaluado(1);
     assert.equal(ev.estado, 'completada');
     assert.equal(ev.proveedor, 'ocr');
@@ -633,7 +663,7 @@ describe('6c. OCR como última red de la evaluación', () => {
   it('si TODOS los proveedores fallan (transitorio), primero se reintenta la IA; sólo agotado el reintento entra el OCR', async () => {
     await claves('openai');
     responder = () => estado(503);
-    conOcr(YAPE_PERFECTO);
+    await conOcr(YAPE_PERFECTO);
     let ocrLlamado = 0;
     const f = ocrDeps.fetch; ocrDeps.fetch = async (u, i) => { ocrLlamado++; return f(u, i); };
     const { pagoId, ev } = await evaluado(1);
@@ -651,7 +681,7 @@ describe('6c. OCR como última red de la evaluación', () => {
   it('un fallo definitivo de la IA (clave rechazada / petición inválida) también cae al OCR en el primer intento', async () => {
     await claves('openai');
     responder = () => estado(400);
-    conOcr(YAPE_PERFECTO);
+    await conOcr(YAPE_PERFECTO);
     const { ev } = await evaluado(1);
     assert.equal(ev.estado, 'completada');
     assert.equal(ev.proveedor, 'ocr');
@@ -660,14 +690,14 @@ describe('6c. OCR como última red de la evaluación', () => {
   it('una respuesta de la IA que no valida también cae al OCR (en vez de terminar en error)', async () => {
     await claves('openai');
     responder = () => ok('no es json');
-    conOcr(YAPE_PERFECTO);
+    await conOcr(YAPE_PERFECTO);
     const { ev } = await evaluado(1);
     assert.equal(ev.proveedor, 'ocr');
   });
 
   it('si la IA sí leyó, el OCR ni se llama', async () => {
     await claves('openai');
-    conOcr(YAPE_PERFECTO);
+    await conOcr(YAPE_PERFECTO);
     let llamado = false;
     ocrDeps.fetch = async () => { llamado = true; return new Response('{}'); };
     const { ev } = await evaluado(1);
@@ -679,10 +709,10 @@ describe('6c. OCR como última red de la evaluación', () => {
     const sin = await evaluado();
     assert.equal(sin.ev.estado, 'no_disponible');
     assert.equal(sin.ev.error, MOTIVO_SIN_CLAVE);
-    process.env.OCR_BASE_URL = 'https://ocr.ejemplo.dev';
+    await guardarOcr({ modo: 'interno' }, d.superadmin.id);
     ocrDeps.fetch = async () => new Response('{}', { status: 502 });
     assert.equal((await evaluado()).ev.estado, 'no_disponible', 'OCR caído');
-    conOcr('Hola, esto es una foto de mi perro');
+    await conOcr('Hola, esto es una foto de mi perro');
     assert.equal((await evaluado()).ev.estado, 'no_disponible', 'texto sin datos de un voucher');
   });
 });

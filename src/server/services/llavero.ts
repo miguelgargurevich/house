@@ -2,20 +2,42 @@ import { prisma } from '../db';
 import { HttpError, invalid, notFound } from '../errors';
 import { aadClave, cifrar, descifrar, llaveroConfigurado } from '../lib/secretBox';
 import { claveCooldown, enfriandoHasta, limpiar } from '../lib/cooldown';
+import { verificarDestinoGateway } from '../lib/gatewaysDatos';
+import { GatewayError, PROVEEDOR_GATEWAY, etiquetaInterna, etiquetaVisible, fetchFijado, type InitFijado } from '../lib/gateways';
 import { PROVEEDORES_IA, proveedorPorId, type ProveedorIA } from '../lib/proveedoresIA';
 import { olvidarUso, ordenProveedores, usoDe } from './rotacion';
 
-/** Punto de inyección de `fetch` (las pruebas lo reemplazan; nunca hay red real en ellas). */
+/**
+ * Punto de inyección de `fetch` (las pruebas lo reemplazan; nunca hay red real en ellas). Si la llamada trae un `destino` (sólo la pone
+ * `fetchProveedor`, tras las barreras anti-SSRF de un gateway) se conecta a esa IP ya validada, sin volver a resolver el dominio.
+ */
 export const llaveroDeps = {
-  fetch: (url: string, init?: RequestInit): Promise<Response> => globalThis.fetch(url, init),
+  fetch: (url: string, init?: InitFijado): Promise<Response> => (init?.destino ? fetchFijado(url, init) : globalThis.fetch(url, init)),
 };
+
+/**
+ * ÚNICA salida de red hacia un proveedor de IA. Los del catálogo tienen URL constante; un gateway propio pasa antes por las barreras de CADA
+ * llamada (habilitado, dominio aún permitido, URL del mismo host, https/443, y todas las IP a las que resuelve son públicas) y se conecta a
+ * la IP validada. Si una barrera falla lanza `GatewayError` y NO sale ninguna petición.
+ */
+export async function fetchProveedor(p: ProveedorIA, url: string, init: RequestInit): Promise<Response> {
+  if (p.gatewayId === undefined) return llaveroDeps.fetch(url, init);
+  let destino;
+  try {
+    destino = await verificarDestinoGateway(p.gatewayId, url);
+  } catch (err) {
+    if (err instanceof GatewayError) console.warn(`[llavero] llamada al gateway #${p.gatewayId} bloqueada (${err.codigo})`);
+    throw err;
+  }
+  return llaveroDeps.fetch(url, { ...init, redirect: 'manual', destino });
+}
 
 export const ETIQUETA_POR_DEFECTO = 'principal';
 export const MAX_CLAVES_POR_PROVEEDOR = 5;
 
 // Único `select` de la tabla hacia afuera: api_key_enc no sale nunca.
 export const PUBLICA = {
-  id: true, proveedor: true, etiqueta: true, ultimos4: true, modelo: true, habilitada: true, reserva: true, aviso_modelo: true,
+  id: true, proveedor: true, gateway_id: true, etiqueta: true, ultimos4: true, modelo: true, habilitada: true, reserva: true, aviso_modelo: true,
   estado: true, estado_detalle: true, probada_at: true, ultimo_uso_at: true,
 } as const;
 
@@ -27,8 +49,11 @@ export function catalogoPublico() {
   return PROVEEDORES_IA.map(({ id, nombre, descripcion, urlParaConseguirKey, modeloPorDefecto }) => ({ id, nombre, descripcion, urlParaConseguirKey, modeloPorDefecto }));
 }
 
-export function listar() {
-  return prisma.claveIntegracion.findMany({ select: PUBLICA, orderBy: [{ proveedor: 'asc' }, { etiqueta: 'asc' }] });
+/** La etiqueta de una clave de gateway se guarda como `g<id>:<etiqueta>`; hacia afuera sale sólo la etiqueta. */
+export const publica = <T extends { etiqueta: string; gateway_id: number | null }>(f: T): T => ({ ...f, etiqueta: etiquetaVisible(f.etiqueta, f.gateway_id) });
+
+export async function listar() {
+  return (await prisma.claveIntegracion.findMany({ select: PUBLICA, orderBy: [{ proveedor: 'asc' }, { gateway_id: 'asc' }, { etiqueta: 'asc' }] })).map(publica);
 }
 
 /** Lista para la pantalla: suma el enfriamiento y los contadores (memoria del proceso) y el orden real de proveedores. */
@@ -37,7 +62,7 @@ export async function listarConRotacion() {
     const h = enfriandoHasta(claveCooldown(c.proveedor, c.id));
     return { ...c, enfriando_hasta: h === null ? null : new Date(h).toISOString(), uso: usoDe(c.id) };
   });
-  return { claves, orden: ordenProveedores(), max_claves_por_proveedor: MAX_CLAVES_POR_PROVEEDOR };
+  return { claves, orden: await ordenProveedores(), max_claves_por_proveedor: MAX_CLAVES_POR_PROVEEDOR };
 }
 
 export function validarClave(clave: string): string {
@@ -46,10 +71,16 @@ export function validarClave(clave: string): string {
   return clave;
 }
 
-export async function guardar(input: { proveedor: string; etiqueta?: string; clave: string; modelo?: string | null; usuarioId: number }) {
+export async function guardar(input: { proveedor: string; gatewayId?: number | null; etiqueta?: string; clave: string; modelo?: string | null; usuarioId: number }) {
   exigirConfigurado();
-  if (!proveedorPorId(input.proveedor)) throw notFound('Proveedor');
-  const etiqueta = input.etiqueta ?? ETIQUETA_POR_DEFECTO;
+  const gatewayId = input.proveedor === PROVEEDOR_GATEWAY ? (input.gatewayId ?? null) : null;
+  if (input.proveedor === PROVEEDOR_GATEWAY) {
+    if (!gatewayId) throw invalid('Datos inválidos: gateway_id: Indica el gateway', { gateway_id: 'Indica el gateway' });
+    if (!(await prisma.gatewayIA.findUnique({ where: { id: gatewayId }, select: { id: true } }))) throw notFound('Gateway');
+  } else if (!proveedorPorId(input.proveedor)) throw notFound('Proveedor');
+  else if (input.gatewayId) throw invalid('Datos inválidos: gateway_id: Sólo aplica a los gateways propios', { gateway_id: 'Sólo aplica a los gateways propios' });
+  const etiquetaPublica = input.etiqueta ?? ETIQUETA_POR_DEFECTO;
+  const etiqueta = etiquetaInterna(gatewayId, etiquetaPublica);
   const clave = validarClave(input.clave);
   const datos = {
     api_key_enc: cifrar(clave, aadClave(input.proveedor, etiqueta)),
@@ -62,12 +93,12 @@ export async function guardar(input: { proveedor: string; etiqueta?: string; cla
     actualizado_por_id: input.usuarioId,
   };
   const previa = await prisma.claveIntegracion.findUnique({ where: { proveedor_etiqueta: { proveedor: input.proveedor, etiqueta } }, select: { id: true } });
-  if (!previa && (await prisma.claveIntegracion.count({ where: { proveedor: input.proveedor } })) >= MAX_CLAVES_POR_PROVEEDOR) {
+  if (!previa && (await prisma.claveIntegracion.count({ where: { proveedor: input.proveedor, gateway_id: gatewayId } })) >= MAX_CLAVES_POR_PROVEEDOR) {
     throw invalid(`Cada proveedor admite hasta ${MAX_CLAVES_POR_PROVEEDOR} claves. Quita una para agregar otra.`, { etiqueta: `Ya hay ${MAX_CLAVES_POR_PROVEEDOR} claves de este proveedor` });
   }
   const fila = await prisma.claveIntegracion.upsert({
     where: { proveedor_etiqueta: { proveedor: input.proveedor, etiqueta } },
-    create: { proveedor: input.proveedor, etiqueta, ...datos },
+    create: { proveedor: input.proveedor, gateway_id: gatewayId, etiqueta, ...datos },
     update: datos,
     select: PUBLICA,
   });
@@ -76,13 +107,13 @@ export async function guardar(input: { proveedor: string; etiqueta?: string; cla
   // Clave nueva o reemplazada: parte de cero (sin enfriamiento ni contadores; el estado ya vuelve a sin_probar).
   limpiar(claveCooldown(fila.proveedor, fila.id));
   olvidarUso(fila.id);
-  return { fila, creada: !previa };
+  return { fila: publica(fila), creada: !previa };
 }
 
 export async function obtenerPublica(id: number) {
   const f = await prisma.claveIntegracion.findUnique({ where: { id }, select: PUBLICA });
   if (!f) throw notFound('Clave');
-  return f;
+  return publica(f);
 }
 
 export interface Ajuste { habilitada?: boolean; reserva?: boolean; /** `null` = elección automática. */ modelo?: string | null }
@@ -102,7 +133,7 @@ export async function ajustar(id: number, a: Ajuste, usuarioId: number) {
     data.modelo = a.modelo;
     data.aviso_modelo = null; // la persona ya eligió: el aviso de «ya no existe» deja de aplicar
   }
-  return prisma.claveIntegracion.update({ where: { id }, data, select: PUBLICA });
+  return publica(await prisma.claveIntegracion.update({ where: { id }, data, select: PUBLICA }));
 }
 
 export async function borrar(id: number) {

@@ -1,6 +1,8 @@
 import { prisma } from '../db';
 import { claveCooldown, cooldownDeps, estaEnfriando } from '../lib/cooldown';
-import { PROVEEDORES_IA, proveedorPorId, type ProveedorIA } from '../lib/proveedoresIA';
+import { dominiosPermitidos } from '../lib/gatewaysDatos';
+import { gatewayUsable, proveedorDeFila, type FilaGateway } from '../lib/gateways';
+import { PROVEEDORES_IA, type ProveedorIA } from '../lib/proveedoresIA';
 import { aadClave, descifrar, llaveroConfigurado } from '../lib/secretBox';
 
 /** Un intento posible: una clave concreta de un proveedor. La clave va descifrada sólo en memoria; jamás se loguea. */
@@ -23,12 +25,18 @@ export const ESTADO_RECHAZADA = 'rechazada';
  * Cadena de rotación: todas las claves habilitadas y no rechazadas, por prioridad del proveedor y, dentro de uno,
  * la menos usada primero (nulos primero). Las enfriadas van al final pero NUNCA se descartan; las marcadas como reserva van después de todas las normales. Si el llavero no tiene
  * ninguna usable, el último (único) eslabón es GEMINI_API_KEY del entorno.
+ * Las claves de un gateway propio entran sólo si el gateway está habilitado y su dominio sigue en la lista permitida (si no, fallan cerradas).
  */
 export async function construirCadena(ahora = cooldownDeps.ahora()): Promise<Eslabon[]> {
   const eslabones: Eslabon[] = [];
   if (llaveroConfigurado()) {
-    const filas = await prisma.claveIntegracion.findMany({ where: { habilitada: true, estado: { not: ESTADO_RECHAZADA } } });
-    const conProveedor = filas.flatMap((f) => { const p = proveedorPorId(f.proveedor); return p ? [{ f, p }] : []; });
+    const filas = await prisma.claveIntegracion.findMany({ where: { habilitada: true, estado: { not: ESTADO_RECHAZADA } }, include: { gateway: true } });
+    const dominios = filas.some((f) => f.gateway) ? await dominiosPermitidos() : new Set<string>();
+    const conProveedor = filas.flatMap((f) => {
+      if (f.gateway && !gatewayUsable(f.gateway, dominios)) return [];
+      const p = proveedorDeFila(f);
+      return p ? [{ f, p }] : [];
+    });
     conProveedor.sort((a, b) =>
       Number(a.f.reserva) - Number(b.f.reserva) // las de reserva, al final
       || a.p.prioridad - b.p.prioridad
@@ -55,9 +63,9 @@ export async function construirCadena(ahora = cooldownDeps.ahora()): Promise<Esl
 }
 
 /** Eslabón de una fila del llavero (con la clave descifrada sólo en memoria); null si no se puede descifrar. */
-export function eslabonDeFila(f: { id: number; proveedor: string; etiqueta: string; api_key_enc: string; modelo: string | null; reserva: boolean }): Eslabon | null {
-  const p = proveedorPorId(f.proveedor);
-  if (!p) return null;
+export function eslabonDeFila(f: { id: number; proveedor: string; etiqueta: string; api_key_enc: string; modelo: string | null; reserva: boolean; gateway?: FilaGateway | null }): Eslabon | null {
+  const p = proveedorDeFila(f);
+  if (!p || (f.gateway && !f.gateway.habilitado)) return null;
   try {
     const clave = descifrar(f.api_key_enc, aadClave(f.proveedor, f.etiqueta));
     return { cooldownKey: claveCooldown(p.id, f.id), claveId: f.id, proveedor: p, clave, modelo: f.modelo || p.modeloPorDefecto, fijado: f.modelo, reserva: f.reserva };
@@ -92,4 +100,10 @@ export const usoDe = (claveId: number): UsoClave => ({ ...(usos.get(claveId) ?? 
 export const olvidarUso = (claveId: number) => { usos.delete(claveId); };
 export const olvidarTodoUso = () => usos.clear();
 
-export const ordenProveedores = () => [...PROVEEDORES_IA].sort((a, b) => a.prioridad - b.prioridad).map((p) => p.id);
+/** Orden de prioridad para la pantalla: el catálogo y los gateways habilitados (`gw-<id>`); a igual prioridad, el catálogo primero. */
+export async function ordenProveedores(): Promise<string[]> {
+  const gateways = await prisma.gatewayIA.findMany({ where: { habilitado: true }, select: { id: true, prioridad: true } });
+  return [...PROVEEDORES_IA.map((p) => ({ id: p.id, prioridad: p.prioridad, n: 0 })), ...gateways.map((g) => ({ id: `gw-${g.id}`, prioridad: g.prioridad, n: g.id }))]
+    .sort((a, b) => a.prioridad - b.prioridad || a.n - b.n)
+    .map((p) => p.id);
+}

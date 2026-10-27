@@ -1,7 +1,7 @@
 // Lo que el Llavero muestra por clave más allá de la clave misma: modelo en uso, conteo de modelos, última sincronización,
 // cambios recientes (nuevos, retirados, reactivados), consultas recientes del asistente (sin contenido) y la salud de la IA.
 import { prisma } from '../../db';
-import { proveedorPorId } from '../../lib/proveedoresIA';
+import { proveedorDeFila } from '../../lib/gateways';
 import { elegirModeloAuto } from '../modelos/seleccion';
 import { listar } from '../llavero';
 import { saludActual } from './salud';
@@ -13,7 +13,8 @@ interface DetalleSync { nuevos?: string[]; deprecados?: string[]; revividos?: st
 
 export async function datosExtraLlavero(claves: Awaited<ReturnType<typeof listar>>) {
   const ids = claves.map((c) => c.id);
-  const [conteos, ultimas, historial, consultas, salud] = await Promise.all([
+  const [gateways, conteos, ultimas, historial, consultas, salud] = await Promise.all([
+    prisma.gatewayIA.findMany(),
     prisma.modeloIA.groupBy({ by: ['clave_id', 'estado'], where: { clave_id: { in: ids }, categoria: { not: 'otro' } }, _count: { _all: true } }),
     prisma.syncModelosIA.findMany({ where: { clave_id: { in: ids } }, orderBy: { id: 'desc' }, take: Math.max(20, ids.length * 3) }),
     prisma.syncModelosIA.findMany({ where: { clave_id: { in: ids }, ok: true, OR: [{ nuevos: { gt: 0 } }, { deprecados: { gt: 0 } }, { revividos: { gt: 0 } }] }, orderBy: { id: 'desc' }, take: 12, include: { clave: { select: { proveedor: true, etiqueta: true } } } }),
@@ -31,7 +32,7 @@ export async function datosExtraLlavero(claves: Awaited<ReturnType<typeof listar
   }
 
   const porClave = await Promise.all(claves.map(async (c) => {
-    const p = proveedorPorId(c.proveedor);
+    const p = proveedorDeFila({ proveedor: c.proveedor, gateway: gateways.find((g) => g.id === c.gateway_id) });
     const ultima = ultimas.find((u) => u.clave_id === c.id) ?? null;
     return [c.id, {
       modelo_en_uso: p ? await elegirModeloAuto({ claveId: c.id, proveedor: p, modelo: c.modelo }, { esfuerzo: 'medium' }) : c.modelo,

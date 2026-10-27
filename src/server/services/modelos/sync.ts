@@ -9,9 +9,10 @@ import { prisma } from '../../db';
 import { cooldownDeps } from '../../lib/cooldown';
 import { clasificarModelo, esGratis, esModeloDeChat, leerListaModelos } from '../../lib/modelosIA';
 import { olvidarModeloMalo } from '../../lib/modelosMalos';
-import { proveedorPorId } from '../../lib/proveedoresIA';
+import { proveedorDeFila } from '../../lib/gateways';
 import { aadClave, descifrar, llaveroConfigurado } from '../../lib/secretBox';
-import { cabecerasDe, detalleDeEstadoHttp, llaveroDeps } from '../llavero';
+import type { ProveedorIA } from '../../lib/proveedoresIA';
+import { cabecerasDe, detalleDeEstadoHttp, fetchProveedor } from '../llavero';
 import { ESTADO_RECHAZADA } from '../rotacion';
 import { elegirModeloAuto } from './seleccion';
 
@@ -25,9 +26,9 @@ export const LOCK_MODELOS = 7_302_302;
 const HISTORIAL_MAX = 50;
 const DETALLE_MAX = 25;
 
-/** Puntos de inyección: `fetch` (el del llavero) y el reloj (el del cooldown). */
+/** Puntos de inyección: `fetch` (el del llavero, con las barreras de los gateways) y el reloj (el del cooldown). */
 export const syncDeps = {
-  fetch: (url: string, init?: RequestInit) => llaveroDeps.fetch(url, init),
+  fetch: (p: ProveedorIA, url: string, init: RequestInit) => fetchProveedor(p, url, init),
   ahora: (): Date => new Date(cooldownDeps.ahora()),
 };
 
@@ -63,15 +64,15 @@ async function registrar(claveId: number, r: ResultadoSync, detalle?: Prisma.Inp
 /** Sincroniza los modelos de UNA clave (la use quien la use). Nunca lanza: el resultado dice si salió bien. */
 export async function sincronizarClave(claveId: number): Promise<ResultadoSync | null> {
   if (!llaveroConfigurado()) return null;
-  const f = await prisma.claveIntegracion.findUnique({ where: { id: claveId } });
-  const p = f ? proveedorPorId(f.proveedor) : undefined;
+  const f = await prisma.claveIntegracion.findUnique({ where: { id: claveId }, include: { gateway: true } });
+  const p = f ? proveedorDeFila(f) : null;
   if (!f || !p) return null;
 
   let resp: Response;
   let cuerpo: unknown = null;
   try {
     const clave = descifrar(f.api_key_enc, aadClave(f.proveedor, f.etiqueta));
-    resp = await syncDeps.fetch(`${p.baseUrl}/models`, { method: 'GET', headers: { Accept: 'application/json', ...cabecerasDe(p, clave) }, redirect: 'manual', signal: AbortSignal.timeout(TOPE_SYNC_MS) });
+    resp = await syncDeps.fetch(p, `${p.baseUrl}/models`, { method: 'GET', headers: { Accept: 'application/json', ...cabecerasDe(p, clave) }, redirect: 'manual', signal: AbortSignal.timeout(TOPE_SYNC_MS) });
     if (resp.ok) cuerpo = await resp.json().catch(() => null);
     else await resp.body?.cancel().catch(() => undefined);
   } catch (err) {
