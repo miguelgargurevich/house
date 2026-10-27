@@ -4,6 +4,29 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Haiku 5.5, delegado) — Adjuntar el comprobante desde el detalle de un pago ya registrado
+
+**Pedido de Miguel:** «como o donde se adjunta el comprobante?» (el detalle de un pago validado decía «Este pago no tiene comprobante adjunto.») → «Sí, agrega el botón «Adjuntar comprobante» en el detalle del pago, con el análisis de IA». Rama `feat/adjuntar-comprobante` (worktree `.claude/worktrees/adjuntar-comprobante`); **sin push**.
+
+**Qué se hizo**
+- `ValidarPagoModal.tsx`: sin comprobante y con rol admin/superadmin, botón «Adjuntar comprobante» (JPG/PNG/WebP/PDF, 2 MB; se valida en el cliente con `errorDeArchivo`). Usa `subirComprobante` (el mismo `POST /api/pagos/:id/comprobante`, sin cambios en el servidor). Tras subir muestra el voucher y el panel «Evaluación automática», y sigue a la IA sin pedir otra evaluación.
+- Texto según el estado: pago ya validado → «el voucher queda como respaldo y la IA solo informa lo que leyó»; por validar → la IA puede validarlo solo o dejarlo en revisión. Si la IA lo valida mientras la pantalla sigue abierta, el estado mostrado pasa a validado y se oculta Validar/Rechazar.
+- `evaluacion.tsx`: el hook `useEvaluacionCompleta` expone `seguir()` (espera la evaluación que ya inició el servidor) y reinicia `validadoPorIA` al cambiar de pago (antes podía arrastrar la marca del pago anterior).
+- `comprobantes.ts`: `subirComprobante` dice «No tienes permiso para adjuntar el comprobante a este pago.» ante 403/404. Sólo ahí: `registrarPagoConVoucher` y la descarga no cambian. Efecto colateral: el residente que intenta adjuntar a un pago ajeno ve este texto en vez de «Pago no encontrado».
+- Pruebas: `tests/adjuntar-comprobante.test.ts` (API, 5: admin a pago VALIDADO → 201 y sigue validado con evaluación; a pago por validar → 201 y no se valida sola; 415; otra empresa / residente ajeno / junta de otro block → 404 sin guardar; el residente sigue adjuntando a su pago). `tests/adjuntar-comprobante-ui.test.ts` (fuente, 6). Mutación: `puedeAdjuntar = true` → 1 rojo (la regla de quién ve el botón); restaurado y en verde.
+
+**Decisiones**
+- Sin backend nuevo ni esquema. La administración sube a cualquier pago de su alcance (`scopePagosEscritura`); el residente y la junta sólo a los pagos que registraron ellos (regla existente, sin cambios).
+- Adjuntar a un pago validado NO cambia su estado: lo dice la pantalla y lo prueba la API.
+
+**Próximos pasos**
+- Miguel debe probarlo en el navegador (el repo no pinta componentes): botón visible para admin, texto del estado y la evaluación al terminar.
+
+**No verificado**
+- No se probó en navegador. La IA real no se ejecutó: en las pruebas su `fetch` falla a propósito (no hay red), así que el camino «la IA valida sola» sólo se ve en el hook/fuente, no de extremo a extremo.
+
+---
+
 ## 2026-10-26 — Claude Code (Sonnet 5.5, delegado) — Un recibo por torre (modelo, Excel, emisión, alcance de la junta, torre visible en toda la app, «setiembre»)
 
 **Pedido de Miguel:** «en recibos tengo el recibo de octubre pero debe ser por block (Torre) porque cuando entro esos son los vecinos del block .. así cada block tiene su propio recibo» · «igual acá cómo sé de qué Block es el recibo?» · «en recibos igual considera en toda la aplicación y revisa cuántos más hay así». Rama `feat/recibo-por-torre` (sobre `origin/main` 2058a68); **sin push** (lo sube la sesión principal con OK de Miguel). Última entrada previa: el administrador adjunta el voucher (abajo).

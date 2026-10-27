@@ -141,7 +141,7 @@ export function useEvaluacionCompleta(pagoId: number | null, inicial: Evaluacion
   const vivo = useRef(true);
 
   useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
-  useEffect(() => { setEv(inicial); setError(null); setEsperando(false); }, [pagoId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setEv(inicial); setValidadoPorIA(false); setError(null); setEsperando(false); }, [pagoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pendiente = esperando || ev?.estado === 'pendiente';
   useEffect(() => {
@@ -174,7 +174,10 @@ export function useEvaluacionCompleta(pagoId: number | null, inicial: Evaluacion
     }
   }, [pagoId]);
 
-  return { ev, validadoPorIA, esperando, error, reevaluar };
+  /** Sigue la evaluación que el servidor acaba de iniciar al subir el comprobante, sin pedir otra. */
+  const seguir = useCallback(() => { setError(null); setEsperando(true); }, []);
+
+  return { ev, validadoPorIA, esperando, error, reevaluar, seguir };
 }
 
 // ---------- Lo que ve el residente ----------

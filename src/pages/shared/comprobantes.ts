@@ -37,6 +37,8 @@ export async function subirComprobante(pagoId: number, archivo: File): Promise<C
     body: archivo,
     credentials: 'same-origin',
   });
+  // Un pago fuera del alcance responde 404 (no se distingue de «no existe»): el mensaje lo dice con las palabras de quien adjunta.
+  if (res.status === 403 || res.status === 404) throw new Error('No tienes permiso para adjuntar el comprobante a este pago.');
   if (!res.ok) throw new Error(await mensajeDe(res));
   return (await res.json()) as ComprobanteMeta;
 }

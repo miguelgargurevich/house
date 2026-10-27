@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { api, errorText } from '../../../../api';
+import { useAuth } from '../../../../auth/AuthContext';
 import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, fechaCorta, soles, useToast } from '../../../../ui';
 import { ComprobanteVista } from '../../../shared/ComprobanteVista';
 import type { ComprobanteMeta } from '../../../shared/comprobantes';
-import { tamanoLegible } from '../../../shared/comprobantes';
+import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../../shared/comprobantes';
 import { EvaluacionPanel, useEvaluacionCompleta } from '../../../shared/evaluacion';
 import type { EvaluacionCompleta } from '../../../shared/evaluacion';
 import { metodoLabel } from './comun';
@@ -36,14 +38,38 @@ interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: (
 /** Vista del comprobante de un pago y, si está por validar, los botones para validarlo o rechazarlo con motivo. */
 export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const toast = useToast();
+  const { user } = useAuth();
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [errorMotivo, setErrorMotivo] = useState<string | undefined>();
   const [enviando, setEnviando] = useState<'validado' | 'rechazado' | null>(null);
+  // Quien administra adjunta el voucher que falta; la junta y el residente no (sólo suben el suyo, en su pantalla).
+  const puedeAdjuntar = user?.rol === 'admin' || user?.rol === 'superadmin';
+  const archivoRef = useRef<HTMLInputElement>(null);
+  const [subido, setSubido] = useState<ComprobanteMeta | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
 
   const ia = useEvaluacionCompleta(pago?.id ?? null, pago?.evaluacion ?? null);
 
-  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); }, [pago?.id]);
+  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); }, [pago?.id]);
+
+  /** Sube el voucher y sigue la evaluación de la IA; el pago no cambia de estado aquí (sólo la IA o quien valida). */
+  async function adjuntar(archivo: File) {
+    if (!pago) return;
+    const error = errorDeArchivo(archivo);
+    if (error) return void setErrorAdjunto(error);
+    setSubiendo(true); setErrorAdjunto(null);
+    try {
+      setSubido(await subirComprobante(pago.id, archivo));
+      ia.seguir();
+      onRevisado(); // refresca la lista: la fila ya no dice «Sin comprobante»
+    } catch (e) { setErrorAdjunto(errorText(e)); }
+    finally {
+      setSubiendo(false);
+      if (archivoRef.current) archivoRef.current.value = '';
+    }
+  }
 
   async function revisar(estado: 'validado' | 'rechazado') {
     if (!pago) return;
@@ -61,7 +87,10 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
     finally { setEnviando(null); }
   }
 
-  const porValidar = pago?.estado_validacion === 'por_validar';
+  // Si la IA validó sola el pago que se acaba de adjuntar, ya no está por validar: se dice y se ocultan los botones.
+  const estadoPago = pago && pago.estado_validacion === 'por_validar' && ia.validadoPorIA ? 'validado' : pago?.estado_validacion;
+  const porValidar = estadoPago === 'por_validar';
+  const comprobante = pago?.comprobante ?? subido;
   // Un pago del mantenimiento se revisa por su TOTAL: el comprobante es uno solo y cubre todos los conceptos.
   const monto = pago ? pago.mantenimiento?.total ?? pago.monto : 0;
 
@@ -94,7 +123,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
           <div className="rounded bg-surface2 p-4">
             <div className="flex items-start justify-between gap-3">
               <div><p className="num text-2xl font-semibold">{soles(monto)}</p>{pago.mantenimiento && <p className="text-xs text-muted">Mantenimiento completo · {pago.mantenimiento.conceptos} conceptos</p>}</div>
-              <StatusBadge estado={pago.estado_validacion} />
+              <StatusBadge estado={estadoPago ?? pago.estado_validacion} />
             </div>
             <div className="mt-4">
               <DefinitionList
@@ -116,16 +145,37 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
 
           <section aria-label="Comprobante">
             <h3 className="mb-2 text-sm font-medium">
-              Comprobante{pago.comprobante && <span className="ml-2 font-normal text-muted">{pago.comprobante.nombre} · {tamanoLegible(pago.comprobante.tamano)}</span>}
+              Comprobante{comprobante && <span className="ml-2 font-normal text-muted">{comprobante.nombre} · {tamanoLegible(comprobante.tamano)}</span>}
             </h3>
-            {pago.comprobante ? (
-              <ComprobanteVista key={pago.comprobante.created_at} pagoId={pago.id} descripcion={`Comprobante de pago de ${pago.unidad?.codigo ?? 'la unidad'}, ${soles(monto)}`} nombre={pago.comprobante.nombre} />
+            {comprobante ? (
+              <ComprobanteVista key={comprobante.created_at} pagoId={pago.id} descripcion={`Comprobante de pago de ${pago.unidad?.codigo ?? 'la unidad'}, ${soles(monto)}`} nombre={comprobante.nombre} />
             ) : (
-              <Alert tone="warn">{pago.usuario ? `${pago.usuario.nombre} no adjuntó comprobante.` : 'Este pago no tiene comprobante adjunto.'}</Alert>
+              <>
+                <Alert tone="warn">{pago.usuario ? `${pago.usuario.nombre} no adjuntó comprobante.` : 'Este pago no tiene comprobante adjunto.'}</Alert>
+                {puedeAdjuntar && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} disabled={subiendo} onClick={() => archivoRef.current?.click()}>Adjuntar comprobante</Button>
+                    <span className="text-xs text-muted">JPG, PNG, WebP o PDF, hasta 2 MB.</span>
+                    <input ref={archivoRef} type="file" accept={ACCEPT_COMPROBANTE} onChange={e => { const f = e.target.files?.[0]; if (f) void adjuntar(f); }} className="sr-only" tabIndex={-1} aria-label="Elegir archivo del comprobante" />
+                  </div>
+                )}
+                {errorAdjunto && <div className="mt-3"><Alert tone="bad">{errorAdjunto}</Alert></div>}
+              </>
+            )}
+            {subido && (
+              <div className="mt-3">
+                <Alert tone="info">
+                  {pago.estado_validacion === 'validado'
+                    ? 'El pago ya estaba validado: el voucher queda como respaldo y la IA solo informa lo que leyó.'
+                    : estadoPago === 'validado'
+                      ? 'La IA revisó el voucher y validó el pago automáticamente.'
+                      : 'La IA revisa el voucher. Si coincide con lo esperado, el pago se valida solo; si no, queda en revisión para que lo revises tú.'}
+                </Alert>
+              </div>
             )}
           </section>
 
-          {pago.comprobante && (
+          {comprobante && (
             <EvaluacionPanel
               evaluacion={ia.ev}
               montoEsperado={monto}
