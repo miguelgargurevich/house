@@ -23,6 +23,16 @@ export interface DatosPago {
   fecha_pago?: Date;
 }
 
+/** Archivo de comprobante ya verificado (tipo, bytes y tamaño): se guarda en la MISMA transacción que el pago. */
+export interface ComprobanteAdjunto {
+  nombre: string;
+  tipo_mime: string;
+  tamano: number;
+  sha256: string;
+  datos: Buffer;
+  subidoPorId: number;
+}
+
 export interface ResultadoPago {
   grupo: string;
   /** Id del pago principal: a él se sube el comprobante (`POST /api/pagos/:id/comprobante`). */
@@ -36,9 +46,12 @@ const cerrados = ['pagado', 'en_revision'];
 
 /**
  * Paga el saldo completo del mantenimiento (recibo + unidad). `por_validar` (residente: espera la junta/admin) o `validado` (lo registra
- * la administración: queda pagado de inmediato). 404 si el mantenimiento no existe; 409 si no queda nada por pagar o alguien lo tomó antes.
+ * la administración: queda pagado de inmediato). Si la administración adjunta un `comprobante`, el pago nace `por_validar` como el del
+ * residente (los cargos quedan en revisión) y el archivo se guarda en el pago principal dentro de la misma transacción: o queda todo
+ * o no queda nada. 404 si el mantenimiento no existe; 409 si no queda nada por pagar o alguien lo tomó antes.
  */
-export async function pagarMantenimiento(o: { reciboId: number; unidadId: number; usuarioId: number | null; modo: 'residente' | 'administracion'; validadorId?: number } & DatosPago): Promise<ResultadoPago> {
+export async function pagarMantenimiento(o: { reciboId: number; unidadId: number; usuarioId: number | null; modo: 'residente' | 'administracion'; validadorId?: number; comprobante?: ComprobanteAdjunto } & DatosPago): Promise<ResultadoPago> {
+  const porValidar = o.modo === 'residente' || o.comprobante != null;
   return prisma.$transaction(async (tx) => {
     const cargos = await tx.reciboConceptoUnidad.findMany({
       where: { unidad_id: o.unidadId, reciboConcepto: { recibo_id: o.reciboId } },
@@ -57,12 +70,12 @@ export async function pagarMantenimiento(o: { reciboId: number; unidadId: number
     const ids = reparto.map((r) => r.cargoId);
     const cerrado = await tx.reciboConceptoUnidad.updateMany({
       where: { id: { in: ids }, OR: [{ estado_pago: null }, { estado_pago: { notIn: cerrados } }] },
-      data: o.modo === 'residente' ? { estado_pago: 'en_revision', fecha_pago: null } : { estado_pago: 'pagado', fecha_pago: o.fecha_pago ?? new Date() },
+      data: porValidar ? { estado_pago: 'en_revision', fecha_pago: null } : { estado_pago: 'pagado', fecha_pago: o.fecha_pago ?? new Date() },
     });
     if (cerrado.count !== ids.length) throw conflict('Este mantenimiento cambió mientras lo pagabas: recarga e inténtalo de nuevo');
 
     const grupo = randomUUID();
-    const validado = o.modo === 'administracion';
+    const validado = !porValidar;
     let principal = 0;
     let total = new Prisma.Decimal(0);
     for (const [i, r] of reparto.entries()) {
@@ -82,7 +95,13 @@ export async function pagarMantenimiento(o: { reciboId: number; unidadId: number
         },
         select: { id: true },
       });
-      if (i === 0) principal = p.id;
+      if (i === 0) {
+        principal = p.id;
+        if (o.comprobante) {
+          const { subidoPorId, ...archivo } = o.comprobante;
+          await tx.archivoComprobante.create({ data: { pago_id: p.id, ...archivo, subido_por_id: subidoPorId }, select: { id: true } });
+        }
+      }
       total = total.plus(r.monto);
     }
     return { grupo, pago_id: principal, total: total.toFixed(2), cargos: reparto.length };

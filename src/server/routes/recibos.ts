@@ -1,16 +1,20 @@
+import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { Router, type RequestHandler } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { conflict, forbidden, notFound, invalid } from '../errors';
+import { HttpError, conflict, forbidden, notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
 import { ambitoJunta, filtroAmbito } from '../lib/junta';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { scopeComplejos, scopeConceptos, scopeRecibos, scopeRecibosEscritura, scopeUnidades, scopeUsuarios } from '../lib/scope';
+import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
-import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
+import { detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
+import { detalleMantenimiento, pagarMantenimiento, type ComprobanteAdjunto } from '../services/mantenimiento';
+import { iniciarEvaluacion } from '../services/evaluacion';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
@@ -273,26 +277,78 @@ const pagoMantenimiento = z.strictObject({
   usuario_id: idSchema.nullish(),
 });
 
-/** La administración o la junta registran el pago del mantenimiento completo: queda validado de inmediato (el comprobante es opcional y se sube después). */
-router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, async (req, res) => {
+/** El departamento del pago, sólo si lo alcanza quien cobra (404 si no). Cobrar es de quien administra el condominio hoy; la administradora anterior sólo consulta. */
+async function ubicarParaCobrar(req: Parameters<typeof currentUser>[0], reciboId: number, unidadId: number) {
   const u = currentUser(req);
-  const { id, unidadId } = parse(idsMant, req.params);
-  const body = parseBody(pagoMantenimiento, req);
-  await reciboAccesible(req, id, true); // cobrar es de quien administra el condominio hoy; la administradora anterior sólo consulta
+  await reciboAccesible(req, reciboId, true);
   const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesDe(u)] }, select: { id: true, propietario_id: true, inquilino_id: true } });
   if (!unidad) throw notFound('Mantenimiento');
+  return unidad;
+}
+
+const subirVoucher = multer({ storage: multer.memoryStorage(), defParamCharset: 'utf8', limits: { fileSize: MAX_COMPROBANTE, files: 1, fields: 8, fieldSize: 1024, parts: 9 } });
+
+/**
+ * Con `multipart/form-data` el pago puede traer el voucher (campo `voucher`). El departamento se ubica ANTES de recibir el archivo: quien no
+ * alcanza ese mantenimiento recibe 404 sin que se lea el cuerpo. Con JSON no hace nada (la petición de siempre).
+ */
+const voucherOpcional: RequestHandler = async (req, res, next) => {
+  if (!req.is('multipart/form-data')) return next();
+  const { id, unidadId } = parse(idsMant, req.params);
+  res.locals.unidadPago = await ubicarParaCobrar(req, id, unidadId);
+  subirVoucher.single('voucher')(req, res, (err?: unknown) => {
+    if (err instanceof multer.MulterError) {
+      const grande = err.code === 'LIMIT_FILE_SIZE';
+      return next(invalid(grande ? 'El archivo pesa más de 2 MB' : 'Datos inválidos: voucher: adjunta un solo archivo en el campo voucher', { voucher: grande ? 'Demasiado grande' : 'Archivo inválido' }));
+    }
+    next(err);
+  });
+};
+
+/** Los campos de texto del formulario llegan como cadenas: los vacíos (un campo sin llenar) se descartan; el resto lo valida zod igual que en JSON (`usuario_id` se convierte a número ahí). */
+function camposDeFormulario(body: unknown): Record<string, unknown> {
+  return Object.fromEntries(Object.entries((body ?? {}) as Record<string, unknown>).filter(([, v]) => v !== ''));
+}
+
+/** Verifica el voucher igual que `POST /api/pagos/:id/comprobante`: tipo declarado permitido (415), no vacío y bytes que correspondan al tipo (422). */
+function voucherVerificado(file: Express.Multer.File, subidoPorId: number): ComprobanteAdjunto {
+  const declarado = file.mimetype as TipoComprobante;
+  if (!(TIPOS_COMPROBANTE as readonly string[]).includes(declarado)) throw new HttpError(415, 'Tipo de archivo no permitido: sube una imagen JPG, PNG o WebP, o un PDF');
+  if (file.size === 0) throw invalid('El archivo está vacío', { voucher: 'Vacío' });
+  if (detectarTipo(file.buffer) !== declarado) throw invalid('El contenido del archivo no corresponde a su tipo', { voucher: 'No corresponde a su tipo' });
+  return { nombre: sanearNombre(file.originalname, declarado), tipo_mime: declarado, tamano: file.size, sha256: createHash('sha256').update(file.buffer).digest('hex'), datos: file.buffer, subidoPorId };
+}
+
+/**
+ * La administración o la junta registran el pago del mantenimiento completo.
+ *  - JSON (o formulario sin archivo): queda validado de inmediato; el comprobante es opcional y se sube después.
+ *  - `multipart/form-data` con el campo `voucher`: el pago nace `por_validar` con el voucher guardado en la MISMA transacción, y se dispara la
+ *    misma evaluación de IA del residente (valida sola con sus condiciones de siempre; si no, queda en revisión). Si el archivo no sirve no se crea nada.
+ */
+router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, voucherOpcional, async (req, res) => {
+  const u = currentUser(req);
+  const { id, unidadId } = parse(idsMant, req.params);
+  const multipart = Boolean(req.is('multipart/form-data'));
+  const body = multipart ? parse(pagoMantenimiento, camposDeFormulario(req.body)) : parseBody(pagoMantenimiento, req);
+  const unidad = (res.locals.unidadPago as Awaited<ReturnType<typeof ubicarParaCobrar>> | undefined) ?? (await ubicarParaCobrar(req, id, unidadId));
+  const voucher = req.file ? voucherVerificado(req.file, u.id) : undefined;
   const { usuario_id, ...datos } = body;
   if (usuario_id != null) {
     if (esAdmin(u)) await assertRef(prisma.usuario, usuario_id, scopeUsuarios(u), 'usuario_id');
     // La junta sólo puede atribuir el pago al propietario o al inquilino de ese departamento.
     else if (usuario_id !== unidad.propietario_id && usuario_id !== unidad.inquilino_id) throw invalid('Datos inválidos: usuario_id: debe ser el propietario o el inquilino del departamento', { usuario_id: 'Debe ser el propietario o el inquilino' });
   }
-  const r = await pagarMantenimiento({ reciboId: id, unidadId, usuarioId: usuario_id ?? null, modo: 'administracion', validadorId: u.id, ...datos });
+  const r = await pagarMantenimiento({ reciboId: id, unidadId, usuarioId: usuario_id ?? null, modo: 'administracion', validadorId: u.id, comprobante: voucher, ...datos });
   res.locals.entidad = 'pago';
   res.locals.entidadId = r.pago_id;
-  res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: id, unidad_id: unidadId };
+  res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: id, unidad_id: unidadId, ...(voucher ? { con_voucher: true } : {}) };
+  if (voucher) {
+    // Mismo registro que al subir un comprobante (sólo metadatos, nunca el contenido), y la IA lo lee en segundo plano: no frena la respuesta ni, si falla, el pago.
+    await registrarAuditoria({ usuario_id: u.id, accion: 'subir_comprobante', entidad: 'pago', entidad_id: r.pago_id, detalle: { nombre: voucher.nombre, tipo_mime: voucher.tipo_mime, tamano: voucher.tamano, sha256: voucher.sha256 }, ip: ipDe(req) });
+    await iniciarEvaluacion(r.pago_id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
+  }
   // El recibo ya se validó arriba: al cobrar la última unidad deja de tener deuda y `recibosDe` dejaría de alcanzarlo (404 tras haber cobrado).
-  res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
+  res.status(201).json({ ...r, estado: voucher ? 'por_validar' : 'validado', con_voucher: voucher != null, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
 });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
