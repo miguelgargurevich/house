@@ -21,3 +21,14 @@ export function aTextoWhatsapp(md: string): string {
 /** Quita acentos y mayúsculas para reconocer los comandos simples («Menú», «DESVINCULAR»). */
 export const comandoDe = (texto: string): string =>
   texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+
+/**
+ * Markdown del asistente → TEXTO PLANO para Telegram (sin `parse_mode`: ninguna etiqueta ni marca del usuario o de la IA se interpreta, así que no hay
+ * inyección de HTML). Mismos enlaces y viñetas que WhatsApp, pero sin negritas ni títulos con asteriscos.
+ */
+export function aTextoPlano(md: string): string {
+  return aTextoWhatsapp(md)
+    .replace(/^\*([^*\n]+)\*$/gm, '$1') // títulos
+    .replace(/\*([^*\n]+)\*/g, '$1') // negritas
+    .replace(/~([^~\n]+)~/g, '$1');
+}

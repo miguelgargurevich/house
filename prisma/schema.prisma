@@ -398,6 +398,22 @@ model ConfiguracionOcr {
   updated_at         DateTime @updatedAt
 }
 
+/// Bot de Telegram GLOBAL de House (una sola fila, id = 1). El token va cifrado con el Llavero (AAD `telegram:bot`); del secreto del webhook sólo se guarda su hash.
+model ConfiguracionTelegram {
+  id                    Int       @id @default(1)
+  token_enc             String?
+  ultimos4              String?
+  /// @usuario del bot (sin «@»), tal como lo informa `getMe`.
+  bot_usuario           String?
+  bot_nombre            String?
+  habilitado            Boolean   @default(false)
+  secreto_hash          String?
+  webhook_url           String?
+  webhook_registrado_at DateTime?
+  actualizado_por_id    Int?
+  updated_at            DateTime  @updatedAt
+}
+
 /// Sesión del lado del servidor: la cookie `house_sesion` lleva un token opaco; aquí sólo se guarda su sha256.
 model Sesion {
   id            String    @id @default(cuid())

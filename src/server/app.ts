@@ -17,7 +17,7 @@ import { mcpRouter } from './routes/mcp';
 import { tokensApiRouter } from './routes/tokensApi';
 import { whatsappRouter } from './routes/whatsapp';
 import { canalesMeRouter } from './routes/canales';
-import { canalesWebhookRouter } from './routes/canalesWebhook';
+import { canalesTelegramRouter, canalesWebhookRouter } from './routes/canalesWebhook';
 import { loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
 import { comprobantesRouter } from './routes/comprobantes';
@@ -68,6 +68,7 @@ export function createApp(opts: AppOptions = {}) {
 
   // Webhook de Evolution (bot de WhatsApp): también antes del JSON global, con su secreto por instancia y su propio tope de 64 kB.
   app.use('/api/canales/whatsapp', canalesWebhookRouter());
+  app.use('/api/canales/telegram', canalesTelegramRouter());
 
   // CORS desactivado por defecto (mismo origen); sólo se habilita para los orígenes listados en CORS_ORIGIN.
   const origenes = parseCorsOrigins();

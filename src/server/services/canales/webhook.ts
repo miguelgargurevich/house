@@ -55,3 +55,14 @@ export async function registrarWebhook(empresaId: number, instancia: string, opt
 
 /** Al desvincular la instancia el webhook ya no sirve: se borra para que Evolution (si siguiera llamando) reciba 401. */
 export const quitarWebhook = (empresaId: number) => prisma.canalWebhook.deleteMany({ where: { empresa_id: empresaId } });
+
+/**
+ * ¿El secreto de la cabecera `X-Telegram-Bot-Api-Secret-Token` es el del bot GLOBAL y el bot está activo? Mismo método que WhatsApp: se compara
+ * el hash con el guardado en tiempo constante, y sin bot (o pausado) se compara igual contra un hash nulo para que el tiempo no delate el estado.
+ */
+export async function autenticarWebhookTelegram(secreto: string | undefined): Promise<boolean> {
+  const fila = await prisma.configuracionTelegram.findUnique({ where: { id: 1 }, select: { habilitado: true, secreto_hash: true, token_enc: true } });
+  const activo = !!fila?.habilitado && !!fila.secreto_hash && !!fila.token_enc;
+  const iguales = hashesIguales(sha256(secreto ?? ''), (activo ? fila.secreto_hash : null) ?? HASH_NULO);
+  return activo && !!secreto && iguales;
+}

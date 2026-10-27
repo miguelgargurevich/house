@@ -222,7 +222,7 @@ describe('A1 · códigos y pantalla de vinculación (/api/me/canales)', () => {
   it('exige sesión; sin WhatsApp activo en la empresa → 409; sin empresa (superadmin) → 409; límite de códigos por persona → 429', async () => {
     assert.equal((await llamar(base, 'POST', '/api/me/canales/whatsapp/codigo', null, {})).status, 401);
     assert.equal((await llamar(base, 'GET', '/api/me/canales', null)).status, 401);
-    assert.equal((await llamar(base, 'POST', '/api/me/canales/telegram/codigo', T.prop1, {})).status, 422, 'Telegram todavía no');
+    assert.equal((await llamar(base, 'POST', '/api/me/canales/telegram/codigo', T.prop1, {})).status, 409, 'Telegram existe, pero sin bot activo todavía no se puede vincular');
     await prisma.empresaAdministradora.update({ where: { id: D.empresaA.id }, data: { whatsapp_instance: null } });
     assert.equal((await llamar(base, 'POST', '/api/me/canales/whatsapp/codigo', T.prop1, {})).status, 409);
     await prisma.empresaAdministradora.update({ where: { id: D.empresaA.id }, data: { whatsapp_instance: INST_A } });

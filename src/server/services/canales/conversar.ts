@@ -5,7 +5,7 @@ import { prisma } from '../../db';
 import { registrarAuditoria } from '../../middleware/audit';
 import { MENSAJES_ERROR, ejecutarTurno, prepararTurno, type Preparado } from '../asistente/turno';
 import { partirMensaje } from './evolution';
-import { aTextoWhatsapp } from './formato';
+import { aTextoPlano, aTextoWhatsapp } from './formato';
 import { MAX_IA_USUARIO, limites } from './limites';
 
 export type OrigenCanal = 'whatsapp' | 'telegram';
@@ -50,7 +50,7 @@ export async function conversarPorCanal(usuario: AuthUser, texto: string, origen
   // Como en la web, el contenido de la conversación NO va a la auditoría (sólo lo ve su dueño); queda que hubo una consulta y por qué canal.
   void registrarAuditoria({ usuario_id: usuario.id, accion: 'consultar', entidad: 'asistente', detalle: { origen } });
   for await (const ev of ejecutarTurno(prep, { stream: false })) {
-    if (ev.tipo === 'fin') return { ok: true, mensajes: partirMensaje(aTextoWhatsapp(ev.texto)) };
+    if (ev.tipo === 'fin') return { ok: true, mensajes: partirMensaje((origen === 'telegram' ? aTextoPlano : aTextoWhatsapp)(ev.texto)) };
     if (ev.tipo === 'error') return { ok: false, mensajes: [MENSAJES_ERROR[ev.codigo].mensaje] };
   }
   return { ok: false, mensajes: [MENSAJE_SIN_RESPUESTA] };

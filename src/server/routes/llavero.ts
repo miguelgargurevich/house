@@ -10,6 +10,7 @@ import { modelosElegibles } from '../services/modelos/seleccion';
 import { sincronizarClave, sincronizarEnSegundoPlano } from '../services/modelos/sync';
 import { probar } from '../services/asistente/prueba';
 import { datosExtraLlavero } from '../services/asistente/vistaLlavero';
+import { ajustarTelegram, guardarTelegram, probarTelegram, quitarTelegram, verTelegram } from '../services/canales/configTelegram';
 import { parseBody, parseId, parse, texto, z } from '../validation';
 
 const soloSuperadmin: RequestHandler = (req, _res, next) => {
@@ -67,6 +68,7 @@ export function llaveroRouter(limitador: RequestHandler) {
       gateways: await listarGateways(),
       dominios_permitidos: (await listarDominios()).map((d) => ({ id: d.id, dominio: d.dominio, creado: d.created_at.toISOString() })),
       ocr: await verOcr(),
+      telegram: await verTelegram(),
       salud: extra.salud,
       cambios_recientes: extra.cambios_recientes,
       consultas_recientes: extra.consultas_recientes,
@@ -149,6 +151,38 @@ export function llaveroRouter(limitador: RequestHandler) {
   router.delete('/ocr', async (req, res) => {
     const f = await quitarOcr(currentUser(req).id);
     auditarEntidad(res, 'ocr-config', 'eliminar', f.id, { modo: f.modo, destino_interno: f.destino_interno, base_url: f.base_url });
+    res.status(204).end();
+  });
+
+  // ----- Bot de Telegram (global): token cifrado, probar con getMe, activar/pausar el webhook, quitar. Antes de `/:proveedor` y `/:id`, que los taparían -----
+  const telegramSchema = z.object({
+    token: z.string({ error: 'Debe ser un texto' }).trim().min(1, 'Es obligatorio').max(200, 'Máximo 200 caracteres'),
+    activar: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
+  });
+
+  router.put('/telegram', async (req, res) => {
+    const b = parseBody(telegramSchema, req);
+    const v = await guardarTelegram(b.token, currentUser(req).id, { activar: b.activar });
+    auditarEntidad(res, 'telegram-config', 'editar', 1, { bot_usuario: v.bot_usuario, habilitado: v.habilitado, ultimos4: v.ultimos4 }); // jamás el token
+    res.json(v);
+  });
+
+  router.post('/telegram/probar', async (req, res) => {
+    const v = await probarTelegram(currentUser(req).id);
+    auditarEntidad(res, 'telegram-config', 'editar', 1, { accion: 'probar', bot_usuario: v.bot_usuario });
+    res.json(v);
+  });
+
+  router.patch('/telegram', async (req, res) => {
+    const b = parseBody(z.object({ habilitado: z.boolean({ error: 'Debe ser verdadero o falso' }) }), req);
+    const v = await ajustarTelegram(b.habilitado, currentUser(req).id);
+    auditarEntidad(res, 'telegram-config', 'editar', 1, { habilitado: v.habilitado, bot_usuario: v.bot_usuario });
+    res.json(v);
+  });
+
+  router.delete('/telegram', async (req, res) => {
+    const f = await quitarTelegram(currentUser(req).id);
+    auditarEntidad(res, 'telegram-config', 'eliminar', 1, { bot_usuario: f.bot_usuario });
     res.status(204).end();
   });
 

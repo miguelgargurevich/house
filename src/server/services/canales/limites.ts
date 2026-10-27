@@ -61,6 +61,8 @@ export const MAX_IA_USUARIO = 20;
 /** Códigos de vinculación fallidos: más de 5 por número (o 30 por empresa) en 15 min y se rechaza TODO, aun el código bueno. */
 export const MAX_FALLOS_NUMERO = 5;
 export const MAX_FALLOS_EMPRESA = 30;
+/** Bot global (Telegram): un solo cubo para todas las empresas; más holgado para que unos pocos cuentas no puedan trabar la vinculación de todos. */
+export const MAX_FALLOS_GLOBAL = 300;
 
 export const limites = {
   mensajesNumero: new Ventana(MAX_MENSAJES_NUMERO),
@@ -68,6 +70,7 @@ export const limites = {
   iaUsuario: new Ventana(MAX_IA_USUARIO),
   fallosNumero: new Ventana(MAX_FALLOS_NUMERO),
   fallosEmpresa: new Ventana(MAX_FALLOS_EMPRESA),
+  fallosGlobal: new Ventana(MAX_FALLOS_GLOBAL),
   codigosUsuario: new Ventana(5),
   webhookFallosIp: new Ventana(30),
 };

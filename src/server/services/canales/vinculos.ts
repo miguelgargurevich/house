@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { HttpError } from '../../errors';
 import { canalesDeps } from './deps';
-import { cargarAuthUser, perteneceAEmpresa } from './identidad';
+import { cargarAuthUser, empresasDelUsuario, perteneceAEmpresa } from './identidad';
 import { limites } from './limites';
 
 export const CANALES_BOT = ['whatsapp', 'telegram'] as const;
@@ -18,8 +18,15 @@ const hashCodigo = (canal: CanalBot, codigo: string) => createHash('sha256').upd
 const claveVigente = (canal: CanalBot, identificador: string) => `${canal}:${identificador}`;
 const claveUsuario = (usuarioId: number, canal: CanalBot) => `${usuarioId}:${canal}`;
 
-/** `51987654321` → `+51 ••• ••• 321` (el número completo no sale en listados). */
-export const mascara = (identificador: string): string => (/^\d{8,15}$/.test(identificador) ? `+${identificador.slice(0, 2)} ••• ••• ${identificador.slice(-3)}` : `••• ${identificador.slice(-3)}`);
+/** `51987654321` → `+51 ••• ••• 321` (el número completo no sale en listados); un chat de Telegram → `Telegram ••• 321`. */
+export const mascara = (identificador: string, canal: CanalBot = 'whatsapp'): string =>
+  canal === 'telegram' ? `Telegram ••• ${identificador.slice(-3)}` : /^\d{8,15}$/.test(identificador) ? `+${identificador.slice(0, 2)} ••• ••• ${identificador.slice(-3)}` : `••• ${identificador.slice(-3)}`;
+
+/** Empresa con la que se vincula un bot GLOBAL (Telegram): la del personal, o la primera con la que el residente tiene unidades. `null` si no tiene ninguna. */
+async function empresaDe(u: { id: number; empresa_id: number | null }): Promise<number | null> {
+  if (u.empresa_id != null) return u.empresa_id;
+  return (await empresasDelUsuario(u)).sort((a, b) => a - b)[0] ?? null;
+}
 
 /** Normaliza lo que la persona escribió como código: seis dígitos, con o sin espacios o guion. `null` si no lo parece. */
 export function leerCodigo(texto: string): string | null {
@@ -68,17 +75,20 @@ export type ResultadoVinculo = { ok: true; usuarioId: number; nombre: string } |
 
 /**
  * Un mensaje con un código de seis dígitos desde un número SIN vínculo vigente. El número del mensaje es el que queda vinculado.
+ * `empresaId: null` (bot global de Telegram): la empresa del vínculo sale de la persona dueña del código; sin ninguna, se rechaza.
  * Cualquier rechazo (código vencido, usado, ajeno a la empresa o con demasiados intentos) es idéntico para quien escribe: `{ ok: false }`, sin pistas.
  * Los fallos se cuentan por número y por empresa: pasado el tope se rechaza TODO, también el código bueno, sin mirar la base.
  */
-export async function intentarVincular(o: { canal: CanalBot; identificador: string; empresaId: number; texto: string }): Promise<ResultadoVinculo> {
-  const { canal, identificador, empresaId } = o;
+export async function intentarVincular(o: { canal: CanalBot; identificador: string; empresaId: number | null; texto: string }): Promise<ResultadoVinculo> {
+  const { canal, identificador } = o;
   const kNumero = `${canal}:${identificador}`;
-  const kEmpresa = `${canal}:${empresaId}`;
-  if (limites.fallosNumero.llena(kNumero) || limites.fallosEmpresa.llena(kEmpresa)) return { ok: false };
+  // Bot global: no hay empresa antes de identificar el código, así que los fallos se cuentan en un solo cubo del canal.
+  const kEmpresa = `${canal}:${o.empresaId ?? 'global'}`;
+  const cubo = o.empresaId == null ? limites.fallosGlobal : limites.fallosEmpresa;
+  if (limites.fallosNumero.llena(kNumero) || cubo.llena(kEmpresa)) return { ok: false };
   const fallo = (): ResultadoVinculo => {
     limites.fallosNumero.golpear(kNumero);
-    limites.fallosEmpresa.golpear(kEmpresa);
+    cubo.golpear(kEmpresa);
     return { ok: false };
   };
   const codigo = leerCodigo(o.texto);
@@ -93,7 +103,8 @@ export async function intentarVincular(o: { canal: CanalBot; identificador: stri
     return fallo();
   };
   const user = await cargarAuthUser(fila.usuario_id);
-  if (!user || !(await perteneceAEmpresa(user, empresaId))) return rechazar();
+  const empresaId = user ? o.empresaId ?? (await empresaDe(user)) : null;
+  if (!user || empresaId == null || !(await perteneceAEmpresa(user, empresaId))) return rechazar();
   try {
     await prisma.$transaction(async (tx) => {
       // El código se gasta UNA vez: de dos mensajes simultáneos con el mismo código, sólo uno pasa de «sin usar» a «usado».

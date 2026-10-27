@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { diasEntre, hoyLima } from '../../lib/fechas';
+import { enviarTelegram } from '../canales/telegram';
 import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { montoMoraTexto } from '../mora';
 import { fechaTexto, periodoTexto, plantilla, solesTexto, type TipoAviso } from './plantillas';
@@ -91,6 +92,12 @@ async function numeroVinculado(usuarioId: number): Promise<string | null> {
   return v?.identificador ?? null;
 }
 
+/** Chat de Telegram VERIFICADO de la persona (vínculo del bot vigente) o null. */
+async function chatVinculado(usuarioId: number): Promise<string | null> {
+  const v = await prisma.canalVinculado.findFirst({ where: { usuario_id: usuarioId, canal: 'telegram', revocado_at: null }, select: { identificador: true } });
+  return v?.identificador ?? null;
+}
+
 /**
  * Encola un aviso para un usuario, respetando sus preferencias (`aviso_email`, `aviso_whatsapp`) y que tenga
  * correo / celular. Es idempotente: el mismo (usuario, canal, tipo, referencia) nunca se crea dos veces.
@@ -109,13 +116,15 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   const ahora = opts.ahora ?? new Date();
   const u = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true, nombre: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
   if (!u) return 0;
-  const canales: Canal[] = [];
+  const canales: (Canal | 'telegram')[] = [];
   if (u.aviso_email && u.email) canales.push('email');
   // Quien vinculó su WhatsApp (verificado) llega a ese número: ahí recibe el resultado del voucher que mandó por el bot aunque no haya activado
   // los avisos por WhatsApp; el resto de avisos sigue respetando su preferencia.
   const vinculado = await numeroVinculado(u.id);
   const resultadoDePago = tipo === 'pago_validado' || tipo === 'pago_rechazado';
   if ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago)) canales.push('whatsapp');
+  // Telegram: sólo el resultado del voucher, y sólo a quien vinculó su chat (no hay «preferencia» de Telegram: vincular es aceptarlo).
+  if (resultadoDePago && (await chatVinculado(u.id))) canales.push('telegram');
   if (!canales.length) return 0;
   const cargado = await cargarDatos(tipo, u, ref, ahora);
   if (!cargado) return 0;
@@ -244,6 +253,8 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
     } else if (n.canal === 'whatsapp') {
       // La instancia es la de la administradora que emitió el recibo (no una global).
       r = await enviarWhatsapp(deps, await resolveInstance(n), (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, n.cuerpo);
+    } else if (n.canal === 'telegram') {
+      r = await enviarTelegram(deps, await chatVinculado(n.usuario_id), n.cuerpo);
     } else {
       r = resultadoSinCanal(n.canal);
     }
