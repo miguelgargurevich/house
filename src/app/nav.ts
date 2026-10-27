@@ -41,7 +41,8 @@ export const NAV: Record<Rol, NavGroup[]> = {
       condominios,
     ] },
     { label: 'Cobranza', items: cobranza },
-    { label: 'Operación', items: operacion },
+    // WhatsApp (QR del número) es de cada administradora; el superadmin lo ve todo en «Canales e integraciones».
+    { label: 'Operación', items: operacion.filter(i => i.to !== '/admin/whatsapp') },
     {
       label: 'Plataforma',
       items: [

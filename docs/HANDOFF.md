@@ -14,6 +14,8 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Suite 1551/1551, tipos y build en verde. Revisado en navegador (escritorio y 375 px, sin desborde).
 - **Ojo (comercial v1):** la página de precios dice que «Mora automática» y «Reportes y exportes» son sólo de Pro, pero el código no los limita: hoy funcionan también en Gratis. Decidir con Miguel si se limitan o se corrige la tabla.
 
+- Después, a pedido de Miguel («el wasap esta en 2 menus… no deberia estar todo en un solo lugar?»): el superadmin ya no tiene «WhatsApp» (QR) en Operación; esa pantalla es de cada administradora (usa SU empresa; al superadmin no le servía). El superadmin ve WhatsApp sólo en «Canales e integraciones». Prueba en `tests/torres-fichas-ui.test.ts`.
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Comercial v1: planes, módulos por condominio, registro público y cobro manual
 
 **Pedido de Miguel (textual):** «revisa el proyecto de invoice, busca la seccion comercial para que los usuarios se registren .. algo de eso cree y podemos reutilizar para la parte comercial "Comercial Planes, módulos por condominio, página de precios, cobro de la suscripción"» → «Primera versión con cobro manual (transferencia/Yape y la activación la hago yo); el cobro con tarjeta después.»
