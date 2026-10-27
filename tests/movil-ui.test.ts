@@ -30,6 +30,11 @@ describe('vista móvil', () => {
     assert.match(fuente('src/pages/publico/Precios.tsx'), /<table className="w-full text-sm sm:min-w-\[34rem\]">/);
   });
 
+  it('seguridad: el nombre del condominio y del residente bajan de línea en vez de cortarse', () => {
+    assert.match(fuente('src/ui/PageHeader.tsx'), /<dd className=\{`mt-1 break-words /);
+    assert.match(fuente('src/pages/seguridad/Unidades.tsx'), /break-words text-xs text-muted sm:hidden/);
+  });
+
   it('la ficha de la empresa no queda «cargando» si no tiene fecha de inicio', () => {
     assert.match(fuente('src/pages/superadmin/EmpresaDetalle.tsx'), /value: e \? \(e\.fecha_inicio \? fechaCorta\(e\.fecha_inicio\) : '—'\) : <Skeleton/);
   });

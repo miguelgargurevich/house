@@ -21,7 +21,7 @@ export default function Unidades() {
     { key: 'codigo', header: 'Unidad', cell: f => (
       <div className="min-w-0">
         <p className="num font-medium">{f.codigo}</p>
-        <p className="truncate text-xs text-muted sm:hidden">{f.inquilino?.nombre ?? f.propietario?.nombre ?? 'Sin residente'}</p>
+        <p className="break-words text-xs text-muted sm:hidden">{f.inquilino?.nombre ?? f.propietario?.nombre ?? 'Sin residente'}</p>
       </div>
     ) },
     { key: 'tipo', header: 'Tipo', hideBelow: 'sm', cell: f => capitalizar(f.tipo) },

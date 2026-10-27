@@ -14,6 +14,8 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Prueba `tests/movil-ui.test.ts`. Suite 1551/1551 (+5), tipos y build en verde.
 - Gotcha: el login local tiene tope de 10 intentos/15 min por IP (en memoria): para barridos, un login por rol y reiniciar el backend entre corridas.
 
+- Después («crea una cuenta de prueba y revisa esas pantallas»): `.claude/cuentas-prueba-local.ts` (sólo base local) crea también mantenimiento, limpieza, jardinería y seguridad de VRANY, con una tarea de ejemplo cada uno de los de tareas. Barrido de sus 12 pantallas: sin desbordes ni errores. Arreglos: `StatStrip` deja bajar de línea los textos (el nombre del condominio en el Inicio de Seguridad salía cortado) y en Unidades de Seguridad el residente baja de línea (cortaba la columna Estado). Suite 1557/1557.
+
 ## 2026-10-27 — Claude Code (Opus 5.5) — Página «Canales e integraciones» (superadmin)
 
 **Pedido de Miguel (textual):** «tambien debenmos separar la seccion de telegram y ocr de la pagina de llaveros de IA quiza debe tener una seccion junto con wasap» → «Sí: arma la página «Canales e integraciones» con WhatsApp, Telegram y OCR cuando integres el comercial.»

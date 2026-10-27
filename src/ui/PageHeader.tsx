@@ -22,7 +22,7 @@ export function StatStrip({ stats }: { stats: Stat[] }) {
       {stats.map((s, i) => (
         <div key={i} className="min-w-0 bg-surface p-4 sm:p-5">
           <dt className="text-sm text-muted">{s.label}</dt>
-          <dd className={`mt-1 truncate text-xl font-semibold num sm:text-2xl ${s.tone ? color[s.tone] : ''}`}>{s.value}</dd>
+          <dd className={`mt-1 break-words text-xl font-semibold num sm:text-2xl ${s.tone ? color[s.tone] : ''}`}>{s.value}</dd>
           {s.hint && <p className="mt-0.5 text-xs text-muted">{s.hint}</p>}
         </div>
       ))}
