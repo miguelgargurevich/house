@@ -99,6 +99,19 @@ export function avisoDeGateway(g: Gateway): string | null {
   return null;
 }
 
+/** Bot de Telegram global (el token nunca sale del servidor: sólo sus 4 últimos caracteres). */
+export interface TelegramVista {
+  configurado: boolean;
+  habilitado: boolean;
+  bot_usuario: string | null;
+  bot_nombre: string | null;
+  ultimos4: string | null;
+  enlace: string | null;
+  webhook_url: string;
+  webhook_registrado_at: string | null;
+  llavero_configurado: boolean;
+}
+
 export interface DatosLlavero {
   configurado: boolean;
   claves: Clave[];
@@ -108,6 +121,7 @@ export interface DatosLlavero {
   gateways: Gateway[];
   dominios_permitidos: DominioPermitido[];
   ocr: OcrVista;
+  telegram: TelegramVista;
   salud: Salud;
   cambios_recientes: CambioModelo[];
   consultas_recientes: ConsultaReciente[];

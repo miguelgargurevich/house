@@ -2,8 +2,9 @@
 
 export interface Destino { empresa: { id: number; nombre: string }; disponible: boolean; numero: string | null }
 export interface VinculoCanal { id: number; canal: string; identificador: string; verificado_at: string; empresa: { id: number; nombre: string } }
-export interface CanalesMe { vinculos: VinculoCanal[]; codigo_vigente: { canal: string; expira_at: string } | null; destinos: Destino[] }
-export interface CodigoGenerado { canal: string; codigo: string; expira_at: string; vigencia_min: number; destinos: Destino[] }
+export interface TelegramMe { disponible: boolean; bot_usuario: string | null }
+export interface CanalesMe { vinculos: VinculoCanal[]; codigo_vigente: { canal: string; expira_at: string } | null; destinos: Destino[]; telegram?: TelegramMe }
+export interface CodigoGenerado { canal: string; codigo: string; expira_at: string; vigencia_min: number; destinos: Destino[]; telegram?: { bot_usuario: string; enlace: string } }
 
 /** `51987654321` → `+51 987 654 321`; si no parece un celular peruano se muestra con «+». */
 export function formatoNumero(digitos: string): string {
@@ -30,4 +31,12 @@ export function estadoCanales(d: CanalesMe | null): EstadoCanales {
   if (d.vinculos.some((v) => v.canal === 'whatsapp')) return 'vinculado';
   if (d.destinos.length === 0) return 'oculto';
   return destinosActivos(d.destinos).length ? 'listo' : 'sin_whatsapp';
+}
+
+/** Qué se muestra de Telegram: nada si el bot no está activo (o la persona no tiene empresa), «vinculado» si ya tiene vínculo, o «listo» para vincular. */
+export type EstadoTelegram = 'oculto' | 'vinculado' | 'listo';
+export function estadoTelegram(d: CanalesMe | null): EstadoTelegram {
+  if (!d) return 'oculto';
+  if (d.vinculos.some((v) => v.canal === 'telegram')) return 'vinculado';
+  return d.telegram?.disponible ? 'listo' : 'oculto';
 }
