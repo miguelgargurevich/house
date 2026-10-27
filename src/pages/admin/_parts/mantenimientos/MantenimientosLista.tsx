@@ -52,7 +52,7 @@ export function MantenimientosLista({ reciboId, estructuraId, sinBlock, estado, 
     { key: 'cobrado', header: 'Pagado', align: 'right', hideBelow: 'md', cell: m => <span className="num text-muted">{soles(m.cobrado)}</span> },
     { key: 'saldo', header: 'Saldo', align: 'right', hideBelow: 'lg', cell: m => <span className="num">{soles(m.saldo)}</span> },
     { key: 'estado', header: 'Estado', cell: m => <StatusBadge estado={m.estado} /> },
-    { key: 'acciones', header: '', align: 'right', cell: m => <Button size="sm" variant="secondary" onClick={() => onVer(m)}>Ver</Button> },
+    { key: 'acciones', header: '', align: 'right', hideBelow: 'sm', cell: m => <Button size="sm" variant="secondary" onClick={e => { e.stopPropagation(); onVer(m); }}>Ver</Button> }, // en el celular se toca la fila
   ];
 
   return (

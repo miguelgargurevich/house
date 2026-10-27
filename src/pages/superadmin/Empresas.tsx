@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BuildingOffice2Icon, PlusIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../api';
 import {
@@ -10,18 +10,19 @@ import { ModalDeEmpresa, type FilaEmpresa } from './_parts/ModalDeEmpresa';
 
 /** Lista de empresas administradoras: sólo el camino a la ficha, donde viven sus datos y sus acciones. */
 export default function Empresas() {
+  const navigate = useNavigate();
   const list = useList<FilaEmpresa>('/api/empresas');
   const [nueva, setNueva] = useState(false);
 
   const columns: Column<FilaEmpresa>[] = [
     { key: 'nombre', header: 'Empresa', cell: f => (
-      <div className="min-w-0"><p className="truncate font-medium">{f.nombre}</p><p className="truncate text-xs text-muted">{f.email ?? 'Sin correo'}</p></div>
+      <div className="min-w-0 max-w-[11rem] sm:max-w-none"><p className="truncate font-medium">{f.nombre}</p><p className="truncate text-xs text-muted">{f.email ?? 'Sin correo'}</p></div>
     ) },
     { key: 'ruc', header: 'RUC', hideBelow: 'sm', cell: f => <span className="num">{f.ruc ?? '—'}</span> },
     { key: 'representante', header: 'Representante legal', hideBelow: 'lg', cell: f => f.representante_legal ?? '—' },
     { key: 'telefono', header: 'Teléfono', hideBelow: 'md', cell: f => <span className="num">{f.telefono ?? '—'}</span> },
     { key: 'estado', header: 'Estado', cell: f => <StatusBadge estado={f.estado ?? 'activa'} /> },
-    { key: 'ficha', header: '', align: 'right', cell: f => (
+    { key: 'ficha', header: '', align: 'right', hideBelow: 'sm', cell: f => (
       <Link to={`/superadmin/empresas/${f.id}`} className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-brand hover:underline">Ver ficha</Link>
     ) },
   ];
@@ -36,6 +37,7 @@ export default function Empresas() {
       <Card>
         <Toolbar><SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por nombre o RUC" /></Toolbar>
         <DataTable
+          onRowClick={f => navigate(`/superadmin/empresas/${f.id}`)}
           caption="Empresas administradoras"
           columns={columns}
           rows={list.items}

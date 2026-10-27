@@ -53,10 +53,11 @@ export default function MediosPago() {
     { key: 'tipo', header: 'Medio', cell: m => (
       <span className="flex items-center gap-2.5 font-medium">
         {m.tipo === 'banco' ? <BuildingLibraryIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : m.tipo === 'recaudacion' ? <ReceiptPercentIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : <DevicePhoneMobileIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />}
-        <span>{tipoLabel(m.tipo)}<span className="block text-xs font-normal text-muted">{m.tipo === 'banco' ? `${m.entidad ?? ''} · ${monedaCorta(m.moneda)}` : m.tipo === 'recaudacion' ? [m.entidad, m.servicio].filter(Boolean).join(' · ') : m.tiene_qr ? 'Con código QR' : 'Sin código QR'}</span></span>
+        <span>{tipoLabel(m.tipo)}<span className="block text-xs font-normal text-muted">{m.tipo === 'banco' ? `${m.entidad ?? ''} · ${monedaCorta(m.moneda)}` : m.tipo === 'recaudacion' ? [m.entidad, m.servicio].filter(Boolean).join(' · ') : m.tiene_qr ? 'Con código QR' : 'Sin código QR'}</span><span className="block max-w-[10rem] truncate text-xs font-normal text-muted sm:hidden">{m.titular}</span></span>
       </span>
     ) },
-    { key: 'titular', header: 'Titular', cell: m => <span className="block max-w-[12rem]"><span className="block truncate">{m.titular}</span><span className="block truncate text-xs text-muted">{ambitoLabel(m)}</span></span> },
+    { key: 'titular', header: 'Titular', hideBelow: 'sm', cell: // en el celular el titular va bajo el medio
+       m => <span className="block max-w-[8rem] sm:max-w-[12rem]"><span className="block truncate">{m.titular}</span><span className="block truncate text-xs text-muted">{ambitoLabel(m)}</span></span> },
     { key: 'dato', header: 'Cuenta o celular', hideBelow: 'md', cell: m => <span className="num">{datoPrincipal(m)}</span> },
     { key: 'activo', header: 'Estado', cell: m => <Interruptor className="min-h-0 [&>span:last-child]:sr-only" label={m.activo ? 'Activo' : 'Inactivo'} aria-label={`Mostrar a los vecinos: ${tipoLabel(m.tipo)} de ${m.titular}`} checked={m.activo} onChange={e => void cambiarActivo(m, e.target.checked)} /> },
     { key: 'acciones', header: '', align: 'right', cell: m => (

@@ -26,7 +26,7 @@ export function Marco({ children, ancho = 'max-w-5xl' }: { children: ReactNode; 
           <nav aria-label="Principal" className="flex items-center gap-1 sm:gap-2">
             <Link to="/precios" className={enlace}>Precios</Link>
             <Link to="/login" className={enlace}>Ingresar</Link>
-            <Link to="/registro" className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta</Link>
+            <Link to="/registro" className="whitespace-nowrap rounded bg-brand px-3 py-1.5 text-sm font-medium text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta</Link>
           </nav>
         </div>
       </header>

@@ -50,13 +50,13 @@ export default function Auditoria() {
   const filtrado = !!(entidad || accion);
 
   const columns: Column<Registro>[] = [
-    { key: 'fecha', header: 'Fecha y hora', cell: r => <span className="num whitespace-nowrap">{fechaHora(fechaDe(r))}</span> },
+    { key: 'fecha', header: 'Fecha y hora', cell: r => <span className="num sm:whitespace-nowrap">{fechaHora(fechaDe(r))}</span> },
     { key: 'usuario', header: 'Usuario', cell: r => <span className="font-medium">{nombreUsuario(r)}</span> },
     { key: 'accion', header: 'Acción', cell: r => { const a = accionDe(r.accion); return <Badge tone={a.tone}>{a.label}</Badge>; } },
     { key: 'entidad', header: 'Entidad', hideBelow: 'sm', cell: r => etiquetaEntidad(r.entidad) },
     { key: 'entidad_id', header: 'ID', hideBelow: 'md', cell: r => <span className="num">{r.entidad_id ?? '—'}</span> },
     { key: 'ip', header: 'IP', hideBelow: 'lg', cell: r => <span className="num">{r.ip ?? '—'}</span> },
-    { key: 'ver', header: '', align: 'right', cell: r => (
+    { key: 'ver', header: '', align: 'right', hideBelow: 'sm', cell: r => ( // en el celular se toca la fila
       <IconButton label={`Ver detalle del registro ${r.id}`} onClick={e => { e.stopPropagation(); setVer(r); }}><EyeIcon className="h-4 w-4" /></IconButton>
     ) },
   ];

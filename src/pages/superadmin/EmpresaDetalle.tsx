@@ -91,7 +91,7 @@ export default function EmpresaDetalle() {
             stats={[
               { label: 'Condominios', value: complejos.loading ? <Skeleton className="h-7 w-10" /> : complejos.total },
               { label: 'Estado', value: e ? (e.estado ?? 'activa') : <Skeleton className="h-7 w-20" /> },
-              { label: 'Inicio de operaciones', value: e?.fecha_inicio ? fechaCorta(e.fecha_inicio) : <Skeleton className="h-7 w-24" /> },
+              { label: 'Inicio de operaciones', value: e ? (e.fecha_inicio ? fechaCorta(e.fecha_inicio) : '—') : <Skeleton className="h-7 w-24" /> },
             ]}
           />
         </>

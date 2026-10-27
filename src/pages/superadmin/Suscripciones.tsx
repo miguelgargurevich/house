@@ -23,8 +23,8 @@ export default function Suscripciones() {
   const [historial, setHistorial] = useState<VistaSuscripcion | null>(null);
 
   const columns = useMemo<Column<VistaSuscripcion>[]>(() => [
-    { key: 'condominio', header: 'Condominio', cell: s => <><span className="font-medium">{s.complejo}</span><span className="block text-xs text-muted">{s.empresa?.nombre ?? 'Sin empresa'} · {s.unidades_facturables} deptos</span></> },
-    { key: 'plan', header: 'Plan y módulos', cell: s => (
+    { key: 'condominio', header: 'Condominio', cell: s => <><span className="font-medium">{s.complejo}</span><span className="block text-xs text-muted">{s.empresa?.nombre ?? 'Sin empresa'} · {s.unidades_facturables} deptos</span><span className="block text-xs font-medium sm:hidden">{s.plan.nombre}</span></> },
+    { key: 'plan', header: 'Plan y módulos', hideBelow: 'sm', cell: s => ( // en el celular el plan va bajo el condominio
       <>
         <span className="font-medium">{s.plan.nombre}</span>
         {s.modulos_activos.length > 0 && s.plan.clave !== 'pro' && s.plan.clave !== 'administradora' && s.plan.clave !== 'cortesia'
@@ -36,7 +36,7 @@ export default function Suscripciones() {
     { key: 'estado', header: 'Estado', cell: s => <Badge tone={ESTADO_UI[s.estado].tone}>{ESTADO_UI[s.estado].label}</Badge> },
     { key: 'vigencia', header: 'Vigente hasta', hideBelow: 'md', cell: s => <span className="num text-muted">{s.plan.clave === 'cortesia' ? 'Sin vencimiento' : fechaCorta(s.vigente_hasta)}</span> },
     { key: 'acciones', header: '', align: 'right', cell: s => (
-      <span className="flex justify-end gap-1.5 whitespace-nowrap">
+      <span className="flex flex-col items-end gap-1.5 whitespace-nowrap sm:flex-row sm:justify-end">
         <Button size="sm" onClick={() => setPago(s)} aria-label={`Registrar pago de ${s.complejo}`}>Registrar pago</Button>
         <Button size="sm" variant="secondary" onClick={() => setEdicion(s)} aria-label={`Cambiar plan de ${s.complejo}`}>Plan</Button>
         <Button size="sm" variant="ghost" onClick={() => setHistorial(s)} aria-label={`Ver pagos de ${s.complejo}`}>Pagos</Button>

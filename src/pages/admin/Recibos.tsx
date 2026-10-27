@@ -32,7 +32,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
     { key: 'periodo', header: 'Periodo', cell: r => (
       <Link to={`/admin/recibos/${r.id}`} className="block text-left font-medium hover:text-brand">
         {periodo(r.mes, r.anio)}
-        {r.descripcion && <span className="block max-w-[16rem] truncate text-xs font-normal text-muted">{r.descripcion}</span>}
+        {r.descripcion && <span className="block max-w-[10rem] truncate text-xs font-normal text-muted sm:max-w-[16rem]">{r.descripcion}</span>}
       </Link>
     ) },
     { key: 'torre', header: 'Torre', cell: r => (r.estructura ? <span className="font-medium">{r.estructura.nombre ?? `Torre ${r.estructura.id}`}</span> : <span className="text-muted">Todo el condominio</span>) },

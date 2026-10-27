@@ -15,13 +15,14 @@ export function MantenimientoItem({ mant, rechazo, onPagar, onVer }: { mant: Man
         <StatusBadge estado={mant.estado} />
       </div>
       {rechazo && <p className="mt-2 text-sm text-bad">Pago rechazado: {rechazo}</p>}
-      <div className="mt-3 flex items-end justify-between gap-3">
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="num text-xl font-semibold">{soles(mant.total)}</p>
           {mant.estado === 'parcial' && <p className="text-xs text-muted">Saldo {soles(mant.saldo)}</p>}
           <p className={`text-xs ${vencido ? 'text-bad' : 'text-muted'}`}>Vence {fechaCorta(mant.fecha_vencimiento)}</p>
         </div>
-        <div className="flex gap-2">
+        {/* En el celular los botones pasan a su propia fila a todo el ancho (antes «Pagar mantenimiento» quedaba cortado). */}
+        <div className="flex w-full gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
           <Button variant="secondary" onClick={() => onVer(mant)}>Ver detalle</Button>
           {sePuedePagar(mant) && <Button onClick={() => onPagar(mant)}>{rechazo ? 'Pagar de nuevo' : 'Pagar mantenimiento'}</Button>}
         </div>

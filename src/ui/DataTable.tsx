@@ -47,7 +47,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
           <thead>
             <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
               {columns.map(c => (
-                <th key={c.key} scope="col" className={cx('whitespace-nowrap px-5 py-3 font-medium', c.align === 'right' && 'text-right', c.hideBelow && hide[c.hideBelow])}>
+                <th key={c.key} scope="col" className={cx('whitespace-nowrap px-3 py-3 font-medium sm:px-5', c.align === 'right' && 'text-right', c.hideBelow && hide[c.hideBelow])}>
                   {c.header}
                 </th>
               ))}
@@ -58,7 +58,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
               ? Array.from({ length: Math.min(pageSize, 6) }).map((_, i) => (
                   <tr key={i}>
                     {columns.map(c => (
-                      <td key={c.key} className={cx('px-5 py-3.5', c.hideBelow && hide[c.hideBelow])}><Skeleton className="h-4 w-full max-w-[10rem]" /></td>
+                      <td key={c.key} className={cx('px-3 py-3.5 sm:px-5', c.hideBelow && hide[c.hideBelow])}><Skeleton className="h-4 w-full max-w-[10rem]" /></td>
                     ))}
                   </tr>
                 ))
@@ -78,7 +78,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
                     className={cx('transition-colors duration-150 hover:bg-surface2/70', onRowClick && 'cursor-pointer focus-visible:bg-surface2/70 focus-visible:-outline-offset-2')}
                   >
                     {columns.map(c => (
-                      <td key={c.key} className={cx('px-5 py-3.5 align-middle', c.align === 'right' && 'text-right', c.hideBelow && hide[c.hideBelow], c.className)}>
+                      <td key={c.key} className={cx('px-3 py-3.5 align-middle sm:px-5', c.align === 'right' && 'text-right', c.hideBelow && hide[c.hideBelow], c.className)}>
                         {c.cell(r)}
                       </td>
                     ))}
@@ -91,7 +91,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
         <EmptyState title={empty?.title ?? 'Sin resultados'} description={empty?.description} action={empty?.action} icon={empty?.icon} />
       )}
       {onPage && count > 0 && (
-        <div className="flex items-center justify-between gap-4 border-t border-line px-5 py-3 text-sm text-muted">
+        <div className="flex items-center justify-between gap-4 border-t border-line px-3 py-3 text-sm text-muted sm:px-5">
           <span className="num">{from}–{to} de {count}</span>
           <div className="flex items-center gap-1">
             <IconButton label="Página anterior" disabled={page <= 1} onClick={() => onPage(page - 1)}><ChevronLeftIcon className="h-4 w-4" /></IconButton>

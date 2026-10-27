@@ -22,7 +22,7 @@ export default function Complejos() {
     { key: 'nombre', header: 'Condominio', cell: f => (
       <div className="min-w-0"><p className="truncate font-medium">{f.nombre}</p>{f.direccion && <p className="truncate text-xs text-muted sm:hidden">{f.direccion}</p>}</div>
     ) },
-    { key: 'tipo', header: 'Tipo', cell: f => <Badge tone="brand">{f.tipo}</Badge> },
+    { key: 'tipo', header: 'Tipo', hideBelow: 'sm', cell: f => <Badge tone="brand">{f.tipo}</Badge> },
     { key: 'direccion', header: 'Dirección', hideBelow: 'sm', cell: f => f.direccion ?? '—' },
     { key: 'empresa', header: 'Administrado por', hideBelow: 'md', cell: f => (
       <div className="min-w-0"><p className="truncate">{f.empresa?.nombre ?? '—'}</p>{f.contrato_vigente && <p className="truncate text-xs text-muted">Desde <span className="num">{fechaCorta(f.contrato_vigente.fecha_inicio)}</span></p>}</div>

@@ -102,30 +102,30 @@ function Tabla({ cat }: { cat: Catalogo }) {
     <Card>
       <CardHeader title="Qué trae cada uno" description="Los módulos se contratan por condominio; Pro los trae todos." />
       <div className="relative overflow-x-auto">
-        <table className="w-full min-w-[34rem] text-sm">
+        <table className="w-full text-sm sm:min-w-[34rem]">
           <caption className="sr-only">Comparación entre Gratis, cada módulo y Pro</caption>
           <thead>
             <tr className="border-b border-line text-left text-xs text-muted">
-              <th scope="col" className="px-5 py-3 font-medium">Función</th>
-              <th scope="col" className="px-3 py-3 text-center font-medium">Gratis</th>
-              <th scope="col" className="px-3 py-3 text-center font-medium">Módulo suelto</th>
-              <th scope="col" className="px-3 py-3 text-center font-medium">Pro</th>
+              <th scope="col" className="px-3 py-3 font-medium sm:px-5">Función</th>
+              <th scope="col" className="px-2 py-3 text-center font-medium sm:px-3">Gratis</th>
+              <th scope="col" className="px-2 py-3 text-center font-medium sm:px-3">Módulo suelto</th>
+              <th scope="col" className="px-2 py-3 text-center font-medium sm:px-3">Pro</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {(gratis?.caracteristicas ?? []).map(f => (
-              <tr key={f}><th scope="row" className="px-5 py-2.5 text-left font-normal">{f}</th><td className="px-3 text-center"><Si /></td><td className="px-3 text-center"><Si /></td><td className="px-3 text-center"><Si /></td></tr>
+              <tr key={f}><th scope="row" className="px-3 py-2.5 text-left font-normal sm:px-5">{f}</th><td className="px-2 text-center sm:px-3"><Si /></td><td className="px-2 text-center sm:px-3"><Si /></td><td className="px-2 text-center sm:px-3"><Si /></td></tr>
             ))}
             {cat.modulos.map(m => (
               <tr key={m.clave}>
-                <th scope="row" className="px-5 py-2.5 text-left font-normal">{m.nombre}</th>
-                <td className="px-3 text-center"><No /></td>
+                <th scope="row" className="px-3 py-2.5 text-left font-normal sm:px-5">{m.nombre}</th>
+                <td className="px-2 text-center sm:px-3"><No /></td>
                 <td className="num px-3 text-center text-xs">{soles(m.precio_por_unidad)} <span className="text-muted">/depto/mes</span></td>
-                <td className="px-3 text-center"><Si /></td>
+                <td className="px-2 text-center sm:px-3"><Si /></td>
               </tr>
             ))}
             {extrasPro.map(f => (
-              <tr key={f}><th scope="row" className="px-5 py-2.5 text-left font-normal">{f}</th><td className="px-3 text-center"><No /></td><td className="px-3 text-center"><No /></td><td className="px-3 text-center"><Si /></td></tr>
+              <tr key={f}><th scope="row" className="px-3 py-2.5 text-left font-normal sm:px-5">{f}</th><td className="px-2 text-center sm:px-3"><No /></td><td className="px-2 text-center sm:px-3"><No /></td><td className="px-2 text-center sm:px-3"><Si /></td></tr>
             ))}
           </tbody>
           <tfoot>

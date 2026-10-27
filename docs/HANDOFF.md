@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Opus 5.5) — Revisión de la vista móvil de toda la app
+
+**Pedido de Miguel (textual):** «revisa el modo vista mobile de toda la aplicacion»
+
+- Barrido con Playwright a 375×812 (claro y oscuro) de 48 pantallas: público, superadmin, admin, propietario, inquilino y junta (no hay cuentas de prueba de mantenimiento/seguridad/limpieza/jardinería). Ninguna desbordaba la página ni tenía errores de consola; los problemas estaban DENTRO de tarjetas y tablas (recortados por su `overflow`), y se vieron en las capturas.
+- Arreglos: «Pagar mantenimiento» se cortaba en la tarjeta del residente (inicio y Mis recibos) → botones en su propia fila en el celular; `DataTable` con `px-3` en el celular (`sm:px-5` igual que antes); columnas de acción ocultas en el celular con la fila tocable (Empresas, Auditoría, mantenimientos del recibo); Tipo oculto en Condominios; titular bajo el medio en Medios de pago; textos largos que bajan de línea (Conceptos, Auditoría, Recibos); plan bajo el condominio y botones apilados en Suscripciones; comparativa de precios sin ancho mínimo; «Crear cuenta» sin partirse; ficha de empresa que quedaba «cargando» sin fecha de inicio.
+- Queda con desplazamiento lateral (aceptable): barras de pestañas largas (Mantenimiento, Suscripciones, Avisos, ficha del condominio) y una columna de íconos de acción en Conceptos/Pagos (≤ 24 px).
+- Prueba `tests/movil-ui.test.ts`. Suite 1551/1551 (+5), tipos y build en verde.
+- Gotcha: el login local tiene tope de 10 intentos/15 min por IP (en memoria): para barridos, un login por rol y reiniciar el backend entre corridas.
+
 ## 2026-10-27 — Claude Code (Opus 5.5) — Página «Canales e integraciones» (superadmin)
 
 **Pedido de Miguel (textual):** «tambien debenmos separar la seccion de telegram y ocr de la pagina de llaveros de IA quiza debe tener una seccion junto con wasap» → «Sí: arma la página «Canales e integraciones» con WhatsApp, Telegram y OCR cuando integres el comercial.»
