@@ -4,6 +4,32 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-26 — Claude Code (Sonnet 5.5) — El administrador adjunta el voucher al registrar el pago y la IA lo revisa
+
+**Pedido de Miguel:** «…o como administrador subir el voucher de pago» → «Sí, arregla las tres» (esta parte: que el ADMINISTRADOR suba el voucher y la IA lo analice; «al subirlo debería analizarlo con IA, si está ok marcarlo como pagado o enviado»). Rama `feat/voucher-admin` (sobre `adb0bc0`); sin push (lo sube la sesión principal con OK de Miguel). Última entrada previa: medios de pago ampliados (entidades, moneda, cuenta recaudadora).
+
+**Qué se hizo**
+- **Backend** (`routes/recibos.ts`, `services/mantenimiento.ts`): `POST /api/recibos/:id/mantenimientos/:unidadId/pagos` acepta también `multipart/form-data` con el archivo en el campo `voucher` (JPG/PNG/WebP/PDF, 2 MB). Con voucher el pago nace `por_validar` (cargos `en_revision`, mismo reparto de siempre), el archivo se guarda en el pago principal DENTRO de la transacción de `pagarMantenimiento` (parámetro nuevo `comprobante`) y se dispara `iniciarEvaluacion(pago, 'subida')`: la MISMA IA del residente, con sus mismas condiciones de autovalidación (no se tocó `evaluacion.ts`). Sin voucher (JSON o formulario sin archivo) todo igual: validado de inmediato. La respuesta suma `estado` (`validado|por_validar`) y `con_voucher`.
+- **Atomicidad (decisión)**: UNA sola petición. El archivo se verifica (415 tipo, 422 vacío/grande/bytes que no son del tipo/dos archivos) ANTES de crear nada y se persiste en la transacción: no existe el pago `por_validar` huérfano. Se descartó «crear el pago y luego subir» (dos pasos, hay que revertir o reintentar). El departamento se autoriza antes de leer el archivo (404 sin descargarlo).
+- **Auditoría**: `crear` del pago con `con_voucher: true`, `subir_comprobante` (nombre, tipo, tamaño, sha256 — igual que la subida normal), `evaluar_comprobante`/`validar` de la IA; nunca el contenido.
+- **Frontend** (`FormPagoMantenimiento.tsx`, `SeguimientoVoucher.tsx`, `faseVoucher.ts`, `shared/comprobantes.ts#registrarPagoConVoucher`): campo «Adjuntar voucher (opcional)» con las reglas del residente (`errorDeArchivo`); con archivo manda el multipart y muestra «Pago registrado: la IA lo está revisando…», consulta el detalle del departamento cada 3 s (máx. ~2 min) y termina en «pagado (validado automáticamente por la IA)» o «queda en revisión» con el motivo + `EvaluacionPanel` + `ComprobanteVista` reutilizados. Pagos en revisión se validan o rechazan con el `ValidarPagoModal` de siempre (sin cambios).
+- Docs: `API-CONTRATO.md` (pago con voucher) y `SEGURIDAD.md` (qué se guarda/audita y un riesgo conocido, abajo).
+- Pruebas nuevas: `tests/voucher-admin.test.ts` (17, backend con IA falsa) y `tests/voucher-admin-ui.test.ts` (16: lógica de fases real + estructura por fuente).
+
+**Próximos pasos / decisiones**
+- Miguel debe probar en el navegador: registrar un pago con un voucher real (el repo no pinta componentes; las pruebas de pantalla son de lógica y de fuente).
+- `src/pages/admin/_parts/cobranza/RegistrarPagoModal.tsx` (fuera de este alcance) usa el mismo formulario: con voucher el formulario se queda en el resultado hasta «Listo» y recién ahí llama a su `onRegistrado` (que cierra el modal y refresca). Si el usuario cierra con la X antes, la lista no se refresca: arreglo de una línea pasando `onPagoCreado={onSaved}` en ese archivo. `MantenimientoAdminModal` ya lo pasa.
+- Sin voucher el pago sigue validado al instante; no hay opción de «registrar sin validar» a propósito.
+
+**Gotchas**
+- El seguimiento vive DENTRO del formulario: `useResource.reload()` pone `loading` y el modal reemplaza el cuerpo por skeletons (desmontaría el seguimiento); por eso el modal no recarga hasta «Listo».
+- La IA guarda su lectura y valida un instante después: cuando ve «coincide» con el pago aún por validar, la pantalla espera una 2.ª lectura antes de decir «en revisión» (`faseVoucher`).
+- multer 2: `defParamCharset: 'utf8'` para que los nombres con ñ/tildes lleguen sanos; archivo nuevo del módulo puro se llama `faseVoucher.ts` (no `seguimientoVoucher.ts`: chocaba con `SeguimientoVoucher.tsx` en macOS, que no distingue mayúsculas).
+- Una junta que registra sin `usuario_id` deja el pago sin «dueño» y la regla «no validas tu propio pago» no lo atrapa (ya era así con el pago validado al instante); documentado en `SEGURIDAD.md`.
+- El alcance de escritura tiene dos capas redundantes (`reciboAccesible(…, escritura)` y `unidadesDe`): la administradora anterior sólo falla la prueba si se quitan las dos.
+
+---
+
 ## 2026-10-26 — Claude Code (Haiku 5.5, delegado) — Imprimir el recibo y el comprobante: sólo el recibo, completo, desde la página 1
 
 **Pedido de Miguel:** «imprimir recibo de mantenimiento…» → «Sí, arregla las tres» (esta sesión: IMPRIMIR el recibo). Rama `fix/impresion-recibo` (worktree `.claude/worktrees/impresion-recibo`); sin push (lo sube la sesión principal con OK de Miguel).
