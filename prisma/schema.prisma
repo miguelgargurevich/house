@@ -163,6 +163,7 @@ model Estructura {
   unidades    Unidad[]
   juntaUsuarios Usuario[]           @relation("JuntaEstructura")
   mediosPago  MedioPago[]
+  recibos     Recibo[]
 }
 
 model Piso {
@@ -220,14 +221,22 @@ model Recibo {
   estado            String?                @default("emitido")
   empresa_id        Int?
   complejo_id       Int?
+  /// Torre/block del recibo. null = condominio sin torres, recibo «general» o recibo viejo que mezcla torres.
+  estructura_id     Int?
   archivo_excel_url String?
   creado_por_id     Int?
   created_at        DateTime               @default(now())
   updated_at        DateTime               @updatedAt
   complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
+  estructura        Estructura?            @relation(fields: [estructura_id], references: [id])
   creado_por        Usuario?               @relation("UsuarioCreadorRecibo", fields: [creado_por_id], references: [id])
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   reciboConceptos   ReciboConcepto[]
+
+  /// Un recibo por (condominio, torre, mes, año). NO es @@unique a propósito: (1) Postgres no compara NULL con NULL, así que no cubriría los recibos
+  /// sin torre; (2) un @@unique nuevo hace que `prisma db push` exija --accept-data-loss y el contenedor arranca con `db push` a secas (abortaría).
+  /// La unicidad la impone el código (`services/reciboUnico.ts`: candado por periodo + comprobación en la misma transacción); aquí sólo el índice.
+  @@index([complejo_id, estructura_id, mes, anio])
 }
 
 model ReciboConcepto {
