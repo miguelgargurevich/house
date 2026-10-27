@@ -109,7 +109,7 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
             <DefinitionList
               items={[
                 { label: 'Mantenimiento', value: mant.titulo.split(' · ')[0] },
-                { label: 'Departamento', value: mant.unidad.codigo },
+                { label: 'Departamento', value: `${mant.unidad.codigo}${mant.unidad.estructura?.nombre ? ` · ${mant.unidad.estructura.nombre}` : ''}` },
                 { label: 'Conceptos', value: d ? d.conceptos.map(c => c.concepto).join(', ') : '—' },
                 { label: 'Vencimiento', value: fechaCorta(mant.fecha_vencimiento) },
               ]}

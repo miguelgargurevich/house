@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusIcon, ReceiptPercentIcon, PaperClipIcon } from '@heroicons/react/24/outline';
-import { useList, useResource } from '../../api';
-import { Button, Card, DataTable, PageHeader, SearchBox, Select, StatusBadge, Toolbar, fechaCorta, periodo } from '../../ui';
+import { useList } from '../../api';
+import { Button, Card, DataTable, PageHeader, SearchBox, StatusBadge, Toolbar, fechaCorta, periodo } from '../../ui';
 import type { Column } from '../../ui';
 import { EmitirReciboModal } from './_parts/cobranza/EmitirReciboModal';
 import { SubirExcelModal } from './_parts/cobranza/SubirExcelModal';
 import { ProgresoCobro } from './_parts/cobranza/ProgresoCobro';
-import type { Complejo, Lista, ReciboFila } from './_parts/cobranza/comun';
+import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
+import type { ReciboFila } from './_parts/cobranza/comun';
 
 interface Props {
   /** Condominio fijo (ficha del condominio): sólo sus recibos y sin filtro de condominio. */
@@ -19,12 +20,13 @@ interface Props {
 /** Lista de recibos. Se usa sola (pantalla Recibos) y dentro de la ficha del condominio. */
 export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
   const [complejo, setComplejo] = useState('');
+  const [torre, setTorre] = useState('');
   const [emitiendo, setEmitiendo] = useState(false);
   const [subiendoExcel, setSubiendoExcel] = useState(false);
   const navigate = useNavigate();
   const abrir = (r: ReciboFila) => navigate(`/admin/recibos/${r.id}`);
-  const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: String(complejoId ?? (complejo || '')) || undefined } });
-  const complejos = useResource<Lista<Complejo>>(complejoId ? null : '/api/complejos?pageSize=100');
+  const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: String(complejoId ?? (complejo || '')) || undefined, estructura_id: torre || undefined } });
+  const filtrando = Boolean(list.q || complejo || torre);
 
   const columns: Column<ReciboFila>[] = [
     { key: 'periodo', header: 'Periodo', cell: r => (
@@ -33,6 +35,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
         {r.descripcion && <span className="block max-w-[16rem] truncate text-xs font-normal text-muted">{r.descripcion}</span>}
       </Link>
     ) },
+    { key: 'torre', header: 'Torre', cell: r => (r.estructura ? <span className="font-medium">{r.estructura.nombre ?? `Torre ${r.estructura.id}`}</span> : <span className="text-muted">Todo el condominio</span>) },
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: r => r.complejo?.nombre ?? '—' },
     { key: 'emision', header: 'Emisión', hideBelow: 'lg', cell: r => fechaCorta(r.fecha_emision) },
     { key: 'vencimiento', header: 'Vence', hideBelow: 'sm', cell: r => fechaCorta(r.fecha_vencimiento) },
@@ -45,19 +48,14 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
       {conEncabezado && (
         <PageHeader
           title="Recibos"
-          description="Emite el mantenimiento del mes y ábrelo para ver los recibos de cada departamento, por torre."
+          description="Cada torre tiene su propio recibo cada mes. Emítelo (o sube el Excel de la torre) y ábrelo para ver el mantenimiento de cada departamento."
           actions={<><Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEmitiendo(true)}>Emitir recibo</Button><Button icon={<PaperClipIcon className="h-4 w-4" />} onClick={() => setSubiendoExcel(true)}>Subir Excel</Button></>}
         />
       )}
       <Card>
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por descripción" />
-          {!complejoId && (
-            <Select label="Condominio" className="w-full sm:w-56 [&_label]:sr-only" value={complejo} onChange={e => setComplejo(e.target.value)}>
-              <option value="">Todos los condominios</option>
-              {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </Select>
-          )}
+          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} complejoFijo={complejoId} />
         </Toolbar>
         <DataTable
           caption="Recibos emitidos"
@@ -74,9 +72,9 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
           onRowClick={abrir}
           empty={{
             title: 'Aún no hay recibos',
-            description: list.q || complejo ? 'Prueba con otro filtro.' : 'Emite el primero y cada departamento activo recibirá su mantenimiento con todos los conceptos.',
+            description: filtrando ? 'Prueba con otro filtro.' : 'Emite el primero y cada departamento activo recibirá su mantenimiento con todos los conceptos.',
             icon: <ReceiptPercentIcon />,
-            action: list.q || complejo ? undefined : <Button onClick={() => setEmitiendo(true)}>Emitir recibo</Button>,
+            action: filtrando ? undefined : <Button onClick={() => setEmitiendo(true)}>Emitir recibo</Button>,
           }}
         />
       </Card>

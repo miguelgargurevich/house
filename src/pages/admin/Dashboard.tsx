@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
-import { BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, soles } from '../../ui';
+import { BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, nombreDelMes, soles } from '../../ui';
+import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 
 interface Resumen {
   recibos_emitidos: number;
@@ -12,19 +14,28 @@ interface Resumen {
   tareas_abiertas: number;
   cobrado_por_mes: { mes: string; emitido: number | string; cobrado: number | string }[];
   estados: { pagado: number; pendiente: number; vencido: number };
+  /** Cada torre tiene su propio recibo: lo emitido, cobrado y por cobrar de cada una. */
+  por_torre?: { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; emitido: string; cobrado: string; por_cobrar: string; morosos: number }[];
 }
 
+/** «2026-09» → «Set» (las tres primeras letras del nombre de `nombreDelMes`: en el Perú, setiembre). */
 const mesCorto = (m: string) => {
-  const s = new Intl.DateTimeFormat('es-PE', { month: 'short' }).format(new Date(`${m}-01T12:00:00`));
-  return s.charAt(0).toUpperCase() + s.slice(1).replace('.', '');
+  const s = nombreDelMes(Number(m.slice(5, 7))).slice(0, 3);
+  return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
 export default function Dashboard() {
-  const { data, loading, error, reload } = useResource<Resumen>('/api/dashboard/resumen');
+  const [complejo, setComplejo] = useState('');
+  const [torre, setTorre] = useState('');
+  const filtros = new URLSearchParams();
+  if (complejo) filtros.set('complejo_id', complejo);
+  if (torre) filtros.set('estructura_id', torre);
+  const { data, loading, error, reload } = useResource<Resumen>(`/api/dashboard/resumen${filtros.size ? `?${filtros}` : ''}`);
 
   return (
     <>
-      <PageHeader title="Resumen" description="Cobranza, morosidad y operación de tus condominios." />
+      <PageHeader title="Resumen" description="Cobranza, morosidad y operación de tus condominios. Cada torre tiene su propio recibo: míralas juntas o filtra por una." />
+      <div className="mb-4 flex flex-wrap gap-3"><SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} /></div>
       {error ? (
         <Card><ErrorState message={error} onRetry={reload} /></Card>
       ) : loading || !data ? (
@@ -53,6 +64,29 @@ export default function Dashboard() {
                 />
               </CardBody>
             </Card>
+            {(data.por_torre?.length ?? 0) > 1 && (
+              <Card style={{ gridColumn: '1 / -1' }}>
+                <CardHeader title="Por torre" description="Emitido, cobrado y por cobrar de cada torre (todos los recibos)." />
+                <CardBody>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <caption className="sr-only">Cobranza por torre</caption>
+                      <thead><tr className="border-b border-line text-left text-xs text-muted">
+                        <th scope="col" className="py-2 font-medium">Torre</th><th scope="col" className="py-2 text-right font-medium">Emitido</th><th scope="col" className="py-2 text-right font-medium">Cobrado</th><th scope="col" className="py-2 text-right font-medium">Por cobrar</th><th scope="col" className="py-2 text-right font-medium">Morosos</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-line">
+                        {data.por_torre!.map(t => (
+                          <tr key={t.estructura_id ?? 'sin'}>
+                            <th scope="row" className="py-2 text-left font-medium">{t.nombre}{t.complejo && <span className="block text-xs font-normal text-muted">{t.complejo.nombre}</span>}</th>
+                            <td className="num py-2 text-right">{soles(t.emitido)}</td><td className="num py-2 text-right">{soles(t.cobrado)}</td><td className="num py-2 text-right">{soles(t.por_cobrar)}</td><td className="num py-2 text-right">{t.morosos}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
             <Card>
               <CardHeader title="Estado de cargos" />
               <CardBody className="space-y-4">

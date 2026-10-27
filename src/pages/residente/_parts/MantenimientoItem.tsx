@@ -10,7 +10,7 @@ export function MantenimientoItem({ mant, rechazo, onPagar, onVer }: { mant: Man
       <div className="flex items-start justify-between gap-3">
         <button type="button" onClick={() => onVer(mant)} className="min-w-0 text-left">
           <span className="block truncate font-medium hover:text-brand">{mant.titulo.split(' · ')[0]}</span>
-          <span className="mt-0.5 block text-sm text-muted">Departamento {mant.unidad.codigo}</span>
+          <span className="mt-0.5 block text-sm text-muted">Departamento {mant.unidad.codigo}{mant.unidad.estructura?.nombre ? ` · ${mant.unidad.estructura.nombre}` : ''}</span>
         </button>
         <StatusBadge estado={mant.estado} />
       </div>

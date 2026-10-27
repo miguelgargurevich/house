@@ -37,7 +37,7 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
     try {
       const r = await api<ResultadoExcel>('/api/recibos/excel', { method: 'POST', body: fd });
       setResultado(r);
-      toast.ok(`Recibo creado: ${r.unidades_procesadas} departamentos`);
+      toast.ok((r.recibos?.length ?? 1) > 1 ? `${r.recibos!.length} recibos cargados: ${r.unidades_procesadas} departamentos` : `Recibo creado: ${r.unidades_procesadas} departamentos`);
       void onSaved();
     } catch (e) {
       setError(errorText(e));
@@ -55,7 +55,7 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
             <option value="">Elige un condominio</option>
             {(complejos.data?.items ?? []).map((c: FilaComplejo) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
-          {!complejoId && <p className="text-xs text-muted mt-1">Elige el condominio al que pertenece el Excel.</p>}
+          {!complejoId && <p className="text-xs text-muted mt-1">Elige el condominio al que pertenece el Excel. Cada torre del archivo (columna BLOCK) crea o reemplaza SU recibo; las torres que no vengan en el archivo no se tocan.</p>}
         </div>
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium mb-1">Archivo Excel (.xlsx)</label>
@@ -63,6 +63,11 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
           {archivo && <p className="text-xs text-muted mt-1">{archivo.name} · {Math.round(archivo.size / 1024)} KB</p>}
         </div>
         {error && <Alert tone="bad">{error}</Alert>}
+        {resumen && resumen.torres.length > 0 && (
+          <ul className="sm:col-span-2 list-disc space-y-0.5 pl-5 text-sm" aria-label="Recibos por torre">
+            {resumen.torres.map(t => <li key={t}>{t}</li>)}
+          </ul>
+        )}
         {resumen && resumen.advertencias.length > 0 && (
           <div className="sm:col-span-2">
             <Alert tone="warn">
@@ -83,7 +88,7 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
         <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={() => { setAbierto(false); onClose(); }} disabled={cargando}>Cancelar</Button>
           <Button type="submit" loading={cargando} disabled={!archivo || !complejoId}>
-            <PaperClipIcon className="h-4 w-4 mr-2" /> Subir Excel y crear recibo
+            <PaperClipIcon className="h-4 w-4 mr-2" /> Subir Excel y crear recibos
           </Button>
         </div>
       </form>

@@ -8,7 +8,6 @@ const fechaUtc = new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'shor
  * demás (momentos con hora: última prueba, último uso) sigue en la zona del navegador.
  */
 const esFechaDeCalendario = (d: Date) => d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0;
-const mesAnio = new Intl.DateTimeFormat('es-PE', { month: 'long', year: 'numeric' });
 
 export function soles(v: number | string | null | undefined): string {
   const n = typeof v === 'string' ? Number(v) : v ?? 0;
@@ -22,9 +21,21 @@ export function fechaCorta(v: string | Date | null | undefined): string {
   return (esFechaDeCalendario(d) ? fechaUtc : fecha).format(d);
 }
 
+/** Nombres de mes: en el Perú se dice «setiembre». Es el par de `src/server/lib/periodo.ts`: si cambias una lista, cambia la otra. */
+export const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'] as const;
+
+/** «octubre» (minúsculas). */
+export const nombreDelMes = (mes: number): string => MESES[mes - 1] ?? String(mes);
+
+/** «Octubre de 2026». */
 export function periodo(mes: number, anio: number): string {
-  const s = mesAnio.format(new Date(anio, mes - 1, 1));
+  const s = `${nombreDelMes(mes)} de ${anio}`;
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** «Mantenimiento de octubre de 2026» o, con torre, «Mantenimiento de octubre de 2026 · Block 1» (cada torre tiene su propio recibo). */
+export function tituloRecibo(mes: number, anio: number, torre?: string | null): string {
+  return `Mantenimiento de ${periodo(mes, anio).toLowerCase()}${torre ? ` · ${torre}` : ''}`;
 }
 
 export function iniciales(nombre: string): string {

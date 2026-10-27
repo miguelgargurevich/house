@@ -5,9 +5,13 @@ import { api, errorText, useResource } from '../../../../api';
 import { Alert, Button, EmptyState, ErrorState, IconButton, Input, Modal, Select, Skeleton, Textarea, soles, useToast } from '../../../../ui';
 import { fechaAISO, hoyISO, nombreMes } from './comun';
 import type { Complejo, Concepto, Lista } from './comun';
+import { nombreTorre } from './torres';
+import { useTorres } from './useTorres';
 
 interface Form {
   complejo_id: string;
+  /** '' = todas las torres (un recibo por torre). */
+  estructura_id: string;
   mes: string;
   anio: string;
   fecha_emision: string;
@@ -25,9 +29,10 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
   const conceptos = useResource<Lista<Concepto>>('/api/conceptos?pageSize=100');
   const hoy = new Date();
 
-  const { register, handleSubmit, control, getValues, formState: { errors, isSubmitting } } = useForm<Form>({
+  const { register, handleSubmit, control, getValues, setValue, formState: { errors, isSubmitting } } = useForm<Form>({
     defaultValues: {
       complejo_id: '',
+      estructura_id: '',
       mes: String(hoy.getMonth() + 1),
       anio: String(hoy.getFullYear()),
       fecha_emision: hoyISO(),
@@ -38,6 +43,11 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
   });
   const { fields, append, remove } = useFieldArray({ control, name: 'conceptos' });
   const filas = useWatch({ control, name: 'conceptos' });
+  const complejoElegido = useWatch({ control, name: 'complejo_id' });
+  const torreElegida = useWatch({ control, name: 'estructura_id' });
+  // Cada torre tiene su propio recibo: con torres se elige una o «todas» (un recibo por torre); un condominio sin torres emite uno solo.
+  const torres = useTorres(complejoElegido, Boolean(complejoElegido));
+  const opcionesTorre = complejoElegido ? torres.data?.items ?? [] : [];
   const totalPorUnidad = (filas ?? []).reduce((s, f) => s + (Number(f?.monto) || 0), 0);
 
   const cargando = complejos.loading || conceptos.loading;
@@ -47,10 +57,11 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
 
   async function emitir(v: Form) {
     try {
-      await api('/api/recibos', {
+      const r = await api<{ recibos?: unknown[] }>('/api/recibos', {
         method: 'POST',
         json: {
           complejo_id: Number(v.complejo_id),
+          ...(v.estructura_id ? { estructura_id: Number(v.estructura_id) } : {}),
           mes: Number(v.mes),
           anio: Number(v.anio),
           fecha_emision: fechaAISO(v.fecha_emision),
@@ -59,7 +70,8 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
           conceptos: v.conceptos.map(c => ({ concepto_id: Number(c.concepto_id), monto: Number(c.monto), es_recargo: c.es_recargo })),
         },
       });
-      toast.ok('Recibo emitido');
+      const n = r.recibos?.length ?? 1;
+      toast.ok(n > 1 ? `Se emitieron ${n} recibos, uno por torre` : 'Recibo emitido');
       onSaved();
       onClose();
     } catch (e) { toast.error(errorText(e)); }
@@ -97,10 +109,16 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
         />
       ) : (
         <form onSubmit={handleSubmit(emitir)} className="grid gap-4 sm:grid-cols-2" noValidate>
-          <Select label="Condominio" className="sm:col-span-2" error={errors.complejo_id && 'Elige un condominio'} {...register('complejo_id', { required: true })}>
+          <Select label="Condominio" className="sm:col-span-2" error={errors.complejo_id && 'Elige un condominio'} {...register('complejo_id', { required: true, onChange: () => setValue('estructura_id', '') })}>
             <option value="">Elige un condominio</option>
             {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </Select>
+          {opcionesTorre.length > 0 && (
+            <Select label="Torre" className="sm:col-span-2" {...register('estructura_id')}>
+              <option value="">Todas las torres (un recibo por torre)</option>
+              {opcionesTorre.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
+            </Select>
+          )}
           <Select label="Mes" {...register('mes', { required: true })}>
             {MESES.map(m => <option key={m} value={m}>{nombreMes(m)}</option>)}
           </Select>
@@ -149,7 +167,11 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
               <span className="text-sm text-muted">Total por unidad</span>
               <span className="num text-xl font-semibold">{soles(totalPorUnidad)}</span>
             </div>
-            <Alert>Se generará un cargo por cada unidad activa del condominio.</Alert>
+            <Alert>{opcionesTorre.length === 0
+              ? 'Se generará un cargo por cada unidad activa del condominio.'
+              : torreElegida
+                ? `Se emitirá el recibo de ${nombreTorre(opcionesTorre.find(t => String(t.id) === torreElegida) ?? { id: 0, nombre: 'la torre' })}: un cargo por cada unidad activa de esa torre.`
+                : `Se emitirá un recibo por cada torre (${opcionesTorre.length}), cada uno con un cargo por cada unidad activa de su torre.`}</Alert>
           </div>
         </form>
       )}

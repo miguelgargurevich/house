@@ -8,6 +8,7 @@ interface Unidad {
   tipo: string;
   estado: string | null;
   complejo?: { id: number; nombre: string } | null;
+  estructura?: { id: number; nombre: string | null } | null;
   inquilino?: { id: number; nombre: string } | null;
 }
 
@@ -35,7 +36,7 @@ export function UnidadesResidente() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-lg font-semibold">{u.codigo}</p>
-                      <p className="text-sm capitalize text-muted">{u.tipo}</p>
+                      <p className="text-sm text-muted"><span className="capitalize">{u.tipo}</span>{u.estructura?.nombre ? ` · ${u.estructura.nombre}` : ''}</p>
                     </div>
                     <StatusBadge estado={u.estado} />
                   </div>

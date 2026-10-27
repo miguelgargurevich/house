@@ -78,7 +78,9 @@ describe('recibo de mantenimiento', () => {
     assert.match(articulo, /d\.conceptos\.map\(/);
     assert.match(articulo, /soles\(d\.total\)/);
     assert.match(articulo, /Saldo por pagar/);
-    assert.match(articulo, /d\.medios_pago\.map\(/);
+    assert.match(articulo, /d\.medios_pago\.filter\(m => m\.ambito === 'block'\)/, 'las cuentas del block');
+    assert.match(articulo, /d\.medios_pago\.filter\(m => m\.ambito !== 'block'\)/, 'y las del condominio, separadas');
+    assert.match(articulo, /lineaMedio\(m\)/);
   });
 
   it('ya no usa su propio <style> con visibility ni el id viejo', () => {

@@ -13,7 +13,7 @@ const base: ResultadoExcel = {
 
 describe('resumenSubida: título y línea de conteo', () => {
   it('el título nombra el mes en español y el año', () => {
-    assert.equal(resumenSubida(base).titulo, 'Recibo de Octubre 2026 cargado');
+    assert.equal(resumenSubida(base).titulo, 'Recibo de octubre de 2026 cargado');
   });
 
   it('plural en departamentos y en filas saltadas', () => {

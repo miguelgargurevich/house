@@ -51,7 +51,7 @@ export function PagosResidente() {
             { label: 'Fecha', value: fechaCorta(p.fecha_pago) },
             { label: p.mantenimiento ? 'Mantenimiento' : 'Concepto', value: nombrePago(p) },
             ...(p.mantenimiento ? [{ label: 'Incluye', value: `${p.mantenimiento.conceptos} conceptos del mes` }] : []),
-            { label: 'Unidad', value: p.unidad?.codigo },
+            { label: 'Unidad', value: p.unidad && `${p.unidad.codigo}${p.unidad.estructura?.nombre ? ` · ${p.unidad.estructura.nombre}` : ''}` },
             { label: 'Método', value: metodoLabel(p.metodo_pago) },
             { label: 'Referencia', value: p.referencia && <span className="num">{p.referencia}</span> },
             { label: 'Estado', value: <StatusBadge estado={estadoVisible(p.estado_validacion)} /> },
@@ -74,7 +74,7 @@ export function PagosResidente() {
   const columns: Column<PagoResidente>[] = [
     { key: 'fecha', header: 'Fecha', cell: p => fechaCorta(p.fecha_pago) },
     { key: 'concepto', header: 'Mantenimiento', cell: p => <span className="block"><span className="font-medium">{nombrePago(p)}</span>{!p.mantenimiento && <span className="block text-xs text-muted">Pago de un solo concepto</span>}</span> },
-    { key: 'unidad', header: 'Unidad', hideBelow: 'lg', cell: p => p.unidad?.codigo ?? '—' },
+    { key: 'unidad', header: 'Unidad', hideBelow: 'lg', cell: p => (p.unidad ? `${p.unidad.codigo}${p.unidad.estructura?.nombre ? ` · ${p.unidad.estructura.nombre}` : ''}` : '—') },
     { key: 'metodo', header: 'Método', cell: p => metodoLabel(p.metodo_pago) },
     { key: 'referencia', header: 'Referencia', hideBelow: 'lg', cell: p => <span className="num">{p.referencia || '—'}</span> },
     { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(montoPago(p))}</span> },

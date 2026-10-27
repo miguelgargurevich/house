@@ -18,8 +18,8 @@ function ReciboArticulo({ d }: { d: DetalleMantenimiento }) {
     <article aria-label={`Recibo de mantenimiento ${d.numero}`} className="space-y-6 text-ink">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold">Recibo de mantenimiento</h2>
-          <p className="mt-1 text-sm text-muted">{periodo(d.mes, d.anio)}</p>
+          <h2 className="text-xl font-semibold">Recibo de mantenimiento{block ? ` · ${block}` : ''}</h2>
+          <p className="mt-1 text-sm text-muted">{periodo(d.mes, d.anio)}{d.condominio ? ` · ${d.condominio.nombre}` : ''}</p>
         </div>
         <div className="text-right">
           <p className="text-xs text-muted">N.º de recibo</p>
@@ -91,9 +91,18 @@ function ReciboArticulo({ d }: { d: DetalleMantenimiento }) {
         {d.medios_pago.length === 0 ? (
           <p className="text-muted">Consulta los medios de pago con la junta o la administración.</p>
         ) : (
-          <ul className="list-disc space-y-1 pl-5">
-            {d.medios_pago.map(m => <li key={m.id}>{lineaMedio(m)}</li>)}
-          </ul>
+          // Las cuentas de la torre (las de la junta de ese block) y las del condominio son distintas: se separan para que nadie pague a la equivocada.
+          <div className="space-y-3">
+            {[
+              { titulo: block ? `Cuentas de ${block}` : 'Cuentas de la torre', lista: d.medios_pago.filter(m => m.ambito === 'block') },
+              { titulo: d.condominio ? `Cuentas del condominio ${d.condominio.nombre}` : 'Cuentas del condominio', lista: d.medios_pago.filter(m => m.ambito !== 'block') },
+            ].filter(g => g.lista.length > 0).map(g => (
+              <div key={g.titulo}>
+                <h4 className="text-xs font-medium text-muted">{g.titulo}</h4>
+                <ul className="list-disc space-y-1 pl-5">{g.lista.map(m => <li key={m.id}>{lineaMedio(m)}</li>)}</ul>
+              </div>
+            ))}
+          </div>
         )}
         <p className="mt-2 text-muted">Indica tu departamento <span className="num font-medium text-ink">{d.unidad.codigo}</span> como referencia.</p>
       </section>

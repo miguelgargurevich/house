@@ -88,7 +88,7 @@ export function ComoPagar({ mant, saldo, medios, loading, error }: Props) {
         <p className="num text-2xl font-semibold">{saldo !== null ? soles(saldo) : <Skeleton className="mt-1 h-7 w-32" />}</p>
         <p className="mt-1 text-sm text-muted">{mant.titulo.split(' · ')[0]} · todos los conceptos del mes</p>
       </div>
-      <Alert tone="info">Haz <strong>una sola transferencia o pago</strong> por el total e indica tu departamento <strong>{mant.unidad.codigo}</strong> en la referencia.</Alert>
+      <Alert tone="info">Haz <strong>una sola transferencia o pago</strong> por el total e indica tu departamento <strong>{mant.unidad.codigo}</strong>{mant.unidad.estructura?.nombre ? ` (${mant.unidad.estructura.nombre})` : ''} en la referencia.</Alert>
       {loading && <div className="space-y-3"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>}
       {!loading && error && <Alert tone="warn">No pudimos cargar los datos de pago ({error}). Consúltales a la junta o a la administración; igual puedes registrar tu pago.</Alert>}
       {!loading && !error && medios !== null && medios.length === 0 && <Alert tone="warn">La junta aún no cargó los datos de pago. Consúltales o pregunta a la administración.</Alert>}

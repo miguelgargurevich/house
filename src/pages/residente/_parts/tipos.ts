@@ -18,10 +18,11 @@ export interface PagoResidente {
   /** Sólo un estado simple: el detalle de la IA es de la junta y la administración. */
   evaluacion?: EvaluacionResidente | null;
   validado_por_ia?: boolean;
-  unidad?: { codigo: string } | null;
+  /** Departamento con su block: cada block tiene su propio recibo, sus vecinos y sus cuentas. */
+  unidad?: { codigo: string; estructura?: { id: number; nombre: string | null } | null } | null;
   concepto?: { nombre: string } | null;
   /** Pago del mantenimiento completo (un grupo de pagos por concepto); `null` en los pagos sueltos antiguos. */
-  mantenimiento?: { grupo: string; titulo: string; numero: string; recibo_id: number; unidad_id: number; total: string; conceptos: number } | null;
+  mantenimiento?: { grupo: string; titulo: string; numero: string; recibo_id: number; unidad_id: number; torre?: string | null; total: string; conceptos: number } | null;
 }
 
 /** Lo que se muestra del pago: el mantenimiento completo (con su total) o el concepto del pago suelto. */

@@ -20,7 +20,8 @@ export interface PagoRevisable {
   validado_at: string | null;
   validado_por?: { nombre: string } | null;
   comprobante: ComprobanteMeta | null;
-  unidad?: { codigo: string } | null;
+  /** Departamento, con su torre y su condominio: cada torre tiene su recibo y sus cuentas. */
+  unidad?: { codigo: string; estructura?: { id: number; nombre: string | null } | null; complejo?: { id: number; nombre: string } | null } | null;
   concepto?: { nombre: string } | null;
   usuario?: { nombre: string } | null;
   /** Pago del mantenimiento completo: el total del grupo y cuántos conceptos cubre; `null` en un pago suelto antiguo. */
@@ -98,6 +99,8 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
             <div className="mt-4">
               <DefinitionList
                 items={[
+                  { label: 'Departamento', value: pago.unidad && <><span className="num">{pago.unidad.codigo}</span>{pago.unidad.estructura?.nombre ? ` · ${pago.unidad.estructura.nombre}` : ''}</> },
+                  ...(pago.unidad?.complejo ? [{ label: 'Condominio', value: pago.unidad.complejo.nombre }] : []),
                   { label: 'Pagó', value: pago.usuario?.nombre },
                   { label: 'Fecha', value: fechaCorta(pago.fecha_pago) },
                   { label: 'Método', value: metodoLabel(pago.metodo_pago) },

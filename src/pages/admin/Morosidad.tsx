@@ -1,16 +1,18 @@
 import { ArrowDownTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { useList, useResource } from '../../api';
-import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, Toolbar, fechaCorta, soles } from '../../ui';
+import { Badge, Button, Card, DataTable, PageHeader, Skeleton, StatStrip, Toolbar, fechaCorta, soles } from '../../ui';
 import type { Column } from '../../ui';
 import { descargarCSV } from './_parts/cobranza/csv';
 import { hoyISO } from './_parts/cobranza/comun';
+import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 
 type Ref = { id?: number; codigo?: string; nombre?: string } | string | null | undefined;
 
 interface Moroso {
   unidad: Ref;
   estructura?: { id: number; nombre: string | null } | null;
+  complejo?: { id: number; nombre: string } | null;
   propietario: Ref;
   deuda_total: number | string;
   cargos_vencidos: number;
@@ -22,12 +24,15 @@ const texto = (r: Ref): string => (typeof r === 'string' ? r : r?.codigo ?? r?.n
 const claveFila = (m: Moroso): string => (typeof m.unidad === 'object' && m.unidad?.id ? String(m.unidad.id) : `${texto(m.unidad)}|${texto(m.propietario)}`);
 
 export default function Morosidad() {
+  const [complejo, setComplejo] = useState('');
   const [torre, setTorre] = useState('');
-  const torres = useResource<{ items: { id: number; nombre: string | null }[] }>('/api/estructuras?pageSize=100');
-  const hayTorres = (torres.data?.items.length ?? 0) > 1;
-  const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100, params: { estructura_id: torre || undefined } });
+  // Las torres son las del condominio elegido (con varios condominios, «Block 1» se repite: el selector las rotula con su condominio).
+  const params = { complejo_id: complejo || undefined, estructura_id: torre || undefined };
+  const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100, params });
+  // Las cifras de arriba son de TODO el filtro, no sólo de las filas de la página.
+  const cifras = useResource<{ resumen: { unidades: number; deuda_total: string; cargos_vencidos: number } }>(`/api/reportes/morosidad?pageSize=1${complejo ? `&complejo_id=${complejo}` : ''}${torre ? `&estructura_id=${torre}` : ''}`);
 
-  const deudaTotal = list.items.reduce((s, m) => s + (Number(m.deuda_total) || 0), 0);
+  const deudaTotal = cifras.data ? Number(cifras.data.resumen.deuda_total) : list.items.reduce((s, m) => s + (Number(m.deuda_total) || 0), 0);
   const mayorAtraso = list.items.reduce((s, m) => Math.max(s, m.dias_max_atraso || 0), 0);
   const parcial = list.total > list.items.length;
   const esperando = list.loading && list.items.length === 0;
@@ -36,14 +41,15 @@ export default function Morosidad() {
   function exportar() {
     descargarCSV(
       `morosidad-${hoyISO()}.csv`,
-      ['Unidad', 'Torre', 'Propietario', 'Deuda (S/)', 'Cargos vencidos', 'Días de atraso'],
-      list.items.map(m => [texto(m.unidad), m.estructura?.nombre ?? '', texto(m.propietario), Number(m.deuda_total).toFixed(2), m.cargos_vencidos, m.dias_max_atraso]),
+      ['Unidad', 'Condominio', 'Torre', 'Propietario', 'Deuda (S/)', 'Cargos vencidos', 'Días de atraso'],
+      list.items.map(m => [texto(m.unidad), m.complejo?.nombre ?? '', m.estructura?.nombre ?? '', texto(m.propietario), Number(m.deuda_total).toFixed(2), m.cargos_vencidos, m.dias_max_atraso]),
     );
   }
 
   const columns: Column<Moroso>[] = [
     { key: 'unidad', header: 'Unidad', cell: m => <span className="font-medium">{texto(m.unidad) || '—'}</span> },
-    ...(hayTorres ? [{ key: 'torre', header: 'Torre', hideBelow: 'sm' as const, cell: (m: Moroso) => m.estructura?.nombre ?? '—' }] : []),
+    { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: m => m.complejo?.nombre ?? '—' },
+    { key: 'torre', header: 'Torre', hideBelow: 'sm', cell: m => m.estructura?.nombre ?? '—' },
     { key: 'propietario', header: 'Propietario', hideBelow: 'sm', cell: m => texto(m.propietario) || '—' },
     { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{soles(m.deuda_total)}</span> },
     { key: 'cargos', header: 'Cargos vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.cargos_vencidos}</span> },
@@ -63,20 +69,15 @@ export default function Morosidad() {
       />
       <StatStrip
         stats={[
-          { label: 'Deuda vencida', value: esperando ? <Skeleton className="h-7 w-28" /> : soles(deudaTotal), tone: deudaTotal > 0 ? 'bad' : undefined, hint },
+          { label: 'Deuda vencida', value: esperando && !cifras.data ? <Skeleton className="h-7 w-28" /> : soles(deudaTotal), tone: deudaTotal > 0 ? 'bad' : undefined, hint: cifras.data ? undefined : hint },
           { label: 'Unidades morosas', value: esperando ? <Skeleton className="h-7 w-10" /> : list.total },
           { label: 'Mayor atraso', value: esperando ? <Skeleton className="h-7 w-20" /> : `${mayorAtraso} ${mayorAtraso === 1 ? 'día' : 'días'}`, tone: mayorAtraso >= 30 ? 'bad' : mayorAtraso > 0 ? 'warn' : undefined, hint },
         ]}
       />
       <Card>
-        {hayTorres && (
-          <Toolbar>
-            <Select label="Torre" className="w-full sm:w-56 [&_label]:sr-only" value={torre} onChange={e => setTorre(e.target.value)}>
-              <option value="">Todas las torres</option>
-              {(torres.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{t.nombre ?? `Torre ${t.id}`}</option>)}
-            </Select>
-          </Toolbar>
-        )}
+        <Toolbar>
+          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} />
+        </Toolbar>
         <DataTable
           caption={`Unidades morosas al ${fechaCorta(new Date())}`}
           columns={columns}

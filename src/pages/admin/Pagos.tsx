@@ -8,6 +8,7 @@ import { VeredictoBadge } from '../shared/evaluacion';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
 import { esJunta } from '../../auth/junta';
 import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
+import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { ValidarPagoModal } from './_parts/cobranza/ValidarPagoModal';
 import type { PagoRevisable } from './_parts/cobranza/ValidarPagoModal';
 
@@ -34,16 +35,21 @@ export default function Pagos() {
   const puedeRegistrar = user?.rol !== 'propietario' || junta;
   const [pestana, setPestana] = useState<Pestana>('por_validar');
   const [metodo, setMetodo] = useState('');
+  const [complejo, setComplejo] = useState('');
+  const [torre, setTorre] = useState('');
   const [revisando, setRevisando] = useState<PagoFila | null>(null);
   const [registrando, setRegistrando] = useState(false);
   const list = useList<PagoFila>('/api/pagos', {
     // Los más antiguos primero en «Por validar»: es una cola de trabajo.
-    params: { estado_validacion: pestana, metodo_pago: metodo || undefined, orden: pestana === 'por_validar' ? 'fecha_pago:asc' : undefined },
+    params: { estado_validacion: pestana, metodo_pago: metodo || undefined, complejo_id: complejo || undefined, estructura_id: torre || undefined, orden: pestana === 'por_validar' ? 'fecha_pago:asc' : undefined },
   });
   const textos = TEXTOS[pestana];
 
   const cobradoPagina = list.items.reduce((s, p) => s + (Number(p.mantenimiento?.total ?? p.monto) || 0), 0);
   const cargandoStats = list.loading && list.items.length === 0;
+  // Cada torre cobra a su cuenta: la suma de la página puede juntar varias; se dice, y filtrar por torre las separa.
+  const torresEnPagina = new Set(list.items.map(p => p.unidad?.estructura?.id ?? 0)).size;
+  const filtrando = Boolean(metodo || complejo || torre);
 
   // Una fila por PAGO DEL MANTENIMIENTO (no por concepto): cabe a 1280 px sin scroll; lo secundario se oculta según el ancho.
   const monto = (p: PagoFila) => p.mantenimiento?.total ?? p.monto;
@@ -53,10 +59,13 @@ export default function Pagos() {
       <span className="block min-w-0">
         <span className="block font-medium">{p.mantenimiento ? p.mantenimiento.titulo.split(' · ')[0] : p.concepto?.nombre ?? 'Pago'}</span>
         <span className="block text-xs text-muted">
-          <span className="num">{p.unidad?.codigo ?? '—'}</span>{p.mantenimiento ? ` · ${p.mantenimiento.conceptos} conceptos` : ' · un solo concepto'}
+          <span className="num">{p.unidad?.codigo ?? '—'}</span>{p.unidad?.estructura?.nombre ? ` · ${p.unidad.estructura.nombre}` : ''}{p.mantenimiento ? ` · ${p.mantenimiento.conceptos} conceptos` : ' · un solo concepto'}
           {p.usuario?.nombre && <span className="hidden 2xl:inline"> · {p.usuario.nombre}</span>}
         </span>
       </span>
+    ) },
+    { key: 'torre', header: 'Torre', hideBelow: 'xl', cell: p => (
+      <span className="block">{p.unidad?.estructura?.nombre ?? '—'}{p.unidad?.complejo && <span className="block text-xs text-muted">{p.unidad.complejo.nombre}</span>}</span>
     ) },
     { key: 'metodo', header: 'Método', hideBelow: 'lg', cell: p => (
       <span className="block"><Badge>{metodoLabel(p.metodo_pago)}</Badge>{p.referencia && <span className="num mt-1 block text-xs text-muted">{p.referencia}</span>}</span>
@@ -82,7 +91,7 @@ export default function Pagos() {
       />
       <StatStrip
         stats={[
-          { label: textos.stat, value: cargandoStats ? <Skeleton className="h-7 w-28" /> : soles(cobradoPagina), tone: textos.tone },
+          { label: textos.stat, value: cargandoStats ? <Skeleton className="h-7 w-28" /> : soles(cobradoPagina), tone: textos.tone, hint: !cargandoStats && torresEnPagina > 1 ? `Suma ${torresEnPagina} torres: filtra por torre para separarlas` : undefined },
           { label: 'Pagos en esta página', value: cargandoStats ? <Skeleton className="h-7 w-10" /> : list.items.length, hint: list.error ? undefined : `${list.total} en total` },
         ]}
       />
@@ -91,6 +100,7 @@ export default function Pagos() {
       </div>
       <Card>
         <Toolbar>
+          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} oculto={junta} />
           <Select label="Método de pago" className="w-full sm:w-52 [&_label]:sr-only" value={metodo} onChange={e => setMetodo(e.target.value)}>
             <option value="">Todos los métodos</option>
             {METODOS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -111,9 +121,9 @@ export default function Pagos() {
           onRowClick={setRevisando}
           empty={{
             title: textos.vacio,
-            description: metodo ? 'Prueba con otro filtro.' : textos.vacioDesc,
+            description: filtrando ? 'Prueba con otro filtro.' : textos.vacioDesc,
             icon: <BanknotesIcon />,
-            action: !puedeRegistrar || metodo || pestana !== 'validado' ? undefined : <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>,
+            action: !puedeRegistrar || filtrando || pestana !== 'validado' ? undefined : <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>,
           }}
         />
       </Card>

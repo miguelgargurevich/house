@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
-import { Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, Toolbar, fechaCorta, periodo, soles } from '../../ui';
+import { Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, Toolbar, fechaCorta, soles, tituloRecibo } from '../../ui';
 import { BloquesPeriodo } from './_parts/mantenimientos/BloquesPeriodo';
 import type { BlockResumen } from './_parts/mantenimientos/BloquesPeriodo';
 import { MantenimientoAdminModal } from './_parts/mantenimientos/MantenimientoAdminModal';
@@ -18,6 +18,8 @@ interface Periodo {
   fecha_vencimiento: string;
   estado: string | null;
   complejo?: { id: number; nombre: string } | null;
+  /** Torre del recibo: cada torre tiene el suyo. Sin torre = condominio sin torres, recibo general o recibo viejo que mezcla torres. */
+  estructura?: { id: number; nombre: string | null } | null;
   totales?: { monto: string; cobrado: string; pendiente: string; en_revision: string };
   estado_cobranza?: string;
 }
@@ -28,7 +30,10 @@ function useDebounced<T>(valor: T, ms = 300): T {
   return v;
 }
 
-/** Un periodo: agrupado por torre si el condominio tiene más de una (si no, directo a los departamentos). */
+/**
+ * Un periodo. Un recibo de TORRE va directo a sus departamentos (sin selector ni vista agrupada: todo es de esa torre y las cifras son suyas);
+ * un recibo viejo que mezcla torres sigue agrupado por torre.
+ */
 export default function PeriodoRecibo() {
   const { id } = useParams();
   const reciboId = Number(id);
@@ -42,7 +47,8 @@ export default function PeriodoRecibo() {
   const qFinal = useDebounced(q.trim());
 
   const p = periodoDb.data;
-  const agrupado = bloques.data?.agrupado ?? false;
+  const deTorre = Boolean(p?.estructura);
+  const agrupado = !deTorre && (bloques.data?.agrupado ?? false);
   const filtrando = qFinal !== '' || estado !== '' || block !== '';
   const t = p?.totales;
   const pct = t && Number(t.monto) > 0 ? Math.round((Number(t.cobrado) / Number(t.monto)) * 1000) / 10 : 0;
@@ -58,7 +64,7 @@ export default function PeriodoRecibo() {
       ) : (
         <>
           <PageHeader
-            title={p ? `Mantenimiento de ${periodo(p.mes, p.anio).toLowerCase()}` : 'Periodo'}
+            title={p ? tituloRecibo(p.mes, p.anio, p.estructura ? p.estructura.nombre ?? `Torre ${p.estructura.id}` : null) : 'Periodo'}
             description={p ? `${p.complejo?.nombre ?? ''} · emitido el ${fechaCorta(p.fecha_emision)} · vence el ${fechaCorta(p.fecha_vencimiento)}` : undefined}
             actions={p ? <StatusBadge estado={p.estado} /> : undefined}
           />

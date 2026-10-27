@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ArrowPathIcon, BellIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../api';
-import { Badge, Button, Card, DataTable, PageHeader, SearchBox, Skeleton, StatStrip, Tabs, Toolbar, useToast } from '../../ui';
+import { Badge, Button, Card, DataTable, PageHeader, SearchBox, Skeleton, StatStrip, Tabs, Toolbar, periodo, useToast } from '../../ui';
 import type { Column, Tone } from '../../ui';
 import { Canales } from './_parts/avisos/Canales';
+import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 
 type Estado = 'pendiente' | 'enviada' | 'error' | 'omitida';
 type Filtro = '' | Estado;
@@ -20,6 +21,8 @@ interface Aviso {
   programada_para: string;
   enviada_at: string | null;
   created_at: string;
+  /** De qué trata el aviso: el recibo (con su torre) y, si es de un cargo o un pago, el departamento. */
+  contexto?: { recibo: { id: number; mes: number; anio: number; torre: string | null; condominio: string | null } | null; unidad: { codigo: string; torre: string | null } | null } | null;
 }
 
 const TIPO: Record<string, string> = {
@@ -46,7 +49,9 @@ export default function Avisos() {
   const toast = useToast();
   const [filtro, setFiltro] = useState<Filtro>('');
   const [reenviando, setReenviando] = useState<number | null>(null);
-  const list = useList<Aviso>('/api/notificaciones', { params: { estado: filtro } });
+  const [complejo, setComplejo] = useState('');
+  const [torre, setTorre] = useState('');
+  const list = useList<Aviso>('/api/notificaciones', { params: { estado: filtro, complejo_id: complejo || undefined, estructura_id: torre || undefined } });
   const resumen = useResource<Record<Estado, number>>('/api/notificaciones/resumen');
   const cifra = (e: Estado) => (resumen.loading && !resumen.data ? <Skeleton className="h-7 w-10" /> : resumen.data?.[e] ?? 0);
 
@@ -62,6 +67,12 @@ export default function Avisos() {
 
   const columns: Column<Aviso>[] = [
     { key: 'destinatario', header: 'Destinatario', cell: a => <span className="font-medium">{a.usuario.nombre}</span> },
+    { key: 'recibo', header: 'Recibo', hideBelow: 'md', cell: a => {
+      const r = a.contexto?.recibo;
+      if (!r) return <span className="text-muted">—</span>;
+      const torreDe = a.contexto?.unidad?.torre ?? r.torre;
+      return <span className="block">{periodo(r.mes, r.anio)}<span className="block text-xs text-muted">{[a.contexto?.unidad?.codigo, torreDe, r.condominio].filter(Boolean).join(' · ')}</span></span>;
+    } },
     { key: 'canal', header: 'Canal', hideBelow: 'sm', cell: a => CANAL[a.canal] },
     { key: 'tipo', header: 'Aviso', hideBelow: 'md', cell: a => TIPO[a.tipo] ?? a.tipo },
     { key: 'estado', header: 'Estado', cell: a => <Badge tone={ESTADO[a.estado].tone}>{ESTADO[a.estado].label}</Badge> },
@@ -94,6 +105,7 @@ export default function Avisos() {
             items={[{ id: '', label: 'Todos' }, { id: 'pendiente', label: 'Pendientes' }, { id: 'enviada', label: 'Enviadas' }, { id: 'error', label: 'Con error' }, { id: 'omitida', label: 'Omitidas' }]}
           />
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por destinatario…" />
+          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} />
         </Toolbar>
         <DataTable
           caption="Avisos enviados y por enviar"

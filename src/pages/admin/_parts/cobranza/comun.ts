@@ -1,5 +1,5 @@
 import type { Page } from '../../../../api';
-import { periodo } from '../../../../ui';
+import { periodo } from '../../../../ui/format';
 
 export type Lista<T> = Page<T>;
 
@@ -31,12 +31,17 @@ export function fechaAISO(v: string): string {
   return new Date(`${v}T12:00:00`).toISOString();
 }
 
-/** Nombre del mes en español (periodo() devuelve «Enero de 2000»: sólo se usa la primera palabra). */
+/** Nombre del mes en español, capitalizado («Setiembre»): la ayuda única es `periodo()` de `ui/format.ts` (devuelve «Enero de 2000»: sólo se usa la primera palabra). */
 export function nombreMes(mes: number): string {
   return periodo(mes, 2000).split(' ')[0] ?? '';
 }
 
-/** Fila de la lista de recibos (la emisión del mes de un condominio). */
+/** «Octubre de 2026 · Block 1 · Los Libertadores»: un recibo por torre, así que la torre va siempre en el rótulo (si no, N torres repetirían la misma opción). */
+export function etiquetaRecibo(r: Pick<ReciboFila, 'mes' | 'anio' | 'estructura' | 'complejo'>): string {
+  return `${periodo(r.mes, r.anio)}${r.estructura ? ` · ${r.estructura.nombre ?? `Torre ${r.estructura.id}`}` : ''} · ${r.complejo?.nombre ?? 'Condominio'}`;
+}
+
+/** Fila de la lista de recibos (la emisión del mes de UNA torre de un condominio; sin torre = condominio sin torres o recibo general). */
 export interface ReciboFila {
   id: number;
   mes: number;
@@ -46,5 +51,6 @@ export interface ReciboFila {
   fecha_vencimiento: string;
   estado: string | null;
   complejo?: { id: number; nombre: string } | null;
+  estructura?: { id: number; nombre: string | null } | null;
   totales?: { monto: number | string; cobrado: number | string; pendiente: number | string };
 }

@@ -44,7 +44,7 @@ export function CargosResidente() {
     { key: 'mant', header: 'Mantenimiento', cell: m => (
       <button type="button" onClick={() => setViendo(m)} className="text-left font-medium hover:text-brand">{nombreMes(m)}</button>
     ) },
-    { key: 'unidad', header: 'Departamento', cell: m => <span className="num">{m.unidad.codigo}</span> },
+    { key: 'unidad', header: 'Departamento', cell: m => <span className="num">{m.unidad.codigo}{m.unidad.estructura?.nombre && <span className="block font-sans text-xs text-muted">{m.unidad.estructura.nombre}</span>}</span> },
     { key: 'vence', header: 'Vence', cell: m => <span className={m.estado === 'vencido' ? 'text-bad' : ''}>{fechaCorta(m.fecha_vencimiento)}</span> },
     { key: 'total', header: 'Total', align: 'right', cell: m => (
       <span className="block">

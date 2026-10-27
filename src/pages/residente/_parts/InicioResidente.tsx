@@ -15,7 +15,7 @@ interface Resumen {
   /** Mantenimientos (un recibo por departamento y mes), no conceptos sueltos. */
   mantenimientos_vencidos: number;
   mantenimientos_en_revision: number;
-  proximo_mantenimiento: { recibo_id: number; unidad_id: number; titulo: string; monto: number | string; fecha: string } | null;
+  proximo_mantenimiento: { recibo_id: number; unidad_id: number; titulo: string; torre?: string | null; monto: number | string; fecha: string } | null;
   pagado_ano: number | string;
 }
 
@@ -71,7 +71,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
                 {r.proximo_mantenimiento ? (
                   <>
                     <p className="num mt-1 text-xl font-semibold">{soles(r.proximo_mantenimiento.monto)}</p>
-                    <p className="text-sm text-muted">{r.proximo_mantenimiento.titulo.split(' · ')[0]} · vence {fechaCorta(r.proximo_mantenimiento.fecha)}</p>
+                    <p className="text-sm text-muted">{r.proximo_mantenimiento.titulo.split(' · ')[0]}{r.proximo_mantenimiento.torre ? ` · ${r.proximo_mantenimiento.torre}` : ''} · vence {fechaCorta(r.proximo_mantenimiento.fecha)}</p>
                     <Button className="mt-3" loading={abriendo} onClick={() => void pagarProximo(r.proximo_mantenimiento!)}>Pagar mantenimiento</Button>
                   </>
                 ) : (
