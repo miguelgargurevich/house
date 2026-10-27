@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Opus 5.5) — Alerta de secretos de GitHub en la prueba de Telegram
+
+- GitHub avisó «Telegram Bot Token» en `tests/bot-telegram.test.ts` (commit 7949052). **Falso positivo**: era el token de ejemplo de la documentación de Telegram; el token real del bot está sólo cifrado en producción.
+- Los tokens falsos de la prueba ahora se arman en tiempo de ejecución (no hay literal con forma de token). 57/57 en verde.
+- Próximo paso (Miguel): cerrar la alerta en GitHub como «Used in tests».
+- Gotcha: en pruebas, nunca escribir literales con forma de token real (`\d+:AA…`, `sk-…`, etc.); armarlos al vuelo.
+
 ## 2026-10-27 — Claude Code (Opus 5.5) — Cuatro detalles de pantalla tras la revisión en navegador
 
 **Pedido de Miguel (textual):** «Sí: arregla los cuatro detalles después de integrar Telegram.»
