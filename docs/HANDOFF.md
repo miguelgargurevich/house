@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Opus 5.5, orquestador) — Script para probar el correo de avisos
+
+**Pedido de Miguel:** probar el envío con la clave de Resend y el remitente de producción → «guarda el script así no lo volvemos a crear».
+
+**Qué se hizo**
+- `scripts/probar-correo.ts <destinatario>`: manda UN correo de prueba con `enviarCorreo` (la misma función de los avisos) y la config real (`RESEND_API_KEY`, `MAIL_FROM`). Imprime la respuesta del canal, nunca la clave.
+- Probado en producción el 27-oct (dentro del contenedor): Resend respondió `ok`, remitente `house@gargurevich.dev`.
+
+**Gotchas**
+- Correrlo DENTRO del contenedor de la app (`docker exec -w /app <contenedor> npx tsx scripts/probar-correo.ts …`): así la clave no sale del servidor.
+- tsx sin `"type":"module"`: nada de `await` de nivel superior (por eso el `void (async () => …)()`).
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Evaluación rápida del comprobante: modelo de visión correcto, fallar rápido, reintento persistido, aviso en pantalla, gateway Dashboard IA y OCR propio
 
 **Pedido de Miguel (textual):** «(captura: Detalle del pago B01-804, «Evaluación automática · Evaluando… · Leyendo el comprobante…») la ia se qued apensando mucho tiempo.. revisa, quiza tambien podemos usar el ocr que monte en el vps revisa» → «Sí: arma el arreglo de la evaluación (modelo de visión correcto, fallar rápido, reintento que sobreviva al deploy, aviso en pantalla y el gateway Qwen-VL como respaldo) · «tengo un ocr que hice para el proyecto de portal de delarers, revisa»». Rama `fix/evaluacion-rapida` (sobre `origin/main` 7dd0f98); **sin push**.
