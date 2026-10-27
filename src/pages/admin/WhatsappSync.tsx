@@ -98,6 +98,11 @@ export default function WhatsappSync() {
                 ? 'Esperando escaneo del código QR...'
                 : 'Número no vinculado'}
           </p>
+          {status === 'connected' && (
+            <p className="text-sm text-slate-500 mt-2">
+              Los vecinos y el personal ya pueden vincular su WhatsApp desde Mi perfil y escribirle a este número: consultan al asistente y envían su comprobante de pago.
+            </p>
+          )}
           {status === 'connecting' && (
             <p className="text-sm text-slate-500 mt-2">
               Abre WhatsApp en tu teléfono → Ajustes → Dispositivos vinculados → Vincular dispositivo

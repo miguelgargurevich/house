@@ -4,6 +4,48 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Bot de WhatsApp: asistente + voucher por foto (Fases A y B)
+
+**Pedido de Miguel (textual):** «tambien quiero un bot en telegram o donde sea para que ... haga lo del asistente» → «Sí: planea el bot de WhatsApp primero (asistente + voucher por foto), Telegram después» → «Pasa el ocr a su propia app en coolify y sigue con el bot de wasap». Rama `feat/bot-whatsapp` (worktree sobre `origin/main` 0bf8b12); **sin push** (lo sube la sesión principal con OK de Miguel). Telegram NO está: queda para otra tarea (la capa común ya es genérica por `canal`).
+
+**Qué se hizo**
+- **Esquema** (aditivo; 5 tablas nuevas, nada existente cambia): `CanalVinculado` (único vigente por número y por persona+canal con columnas `clave_vigente`/`clave_usuario` que quedan en null al revocar), `CodigoVinculacion` (hash, 10 min, `intentos`), `CanalWebhook` (hash del secreto por empresa), `MensajeCanal` (idempotencia por id de mensaje) y `CanalPendiente` (voucher a la espera de «¿cuál pagaste?», 15 min).
+- **`services/canales/`**: `vinculos.ts` (código y verificación), `identidad.ts` (arma el `AuthUser` desde la base y comprueba la empresa), `conversar.ts` (`conversarPorCanal`: mismo `prepararTurno`/`ejecutarTurno`, ajustes por rol y tope de 20 consultas/15 min que la web), `formato.ts` (markdown → WhatsApp), `entrante.ts` (interpreta el webhook y atiende cada mensaje), `voucher.ts`, `webhook.ts` (autenticación y registro del webhook), `evolution.ts` (cliente; `webhook/set`, `getBase64FromMediaMessage`, `fetchInstances`, partir en ≤ 4.000), `limites.ts`, `deps.ts` (inyectables para pruebas).
+- **API**: `/api/me/canales` (listar, generar código, desvincular) y `POST /api/canales/whatsapp/:instancia` (webhook, montado antes del JSON global). Ver `docs/API-CONTRATO.md` y `docs/SEGURIDAD.md › Bot de WhatsApp`.
+- **`routes/whatsapp.ts`**: `/sync` y `/status` (con la sesión `open`) registran el webhook (idempotente, campo `webhook` en la respuesta; un fallo no impide vincular); `/disconnect` lo borra.
+- **Avisos** (`avisos/cola.ts`): quien tiene vínculo recibe `pago_validado`/`pago_rechazado` por WhatsApp en el número VERIFICADO (aunque no tenga teléfono ni avisos activos); para los demás avisos por WhatsApp se usa el número verificado en lugar de `Usuario.telefono`.
+- **Pantalla**: «Asistente por WhatsApp» en Mi perfil (`_parts/CanalesPerfil.tsx` + `canalesFormato.ts`): botón «Vincular WhatsApp», código con cuenta regresiva, número del edificio, estado y «Desvincular». En `/admin/whatsapp` una línea avisa que los vecinos ya pueden vincularse.
+- **Limpieza**: la tarea horaria existente (`asistente/planificador.ts`) borra también mensajes de canal de más de 7 días y vouchers pendientes vencidos.
+
+**Cómo activarlo en producción (GRUPO VRANY)**
+1. Desplegar (el arranque corre `prisma db push` sin `--accept-data-loss`; todo es aditivo). No hay variables nuevas.
+2. El admin de VRANY entra a `/admin/whatsapp`, «Sincronizar» y escanea el QR (hoy `whatsapp_instance` es null). **El webhook se registra solo**: en `/sync` (apenas se crea la instancia) y en `/status` cuando la sesión pasa a `open` (la pantalla ya consulta el estado). Si Evolution rechaza el registro, la respuesta trae `webhook: "error"`: basta volver a abrir la pantalla (o «Sincronizar») para reintentar.
+3. Cada vecino/personal entra a Mi perfil › «Vincular WhatsApp», genera el código y lo manda por WhatsApp AL NÚMERO DEL EDIFICIO desde el celular que quiere vincular. Desde ahí puede preguntar y mandar la foto o el PDF del voucher.
+4. Qué pasa con el webhook: el secreto se genera al registrar (32 bytes), se manda a Evolution en la cabecera `x-house-secret` y en House sólo queda su hash. No se puede ver ni recuperar; para rotarlo, desconectar y volver a sincronizar. Sin webhook registrado (o tras desconectar) Evolution recibe 401 y el bot no responde.
+5. Comprobación recomendada tras activar: con el celular de Miguel vincular, mandar «menu», una pregunta («¿cuánto debo?») y un voucher de prueba; revisar en Evolution que el webhook figure con el evento `MESSAGES_UPSERT`.
+
+**Decisiones**
+- Secreto del webhook: cabecera (no en la URL, para que no quede en los logs de acceso) y sólo hash (no cifrado con el Llavero: no hace falta recuperarlo y no depende de `LLAVERO_ENC_KEY`). La URL pública es `ENLACE_APP` (la de los avisos), no se deduce de la petición (un `Host` falso no podría apuntar el webhook a otro lado).
+- Sólo celulares peruanos (51 + 9 dígitos): es lo que ya normaliza `normalizarCelular` y lo que sabe enviar `enviarWhatsapp`.
+- Vincular se considera la aceptación de recibir por WhatsApp el resultado de sus vouchers (`pago_validado`/`pago_rechazado`) aunque `aviso_whatsapp` esté apagado. Fácil de cambiar en `encolarAviso` si Miguel prefiere respetar siempre la preferencia.
+- Junta (presidente/tesorero) y administración: el voucher por WhatsApp responde «regístralo desde House» (v1, como pidió Miguel). Vocal y secretario sí pueden mandar el suyo (no gestionan pagos).
+- La consulta del bot se audita como `{ origen: 'whatsapp' }` sin texto (como la web, el contenido de la conversación no se audita). La auditoría de las herramientas sigue con `origen: asistente` porque `src/server/tools` queda fuera de lo permitido en esta tarea.
+- Método de pago del voucher por WhatsApp: `transferencia` por omisión (el bot no pregunta; la IA lee el real del comprobante).
+
+**Gotchas**
+- Los tests del bot (`tests/bot-whatsapp.test.ts`) reemplazan `globalThis.fetch` sólo para `https://evo.pruebas.test`, la IA con `instalarIA` y los relojes con `canalesDeps.ahora`/`cooldownDeps.ahora`; el webhook procesa en segundo plano, así que usan `esperarCanales()` (exportado por `routes/canalesWebhook.ts`).
+- `tests/whatsapp.test.ts` cambió: ahora entre `instance/create` y `instance/connect` hay una llamada `webhook/set`, y `status` abierto devuelve el campo `webhook`.
+- No ejecutes `prisma format`: reordena todo el `schema.prisma` (se añadieron las tablas a mano, sin tocar lo existente).
+- La suite completa tuvo, en dos corridas con la Mac cargada (load 6–8), un fallo distinto cada una (`torre-visible` cancelada; un 500 en `llavero`); ambos archivos pasan solos 3/3 y la tercera corrida completa fue 1370/1370. Parece flakiness bajo carga, no del bot (no se pudo comparar contra la base sin esta rama).
+
+**Próximos pasos**
+- Probar contra la Evolution REAL: formato de `webhook/set` con `headers`, de `getBase64FromMediaMessage` y de `fetchInstances` (no verificados contra la v2.3.7 instalada; si el número del edificio no sale, la pantalla muestra «número de WhatsApp de tu administración»).
+- Telegram sobre la misma capa (`CanalVinculado.canal`, `conversarPorCanal(…, 'telegram')`).
+- Límites en memoria del proceso: si algún día hay varias réplicas, pasarlos a la base.
+- Decidir con Miguel si junta/administración deben poder mandar vouchers por WhatsApp (v2).
+
+---
+
 ## 2026-10-27 — Claude Code (Haiku 5.5, delegado) — Dashboard IA primero en la lectura de comprobantes (`prioridad_vision`)
 
 **Pedido de Miguel (textual):** «Sí, pon Dashboard IA primero en la rotación de visión y deja Gemini como respaldo.» Rama `feat/prioridad-vision` (worktree sobre `origin/main` 177a3a6); **sin push** (lo sube la sesión principal con OK de Miguel).

@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { ROL_LABEL } from '../../app/nav';
 import SesionesActivas from './SesionesActivas';
 import { AvisosPerfil } from './_parts/AvisosPerfil';
+import { CanalesPerfil } from './_parts/CanalesPerfil';
 import { TokensApiPerfil } from './_parts/TokensApi';
 import { Avatar, Button, Card, CardBody, CardHeader, DefinitionList, Input, PageHeader, Skeleton, useToast } from '../../ui';
 
@@ -99,6 +100,7 @@ export default function Perfil() {
 
         <SesionesActivas />
         <AvisosPerfil />
+        <CanalesPerfil />
         {CON_HERRAMIENTAS.includes(user.rol) && <TokensApiPerfil />}
       </div>
     </>
