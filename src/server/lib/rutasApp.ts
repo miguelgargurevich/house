@@ -10,7 +10,7 @@ const OPERACION = [
 ] as const;
 
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
-  superadmin: ['/superadmin/dashboard', '/superadmin/empresas', '/superadmin/empresas/:id', '/superadmin/usuarios', '/superadmin/auditoria', '/superadmin/llavero', '/superadmin/suscripciones', ...OPERACION],
+  superadmin: ['/superadmin/dashboard', '/superadmin/empresas', '/superadmin/empresas/:id', '/superadmin/usuarios', '/superadmin/auditoria', '/superadmin/llavero', '/superadmin/integraciones', '/superadmin/suscripciones', ...OPERACION],
   admin: [...OPERACION, '/admin/mi-plan'],
   propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos'],
   inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos'],

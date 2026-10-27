@@ -1,4 +1,6 @@
 import { Router, type RequestHandler } from 'express';
+import { prisma } from '../db';
+import { estadoCanales } from '../services/avisos/canales';
 import { currentUser } from '../middleware/auth';
 import { forbidden } from '../errors';
 import { llaveroConfigurado } from '../lib/secretBox';
@@ -56,6 +58,24 @@ const ajusteSchema = z
 export function llaveroRouter(limitador: RequestHandler) {
   const router = Router();
   router.use(soloSuperadmin);
+
+  /**
+   * Resumen de WhatsApp para «Canales e integraciones»: si el servidor tiene Evolution y, por administradora, si vinculó su número,
+   * si el bot recibe mensajes (webhook registrado) y cuántas personas lo vincularon. Sin llamadas a Evolution ni datos de contacto.
+   */
+  router.get('/whatsapp', async (_req, res) => {
+    const [empresas, webhooks, vinculos] = await Promise.all([
+      prisma.empresaAdministradora.findMany({ orderBy: { nombre: 'asc' }, select: { id: true, nombre: true, whatsapp_instance: true } }),
+      prisma.canalWebhook.findMany({ select: { empresa_id: true } }),
+      prisma.canalVinculado.groupBy({ by: ['empresa_id'], where: { canal: 'whatsapp', revocado_at: null }, _count: { _all: true } }),
+    ]);
+    const conWebhook = new Set(webhooks.map((w) => w.empresa_id));
+    const personas = new Map(vinculos.map((v) => [v.empresa_id, v._count._all]));
+    res.json({
+      servidor: estadoCanales().whatsapp,
+      empresas: empresas.map((e) => ({ id: e.id, nombre: e.nombre, numero_vinculado: !!e.whatsapp_instance, bot_recibe: conWebhook.has(e.id), personas_vinculadas: personas.get(e.id) ?? 0 })),
+    });
+  });
 
   router.get('/', async (_req, res) => {
     const base = await servicio.listarConRotacion();

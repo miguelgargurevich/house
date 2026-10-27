@@ -13,6 +13,7 @@ const SuperadminEmpresaDetalle = lazy(() => import('./pages/superadmin/EmpresaDe
 const SuperadminUsuarios = lazy(() => import('./pages/superadmin/Usuarios'));
 const SuperadminAuditoria = lazy(() => import('./pages/superadmin/Auditoria'));
 const SuperadminLlavero = lazy(() => import('./pages/superadmin/Llavero'));
+const SuperadminIntegraciones = lazy(() => import('./pages/superadmin/Integraciones'));
 const SuperadminSuscripciones = lazy(() => import('./pages/superadmin/Suscripciones'));
 const Precios = lazy(() => import('./pages/publico/Precios'));
 const Registro = lazy(() => import('./pages/publico/Registro'));
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/superadmin/usuarios" element={<SuperadminUsuarios />} />
           <Route path="/superadmin/auditoria" element={<SuperadminAuditoria />} />
           <Route path="/superadmin/llavero" element={<SuperadminLlavero />} />
+          <Route path="/superadmin/integraciones" element={<SuperadminIntegraciones />} />
           <Route path="/superadmin/suscripciones" element={<SuperadminSuscripciones />} />
         </Route>
         <Route element={<RequireRole roles={['superadmin','admin']} />}>

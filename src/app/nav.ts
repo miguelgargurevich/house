@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from 'react';
 import {
-  HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
+  ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, TruckIcon, SparklesIcon,
   SunIcon,
@@ -48,6 +48,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
         { to: '/superadmin/usuarios', label: 'Usuarios del sistema', icon: UsersIcon },
         { to: '/superadmin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
         { to: '/superadmin/llavero', label: 'Llavero de IA', icon: LockClosedIcon },
+        { to: '/superadmin/integraciones', label: 'Canales e integraciones', icon: ChatBubbleLeftRightIcon },
         { to: '/superadmin/suscripciones', label: 'Suscripciones', icon: CreditCardIcon },
       ],
     },

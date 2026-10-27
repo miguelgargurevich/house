@@ -42,7 +42,10 @@ describe('aviso de un gateway fuera de servicio', () => {
 describe('cableado de la pantalla', () => {
   const pantalla = leer('Llavero.tsx');
   it('muestra las tres secciones bajo «Proveedores» y reusa el mismo componente de claves para los gateways', () => {
-    for (const c of ['GatewaysSeccion', 'DominiosPermitidos', 'OcrSeccion', 'GatewayModal']) assert.match(pantalla, new RegExp(`<${c}\\b`), c);
+    for (const c of ['GatewaysSeccion', 'DominiosPermitidos', 'GatewayModal']) assert.match(pantalla, new RegExp(`<${c}\\b`), c);
+    // El OCR se movió a «Canales e integraciones» (no es una clave de IA).
+    assert.doesNotMatch(pantalla, /<OcrSeccion\b/);
+    assert.match(leer('Integraciones.tsx'), /<OcrSeccion\b/);
     assert.match(leer('_parts/llavero/GatewaysSeccion.tsx'), /<GrupoProveedor/);
     assert.match(leer('_parts/llavero/GatewaysSeccion.tsx'), /Gateways propios/);
     assert.match(leer('_parts/llavero/GatewaysSeccion.tsx'), /Agregar gateway/);

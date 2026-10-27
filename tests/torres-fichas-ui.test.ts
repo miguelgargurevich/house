@@ -17,7 +17,7 @@ describe('menú: cada grupo es un objeto de trabajo y la plataforma va al final'
     const grupos = NAV.superadmin;
     assert.equal(grupos.at(-1)?.label, 'Plataforma');
     assert.deepEqual(grupos.map(g => g.label ?? null), [null, 'Cobranza', 'Operación', 'Plataforma']);
-    assert.deepEqual(grupos.at(-1)?.items.map(i => i.label), ['Usuarios del sistema', 'Auditoría', 'Llavero de IA', 'Suscripciones']);
+    assert.deepEqual(grupos.at(-1)?.items.map(i => i.label), ['Usuarios del sistema', 'Auditoría', 'Llavero de IA', 'Canales e integraciones', 'Suscripciones']);
   });
 
   it('el admin termina en Cuenta, sin plataforma', () => {

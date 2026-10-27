@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Opus 5.5) — Página «Canales e integraciones» (superadmin)
+
+**Pedido de Miguel (textual):** «tambien debenmos separar la seccion de telegram y ocr de la pagina de llaveros de IA quiza debe tener una seccion junto con wasap» → «Sí: arma la página «Canales e integraciones» con WhatsApp, Telegram y OCR cuando integres el comercial.»
+
+- Nueva `src/pages/superadmin/Integraciones.tsx` (`/superadmin/integraciones`, menú Plataforma): **WhatsApp** (servidor Evolution listo o qué variable falta; por administradora: número vinculado, si el bot recibe mensajes —webhook registrado— y cuántas personas lo vincularon), **Bot de Telegram** y **OCR de comprobantes** (los mismos componentes `TelegramSeccion`/`OcrSeccion`, que salieron del Llavero). El Llavero de IA queda con proveedores, gateways y dominios permitidos.
+- API: `GET /api/llavero/whatsapp` (sólo superadmin; sin nombre de instancia, token ni contactos). Prueba `tests/integraciones.test.ts`.
+- Asistente: `rutasApp.ts` y `ai-system-prompt.txt` conocen la ruta nueva. Pruebas de pantalla/menú actualizadas a la nueva ubicación.
+- Suite 1551/1551, tipos y build en verde. Revisado en navegador (escritorio y 375 px, sin desborde).
+- **Ojo (comercial v1):** la página de precios dice que «Mora automática» y «Reportes y exportes» son sólo de Pro, pero el código no los limita: hoy funcionan también en Gratis. Decidir con Miguel si se limitan o se corrige la tabla.
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — Comercial v1: planes, módulos por condominio, registro público y cobro manual
 
 **Pedido de Miguel (textual):** «revisa el proyecto de invoice, busca la seccion comercial para que los usuarios se registren .. algo de eso cree y podemos reutilizar para la parte comercial "Comercial Planes, módulos por condominio, página de precios, cobro de la suscripción"» → «Primera versión con cobro manual (transferencia/Yape y la activación la hago yo); el cobro con tarjeta después.»

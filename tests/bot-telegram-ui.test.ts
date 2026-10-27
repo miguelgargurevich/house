@@ -46,6 +46,7 @@ describe('estructura de las pantallas', () => {
     assert.match(s, /Quitar/);
     assert.doesNotMatch(s, /\bfetch\(/);
     assert.doesNotMatch(s, /token_enc|secreto/, 'la pantalla no maneja secretos del servidor');
-    assert.match(fuente('src/pages/superadmin/Llavero.tsx'), /<TelegramSeccion\b/);
+    assert.match(fuente('src/pages/superadmin/Integraciones.tsx'), /<TelegramSeccion\b/);
+    assert.doesNotMatch(fuente('src/pages/superadmin/Llavero.tsx'), /<TelegramSeccion\b/);
   });
 });

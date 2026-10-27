@@ -10,9 +10,7 @@ import { GatewayModal } from './_parts/llavero/GatewayModal';
 import { GatewaysSeccion } from './_parts/llavero/GatewaysSeccion';
 import { GrupoProveedor } from './_parts/llavero/GrupoProveedor';
 import { ModeloModal } from './_parts/llavero/ModeloModal';
-import { OcrSeccion } from './_parts/llavero/OcrSeccion';
 import { SaludBanner } from './_parts/llavero/SaludBanner';
-import { TelegramSeccion } from './_parts/llavero/TelegramSeccion';
 import { clavesDeProveedor, proveedorDeGateway } from './_parts/llavero/tipos';
 import type { Clave, DatosLlavero, Gateway, Proveedor } from './_parts/llavero/tipos';
 
@@ -109,7 +107,7 @@ export default function Llavero() {
 
   return (
     <>
-      <PageHeader title="Llavero de IA" description="Claves de los proveedores de IA y de tus gateways propios, y el OCR de comprobantes. Se guardan cifradas; nunca se vuelven a mostrar." />
+      <PageHeader title="Llavero de IA" description="Claves de los proveedores de IA y de tus gateways propios. Se guardan cifradas; nunca se vuelven a mostrar. WhatsApp, Telegram y el OCR están en Canales e integraciones." />
 
       {sinConfigurar && (
         <div className="mb-4">
@@ -181,8 +179,7 @@ export default function Llavero() {
               onQuitarClave={(g, c) => setQuitar({ proveedor: proveedorDeGateway(g), clave: c })}
             />
             <DominiosPermitidos dominios={data.dominios_permitidos} gateways={data.gateways} deshabilitado={false} onCambio={() => void reload()} />
-            <OcrSeccion ocr={data.ocr} deshabilitado={sinConfigurar} onCambio={() => void reload()} />
-            <TelegramSeccion telegram={data.telegram} deshabilitado={sinConfigurar} onCambio={() => void reload()} />
+
           </>
         ) : null}
       </Card>
