@@ -167,7 +167,7 @@ describe('1. modelo de visión por clave', () => {
     assert.equal(modeloDeVision(eslabon('gemini', 'gemini-2.5-flash')), 'gemini-2.5-flash');
     assert.equal(modeloDeVision(eslabon('openai', 'gpt-4.1-mini'), false), 'gpt-4o-mini', 'el catálogo dice que NO ve: gana sobre la familia');
     assert.equal(modeloDeVision(eslabon('openrouter', null), true), 'google/gemma-4-31b-it:free', 'sin modelo fijado: el del proveedor');
-    assert.equal(sabeVer('qwen3-vl-flash'), true);
+    assert.equal(sabeVer('nvidia/nemotron-3.5-super-vl-120b-a12b'), true);
     assert.equal(sabeVer('gpt-oss-120b'), false);
   });
 
@@ -437,7 +437,7 @@ describe('5. gateway Dashboard IA como respaldo', () => {
     assert.equal(p.tipo, 'openai-compatible');
     assert.equal(p.baseUrl, 'https://api.dashboardia.gargurevich.dev/v1');
     assert.equal(p.vision, true);
-    assert.equal(p.modeloVision, 'qwen3-vl-flash');
+    assert.equal(p.modeloVision, 'nvidia/nemotron-3.5-super-vl-120b-a12b');
     assert.equal(p.visionPdf, false);
     assert.equal(p.variableDeEntorno, 'DASHBOARDIA_API_KEY');
     const orden = [...PROVEEDORES_IA].sort((a, b) => a.prioridad - b.prioridad).map((x) => x.id);
@@ -459,12 +459,12 @@ describe('5. gateway Dashboard IA como respaldo', () => {
     assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('dashboardia')]);
     const l = llamadas[1]!;
     assert.equal(l.url, 'https://api.dashboardia.gargurevich.dev/v1/chat/completions');
-    assert.equal(l.cuerpo.model, 'qwen3-vl-flash');
+    assert.equal(l.cuerpo.model, 'nvidia/nemotron-3.5-super-vl-120b-a12b');
     assert.equal(l.cuerpo.response_format, undefined, 'sin response_format: el gateway puede responder dentro de ```json');
     assert.equal(l.cuerpo.messages[1].content[1].type, 'image_url');
     assert.equal(ev.estado, 'completada');
     assert.equal(ev.proveedor, 'dashboardia');
-    assert.equal(ev.modelo, 'qwen3-vl-flash');
+    assert.equal(ev.modelo, 'nvidia/nemotron-3.5-super-vl-120b-a12b');
     assert.equal(ev.veredicto, 'coincide');
   });
 
@@ -473,7 +473,7 @@ describe('5. gateway Dashboard IA como respaldo', () => {
     await prisma.claveIntegracion.updateMany({ where: { proveedor: 'dashboardia' }, data: { modelo: 'llama-3.3-70b' } });
     responder = () => new Response(JSON.stringify({ choices: [{ message: { content: [{ type: 'text', text: lec() }] } }] }), { status: 200 });
     const { ev } = await evaluado();
-    assert.equal(llamadas[0]!.cuerpo.model, 'qwen3-vl-flash', 'el modelo de texto fijado en la clave no recibe la imagen');
+    assert.equal(llamadas[0]!.cuerpo.model, 'nvidia/nemotron-3.5-super-vl-120b-a12b', 'el modelo de texto fijado en la clave no recibe la imagen');
     assert.equal(ev.estado, 'completada');
   });
 

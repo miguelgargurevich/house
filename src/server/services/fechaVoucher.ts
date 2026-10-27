@@ -6,7 +6,7 @@
  * `Pago.fecha_origen` deja a la vista de quien valida de dónde salió la fecha:
  *  - `declarada`: la que puso quien registró el pago (aún sin evaluar, o sin voucher).
  *  - `voucher`: leída del comprobante y aplicada.
- *  - `no_leida`: la IA no pudo leerla (o no hubo IA); queda la declarada.
+ *  - `no_leida`: la IA no pudo leerla (o no hubo IA), o la evaluación no la respalda (el comprobante no coincide con el pago o su mensaje nombra otro mes); queda la declarada.
  *  - `invalida`: la IA leyó una fecha futura o anterior a la emisión del recibo − 60 días; NO se aplica, queda la declarada y el pago a revisión.
  *  - `manual`: la corrigió una persona; ninguna evaluación posterior la pisa.
  */
@@ -14,6 +14,7 @@ import { prisma } from '../db';
 import { hoyLima } from '../lib/fechas';
 import type { Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
+import { alertaDePeriodo, type Veredicto } from './contraste';
 
 const DIA = 86_400_000;
 /** Una fecha leída anterior a la emisión del recibo por más de estos días no es creíble: se deja para revisar. */
@@ -47,6 +48,24 @@ export function decidirFecha(lectura: Pick<Lectura, 'fecha' | 'es_comprobante_de
   if (t > hoyLima(o.hoy).getTime()) return { tipo: 'invalida', motivo: 'La fecha del comprobante es futura', dia: lectura.fecha };
   if (t < diaCalendario(o.emision).getTime() - DIAS_ANTES_EMISION_VOUCHER * DIA) return { tipo: 'invalida', motivo: `La fecha del comprobante es anterior a la emisión del recibo por más de ${DIAS_ANTES_EMISION_VOUCHER} días`, dia: lectura.fecha };
   return { tipo: 'aplicar', fecha: new Date(t + DIA / 2), dia: lectura.fecha };
+}
+
+export const MOTIVO_NO_COINCIDE = 'El comprobante no coincide con el pago: la fecha no se aplica';
+export const MOTIVO_OTRO_PERIODO = 'El mensaje del comprobante nombra otro mes que el del recibo: la fecha no se aplica';
+
+/**
+ * La fecha del voucher sólo vale si la evaluación respalda ese comprobante como el pago de ESTE recibo: con veredicto `no_coincide` (monto, destino, duplicado
+ * u operación fallida) o con el mensaje nombrando otro mes, el comprobante es de otro pago y su fecha no se aplica (queda la declarada). El resto, como `decidirFecha`.
+ * `ilegible` ya sale `no_leida` de `decidirFecha` (no es comprobante o no se lee).
+ */
+export function decidirFechaEvaluada(
+  lectura: Pick<Lectura, 'fecha' | 'es_comprobante_de_pago' | 'legible' | 'estado_operacion' | 'mensaje'>,
+  o: { hoy: Date; emision: Date; veredicto: Veredicto; periodo: { mes: number; anio: number } | null },
+): DecisionFecha {
+  if (o.veredicto === 'no_coincide') return { tipo: 'no_leida', motivo: MOTIVO_NO_COINCIDE };
+  const base = decidirFecha(lectura, o);
+  if (base.tipo === 'aplicar' && alertaDePeriodo(lectura.mensaje, o.periodo, 'comprobante')) return { tipo: 'no_leida', motivo: MOTIVO_OTRO_PERIODO };
+  return base;
 }
 
 /**

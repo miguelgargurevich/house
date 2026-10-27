@@ -4,6 +4,29 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Sonnet 5.5, delegado) — La fecha del voucher sólo se aplica si el comprobante coincide, y la IA lee el periodo del mensaje
+
+**Pedido de Miguel (textual):** «Sí: que la fecha del voucher solo se aplique si la IA no marca que no coincide, que la IA también lea el periodo del mensaje, y restaura la fecha del pago de B01-804.» Rama `fix/fecha-y-periodo` (sobre `origin/main` f5c3f99); **sin push**.
+
+**Qué se hizo**
+- `services/fechaVoucher.ts`: `decidirFechaEvaluada` (nueva; `decidirFecha` no cambió). Con veredicto `no_coincide`, o con el mensaje nombrando otro mes que el recibo, la fecha NO se aplica: queda la declarada y `fecha_origen = 'no_leida'` con su motivo (queda en la auditoría `fecha_pago_voucher`). `ilegible` ya salía `no_leida`. `manual` sigue sin pisarse. `evaluacion.ts` la llama con el veredicto y el periodo del recibo.
+- `lib/lecturaComprobante.ts`: campo opcional `mensaje` (`texto` limpio, máx. 120, vacío → null) y su línea en el prompt. Opcional para que lo ya guardado y las respuestas de modelos que no lo mandan sigan validando.
+- `services/contraste.ts`: la detección de mes ahora vive aquí (`mesDelMensaje`, `alertaDePeriodo`, `MESES`…) y la comparten la IA y el OCR (`ocrVoucher.ts` la re-exporta; su alerta no cambió). Reconoce nombres, abreviaturas, `AAAA-MM` y `MM/AAAA` (una fecha completa no cuenta). `Esperado.periodo` es opcional; con mes distinto: alerta «El mensaje del comprobante dice «Setiembre», pero el recibo es de octubre de 2026» y el veredicto no puede ser `coincide` (queda `revisar`, o `no_coincide` si ya había otro motivo). No hay veredictos nuevos ni campo nuevo en `coincidencias`.
+- `lib/proveedoresIA.ts`: `modeloVision` de `dashboardia` → `nvidia/nemotron-3.5-super-vl-120b-a12b` (el gateway no publica `qwen3-vl-flash`).
+- Pantalla: `EvaluacionPanel` ya pintaba «Mensaje del voucher» desde `extraido.mensaje`; ahora llega también de la IA (sólo se ajustó el comentario del tipo). El residente sigue viendo sólo el estado.
+- Docs: `COBRANZA.md` §1, `SEGURIDAD.md` (modelo del gateway), `API-CONTRATO.md` (`extraido.mensaje`).
+- Pruebas nuevas: `tests/fecha-periodo.test.ts` (29: esquema, detección de mes, contraste, decisión pura y el caso real de punta a punta con IA falsa). `evaluacion-rapida.test.ts` ajustado al modelo nuevo.
+
+**Pendiente / ya hecho por la sesión principal**
+- La fecha de B01-804 la restauró a mano la sesión principal (`fecha_origen = 'manual'`) antes de esta rama; aquí NO se tocó ningún dato de producción. Tras desplegar, un voucher como ése ya no cambia la fecha solo.
+- Los pagos ya evaluados no se reevalúan solos: si hay otros con la fecha cambiada por un `no_coincide`, se corrigen a mano (`PATCH /api/pagos/:id` → `manual`) o reevaluando.
+
+**Decisiones / gotchas**
+- Se compara sólo el MES (no el año) del mensaje con el del recibo; si el mensaje nombra varios meses cuenta el primero (más cauto: ante la duda queda `revisar`).
+- `vistaGestion` (asistente) NO expone `mensaje`: es texto de terceros y no se amplió lo que ve el modelo del asistente.
+- `EvaluacionPanel` no se puede montar en node (`api.ts` usa `import.meta.env`): su prueba lee el código fuente, como las demás de pantalla.
+- Otra sesión (`feat/llavero-gateways`) toca `proveedoresIA.ts` y cómo `evaluacion.ts` resuelve el proveedor: aquí sólo cambió la línea de `dashboardia` y las de `contrastar`/`decision`.
+
 ## 2026-10-27 — Claude Code (Opus 5.5, orquestador) — Script para probar el correo de avisos
 
 **Pedido de Miguel:** probar el envío con la clave de Resend y el remitente de producción → «guarda el script así no lo volvemos a crear».

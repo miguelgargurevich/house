@@ -14,7 +14,7 @@ import { cabecerasDe, llaveroDeps } from './llavero';
 import { contrastar, type MedioParaContraste, MIN_OPERACION } from './contraste';
 import { ajustarPorOcr, leerConOcr, type LecturaOcr } from './ocrVoucher';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
-import { aplicarFechaDelVoucher, decidirFecha, type DecisionFecha } from './fechaVoucher';
+import { aplicarFechaDelVoucher, decidirFechaEvaluada, type DecisionFecha } from './fechaVoucher';
 import { avisarResultado, cerrarPago } from './validacionPago';
 
 /** Eslabones que se prueban como máximo por evaluación (con dos claves de Gemini caídas todavía llega al gateway de respaldo). */
@@ -353,7 +353,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const totalGrupo = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto : null;
   let c = contrastar(
     lectura,
-    { monto: (totalGrupo ?? pago.monto).toString(), emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()) },
+    { monto: (totalGrupo ?? pago.monto).toString(), emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()), periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null },
     medios.map(medioParaContraste),
     { archivoEnPago: mismoArchivo?.pago_id ?? null, operacionEnPago: mismaOperacion?.pago_id ?? null },
   );
@@ -377,9 +377,10 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
 
   // La fecha del pago es la del voucher: se aplica ANTES de una posible validación automática (que guarda esa fecha en los cargos).
   // La que leyó el OCR no se aplica: con confianza baja, la fecha declarada se queda y una persona decide.
+  // Tampoco la de un comprobante que no coincide con el pago o cuyo mensaje nombra otro mes: es el voucher de otro pago.
   const decision: DecisionFecha = origen.ocr
     ? { tipo: 'no_leida', motivo: 'La fecha se leyó con OCR (sin IA) y no se aplica sola' }
-    : decidirFecha(lectura, { hoy: evaluacionDeps.ahora(), emision: recibo?.fecha_emision ?? hoyLima(pago.created_at) });
+    : decidirFechaEvaluada(lectura, { hoy: evaluacionDeps.ahora(), emision: recibo?.fecha_emision ?? hoyLima(pago.created_at), veredicto: c.veredicto, periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null });
   const fecha = await aplicarFechaDelVoucher(pagoId, decision);
   const duplicado = mismoArchivo != null || mismaOperacion != null;
   // Una fecha leída pero no creíble (futura o muy antigua) deja el pago para que una persona lo revise: la IA no lo valida sola. El OCR nunca valida.

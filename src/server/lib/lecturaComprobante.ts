@@ -44,6 +44,8 @@ export const lecturaSchema = z
     numero_operacion: texto.transform((v) => (v ? v.replace(/\s+/g, '').toUpperCase() : v)),
     destinatario_nombre: texto,
     destino_numero: ultimosDigitos,
+    /** El texto libre que escribió quien pagó (mensaje, glosa, concepto). Opcional: lo que no lo trae sigue validando. */
+    mensaje: texto.transform((v) => v || null).optional(),
   })
   .strict();
 export type Lectura = z.infer<typeof lecturaSchema>;
@@ -67,7 +69,8 @@ FORMATO (exactamente estas claves, ninguna otra):
   "fecha": "YYYY-MM-DD" | null,        // fecha de la operación
   "numero_operacion": string | null,   // número, código o referencia de la operación
   "destinatario_nombre": string | null,// nombre de quien RECIBE el pago
-  "destino_numero": string | null      // celular o cuenta de quien RECIBE; solo los últimos dígitos visibles
+  "destino_numero": string | null,     // celular o cuenta de quien RECIBE; solo los últimos dígitos visibles
+  "mensaje": string | null             // el texto libre que escribió quien pagó (mensaje, glosa, concepto, descripción), tal cual; null si no hay
 }`;
 
 export const PROMPT_USUARIO = 'Extrae los datos de este comprobante de pago y responde solo el JSON.';

@@ -23,7 +23,7 @@ export interface EvaluacionCompleta {
   extraido: {
     monto: number | null; moneda: string | null; fecha: string | null; numero_operacion: string | null; medio: string | null;
     estado_operacion: string; destinatario_nombre: string | null; destino_numero: string | null;
-    /** Sólo en lecturas por OCR: el «Mensaje» que escribió quien pagó. */
+    /** El «Mensaje» que escribió quien pagó (lo lee la IA o, sin ella, el OCR). Texto no confiable: sólo se muestra. */
     mensaje?: string | null;
   } | null;
   proveedor: string | null;

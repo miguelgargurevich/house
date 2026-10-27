@@ -8,7 +8,10 @@
  * La URL del servicio sale SÓLO de `OCR_BASE_URL` (env); nadie la aporta desde la API.
  */
 import { lecturaSchema, limpiarTexto, type Lectura } from '../lib/lecturaComprobante';
-import { MIN_OPERACION, type Contraste } from './contraste';
+import { alertaDePeriodo, mesDelMensaje, MES_RE, MESES, MIN_OPERACION, norm, type Contraste } from './contraste';
+
+// La detección del mes que nombra el mensaje es una sola (la comparte la IA): vive en `contraste.ts`.
+export { mesDelMensaje };
 
 /** La lectura por OCR nunca llega a la confianza con que se valida sola (`UMBRAL_AUTOVALIDACION` = 0,9). */
 export const TOPE_CONFIANZA_OCR = 0.6;
@@ -69,16 +72,6 @@ export interface LecturaOcr {
   mensaje: string | null;
   banco: 'bcp' | 'interbank' | 'bbva' | 'scotiabank' | 'yape' | 'plin' | null;
 }
-
-const MESES: Record<string, number> = {
-  enero: 1, ene: 1, febrero: 2, feb: 2, marzo: 3, mar: 3, abril: 4, abr: 4, mayo: 5, may: 5, junio: 6, jun: 6, julio: 7, jul: 7, agosto: 8, ago: 8,
-  setiembre: 9, septiembre: 9, sept: 9, set: 9, sep: 9, octubre: 10, oct: 10, noviembre: 11, nov: 11, diciembre: 12, dic: 12,
-};
-const NOMBRE_MES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-const MES_RE = Object.keys(MESES).sort((a, b) => b.length - a.length).join('|');
-
-/** Minúsculas y sin tildes: el OCR y las apps no son consistentes con ellas. */
-const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 /** «1,258.79», «1.258,79», «258,79», «258.79», «150» → número. */
 export function numeroDeTexto(s: string): number | null {
@@ -248,20 +241,11 @@ export function leerVoucherDeTexto(texto: string): LecturaOcr | null {
 // ---------- Alertas propias del OCR ----------
 export const ALERTA_OCR = 'Leído con OCR (sin IA): puede tener errores, confirma los datos tú mismo';
 
-/** Mes (1–12) que nombra el «Mensaje» del voucher y la palabra usada; sólo sale de nuestra tabla de meses (nunca se copia texto libre del voucher). */
-export function mesDelMensaje(mensaje: string | null): { mes: number; palabra: string } | null {
-  if (!mensaje) return null;
-  const m = new RegExp(String.raw`\b(${MES_RE})\b`).exec(norm(mensaje));
-  return m ? { mes: MESES[m[1]!]!, palabra: m[1]!.charAt(0).toUpperCase() + m[1]!.slice(1) } : null;
-}
-
 /** Alertas que el código arma al cruzar el voucher con el recibo: el mensaje de otro mes es la típica. */
 export function alertasDeOcr(l: LecturaOcr, recibo: { mes: number; anio: number } | null): string[] {
   const alertas = [ALERTA_OCR];
-  const en = mesDelMensaje(l.mensaje);
-  if (en && recibo && en.mes !== recibo.mes) {
-    alertas.push(`El mensaje del voucher dice «${en.palabra}», pero el recibo es de ${NOMBRE_MES[recibo.mes] ?? 'otro mes'} de ${recibo.anio}`);
-  }
+  const periodo = alertaDePeriodo(l.mensaje, recibo, 'voucher');
+  if (periodo) alertas.push(periodo);
   return alertas;
 }
 
