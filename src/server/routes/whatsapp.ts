@@ -3,6 +3,8 @@ import { Router, type Response } from 'express';
 import { prisma } from '../db';
 import type { AuthUser } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
+import { EvolutionFallo } from '../services/canales/evolution';
+import { quitarWebhook, registrarWebhook } from '../services/canales/webhook';
 
 const router = Router();
 
@@ -83,6 +85,19 @@ async function empresaDelAdmin(user: AuthUser): Promise<{ id: number; whatsapp_i
 }
 
 /**
+ * Deja el webhook del bot registrado en Evolution (idempotente; el secreto sólo se guarda hasheado). Un fallo no rompe la vinculación del
+ * número: el envío de avisos sigue funcionando y se reintenta en la siguiente llamada a `/sync` o `/status`.
+ */
+async function asegurarWebhook(empresaId: number, instancia: string): Promise<'registrado' | 'ya_estaba' | 'error'> {
+  try {
+    return await registrarWebhook(empresaId, instancia);
+  } catch (e) {
+    console.error('[whatsapp] no se pudo registrar el webhook del bot:', e instanceof EvolutionFallo ? `${e.causa}${e.estado ? ` ${e.estado}` : ''}` : 'error');
+    return 'error';
+  }
+}
+
+/**
  * POST /api/whatsapp/sync
  * Crea la instancia de la administradora (si no existe) y devuelve el QR para escanear.
  */
@@ -109,10 +124,12 @@ router.post('/sync', requireRole('admin', 'superadmin'), async (req, res) => {
     });
   }
 
+  const webhook = await asegurarWebhook(empresa.id, instanceName);
   try {
     const qr = await evolutionRequest(`/instance/connect/${encodeURIComponent(instanceName)}`);
     return res.json({
       instance: instanceName,
+      webhook,
       qr: typeof qr.base64 === 'string' ? qr.base64 : null,
       status: typeof qr.status === 'string' ? qr.status : 'connecting',
     });
@@ -134,7 +151,9 @@ router.get('/status', requireRole('admin', 'superadmin'), async (req, res) => {
   try {
     const estado = await evolutionRequest(`/instance/connectionState/${encodeURIComponent(empresa.whatsapp_instance)}`);
     const status = typeof estado.status === 'string' ? estado.status : 'unknown';
-    return res.json({ connected: status === 'open', status, instance: empresa.whatsapp_instance });
+    // Con el número ya vinculado (`open`) el bot queda escuchando sin ningún paso manual más.
+    const webhook = status === 'open' ? await asegurarWebhook(empresa.id, empresa.whatsapp_instance) : null;
+    return res.json({ connected: status === 'open', status, instance: empresa.whatsapp_instance, ...(webhook ? { webhook } : {}) });
   } catch (e) {
     return falloEvolution(res, 'Error al verificar el estado', e);
   }
@@ -156,6 +175,7 @@ router.delete('/disconnect', requireRole('admin', 'superadmin'), async (req, res
       where: { id: empresa.id },
       data: { whatsapp_instance: null, whatsapp_token: null },
     });
+    await quitarWebhook(empresa.id); // el bot deja de atender: Evolution recibiría 401
     return res.json({ message: 'WhatsApp desvinculado correctamente' });
   } catch (e) {
     return falloEvolution(res, 'Error al desvincular WhatsApp', e);

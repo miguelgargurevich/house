@@ -59,6 +59,9 @@ model Usuario {
   mediosPagoCreados MedioPago[]
   conversacionesIA  ConversacionIA[]
   tokensApi         TokenApi[]
+  canalesVinculados CanalVinculado[]
+  codigosVinculacion CodigoVinculacion[]
+  canalPendientes   CanalPendiente[]
 }
 
 model EmpresaAdministradora {
@@ -81,6 +84,8 @@ model EmpresaAdministradora {
   recibos             Recibo[]
   unidades            Unidad[]
   usuarios            Usuario[]
+  canalesVinculados   CanalVinculado[]
+  canalWebhook        CanalWebhook?
 }
 
 model ComplejoHabitacional {
@@ -609,4 +614,89 @@ model TokenApi {
 
   @@index([usuario_id])
   @@index([prefijo])
+}
+
+// ---------- Bot por canal de mensajería (WhatsApp ahora, Telegram después) ----------
+
+/// Vínculo verificado entre una persona de House y un identificador de un canal (celular E.164 o chat_id). Un identificador = UNA persona.
+/// `clave_vigente` («canal:identificador») y `clave_usuario` («usuario:canal») son únicas MIENTRAS el vínculo está vigente y quedan en null al revocarlo
+/// (Postgres permite varios null): así «único entre los vigentes» lo garantiza la base sin índices parciales.
+model CanalVinculado {
+  id              Int                   @id @default(autoincrement())
+  usuario_id      Int
+  usuario         Usuario               @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  canal           String
+  identificador   String
+  empresa_id      Int
+  empresa         EmpresaAdministradora @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  verificado_at   DateTime
+  revocado_at     DateTime?
+  clave_vigente   String?               @unique
+  clave_usuario   String?               @unique
+  /// Conversación del asistente que se reutiliza para este vínculo (sin FK: la retención de 90 días puede borrarla).
+  conversacion_id String?
+  created_at      DateTime              @default(now())
+  updated_at      DateTime              @updatedAt
+  pendientes      CanalPendiente[]
+
+  @@index([usuario_id, canal])
+}
+
+/// Código de un solo uso para vincular un canal: sólo se guarda su hash (sha256). Vence a los 10 minutos.
+model CodigoVinculacion {
+  id          Int       @id @default(autoincrement())
+  usuario_id  Int
+  usuario     Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  canal       String
+  codigo_hash String
+  expira_at   DateTime
+  usado_at    DateTime?
+  intentos    Int       @default(0)
+  created_at  DateTime  @default(now())
+
+  @@index([usuario_id, canal])
+  @@index([codigo_hash])
+}
+
+/// Webhook que Evolution llama por empresa: sólo el hash (sha256) del secreto; el secreto en claro vive en la configuración de Evolution.
+model CanalWebhook {
+  id            Int                   @id @default(autoincrement())
+  empresa_id    Int                   @unique
+  empresa       EmpresaAdministradora @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  instancia     String                @unique
+  secreto_hash  String
+  url           String
+  registrado_at DateTime              @default(now())
+}
+
+/// Mensajes de canal ya procesados (idempotencia: Evolution reintenta). Se limpian a los 7 días.
+model MensajeCanal {
+  id         Int      @id @default(autoincrement())
+  instancia  String
+  mensaje_id String
+  created_at DateTime @default(now())
+
+  @@unique([instancia, mensaje_id])
+  @@index([created_at])
+}
+
+/// Voucher recibido por el canal que espera la respuesta «¿cuál pagaste?» (15 min). Guarda el archivo ya verificado.
+model CanalPendiente {
+  id         Int            @id @default(autoincrement())
+  vinculo_id Int
+  vinculo    CanalVinculado @relation(fields: [vinculo_id], references: [id], onDelete: Cascade)
+  usuario_id Int
+  usuario    Usuario        @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  /// [{ recibo_id, unidad_id, etiqueta }]
+  opciones   Json
+  nombre     String
+  tipo_mime  String
+  tamano     Int
+  sha256     String
+  datos      Bytes
+  expira_at  DateTime
+  created_at DateTime       @default(now())
+
+  @@index([vinculo_id])
+  @@index([expira_at])
 }

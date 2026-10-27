@@ -7,6 +7,7 @@
 import { canaryActivo, CADA_CANARY_MS, PRIMERA_PASADA_CANARY_MS, pasadaDeCanary } from './canary';
 import { limpiarConversaciones, limpiezaActiva } from './conversaciones';
 import { barrerEvaluaciones } from '../evaluacion';
+import { limpiarCanales } from '../canales/entrante';
 import { CADA_SYNC_MS, PRIMERA_PASADA_MS, pasadaDeSync, sincronizacionActiva } from '../modelos/sync';
 
 function cada(nombre: string, primeroMs: number, cadaMs: number, tarea: () => Promise<unknown>): () => void {
@@ -49,6 +50,7 @@ export function iniciarTareasAsistente(env: NodeJS.ProcessEnv = process.env): ()
     }));
     console.log('[evaluacion] barrido de reintentos activo (cada minuto)');
   }
-  if (limpiezaActiva(env)) detener.push(cada('la limpieza de conversaciones', 5 * 60_000, 3_600_000, () => limpiarConversaciones()));
+  // Misma cadencia: conversaciones de más de 90 días, y del bot de WhatsApp los mensajes de más de 7 días (idempotencia) y los vouchers pendientes vencidos.
+  if (limpiezaActiva(env)) detener.push(cada('la limpieza de conversaciones', 5 * 60_000, 3_600_000, async () => { await limpiarConversaciones(); await limpiarCanales(); }));
   return () => detener.forEach((d) => d());
 }

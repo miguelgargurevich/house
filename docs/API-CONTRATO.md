@@ -187,3 +187,21 @@ Cada torre/block tiene SU recibo mensual (sus vecinos, su junta y sus cuentas). 
 - **Respuesta**: `{recibo_id, recibos: [{recibo_id, estructura_id, torre, accion, unidades_procesadas}], mes, anio, unidades_procesadas, filas_saltadas, conceptos, mora, advertencias}` (`mora`: ver «Reglas de cobranza»). Un Excel de una sola torre sólo toca el recibo de esa torre.
 - **Filas saltadas**: departamentos cuyo block+dpto no se encuentre en el condominio, o filas de totales/vacías.
 - Después de crear, se encolan avisos `recibo_emitido` a propietarios e inquilinos (no bloquea si falla).
+
+## Bot de WhatsApp (vincular, webhook y voucher por foto)
+Ver `docs/SEGURIDAD.md › Bot de WhatsApp`. Telegram usará los mismos modelos y endpoints (`canal` ya es un parámetro; hoy sólo `whatsapp`).
+
+### Vincular el propio WhatsApp — `/api/me/canales` (sesión + CSRF; cualquier rol con empresa)
+- `GET /api/me/canales` → `{ vinculos: [{ id, canal, identificador (enmascarado: «+51 ••• ••• 123»), verificado_at, empresa: {id, nombre} }], codigo_vigente: { canal, expira_at } | null, destinos: [{ empresa: {id, nombre}, disponible, numero }] }`. `destinos` = las empresas con las que la persona tiene relación (la suya, o las de sus unidades); `disponible` = la empresa ya vinculó su WhatsApp; `numero` = el número del edificio al que se manda el código (sólo dígitos; `null` si Evolution no lo informa). Nunca devuelve el código.
+- `POST /api/me/canales/whatsapp/codigo` (cuerpo `{}`) → 201 `{ canal, codigo ("123456"), expira_at, vigencia_min: 10, destinos }`. Reemplaza el código anterior de la persona. 409 si ninguna de sus empresas tiene WhatsApp vinculado (o no tiene empresa: superadmin), 429 tras 5 códigos en 15 min, 422 con otro canal (Telegram todavía no).
+- `DELETE /api/me/canales/:id` → 204. Sólo el vínculo PROPIO (ajeno o ya revocado → 404). Libera el número y borra los vouchers pendientes de ese vínculo.
+- Auditoría: `canal_vinculado` · `generar_codigo` / `desvincular` (y `vincular` cuando llega el código por WhatsApp). El código nunca va a la auditoría.
+
+### Webhook de Evolution — `POST /api/canales/whatsapp/:instancia` (público; sin sesión ni CSRF)
+- Autenticación: cabecera `x-house-secret` con el secreto de ESA instancia. Instancia desconocida, secreto ausente o malo → 401 `{error}` sin efectos; 429 tras 30 fallos por IP en 15 min; cuerpo > 64 kB → 413; JSON que no es objeto/arreglo → 400.
+- Evento atendido: `messages.upsert` (`MESSAGES_UPSERT`). Responde SIEMPRE `200 {ok:true}` aunque el mensaje se ignore (grupos, `fromMe`, estados, difusiones, celulares no peruanos…); el procesamiento es posterior. Idempotente por (instancia, `data.key.id`).
+- Comandos de texto (sin IA): `menu`, `desvincular`; un código de 6 dígitos desde un número sin vínculo vincula; una imagen/PDF de un residente vinculado registra su voucher (con varios pendientes pregunta «¿Cuál pagaste?» y espera un número, 15 min).
+- Registro en Evolution: lo hace House solo. `POST /api/whatsapp/sync` y `GET /api/whatsapp/status` (cuando la sesión está `open`) llaman a `POST {EVOLUTION_URL}/webhook/set/{instancia}` con `{ webhook: { enabled: true, url: "<ENLACE_APP>/api/canales/whatsapp/<instancia>", headers: { "x-house-secret": <secreto> }, byEvents: false, base64: false, events: ["MESSAGES_UPSERT"] } }`. Ambas respuestas ganan el campo `webhook`: `"registrado" | "ya_estaba" | "error"` (un error NO impide vincular el número ni pedir el QR). Es idempotente: si ya está registrado para esa URL no se toca (ni se rota el secreto). `DELETE /api/whatsapp/disconnect` borra el webhook.
+
+### Esquema (aditivo)
+Tablas nuevas `CanalVinculado`, `CodigoVinculacion`, `CanalWebhook`, `MensajeCanal`, `CanalPendiente` (ver `prisma/schema.prisma`); ninguna columna existente cambia.

@@ -16,6 +16,8 @@ import { llaveroRouter } from './routes/llavero';
 import { mcpRouter } from './routes/mcp';
 import { tokensApiRouter } from './routes/tokensApi';
 import { whatsappRouter } from './routes/whatsapp';
+import { canalesMeRouter } from './routes/canales';
+import { canalesWebhookRouter } from './routes/canalesWebhook';
 import { loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
 import { comprobantesRouter } from './routes/comprobantes';
@@ -64,6 +66,9 @@ export function createApp(opts: AppOptions = {}) {
   // `/mcp` va ANTES de CORS y del JSON global: su propio filtro de Origin (403), su Bearer, su límite de tasa y su cuerpo acotado.
   app.use('/mcp', mcpRouter({ porMinuto: opts.rateLimits?.mcp, fallos: limiters.mcpFallos }));
 
+  // Webhook de Evolution (bot de WhatsApp): también antes del JSON global, con su secreto por instancia y su propio tope de 64 kB.
+  app.use('/api/canales/whatsapp', canalesWebhookRouter());
+
   // CORS desactivado por defecto (mismo origen); sólo se habilita para los orígenes listados en CORS_ORIGIN.
   const origenes = parseCorsOrigins();
   if (origenes.length) app.use(cors({ origin: origenes }));
@@ -95,6 +100,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/me/tokens-api', tokensApiRouter); // antes de /me: tokens de API (MCP) del propio usuario
   api.use('/me/avisos', avisosPersonalesRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me/medios-pago', mediosPagoMeRouter); // antes de /me: ruta propia, sin tocar me.ts
+  api.use('/me/canales', canalesMeRouter); // antes de /me: vincular el WhatsApp propio
   api.use('/me', meRouter(limiters.password));
   api.use('/medios-pago', mediosPagoRouter);
   api.use('/notificaciones', notificacionesRouter);

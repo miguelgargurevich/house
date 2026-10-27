@@ -85,6 +85,12 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
   };
 }
 
+/** Celular del WhatsApp VERIFICADO de la persona (vínculo del bot vigente) o null. Tiene prioridad sobre `Usuario.telefono`, que nadie verificó. */
+async function numeroVinculado(usuarioId: number): Promise<string | null> {
+  const v = await prisma.canalVinculado.findFirst({ where: { usuario_id: usuarioId, canal: 'whatsapp', revocado_at: null }, select: { identificador: true } });
+  return v?.identificador ?? null;
+}
+
 /**
  * Encola un aviso para un usuario, respetando sus preferencias (`aviso_email`, `aviso_whatsapp`) y que tenga
  * correo / celular. Es idempotente: el mismo (usuario, canal, tipo, referencia) nunca se crea dos veces.
@@ -105,7 +111,11 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   if (!u) return 0;
   const canales: Canal[] = [];
   if (u.aviso_email && u.email) canales.push('email');
-  if (u.aviso_whatsapp && u.telefono?.trim()) canales.push('whatsapp');
+  // Quien vinculó su WhatsApp (verificado) llega a ese número: ahí recibe el resultado del voucher que mandó por el bot aunque no haya activado
+  // los avisos por WhatsApp; el resto de avisos sigue respetando su preferencia.
+  const vinculado = await numeroVinculado(u.id);
+  const resultadoDePago = tipo === 'pago_validado' || tipo === 'pago_rechazado';
+  if ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago)) canales.push('whatsapp');
   if (!canales.length) return 0;
   const cargado = await cargarDatos(tipo, u, ref, ahora);
   if (!cargado) return 0;
@@ -233,7 +243,7 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
       r = await enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo);
     } else if (n.canal === 'whatsapp') {
       // La instancia es la de la administradora que emitió el recibo (no una global).
-      r = await enviarWhatsapp(deps, await resolveInstance(n), n.usuario.telefono, n.cuerpo);
+      r = await enviarWhatsapp(deps, await resolveInstance(n), (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, n.cuerpo);
     } else {
       r = resultadoSinCanal(n.canal);
     }

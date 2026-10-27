@@ -51,6 +51,7 @@ beforeEach(async () => {
   aEvolution.length = 0;
   responderEvo = () => new Response('{}', { status: 200 });
   await prisma.empresaAdministradora.updateMany({ data: { whatsapp_instance: null, whatsapp_token: null } });
+  await prisma.canalWebhook.deleteMany();
 });
 
 const cuerpoDe = (llamada: { init: RequestInit }) => JSON.parse(String(llamada.init.body ?? '{}'));
@@ -89,7 +90,8 @@ describe('sincronización de WhatsApp por administradora', () => {
     assert.notEqual(empresa!.whatsapp_token, 'HOUSE_TOKEN_SECRET', 'no hay un secreto fijo en el código');
 
     const urls = aEvolution.map((l) => l.url);
-    assert.deepEqual(urls, [`${BASE_EVO}/instance/create`, `${BASE_EVO}/instance/connect/${esperado}`]);
+    // Tras crear la instancia se registra el webhook del bot (antes de pedir el QR) y recién ahí se pide el QR.
+    assert.deepEqual(urls, [`${BASE_EVO}/instance/create`, `${BASE_EVO}/webhook/set/${esperado}`, `${BASE_EVO}/instance/connect/${esperado}`]);
     const creado = aEvolution.find((l) => l.url.endsWith('/instance/create'))!;
     assert.equal(cuerpoDe(creado).instanceName, esperado);
     assert.equal(cuerpoDe(creado).token, empresa!.whatsapp_token);
@@ -117,6 +119,7 @@ describe('sincronización de WhatsApp por administradora', () => {
     assert.equal(r.status, 200);
     assert.equal(aEvolution.filter((l) => l.url.endsWith('/instance/create')).length, 0, 'no crea otra');
     assert.equal(aEvolution.filter((l) => l.url.includes('/instance/connect/')).length, 1, 'sólo pide el QR');
+    assert.equal(aEvolution.filter((l) => l.url.includes('/webhook/set/')).length, 0, 'el webhook ya estaba registrado: no se vuelve a tocar (idempotente)');
   });
 
   it('si la instancia ya existe en Evolution, se sigue y queda vinculada', async () => {
@@ -137,7 +140,7 @@ describe('sincronización de WhatsApp por administradora', () => {
     responderEvo = () => new Response(JSON.stringify({ status: 'open' }), { status: 200 });
     await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { whatsapp_instance: 'instancia-de-a' } });
     const abierto = await llamar(base, 'GET', '/api/whatsapp/status', T.adminA);
-    assert.deepEqual(abierto.body, { connected: true, status: 'open', instance: 'instancia-de-a' });
+    assert.deepEqual(abierto.body, { connected: true, status: 'open', instance: 'instancia-de-a', webhook: 'registrado' });
 
     responderEvo = () => new Response(JSON.stringify({ status: 'closed' }), { status: 200 });
     const cerrado = await llamar(base, 'GET', '/api/whatsapp/status', T.adminA);
@@ -153,6 +156,7 @@ describe('sincronización de WhatsApp por administradora', () => {
     const empresa = await prisma.empresaAdministradora.findUnique({ where: { id: d.empresaA.id } });
     assert.equal(empresa!.whatsapp_instance, null);
     assert.equal(empresa!.whatsapp_token, null);
+    assert.equal(await prisma.canalWebhook.count(), 0, 'el webhook del bot se borra con la instancia');
   });
 
   it('disconnect sin instancia vinculada: 404', async () => {
