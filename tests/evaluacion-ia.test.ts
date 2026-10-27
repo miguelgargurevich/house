@@ -394,11 +394,11 @@ describe('evaluación: sin IA, PDF y proveedores', () => {
     assert.equal((await prisma.claveIntegracion.findFirstOrThrow({ where: { proveedor: 'gemini' } })).estado, 'rechazada');
   });
 
-  it('tope de 3 intentos por evaluación: la cuarta clave no se toca', async () => {
-    await claves('gemini', 'openrouter', 'openai', 'mistral');
+  it('tope de 4 intentos por evaluación: la quinta clave no se toca', async () => {
+    await claves('gemini', 'dashboardia', 'openrouter', 'openai', 'mistral');
     responder = (l) => (l.clave === claveDe('openrouter') ? estado(500) : l.clave === claveDe('mistral') ? ok(lec()) : estado(429));
     const { ev } = await evaluado();
-    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('openrouter'), claveDe('openai')]);
+    assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('dashboardia'), claveDe('openrouter'), claveDe('openai')]);
     assert.equal(ev.estado, 'pendiente', 'sigue «evaluando» hasta el reintento');
     assert.equal(ev.error, MARCA_REINTENTO);
   });

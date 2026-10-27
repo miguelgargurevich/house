@@ -8,30 +8,41 @@ import { prisma } from '../db';
 import { HttpError } from '../errors';
 import { parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
 import { hoyLima } from '../lib/fechas';
-import { PROMPT_SISTEMA, PROMPT_USUARIO, parsearLectura } from '../lib/lecturaComprobante';
+import { PROMPT_SISTEMA, PROMPT_USUARIO, parsearLectura, type Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
 import { cabecerasDe, llaveroDeps } from './llavero';
 import { contrastar, type MedioParaContraste, MIN_OPERACION } from './contraste';
+import { ajustarPorOcr, leerConOcr, type LecturaOcr } from './ocrVoucher';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
-import { aplicarFechaDelVoucher, decidirFecha } from './fechaVoucher';
+import { aplicarFechaDelVoucher, decidirFecha, type DecisionFecha } from './fechaVoucher';
 import { avisarResultado, cerrarPago } from './validacionPago';
 
-/** Eslabones que se prueban como máximo por evaluación. */
-export const MAX_INTENTOS_IA = 3;
+/** Eslabones que se prueban como máximo por evaluación (con dos claves de Gemini caídas todavía llega al gateway de respaldo). */
+export const MAX_INTENTOS_IA = 4;
 /** Confianza mínima (calculada por código) para validar sola. */
 export const UMBRAL_AUTOVALIDACION = 0.9;
 export const MARCA_REINTENTO = 'Reintento programado';
-/** Una evaluación «pendiente» más vieja que esto se da por abandonada (el proceso murió) y se puede retomar. */
+/** Una evaluación «pendiente» más vieja que esto se da por abandonada (el proceso murió) y una persona puede retomarla a mano. */
 const ABANDONO_MS = 3 * 60_000;
-const TOPE_LLAMADA_MS = 45_000;
+/** Para el barrido: una «pendiente» sin reintento programado y sin tocar por tanto tiempo no tiene dueño (el proceso murió o se reinició). */
+export const ABANDONO_BARRIDO_MS = 5 * 60_000;
+/** Cuántas evaluaciones toma como máximo cada barrido (el resto, en el siguiente). */
+const MAX_POR_BARRIDO = 10;
+/** Una llamada con menos de esto por delante no vale la pena: se corta el intento. */
+const MIN_LLAMADA_MS = 1_000;
+export const MOTIVO_ABANDONADA = 'La evaluación no terminó (el servidor se reinició o se cayó)';
 
 export const MOTIVO_SIN_CLAVE = 'Configura una clave de Gemini u OpenAI en el Llavero para evaluar comprobantes con IA.';
 export const MOTIVO_PDF = 'Los PDF sólo se pueden leer con Gemini: configura una clave de Gemini en el Llavero o pide una captura en imagen.';
 
-/** Puntos de inyección para pruebas: reloj y programador del reintento (nunca se duerme de verdad). */
+/** Puntos de inyección para pruebas: reloj, topes de tiempo y programador del reintento (nunca se duerme de verdad). */
 export const evaluacionDeps = {
   ahora: (): Date => new Date(),
   reintentoMs: 60_000,
+  /** Tope de UNA llamada de visión: un proveedor que no responde en este tiempo se salta (antes 45 s: dos así eran > 1,5 min de «Evaluando…»). */
+  topeLlamadaMs: 20_000,
+  /** Tope de TODO el intento (la rotación completa): pasado este tiempo no se prueba otra clave. */
+  topeIntentoMs: 60_000,
   programar: (fn: () => void, ms: number): void => {
     const t = setTimeout(fn, ms);
     t.unref?.();
@@ -41,11 +52,17 @@ export const evaluacionDeps = {
 // ---------- Segundo plano ----------
 const enCurso = new Set<Promise<unknown>>();
 
-function enSegundoPlano(fn: () => Promise<void>): void {
-  const p: Promise<unknown> = fn()
-    .catch((err) => console.error('[evaluacion] falló una evaluación', err instanceof Error ? err.name : 'error'))
+/** Corre una tarea registrándola (para `esperarEvaluaciones`) y sin dejar que un error suyo tumbe el proceso. */
+function rastrear<T>(fn: () => Promise<T>): Promise<T | undefined> {
+  const p: Promise<T | undefined> = fn()
+    .catch((err) => { console.error('[evaluacion] falló una evaluación', err instanceof Error ? err.name : 'error'); return undefined; })
     .finally(() => { enCurso.delete(p); });
   enCurso.add(p);
+  return p;
+}
+
+function enSegundoPlano(fn: () => Promise<void>): void {
+  void rastrear(fn);
 }
 
 /** Gancho de pruebas: espera a que terminen las evaluaciones en curso (incluidas las que se encadenen). */
@@ -55,7 +72,7 @@ export async function esperarEvaluaciones(): Promise<void> {
 
 // ---------- Toma atómica ----------
 const REINICIO = {
-  estado: 'pendiente', proveedor: null, modelo: null, veredicto: null, confianza: null, resumen: null, error: null, intentos: 0, evaluada_at: null,
+  estado: 'pendiente', proveedor: null, modelo: null, veredicto: null, confianza: null, resumen: null, error: null, intentos: 0, evaluada_at: null, reintentar_at: null,
   extraido: Prisma.DbNull, coincidencias: Prisma.DbNull, alertas: Prisma.DbNull,
 } satisfies Prisma.EvaluacionComprobanteUncheckedUpdateManyInput;
 
@@ -103,10 +120,34 @@ export async function iniciarEvaluacion(pagoId: number, modo: 'subida' | 'manual
 interface Archivo { mime: string; base64: string }
 interface Respuesta { ok: boolean; status: number; texto: string; retryAfterMs: number | null; claveInvalida: boolean }
 
-/** Modelo con visión: el de la clave si la persona eligió uno propio; si no, el de visión del proveedor. */
-export const modeloDeVision = (e: Eslabon) => (e.modelo && e.modelo !== e.proveedor.modeloPorDefecto ? e.modelo : e.proveedor.modeloVision);
+/** Familias que se sabe que leen imágenes, para cuando el catálogo vivo (`ModeloIA.vision`) no dice nada de ese modelo. */
+const CON_VISION = /^gemini-|^gpt-4o|^gpt-4\.1|^gpt-5|^o[134](-|$)|pixtral|mistral-(small|medium|large)|-vl\b|-vl-|vision|llava|gemma-?[34]|llama-?4|qwen-?vl|^claude-/i;
+export const sabeVer = (modelo: string) => CON_VISION.test(modelo);
 
-async function consultarVision(e: Eslabon, modelo: string, a: Archivo): Promise<Respuesta> {
+/**
+ * Modelo con visión de una clave. Se usa el que la persona fijó en la clave SÓLO si se sabe que ve imágenes (`ModeloIA.vision` de esa clave, o
+ * una familia conocida); si no, o si el catálogo dice que no ve (`false`), el de visión del proveedor. Mandar una imagen a un modelo de texto
+ * (p. ej. nemotron en OpenRouter) da 404 y quema un intento.
+ */
+export function modeloDeVision(e: Eslabon, visionDelCatalogo?: boolean | null): string {
+  const fijado = e.fijado;
+  if (!fijado || fijado === e.proveedor.modeloVision) return e.proveedor.modeloVision;
+  if (visionDelCatalogo === false) return e.proveedor.modeloVision;
+  return visionDelCatalogo === true || sabeVer(fijado) ? fijado : e.proveedor.modeloVision;
+}
+
+/** `ModeloIA.vision` de los modelos que fijaron las claves de la cadena: clave `claveId|modelo`. */
+async function visionDelCatalogo(cadena: Eslabon[]): Promise<Map<string, boolean | null>> {
+  const fijadas = cadena.filter((e) => e.claveId !== null && e.fijado);
+  if (fijadas.length === 0) return new Map();
+  const filas = await prisma.modeloIA.findMany({
+    where: { OR: fijadas.map((e) => ({ clave_id: e.claveId!, modelo_id: e.fijado! })) },
+    select: { clave_id: true, modelo_id: true, vision: true },
+  }).catch(() => []);
+  return new Map(filas.map((f) => [`${f.clave_id}|${f.modelo_id}`, f.vision]));
+}
+
+async function consultarVision(e: Eslabon, modelo: string, a: Archivo, topeMs: number): Promise<Respuesta> {
   const gemini = e.proveedor.tipo === 'gemini';
   const url = gemini ? `${e.proveedor.baseUrl}/models/${encodeURIComponent(modelo)}:generateContent` : `${e.proveedor.baseUrl}/chat/completions`;
   const cuerpo = gemini
@@ -129,18 +170,25 @@ async function consultarVision(e: Eslabon, modelo: string, a: Archivo): Promise<
     headers: { 'Content-Type': 'application/json', ...cabecerasDe(e.proveedor, e.clave) },
     body: JSON.stringify(cuerpo),
     redirect: 'manual',
-    signal: AbortSignal.timeout(TOPE_LLAMADA_MS),
+    signal: AbortSignal.timeout(topeMs),
   });
   const crudo = await r.text().catch(() => '');
   let data: { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[]; choices?: { message?: { content?: unknown } }[] } = {};
   try { data = JSON.parse(crudo); } catch { /* cuerpo no JSON */ }
   let texto = '';
   if (gemini) texto = (data.candidates?.[0]?.content?.parts ?? []).filter((p) => !p.thought && typeof p.text === 'string').map((p) => p.text).join('');
-  else if (typeof data.choices?.[0]?.message?.content === 'string') texto = data.choices[0].message.content;
+  else texto = textoDeChat(data.choices?.[0]?.message?.content);
   // Lo que diga el proveedor sólo se mira para la espera y para saber si la clave sirve; nunca se loguea ni se guarda.
   const retryAfterMs = r.status === 429 ? parsearRetryAfter(r.headers.get('retry-after'), crudo) : null;
   const claveInvalida = r.status === 400 && /API key not valid|API_KEY_INVALID/i.test(crudo);
   return { ok: r.ok, status: r.status, texto, retryAfterMs, claveInvalida };
+}
+
+/** `choices[0].message.content`: casi siempre un string (a veces dentro de ```json); algunas pasarelas lo devuelven como lista de partes `{type:'text', text}`. */
+function textoDeChat(c: unknown): string {
+  if (typeof c === 'string') return c;
+  if (!Array.isArray(c)) return '';
+  return c.map((p) => (p && typeof p === 'object' && typeof (p as { text?: unknown }).text === 'string' ? (p as { text: string }).text : '')).join('');
 }
 
 type Salida =
@@ -148,7 +196,10 @@ type Salida =
   | { tipo: 'sin_clave'; motivo: string }
   | { tipo: 'fallo'; transitorio: boolean; mensaje: string };
 
-/** Recorre la cadena (≤ 3 eslabones con visión): rota ante 429, 5xx, red, claves rechazadas y peticiones que ese proveedor no acepta. */
+/**
+ * Recorre la cadena (≤ 4 eslabones con visión): rota ante 429, 5xx, tiempo agotado, red, claves rechazadas y peticiones que ese proveedor no acepta.
+ * Falla rápido: cada llamada tiene su tope (`topeLlamadaMs`) y todo el intento el suyo (`topeIntentoMs`); al agotarse no se prueba otra clave.
+ */
 async function leerConRotacion(a: Archivo): Promise<Salida> {
   const todas = await construirCadena();
   const conVision = todas.filter((e) => e.proveedor.vision);
@@ -157,11 +208,20 @@ async function leerConRotacion(a: Archivo): Promise<Salida> {
   const cadena = conVision.filter((e) => !esPdf || e.proveedor.visionPdf);
   if (cadena.length === 0) return { tipo: 'sin_clave', motivo: MOTIVO_PDF };
   let transitorio = false;
-  for (const e of cadena.slice(0, MAX_INTENTOS_IA)) {
-    const modelo = modeloDeVision(e);
+  const inicio = evaluacionDeps.ahora().getTime();
+  const elegidos = cadena.slice(0, MAX_INTENTOS_IA);
+  const catalogo = await visionDelCatalogo(elegidos);
+  for (const e of elegidos) {
+    const restante = evaluacionDeps.topeIntentoMs - (evaluacionDeps.ahora().getTime() - inicio);
+    if (restante < MIN_LLAMADA_MS) {
+      console.warn('[evaluacion] se agotó el tiempo del intento; no se prueban más claves');
+      transitorio = true;
+      break;
+    }
+    const modelo = modeloDeVision(e, e.claveId !== null && e.fijado ? catalogo.get(`${e.claveId}|${e.fijado}`) : undefined);
     const id = `${e.proveedor.id}#${e.claveId ?? 'env'}`;
     try {
-      const r = await consultarVision(e, modelo, a);
+      const r = await consultarVision(e, modelo, a, Math.min(evaluacionDeps.topeLlamadaMs, restante));
       if (r.ok && r.texto.trim()) {
         limpiar(e.cooldownKey);
         contarUso(e.claveId, 'ok');
@@ -203,7 +263,7 @@ const pagoParaEvaluar = {
     select: {
       id: true,
       unidad: { select: { complejo_id: true, estructura_id: true, complejo: { select: { validacion_automatica_ia: true } } } },
-      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true } } } },
+      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true, mes: true, anio: true } } } },
     },
   },
 } satisfies Prisma.PagoInclude;
@@ -216,39 +276,53 @@ async function guardar(pagoId: number, sha256: string, data: Prisma.EvaluacionCo
 
 const medioParaContraste = (m: { tipo: string; titular: string; celular: string | null; numero_cuenta: string | null; cci: string | null; servicio: string | null }): MedioParaContraste => m;
 
+interface Origen { proveedor: string; modelo: string | null; ocr?: LecturaOcr }
+
 async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const pago = await prisma.pago.findUnique({ where: { id: pagoId }, include: pagoParaEvaluar });
   const archivo = pago?.comprobante;
   if (!pago || !archivo) return; // el pago o su comprobante ya no existen
   const sha = archivo.sha256;
-  const final = (data: Prisma.EvaluacionComprobanteUncheckedUpdateManyInput) => guardar(pagoId, sha, { intentos: intento, ...data });
+  const final = (data: Prisma.EvaluacionComprobanteUncheckedUpdateManyInput) => guardar(pagoId, sha, { intentos: intento, reintentar_at: null, ...data });
 
   const salida = await leerConRotacion({ mime: archivo.tipo_mime, base64: Buffer.from(archivo.datos).toString('base64') });
-  if (salida.tipo === 'sin_clave') {
-    if (await final({ estado: 'no_disponible', error: salida.motivo, evaluada_at: evaluacionDeps.ahora() })) {
-      await auditar(pagoId, { estado: 'no_disponible', intento });
-      await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'No hay IA disponible para leer el comprobante' });
-    }
-    return;
-  }
-  if (salida.tipo === 'fallo') {
-    if (salida.transitorio && intento < 2) {
-      // Sigue «evaluando» para el residente; a los 60 s se reintenta una vez.
-      if (await final({ error: MARCA_REINTENTO })) evaluacionDeps.programar(() => enSegundoPlano(() => reintentar(pagoId)), evaluacionDeps.reintentoMs);
-      return;
-    }
-    if (await final({ estado: 'error', error: salida.mensaje, evaluada_at: evaluacionDeps.ahora() })) {
-      await auditar(pagoId, { estado: 'error', intento });
-      await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'La IA no pudo leer el comprobante' });
-    }
-    return;
+  let lectura: Lectura | null = salida.tipo === 'texto' ? parsearLectura(salida.texto) : null; // el texto del modelo no se guarda ni se obedece: sólo cuenta si valida el esquema estricto
+  let origen: Origen | null = lectura && salida.tipo === 'texto' ? { proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo } : null;
+
+  // La IA terminó sin darnos una lectura y no habrá otro intento suyo (sin clave, fallo definitivo, reintento agotado o respuesta inválida):
+  // última red, el OCR propio. Un fallo transitorio con un reintento por delante NO pasa por aquí: se espera a la IA.
+  const iaTermino = salida.tipo === 'sin_clave' || (salida.tipo === 'fallo' && !(salida.transitorio && intento < 2)) || (salida.tipo === 'texto' && lectura === null);
+  if (!lectura && iaTermino) {
+    const ocr = await leerConOcr({ mime: archivo.tipo_mime, bytes: archivo.datos });
+    if (ocr) { lectura = ocr.lectura; origen = { proveedor: 'ocr', modelo: null, ocr }; }
   }
 
-  const lectura = parsearLectura(salida.texto);
-  if (!lectura) {
-    // El texto del modelo no se guarda ni se obedece: si no valida contra el esquema estricto, es un error.
-    if (await final({ estado: 'error', proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo, error: 'La respuesta de la IA no se pudo validar', evaluada_at: evaluacionDeps.ahora() })) {
-      await auditar(pagoId, { estado: 'error', intento, proveedor: salida.eslabon.proveedor.id });
+  if (!lectura || !origen) {
+    if (salida.tipo === 'sin_clave') {
+      if (await final({ estado: 'no_disponible', error: salida.motivo, evaluada_at: evaluacionDeps.ahora() })) {
+        await auditar(pagoId, { estado: 'no_disponible', intento });
+        await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'No hay IA disponible para leer el comprobante' });
+      }
+      return;
+    }
+    if (salida.tipo === 'fallo') {
+      if (salida.transitorio && intento < 2) {
+        // Sigue «evaluando» para el residente. El reintento queda GUARDADO (`reintentar_at`) para que lo tome el barrido aunque el servidor se reinicie;
+        // el temporizador en memoria sólo lo adelanta a la hora exacta.
+        const cuando = new Date(evaluacionDeps.ahora().getTime() + evaluacionDeps.reintentoMs);
+        if (await final({ error: MARCA_REINTENTO, reintentar_at: cuando })) evaluacionDeps.programar(() => enSegundoPlano(() => reintentar(pagoId).then(() => undefined)), evaluacionDeps.reintentoMs);
+        return;
+      }
+      if (await final({ estado: 'error', error: salida.mensaje, evaluada_at: evaluacionDeps.ahora() })) {
+        await auditar(pagoId, { estado: 'error', intento });
+        await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'La IA no pudo leer el comprobante' });
+      }
+      return;
+    }
+    // Texto que no validó (y sin OCR que lo salve).
+    const proveedor = salida.tipo === 'texto' ? salida.eslabon.proveedor.id : null;
+    if (await final({ estado: 'error', proveedor, modelo: salida.tipo === 'texto' ? salida.modelo : null, error: 'La respuesta de la IA no se pudo validar', evaluada_at: evaluacionDeps.ahora() })) {
+      await auditar(pagoId, { estado: 'error', intento, ...(proveedor ? { proveedor } : {}) });
       await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'La respuesta de la IA no se pudo validar' });
     }
     return;
@@ -277,19 +351,21 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   ]);
   // Pago de un mantenimiento: la IA compara contra el TOTAL del grupo (el comprobante es uno solo), no contra un cargo.
   const totalGrupo = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto : null;
-  const c = contrastar(
+  let c = contrastar(
     lectura,
     { monto: (totalGrupo ?? pago.monto).toString(), emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()) },
     medios.map(medioParaContraste),
     { archivoEnPago: mismoArchivo?.pago_id ?? null, operacionEnPago: mismaOperacion?.pago_id ?? null },
   );
+  // El OCR es menos fiable que la IA: sólo informa y alerta (confianza topada, nunca «coincide», sin validar sola ni fijar la fecha).
+  if (origen.ocr) c = ajustarPorOcr(c, origen.ocr, recibo ? { mes: recibo.mes, anio: recibo.anio } : null);
   const guardada = await final({
     estado: 'completada',
-    proveedor: salida.eslabon.proveedor.id,
-    modelo: salida.modelo,
+    proveedor: origen.proveedor,
+    modelo: origen.modelo,
     veredicto: c.veredicto,
     confianza: c.confianza,
-    extraido: lectura as unknown as Prisma.InputJsonValue,
+    extraido: (origen.ocr ? { ...lectura, mensaje: origen.ocr.mensaje } : lectura) as unknown as Prisma.InputJsonValue,
     coincidencias: c.coincidencias as unknown as Prisma.InputJsonValue,
     alertas: c.alertas,
     resumen: c.resumen,
@@ -297,22 +373,72 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
     evaluada_at: evaluacionDeps.ahora(),
   });
   if (!guardada) return; // reemplazaron el comprobante mientras tanto: la nueva evaluación manda
-  await auditar(pagoId, { estado: 'completada', intento, proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo, veredicto: c.veredicto, confianza: c.confianza });
+  await auditar(pagoId, { estado: 'completada', intento, proveedor: origen.proveedor, ...(origen.modelo ? { modelo: origen.modelo } : {}), veredicto: c.veredicto, confianza: c.confianza });
 
   // La fecha del pago es la del voucher: se aplica ANTES de una posible validación automática (que guarda esa fecha en los cargos).
-  const decision = decidirFecha(lectura, { hoy: evaluacionDeps.ahora(), emision: recibo?.fecha_emision ?? hoyLima(pago.created_at) });
+  // La que leyó el OCR no se aplica: con confianza baja, la fecha declarada se queda y una persona decide.
+  const decision: DecisionFecha = origen.ocr
+    ? { tipo: 'no_leida', motivo: 'La fecha se leyó con OCR (sin IA) y no se aplica sola' }
+    : decidirFecha(lectura, { hoy: evaluacionDeps.ahora(), emision: recibo?.fecha_emision ?? hoyLima(pago.created_at) });
   const fecha = await aplicarFechaDelVoucher(pagoId, decision);
   const duplicado = mismoArchivo != null || mismaOperacion != null;
-  // Una fecha leída pero no creíble (futura o muy antigua) deja el pago para que una persona lo revise: la IA no lo valida sola.
-  if (c.veredicto === 'coincide' && c.confianza >= UMBRAL_AUTOVALIDACION && !duplicado && decision.tipo !== 'invalida' && unidad?.complejo?.validacion_automatica_ia === true) {
+  // Una fecha leída pero no creíble (futura o muy antigua) deja el pago para que una persona lo revise: la IA no lo valida sola. El OCR nunca valida.
+  if (!origen.ocr && c.veredicto === 'coincide' && c.confianza >= UMBRAL_AUTOVALIDACION && !duplicado && decision.tipo !== 'invalida' && unidad?.complejo?.validacion_automatica_ia === true) {
     await validarSola(pagoId, pago.recibo_concepto_unidad_id, fecha?.fecha_pago ?? pago.fecha_pago, sha, c.veredicto, c.confianza);
   }
 }
 
-async function reintentar(pagoId: number): Promise<void> {
-  // Sólo si nadie la reemplazó o la retomó mientras esperaba.
-  const r = await prisma.evaluacionComprobante.updateMany({ where: { pago_id: pagoId, estado: 'pendiente', error: MARCA_REINTENTO }, data: { error: null } });
-  if (r.count === 1) await ejecutar(pagoId, 2);
+/**
+ * Toma (claim atómico) el reintento de una evaluación y lo ejecuta. Sin `venceAntes`: el llamador es el temporizador de este proceso, que ya
+ * esperó la hora. Con `venceAntes`: el barrido, que sólo toma las vencidas. Dos réplicas (o dos barridos) a la vez: sólo una gana el UPDATE.
+ */
+async function reintentar(pagoId: number, venceAntes?: Date): Promise<boolean> {
+  const r = await prisma.evaluacionComprobante.updateMany({
+    where: { pago_id: pagoId, estado: 'pendiente', reintentar_at: venceAntes ? { lte: venceAntes } : { not: null } },
+    data: { reintentar_at: null, error: null },
+  });
+  if (r.count !== 1) return false; // alguien la reemplazó, la retomó o ya la tomó otro
+  await ejecutar(pagoId, 2);
+  return true;
+}
+
+/** Una «pendiente» sin dueño (el proceso murió a mitad): se retoma si le queda un intento; si no, pasa a error. `false` si otro la tomó antes. */
+async function retomarAbandonada(pagoId: number, intentos: number, limite: Date): Promise<boolean> {
+  const sinDueno: Prisma.EvaluacionComprobanteWhereInput = { pago_id: pagoId, estado: 'pendiente', reintentar_at: null, updated_at: { lt: limite }, intentos };
+  if (intentos >= 2) {
+    const r = await prisma.evaluacionComprobante.updateMany({ where: sinDueno, data: { estado: 'error', error: MOTIVO_ABANDONADA, evaluada_at: evaluacionDeps.ahora() } });
+    if (r.count !== 1) return false;
+    await auditar(pagoId, { estado: 'error', intento: intentos });
+    await aplicarFechaDelVoucher(pagoId, { tipo: 'no_leida', motivo: 'La evaluación no terminó' });
+    return true;
+  }
+  // Compare-and-swap sobre `intentos` (y `updated_at` se renueva): sólo una réplica gana.
+  const r = await prisma.evaluacionComprobante.updateMany({ where: sinDueno, data: { intentos: intentos + 1, error: null } });
+  if (r.count !== 1) return false;
+  await ejecutar(pagoId, intentos + 1);
+  return true;
+}
+
+export interface ResultadoBarrido { reintentadas: number; abandonadas: number }
+
+/**
+ * Barrido periódico (cada minuto y al arrancar, ver `asistente/planificador.ts`): toma los reintentos vencidos y las evaluaciones sin dueño.
+ * Es lo que hace que el reintento sobreviva a un deploy o reinicio (el temporizador en memoria se pierde, la fila no).
+ */
+export async function barrerEvaluaciones(): Promise<ResultadoBarrido> {
+  const ahora = evaluacionDeps.ahora();
+  const vencidas = await prisma.evaluacionComprobante.findMany({
+    where: { estado: 'pendiente', reintentar_at: { lte: ahora } }, select: { pago_id: true }, orderBy: { reintentar_at: 'asc' }, take: MAX_POR_BARRIDO,
+  });
+  const limite = new Date(ahora.getTime() - ABANDONO_BARRIDO_MS);
+  const huerfanas = await prisma.evaluacionComprobante.findMany({
+    where: { estado: 'pendiente', reintentar_at: null, updated_at: { lt: limite } }, select: { pago_id: true, intentos: true }, orderBy: { updated_at: 'asc' }, take: MAX_POR_BARRIDO,
+  });
+  const [r, a] = await Promise.all([
+    Promise.all(vencidas.map((v) => rastrear(() => reintentar(v.pago_id, ahora)))),
+    Promise.all(huerfanas.map((h) => rastrear(() => retomarAbandonada(h.pago_id, h.intentos, limite)))),
+  ]);
+  return { reintentadas: r.filter(Boolean).length, abandonadas: a.filter(Boolean).length };
 }
 
 /** Valida con la misma actualización atómica de la validación manual. Nunca rechaza; si una persona ya lo revisó, no lo pisa. */

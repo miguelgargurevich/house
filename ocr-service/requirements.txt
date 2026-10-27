@@ -1,0 +1,6 @@
+# OCR microservice dependencies (Tesseract)
+flask==3.0.3
+gunicorn==23.0.0
+pytesseract==0.3.13
+pdf2image==1.17.0
+Pillow==11.0.0

@@ -458,7 +458,12 @@ model EvaluacionComprobante {
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   evaluada_at  DateTime?
+  /// Cuándo se reintenta una evaluación «pendiente» que falló por algo transitorio. Lo toma el barrido periódico (con un claim atómico), así que
+  /// sobrevive a un reinicio o deploy. Null = nada programado.
+  reintentar_at DateTime?
   pago         Pago      @relation(fields: [pago_id], references: [id], onDelete: Cascade)
+
+  @@index([estado, reintentar_at])
 }
 
 /// Modelo de chat que una clave puede usar (catálogo vivo, sincronizado con `GET /models` del proveedor). Nunca se borra: se depreca.
