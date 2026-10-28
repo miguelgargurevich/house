@@ -22,6 +22,8 @@ export interface Mantenimiento {
   /** Lo que aún se puede pagar. */
   saldo: string;
   estado: EstadoMantenimiento;
+  /** Sólo en «Mis recibos» del residente: motivo del último pago si fue rechazado y quedó por pagar. */
+  motivo_rechazo?: string | null;
 }
 
 export interface MedioPagoMant {

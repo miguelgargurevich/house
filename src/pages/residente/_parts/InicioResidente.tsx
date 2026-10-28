@@ -107,7 +107,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
                   <p className="p-5 text-sm text-muted">No tienes mantenimientos por pagar.</p>
                 ) : (
                   <div className="divide-y divide-line">
-                    {proximos.map(m => <MantenimientoItem key={`${m.recibo_id}-${m.unidad_id}`} mant={m} onPagar={setPagando} onVer={setViendo} />)}
+                    {proximos.map(m => <MantenimientoItem key={`${m.recibo_id}-${m.unidad_id}`} mant={m} rechazo={m.motivo_rechazo} onPagar={setPagando} onVer={setViendo} />)}
                   </div>
                 )}
               </Card>

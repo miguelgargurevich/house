@@ -165,7 +165,26 @@ export function meRouter(limitePassword: RequestHandler) {
       { unidadIds, estado: q.estado, q: q.q },
       { page: q.page, pageSize: q.pageSize, orden: campo ? { campo, dir: (orden as Record<string, 'asc' | 'desc'>)[campo] } : undefined },
     );
-    res.json({ items: r.items, total: r.total, page: q.page, pageSize: q.pageSize });
+    // Motivo del último pago si fue rechazado y el mantenimiento volvió a quedar por pagar (misma regla que `motivoRechazoMant` del detalle):
+    // la tarjeta de «Mis recibos» lo muestra con «Pagar de nuevo».
+    const abiertos = r.items.filter((m) => m.estado !== 'pagado' && m.estado !== 'en_revision');
+    const pagos = abiertos.length
+      ? await prisma.pago.findMany({
+          where: { OR: abiertos.map((m) => ({ reciboConceptoUnidad: { unidad_id: m.unidad_id, reciboConcepto: { recibo_id: m.recibo_id } } })) },
+          orderBy: [{ fecha_pago: 'desc' }, { id: 'asc' }],
+          select: { estado_validacion: true, motivo_rechazo: true, reciboConceptoUnidad: { select: { unidad_id: true, reciboConcepto: { select: { recibo_id: true } } } } },
+        })
+      : [];
+    const ultimo = new Map<string, (typeof pagos)[number]>();
+    for (const p of pagos) {
+      const k = `${p.reciboConceptoUnidad?.reciboConcepto?.recibo_id}-${p.reciboConceptoUnidad?.unidad_id}`;
+      if (!ultimo.has(k)) ultimo.set(k, p);
+    }
+    const items = r.items.map((m) => {
+      const p = abiertos.includes(m) ? ultimo.get(`${m.recibo_id}-${m.unidad_id}`) : undefined;
+      return { ...m, motivo_rechazo: p?.estado_validacion === 'rechazado' ? p.motivo_rechazo ?? 'Sin motivo indicado' : null };
+    });
+    res.json({ items, total: r.total, page: q.page, pageSize: q.pageSize });
   });
 
   router.get('/mantenimientos/:reciboId/:unidadId', residente, async (req, res) => {

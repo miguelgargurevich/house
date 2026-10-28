@@ -46,6 +46,16 @@ describe('vista móvil', () => {
     assert.match(fuente('src/pages/admin/_parts/mantenimientos/MantenimientoAdminModal.tsx'), /const PAGO_PARCIAL_CONCEPTO = false;[\s\S]*puedeRegistrar && PAGO_PARCIAL_CONCEPTO &&/);
   });
 
+  it('mis recibos: la tarjeta recibe el motivo del rechazo («Pagar de nuevo») en la lista y en el inicio', () => {
+    for (const archivo of ['src/pages/residente/_parts/CargosResidente.tsx', 'src/pages/residente/_parts/InicioResidente.tsx']) {
+      assert.match(fuente(archivo), /<MantenimientoItem [^>]*rechazo=\{m\.motivo_rechazo\}/, archivo);
+    }
+  });
+
+  it('cómo pagar: el monto que carga no mete un bloque dentro de un párrafo (aviso de React en consola)', () => {
+    assert.match(fuente('src/pages/residente/_parts/ComoPagar.tsx'), /<div className="num text-2xl font-semibold">\{saldo !== null \? soles\(saldo\) : <Skeleton/);
+  });
+
   it('la ficha de la empresa no queda «cargando» si no tiene fecha de inicio', () => {
     assert.match(fuente('src/pages/superadmin/EmpresaDetalle.tsx'), /value: e \? \(e\.fecha_inicio \? fechaCorta\(e\.fecha_inicio\) : '—'\) : <Skeleton/);
   });

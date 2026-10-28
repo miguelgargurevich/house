@@ -70,3 +70,4 @@ __tests__/
 # Docker
 docker-compose*
 .claude/
+scripts/e2e/capturas/

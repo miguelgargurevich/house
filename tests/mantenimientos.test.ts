@@ -312,7 +312,12 @@ describe('validar o rechazar el pago del mantenimiento (atómico por grupo)', ()
     const pagos = await pagosDe(m);
     assert.ok(pagos.every((p) => p.estado_validacion === 'rechazado' && p.motivo_rechazo === 'La captura no se ve'));
     assert.deepEqual(await estadosCargos(m), ['pendiente', 'pendiente', 'pendiente']);
+    // La lista de «Mis recibos» trae el motivo: la tarjeta lo muestra con «Pagar de nuevo» (28-oct: antes sólo salía en el detalle).
+    const fila = (await llamar(base, 'GET', '/api/me/mantenimientos', T.prop1)).body.items.find((x: { recibo_id: number; unidad_id: number }) => x.recibo_id === m.reciboId && x.unidad_id === m.unidadId);
+    assert.equal(fila.motivo_rechazo, 'La captura no se ve');
     const otra = await pagarMant(T.prop1, m);
+    const reenviado = (await llamar(base, 'GET', '/api/me/mantenimientos', T.prop1)).body.items.find((x: { recibo_id: number; unidad_id: number }) => x.recibo_id === m.reciboId && x.unidad_id === m.unidadId);
+    assert.equal(reenviado.motivo_rechazo, null, 'con el nuevo pago en revisión ya no se muestra el rechazo');
     assert.equal(otra.status, 201, 'tras el rechazo vuelve a pagar el total');
     assert.equal(otra.body.total, '115.00');
   });

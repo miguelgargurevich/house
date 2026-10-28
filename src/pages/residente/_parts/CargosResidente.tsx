@@ -79,7 +79,7 @@ export function CargosResidente() {
         ) : (
           <>
             <ul className="space-y-3">
-              {list.items.map(m => <li key={`${m.recibo_id}-${m.unidad_id}`}><Card><MantenimientoItem mant={m} onPagar={setPagando} onVer={setViendo} /></Card></li>)}
+              {list.items.map(m => <li key={`${m.recibo_id}-${m.unidad_id}`}><Card><MantenimientoItem mant={m} rechazo={m.motivo_rechazo} onPagar={setPagando} onVer={setViendo} /></Card></li>)}
             </ul>
             <Pager page={list.page} pageSize={list.pageSize} total={list.total} onPage={list.setPage} />
           </>

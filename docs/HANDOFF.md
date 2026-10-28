@@ -4,6 +4,24 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-28 — Claude Code (Opus 5.5) — Recorrido E2E por roles (recibo del mes → voucher → validación)
+
+**Pedido de Miguel:** «haz el ejercicio como si fueras la administradora que crea el recibo del mes. y luego como si fuera yo de propietario subiendo el voucher pago del mantenimiento.. arma así las demás pruebas».
+
+- **`scripts/e2e/recorrido.cjs`** (Playwright, sólo localhost; `capturas/` ignorada): 6 flujos, 26 pasos. `emitir` (admin sube `block-1-noviembre.xlsx` = octubre con el agua variada y deuda en el 101; corte de agua; lectura del 804; recibo impreso), `pagar` (B01-804 en el celular: Cómo pagar → voucher), `validar` (admin), `rechazo` (inquilino B01-102 paga S/ 150, la junta B01-403 rechaza con motivo, paga de nuevo), `efectivo` (admin registra el 101), `personal` (mantenimiento inicia tarea, seguridad busca 804). Resultado: **26/26** sobre la base restaurada.
+- **Envíos apagados:** la base local es copia de producción con vecinos reales y el `.env` local trae Resend y Evolution. El backend del recorrido se levanta con `RESEND_API_KEY= MAIL_FROM= EVOLUTION_URL= EVOLUTION_APIKEY= AVISOS_PLANIFICADOR=off`. Respaldar la base antes (`pg_dump -Fc`) y restaurarla después.
+- **Arreglado:** tras un rechazo, «Mis recibos» mostraba «Pendiente» sin motivo y «Pagar mantenimiento». `MantenimientoItem` ya sabía mostrar «Pago rechazado: …» y «Pagar de nuevo», pero nadie le pasaba el motivo. Ahora `GET /api/me/mantenimientos` trae `motivo_rechazo` (último pago rechazado si quedó por pagar, misma regla que `motivoRechazoMant`), y lo usan `CargosResidente` e `InicioResidente`. Test de API con mutación en rojo.
+- **Arreglado:** aviso de React en consola: `ComoPagar` metía el `Skeleton` (div) dentro de un `<p>`.
+- **Visto y correcto:** subir de nuevo el Excel de un recibo con pagos se rechaza con un mensaje claro. La alerta «el agua del recibo no cuadra con la lectura» funciona.
+- **Pendiente de decisión (no tocado):**
+  - El Resumen del admin cuenta «cargos» (536 pendientes = conceptos × departamentos), no departamentos.
+  - «Emitido vs. cobrado» no muestra el recibo de noviembre emitido en octubre.
+  - Recibos dice «Torre» y «Todas las torres» en un condominio de blocks.
+  - El aviso de mora de octubre sale bajo «Revisa estas filas» como si fuera una fila con error.
+- **No verificado:** la lectura del voucher con IA. En local responde «Configura una clave de Gemini u OpenAI en el Llavero». La clave de producción no se probó aquí.
+
+---
+
 ## 2026-10-28 — Claude Code (Sonnet 5.5) — Oferta «Gratis con límite o Pro con todo»
 
 **Pedido de Miguel (textual):** «Me parece que el plan gratis no debe de incluir servicios con WhatsApp o IA, porque finalmente podrías tener para administrar un edificio de 20 departamentos o menos, y usando IA o WhatsApp, y te sale 20, menos de 25 soles al mes, y es muy poquito. O sea, la oferta debería ser o gratis con un límite, y luego el siguiente plan ya es el Pro, que ya contiene todo, pues, ¿no?» → «Gratis hasta 20 departamentos», «Mínimo de Pro S/ 59 al mes», «Administradora con el mismo mínimo por condominio». Rama `feat/planes-gratis-pro` (sobre origin/main f06e69d). **Sin push.**

@@ -87,7 +87,7 @@ export function ComoPagar({ mant, saldo, medios, loading, error, notas, correoVo
     <div className="space-y-5">
       <div className="rounded bg-surface2 p-4">
         <p className="text-sm text-muted">Monto a pagar</p>
-        <p className="num text-2xl font-semibold">{saldo !== null ? soles(saldo) : <Skeleton className="mt-1 h-7 w-32" />}</p>
+        <div className="num text-2xl font-semibold">{saldo !== null ? soles(saldo) : <Skeleton className="mt-1 h-7 w-32" />}</div>
         <p className="mt-1 text-sm text-muted">{mant.titulo.split(' · ')[0]} · todos los conceptos del mes</p>
       </div>
       <Alert tone="info">Haz <strong>una sola transferencia o pago</strong> por el total e indica tu departamento <strong>{mant.unidad.codigo}</strong>{mant.unidad.estructura?.nombre ? ` (${mant.unidad.estructura.nombre})` : ''} en la referencia.</Alert>
