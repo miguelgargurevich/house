@@ -410,6 +410,35 @@ describe('evaluación: sin IA, PDF y proveedores', () => {
     assert.equal(ev.estado, 'pendiente', 'sigue «evaluando» hasta el reintento');
     assert.equal(ev.error, MARCA_REINTENTO);
   });
+
+  for (const status of [400, 413]) {
+    it(`un ${status} del pedido: las demás claves de ese proveedor no lo prueban (ni enfrían ni rechazan); otro proveedor sí`, async () => {
+      await guardarClaveLlavero({ proveedor: 'gemini', etiqueta: 'a', clave: 'clave-falsa-gemini-A-0001', usuarioId: d.superadmin.id });
+      await guardarClaveLlavero({ proveedor: 'gemini', etiqueta: 'b', clave: 'clave-falsa-gemini-B-0002', usuarioId: d.superadmin.id });
+      await claves('openai');
+      responder = (l) => (l.url.includes('generativelanguage') ? estado(status) : ok(lec()));
+      const { ev } = await evaluado();
+      assert.equal(ev.estado, 'completada');
+      assert.equal(ev.proveedor, 'openai');
+      assert.equal(llamadas.filter((l) => l.url.includes('generativelanguage')).length, 1, 'una sola clave de Gemini vio el pedido');
+      assert.equal(llamadas.length, 2);
+      for (const g of await prisma.claveIntegracion.findMany({ where: { proveedor: 'gemini' } })) {
+        assert.equal(estaEnfriando(claveCooldown('gemini', g.id)), false, 'sin enfriar');
+        assert.equal(g.estado, 'sin_probar', 'sin rechazar');
+      }
+    });
+  }
+
+  it('los saltos no gastan intento: tras un 400 de Gemini, su segunda clave no cuenta y el tope de 4 alcanza a Mistral', async () => {
+    await guardarClaveLlavero({ proveedor: 'gemini', etiqueta: 'a', clave: 'clave-falsa-gemini-A-0001', usuarioId: d.superadmin.id });
+    await guardarClaveLlavero({ proveedor: 'gemini', etiqueta: 'b', clave: 'clave-falsa-gemini-B-0002', usuarioId: d.superadmin.id });
+    await claves('openrouter', 'openai', 'mistral');
+    responder = (l) => (l.url.includes('generativelanguage') ? estado(400) : l.clave === claveDe('mistral') ? ok(lec()) : estado(500));
+    const { ev } = await evaluado();
+    assert.equal(ev.estado, 'completada');
+    assert.equal(ev.proveedor, 'mistral');
+    assert.equal(llamadas.length, 4, 'Gemini (una sola vez), OpenRouter, OpenAI y Mistral');
+  });
 });
 
 describe('evaluación: prioridad para leer comprobantes (prioridad_vision del gateway)', () => {

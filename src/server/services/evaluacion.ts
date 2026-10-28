@@ -248,16 +248,22 @@ async function leerConRotacion(a: Archivo): Promise<Salida> {
   if (cadena.length === 0) return { tipo: 'sin_clave', motivo: MOTIVO_PDF };
   let transitorio = false;
   const inicio = evaluacionDeps.ahora().getTime();
-  const elegidos = cadena.slice(0, MAX_INTENTOS_IA);
-  const catalogo = await visionDelCatalogo(elegidos);
-  for (const e of elegidos) {
+  const catalogo = await visionDelCatalogo(cadena);
+  // Rutas (proveedor|modelo) que el PEDIDO rechazó (400 o 413): otra clave del mismo proveedor y modelo daría lo mismo, así que se salta sin gastar intento.
+  const rechazadas = new Set<string>();
+  let intentos = 0;
+  for (const e of cadena) {
+    if (intentos >= MAX_INTENTOS_IA) break;
+    const modelo = modeloDeVision(e, e.claveId !== null && e.fijado ? catalogo.get(`${e.claveId}|${e.fijado}`) : undefined);
+    const ruta = `${e.proveedor.id}|${modelo}`;
+    if (rechazadas.has(ruta)) continue;
     const restante = evaluacionDeps.topeIntentoMs - (evaluacionDeps.ahora().getTime() - inicio);
     if (restante < MIN_LLAMADA_MS) {
       console.warn('[evaluacion] se agotó el tiempo del intento; no se prueban más claves');
       transitorio = true;
       break;
     }
-    const modelo = modeloDeVision(e, e.claveId !== null && e.fijado ? catalogo.get(`${e.claveId}|${e.fijado}`) : undefined);
+    intentos += 1;
     const id = `${e.proveedor.id}#${e.claveId ?? 'env'}`;
     try {
       const r = await consultarVision(e, modelo, a, Math.min(evaluacionDeps.topeLlamadaMs, restante));
@@ -281,8 +287,11 @@ async function leerConRotacion(a: Archivo): Promise<Salida> {
       } else if (r.status >= 500) {
         registrarEstado(e.cooldownKey, r.status);
         transitorio = true;
+      } else if (r.status === 400 || r.status === 413) {
+        // La petición no le sirve a esa ruta (formato de imagen, tamaño): ninguna otra clave del proveedor y modelo la aceptaría. Sin enfriar la clave.
+        rechazadas.add(ruta);
       }
-      // 400 u otro: la petición no le sirve a ese proveedor (p. ej. formato de imagen); se prueba el siguiente sin enfriar la clave.
+      // Otro estado: se prueba el siguiente sin enfriar la clave.
     } catch (err) {
       registrarEstado(e.cooldownKey, 0);
       contarUso(e.claveId, 'error');
