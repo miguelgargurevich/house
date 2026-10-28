@@ -5,6 +5,18 @@ export const MODULOS = ['ia_vouchers', 'whatsapp_avisos', 'asistente'] as const;
 export type ModuloClave = (typeof MODULOS)[number];
 export const esModulo = (c: string): c is ModuloClave => (MODULOS as readonly string[]).includes(c);
 
+/**
+ * Capacidades que trae un plan: los tres módulos (que ya no se venden sueltos, son «lo que trae Pro») más la mora automática y los reportes y
+ * exportes. `PlanComercial.modulos_incluidos` guarda estas claves; Gratis no trae ninguna.
+ */
+export const CAPACIDADES = [...MODULOS, 'mora_automatica', 'reportes'] as const;
+export type CapacidadClave = (typeof CAPACIDADES)[number];
+export const esCapacidad = (c: string): c is CapacidadClave => (CAPACIDADES as readonly string[]).includes(c);
+
+/** Gratis llega hasta este número de unidades por condominio; Pro y Administradora cobran como mínimo este número. */
+export const UNIDADES_GRATIS_MAX = 20;
+export const UNIDADES_PRO_MIN = 20;
+
 export const PLANES = ['gratis', 'pro', 'administradora', 'cortesia'] as const;
 export type PlanClave = (typeof PLANES)[number];
 
@@ -19,14 +31,14 @@ const MODULOS_SEED = [
   { clave: 'asistente', nombre: 'Asistente con IA', descripcion: 'Responde dudas de recibos y pagos en la web y por los bots de WhatsApp y Telegram.', precio_por_unidad: '0.50', orden: 3 },
 ] as const;
 
-const PLANES_SEED = [
-  { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para siempre, sin límite de departamentos.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1,
-    caracteristicas: ['Recibos por torre', 'Cobranza y morosidad', 'Importación del Excel', 'Medios de pago del condominio', 'Portal del residente', 'Registro y validación manual de vouchers', 'Avisos por correo'] },
-  { clave: 'pro', nombre: 'Pro', descripcion: 'Los tres módulos y más.', precio_por_unidad: '2.50', modulos_incluidos: [...MODULOS], visible: true, orden: 2,
-    caracteristicas: ['Todo lo de Gratis', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
-  { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...MODULOS], visible: true, orden: 3,
+export const PLANES_SEED = [
+  { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para empezar y para siempre, sin costo.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null,
+    caracteristicas: ['Recibos por torre', 'Cobranza y morosidad', 'Importación del Excel', 'Medios de pago del condominio', 'Portal del vecino', 'Vouchers validados a mano', 'Avisos por correo'] },
+  { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null,
+    caracteristicas: ['Todo lo de Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
+  { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null,
     caracteristicas: ['Todo lo de Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
-  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todos los módulos, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...MODULOS], visible: false, orden: 4, caracteristicas: [] as string[] },
+  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 4, unidades_maximas: null as number | null, unidades_minimas: null as number | null, caracteristicas: [] as string[] },
 ] as const;
 
 export const CONFIGURACION_ID = 1;

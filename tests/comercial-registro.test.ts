@@ -247,12 +247,17 @@ describe('endpoint público de planes', () => {
   });
   after(async () => { await cerrar(); });
 
-  it('sin sesión devuelve planes y módulos con el precio CON IGV; sin datos de pago ni correos', async () => {
+  it('sin sesión devuelve planes con el precio CON IGV y los topes de unidades, y módulos SIN precio (ya no se venden sueltos); sin datos de pago ni correos', async () => {
     const r = await llamar(base, 'GET', '/api/publico/planes');
     assert.equal(r.status, 200);
     assert.equal(r.body.igv_incluido, true);
-    const modulos = Object.fromEntries(r.body.modulos.map((m: { clave: string; precio_por_unidad: string }) => [m.clave, m.precio_por_unidad]));
-    assert.deepEqual(modulos, { ia_vouchers: '1.18', whatsapp_avisos: '1.18', asistente: '0.59' });
+    assert.deepEqual(r.body.modulos.map((m: { clave: string }) => m.clave), ['ia_vouchers', 'whatsapp_avisos', 'asistente']);
+    for (const m of r.body.modulos) assert.ok(!('precio_por_unidad' in m), 'un módulo ya no tiene precio público');
+    const topes = Object.fromEntries(r.body.planes.map((p: { clave: string; unidades_maximas: number | null; unidades_minimas: number | null }) => [p.clave, [p.unidades_maximas, p.unidades_minimas]]));
+    assert.deepEqual(topes, { gratis: [20, null], pro: [null, 20], administradora: [null, 20] }, 'Gratis hasta 20; Pro y Administradora cobran mínimo 20');
+    const pro = r.body.planes.find((p: { clave: string }) => p.clave === 'pro');
+    assert.deepEqual([...pro.modulos_incluidos].sort(), ['asistente', 'ia_vouchers', 'mora_automatica', 'reportes', 'whatsapp_avisos']);
+    assert.deepEqual(r.body.planes.find((p: { clave: string }) => p.clave === 'gratis').modulos_incluidos, []);
     const planes = Object.fromEntries(r.body.planes.map((p: { clave: string; precio_por_unidad: string }) => [p.clave, p.precio_por_unidad]));
     assert.deepEqual(planes, { gratis: '0.00', pro: '2.95', administradora: '2.36' }, 'cortesía no es visible');
     for (const prohibido of ['999888777', '191-1234567', '00219100123456701234', 'secreto@house.test', 'Miguel G.', 'igv_tasa', 'pago_', 'correo_superadmin', 'precio_base']) {
@@ -261,17 +266,17 @@ describe('endpoint público de planes', () => {
   });
 
   it('un precio editado por el superadmin se refleja (sin precios fijos en el código)', async () => {
-    await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '1.00' } });
+    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.00' } });
     const r = await llamar(base, 'GET', '/api/publico/planes');
-    assert.equal(r.body.modulos.find((m: { clave: string }) => m.clave === 'asistente').precio_por_unidad, '1.18');
-    await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '0.50' } });
+    assert.equal(r.body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '3.54');
+    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '2.50' } });
   });
 
-  it('cotizar: 448 deptos en Pro = 1.321,60 al mes y 15.859,20 al año; con módulos sueltos; plan inexistente 422', async () => {
+  it('cotizar: 448 deptos en Pro = 1.321,60 al mes y 15.859,20 al año; sin módulos sueltos; plan inexistente 422', async () => {
     const pro = await llamar(base, 'GET', '/api/publico/cotizar?unidades=448&plan=pro');
-    assert.deepEqual(pro.body, { unidades: 448, total_mes: '1321.60', total_anio: '15859.20', igv_incluido: true });
+    assert.deepEqual(pro.body, { unidades: 448, unidades_cobradas: 448, minimo_aplicado: false, total_mes: '1321.60', total_anio: '15859.20', igv_incluido: true });
     const mod = await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&modulos=ia_vouchers,asistente');
-    assert.equal(mod.body.total_mes, '177.00');
+    assert.equal(mod.body.total_mes, '0.00', 'los módulos sueltos ya no se cotizan: sin plan, nada que cobrar');
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=cortesia')).status, 422, 'cortesía no se cotiza al público');
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=abc')).status, 422);
   });

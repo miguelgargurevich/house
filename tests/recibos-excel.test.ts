@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { after, before, describe, it } from 'node:test';
 import { Prisma } from '@prisma/client';
 import XLSX from 'xlsx';
-import { cabecerasDeSesion, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { invalidarComercial } from '../src/server/services/comercial/modulos';
+import { cabecerasDeSesion, darCortesia, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
 import { buscarEstructura, codigoEncajaConDpto, leerCabecera, leerConceptos, normalizarTexto, numeroDeTorre, redondearMonto } from '../src/server/lib/excelRecibos';
 
@@ -194,6 +195,7 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
   let complejoId: number;
   before(async () => {
     const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Los Libertadores', tipo: 'Condominio', empresa_id: d.empresaA.id } });
+    await darCortesia(c.id); // como el real: en cortesía, con mora automática
     complejoId = c.id;
     // Como seed:libertadores: 14 torres «Block 1»…«Block 14»; la 1 tiene 32 departamentos 101…804 (4 por piso, 8 pisos).
     for (const n of [1, 2, 14]) {
@@ -236,6 +238,21 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
     assert.equal(totalDe('B01-101'), '223.35');
     assert.equal(totalDe('B01-501'), '297.00');
     assert.equal(totalDe('B01-804'), '272.15');
+  });
+
+  it('en el plan Gratis (sin mora automática) el Excel se importa igual y el monto de mora aplicado es 0.00', async () => {
+    const sus = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: complejoId } });
+    await prisma.suscripcionCondominio.update({ where: { complejo_id: complejoId }, data: { plan_clave: 'gratis', modulos: [], estado: 'gratis' } });
+    invalidarComercial();
+    try {
+      const r = await subir(T.adminA, readFileSync('docs/ejemplos/block-1-octubre.xlsx'), complejoId, 'block-1-octubre.xlsx');
+      assert.equal(r.status, 201, r.texto);
+      assert.equal(r.body.unidades_procesadas, 32);
+      assert.deepEqual(r.body.mora, { ...SIN_MORA, monto: '0.00' });
+    } finally {
+      await prisma.suscripcionCondominio.update({ where: { complejo_id: complejoId }, data: { plan_clave: sus.plan_clave, modulos: sus.modulos, estado: sus.estado } });
+      invalidarComercial();
+    }
   });
 
   it('un departamento que no existe da advertencia y se salta (las demás filas siguen)', async () => {

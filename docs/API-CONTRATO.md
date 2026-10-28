@@ -228,35 +228,46 @@ Tablas nuevas `CanalVinculado`, `CodigoVinculacion`, `CanalWebhook`, `MensajeCan
 
 Montos: `string` con 2 decimales, en soles. **Precios BASE (sin IGV) en la base; al público siempre con IGV** (`base × (1 + igv_tasa)`, 2 decimales). Un total se calcula sobre la base y el IGV se aplica UNA vez (`Cotizacion`: `base`, `igv`, `total_mes`, `total_anio`, `igv_tasa`).
 
-Error de módulo apagado: **403** `{ error, code: 'MODULO_NO_ACTIVO', modulo: 'ia_vouchers' | 'whatsapp_avisos' | 'asistente' }` (el chat de IA lo da como `{ error: { code, message }, code, modulo }`). Login de cuenta sin verificar: **403** `{ error, code: 'CORREO_NO_VERIFICADO' }`.
+> **Oferta vigente desde el 28-oct-2026: «Gratis con límite o Pro con todo»** (ver «Oferta Gratis / Pro» al final de este bloque). Los módulos ya no se venden sueltos: lo que se dice abajo de `modulos` sueltos en la solicitud, `/cotizar` y el catálogo público quedó reemplazado por esa sección.
+
+Error de capacidad apagada: **403** `{ error, code: 'MODULO_NO_ACTIVO', modulo: 'ia_vouchers' | 'whatsapp_avisos' | 'asistente' | 'mora_automatica' | 'reportes' }` (el chat de IA lo da como `{ error: { code, message }, code, modulo }`). Login de cuenta sin verificar: **403** `{ error, code: 'CORREO_NO_VERIFICADO' }`.
 
 ### Público (sin sesión ni CSRF) — `/api/publico`
-- `GET /planes` → `{ moneda: 'PEN', igv_incluido: true, planes: [{ clave, nombre, descripcion, precio_por_unidad (con IGV), modulos_incluidos, caracteristicas }], modulos: [{ clave, nombre, descripcion, precio_por_unidad (con IGV) }], registro_abierto }`. Sólo planes visibles y módulos a la venta.
-- `GET /cotizar?unidades=N&plan=pro&modulos=a,b` → `{ unidades, total_mes, total_anio, igv_incluido: true }`. 422 si el plan no existe o no es visible.
+- `GET /planes` → `{ moneda: 'PEN', igv_incluido: true, planes: [{ clave, nombre, descripcion, precio_por_unidad (con IGV), modulos_incluidos, caracteristicas, unidades_maximas, unidades_minimas, total_minimo_mes }], modulos: [{ clave, nombre, descripcion }], registro_abierto }`. Sólo planes visibles y módulos activos; los módulos ya no llevan precio (son «lo que trae Pro»).
+- `GET /cotizar?unidades=N&plan=pro` → `{ unidades, unidades_cobradas, minimo_aplicado, total_mes, total_anio, igv_incluido: true }`. Aplica el mínimo de unidades del plan. Un parámetro `modulos` se ignora. 422 si el plan no existe o no es visible.
 - `POST /registro` `{ nombre, email, celular, password, empresa, condominio, unidades, sitio_web? }` → **202** `{ mensaje }` SIEMPRE el mismo (exista o no el correo). 422 campos inválidos; 429 límites; 503 registro cerrado.
 - `POST /verificar-correo` `{ token }` → 200 `{ ok: true }` · 400 `ENLACE_INVALIDO` (inexistente, vencido o usado).
 - `POST /reenviar-verificacion` `{ email }` → 202 `{ mensaje }` (igual exista o no).
 
 ### Mi plan — `/api/comercial/mi-plan` (sólo rol `admin`; otra empresa → 404; superadmin y demás → 403)
 - `GET /mi-plan` → `{ condominios: VistaSuscripcion[], pagar: { titular, banco, cuenta, cci, yape, instrucciones, igv_tasa, dias_gracia }, catalogo }`.
-  `VistaSuscripcion`: `complejo_id, complejo, empresa, plan { clave, nombre }, modulos_activos, modulos_sueltos, estado ('gratis'|'solicitada'|'activa'|'por_vencer'|'vencida'), vigente_hasta, dias_para_vencer, en_gracia, unidades_facturables (en vivo), cotizacion, solicitud { plan, modulos, en, cotizacion } | null, referencia_pago ('HOUSE-<id>-<AAAAMM>')`.
-- `POST /mi-plan/:complejoId/solicitud` `{ plan?: 'pro'|'administradora', modulos?: [...] }` → vista. Deja la suscripción en `solicitada` y avisa por correo al superadmin; NO activa nada. 422 si no pide nada o pide algo no disponible.
+  `VistaSuscripcion`: `complejo_id, complejo, empresa, plan { clave, nombre }, modulos_activos, modulos_sueltos, estado ('gratis'|'solicitada'|'activa'|'por_vencer'|'vencida'), vigente_hasta, dias_para_vencer, en_gracia, unidades_facturables (en vivo), unidades_cobradas, unidades_maximas, unidades_minimas, cotizacion { …, unidades_cobradas, minimo_aplicado }, solicitud { plan, modulos, en, cotizacion } | null, referencia_pago ('HOUSE-<id>-<AAAAMM>')`.
+- `POST /mi-plan/:complejoId/solicitud` `{ plan: 'pro'|'administradora' }` → vista (ya no se piden módulos sueltos: una clave `modulos` se ignora). Deja la suscripción en `solicitada` y avisa por correo al superadmin; NO activa nada. 422 si no hay plan o no está disponible.
 - `DELETE /mi-plan/:complejoId/solicitud` → 204.
 - `GET /mi-plan/:complejoId/pagos` → `{ items: [{ id, base, igv, monto, fecha_pago, medio, operacion, periodo_desde, periodo_hasta, ... }] }`.
 
 ### Suscripciones y precios — `/api/comercial` (sólo superadmin; 403 al resto, 401 sin sesión; todo auditado)
 - `GET /suscripciones?estado=&q=&empresa_id=&page=&pageSize=` → lista paginada de `VistaSuscripcion` (con `notas`), «solicitada» y «por_vencer» primero.
-- `PATCH /suscripciones/:complejoId` `{ plan_clave?, modulos?, vigente_hasta? (null = no vence), notas? }`. Elegir plan o módulos resuelve la solicitud.
+- `PATCH /suscripciones/:complejoId` `{ plan_clave?, modulos?, vigente_hasta? (null = no vence), notas? }`. Elegir plan o módulos resuelve la solicitud. Si cambia de plan y no manda `modulos`, los módulos sueltos heredados se vacían.
 - `POST /suscripciones/:complejoId/pagos` `{ monto (con IGV), fecha_pago, medio ('transferencia'|'yape'|'plin'|'efectivo'|'otro'), operacion?, periodo_desde, periodo_hasta, voucher_ref?, notas? }` → **201** `{ pago, suscripcion }`. Extiende `vigente_hasta` hasta `periodo_hasta` (nunca lo acorta), activa lo solicitado, desglosa base + IGV con la tasa vigente. 409: misma operación repetida, o condominio en Gratis sin módulos / cortesía. `GET` del mismo path → historial.
-- `GET /catalogo` → `{ planes, modulos, configuracion }` con precios BASE. `PUT /modulos/:clave` `{ nombre?, descripcion?, precio_por_unidad?, activo? }` · `PUT /planes/:clave` `{ nombre?, descripcion?, precio_por_unidad?, modulos_incluidos?, caracteristicas?, igv_incluido?, visible? }` · `PUT /configuracion` `{ igv_tasa?, dias_gracia?, dias_aviso_vencimiento?, correo_superadmin?, url_publica?, registro_abierto?, pago_* }`.
+- `GET /catalogo` → `{ planes, modulos, configuracion }` con precios BASE. `PUT /modulos/:clave` `{ nombre?, descripcion?, precio_por_unidad?, activo? }` · `PUT /planes/:clave` `{ nombre?, descripcion?, precio_por_unidad?, modulos_incluidos? (capacidades: ia_vouchers, whatsapp_avisos, asistente, mora_automatica, reportes), unidades_maximas? (entero ≥ 1 o null), unidades_minimas? (entero ≥ 1 o null), caracteristicas?, igv_incluido?, visible? }` · `PUT /configuracion` `{ igv_tasa?, dias_gracia?, dias_aviso_vencimiento?, correo_superadmin?, url_publica?, registro_abierto?, pago_* }`.
 
 ### Otros cambios
 - `GET /api/notificaciones/canales` agrega `sin_modulo_whatsapp: boolean`.
 - Avisos por WhatsApp sin módulo: `Notificacion.estado = 'omitida'`, `error = 'Plan sin WhatsApp'` (Telegram: `'Plan sin asistente'`). La evaluación sin módulo de IA queda `no_disponible` con el motivo «Disponible con el módulo «IA que lee y valida vouchers»…».
 - `POST /api/pagos/:id/evaluacion` sin el módulo → 403 `MODULO_NO_ACTIVO`.
 
+### Oferta Gratis / Pro (28-oct-2026)
+- **Gratis**: hasta `unidades_maximas` (20) unidades por condominio; recibos, cobranza, importar el Excel, medios de pago, portal del vecino, vouchers validados a mano y avisos por correo. SIN IA de vouchers, WhatsApp, asistente, mora automática ni reportes.
+- **Pro** y **Administradora**: todas las capacidades (`modulos_incluidos` = `ia_vouchers`, `whatsapp_avisos`, `asistente`, `mora_automatica`, `reportes`) y un MÍNIMO de `unidades_minimas` (20) unidades cobradas por condominio: `total = max(unidades, mínimo) × precio`, el IGV una sola vez (Pro 10 deptos = 59.00; 100 = 295.00; Administradora 10 = 47.20). **Cortesía** trae todas las capacidades siempre (aunque la fila del plan aún no las liste), sin cobro.
+- **Mora automática**: en Gratis no se agrega mora al emitir el recibo ni al importar el Excel (el recibo se emite igual, `mora.cantidad = 0`) y los recordatorios no la mencionan; `mora_monto` del condominio no se borra. La multa que ya trae el Excel de la administradora sí se respeta.
+- **Reportes** (`GET /api/reportes/morosidad`): sin la capacidad `reportes` → **403** `MODULO_NO_ACTIVO` con `modulo: 'reportes'` y `error: «Reportes y exportes» está disponible en el plan Pro. Pasa a Pro desde Mi plan`. Un admin con varios condominios sólo ve los que la tienen; el superadmin siempre entra.
+- **Límite**: crear una unidad (`POST /api/unidades`) o mover una a otro condominio (`PUT` con otro `complejo_id`) por encima de `unidades_maximas` del plan que cuenta → **403** `{ error: 'El plan Gratis llega hasta 20 departamentos; pasa a Pro desde Mi plan', code: 'LIMITE_UNIDADES', limite, actuales }`. Nunca se borra ni se esconde nada: quien ya tiene más sólo deja de poder agregar. Un plan vencido pasada la gracia cuenta como Gratis. (Importar el Excel de recibos no crea unidades: sólo salta las filas sin unidad.)
+- **Módulos sueltos**: ya no se piden ni se cotizan; una suscripción que ya los tenía los conserva (se cobran por las unidades reales, sin mínimo) hasta que cambie de plan.
+- **Script** para una base existente: `npx tsx scripts/oferta-gratis-pro.ts [--seco]` (idempotente; no toca precios ni suscripciones).
+
 ### Esquema (aditivo)
-`ModuloComercial`, `PlanComercial`, `SuscripcionCondominio` (`complejo_id` único; `plan_clave`, `modulos`, `estado`, `vigente_hasta`, solicitud, marcas de avisos por periodo, `proveedor_pago`/`proveedor_ref` reservados para el cobro con tarjeta), `PagoSuscripcion`, `ConfiguracionComercial` (fila id = 1), `TokenVerificacionCorreo`, `Usuario.correo_verificado` (default true).
+`PlanComercial.unidades_maximas Int?` y `unidades_minimas Int?`. `ModuloComercial`, `PlanComercial`, `SuscripcionCondominio` (`complejo_id` único; `plan_clave`, `modulos`, `estado`, `vigente_hasta`, solicitud, marcas de avisos por periodo, `proveedor_pago`/`proveedor_ref` reservados para el cobro con tarjeta), `PagoSuscripcion`, `ConfiguracionComercial` (fila id = 1), `TokenVerificacionCorreo`, `Usuario.correo_verificado` (default true).
 
 ## Recibo impreso: lecturas de agua, deuda acumulada y datos del recibo (27-oct-2026)
 

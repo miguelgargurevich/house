@@ -3,7 +3,7 @@ import { prisma } from '../db';
 import { forbidden, notFound } from '../errors';
 import { scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
-import { ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS } from '../services/comercial/catalogo';
+import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS } from '../services/comercial/catalogo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { invalidarComercial } from '../services/comercial/modulos';
 import { cambiarSuscripcion, cancelarSolicitud, catalogoPublico, datosParaPagar, pagoVista, registrarPago, solicitar, vistas } from '../services/comercial/suscripciones';
@@ -11,10 +11,12 @@ import { fechaSchema, idSchema, listQuerySchema, parse, parseBody, parseQuery, t
 
 const precio = z.union([z.number(), z.string()], { error: 'Precio inválido' }).transform((v) => String(v).trim()).pipe(z.string().regex(/^\d{1,6}(\.\d{1,4})?$/, 'Precio inválido (máx. 4 decimales)'));
 const moduloEnum = z.enum(MODULOS, { error: `Módulo inválido (${MODULOS.join(', ')})` });
+const capacidadEnum = z.enum(CAPACIDADES, { error: `Capacidad inválida (${CAPACIDADES.join(', ')})` });
 const claveParams = z.object({ clave: z.string().min(1).max(40) });
 const complejoParams = z.object({ complejoId: idSchema });
 
-const solicitudSchema = z.object({ plan: z.string().max(40).nullish().transform((v) => v ?? null), modulos: z.array(moduloEnum).max(MODULOS.length).default([]) });
+/** Los módulos ya no se piden sueltos (una clave `modulos` en el body se ignora): se pide un plan y trae todo. */
+const solicitudSchema = z.object({ plan: z.string({ error: 'Elige un plan' }).min(1, 'Elige un plan').max(40) });
 
 const cambioSchema = z.object({
   plan_clave: z.string().min(1).max(40).optional(),
@@ -39,7 +41,9 @@ const planSchema = z.object({
   nombre: texto(80).optional(),
   descripcion: textoOpcional(300),
   precio_por_unidad: precio.optional(),
-  modulos_incluidos: z.array(moduloEnum).max(MODULOS.length).optional(),
+  modulos_incluidos: z.array(capacidadEnum).max(CAPACIDADES.length).optional(),
+  unidades_maximas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
+  unidades_minimas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
   caracteristicas: z.array(texto(120)).max(12).optional(),
   igv_incluido: z.boolean().optional(),
   visible: z.boolean().optional(),
@@ -92,7 +96,7 @@ comercialRouter.get('/mi-plan', requireRole('admin'), async (req, res) => {
 
 /** @openapi
  * /api/comercial/mi-plan/{complejoId}/solicitud:
- *   post: { summary: "Solicita un plan o módulos para un condominio (avisa al superadmin; no activa nada)", tags: [Comercial], responses: { 200: { description: "Vista del condominio" }, 404: { description: "No es de tu empresa" } } }
+ *   post: { summary: "Solicita un plan (Pro o Administradora) para un condominio (avisa al superadmin; no activa nada)", tags: [Comercial], responses: { 200: { description: "Vista del condominio" }, 404: { description: "No es de tu empresa" } } }
  *   delete: { summary: "Cancela la solicitud pendiente", tags: [Comercial], responses: { 204: { description: "Cancelada" } } } */
 comercialRouter.post('/mi-plan/:complejoId/solicitud', requireRole('admin'), async (req, res) => {
   const { complejoId } = parse(complejoParams, req.params);
@@ -103,7 +107,7 @@ comercialRouter.post('/mi-plan/:complejoId/solicitud', requireRole('admin'), asy
   res.locals.entidad = 'suscripcion';
   res.locals.entidadId = id;
   res.locals.accion = 'solicitar';
-  res.locals.auditDetalle = { complejo_id: id, plan: body.plan, modulos: body.modulos };
+  res.locals.auditDetalle = { complejo_id: id, plan: body.plan };
   res.json((await vistas([id]))[0]);
 });
 
@@ -205,7 +209,7 @@ comercialRouter.put('/planes/:clave', superadmin, async (req, res) => {
   invalidarComercial();
   res.locals.entidad = 'plan_comercial';
   res.locals.accion = 'editar';
-  res.locals.auditDetalle = { plan: clave, ...(body.precio_por_unidad !== undefined ? { precio_por_unidad: body.precio_por_unidad } : {}), ...(body.modulos_incluidos ? { modulos_incluidos: body.modulos_incluidos } : {}), ...(body.visible !== undefined ? { visible: body.visible } : {}) };
+  res.locals.auditDetalle = { plan: clave, ...(body.precio_por_unidad !== undefined ? { precio_por_unidad: body.precio_por_unidad } : {}), ...(body.modulos_incluidos ? { modulos_incluidos: body.modulos_incluidos } : {}), ...(body.unidades_maximas !== undefined ? { unidades_maximas: body.unidades_maximas } : {}), ...(body.unidades_minimas !== undefined ? { unidades_minimas: body.unidades_minimas } : {}), ...(body.visible !== undefined ? { visible: body.visible } : {}) };
   res.json(p);
 });
 

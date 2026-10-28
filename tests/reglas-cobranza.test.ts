@@ -13,6 +13,7 @@ import { plantilla } from '../src/server/services/avisos/plantillas';
 import { decidirFecha, DIAS_ANTES_EMISION_VOUCHER } from '../src/server/services/fechaVoucher';
 import { evaluacionDeps, esperarEvaluaciones } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
+import { invalidarComercial } from '../src/server/services/comercial/modulos';
 import { agregarMora, CONCEPTO_MORA, esConceptoMora, evaluarMora, informeDeMora, moraDeps } from '../src/server/services/mora';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
 import { limpiarTodo } from '../src/server/lib/cooldown';
@@ -400,6 +401,22 @@ describe('recordatorios: por_vencer (2 días antes) y vence_hoy (el día), sin v
       for (const x of await delUsuario(e.usuario.id)) assert.doesNotMatch(x.cuerpo, /mora/);
     } finally {
       await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { mora_monto: 20 } });
+    }
+  });
+
+  it('en el plan Gratis (sin mora automática) el recordatorio no promete la mora aunque el condominio tenga un monto configurado', async () => {
+    const e = await escenario();
+    const sus = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: d.complejoA.id } });
+    await prisma.suscripcionCondominio.update({ where: { complejo_id: d.complejoA.id }, data: { plan_clave: 'gratis', modulos: [], estado: 'gratis' } });
+    invalidarComercial();
+    try {
+      await encolarRecordatorios(lima('2026-11-02T17:00:00Z'));
+      const ns = await delUsuario(e.usuario.id);
+      assert.ok(ns.length > 0, 'el recordatorio sí sale (el correo es gratis)');
+      for (const x of ns) assert.doesNotMatch(x.cuerpo, /mora/);
+    } finally {
+      await prisma.suscripcionCondominio.update({ where: { complejo_id: d.complejoA.id }, data: { plan_clave: sus.plan_clave, modulos: sus.modulos, estado: sus.estado } });
+      invalidarComercial();
     }
   });
 

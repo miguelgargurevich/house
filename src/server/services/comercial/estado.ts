@@ -1,7 +1,7 @@
 // Qué módulos tiene HOY un condominio. Se calcula con `vigente_hasta` y el reloj (no depende de que el planificador haya corrido):
 // una suscripción vencida pasada la gracia se comporta como Gratis. Nunca se borra ni se bloquea nada: sólo se apagan los módulos.
 import { diasEntre, hoyLima } from '../../lib/fechas';
-import type { EstadoSuscripcion } from './catalogo';
+import { CAPACIDADES, type EstadoSuscripcion } from './catalogo';
 
 export interface EntradaSuscripcion {
   plan_clave: string;
@@ -11,13 +11,13 @@ export interface EntradaSuscripcion {
   solicitud_plan: string | null;
   solicitud_modulos: string[];
 }
-export interface PlanMinimo { clave: string; modulos_incluidos: string[] }
+export interface PlanMinimo { clave: string; modulos_incluidos: string[]; /** Tope de unidades por condominio (null = sin tope). */ unidades_maximas?: number | null }
 export interface Plazos { dias_gracia: number; dias_aviso_vencimiento: number }
 
 export interface EstadoEfectivo {
   plan_clave: string;
   estado: EstadoSuscripcion;
-  /** Módulos activos ahora (plan + sueltos), ya descontado lo vencido pasada la gracia. */
+  /** Capacidades activas ahora (módulos, mora automática, reportes; del plan + sueltos), ya descontado lo vencido pasada la gracia. */
   modulos: string[];
   /** Días que faltan para `vigente_hasta` (negativo = ya venció); null si no vence. */
   dias_para_vencer: number | null;
@@ -35,8 +35,8 @@ export function estadoEfectivo(sus: EntradaSuscripcion | null, planes: PlanMinim
   const comprados = [...new Set([...plan.modulos_incluidos, ...sus.modulos])];
   const pendiente = sus.solicitud_plan != null || sus.solicitud_modulos.length > 0;
 
-  // Cortesía: todo lo que trae el plan, sin cobro ni vencimiento.
-  if (plan.clave === 'cortesia') return { plan_clave: plan.clave, estado: 'activa', modulos: comprados, dias_para_vencer: null, en_gracia: false, apagada: false };
+  // Cortesía: todo lo que trae el plan MÁS cada capacidad del catálogo (aunque el plan en la base aún no la liste), sin cobro ni vencimiento.
+  if (plan.clave === 'cortesia') return { plan_clave: plan.clave, estado: 'activa', modulos: [...new Set([...comprados, ...CAPACIDADES])], dias_para_vencer: null, en_gracia: false, apagada: false };
 
   const sinPago = comprados.length === 0;
   if (sinPago) return { plan_clave: plan.clave, estado: pendiente ? 'solicitada' : 'gratis', modulos: [], dias_para_vencer: null, en_gracia: false, apagada: false };

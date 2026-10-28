@@ -2,6 +2,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { scopeComplejos, scopeEstructuras, scopePisos, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
+import { exigirCupoDeUnidades } from '../services/comercial/modulos';
 import { idSchema, texto, textoOpcional, z } from '../validation';
 
 /** Tipos admitidos (minúscula, sin tilde). Espejo de `src/pages/admin/_parts/unidades/tipoUnidad.ts`. */
@@ -67,6 +68,16 @@ export const unidadesRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
-  prepareCreate: validarRefs,
-  prepareUpdate: validarRefs,
+  // Tope de unidades del plan (Gratis = 20): crear por encima falla con 403 «LIMITE_UNIDADES»; lo que ya existe no se toca.
+  prepareCreate: async (d, user) => {
+    const out = await validarRefs(d, user);
+    await exigirCupoDeUnidades(out.complejo_id as number);
+    return out;
+  },
+  prepareUpdate: async (d, user, existing) => {
+    const out = await validarRefs(d, user);
+    // Mover una unidad a OTRO condominio la cuenta allá, así que también pasa por el tope.
+    if (out.complejo_id != null && out.complejo_id !== existing.complejo_id) await exigirCupoDeUnidades(out.complejo_id as number);
+    return out;
+  },
 });

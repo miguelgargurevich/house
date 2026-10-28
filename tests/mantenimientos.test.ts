@@ -2,7 +2,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
-import { cabecerasDeSesion, esperar, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
+import { cabecerasDeSesion, darCortesia, esperar, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
 import { rutaPermitida } from '../src/server/lib/rutasApp';
 import {
@@ -563,6 +563,7 @@ describe('administración: periodo agrupado por block y recibos de departamento'
 
   before(async () => {
     const complejo = await prisma.complejoHabitacional.create({ data: { nombre: 'Condominio Blocks', tipo: 'condominio', empresa_id: d.empresaA.id } });
+    await darCortesia(complejo.id); // como los condominios reales de hoy: con reportes (la morosidad es del plan Pro)
     c2 = complejo;
     b1 = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'block', complejo_id: complejo.id } });
     b2 = await prisma.estructura.create({ data: { nombre: 'Block 2', tipo: 'block', complejo_id: complejo.id } });

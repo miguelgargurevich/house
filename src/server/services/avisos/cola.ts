@@ -3,7 +3,7 @@ import { prisma } from '../../db';
 import { diasEntre, hoyLima } from '../../lib/fechas';
 import { enviarTelegram } from '../canales/telegram';
 import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, type ResultadoEnvio } from './canales';
-import { montoMoraTexto } from '../mora';
+import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
 import { fechaTexto, periodoTexto, plantilla, solesTexto, type TipoAviso } from './plantillas';
 
@@ -48,8 +48,10 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
       },
     };
   }
-  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true, mora_monto: true } } } });
+  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { id: true, nombre: true, mora_monto: true } } } });
   if (!recibo) return null;
+  // Sin mora automática (plan Gratis) el recordatorio no la promete.
+  const moraMonto = recibo.complejo ? await montoDeMoraAplicable(recibo.complejo.id, recibo.complejo.mora_monto) : new Prisma.Decimal(0);
   const soloPendientes = tipo === 'por_vencer' || tipo === 'vence_hoy' || tipo === 'vencido';
   const cargos = await prisma.reciboConceptoUnidad.findMany({
     where: {
@@ -80,7 +82,7 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
       vencimiento: fechaTexto(recibo.fecha_vencimiento),
       dias: diasEntre(hoyLima(ahora), recibo.fecha_vencimiento),
       // Los recordatorios avisan de la mora (si el condominio la cobra) para que el vecino suba su voucher a tiempo.
-      ...((tipo === 'por_vencer' || tipo === 'vence_hoy') && recibo.complejo && new Prisma.Decimal(recibo.complejo.mora_monto).gt(0) ? { mora: montoMoraTexto(new Prisma.Decimal(recibo.complejo.mora_monto)) } : {}),
+      ...((tipo === 'por_vencer' || tipo === 'vence_hoy') && moraMonto.gt(0) ? { mora: montoMoraTexto(moraMonto) } : {}),
       condominio: recibo.complejo?.nombre ?? null,
       departamentos: [...porUnidad.values()].sort((a, b) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true })).map((x) => ({ codigo: x.codigo, torre: x.torre, monto: solesTexto(x.monto) })),
     },

@@ -13,6 +13,7 @@ import { hoyLima } from '../lib/fechas';
 import { diaCalendario } from './fechaVoucher';
 import { periodoTexto } from '../lib/periodo';
 import { fechaTexto, solesTexto } from './avisos/plantillas';
+import { moduloActivo } from './comercial/modulos';
 
 type Tx = Prisma.TransactionClient;
 
@@ -21,6 +22,14 @@ export const MORA_POR_DEFECTO = '20.00';
 
 /** Reloj inyectable para pruebas (nunca se espera de verdad). */
 export const moraDeps = { ahora: (): Date => new Date() };
+
+/**
+ * La mora automática es del plan Pro (capacidad `mora_automatica`): en Gratis el monto que se aplica es 0 y el recibo se emite igual, sin mora.
+ * `configurado` es lo que el condominio tiene en `mora_monto` (no se borra al pasar a Gratis: al volver a Pro sigue ahí).
+ */
+export async function montoDeMoraAplicable(complejoId: number | null | undefined, configurado: Prisma.Decimal.Value | null | undefined): Promise<Prisma.Decimal> {
+  return (await moduloActivo(complejoId, 'mora_automatica')) ? new Prisma.Decimal(configurado ?? 0) : new Prisma.Decimal(0);
+}
 
 /** ¿El concepto es la multa del Excel de la administradora («MULTA PAGO FUERA DE FECHA(ULTIMO DIA 2 CADA MES)») o una mora? */
 export const esConceptoMora = (nombre: string | null | undefined): boolean => /\b(multa|mora)\b/i.test(nombre ?? '');

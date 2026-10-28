@@ -4,10 +4,15 @@ import { prisma } from '../../db';
 import { conflict, HttpError, invalid, notFound } from '../../errors';
 import { hoyLima } from '../../lib/fechas';
 import { esModulo, type EstadoSuscripcion } from './catalogo';
-import { cotizar, desglosarMonto, precioConIgv, type Cotizacion } from './calculo';
+import { cotizar, desglosarMonto, precioConIgv, type Cotizacion, type PrecioPlan } from './calculo';
 import { correoA, obtenerConfiguracion } from './configuracion';
 import { estadoEfectivo, type EntradaSuscripcion } from './estado';
 import { comercialDeps, invalidarComercial } from './modulos';
+
+/** La fila del plan en la forma que usa `cotizar` (precio, módulos que trae y mínimo de unidades cobradas). */
+const precioDePlan = (p: { clave: string; precio_por_unidad: Prisma.Decimal; igv_incluido: boolean; modulos_incluidos: string[]; unidades_minimas: number | null }): PrecioPlan => ({
+  clave: p.clave, precio_por_unidad: p.precio_por_unidad, igv_incluido: p.igv_incluido, modulos_incluidos: p.modulos_incluidos, unidades_minimas: p.unidades_minimas,
+});
 
 export interface VistaSuscripcion {
   complejo_id: number;
@@ -23,6 +28,12 @@ export interface VistaSuscripcion {
   dias_para_vencer: number | null;
   en_gracia: boolean;
   unidades_facturables: number;
+  /** Unidades que se cobran: `max(unidades, mínimo del plan)`. */
+  unidades_cobradas: number;
+  /** Tope de unidades del plan que cuenta ahora (Gratis = 20); null = sin tope. */
+  unidades_maximas: number | null;
+  /** Mínimo de unidades que cobra el plan contratado (Pro y Administradora = 20); null = sin mínimo. */
+  unidades_minimas: number | null;
   /** Lo que corresponde pagar al mes con lo contratado. */
   cotizacion: Cotizacion;
   solicitud: { plan: string | null; modulos: string[]; en: Date | null; cotizacion: Cotizacion } | null;
@@ -59,7 +70,9 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
     const ef = estadoEfectivo(entrada, planes, plazos, ahora);
     const plan = planDe(ef.plan_clave) ?? planDe('gratis');
     const n = uni.get(c.id) ?? 0;
-    const precio = plan ? { clave: plan.clave, precio_por_unidad: plan.precio_por_unidad, igv_incluido: plan.igv_incluido, modulos_incluidos: plan.modulos_incluidos } : null;
+    const precio = plan ? precioDePlan(plan) : null;
+    // Vencido y apagado se comporta como Gratis también para el tope de unidades.
+    const planTope = ef.apagada ? planDe('gratis') : plan;
     const sueltos = s?.modulos ?? [];
     // Cortesía no cobra nada aunque su plan traiga todo.
     const cobra = ef.plan_clave !== 'cortesia';
@@ -67,7 +80,7 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
     let solicitud: VistaSuscripcion['solicitud'] = null;
     if (s && (s.solicitud_plan || s.solicitud_modulos.length)) {
       const planSol = planDe(s.solicitud_plan) ?? plan;
-      const psol = planSol ? { clave: planSol.clave, precio_por_unidad: planSol.precio_por_unidad, igv_incluido: planSol.igv_incluido, modulos_incluidos: planSol.modulos_incluidos } : null;
+      const psol = planSol ? precioDePlan(planSol) : null;
       solicitud = { plan: s.solicitud_plan, modulos: s.solicitud_modulos, en: s.solicitada_at, cotizacion: cotizar({ unidades: n, plan: psol, modulosSueltos: [...new Set([...sueltos, ...s.solicitud_modulos])], catalogo: catalogoPrecios, tasa: cfg.igv_tasa }) };
     }
     return {
@@ -82,6 +95,9 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       dias_para_vencer: ef.dias_para_vencer,
       en_gracia: ef.en_gracia,
       unidades_facturables: n,
+      unidades_cobradas: cot.unidades_cobradas,
+      unidades_maximas: planTope?.unidades_maximas ?? null,
+      unidades_minimas: cobra ? plan?.unidades_minimas ?? null : null,
       cotizacion: cot,
       solicitud,
       referencia_pago: referenciaPago(c.id, ahora),
@@ -97,26 +113,22 @@ export async function datosParaPagar() {
 }
 
 // ---------- Solicitud del cliente ----------
-export async function solicitar(complejoId: number, d: { plan: string | null; modulos: string[] }, quien: { nombre: string; email: string }): Promise<void> {
+export async function solicitar(complejoId: number, d: { plan: string }, quien: { nombre: string; email: string }): Promise<void> {
   const planes = await prisma.planComercial.findMany({ where: { visible: true, clave: { notIn: ['gratis', 'cortesia'] } }, select: { clave: true } });
-  const modulos = [...new Set(d.modulos)];
-  if (d.plan && !planes.some((p) => p.clave === d.plan)) throw invalid('Datos inválidos: plan: ese plan no está disponible', { plan: 'Plan no disponible' });
-  const validos = new Set((await prisma.moduloComercial.findMany({ where: { activo: true }, select: { clave: true } })).map((m) => m.clave));
-  for (const m of modulos) if (!esModulo(m) || !validos.has(m)) throw invalid(`Datos inválidos: modulos: «${m}» no está disponible`, { modulos: 'Módulo no disponible' });
-  if (!d.plan && !modulos.length) throw invalid('Elige un plan o al menos un módulo', { modulos: 'Elige al menos uno' });
+  // Los módulos ya no se piden sueltos: se pide un plan (Pro o Administradora) y trae todo.
+  if (!planes.some((p) => p.clave === d.plan)) throw invalid('Datos inválidos: plan: ese plan no está disponible', { plan: 'Plan no disponible' });
   const actual = await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId }, select: { estado: true } });
   const guardado = !actual || actual.estado === 'gratis' || actual.estado === 'activa' ? 'solicitada' : actual.estado; // por_vencer / vencida siguen siendo lo que son
   await prisma.suscripcionCondominio.upsert({
     where: { complejo_id: complejoId },
-    create: { complejo_id: complejoId, solicitud_plan: d.plan, solicitud_modulos: modulos, solicitada_at: comercialDeps.ahora(), estado: 'solicitada' },
-    update: { solicitud_plan: d.plan, solicitud_modulos: modulos, solicitada_at: comercialDeps.ahora(), estado: guardado },
+    create: { complejo_id: complejoId, solicitud_plan: d.plan, solicitud_modulos: [], solicitada_at: comercialDeps.ahora(), estado: 'solicitada' },
+    update: { solicitud_plan: d.plan, solicitud_modulos: [], solicitada_at: comercialDeps.ahora(), estado: guardado },
   });
   invalidarComercial(complejoId);
   const [v] = await vistas([complejoId]);
   const cfg = await obtenerConfiguracion();
   if (cfg.correo_superadmin) {
-    const pedido = [d.plan ? `plan ${d.plan}` : null, modulos.length ? `módulos: ${modulos.join(', ')}` : null].filter(Boolean).join(' + ');
-    await correoA(cfg.correo_superadmin, `Solicitud de plan: ${v.complejo}`, `${quien.nombre} (${quien.email}) de ${v.empresa?.nombre ?? 'sin empresa'} pidió ${pedido} para «${v.complejo}» (${v.unidades_facturables} departamentos).\nMonto al mes con lo pedido: S/ ${v.solicitud?.cotizacion.total_mes ?? '—'} (IGV incluido).\nReferencia de pago: ${v.referencia_pago}.\nActívalo desde Suscripciones cuando llegue el pago.`).catch(() => undefined);
+    await correoA(cfg.correo_superadmin, `Solicitud de plan: ${v.complejo}`, `${quien.nombre} (${quien.email}) de ${v.empresa?.nombre ?? 'sin empresa'} pidió el plan ${d.plan} para «${v.complejo}» (${v.unidades_facturables} departamentos${v.unidades_cobradas > v.unidades_facturables ? `; se cobra el mínimo de ${v.unidades_cobradas}` : ''}).\nMonto al mes con lo pedido: S/ ${v.solicitud?.cotizacion.total_mes ?? '—'} (IGV incluido).\nReferencia de pago: ${v.referencia_pago}.\nActívalo desde Suscripciones cuando llegue el pago.`).catch(() => undefined);
   }
 }
 
@@ -146,9 +158,12 @@ export async function cambiarSuscripcion(complejoId: number, c: CambioSuscripcio
   for (const m of c.modulos ?? []) if (!esModulo(m)) throw invalid(`Datos inválidos: modulos: «${m}» no es un módulo`, { modulos: 'Módulo inexistente' });
   // Elegir plan o módulos resuelve la solicitud del cliente.
   const resuelve = c.plan_clave !== undefined || c.modulos !== undefined;
+  // Los módulos sueltos de una suscripción antigua se respetan hasta que cambie de plan; al cambiarlo se vacían (el plan nuevo trae lo suyo), salvo que se pidan a la vez.
+  const actual = c.plan_clave !== undefined && c.modulos === undefined ? await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId }, select: { plan_clave: true } }) : null;
+  const cambiaDePlan = c.plan_clave !== undefined && c.modulos === undefined && (actual?.plan_clave ?? 'gratis') !== c.plan_clave;
   const datos: Prisma.SuscripcionCondominioUncheckedUpdateInput = {
     ...(c.plan_clave !== undefined ? { plan_clave: c.plan_clave } : {}),
-    ...(c.modulos !== undefined ? { modulos: [...new Set(c.modulos)] } : {}),
+    ...(c.modulos !== undefined ? { modulos: [...new Set(c.modulos)] } : cambiaDePlan ? { modulos: [] } : {}),
     ...(c.vigente_hasta !== undefined ? { vigente_hasta: c.vigente_hasta } : {}),
     ...(c.notas !== undefined ? { notas: c.notas } : {}),
     ...(resuelve ? { solicitud_plan: null, solicitud_modulos: [], solicitada_at: null } : {}),
@@ -177,7 +192,9 @@ export async function registrarPago(complejoId: number, d: DatosPago, registrado
     const s = await tx.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId } });
     if (d.operacion && (await tx.pagoSuscripcion.findFirst({ where: { complejo_id: complejoId, operacion: d.operacion }, select: { id: true } }))) throw conflict('Ya hay un pago registrado con esa operación para este condominio');
     const plan = s?.solicitud_plan ?? s?.plan_clave ?? 'gratis';
-    const modulos = [...new Set([...(s?.modulos ?? []), ...(s?.solicitud_modulos ?? [])])];
+    // Pagar un plan distinto del actual deja los módulos sueltos viejos atrás (el plan nuevo trae lo suyo); con el mismo plan se conservan.
+    const cambiaDePlan = s?.solicitud_plan != null && s.solicitud_plan !== s.plan_clave;
+    const modulos = [...new Set([...(cambiaDePlan ? [] : s?.modulos ?? []), ...(s?.solicitud_modulos ?? [])])];
     const planFila = await tx.planComercial.findUnique({ where: { clave: plan }, select: { modulos_incluidos: true } });
     if (plan === 'gratis' && !modulos.length) throw conflict('Este condominio está en Gratis y no tiene módulos: cambia su plan o sus módulos antes de registrar el pago');
     if (plan === 'cortesia' && !modulos.length && !(planFila?.modulos_incluidos.length ?? 0)) throw conflict('Un condominio en cortesía no paga');
@@ -210,17 +227,23 @@ export async function catalogoPublico() {
   return {
     moneda: 'PEN',
     igv_incluido: true,
-    planes: planes.map((p) => ({ clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precioConIgv(p.precio_por_unidad, cfg.igv_tasa, p.igv_incluido).toFixed(2), modulos_incluidos: p.modulos_incluidos, caracteristicas: p.caracteristicas })),
-    modulos: modulos.map((m) => ({ clave: m.clave, nombre: m.nombre, descripcion: m.descripcion, precio_por_unidad: precioConIgv(m.precio_por_unidad, cfg.igv_tasa).toFixed(2) })),
+    planes: planes.map((p) => ({
+      clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precioConIgv(p.precio_por_unidad, cfg.igv_tasa, p.igv_incluido).toFixed(2), modulos_incluidos: p.modulos_incluidos, caracteristicas: p.caracteristicas,
+      unidades_maximas: p.unidades_maximas, unidades_minimas: p.unidades_minimas,
+      // Lo menos que paga un condominio con este plan (el mínimo de unidades × el precio, con IGV), calculado aquí para que la página no haga cuentas.
+      total_minimo_mes: p.unidades_minimas ? cotizar({ unidades: 0, plan: precioDePlan(p), modulosSueltos: [], catalogo: [], tasa: cfg.igv_tasa }).total_mes : null,
+    })),
+    // Los módulos ya no se venden sueltos: se muestran como «lo que trae Pro» (sin precio).
+    modulos: modulos.map((m) => ({ clave: m.clave, nombre: m.nombre, descripcion: m.descripcion })),
     registro_abierto: cfg.registro_abierto,
   };
 }
 
-/** Cotización pública (con IGV incluido): el mismo cálculo que Mi plan, sin precios en el código del frontend. */
-export async function cotizacionPublica(unidades: number, planClave: string | null, modulos: string[]) {
-  const [planes, catalogo, cfg] = await Promise.all([prisma.planComercial.findMany({ where: { visible: true } }), prisma.moduloComercial.findMany({ where: { activo: true } }), obtenerConfiguracion()]);
+/** Cotización pública (con IGV incluido): el mismo cálculo que Mi plan (con el mínimo de unidades del plan), sin precios en el código del frontend. Sin módulos sueltos. */
+export async function cotizacionPublica(unidades: number, planClave: string | null) {
+  const [planes, cfg] = await Promise.all([prisma.planComercial.findMany({ where: { visible: true } }), obtenerConfiguracion()]);
   const plan = planClave ? planes.find((p) => p.clave === planClave) : null;
   if (planClave && !plan) throw new HttpError(422, 'Datos inválidos: plan: no existe', { plan: 'Plan inexistente' });
-  const c = cotizar({ unidades, plan: plan ? { clave: plan.clave, precio_por_unidad: plan.precio_por_unidad, igv_incluido: plan.igv_incluido, modulos_incluidos: plan.modulos_incluidos } : null, modulosSueltos: modulos.filter((m) => catalogo.some((x) => x.clave === m)), catalogo: catalogo.map((m) => ({ clave: m.clave, precio_por_unidad: m.precio_por_unidad })), tasa: cfg.igv_tasa });
-  return { unidades: c.unidades, total_mes: c.total_mes, total_anio: c.total_anio, igv_incluido: true };
+  const c = cotizar({ unidades, plan: plan ? precioDePlan(plan) : null, modulosSueltos: [], catalogo: [], tasa: cfg.igv_tasa });
+  return { unidades: c.unidades, unidades_cobradas: c.unidades_cobradas, minimo_aplicado: c.minimo_aplicado, total_mes: c.total_mes, total_anio: c.total_anio, igv_incluido: true };
 }

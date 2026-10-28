@@ -813,6 +813,10 @@ model PlanComercial {
   igv_incluido      Boolean  @default(false)
   visible           Boolean  @default(true)
   orden             Int      @default(0)
+  /// Tope de unidades por condominio (Gratis = 20). null = sin tope. Crear unidades por encima falla; nunca se borra nada.
+  unidades_maximas  Int?
+  /// Unidades mínimas que se cobran por condominio (Pro y Administradora = 20): total = max(unidades, mínimo) × precio. null = sin mínimo.
+  unidades_minimas  Int?
   updated_at        DateTime @updatedAt
 }
 

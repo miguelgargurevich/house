@@ -5,6 +5,7 @@ import { decimalAString, filtroEstadoCargo } from '../lib/cargos';
 import { diasEntre, hoyLima } from '../lib/fechas';
 import { scopeCargos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
+import { complejosConModulo, complejosDe, moduloNoActivo } from '../services/comercial/modulos';
 import { idSchema, listQuerySchema, parse, parseOrden } from '../validation';
 
 export const reportesRouter = Router();
@@ -16,10 +17,17 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
   const q = parse(listQuerySchema.extend({ estructura_id: idSchema.optional(), complejo_id: idSchema.optional() }), req.query);
   const [campo, dir] = Object.entries(parseOrden(q.orden, ORDENABLES, { dias_max_atraso: 'desc' }))[0];
   const hoy = hoyLima();
+  // Los reportes son del plan Pro: sólo cuentan los condominios que lo tienen. Si ninguno de los tuyos lo tiene (o el que pides es tuyo y no lo tiene),
+  // 403 «Disponible en el plan Pro». Un condominio que no es tuyo sigue dando una lista vacía (no revela que existe), como siempre.
+  const [alcance, conReportes] = await Promise.all([complejosDe(u), complejosConModulo(u, 'reportes')]);
+  if (alcance !== null && conReportes !== null && alcance.length > 0) {
+    const pedidoEsMio = q.complejo_id !== undefined && alcance.includes(q.complejo_id);
+    if (conReportes.length === 0 || (pedidoEsMio && !conReportes.includes(q.complejo_id!))) throw moduloNoActivo('reportes');
+  }
 
   const cargos = await prisma.reciboConceptoUnidad.findMany({
     where: {
-      AND: [scopeCargos(u), filtroEstadoCargo('vencido', hoy), { unidad_id: { not: null } }, q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' } } } : {}, q.estructura_id !== undefined ? { unidad: { estructura_id: q.estructura_id } } : {}, q.complejo_id !== undefined ? { unidad: { complejo_id: q.complejo_id } } : {}],
+      AND: [scopeCargos(u), filtroEstadoCargo('vencido', hoy), { unidad_id: { not: null } }, ...(conReportes !== null ? [{ unidad: { complejo_id: { in: conReportes } } }] : []), q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' } } } : {}, q.estructura_id !== undefined ? { unidad: { estructura_id: q.estructura_id } } : {}, q.complejo_id !== undefined ? { unidad: { complejo_id: q.complejo_id } } : {}],
     },
     select: { unidad_id: true, monto: true, reciboConcepto: { select: { recibo: { select: { fecha_vencimiento: true } } } } },
   });

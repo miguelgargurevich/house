@@ -114,7 +114,7 @@ describe('estado de la suscripción según el reloj', () => {
   it('cortesía: todos los módulos y sin vencimiento aunque tuviera una fecha vieja', () => {
     const e = ef(sus({ plan_clave: 'cortesia', vigente_hasta: dia('2020-01-01') }));
     assert.equal(e.estado, 'activa');
-    assert.equal(e.modulos.length, 3);
+    assert.deepEqual([...e.modulos].sort(), ['asistente', 'ia_vouchers', 'mora_automatica', 'reportes', 'whatsapp_avisos'], 'cortesía trae los 3 módulos + mora automática + reportes, aunque el plan en la base aún no los liste');
   });
   it('módulos sueltos con vigencia vencida pasada la gracia también se apagan', () => {
     const e = ef(sus({ plan_clave: 'gratis', modulos: ['asistente'], vigente_hasta: dia('2026-09-01') }));
@@ -189,7 +189,7 @@ describe('seed del catálogo y migración a cortesía', () => {
       assert.equal(s.plan_clave, 'cortesia');
       assert.equal(s.vigente_hasta, null);
       assert.deepEqual([...s.modulos].sort(), ['asistente', 'ia_vouchers', 'whatsapp_avisos']);
-      assert.deepEqual([...(await estadoDeComplejo(c.id)).modulos].sort(), ['asistente', 'ia_vouchers', 'whatsapp_avisos']);
+      assert.deepEqual([...(await estadoDeComplejo(c.id)).modulos].sort(), ['asistente', 'ia_vouchers', 'mora_automatica', 'reportes', 'whatsapp_avisos']);
     }
     assert.deepEqual(await migrarACortesia(prisma), { sinSuscripcion: 0, creadas: 0, yaTenian: 2 });
   });

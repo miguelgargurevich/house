@@ -17,7 +17,7 @@ import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
 import { detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
 import { detalleMantenimiento, pagarMantenimiento, type ComprobanteAdjunto } from '../services/mantenimiento';
 import { iniciarEvaluacion } from '../services/evaluacion';
-import { agregarMora, esConceptoMora, informeDeMora, type InformeMora, type UnidadConMora } from '../services/mora';
+import { agregarMora, esConceptoMora, informeDeMora, montoDeMoraAplicable, type InformeMora, type UnidadConMora } from '../services/mora';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
@@ -115,7 +115,7 @@ async function planDeEmision(tx: Prisma.TransactionClient, complejoId: number, e
 async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser): Promise<{ ids: number[]; mora: InformeMora; avisosMora: string[] }> {
   const complejo = await assertRef(prisma.complejoHabitacional, d.complejo_id, scopeComplejos(user), 'complejo_id');
   const empresa_id = complejo!.empresa_id as number | null;
-  const montoMora = new Prisma.Decimal((complejo!.mora_monto as Prisma.Decimal | undefined) ?? 0);
+  const montoMora = await montoDeMoraAplicable(d.complejo_id, complejo!.mora_monto as Prisma.Decimal | undefined);
   const ids = [...new Set(d.conceptos.map((c) => c.concepto_id))];
   let multaPropia = false;
   if (ids.length) {
@@ -501,7 +501,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
 
   // La multa que ya trae el Excel de la administradora («MULTA PAGO FUERA DE FECHA…»): si una unidad la trae con monto > 0 se respeta y no se le suma mora encima.
   const columnasMora = new Set(columnasConcepto.filter((c) => esConceptoMora(c.nombre)).map((c) => c.indice));
-  const montoMora = new Prisma.Decimal((complejo!.mora_monto as Prisma.Decimal | undefined) ?? 0);
+  const montoMora = await montoDeMoraAplicable(complejoId, complejo!.mora_monto as Prisma.Decimal | undefined);
   const moraPorRecibo: { reciboId: number; torre: string | null; unidades: UnidadConMora[] }[] = [];
 
   const conceptosMap = new Map<string, number>();

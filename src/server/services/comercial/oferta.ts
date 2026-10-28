@@ -1,0 +1,39 @@
+// La oferta «Gratis con límite o Pro con todo»: pone en una base YA existente los valores que una base nueva recibe de `PLANES_SEED`
+// (tope de Gratis, mínimo de Pro y Administradora, capacidades de cada plan y textos). Idempotente: correrlo dos veces deja lo mismo.
+// Precios y estado de las suscripciones no se tocan (Los Libertadores sigue en cortesía).
+import type { PrismaClient } from '@prisma/client';
+import { CAPACIDADES, PLANES_SEED, sembrarCatalogoComercial } from './catalogo';
+import { invalidarComercial } from './modulos';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Cliente = Pick<PrismaClient<any, any, any>, 'moduloComercial' | 'planComercial' | 'configuracionComercial'>;
+
+export interface CambioDePlan { clave: string; cambios: string[] }
+
+const igual = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/** Lo que hay que cambiar en cada plan para que quede como la oferta nueva. Con `seco` no escribe nada. */
+export async function ajustarOfertaGratisPro(db: Cliente, opts: { seco?: boolean } = {}): Promise<CambioDePlan[]> {
+  if (!opts.seco) await sembrarCatalogoComercial(db);
+  const filas = await db.planComercial.findMany();
+  const informe: CambioDePlan[] = [];
+  for (const seed of PLANES_SEED) {
+    const fila = filas.find((p) => p.clave === seed.clave);
+    if (!fila) { informe.push({ clave: seed.clave, cambios: ['plan nuevo'] }); continue; }
+    const cambios: string[] = [];
+    const data: Record<string, unknown> = {};
+    if (fila.unidades_maximas !== seed.unidades_maximas) { cambios.push(`unidades_maximas ${fila.unidades_maximas ?? '—'} → ${seed.unidades_maximas ?? '—'}`); data.unidades_maximas = seed.unidades_maximas; }
+    if (fila.unidades_minimas !== seed.unidades_minimas) { cambios.push(`unidades_minimas ${fila.unidades_minimas ?? '—'} → ${seed.unidades_minimas ?? '—'}`); data.unidades_minimas = seed.unidades_minimas; }
+    // Gratis no trae nada; el resto trae todas las capacidades (se conserva el orden de las que ya tenía y se agregan las que faltan).
+    const quiere = seed.modulos_incluidos.length ? [...fila.modulos_incluidos.filter((m) => (CAPACIDADES as readonly string[]).includes(m)), ...CAPACIDADES.filter((c) => !fila.modulos_incluidos.includes(c))] : [];
+    if (!igual(fila.modulos_incluidos, quiere)) { cambios.push(`modulos_incluidos → ${quiere.join(', ') || '(ninguno)'}`); data.modulos_incluidos = quiere; }
+    if (fila.descripcion !== seed.descripcion) { cambios.push('descripcion'); data.descripcion = seed.descripcion; }
+    if (!igual(fila.caracteristicas, seed.caracteristicas)) { cambios.push('caracteristicas'); data.caracteristicas = [...seed.caracteristicas]; }
+    if (cambios.length) {
+      informe.push({ clave: seed.clave, cambios });
+      if (!opts.seco) await db.planComercial.update({ where: { clave: seed.clave }, data });
+    }
+  }
+  if (!opts.seco) invalidarComercial();
+  return informe;
+}

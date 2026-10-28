@@ -110,7 +110,9 @@ describe('Mi plan: cada empresa ve y cambia sólo lo suyo (otro tenant → 404)'
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.estado, 'solicitada');
     assert.equal(r.body.solicitud.plan, 'pro');
-    assert.equal(r.body.solicitud.cotizacion.total_mes, '5.90', '2 deptos × 2,50 = 5,00 + IGV 0,90');
+    assert.equal(r.body.solicitud.cotizacion.total_mes, '59.00', '2 deptos pero Pro cobra mínimo 20: 20 × 2,50 = 50,00 + IGV 9,00');
+    assert.equal(r.body.solicitud.cotizacion.unidades_cobradas, 20);
+    assert.equal(r.body.solicitud.cotizacion.minimo_aplicado, true);
     assert.equal(r.body.plan.clave, 'gratis', 'el plan no cambia hasta que se paga');
     assert.deepEqual(r.body.modulos_activos, []);
     assert.equal(await moduloActivo(d.complejoA.id, 'asistente'), false, 'pedir no es tener');
@@ -120,9 +122,11 @@ describe('Mi plan: cada empresa ve y cambia sólo lo suyo (otro tenant → 404)'
     assert.match(c.cuerpo, /HOUSE-\d+-\d{6}/);
   });
 
-  it('solicitar módulos sueltos; validaciones: nada elegido, plan o módulo inexistente, cortesía no se pide', async () => {
-    assert.equal((await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, { modulos: ['asistente'] })).status, 200);
-    for (const cuerpo of [{}, { plan: 'cortesia' }, { plan: 'inventado' }, { plan: 'gratis' }, { modulos: ['telepatia'] }]) {
+  it('los módulos ya no se piden sueltos: sólo un plan; validaciones: nada elegido, sólo módulos, plan inexistente, cortesía y gratis no se piden', async () => {
+    const ok = await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, { plan: 'pro', modulos: ['asistente'] });
+    assert.equal(ok.status, 200, ok.texto);
+    assert.deepEqual(ok.body.solicitud.modulos, [], 'los módulos del cuerpo se ignoran: el plan trae todo');
+    for (const cuerpo of [{}, { plan: 'cortesia' }, { plan: 'inventado' }, { plan: 'gratis' }, { modulos: ['asistente'] }, { modulos: ['telepatia'] }]) {
       const r = await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, cuerpo);
       assert.equal(r.status, 422, JSON.stringify(cuerpo));
     }
@@ -262,10 +266,10 @@ describe('superadmin: lista, cambios y pagos', () => {
 
   it('editar precios y módulos: se reflejan en Mi plan y en la página pública al instante; el precio se valida; queda auditado', async () => {
     await fijar(d.complejoA.id, { plan_clave: 'pro', vigente_hasta: new Date(HOY + 30 * DIA) });
-    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '5.90');
+    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '59.00', 'mínimo de 20 deptos: 20 × 2,50 = 50,00 + IGV 9,00');
     const r = await llamar(base, 'PUT', '/api/comercial/planes/pro', T.super, { precio_por_unidad: '3.00' });
     assert.equal(r.status, 200, r.texto);
-    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '7.08', '2 × 3,00 = 6,00 + 1,08');
+    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '70.80', '20 (mínimo) × 3,00 = 60,00 + 10,80');
     assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '3.54');
     const m = await llamar(base, 'PUT', '/api/comercial/modulos/asistente', T.super, { precio_por_unidad: '0.80', nombre: 'Asistente PRO', activo: false });
     assert.equal(m.status, 200);
@@ -311,7 +315,7 @@ describe('vencimientos en el planificador', () => {
     assert.equal(r1.correos, 1);
     const c = aAdmin()[0];
     assert.match(c.asunto, /vence el/);
-    assert.match(c.cuerpo, /S\/ 5\.90 al mes \(IGV incluido\)/);
+    assert.match(c.cuerpo, /S\/ 59\.00 al mes \(IGV incluido\)/);
     assert.match(c.cuerpo, /Yape: 999 888 777/);
     assert.match(c.cuerpo, /HOUSE-\d+-\d{6}/);
     const r2 = await procesarVencimientos({ ahora: ahoraEn(0), deps: depsFalsas(() => ahoraEn(0)) });
