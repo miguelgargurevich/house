@@ -6,6 +6,7 @@ import { HttpError, conflict, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { contrasenaIgualACorreo, listQuerySchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
+import { enviarImagen } from '../services/imagenes';
 import { revocarDeUsuario } from '../services/sesiones';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, listarMantenimientos, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { conResumenDeGrupo, detalleMantenimiento, pagarMantenimiento, soloPrincipales } from '../services/mantenimiento';
@@ -171,6 +172,16 @@ export function meRouter(limitePassword: RequestHandler) {
     const u = currentUser(req);
     const { reciboId, unidadId } = parse(ids2, req.params);
     res.json(await detalleMantenimiento(reciboId, unidadId, { unidadWhere: unidadesPropias(u), vista: 'residente' }));
+  });
+
+  /** Foto del contómetro de SU departamento en ese recibo (la de otra unidad → 404). */
+  router.get('/mantenimientos/:reciboId/:unidadId/agua/foto', residente, async (req, res) => {
+    const u = currentUser(req);
+    const { reciboId, unidadId } = parse(ids2, req.params);
+    const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesPropias(u)] }, select: { id: true } });
+    const l = unidad ? await prisma.lecturaAgua.findUnique({ where: { unidad_id_recibo_id: { unidad_id: unidadId, recibo_id: reciboId } }, select: { foto_datos: true, foto_tipo_mime: true, foto_nombre: true } }) : null;
+    if (!l?.foto_datos || !l.foto_tipo_mime) throw notFound('Foto');
+    enviarImagen(res, { datos: l.foto_datos, tipo_mime: l.foto_tipo_mime, nombre: l.foto_nombre });
   });
 
   const pagoMantenimiento = z.strictObject({

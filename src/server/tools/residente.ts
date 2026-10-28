@@ -3,6 +3,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { estadoCargo, filtroEstadoCargo, noPagado } from '../lib/cargos';
+import { cuentaLectura } from '../lib/agua';
 import { listarMantenimientos, type EstadoMantenimiento } from '../lib/mantenimientos';
 import type { AuthUser } from '../middleware/auth';
 import { medioDeUnidades } from '../services/asistente/contexto';
@@ -83,7 +84,7 @@ export const miDeuda = defineHerramienta({
 
 export const misRecibos = defineHerramienta({
   nombre: 'mis_recibos',
-  descripcion: 'Los recibos de la persona que escribe. Cada block tiene su propio recibo cada mes y cada departamento recibe UN mantenimiento que agrupa todos sus conceptos (agua, luz de áreas comunes, limpieza, seguridad, mora…): `mantenimientos` trae cada uno con su total, saldo, estado y el desglose por concepto (los pagos son del mantenimiento completo); `filas` es el detalle plano por concepto. Estados: pendiente, vencido, en_revision, pagado. Úsala para «¿qué recibos tengo vencidos?» o «¿qué incluye mi mantenimiento de octubre?». Ejemplo: {"estado":"vencido"}.',
+  descripcion: 'Los recibos de la persona que escribe. Cada block tiene su propio recibo cada mes y cada departamento recibe UN mantenimiento que agrupa todos sus conceptos (agua, luz de áreas comunes, limpieza, seguridad, mora…): `mantenimientos` trae cada uno con su total, saldo, estado, el desglose por concepto (los pagos son del mantenimiento completo), el consumo de agua de su departamento (`consumo_agua`: lecturas anterior y actual con su fecha, m³, factor en S/ por m³ y monto; null si aún no cargaron la lectura) y la fecha de corte del agua (`fecha_corte_agua`); `filas` es el detalle plano por concepto. Estados: pendiente, vencido, en_revision, pagado. Úsala para «¿qué recibos tengo vencidos?» o «¿qué incluye mi mantenimiento de octubre?». Ejemplo: {"estado":"vencido"}.',
   entrada: z.strictObject({ estado: z.enum(ESTADOS_CARGO).optional(), ...paginacion }),
   roles: RESIDENTE,
   solo_lectura: true,
@@ -107,14 +108,26 @@ export const misRecibos = defineHerramienta({
           select: { unidad_id: true, monto: true, reciboConcepto: { select: { recibo_id: true, orden: true, concepto: { select: { nombre: true } } } } },
         })
       : [];
+    // Agua de cada departamento en cada recibo (sólo los de los mantenimientos de arriba, que ya son de SUS unidades) y la fecha de corte del recibo.
+    const lecturas = mant.items.length
+      ? await prisma.lecturaAgua.findMany({ where: { OR: mant.items.map((m) => ({ unidad_id: m.unidad_id, recibo_id: m.recibo_id })) }, omit: { foto_datos: true } })
+      : [];
+    const cortes = mant.items.length
+      ? await prisma.recibo.findMany({ where: { id: { in: [...new Set(mant.items.map((m) => m.recibo_id))] } }, select: { id: true, fecha_corte_agua: true } })
+      : [];
     return respuesta({
-      mantenimientos: mant.items.map((m) => ({
+      mantenimientos: mant.items.map((m) => {
+        const l = lecturas.find((x) => x.unidad_id === m.unidad_id && x.recibo_id === m.recibo_id);
+        return {
         mantenimiento: dato(m.titulo), unidad: dato(m.unidad.codigo, 30), block: dato(m.unidad.estructura?.nombre), total: m.total, pagado: m.cobrado, en_revision: m.en_revision, saldo: m.saldo, estado: m.estado, vencimiento: fechaDia(m.fecha_vencimiento),
+        fecha_corte_agua: fechaDia(cortes.find((c) => c.id === m.recibo_id)?.fecha_corte_agua),
+        consumo_agua: l ? { fecha_lectura_anterior: fechaDia(l.fecha_anterior), lectura_anterior: l.lectura_anterior.toFixed(3), fecha_lectura_actual: fechaDia(l.fecha_actual), lectura_actual: l.lectura_actual.toFixed(3), consumo_m3: cuentaLectura(l).consumo_m3, factor: l.factor.toFixed(4), monto: cuentaLectura(l).monto } : null,
         conceptos: desglose
           .filter((x) => x.unidad_id === m.unidad_id && x.reciboConcepto?.recibo_id === m.recibo_id)
           .sort((a, b) => (a.reciboConcepto?.orden ?? 0) - (b.reciboConcepto?.orden ?? 0))
           .map((x) => ({ concepto: dato(x.reciboConcepto?.concepto?.nombre), monto: monto(x.monto) })),
-      })),
+        };
+      }),
       total_mantenimientos: mant.total,
       filas: c.filas.map((x) => ({
         unidad: dato(x.unidad?.codigo, 30), block: dato(x.unidad?.estructura?.nombre), concepto: dato(x.reciboConcepto?.concepto?.nombre), periodo: periodoDe(x.reciboConcepto?.recibo?.anio, x.reciboConcepto?.recibo?.mes),

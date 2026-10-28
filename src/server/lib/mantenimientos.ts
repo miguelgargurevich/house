@@ -267,6 +267,21 @@ export async function resumenPorBlock(reciboId: number, hoy = hoyLima()): Promis
   });
 }
 
+/**
+ * Deuda acumulada de UN departamento al emitirse el recibo de (anio, mes): la suma de lo que todavía se puede pagar (`saldo`: ni cobrado ni
+ * en revisión) de sus mantenimientos de periodos ANTERIORES. El periodo en curso no cuenta (ya está en el total del recibo). No existe saldo a
+ * favor: el pago siempre es el saldo exacto de cada cargo, así que nunca sobra. Se calcula al mostrar; no se guarda.
+ */
+export async function deudaAcumulada(unidadId: number, anio: number, mes: number): Promise<string> {
+  const filas = await prisma.$queryRaw<{ deuda: Prisma.Decimal | null }[]>`
+    WITH ${cteCargos({ unidadIds: [unidadId] })}
+    SELECT COALESCE(SUM(m.saldo), 0) AS deuda
+    FROM mant m
+    JOIN "Recibo" r ON r.id = m.recibo_id
+    WHERE r.anio * 12 + r.mes < ${anio * 12 + mes}`;
+  return dec(filas[0]?.deuda).toFixed(2);
+}
+
 /** ¿Se agrupa por block? Sólo si el recibo toca más de un block (un solo block, o casas sin estructura, va directo a la lista). */
 export const agruparPorBlock = (filas: FilaBlock[]) => filas.length > 1;
 

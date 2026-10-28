@@ -10,6 +10,7 @@ import { auditoria } from './middleware/audit';
 import { authenticate } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { crearLimitadores, type RateLimitOptions } from './middleware/rateLimit';
+import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
 import { auditoriaRouter } from './routes/auditoria';
 import { llaveroRouter } from './routes/llavero';
@@ -117,6 +118,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/pisos', pisosRouter);
   api.use('/unidades', unidadesRouter);
   api.use('/conceptos', conceptosRouter);
+  api.use('/recibos', aguaRouter); // lecturas de agua, foto del contómetro y fecha de corte: antes del CRUD de recibos
   api.use('/recibos', recibosRouter);
   api.post('/pagos/:id/evaluacion', limiters.evaluacion); // por usuario; sigue a comprobantesRouter
   api.use('/pagos', comprobantesRouter); // antes del CRUD: sus rutas (/:id/comprobante, /:id/validacion) admiten también a residentes

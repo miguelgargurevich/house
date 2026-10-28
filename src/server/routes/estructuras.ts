@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { invalid, notFound } from '../errors';
+import { ambitoJunta, puedeGestionar } from '../lib/junta';
 import { scopeComplejos, scopeEstructuras } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
-import { idSchema, parseId, texto, textoOpcional, z } from '../validation';
+import { emailSchema, idSchema, parseBody, parseId, texto, textoOpcional, z } from '../validation';
 
 /**
  * Las torres son planas. Todo el motor de House agrupa por torre directa (`Unidad.estructura_id`):
@@ -20,6 +21,8 @@ const base = z.object({
   padre_id: z.never({ error: PLANAS }).nullish(),
   /** Al crear o editar: cuántos pisos tiene la torre (0–60). Los pisos que ya existen no se borran. */
   cantidad_pisos: z.coerce.number().int().min(0, 'No puede ser negativo').max(60, 'Máximo 60 pisos').nullish(),
+  /** «Correo del block» al que se envían los vouchers (sale en el recibo impreso). */
+  correo_vouchers: z.preprocess((v) => (v === '' ? null : v), emailSchema.nullish()),
 });
 
 async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
@@ -129,6 +132,25 @@ router.post('/:id/asignar-unidades', requireRole('admin'), async (req, res) => {
   res.locals.accion = 'asignar_unidades';
   res.locals.auditDetalle = { asignadas: r.count, complejo_id: est.complejo_id };
   res.json({ asignadas: r.count });
+});
+
+/**
+ * Correo del block para enviar vouchers. Lo cambian la administración (de su empresa) y la junta de ESE block (presidente o tesorero); la junta
+ * sin block, el de cualquier torre de su condominio. Otro tenant o la torre de otra junta → 404.
+ */
+router.put('/:id/correo-vouchers', async (req, res) => {
+  const user = currentUser(req);
+  const id = parseId(req);
+  const { correo_vouchers } = parseBody(z.strictObject({ correo_vouchers: z.preprocess((v) => (v === '' ? null : v), emailSchema.nullable()) }), req);
+  const est = await prisma.estructura.findFirst({ where: { id }, select: { id: true, complejo_id: true } });
+  const esAdmin = user.rol === 'admin' || user.rol === 'superadmin';
+  if (!est || !(esAdmin ? await prisma.estructura.findFirst({ where: { AND: [{ id }, scopeEstructuras(user)] }, select: { id: true } }) : ambitoJunta(user) && puedeGestionar(user, { complejo_id: est.complejo_id, estructura_id: id }))) throw notFound();
+  await prisma.estructura.update({ where: { id }, data: { correo_vouchers } });
+  res.locals.entidad = 'estructura';
+  res.locals.entidadId = id;
+  res.locals.accion = 'correo_vouchers';
+  res.locals.auditDetalle = { correo_vouchers };
+  res.json({ id, correo_vouchers });
 });
 
 router.use(crud);

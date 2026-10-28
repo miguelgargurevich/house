@@ -34,6 +34,14 @@ Tres reglas que Miguel pidió el 26-oct-2026 («la fecha de pago se calcula del 
 - **Respuesta** (`POST /api/recibos/excel` y `POST /api/recibos`): `mora: {monto: '20.00', cantidad, departamentos: [{recibo_id, torre, unidad_id, codigo}], mensaje: 'Se agregó mora de S/ 20 a N departamentos: B.1-103, …' | null}`. La ventana de subida del Excel muestra el mensaje.
 - **El residente** ve en su recibo la línea de mora con su motivo (`conceptos[].motivo` de `GET /api/me/mantenimientos/:reciboId/:unidadId`).
 
+## 4. Deuda acumulada en el recibo del departamento
+
+El recibo impreso trae «DEUDA ACUMULADA Y/O SALDO A FAVOR» y un TOTAL. House lo calcula **al mostrar** (`deuda_acumulada` y `total_general` de `GET …/mantenimientos/…`); no se guarda nada.
+
+- **Deuda acumulada** = la suma del **saldo** (`total − cobrado − en revisión`, lo que todavía se puede pagar) de los mantenimientos de esa unidad en recibos de periodos **anteriores** (`anio × 12 + mes` menor). El periodo en curso no cuenta (ya está en el total del recibo) y un pago en revisión tampoco: aún no es deuda ni está cobrado. Mismas cuentas y misma consulta que la lista de cobranza (`lib/mantenimientos.ts › deudaAcumulada`).
+- **Saldo a favor:** hoy **no existe**. El pago siempre es el saldo exacto de cada cargo (nunca sobra), así que la cifra no es negativa. Si algún día hay saldo a favor, saldría como valor negativo en la misma línea.
+- **Total general** = total del mantenimiento + deuda acumulada. El detalle del residente lo muestra «incluye deuda anterior»; el pago sigue siendo del mantenimiento de ese mes (cada mes se paga desde su propio recibo).
+- La línea de **mora/multa** se imprime en S/ 0.00 cuando el recibo de la torre tiene ese concepto y el departamento no lo debe (los cargos de S/ 0.00 no existen); `linea_mora` trae el nombre del concepto.
 ## No cubre
 
 - No hay pasarela de pago ni se mueve dinero: la mora es un cargo más del recibo.

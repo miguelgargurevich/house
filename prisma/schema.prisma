@@ -66,6 +66,8 @@ model Usuario {
   correo_verificado Boolean                @default(true)
   tokensVerificacion TokenVerificacionCorreo[]
   pagosSuscripcionRegistrados PagoSuscripcion[] @relation("PagoSuscripcionRegistrador")
+  lecturasAguaRegistradas LecturaAgua[]
+  imagenesReciboSubidas ImagenRecibo[]
 }
 
 model EmpresaAdministradora {
@@ -91,6 +93,8 @@ model EmpresaAdministradora {
   canalesVinculados   CanalVinculado[]
   canalWebhook        CanalWebhook?
   pagosSuscripcion    PagoSuscripcion[]
+  /// Logo que sale al pie del recibo impreso.
+  imagenRecibo        ImagenRecibo?
 }
 
 model ComplejoHabitacional {
@@ -112,6 +116,13 @@ model ComplejoHabitacional {
   validacion_automatica_ia Boolean @default(false)
   /// Mora (S/) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
   mora_monto  Decimal @default(20.00)
+  /// Recibo impreso: notas de pago (texto libre, una línea por renglón) y contacto de la administración. Todo opcional: si falta, el bloque se omite.
+  notas_pago    String?
+  admin_nombre  String?
+  admin_celular String?
+  admin_correo  String?
+  /// Foto de cabecera del recibo impreso (los bytes viven en `ImagenRecibo`, nunca en esta fila).
+  imagenRecibo  ImagenRecibo?
   suscripcion SuscripcionCondominio?
   pagosSuscripcion PagoSuscripcion[]
 }
@@ -179,6 +190,8 @@ model Estructura {
   juntaUsuarios Usuario[]           @relation("JuntaEstructura")
   mediosPago  MedioPago[]
   recibos     Recibo[]
+  /// «Correo del block» al que se envían los vouchers (sale en el recibo impreso).
+  correo_vouchers String?
 }
 
 model Piso {
@@ -205,6 +218,7 @@ model Unidad {
   updated_at             DateTime               @updatedAt
   reciboConceptoUnidades ReciboConceptoUnidad[]
   tareasMantenimiento    TareaMantenimiento[]
+  lecturasAgua           LecturaAgua[]
   complejo               ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
   empresa                EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   estructura             Estructura?            @relation(fields: [estructura_id], references: [id])
@@ -239,6 +253,8 @@ model Recibo {
   /// Torre/block del recibo. null = condominio sin torres, recibo «general» o recibo viejo que mezcla torres.
   estructura_id     Int?
   archivo_excel_url String?
+  /// Fecha en que se corta el agua a quien no pagó (sale en el recibo impreso). Opcional.
+  fecha_corte_agua  DateTime?              @db.Date
   creado_por_id     Int?
   created_at        DateTime               @default(now())
   updated_at        DateTime               @updatedAt
@@ -247,6 +263,7 @@ model Recibo {
   creado_por        Usuario?               @relation("UsuarioCreadorRecibo", fields: [creado_por_id], references: [id])
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   reciboConceptos   ReciboConcepto[]
+  lecturasAgua      LecturaAgua[]
 
   /// Un recibo por (condominio, torre, mes, año). NO es @@unique a propósito: (1) Postgres no compara NULL con NULL, así que no cubriría los recibos
   /// sin torre; (2) un @@unique nuevo hace que `prisma db push` exija --accept-data-loss y el contenedor arranca con `db push` a secas (abortaría).
@@ -513,6 +530,51 @@ model MedioPago {
   creado_por        Usuario?              @relation(fields: [creado_por_id], references: [id], onDelete: SetNull)
 
   @@index([complejo_id, estructura_id])
+}
+
+/// Lectura del contómetro de agua de un departamento en el recibo de su torre del mes (lo que el recibo impreso llama «detalle del consumo de agua»).
+/// Consumo m³ = actual − anterior (3 decimales); monto S/ = m³ × factor (2 decimales). No cambia ningún cargo: sólo se cruza con el concepto «AGUA DPTO».
+model LecturaAgua {
+  id                Int      @id @default(autoincrement())
+  unidad_id         Int
+  recibo_id         Int
+  fecha_anterior    DateTime @db.Date
+  lectura_anterior  Decimal  @db.Decimal(12, 3)
+  fecha_actual      DateTime @db.Date
+  lectura_actual    Decimal  @db.Decimal(12, 3)
+  /// S/ por m³.
+  factor            Decimal  @db.Decimal(10, 4)
+  /// Foto del contómetro (≤ 2 MB, JPG/PNG/WebP). Nunca sale en las listas: sólo por su endpoint con alcance.
+  foto_nombre       String?
+  foto_tipo_mime    String?
+  foto_datos        Bytes?
+  registrado_por_id Int?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  unidad            Unidad   @relation(fields: [unidad_id], references: [id], onDelete: Cascade)
+  recibo            Recibo   @relation(fields: [recibo_id], references: [id], onDelete: Cascade)
+  registrado_por    Usuario? @relation(fields: [registrado_por_id], references: [id], onDelete: SetNull)
+
+  @@unique([unidad_id, recibo_id])
+  @@index([recibo_id])
+}
+
+/// Imagen del recibo impreso: la foto de cabecera de un condominio o el logo de una empresa (uno por dueño). Aparte de sus tablas para que ningún
+/// CRUD genérico arrastre los bytes.
+model ImagenRecibo {
+  id            Int                    @id @default(autoincrement())
+  complejo_id   Int?                   @unique
+  empresa_id    Int?                   @unique
+  nombre        String
+  tipo_mime     String
+  tamano        Int
+  datos         Bytes
+  subido_por_id Int?
+  created_at    DateTime               @default(now())
+  updated_at    DateTime               @updatedAt
+  complejo      ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  empresa       EmpresaAdministradora? @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  subido_por    Usuario?               @relation(fields: [subido_por_id], references: [id], onDelete: SetNull)
 }
 
 /// Lectura del comprobante por IA (visión) contrastada por código con lo que debía pagarse. Una por pago. No guarda el texto crudo del modelo.

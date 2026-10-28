@@ -257,3 +257,28 @@ Error de módulo apagado: **403** `{ error, code: 'MODULO_NO_ACTIVO', modulo: 'i
 
 ### Esquema (aditivo)
 `ModuloComercial`, `PlanComercial`, `SuscripcionCondominio` (`complejo_id` único; `plan_clave`, `modulos`, `estado`, `vigente_hasta`, solicitud, marcas de avisos por periodo, `proveedor_pago`/`proveedor_ref` reservados para el cobro con tarjeta), `PagoSuscripcion`, `ConfiguracionComercial` (fila id = 1), `TokenVerificacionCorreo`, `Usuario.correo_verificado` (default true).
+
+## Recibo impreso: lecturas de agua, deuda acumulada y datos del recibo (27-oct-2026)
+
+El recibo imprimible reproduce la primera cara del impreso de la administradora. Todo se guarda en la base y se edita en pantallas (nada en variables de entorno).
+
+### Detalle del mantenimiento — `GET /api/me/mantenimientos/:reciboId/:unidadId` y `GET /api/recibos/:id/mantenimientos/:unidadId` (campos nuevos)
+`fecha_corte_agua` (fecha | null), `deuda_acumulada` y `total_general` (strings «0.00»; ver `docs/COBRANZA.md` §4), `agua` (`{fecha_anterior, lectura_anterior, fecha_actual, lectura_actual, factor, consumo_m3, monto, tiene_foto, foto_url}` | null), `correo_vouchers` (correo del block), `linea_mora` (nombre del concepto de multa que se imprime en 0.00 | null), `condominio.{notas_pago, admin_nombre, admin_celular, admin_correo, cabecera_url}`, `empresa.logo_url`. Las `*_url` apuntan a los endpoints de imagen de abajo (con `?v=`); los bytes nunca viajan en el detalle.
+
+### Lecturas de agua — `/api/recibos/:id/agua…` (admin de la empresa, o presidente/tesorero de la junta del block; otra empresa o la junta de otra torre → 404; residentes 403)
+- `GET /:id/agua` → `{recibo: {id, mes, anio, fecha_corte_agua, estructura: {id, nombre, correo_vouchers}}, factor_sugerido, items: [{unidad: {id, codigo, propietario}, lectura | null, anterior: {fecha, lectura, factor} | null, agua_recibo | null, alerta | null}]}`. `anterior` es la lectura actual del mes previo (precarga); `alerta` el cruce con «AGUA DPTO.» (> S/ 0.05).
+- `PUT /:id/agua` `{lecturas: [{unidad_id, fecha_anterior, lectura_anterior, fecha_actual, lectura_actual, factor}]}` (1–500) → `{guardadas, errores: [{dpto, mensaje}]}`. Crea o reemplaza una lectura por departamento. 422 con `campos` si el cuerpo es inválido (actual < anterior, factor ≤ 0, fechas al revés, números inválidos); un departamento fuera del recibo o del alcance vuelve en `errores`.
+- `POST /:id/agua/excel` (ver `docs/EXCEL-RECIBOS.md`), `GET /:id/agua/plantilla` (xlsx), `DELETE /:id/agua/:unidadId` (204; 404 si no hay lectura).
+- Foto del contómetro: `PUT|GET|DELETE /:id/agua/:unidadId/foto` (cuerpo crudo ≤ 2 MB JPG/PNG/WebP; requiere la lectura ya guardada, si no 404). El residente la ve en `GET /api/me/mantenimientos/:reciboId/:unidadId/agua/foto` (sólo su unidad).
+- `PUT /api/recibos/:id/datos` `{fecha_corte_agua: 'AAAA-MM-DD' | null}` (administración y junta de ese block).
+
+### Datos del condominio, torre y empresa
+- `PUT /api/complejos/:id` (admin) acepta `notas_pago` (≤ 2000, una nota por renglón), `admin_nombre`, `admin_celular`, `admin_correo`; la ficha devuelve además `cabecera_url`. Sin notas precargadas: las escribe el administrador.
+- `PUT /api/estructuras/:id/correo-vouchers` `{correo_vouchers: correo | null}` — administración o junta de ESA torre (otra → 404). También en `PUT /api/estructuras/:id`.
+- Imágenes (cuerpo crudo, ≤ 2 MB; `X-Nombre-Archivo`): `PUT|GET|DELETE /api/complejos/:id/cabecera` (escribe el admin del condominio; lo ve también su residente) y `PUT|GET|DELETE /api/empresas/:id/logo` (escribe el admin de la empresa; lo ven también los residentes de sus condominios). La ficha de la empresa devuelve `logo_url`.
+
+### Asistente
+`mis_recibos` agrega a cada mantenimiento `consumo_agua` (`fecha_lectura_anterior`, `lectura_anterior`, `fecha_lectura_actual`, `lectura_actual`, `consumo_m3`, `factor`, `monto` | null) y `fecha_corte_agua`, sólo de las unidades del residente.
+
+### Esquema (aditivo)
+Tablas `LecturaAgua` (único `unidad_id + recibo_id`; `Decimal(12,3)` las lecturas, `Decimal(10,4)` el factor; foto aparte) e `ImagenRecibo` (única por `complejo_id` o `empresa_id`); columnas nullable `Recibo.fecha_corte_agua`, `Estructura.correo_vouchers`, `ComplejoHabitacional.notas_pago/admin_nombre/admin_celular/admin_correo`.

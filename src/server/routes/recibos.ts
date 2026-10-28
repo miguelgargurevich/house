@@ -242,20 +242,20 @@ const router = Router();
 // ---------- Administración o junta (24-oct, Miguel: «la junta también puede registrar pagos») ----------
 // La junta gestora (presidente o tesorero) ve los periodos de su condominio y registra pagos de los mantenimientos de su ámbito
 // (su block, o todo el condominio si no tiene block). Todo lo demás de recibos sigue siendo de la administración.
-const esAdmin = (u: AuthUser) => u.rol === 'admin' || u.rol === 'superadmin';
-const adminOJunta: RequestHandler = (req, _res, next) => {
+export const esAdmin = (u: AuthUser) => u.rol === 'admin' || u.rol === 'superadmin';
+export const adminOJunta: RequestHandler = (req, _res, next) => {
   const u = currentUser(req);
   if (esAdmin(u) || ambitoJunta(u)) return next();
   throw forbidden();
 };
 /** Recibos que alcanza: la administración por empresa; la junta, los de su torre (o los del condominio si no tiene torre). */
-function recibosDe(u: AuthUser): Prisma.ReciboWhereInput {
+export function recibosDe(u: AuthUser): Prisma.ReciboWhereInput {
   if (esAdmin(u)) return scopeRecibos(u);
   const a = ambitoJunta(u);
   return a ? filtroReciboAmbito(a) : { id: -1 };
 }
 /** Unidades que alcanza: la administración por empresa; la junta, las de su block (o de su condominio). */
-function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
+export function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
   if (esAdmin(u)) return scopeUnidades(u);
   const a = ambitoJunta(u);
   return a ? filtroAmbito(a) : { id: -1 };
@@ -327,7 +327,7 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
 });
 // ---------- Mantenimientos del periodo (un recibo por departamento) ----------
 /** El recibo del periodo, sólo si es de la empresa del usuario (si no, 404). */
-async function reciboAccesible(req: Parameters<typeof currentUser>[0], id: number, escritura = false) {
+export async function reciboAccesible(req: Parameters<typeof currentUser>[0], id: number, escritura = false) {
   const u = currentUser(req);
   const r = await prisma.recibo.findFirst({ where: { AND: [{ id }, escritura && esAdmin(u) ? scopeRecibosEscritura(u) : recibosDe(u)] }, select: { id: true } });
   if (!r) throw notFound();

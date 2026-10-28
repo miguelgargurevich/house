@@ -230,3 +230,14 @@ Lectura real de capturas de Yape, Plin y bancos con un proveedor de visión real
 - **CSP.** `img-src 'self' data: blob:`: el comprobante y el QR se muestran como URL local descargada con la sesión; sin `blob:` el navegador los bloqueaba en producción (los scripts siguen sin `blob:`).
 - **Empresa.** Un residente no lleva `empresa_id`; el alcance de la administración sobre él viene de sus unidades/condominio, verificado en `tests/empresa-personal.test.ts` (A no ve a los de B, también con `empresa_id` null).
 - **Excel de recibos.** `xlsx` 0.20.3 (CDN de SheetJS; la 0.18.5 de npm tenía avisos altos). `POST /api/recibos/excel`: `requireRole('admin')` va antes de multer (un residente no hace que se reciban 10 MB) y el límite de 10 MB responde 422.
+
+## Imágenes del recibo impreso y lecturas de agua (27-oct-2026)
+
+Foto de cabecera del condominio, logo de la empresa y foto del contómetro de cada departamento. Mismas reglas que el QR de los medios de pago y los comprobantes, con tope propio.
+
+- **Subida:** cuerpo crudo (`PUT`), sólo JPG/PNG/WebP, **máx. 2 MB** (413 el propio parser; 415 tipo no permitido, incluido SVG y PDF; 422 si los primeros bytes no corresponden al tipo declarado o el archivo está vacío). El nombre se sanea. La auditoría guarda tipo y tamaño, **nunca los bytes**.
+- **Alcance se comprueba ANTES de leer el cuerpo:** quien no alcanza el recurso recibe 404 sin que el servidor reciba el archivo. Cabecera: sólo la administración de ese condominio escribe; la ven su administración y los **residentes de ese condominio** (otro condominio/empresa → 404). Logo: sólo el admin de esa empresa escribe; lo ven su admin y los residentes de sus condominios o recibos. Foto del contómetro: la cargan la administración y la junta del block; la ve el dueño **de ese departamento** (otro vecino → 404) y quien la cargó.
+- **Servidas con** `Content-Type` fijo del tipo guardado, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`, `Content-Disposition: inline` y `Cache-Control: private, no-cache`. La URL lleva `?v=<updated_at>` para no mostrar una imagen vieja.
+- **Los bytes viven aparte** (`ImagenRecibo`; `LecturaAgua.foto_datos`, siempre con `omit`): ningún CRUD genérico, lista, ficha ni el detalle del mantenimiento los arrastra; sólo salen por su endpoint con alcance.
+- **Lecturas:** la junta de un block sólo alcanza los departamentos de su block, también en un recibo general (sin torre) que cobra a varias; el residente sólo ve la lectura y la foto de SU departamento (también en la herramienta `mis_recibos` del asistente); otra empresa → 404.
+- Pruebas: `tests/agua-lecturas.test.ts` y `tests/recibo-datos.test.ts` (alcance, tope, tipo, bytes, sin bytes en las listas).

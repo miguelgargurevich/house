@@ -76,3 +76,25 @@ Errores: 403 si no eres admin (el rol se revisa antes de recibir el archivo); 42
 - Los montos pueden tener espacios (ej. ` 2.53 `) y coma decimal (`7,5`); se limpian antes de guardar.
 - Se lee con `xlsx` (SheetJS) 0.20.3, desde el CDN de SheetJS (la 0.18.5 de npm tiene avisos de seguridad altos).
 - El archivo se procesa en memoria; no se guarda en disco.
+
+## Excel de lecturas de agua (aparte del Excel de cargos)
+
+El Excel de cargos de arriba **no trae lecturas**: sólo el monto de «AGUA DPTO.». Las lecturas del contómetro se cargan aparte, por recibo de torre, a mano o con este archivo; salen en el «detalle del consumo de agua» del recibo impreso y del residente. **No cambian ningún cargo ni monto.**
+
+**Dónde:** periodo del recibo → pestaña «Agua y datos del recibo» (administración) o «Lecturas de agua» (presidente o tesorero de la junta, sólo su torre). La plantilla se descarga con **Descargar plantilla**: trae un renglón por departamento del recibo con la lectura y la fecha anteriores ya puestas.
+
+| Columna | Qué lleva |
+|---|---|
+| `Dpto` | El código de la unidad completo (`B01-804`) o sólo el número (`804`), como en el Excel de cargos. Debe haber exactamente UN departamento de ese recibo que coincida. |
+| `Fecha anterior` | Fecha de la lectura anterior: `día/mes/año` (`10/09/2026`), `2026-09-10`, `10 DE SETIEMBRE DE 2026` o fecha de Excel. Vacía → la fecha actual del mes previo de esa unidad. |
+| `Lectura anterior` | m³ con hasta 3 decimales (`1416.574` o `1416,574`). Vacía → la lectura actual del mes previo de esa unidad. |
+| `Fecha actual` / `Lectura actual` | Obligatorias. |
+| `Factor` | S/ por m³ (hasta 4 decimales). Vacío → el factor que se escriba en el formulario al subir (una vez para toda la torre). |
+
+- Se reconocen las columnas por el **nombre del encabezado**, en cualquier orden; `.xlsx`, `.xls` y `.csv` (con coma o punto y coma). Máx. 2 MB y 1000 filas.
+- **Cuentas:** consumo = actual − anterior (3 decimales); monto = consumo × factor, 2 decimales, half-up. Ej. B01-804 de octubre: 1430.897 − 1416.574 = 14.323 m³ × 4.9313 = S/ 70.63.
+- **Validaciones** (por fila; la fila con problema NO se carga y vuelve en `errores` con su número y motivo; las demás sí): lectura actual ≥ anterior; factor > 0; fecha actual ≥ anterior; números y fechas válidos; el departamento existe en ese recibo. **Un departamento repetido en el archivo** (aunque una fila diga `804` y otra `B01-804`) se rechaza completo: no se adivina cuál vale.
+- **Cruce con el recibo:** si m³ × factor difiere en **más de S/ 0.05** del concepto «AGUA DPTO.» del departamento, la fila muestra «El agua del recibo es S/ X; con la lectura sale S/ Y». Sólo avisa.
+- Volver a cargar el mismo departamento reemplaza su lectura (una por departamento y recibo) y conserva su foto.
+
+`POST /api/recibos/:id/agua/excel` — `multipart/form-data` con `archivo` y, opcional, `factor`. Responde 201 `{filas, guardadas, errores: [{fila, dpto, mensaje}]}`. 404 si el recibo no es de tu alcance (otra empresa, o la junta de otra torre); 403 a los residentes; 422 si falta el archivo, no es una hoja de lecturas o el factor no es un número > 0.

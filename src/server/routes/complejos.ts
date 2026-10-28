@@ -5,7 +5,8 @@ import { invalid, notFound } from '../errors';
 import { abrirContrato, cambiarAdministradora } from '../lib/contratos';
 import { empresaDe, scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
-import { fechaSchema, idSchema, parseBody, parseId, texto, textoOpcional, z } from '../validation';
+import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
+import { emailSchema, fechaSchema, idSchema, parseBody, parseId, telefonoSchema, texto, textoOpcional, z } from '../validation';
 
 /** Monto en soles con hasta 2 decimales; 0 es válido (el condominio no cobra mora). */
 const moraSchema = z
@@ -23,6 +24,11 @@ const base = z.object({
   validacion_automatica_ia: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
   /** Mora (S/) que se agrega en el recibo del mes siguiente a quien pagó fuera de fecha; 0 = sin mora (por defecto 20.00). */
   mora_monto: moraSchema.optional(),
+  /** Recibo impreso: notas de pago (una línea por renglón) y contacto de la administración. Todo opcional. */
+  notas_pago: textoOpcional(2000),
+  admin_nombre: textoOpcional(160),
+  admin_celular: telefonoSchema,
+  admin_correo: z.preprocess((v) => (v === '' ? null : v), emailSchema.nullish()),
 });
 
 const crud = crudRouter({
@@ -39,19 +45,24 @@ const crud = crudRouter({
     schema: z.object({ empresa_id: idSchema.optional() }),
     where: (f) => (f.empresa_id !== undefined ? { empresa_id: f.empresa_id } : {}),
   },
-  // Conteo de unidades y de blocks (agregado en una sola consulta por página) y el contrato de administración vigente.
+  // Conteo de unidades y de blocks (agregado en una sola consulta por página), el contrato de administración vigente y si tiene foto de cabecera.
   format: async (items) => {
     const ids = items.map((c) => c.id as number);
     if (!ids.length) return items;
-    const [unidades, blocks, contratos] = await Promise.all([
+    const [unidades, blocks, contratos, imagenes] = await Promise.all([
       prisma.unidad.groupBy({ by: ['complejo_id'], where: { complejo_id: { in: ids } }, _count: { _all: true } }),
       prisma.estructura.groupBy({ by: ['complejo_id'], where: { complejo_id: { in: ids } }, _count: { _all: true } }),
       prisma.contratoAdministracion.findMany({ where: { complejo_id: { in: ids }, fecha_fin: null }, select: { id: true, complejo_id: true, fecha_inicio: true } }),
+      prisma.imagenRecibo.findMany({ where: { complejo_id: { in: ids } }, select: { complejo_id: true, updated_at: true } }),
     ]);
+    const img = new Map(imagenes.map((x) => [x.complejo_id, x.updated_at]));
     const v = new Map(contratos.map((x) => [x.complejo_id, x]));
     const u = new Map(unidades.map((x) => [x.complejo_id, x._count._all]));
     const b = new Map(blocks.map((x) => [x.complejo_id, x._count._all]));
-    return items.map((c) => ({ ...c, unidades_count: u.get(c.id as number) ?? 0, blocks_count: b.get(c.id as number) ?? 0, contrato_vigente: v.get(c.id as number) ?? null }));
+    return items.map((c) => ({
+      ...c, unidades_count: u.get(c.id as number) ?? 0, blocks_count: b.get(c.id as number) ?? 0, contrato_vigente: v.get(c.id as number) ?? null,
+      cabecera_url: img.has(c.id as number) ? `/api/complejos/${c.id}/cabecera?v=${versionImagen(img.get(c.id as number))}` : null,
+    }));
   },
   createSchema: base,
   updateSchema: base.partial(),
@@ -106,6 +117,48 @@ router.post('/:id/administradora', requireRole(), async (req, res) => {
   res.locals.accion = 'cambiar_administradora';
   res.locals.auditDetalle = { empresa_anterior_id: r.anterior?.empresa_id ?? null, empresa_id: body.empresa_id, contrato_id: r.contrato.id, personal_liberado: r.personal_liberado };
   res.status(201).json(r);
+});
+
+// ---------- Foto de cabecera del recibo impreso (≤ 2 MB) ----------
+/** El condominio, sólo si lo administra quien llama (otro tenant → 404). */
+async function complejoDeAdmin(req: Parameters<typeof currentUser>[0]) {
+  const id = parseId(req);
+  if (!(await prisma.complejoHabitacional.findFirst({ where: { AND: [{ id }, scopeComplejos(currentUser(req))] }, select: { id: true } }))) throw notFound();
+  return id;
+}
+
+/** La ven la administración y los residentes de ESE condominio (la foto sale en su recibo). */
+router.get('/:id/cabecera', requireRole('admin', 'propietario', 'inquilino'), async (req, res) => {
+  const u = currentUser(req);
+  const id = parseId(req);
+  const acceso = u.rol === 'propietario' || u.rol === 'inquilino'
+    ? await prisma.unidad.findFirst({ where: { complejo_id: id, OR: [{ propietario_id: u.id }, { inquilino_id: u.id }] }, select: { id: true } })
+    : await prisma.complejoHabitacional.findFirst({ where: { AND: [{ id }, scopeComplejos(u)] }, select: { id: true } });
+  const img = acceso ? await prisma.imagenRecibo.findUnique({ where: { complejo_id: id } }) : null;
+  if (!img) throw notFound('Imagen');
+  enviarImagen(res, img);
+});
+
+router.put('/:id/cabecera', requireRole('admin'), async (req, res, next) => {
+  try { res.locals.complejoId = await complejoDeAdmin(req); next(); } catch (e) { next(e); }
+}, imagenCruda, async (req, res) => {
+  const img = verificarImagen(req);
+  const id = res.locals.complejoId as number;
+  const r = await guardarImagenRecibo({ complejo_id: id }, img, currentUser(req).id);
+  res.locals.entidad = 'complejo';
+  res.locals.entidadId = id;
+  res.locals.accion = 'subir_cabecera';
+  res.locals.auditDetalle = { tipo_mime: img.tipo_mime, tamano: img.tamano }; // nunca el contenido
+  res.json({ cabecera_url: `/api/complejos/${id}/cabecera?v=${versionImagen(r.updated_at)}` });
+});
+
+router.delete('/:id/cabecera', requireRole('admin'), async (req, res) => {
+  const id = await complejoDeAdmin(req);
+  await prisma.imagenRecibo.deleteMany({ where: { complejo_id: id } });
+  res.locals.entidad = 'complejo';
+  res.locals.entidadId = id;
+  res.locals.accion = 'quitar_cabecera';
+  res.status(204).end();
 });
 
 router.use(crud);
