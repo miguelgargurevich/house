@@ -83,6 +83,7 @@
 #zona-imprimible { display: none; }
 
 @media print {
+  html, body { background: #fff !important; }
   body > *:not(#zona-imprimible) { display: none !important; }
   #zona-imprimible { display: block !important; position: static; width: auto; max-height: none; overflow: visible; }
   #zona-imprimible tr { break-inside: avoid; }

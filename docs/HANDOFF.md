@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-27 — Claude Code (Opus 5.5) — Integración del recibo como el impreso + ajustes
+
+- Integré los 3 commits de Sonnet (lecturas de agua, datos del recibo, deuda acumulada, recibo imprimible). Revisado: alcance de rutas de agua (recibo accesible + unidad del recibo), deuda con consulta parametrizada (sólo meses anteriores).
+- Agregué «Lecturas de agua» al menú de la junta (`nav.ts`; Sonnet no podía tocarlo) y fondo blanco al imprimir (`index.css`: el fondo gris de la página salía bajo el recibo con «gráficos de fondo»).
+- Comparado con el PDF de VRANY (B01-804, octubre) en local: mismo orden y montos. Diferencia conocida: con factor 4.93 el agua calcula S/ 70.61 y VRANY imprime 70.63 (usa más decimales en el factor); queda bajo la alerta de S/ 0.05.
+- Datos que carga Miguel en producción: cuenta BCP real y CCI (Medios de pago), correo del block (ficha de la torre), notas de pago y contacto de administración (ficha del condominio), foto de cabecera y logo, y las lecturas de cada mes (Recibo › Agua o la plantilla).
+- Suite 1625/1625, tipos y build en verde.
+
 ## 2026-10-27 — Claude Code (Sonnet 5.5) — Recibo impreso como la primera cara del impreso de VRANY + lecturas de agua
 
 **Pedido de Miguel (textual):** «ya llego el recibo impreso del mes actual mira como mandan la primera cara, la segunda cara es el excel que ya revisamos , con eso puedes completar los datos que faltan ademas hay otros datos que debes considedar revisa» → «Agua + recibo como el impreso». Referencia: `.claude/worktrees/recibo-impreso-referencia.pdf` (B01-804, octubre 2026). Rama `feat/recibo-impreso` (sobre origin/main 2307f7f), tres commits: modelo y backend · pantallas · recibo imprimible. **Sin push.**
