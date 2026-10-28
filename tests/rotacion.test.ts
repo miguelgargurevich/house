@@ -7,6 +7,7 @@ import {
 } from '../src/server/lib/cooldown';
 import { llaveroDeps } from '../src/server/services/llavero';
 import { construirCadena, olvidarTodoUso } from '../src/server/services/rotacion';
+import { limpiarModelosMalos, modeloMalo } from '../src/server/lib/modelosMalos';
 import { MAX_INTENTOS } from '../src/server/routes/aiChat';
 import { FRASE_CONTINGENCIA } from '../src/server/services/asistente/contexto';
 
@@ -67,6 +68,7 @@ beforeEach(async () => {
   await prisma.auditoria.deleteMany();
   limpiarTodo();
   olvidarTodoUso();
+  limpiarModelosMalos();
   ahora = T0;
   llamadas = [];
   cuerpos = [];
@@ -294,6 +296,46 @@ describe('asistente con rotación', () => {
     assert.equal(llamadas.length, 4, 'cada ruta: la petición y UN reintento sin opcionales');
     assert.equal(estaEnfriando(cd('groq', a.body.id)), false, '400 no enfría');
     assert.equal((await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: a.body.id } })).estado, 'sin_probar');
+  });
+
+  it('400 del pedido con dos claves del mismo proveedor: la segunda no lo vuelve a probar; ninguna enfriada ni rechazada', async () => {
+    const a = await guardar('groq', 'groq-A-prueba-00001', 'a');
+    const b = await guardar('groq', 'groq-B-prueba-00001', 'b');
+    await guardar('openai', 'openai-A-prueba-0001');
+    responder = (k) => (k.startsWith('groq') ? estado(400) : ok('Desde OpenAI'));
+    const r = await chat();
+    assert.equal(r.body.response, 'Desde OpenAI');
+    const groq = usadas().filter((k) => k.startsWith('groq'));
+    assert.equal(new Set(groq).size, 1, 'una sola clave de groq vio el pedido');
+    assert.equal(groq.length, 2, 'la petición y UN reintento sin opcionales, nada más');
+    assert.equal(usadas().filter((k) => k.startsWith('openai')).length, 1, 'otro proveedor sí se prueba');
+    for (const id of [a.body.id, b.body.id]) {
+      assert.equal(estaEnfriando(cd('groq', id)), false, '400 no enfría');
+      assert.equal((await prisma.claveIntegracion.findUniqueOrThrow({ where: { id } })).estado, 'sin_probar', '400 no rechaza');
+    }
+  });
+
+  it('413 (pedido demasiado grande): no enfría la clave, no retira el modelo y pasa a la siguiente ruta', async () => {
+    const a = await guardar('groq', 'groq-A-prueba-00001');
+    await guardar('openai', 'openai-A-prueba-0001');
+    cuerpos = [];
+    responder = (k) => (k.startsWith('groq') ? estado(413, {}, '{"error":"model request too large"}') : ok('Desde OpenAI'));
+    const r = await chat();
+    assert.equal(r.body.response, 'Desde OpenAI');
+    assert.deepEqual(usadas(), ['groq-A-prueba-00001', 'openai-A-prueba-0001'], 'un solo intento en groq: el 413 no se reintenta');
+    assert.equal(estaEnfriando(cd('groq', a.body.id)), false, '413 no enfría la clave');
+    assert.equal((await prisma.claveIntegracion.findUniqueOrThrow({ where: { id: a.body.id } })).estado, 'sin_probar', '413 no rechaza la clave');
+    assert.equal(modeloMalo('groq', cuerpos[0].model), false, '413 no retira el modelo');
+  });
+
+  it('400 que nombra un PARÁMETRO («model: reasoning_effort is not supported») reintenta sin opcionales y NO retira el modelo', async () => {
+    await guardar('groq', 'groq-A-prueba-00001');
+    cuerpos = [];
+    responder = (_k, _u, cuerpo) => (cuerpo.temperature !== undefined ? estado(400, {}, '{"error":"model: reasoning_effort is not supported"}') : ok('Sin opcionales'));
+    const r = await chat();
+    assert.equal(r.body.response, 'Sin opcionales');
+    assert.equal(llamadas.length, 2, 'el reintento sin opcionales, no un retiro del modelo');
+    assert.equal(modeloMalo('groq', cuerpos[0].model), false);
   });
 
   it('Gemini responde 400 «API key not valid» ante una clave inválida: la deja rechazada y rota al siguiente', async () => {

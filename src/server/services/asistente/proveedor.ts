@@ -64,9 +64,15 @@ const esTiempoAgotado = (err: unknown) => err instanceof Error && (err.name === 
 
 const fallo = (p: Partial<Fallo>): Fallo => ({ tipo: 'fallo', status: 0, retryAfterMs: null, claveInvalida: false, modeloNoDisponible: false, sinTexto: false, cancelado: false, tiempoAgotado: false, sinHerramientas: false, ...p });
 
-const RE_MODELO = /model[^"]{0,80}(decommission|not found|does not exist|not supported|unknown|no longer|not available|deprecated)|decommissioned|not a valid model|invalid model|is not found for api version|no endpoints found/i;
-/** ¿El proveedor dice que el MODELO no sirve? Un 404 de una URL fija siempre lo es; el 400 sólo si el cuerpo lo menciona. */
-export const esModeloNoDisponible = (status: number, cuerpo: string) => status === 404 || (status === 400 && RE_MODELO.test(cuerpo));
+/** Un 400 que nombra un PARÁMETRO de la petición (no el modelo): «not supported» o «unknown» hablan de ese parámetro, no del modelo. */
+const RE_PARAMETRO = /\b(max_tokens|max_completion_tokens|temperature|top_p|top_k|reasoning_effort|stream_options|tools?|tool_choice|response_format|parameters?|arguments?)\b/i;
+/** Textos claros de modelo retirado o inexistente: cuentan aunque el cuerpo mencione un parámetro. */
+const RE_MODELO_CLARO = /decommissioned|not a valid model|invalid model|is not found for api version|no endpoints found|model[^"]{0,80}(decommission|not found|does not exist|no longer)/i;
+/** Textos ambiguos: sólo valen si el cuerpo no habla de un parámetro («model: reasoning_effort is not supported» no retira nada). */
+const RE_MODELO_AMBIGUO = /model[^"]{0,80}(not supported|unknown|not available|deprecated)/i;
+/** ¿El proveedor dice que el MODELO no sirve? Un 404 de una URL fija siempre lo es; el 400 sólo si el cuerpo lo dice del modelo y no de un parámetro. */
+export const esModeloNoDisponible = (status: number, cuerpo: string) =>
+  status === 404 || (status === 400 && (RE_MODELO_CLARO.test(cuerpo) || (RE_MODELO_AMBIGUO.test(cuerpo) && !RE_PARAMETRO.test(cuerpo))));
 
 // ---------- Cuerpo según el proveedor ----------
 interface CuerpoOpts { modelo: string; turno: Turno; o: OpcionesLlamada }

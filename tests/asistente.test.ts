@@ -13,6 +13,7 @@ import { FRASE_CONTINGENCIA } from '../src/server/services/asistente/contexto';
 import { HISTORIAL_CARACTERES, guardarMensajeAsistente, guardarMensajeUsuario, limpiarConversaciones, limpiezaActiva, revertirDesde, tituloDe } from '../src/server/services/asistente/conversaciones';
 import { olvidarSaludEnMemoria, olvidarCausas } from '../src/server/services/asistente/salud';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
+import { esModeloNoDisponible } from '../src/server/services/asistente/proveedor';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
 const DIA = 86_400_000;
@@ -318,6 +319,33 @@ describe('parámetros del turno', () => {
 });
 
 // ---------- Rotación de modelos dentro de la clave ----------
+describe('esModeloNoDisponible: un 400 sobre un parámetro no es un modelo retirado', () => {
+  it('un 404 siempre cuenta; un 400 que habla de un parámetro («not supported», «unknown») no', () => {
+    assert.equal(esModeloNoDisponible(404, ''), true);
+    for (const cuerpo of [
+      'model: reasoning_effort is not supported',
+      'model o3: unknown parameter response_format',
+      'model x: parameter top_p is not supported',
+      'model gpt-5: temperature is not supported',
+      '{"error":"max_tokens: model llama unknown argument"}',
+    ]) assert.equal(esModeloNoDisponible(400, cuerpo), false, cuerpo);
+  });
+
+  it('los textos claros de modelo retirado o inexistente cuentan, también con un 400', () => {
+    for (const cuerpo of [
+      'The model has been decommissioned',
+      '{"error":{"message":"The model `x` does not exist"}}',
+      '{"error":"model not found"}',
+      'model is no longer available',
+    ]) assert.equal(esModeloNoDisponible(400, cuerpo), true, cuerpo);
+  });
+
+  it('413 y 429 nunca son modelo no disponible, aunque el cuerpo lo diga', () => {
+    assert.equal(esModeloNoDisponible(413, 'model not found'), false);
+    assert.equal(esModeloNoDisponible(429, 'model not found'), false);
+  });
+});
+
 describe('404 de modelo y 402 de OpenRouter', () => {
   it('404 «modelo no disponible» de un modelo activo: se marca deprecado AL MOMENTO y se prueba el siguiente de la misma clave', async () => {
     const q = await guardar('groq', 'groq-prueba-00001');

@@ -103,6 +103,8 @@ export async function* ejecutar(p: Peticion): AsyncGenerator<string, ResultadoMo
   let llamadasTotal = 0;
   const maxR = maxIntentos();
   const ctx = { esfuerzo: p.esfuerzo, mensajeCorto: p.mensajeCorto, modeloFijo: p.modeloFijo };
+  /** Rutas (proveedor|modelo) que el PEDIDO rechazó (400 o 413): ninguna otra clave del proveedor las vuelve a probar en esta consulta. */
+  const pedidoRechazado = new Set<string>();
 
   // Dos tandas: las claves normales y, sólo si éstas se agotan, las de reserva (con su propio margen de rutas y de tiempo).
   const tandas = [
@@ -128,8 +130,8 @@ export async function* ejecutar(p: Peticion): AsyncGenerator<string, ResultadoMo
 
       for (let i = 0; i < modelos.length && !agotado; i++) {
         const modelo = modelos[i];
-        if (probados.has(modelo) || modeloMalo(e.proveedor.id, modelo)) continue; // otra clave del proveedor ya lo vio caído
         const ruta = `${e.proveedor.id}|${modelo}`;
+        if (probados.has(modelo) || modeloMalo(e.proveedor.id, modelo) || pedidoRechazado.has(ruta)) continue; // otra clave del proveedor ya la vio caída o rechazó el pedido
         if (!rutas.has(ruta)) {
           if (rutas.size >= tanda.tope) continue;
           rutas.add(ruta);
@@ -184,6 +186,8 @@ export async function* ejecutar(p: Peticion): AsyncGenerator<string, ResultadoMo
           if (s.cancelado || p.signal?.aborted) return falla('cancelado');
           // 400 por un parámetro que el modelo no admite: UNA vez más, sin los opcionales.
           if (s.status === 400 && !s.claveInvalida && !s.modeloNoDisponible && opcionales) { opcionales = false; continue; }
+          // 400 (ya sin opcionales) o 413: el pedido no le sirve a esta ruta, así que otra clave del proveedor no lo aceptaría.
+          if (!s.claveInvalida && (s.status === 400 || s.status === 413)) pedidoRechazado.add(ruta);
           accion = await clasificar(e, modelo, s, () => { todos429 = false; });
           break;
         }
@@ -243,7 +247,8 @@ async function clasificar(e: Eslabon, modelo: string, s: Fallo, noTodos429: () =
     anotarCausa(e.cooldownKey, 'caido', null);
     return 'lento';
   }
-  if (s.status === 400) return 'siguiente_modelo'; // la ruta no acepta la petición ni sin opcionales: se prueba otra, sin castigar la clave
+  // La ruta no acepta la petición (400 aun sin opcionales, o 413 por tamaño): se prueba otra, sin enfriar la clave ni retirar el modelo.
+  if (s.status === 400 || s.status === 413) return 'siguiente_modelo';
   registrarEstado(e.cooldownKey, s.status >= 500 ? s.status : s.status === 0 ? 0 : 500);
   anotarCausa(e.cooldownKey, 'caido', s.status || null);
   return 'siguiente_clave';
