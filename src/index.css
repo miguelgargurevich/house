@@ -76,11 +76,17 @@
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes sube { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes sube-corto { from { opacity: 0.4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 
 /* Impresión: sólo sale #zona-imprimible (el recibo o el comprobante, al final de <body>). Lo demás se oculta con
    display:none —no visibility, que deja el hueco de la página en blanco— y la zona no tiene alto máximo ni scroll. */
 #zona-imprimible { display: none; }
+
+/* Entrada de las páginas públicas: sólo mueve (opacidad y desplazamiento); sin animación el contenido ya está en su lugar. */
+.sube { animation: sube 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.sube-corto { animation: sube-corto 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @media print {
   html, body { background: #fff !important; }

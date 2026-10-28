@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { cx } from '../../ui';
+import { useCatalogo } from './catalogo';
 
 export function Logo() {
   return (
@@ -14,24 +15,26 @@ export function Logo() {
   );
 }
 
-const enlace = 'rounded px-2 py-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:text-ink';
+const enlace = 'rounded px-1.5 py-1.5 sm:px-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-ink';
 
 /** Marco de las pantallas públicas (portada, precios, registro): cabecera con acceso y pie. Móvil primero. */
-export function Marco({ children, ancho = 'max-w-5xl' }: { children: ReactNode; ancho?: string }) {
+export function Marco({ children, ancho = 'max-w-5xl', completo = false }: { children: ReactNode; ancho?: string; /** Sin ancho ni márgenes en el contenido: cada sección pone los suyos (para fondos que llegan de borde a borde). */ completo?: boolean }) {
+  // «Crear cuenta» sólo con el registro abierto: mientras llega el dato, no se muestra (evita ofrecer lo que luego se quita).
+  const { data } = useCatalogo();
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-ink">
-      <header className="border-b border-line">
+    <div className="flex min-h-svh flex-col bg-bg text-ink">
+      <header className={completo ? '' : 'border-b border-line'}>
         <div className={cx('mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6', ancho)}>
           <Logo />
           <nav aria-label="Principal" className="flex items-center gap-1 sm:gap-2">
             <Link to="/precios" className={enlace}>Precios</Link>
             <Link to="/login" className={enlace}>Ingresar</Link>
-            <Link to="/registro" className="whitespace-nowrap rounded bg-brand px-3 py-1.5 text-sm font-medium text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta</Link>
+            {data?.registro_abierto && <Link to="/registro" className="whitespace-nowrap rounded bg-brand px-2.5 py-1.5 sm:px-3 text-sm font-medium text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta</Link>}
           </nav>
         </div>
       </header>
-      <main className={cx('mx-auto w-full flex-1 px-4 py-8 sm:px-6 sm:py-12', ancho)}>{children}</main>
-      <footer className="border-t border-line">
+      <main className={completo ? 'w-full flex-1' : cx('mx-auto w-full flex-1 px-4 py-8 sm:px-6 sm:py-12', ancho)}>{children}</main>
+      <footer className={completo ? 'bg-surface2' : 'border-t border-line'}>
         <p className={cx('mx-auto w-full px-4 py-6 text-xs text-muted sm:px-6', ancho)}>House · Administración de condominios en Perú. Precios en soles, IGV incluido.</p>
       </footer>
     </div>
