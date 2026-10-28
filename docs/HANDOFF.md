@@ -1368,3 +1368,13 @@ Entradas por fecha (la más reciente arriba).
 - `/api/tareas` se asume con `unidad:{id,codigo}` incluido y `orden=fecha_creacion:desc`. El backend debería filtrar por el usuario asignado cuando el rol es mantenimiento.
 - Usuarios: se envía `empresa_id` sólo si el usuario actual es superadmin (`null` para rol superadmin). Empresa obligatoria en el formulario para admin, mantenimiento y seguridad.
 - `IconButton` del kit mide 36 px (h-9), por debajo del objetivo táctil de 40 px.
+
+## 2026-10-28 — Claude Code (Opus 5.5) — CCI con guiones, «block» en medios de pago, pago parcial oculto, datos del recibo de octubre
+
+**Pedido de Miguel:** «el cci esta bien pero sale validacion en el campo, los medios de pago son por bloc, oculta lo de pagos parciales no existe por ahora el concepto en este condominio, subes los datos del recibo de octubre…»
+
+- **CCI:** el formulario y el servidor aceptan guiones y espacios (`002-19411395382707392`) y guardan sólo los 20 dígitos.
+- **Medios de pago:** `/api/medios-pago/ambitos` devuelve el `tipo` de cada estructura; si todas son `block`, la pantalla y el formulario dicen «block» en vez de «torre» (`palabraEstructura` en `_parts/medios/tipos.ts`).
+- **Pago parcial de un concepto:** oculto en el detalle del mantenimiento (`PAGO_PARCIAL_CONCEPTO = false`); el endpoint sigue.
+- **Producción (con auditoría):** se comprobó que el recibo 1 ya es octubre (los 32 dptos. cuadran con el Excel de octubre en total y agua). Se cargaron: emisión 27-10-2026, corte de agua 10-11-2026, notas de pago, contacto de administración (Melina Loayza), correo del block y la lectura de agua de B01-804 (1416.574 → 1430.897, factor 4.9315 → S/ 70.63, igual al impreso).
+- **Pendiente de Miguel:** cuenta BCP y CCI reales, foto de cabecera, logo, lecturas de los otros 31 dptos. y la foto del contómetro.

@@ -13,6 +13,9 @@ import { FormPagoMantenimiento } from './FormPagoMantenimiento';
 
 interface Props { reciboId: number; unidadId: number; onClose: () => void; onCambio: () => void }
 
+/** Oculto por ahora: ningún condominio cobra un concepto por partes (Miguel, 28-oct-2026). El endpoint sigue disponible. */
+const PAGO_PARCIAL_CONCEPTO = false;
+
 /** Pago parcial de UN concepto: opción avanzada, para el caso raro en que el vecino sólo paga una parte. */
 function PagoParcialConcepto({ cargoId, saldo, onRegistrado }: { cargoId: number; saldo: string; onRegistrado: () => void }) {
   const toast = useToast();
@@ -115,7 +118,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
               <HistorialPagos pagos={d.pagos} onVer={abrirPago} />
             </section>
 
-            {puedeRegistrar && (
+            {puedeRegistrar && PAGO_PARCIAL_CONCEPTO && (
               <details className="rounded border border-line px-4 py-3">
                 <summary className="cursor-pointer text-sm font-medium">Opciones avanzadas: pago parcial de un concepto</summary>
                 <p className="mt-2 text-sm text-muted">Sólo para cuando el vecino paga una parte de un concepto. Lo normal es registrar el pago del mantenimiento completo.</p>

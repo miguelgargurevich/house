@@ -83,7 +83,8 @@ export const MAX_LARGO_CUENTA = 25;
 const numeroCuenta = z
   .preprocess(sinEspacios, z.string({ error: 'Debe ser un texto' }).regex(/^[0-9-]{6,25}$/, 'Usa de 6 a 25 caracteres: dígitos y guiones'))
   .refine((v) => v.replace(/-/g, '').length >= MIN_DIGITOS_CUENTA, `Debe tener al menos ${MIN_DIGITOS_CUENTA} dígitos`);
-const cci = z.preprocess((v) => vacioANull(sinEspacios(v)), z.string().regex(/^\d{20}$/, 'El CCI tiene 20 dígitos').nullish());
+/** El CCI se escribe a menudo con guiones (002-194…): se aceptan y se guarda sólo con los 20 dígitos. */
+const cci = z.preprocess((v) => vacioANull(typeof v === 'string' ? v.replace(/[\s-]+/g, '') : v), z.string().regex(/^\d{20}$/, 'El CCI tiene 20 dígitos').nullish());
 const documento = z.preprocess((v) => vacioANull(sinEspacios(v)), z.string().regex(/^(\d{8}|\d{11})$/, 'Usa un DNI de 8 o un RUC de 11 dígitos').nullish());
 const celular = z.preprocess(sinEspacios, z.string({ error: 'Debe ser un texto' }).regex(/^9\d{8}$/, 'Usa un celular peruano de 9 dígitos que empiece con 9'));
 const entidad = z.enum(NOMBRES_ENTIDAD, { error: `banco debe ser una entidad de la lista (GET /api/medios-pago/catalogo)` });

@@ -7,7 +7,7 @@ import { Interruptor } from '../catalogo/Interruptor';
 import { ACCEPT_QR, errorDeQr, subirQr } from './qr';
 import { QrImagen } from './QrMiniatura';
 import { avisoCci, avisoLargoCuenta } from './avisos';
-import { CODIGOS_PAGO, ENTIDAD_OTRA, MONEDAS, TIPOS, nombreTorre, useCatalogo } from './tipos';
+import { CODIGOS_PAGO, ENTIDAD_OTRA, MONEDAS, TIPOS, nombreTorre, palabraEstructura, useCatalogo } from './tipos';
 import type { Ambitos, Medio, TipoMedio } from './tipos';
 
 interface Form {
@@ -91,6 +91,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
   const avisoCodigo = tipo === 'banco' ? avisoCci(reglas, watch('cci') ?? '', entidades) : null;
   const bloques = useMemo(() => ambitos.complejos.find(c => String(c.id) === complejoId)?.estructuras ?? [], [ambitos, complejoId]);
   const unCondominio = ambitos.complejos.length === 1;
+  const palabra = palabraEstructura(ambitos);
 
   function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -104,7 +105,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
   async function guardar(v: Form) {
     const otra = v.banco === ENTIDAD_OTRA ? v.banco_otro.trim() : null;
     const datos = v.tipo === 'banco'
-      ? { banco: v.banco, banco_otro: otra, tipo_cuenta: v.tipo_cuenta, numero_cuenta: v.numero_cuenta.trim(), moneda: v.moneda, cci: v.cci.trim() || null, documento_titular: v.documento_titular.trim() || null }
+      ? { banco: v.banco, banco_otro: otra, tipo_cuenta: v.tipo_cuenta, numero_cuenta: v.numero_cuenta.trim(), moneda: v.moneda, cci: v.cci.replace(/[\s-]/g, '') || null, documento_titular: v.documento_titular.trim() || null }
       : v.tipo === 'recaudacion'
         ? { banco: v.banco, banco_otro: otra, servicio: v.servicio.trim(), codigo_pago: v.codigo_pago, codigo_instruccion: v.codigo_pago === 'otro' ? v.codigo_instruccion.trim() : null }
         : { celular: v.celular.trim() };
@@ -145,9 +146,9 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
           </Select>
         )}
         {nuevo && (ambitos.fijo
-          ? <p className="text-sm text-muted sm:col-span-2">Torre: <span className="font-medium text-ink">{bloques[0] ? nombreTorre(bloques[0]) : '—'}</span></p>
+          ? <p className="text-sm text-muted sm:col-span-2"><span className="capitalize">{palabra.una}</span>: <span className="font-medium text-ink">{bloques[0] ? nombreTorre(bloques[0]) : '—'}</span></p>
           : (
-            <Select label="¿Para quién es?" className="sm:col-span-2" hint="Un medio de todo el condominio lo ven todas las torres." {...register('estructura_id')}>
+            <Select label="¿Para quién es?" className="sm:col-span-2" hint={`Un medio de todo el condominio lo ven ${palabra.todas}.`} {...register('estructura_id')}>
               <option value="">Todo el condominio</option>
               {bloques.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
             </Select>
@@ -197,9 +198,9 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
             {avisoLargo && <p role="status" className="text-sm text-warn sm:col-span-2 -mt-2">Aviso: {avisoLargo} Puedes guardarlo igual.</p>}
             <Input
               label="CCI (opcional)" inputMode="numeric" autoComplete="off" className="sm:col-span-2"
-              hint="Código interbancario de 20 dígitos, para transferencias desde otros bancos."
+              hint="Código interbancario de 20 dígitos (puedes escribirlo con guiones), para transferencias desde otros bancos."
               error={errors.cci && 'El CCI tiene 20 dígitos'}
-              {...register('cci', { validate: v => v.trim() === '' || /^\d{20}$/.test(v.replace(/\s/g, '')) })}
+              {...register('cci', { validate: v => v.trim() === '' || /^\d{20}$/.test(v.replace(/[\s-]/g, '')) })}
             />
             {avisoCodigo && <p role="status" className="text-sm text-warn sm:col-span-2 -mt-2">Aviso: {avisoCodigo} Puedes guardarlo igual.</p>}
           </>
@@ -264,7 +265,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
           </div>
         )}
 
-        <Interruptor className="sm:col-span-2" label="Activo" hint="Los medios inactivos no se muestran a los vecinos. Máximo 6 activos por torre." {...register('activo')} />
+        <Interruptor className="sm:col-span-2" label="Activo" hint={`Los medios inactivos no se muestran a los vecinos. Máximo 6 activos por ${palabra.una}.`} {...register('activo')} />
       </form>
     </Modal>
   );

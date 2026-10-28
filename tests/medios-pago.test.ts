@@ -196,6 +196,7 @@ describe('medios de pago: ámbitos disponibles', () => {
     assert.deepEqual(a.body.complejos.map((c: { id: number }) => c.id), [d.complejoA.id]);
     assert.deepEqual(a.body.complejos[0].estructuras.map((e: { id: number }) => e.id).sort(), [e1.id, e2.id].sort());
     assert.equal(a.body.fijo, false);
+    assert.ok(a.body.complejos[0].estructuras.every((e: { tipo?: string }) => typeof e.tipo === 'string'), 'cada block trae su tipo (block o torre)');
     const todo = await llama(T.presiTodo, 'GET', '/api/medios-pago/ambitos');
     assert.equal(todo.body.complejos[0].estructuras.length, 2);
     assert.equal(todo.body.fijo, false);
@@ -236,6 +237,11 @@ describe('medios de pago: validación por tipo', () => {
     assert.equal(r.body.cci, null);
     assert.equal(r.body.numero_cuenta, '194-1234567-8-90');
     assert.equal((await intentar(banco({ cci: '', documento_titular: '20123456789' }))).status, 201);
+    // El CCI con guiones (como lo da el banco) se acepta y se guarda sólo con los 20 dígitos.
+    const conGuiones = await intentar(banco({ cci: '002-19411395382707392' }));
+    assert.equal(conGuiones.status, 201, conGuiones.texto);
+    assert.equal(conGuiones.body.cci, '00219411395382707392');
+    assert.equal((await intentar(banco({ cci: '002-1941139538270739' }))).status, 422); // 19 dígitos con guión
     await limpiar();
     for (const b of ['BCP', 'BBVA', 'Interbank', 'Scotiabank', 'Banco de la Nación', 'Mibanco', 'BanBif', 'Pichincha']) {
       assert.equal((await intentar(banco({ banco: b }))).status, 201, b);

@@ -34,12 +34,18 @@ export interface Medio {
 }
 
 export interface Ambitos {
-  complejos: { id: number; nombre: string; estructuras: { id: number; nombre: string | null }[] }[];
+  complejos: { id: number; nombre: string; estructuras: { id: number; nombre: string | null; tipo?: string }[] }[];
   /** La junta de una torre sólo gestiona esa torre (no puede elegir «todo el condominio»). */
   fijo: boolean;
 }
 
 export const useAmbitos = () => useResource<Ambitos>('/api/medios-pago/ambitos');
+
+/** Cómo llama el condominio a sus edificios: «block» si todos son blocks (como VRANY), si no «torre». */
+export function palabraEstructura(a: Ambitos | null | undefined): { una: string; todas: string } {
+  const todas = a?.complejos.flatMap(c => c.estructuras) ?? [];
+  return todas.length > 0 && todas.every(e => e.tipo === 'block') ? { una: 'block', todas: 'todos los blocks' } : { una: 'torre', todas: 'todas las torres' };
+}
 
 export const TIPOS: { value: TipoMedio; label: string }[] = [
   { value: 'banco', label: 'Cuenta bancaria' },

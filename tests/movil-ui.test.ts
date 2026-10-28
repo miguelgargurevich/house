@@ -35,6 +35,17 @@ describe('vista móvil', () => {
     assert.match(fuente('src/pages/seguridad/Unidades.tsx'), /break-words text-xs text-muted sm:hidden/);
   });
 
+  it('medios de pago: el CCI admite guiones y el condominio de blocks dice «block», no «torre»', () => {
+    const form = fuente('src/pages/admin/_parts/medios/MedioFormModal.tsx');
+    assert.match(form, /\/\^\\d\{20\}\$\/\.test\(v\.replace\(\/\[\\s-\]\/g, ''\)\)/);
+    assert.match(fuente('src/pages/admin/_parts/medios/tipos.ts'), /every\(e => e\.tipo === 'block'\)/);
+    assert.match(fuente('src/pages/admin/MediosPago.tsx'), /label=\{`Filtrar por \$\{palabra\.una\}`\}/);
+  });
+
+  it('el pago parcial de un concepto queda oculto en el detalle del mantenimiento', () => {
+    assert.match(fuente('src/pages/admin/_parts/mantenimientos/MantenimientoAdminModal.tsx'), /const PAGO_PARCIAL_CONCEPTO = false;[\s\S]*puedeRegistrar && PAGO_PARCIAL_CONCEPTO &&/);
+  });
+
   it('la ficha de la empresa no queda «cargando» si no tiene fecha de inicio', () => {
     assert.match(fuente('src/pages/superadmin/EmpresaDetalle.tsx'), /value: e \? \(e\.fecha_inicio \? fechaCorta\(e\.fecha_inicio\) : '—'\) : <Skeleton/);
   });

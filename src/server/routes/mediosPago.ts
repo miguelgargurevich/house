@@ -117,7 +117,7 @@ mediosPagoRouter.get('/ambitos', async (req, res) => {
     where: junta ? { id: junta.complejo_id } : scopeComplejos(u),
     orderBy: { nombre: 'asc' },
     take: 100,
-    select: { id: true, nombre: true, estructuras: { where: junta?.estructura_id != null ? { id: junta.estructura_id } : {}, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true } } },
+    select: { id: true, nombre: true, estructuras: { where: junta?.estructura_id != null ? { id: junta.estructura_id } : {}, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true, tipo: true } } },
   });
   // `fijo`: la junta de un block sólo gestiona ese block (no puede elegir «todo el condominio»).
   res.json({ complejos, fijo: junta?.estructura_id != null });
