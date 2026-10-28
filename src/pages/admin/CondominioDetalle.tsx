@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/AuthContext';
 import {
   Button, Card, ConfirmDialog, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, fechaCorta, soles, useToast,
 } from '../../ui';
+import { ImagenEditable } from './_parts/condominio/ImagenEditable';
 import { TorresDelCondominio } from './_parts/condominio/TorresDelCondominio';
 import { ModalDeComplejo, type FilaComplejo } from './_parts/condominio/ModalDeComplejo';
 import { ListaDeUnidades } from './_parts/unidades/ListaDeUnidades';
@@ -104,6 +105,18 @@ export default function CondominioDetalle() {
                   { label: 'Descripción', value: c.descripcion },
                 ]}
               />
+              <section aria-labelledby="recibo-impreso" className="mt-6 space-y-4 border-t border-line pt-5">
+                <h3 id="recibo-impreso" className="text-sm font-semibold">Recibo impreso</h3>
+                <ImagenEditable titulo="Foto de cabecera" ayuda="Sale a la izquierda del título del recibo. JPG, PNG o WebP, hasta 2 MB." url={c.cabecera_url ?? null} ruta={`/api/complejos/${c.id}/cabecera`} onCambio={() => void complejo.reload()} />
+                <DefinitionList
+                  items={[
+                    { label: 'Administración', value: c.admin_nombre },
+                    { label: 'Celular de la administración', value: c.admin_celular },
+                    { label: 'Correo de la administración', value: c.admin_correo },
+                    { label: 'Notas de pago', value: c.notas_pago ? <span className="whitespace-pre-line">{c.notas_pago}</span> : null },
+                  ]}
+                />
+              </section>
             </div>
           ) : (
             <div className="space-y-3 p-5"><Skeleton className="h-6 w-64" /><Skeleton className="h-20 w-full" /></div>

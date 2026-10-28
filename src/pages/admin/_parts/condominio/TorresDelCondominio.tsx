@@ -14,9 +14,11 @@ export interface Torre {
   complejo_id: number | null;
   unidades_count?: number;
   pisos_count?: number;
+  /** «Correo del block» al que se envían los vouchers (sale en el recibo impreso). */
+  correo_vouchers?: string | null;
 }
 
-interface Form { nombre: string; tipo: string; cantidad_pisos: string }
+interface Form { nombre: string; tipo: string; cantidad_pisos: string; correo_vouchers: string }
 
 const TIPOS = ['Torre', 'Block'];
 const nombreDe = (t: Torre) => t.nombre?.trim() || `Torre ${t.id}`;
@@ -135,8 +137,8 @@ function ModalTorre({ torre, complejoId, onClose, onGuardada }: { torre: Torre |
   useEffect(() => {
     if (!torre) return;
     reset(esNueva
-      ? { nombre: '', tipo: 'Torre', cantidad_pisos: '' }
-      : { nombre: torre.nombre ?? '', tipo: torre.tipo, cantidad_pisos: String(torre.pisos_count ?? '') });
+      ? { nombre: '', tipo: 'Torre', cantidad_pisos: '', correo_vouchers: '' }
+      : { nombre: torre.nombre ?? '', tipo: torre.tipo, cantidad_pisos: String(torre.pisos_count ?? ''), correo_vouchers: torre.correo_vouchers ?? '' });
   }, [torre, esNueva, reset]);
 
   async function guardar(v: Form) {
@@ -145,6 +147,7 @@ function ModalTorre({ torre, complejoId, onClose, onGuardada }: { torre: Torre |
       tipo: v.tipo,
       complejo_id: complejoId,
       cantidad_pisos: v.cantidad_pisos === '' ? 0 : Number(v.cantidad_pisos),
+      correo_vouchers: v.correo_vouchers.trim() || null,
     };
     try {
       await api(esNueva ? '/api/estructuras' : `/api/estructuras/${(torre as Torre).id}`, { method: esNueva ? 'POST' : 'PUT', json: body });
@@ -173,6 +176,15 @@ function ModalTorre({ torre, complejoId, onClose, onGuardada }: { torre: Torre |
           placeholder="Ej. 6"
           hint={esNueva ? 'Se crean esos pisos (1, 2, 3…).' : 'Agrega los pisos que falten; los que ya existen no se borran.'}
           {...register('cantidad_pisos')}
+        />
+        <Input
+          label="Correo del block para vouchers"
+          type="email"
+          className="sm:col-span-2"
+          placeholder="juntadirectiva.block1@gmail.com"
+          hint="Al que los vecinos envían su voucher de depósito; sale en su recibo."
+          error={errors.correo_vouchers && 'Correo inválido'}
+          {...register('correo_vouchers', { pattern: /^\S+@\S+\.\S+$|^$/ })}
         />
       </form>
     </Modal>

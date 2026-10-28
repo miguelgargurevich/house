@@ -19,7 +19,7 @@ export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
   limpieza: ['/limpieza/inicio', '/limpieza/tareas'],
   jardineria: ['/jardineria/inicio', '/jardineria/tareas'],
 };
-export const RUTAS_JUNTA = ['/junta/medios-pago', '/junta/pagos'] as const;
+export const RUTAS_JUNTA = ['/junta/medios-pago', '/junta/pagos', '/junta/agua'] as const;
 export const RUTAS_COMUNES = ['/perfil'] as const;
 
 /** Todas las rutas que el asistente puede conocer (para la prueba contra `App.tsx`). */

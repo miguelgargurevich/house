@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/AuthContext';
 import {
   Button, Card, CardBody, CardHeader, DefinitionList, EmptyState, ErrorState, Input, Modal, PageHeader, Skeleton, StatusBadge, TabPanel, Tabs, useToast,
 } from '../../ui';
+import { ImagenEditable } from './_parts/condominio/ImagenEditable';
 import PersonasLista from './_parts/personas/PersonasLista';
 
 const VISTAS = [
@@ -26,6 +27,8 @@ interface Empresa {
   email: string | null;
   representante_legal: string | null;
   estado: string | null;
+  /** Logo del recibo impreso (URL con su versión); `null` si no hay. */
+  logo_url?: string | null;
 }
 interface Form { nombre: string; ruc: string; direccion: string; telefono: string; email: string; representante_legal: string }
 
@@ -114,6 +117,10 @@ export default function Configuracion() {
                   { label: 'Dirección', value: data.direccion },
                 ]}
               />
+              <section aria-labelledby="logo-empresa" className="mt-6 border-t border-line pt-5">
+                <h3 id="logo-empresa" className="mb-3 text-sm font-semibold">Recibo impreso</h3>
+                <ImagenEditable titulo="Logo de la empresa" ayuda="Sale al pie de cada recibo de mantenimiento. JPG, PNG o WebP, hasta 2 MB." url={data.logo_url ?? null} ruta={`/api/empresas/${data.id}/logo`} onCambio={() => void reload()} />
+              </section>
             </CardBody>
           )}
         </Card>

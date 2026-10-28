@@ -26,6 +26,7 @@ const AdminUnidades = lazy(() => import('./pages/admin/Unidades'));
 const AdminRecibos = lazy(() => import('./pages/admin/Recibos'));
 const AdminPeriodoRecibo = lazy(() => import('./pages/admin/PeriodoRecibo'));
 const AdminPagos = lazy(() => import('./pages/admin/Pagos'));
+const JuntaAgua = lazy(() => import('./pages/junta/Agua'));
 const AdminMorosidad = lazy(() => import('./pages/admin/Morosidad'));
 const AdminMantenimientos = lazy(() => import('./pages/admin/Mantenimientos'));
 const AdminConceptos = lazy(() => import('./pages/admin/Conceptos'));
@@ -110,6 +111,7 @@ export default function App() {
         <Route element={<RequireJunta />}>
           <Route path="/junta/medios-pago" element={<AdminMediosPago />} />
           <Route path="/junta/pagos" element={<AdminPagos />} />
+          <Route path="/junta/agua" element={<JuntaAgua />} />
         </Route>
         <Route element={<RequireRole roles={['propietario']} />}>
           <Route path="/propietario/inicio" element={<PropietarioInicio />} />

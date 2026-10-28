@@ -79,10 +79,37 @@ export interface PagoMantenimiento {
   evaluacion: EvaluacionResidente | EvaluacionCompleta | null;
 }
 
+/** Detalle del consumo de agua del departamento en el recibo (lo que el recibo impreso llama «lectura de contómetro»). */
+export interface AguaMantenimiento {
+  fecha_anterior: string;
+  lectura_anterior: string;
+  fecha_actual: string;
+  lectura_actual: string;
+  /** S/ por m³. */
+  factor: string;
+  consumo_m3: string;
+  /** Consumo × factor, en S/. */
+  monto: string;
+  tiene_foto: boolean;
+  /** URL de la foto del contómetro (con el alcance de quien mira); `null` si no hay. */
+  foto_url: string | null;
+}
+
 export interface DetalleMantenimiento extends Omit<Mantenimiento, 'propietario'> {
   fecha_emision: string;
-  condominio: { id: number; nombre: string; direccion: string | null } | null;
-  empresa: { id: number; nombre: string; ruc: string | null; direccion: string | null; telefono: string | null; email: string | null } | null;
+  /** Fecha de corte del agua (la fija la administración o la junta). */
+  fecha_corte_agua: string | null;
+  /** Lo que el departamento debe de periodos anteriores (nunca negativo). */
+  deuda_acumulada: string;
+  /** Total del mantenimiento + deuda acumulada. */
+  total_general: string;
+  agua: AguaMantenimiento | null;
+  /** «Correo del block» para enviar vouchers. */
+  correo_vouchers: string | null;
+  /** Concepto de mora/multa del recibo que este departamento no debe: se imprime en S/ 0.00. */
+  linea_mora: string | null;
+  condominio: { id: number; nombre: string; direccion: string | null; notas_pago: string | null; admin_nombre: string | null; admin_celular: string | null; admin_correo: string | null; cabecera_url: string | null } | null;
+  empresa: { id: number; nombre: string; ruc: string | null; direccion: string | null; telefono: string | null; email: string | null; logo_url: string | null } | null;
   propietario: { id: number; nombre: string } | null;
   inquilino: { id: number; nombre: string } | null;
   conceptos: ConceptoMantenimiento[];
@@ -100,4 +127,10 @@ export function motivoRechazoMant(pagos: Pick<PagoMantenimiento, 'estado_validac
   if (estado === 'pagado' || estado === 'en_revision') return null;
   const ultimo = pagos?.[0];
   return ultimo?.estado_validacion === 'rechazado' ? ultimo.motivo_rechazo ?? 'Sin motivo indicado' : null;
+}
+
+/** El medio de pago principal de una torre para el recibo impreso: la primera cuenta bancaria de su block, si no, la del condominio. */
+export function cuentaBancaria(medios: MedioPagoMant[]): MedioPagoMant | null {
+  const bancos = medios.filter(m => m.tipo === 'banco');
+  return bancos.find(m => m.ambito === 'block') ?? bancos[0] ?? null;
 }

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
-import { Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, Toolbar, fechaCorta, soles, tituloRecibo } from '../../ui';
+import { Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, Toolbar, fechaCorta, soles, tituloRecibo } from '../../ui';
+import { AguaRecibo } from './_parts/agua/AguaRecibo';
 import { BloquesPeriodo } from './_parts/mantenimientos/BloquesPeriodo';
 import type { BlockResumen } from './_parts/mantenimientos/BloquesPeriodo';
 import { MantenimientoAdminModal } from './_parts/mantenimientos/MantenimientoAdminModal';
@@ -42,6 +43,7 @@ export default function PeriodoRecibo() {
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState('');
   const [block, setBlock] = useState('');
+  const [vista, setVista] = useState<'departamentos' | 'agua'>('departamentos');
   const [viendo, setViendo] = useState<Mantenimiento | null>(null);
   const [recargar, setRecargar] = useState(0);
   const qFinal = useDebounced(q.trim());
@@ -79,6 +81,15 @@ export default function PeriodoRecibo() {
         </>
       )}
 
+      <div className="mb-4">
+        <Tabs value={vista} onChange={setVista} items={[{ id: 'departamentos', label: 'Departamentos' }, { id: 'agua', label: 'Agua y datos del recibo' }]} idBase="periodo-recibo" label="Secciones del periodo" />
+      </div>
+
+      <TabPanel idBase="periodo-recibo" id="agua" value={vista}>
+        <AguaRecibo reciboId={reciboId} onCambio={() => void periodoDb.reload()} />
+      </TabPanel>
+
+      <TabPanel idBase="periodo-recibo" id="departamentos" value={vista}>
       <Card className="mb-4">
         <Toolbar>
           <SearchBox value={q} onChange={setQ} placeholder="Buscar departamento (ej. B01-804)" label="Buscar departamento" />
@@ -113,6 +124,7 @@ export default function PeriodoRecibo() {
           />
         </Card>
       )}
+      </TabPanel>
 
       {viendo && (
         <MantenimientoAdminModal

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { BanknotesIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
@@ -87,7 +88,13 @@ export default function Pagos() {
       <PageHeader
         title="Pagos"
         description={junta ? 'Revisa los comprobantes de los vecinos de tu torre: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo. También puedes registrar aquí los pagos que recibas directamente.' : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
-        actions={puedeRegistrar ? <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button> : undefined}
+        actions={puedeRegistrar ? (
+          <>
+            {/* La junta carga las lecturas de agua de su torre desde aquí (el menú de la junta no tiene esa entrada). */}
+            {junta && <Link to="/junta/agua" className="inline-flex h-10 items-center rounded border border-line bg-surface px-4 text-sm font-medium transition-colors duration-150 hover:bg-surface2">Lecturas de agua</Link>}
+            <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button>
+          </>
+        ) : undefined}
       />
       <StatStrip
         stats={[

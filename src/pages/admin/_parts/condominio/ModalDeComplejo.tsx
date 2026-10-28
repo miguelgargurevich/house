@@ -20,9 +20,15 @@ export interface FilaComplejo {
   mora_monto?: string;
   /** Contrato de administración vigente (desde cuándo la administra su empresa). */
   contrato_vigente?: { id: number; fecha_inicio: string } | null;
+  /** Recibo impreso: notas de pago (una por renglón), contacto de la administración y foto de cabecera (URL con su versión). */
+  notas_pago?: string | null;
+  admin_nombre?: string | null;
+  admin_celular?: string | null;
+  admin_correo?: string | null;
+  cabecera_url?: string | null;
 }
 
-interface Form { nombre: string; tipo: string; direccion: string; descripcion: string; empresa_id: string; mora_monto: string }
+interface Form { nombre: string; tipo: string; direccion: string; descripcion: string; empresa_id: string; mora_monto: string; notas_pago: string; admin_nombre: string; admin_celular: string; admin_correo: string }
 
 /** Alta/edición de un condominio. La administradora se elige al crear; después se cambia con «Cambiar de administradora». */
 export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { complejo: FilaComplejo | 'nuevo' | null; esSuper: boolean; onClose: () => void; onGuardado: () => void }) {
@@ -35,12 +41,13 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
   useEffect(() => {
     if (!complejo) return;
     reset(complejo === 'nuevo'
-      ? { nombre: '', tipo: 'Condominio', direccion: '', descripcion: '', empresa_id: '', mora_monto: '20.00' }
-      : { nombre: complejo.nombre, tipo: complejo.tipo, direccion: complejo.direccion ?? '', descripcion: complejo.descripcion ?? '', empresa_id: complejo.empresa_id ? String(complejo.empresa_id) : '', mora_monto: Number(complejo.mora_monto ?? 20).toFixed(2) });
+      ? { nombre: '', tipo: 'Condominio', direccion: '', descripcion: '', empresa_id: '', mora_monto: '20.00', notas_pago: '', admin_nombre: '', admin_celular: '', admin_correo: '' }
+      : { nombre: complejo.nombre, tipo: complejo.tipo, direccion: complejo.direccion ?? '', descripcion: complejo.descripcion ?? '', empresa_id: complejo.empresa_id ? String(complejo.empresa_id) : '', mora_monto: Number(complejo.mora_monto ?? 20).toFixed(2), notas_pago: complejo.notas_pago ?? '', admin_nombre: complejo.admin_nombre ?? '', admin_celular: complejo.admin_celular ?? '', admin_correo: complejo.admin_correo ?? '' });
   }, [complejo, reset]);
 
   async function guardar(v: Form) {
-    const body: Record<string, unknown> = { nombre: v.nombre.trim(), tipo: v.tipo, direccion: v.direccion.trim() || null, descripcion: v.descripcion.trim() || null, mora_monto: v.mora_monto.trim().replace(',', '.') };
+    const body: Record<string, unknown> = { nombre: v.nombre.trim(), tipo: v.tipo, direccion: v.direccion.trim() || null, descripcion: v.descripcion.trim() || null, mora_monto: v.mora_monto.trim().replace(',', '.'),
+      notas_pago: v.notas_pago.trim() || null, admin_nombre: v.admin_nombre.trim() || null, admin_celular: v.admin_celular.trim() || null, admin_correo: v.admin_correo.trim() || null };
     // La administradora se elige al crear; después se cambia con «Cambiar de administradora» (cierra un contrato y abre otro).
     if (esSuper && nuevo) body.empresa_id = Number(v.empresa_id);
     try {
@@ -79,6 +86,13 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
           {...register('mora_monto', { required: true, pattern: /^\d{1,6}([.,]\d{1,2})?$/ })}
         />
         <Textarea label="Descripción" className="sm:col-span-2" {...register('descripcion')} />
+        <fieldset className="grid gap-4 border-t border-line pt-4 sm:col-span-2 sm:grid-cols-2">
+          <legend className="mb-1 text-sm font-semibold">Recibo impreso</legend>
+          <Textarea label="Notas de pago" className="sm:col-span-2" rows={4} hint="Una nota por renglón; salen al pie del recibo (p. ej. «Todo pago en ventanilla tiene un cobro adicional de 9 soles»)." {...register('notas_pago')} />
+          <Input label="Administración (nombre)" className="sm:col-span-2" {...register('admin_nombre')} />
+          <Input label="Celular de la administración" inputMode="tel" error={errors.admin_celular && 'Sólo números, espacios, + ( ) y -'} {...register('admin_celular', { pattern: /^[0-9+()\-\s]*$/ })} />
+          <Input label="Correo de la administración" type="email" error={errors.admin_correo && 'Correo inválido'} {...register('admin_correo', { pattern: /^\S+@\S+\.\S+$|^$/ })} />
+        </fieldset>
       </form>
     </Modal>
   );

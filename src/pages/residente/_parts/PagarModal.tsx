@@ -93,7 +93,7 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
         </>
       )}
     >
-      {mant && paso === 'como' && <ComoPagar mant={mant} saldo={d?.saldo ?? null} medios={d?.medios_pago ?? null} loading={detalle.loading} error={detalle.error} />}
+      {mant && paso === 'como' && <ComoPagar mant={mant} saldo={d?.saldo ?? null} medios={d?.medios_pago ?? null} loading={detalle.loading} error={detalle.error} notas={d?.condominio?.notas_pago ?? null} correoVouchers={d?.correo_vouchers ?? null} />}
       {mant && paso === 'enviado' && (
         <div className="space-y-4">
           <Alert tone="ok">Tu pago del mantenimiento quedó registrado y en revisión; te avisaremos cuando se valide.</Alert>
