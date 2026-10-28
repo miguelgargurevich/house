@@ -100,15 +100,15 @@ describe('cálculo con el mínimo de 20 departamentos', () => {
 describe('API pública: cotizar y planes sin módulos sueltos', () => {
   it('cotizar aplica el mínimo y dice cuántas unidades se cobran', async () => {
     const a = await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=pro');
-    assert.deepEqual(a.body, { unidades: 10, unidades_cobradas: 20, minimo_aplicado: true, total_mes: '59.00', total_anio: '708.00', igv_incluido: true });
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body.total_mes, '295.00');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=administradora')).body.total_mes, '47.20');
+    assert.deepEqual(a.body, { unidades: 10, unidades_cobradas: 20, minimo_aplicado: true, total_mes: '50.00', total_anio: '600.00', igv_mes: '9.00', total_con_igv_mes: '59.00', igv_incluido: false }, 'precio público sin IGV; aparte el total con IGV');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body.total_mes, '250.00');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=administradora')).body.total_mes, '40.00');
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=15&plan=gratis')).body.total_mes, '0.00');
   });
 
   it('cotizar ignora los módulos sueltos: Gratis + WhatsApp ya no cuesta nada aparte, y no se pueden sumar a Pro', async () => {
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=20&plan=gratis&modulos=whatsapp_avisos,ia_vouchers')).body.total_mes, '0.00');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro&modulos=asistente')).body.total_mes, '295.00');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro&modulos=asistente')).body.total_mes, '250.00');
   });
 
   it('/api/publico/planes: Gratis con tope 20 y sin capacidades; Pro y Administradora con mínimo 20 y todo; módulos sin precio', async () => {

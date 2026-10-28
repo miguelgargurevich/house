@@ -4,6 +4,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-28 — Claude Code (Opus 5.5) — Precios públicos sin IGV
+
+- Pedido de Miguel: los precios publicados no incluyen IGV. `/api/publico/planes` da `precio_por_unidad` y `total_minimo_mes` **sin IGV** (`igv_incluido: false`, `precioSinIgv` en `calculo.ts`). `/api/publico/cotizar` da `total_mes`/`total_anio` sin IGV y aparte `igv_mes` y `total_con_igv_mes`.
+- /precios dice «+ IGV» / «Más IGV» y la calculadora muestra también «Con IGV: …». Mi plan y el modal de solicitud dicen «+ IGV»; el monto a pagar en Mi plan, el registro de pagos y los correos siguen CON IGV (es lo que se cobra).
+- Los precios base guardados no cambian (Pro 2,50 y Administradora 2,00): ahora se publican tal cual.
+
 ## 2026-10-28 — Claude Code (Opus 5.5) — Recorrido E2E por roles (recibo del mes → voucher → validación)
 
 **Pedido de Miguel:** «haz el ejercicio como si fueras la administradora que crea el recibo del mes. y luego como si fuera yo de propietario subiendo el voucher pago del mantenimiento.. arma así las demás pruebas».

@@ -54,7 +54,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
             </table>
           </div>
         </div>
-        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes, IGV incluido.{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}, a ${soles(adm.precio_por_unidad)}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
+        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes, sin IGV.{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}, a ${soles(adm.precio_por_unidad)}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
       </Aparece>
     </section>
   );

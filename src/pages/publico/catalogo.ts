@@ -7,7 +7,7 @@ export interface Plan {
   unidades_maximas: number | null;
   /** Departamentos que se cobran como mínimo por condominio (Pro y Administradora); null = sin mínimo. */
   unidades_minimas: number | null;
-  /** Lo menos que paga un condominio con este plan al mes (mínimo de departamentos × precio, con IGV), calculado por el servidor. */
+  /** Lo menos que paga un condominio con este plan al mes (mínimo de departamentos × precio, sin IGV), calculado por el servidor. */
   total_minimo_mes: string | null;
 }
 /** Lo que trae Pro. Los módulos ya no se venden sueltos: no tienen precio. */

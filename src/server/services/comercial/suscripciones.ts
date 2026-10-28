@@ -4,7 +4,7 @@ import { prisma } from '../../db';
 import { conflict, HttpError, invalid, notFound } from '../../errors';
 import { hoyLima } from '../../lib/fechas';
 import { esModulo, type EstadoSuscripcion } from './catalogo';
-import { cotizar, desglosarMonto, precioConIgv, type Cotizacion, type PrecioPlan } from './calculo';
+import { cotizar, desglosarMonto, precioSinIgv, type Cotizacion, type PrecioPlan } from './calculo';
 import { correoA, obtenerConfiguracion } from './configuracion';
 import { estadoEfectivo, type EntradaSuscripcion } from './estado';
 import { comercialDeps, invalidarComercial } from './modulos';
@@ -217,7 +217,7 @@ export const pagoVista = (p: { id: number; complejo_id: number; monto_base: Pris
   operacion: p.operacion, periodo_desde: p.periodo_desde, periodo_hasta: p.periodo_hasta, voucher_ref: p.voucher_ref, notas: p.notas, registrado_en: p.created_at,
 });
 
-/** Precios públicos con IGV incluido (lo único que se muestra al público). */
+/** Precios públicos SIN IGV (el IGV se suma al pagar; Mi plan muestra el monto con IGV). */
 export async function catalogoPublico() {
   const [planes, modulos, cfg] = await Promise.all([
     prisma.planComercial.findMany({ where: { visible: true }, orderBy: { orden: 'asc' } }),
@@ -226,12 +226,12 @@ export async function catalogoPublico() {
   ]);
   return {
     moneda: 'PEN',
-    igv_incluido: true,
+    igv_incluido: false,
     planes: planes.map((p) => ({
-      clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precioConIgv(p.precio_por_unidad, cfg.igv_tasa, p.igv_incluido).toFixed(2), modulos_incluidos: p.modulos_incluidos, caracteristicas: p.caracteristicas,
+      clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precioSinIgv(p.precio_por_unidad, cfg.igv_tasa, p.igv_incluido).toFixed(2), modulos_incluidos: p.modulos_incluidos, caracteristicas: p.caracteristicas,
       unidades_maximas: p.unidades_maximas, unidades_minimas: p.unidades_minimas,
-      // Lo menos que paga un condominio con este plan (el mínimo de unidades × el precio, con IGV), calculado aquí para que la página no haga cuentas.
-      total_minimo_mes: p.unidades_minimas ? cotizar({ unidades: 0, plan: precioDePlan(p), modulosSueltos: [], catalogo: [], tasa: cfg.igv_tasa }).total_mes : null,
+      // Lo menos que paga un condominio con este plan (el mínimo de unidades × el precio, sin IGV), calculado aquí para que la página no haga cuentas.
+      total_minimo_mes: p.unidades_minimas ? cotizar({ unidades: 0, plan: precioDePlan(p), modulosSueltos: [], catalogo: [], tasa: cfg.igv_tasa }).base : null,
     })),
     // Los módulos ya no se venden sueltos: se muestran como «lo que trae Pro» (sin precio).
     modulos: modulos.map((m) => ({ clave: m.clave, nombre: m.nombre, descripcion: m.descripcion })),
@@ -239,11 +239,11 @@ export async function catalogoPublico() {
   };
 }
 
-/** Cotización pública (con IGV incluido): el mismo cálculo que Mi plan (con el mínimo de unidades del plan), sin precios en el código del frontend. Sin módulos sueltos. */
+/** Cotización pública SIN IGV (`total_mes`, `total_anio`); aparte el IGV y el total con IGV del mes, para quien quiera verlo: el mismo cálculo que Mi plan (con el mínimo de unidades del plan), sin precios en el código del frontend. Sin módulos sueltos. */
 export async function cotizacionPublica(unidades: number, planClave: string | null) {
   const [planes, cfg] = await Promise.all([prisma.planComercial.findMany({ where: { visible: true } }), obtenerConfiguracion()]);
   const plan = planClave ? planes.find((p) => p.clave === planClave) : null;
   if (planClave && !plan) throw new HttpError(422, 'Datos inválidos: plan: no existe', { plan: 'Plan inexistente' });
   const c = cotizar({ unidades, plan: plan ? precioDePlan(plan) : null, modulosSueltos: [], catalogo: [], tasa: cfg.igv_tasa });
-  return { unidades: c.unidades, unidades_cobradas: c.unidades_cobradas, minimo_aplicado: c.minimo_aplicado, total_mes: c.total_mes, total_anio: c.total_anio, igv_incluido: true };
+  return { unidades: c.unidades, unidades_cobradas: c.unidades_cobradas, minimo_aplicado: c.minimo_aplicado, total_mes: c.base, total_anio: new Prisma.Decimal(c.base).times(12).toFixed(2), igv_mes: c.igv, total_con_igv_mes: c.total_mes, igv_incluido: false };
 }

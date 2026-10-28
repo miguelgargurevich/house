@@ -14,6 +14,11 @@ export function precioConIgv(precio: Valor, tasa: Valor, igvIncluido = false): D
   return igvIncluido ? redondear(precio) : redondear(new D(precio).times(new D(1).plus(tasa)));
 }
 
+/** Precio sin IGV: el que se publica (el IGV se suma al pagar). Si el plan guarda el precio con IGV, se le quita. */
+export function precioSinIgv(precio: Valor, tasa: Valor, igvIncluido = false): Dec {
+  return igvIncluido ? redondear(new D(precio).div(new D(1).plus(tasa))) : redondear(precio);
+}
+
 export interface PrecioPlan { clave: string; precio_por_unidad: Valor; igv_incluido: boolean; modulos_incluidos: string[]; /** Se cobra como mínimo este número de unidades por condominio. */ unidades_minimas?: number | null }
 export interface PrecioModulo { clave: string; precio_por_unidad: Valor }
 

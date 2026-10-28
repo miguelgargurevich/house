@@ -42,7 +42,8 @@ describe('estructura de las pantallas', () => {
     const precios = fuente('src/pages/publico/Precios.tsx');
     assert.match(precios, /\/api\/publico\/planes/);
     assert.match(precios, /\/api\/publico\/cotizar/);
-    assert.match(precios, /IGV incluido/);
+    assert.match(precios, /Más IGV/);
+    assert.doesNotMatch(precios, /IGV incluido/);
   });
   it('rutas públicas y de cuenta: /registro, /precios, /verificar-correo, portada en «/», Mi plan sólo admin y Suscripciones sólo superadmin', () => {
     const app = fuente('src/App.tsx');

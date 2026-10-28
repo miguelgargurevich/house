@@ -8,7 +8,7 @@ function preguntas(cat: Catalogo): { p: string; r: string }[] {
   return [
     { p: '¿Cómo se paga?', r: 'Por transferencia, Yape o Plin. Desde «Mi plan» ves el monto y la referencia de tu pago; cuando lo confirmamos, activamos tu plan.' },
     { p: '¿Cómo paso a Pro?', r: 'Desde «Mi plan» lo pides por condominio. No se activa nada hasta confirmar el pago, así que no hay cobros por sorpresa. Pro trae todo: ya no hay módulos sueltos.' },
-    { p: '¿El precio incluye IGV?', r: 'Sí. Todos los precios de esta página ya lo incluyen: lo que ves es lo que pagas.' },
+    { p: '¿El precio incluye IGV?', r: 'No. Los precios de esta página no incluyen IGV: el IGV se suma al pagar. La calculadora te muestra también el total con IGV.' },
     { p: '¿Hay permanencia o contrato?', r: 'No. No te atamos a un plazo mínimo.' },
     { p: '¿Hasta cuántos departamentos es gratis?', r: tope != null ? `Gratis llega hasta ${tope} departamentos por condominio, con recibos, cobranza, portal del vecino, vouchers validados a mano y avisos por correo. Con más departamentos, o si quieres IA, WhatsApp, asistente, mora automática y reportes, pasas a Pro.` : 'El plan Gratis no tiene tope de departamentos; la IA, WhatsApp, el asistente, la mora automática y los reportes son de Pro.' },
     { p: '¿Hay un mínimo en Pro?', r: minimo != null ? `Sí: Pro y Administradora cobran como mínimo ${minimo} departamentos por condominio. Si tu condominio tiene menos, pagas ese mínimo; si tiene más, pagas por los que tengas.` : 'No hay un mínimo de departamentos: pagas por los que tengas.' },

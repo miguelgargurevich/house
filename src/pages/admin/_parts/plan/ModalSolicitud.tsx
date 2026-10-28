@@ -4,7 +4,7 @@ import { Alert, Button, Modal, soles, useToast } from '../../../../ui';
 import type { VistaSuscripcion } from '../../../shared/_parts/comercial';
 
 interface Catalogo { planes: { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; unidades_minimas: number | null; total_minimo_mes: string | null }[] }
-interface Total { unidades_cobradas: number; minimo_aplicado: boolean; total_mes: string; total_anio: string }
+interface Total { unidades_cobradas: number; minimo_aplicado: boolean; total_mes: string; total_anio: string; total_con_igv_mes?: string }
 
 /** «Pasar a Pro»: pide un plan (los módulos ya no se piden sueltos: Pro los trae todos); no activa nada. El monto estimado lo calcula el servidor. */
 export function ModalSolicitud({ condominio, catalogo, onClose, onHecho }: { condominio: VistaSuscripcion | null; catalogo: Catalogo; onClose: () => void; onHecho: () => void }) {
@@ -65,7 +65,7 @@ export function ModalSolicitud({ condominio, catalogo, onClose, onHecho }: { con
         </fieldset>
         {total && (
           <p className="rounded bg-surface2 px-3 py-2 text-sm" role="status">
-            Costo estimado: <span className="num font-semibold">{soles(total.total_mes)}</span> al mes (IGV incluido) · <span className="num">{soles(total.total_anio)}</span> al año.
+            Costo estimado: <span className="num font-semibold">{soles(total.total_mes)}</span> al mes + IGV{total.total_con_igv_mes && <> (<span className="num">{soles(total.total_con_igv_mes)}</span> con IGV)</>} · <span className="num">{soles(total.total_anio)}</span> al año + IGV.
             {total.minimo_aplicado && ` Tu condominio tiene ${n} ${n === 1 ? 'departamento' : 'departamentos'}, pero el plan cobra un mínimo de ${total.unidades_cobradas}.`}
           </p>
         )}

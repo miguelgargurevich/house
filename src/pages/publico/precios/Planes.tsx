@@ -25,7 +25,7 @@ function Precio({ plan, grande }: { plan: Plan; grande?: boolean }) {
   return (
     <p className="flex flex-wrap items-baseline gap-x-2">
       <span className={`num font-semibold tracking-tight ${grande ? 'text-6xl sm:text-7xl' : 'text-5xl'}`}>{gratis ? 'S/ 0' : soles(plan.precio_por_unidad)}</span>
-      <span className="text-base">{gratis ? 'para siempre' : 'por departamento al mes'}</span>
+      <span className="text-base">{gratis ? 'para siempre' : 'por departamento al mes + IGV'}</span>
     </p>
   );
 }
@@ -33,7 +33,7 @@ function Precio({ plan, grande }: { plan: Plan; grande?: boolean }) {
 /** El tope de departamentos (Gratis) o el mínimo que se cobra (Pro y Administradora), tal como los publica el catálogo. */
 function Tope({ plan, className = '' }: { plan: Plan; className?: string }) {
   if (plan.unidades_maximas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio.</p>;
-  if (plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Mínimo de {plan.unidades_minimas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${soles(plan.total_minimo_mes)} al mes` : ''}.</p>;
+  if (plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Mínimo de {plan.unidades_minimas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${soles(plan.total_minimo_mes)} al mes + IGV` : ''}.</p>;
   return null;
 }
 

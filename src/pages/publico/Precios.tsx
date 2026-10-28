@@ -26,7 +26,7 @@ export default function Precios() {
   const abierto = cat?.registro_abierto === true;
   // Los hechos salen del catálogo (el tope de Gratis es un dato que edita el superadmin, no una cifra de esta página).
   const tope = cat?.planes.find(p => p.clave === 'gratis')?.unidades_maximas;
-  const hechos = ['Precios en soles', 'IGV incluido', tope != null ? `Gratis hasta ${tope} departamentos` : 'Empiezas gratis', 'Sin permanencia'];
+  const hechos = ['Precios en soles', 'Más IGV', tope != null ? `Gratis hasta ${tope} departamentos` : 'Empiezas gratis', 'Sin permanencia'];
 
   return (
     <Marco completo ancho="max-w-6xl">

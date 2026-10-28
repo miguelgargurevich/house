@@ -32,7 +32,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
       <div className="space-y-6 p-5 sm:p-7">
         <header>
           <h2 id="recibo-titulo" className="text-2xl font-semibold tracking-tight sm:text-3xl">Calcula tu recibo</h2>
-          <p className="mt-1 text-base text-muted">Lo que pagas por condominio, con IGV incluido.</p>
+          <p className="mt-1 text-base text-muted">Lo que pagas por condominio. Precios sin IGV.</p>
         </header>
 
         <div>
@@ -100,7 +100,8 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
             {total.r ? (
               <div key={total.r.total_mes} className="sube-corto">
                 <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{soles(total.r.total_mes)}</p>
-                <p className="num mt-2 text-lg">{gratis ? `Gratis para siempre${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${soles(total.r.total_anio)} al año · IGV incluido`}</p>
+                <p className="num mt-2 text-lg">{gratis ? `Gratis para siempre${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `Más IGV · ${soles(total.r.total_anio)} al año`}</p>
+                {!gratis && total.r.total_con_igv_mes && <p className="num mt-1 text-base opacity-90">Con IGV: {soles(total.r.total_con_igv_mes)} al mes</p>}
                 {total.r.minimo_aplicado && <p className="mt-1 text-base">{plan?.nombre} cobra un mínimo de {total.r.unidades_cobradas} departamentos por condominio.</p>}
               </div>
             ) : <div className="mt-2 h-14 w-56 rounded bg-on-brand/20" aria-hidden="true" />}

@@ -91,7 +91,7 @@ export default function MiPlan() {
 
   return (
     <>
-      <PageHeader title="Mi plan" description="Gratis con límite de departamentos, o Pro con todo. El plan se elige por condominio; los precios incluyen IGV." />
+      <PageHeader title="Mi plan" description="Gratis con límite de departamentos, o Pro con todo. El plan se elige por condominio; los precios del plan no incluyen IGV; el monto a pagar ya lo suma." />
       {loading && <div className="space-y-4"><Skeleton className="h-56 w-full" /><Skeleton className="h-56 w-full" /></div>}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && !data.condominios.length && <EmptyState icon={<CreditCardIcon />} title="Aún no tienes condominios" description="Cuando crees tu primer condominio verás aquí su plan." />}

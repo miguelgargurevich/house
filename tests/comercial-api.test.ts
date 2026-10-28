@@ -270,7 +270,7 @@ describe('superadmin: lista, cambios y pagos', () => {
     const r = await llamar(base, 'PUT', '/api/comercial/planes/pro', T.super, { precio_por_unidad: '3.00' });
     assert.equal(r.status, 200, r.texto);
     assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '70.80', '20 (mínimo) × 3,00 = 60,00 + 10,80');
-    assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '3.54');
+    assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '3.00');
     const m = await llamar(base, 'PUT', '/api/comercial/modulos/asistente', T.super, { precio_por_unidad: '0.80', nombre: 'Asistente PRO', activo: false });
     assert.equal(m.status, 200);
     assert.ok(!(await llamar(base, 'GET', '/api/publico/planes')).body.modulos.some((x: { clave: string }) => x.clave === 'asistente'), 'un módulo no activo no se ofrece');
@@ -295,10 +295,11 @@ describe('superadmin: lista, cambios y pagos', () => {
     }
   });
 
-  it('cambiar el IGV: el precio público y los totales siguen la tasa vigente (sin 18 % fijo en el código)', async () => {
+  it('cambiar el IGV: el precio público (sin IGV) no cambia y el total con IGV sigue la tasa vigente (sin 18 % fijo en el código)', async () => {
     await llamar(base, 'PUT', '/api/comercial/configuracion', T.super, { igv_tasa: '0.10' });
-    assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '2.75');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body.total_mes, '275.00');
+    assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '2.50');
+    const c = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body;
+    assert.deepEqual([c.total_mes, c.igv_mes, c.total_con_igv_mes], ['250.00', '25.00', '275.00']);
   });
 });
 

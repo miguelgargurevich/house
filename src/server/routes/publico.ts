@@ -31,7 +31,7 @@ export function publicoRouter(l: LimitadoresPublicos) {
 
   /** @openapi
    * /api/publico/planes:
-   *   get: { summary: "Planes y módulos con su precio por departamento al mes (IGV incluido) y los topes de unidades", tags: [Público], responses: { 200: { description: "{ moneda, igv_incluido, planes, modulos, registro_abierto }" } } } */
+   *   get: { summary: "Planes y módulos con su precio por departamento al mes (sin IGV) y los topes de unidades", tags: [Público], responses: { 200: { description: "{ moneda, igv_incluido, planes, modulos, registro_abierto }" } } } */
   r.get('/planes', async (_req, res) => {
     res.set('Cache-Control', 'public, max-age=60');
     res.json(await catalogoPublico());
@@ -39,7 +39,7 @@ export function publicoRouter(l: LimitadoresPublicos) {
 
   /** @openapi
    * /api/publico/cotizar:
-   *   get: { summary: "Total al mes y al año (IGV incluido) para N departamentos y un plan; Pro y Administradora cobran un mínimo de unidades. Ya no hay módulos sueltos", tags: [Público], responses: { 200: { description: "{ unidades, unidades_cobradas, minimo_aplicado, total_mes, total_anio }" } } } */
+   *   get: { summary: "Total al mes y al año (sin IGV; aparte el IGV y el total con IGV del mes) para N departamentos y un plan; Pro y Administradora cobran un mínimo de unidades. Ya no hay módulos sueltos", tags: [Público], responses: { 200: { description: "{ unidades, unidades_cobradas, minimo_aplicado, total_mes, total_anio, igv_mes, total_con_igv_mes }" } } } */
   r.get('/cotizar', async (req, res) => {
     const q = parse(cotizarSchema, req.query);
     res.json(await cotizacionPublica(q.unidades, q.plan ?? null));
