@@ -4,6 +4,19 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-28 — Claude Code (Haiku 5.5, delegado por Opus) — Cascada: un 400/413 del pedido no quema claves ni retira modelos
+
+- Pedido de Miguel: «Sí, arréglalo» (revisión de Opus sobre la cascada de My Workspace). Rama `fix/cascada-400-413`. Riesgo alto, no delicado.
+- **Chat (`services/asistente/motor.ts`):** una ruta proveedor|modelo que dio 400 (ya sin opcionales) o 413 se marca `pedidoRechazado` para TODA la consulta: otra clave del mismo proveedor no la vuelve a probar (sin gastar llamadas). Un 413 pasa a `siguiente_modelo`: no enfría la clave, no anota causa `caido` y no retira el modelo (antes caía al final de `clasificar` y se enfriaba 30 s).
+- **Vouchers (`services/evaluacion.ts`, `leerConRotacion`):** tras 400/413 de un proveedor+modelo, las demás claves de esa misma ruta se saltan SIN gastar intento; el tope de `MAX_INTENTOS_IA` (4) cuenta intentos reales, no el `slice` previo. Sin enfriar claves. Otro proveedor o modelo sí se prueba.
+- **Regex de modelo (`services/asistente/proveedor.ts`, `esModeloNoDisponible`):** los textos ambiguos («not supported», «unknown», «not available», «deprecated» junto a «model») ya NO cuentan si el cuerpo nombra un parámetro (`max_tokens`, `temperature`, `reasoning_effort`, `response_format`, «parameter», «argument»…). Así un 400 de parámetro reintenta sin opcionales en vez de retirar el modelo. Los textos claros (decommissioned, does not exist, not found, no longer available, invalid model, no endpoints found) y el 404 siguen igual.
+- No cambió: el orden de llaves (`rotacion.ts`, `construirCadena`), el 429 (sigue rotando), 401/402/403 (siguen rechazando la clave), el frontend y el esquema.
+- Pruebas: `tests/rotacion.test.ts` (400 con dos claves del mismo proveedor, 413, 400 de parámetro), `tests/asistente.test.ts` (unitarias de `esModeloNoDisponible`), `tests/evaluacion-ia.test.ts` (400 y 413 con dos claves de Gemini; salto sin gastar intento). Cada una falla al revertir su cambio (mutaciones en el scratchpad de la sesión, restauradas con `cp` + `cmp`).
+- Gotcha: las claves del mismo proveedor SIN `etiqueta` se pisan (upsert por `proveedor_etiqueta`, etiqueta por defecto). Al probar varias claves de un proveedor, dales etiqueta distinta; si no, la prueba parece correr con dos y en realidad corre con una.
+- Gotcha: el 429 del chat ya lo cubre «429 en la clave A → atiende la B» (`rotacion.test.ts`); no se duplicó.
+- Fuera de alcance, ya en `origin/main`: `tests/evaluacion-ia.test.ts` tiene dos avisos de ESLint (variable `_m` sin usar, línea ~193; regex con caracteres de control, línea ~200).
+- Próximos pasos: observar en producción si los retiros por chat de gemini-2.5-flash / cosmos-reason2-8b / yi-large dejan de aparecer (eran el síntoma del regex viejo; no confirmado si fueron falsos). Push y PR: los hace la sesión principal con OK de Miguel.
+
 ## 2026-10-28 — Claude Code (Opus 5.5) — Precios públicos sin IGV
 
 - Pedido de Miguel: los precios publicados no incluyen IGV. `/api/publico/planes` da `precio_por_unidad` y `total_minimo_mes` **sin IGV** (`igv_incluido: false`, `precioSinIgv` en `calculo.ts`). `/api/publico/cotizar` da `total_mes`/`total_anio` sin IGV y aparte `igv_mes` y `total_con_igv_mes`.
