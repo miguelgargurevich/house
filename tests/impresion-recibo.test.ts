@@ -68,7 +68,8 @@ describe('zona imprimible', () => {
 
 describe('recibo de mantenimiento', () => {
   const zonaRecibo = recibo.match(/<ZonaImprimible>([\s\S]*?)<\/ZonaImprimible>/)?.[1] ?? '';
-  const articulo = recibo.slice(recibo.indexOf('function ReciboArticulo'), recibo.indexOf('/** «Recibo de mantenimiento» imprimible'));
+  // El recibo son varias piezas (tabla, agua, cajas de cuenta) más el artículo que las junta: todo lo anterior al modal.
+  const articulo = recibo.slice(0, recibo.indexOf('/** «Recibo de mantenimiento» imprimible'));
 
   it('la zona imprimible lleva el recibo completo', () => {
     assert.match(zonaRecibo, /<ReciboArticulo d=\{d\} \/>/);
@@ -76,11 +77,12 @@ describe('recibo de mantenimiento', () => {
 
   it('el recibo impreso incluye todos los conceptos, el total y los medios de pago', () => {
     assert.match(articulo, /d\.conceptos\.map\(/);
-    assert.match(articulo, /soles\(d\.total\)/);
-    assert.match(articulo, /Saldo por pagar/);
+    assert.match(articulo, /monto2\(d\.total\)/);
+    assert.match(articulo, /monto2\(d\.total_general\)/);
+    assert.match(articulo, /SALDO POR PAGAR/);
     assert.match(articulo, /d\.medios_pago\.filter\(m => m\.ambito === 'block'\)/, 'las cuentas del block');
     assert.match(articulo, /d\.medios_pago\.filter\(m => m\.ambito !== 'block'\)/, 'y las del condominio, separadas');
-    assert.match(articulo, /lineaMedio\(m\)/);
+    assert.match(articulo, /<CajaMedio key=\{m\.id\} m=\{m\}/);
   });
 
   it('ya no usa su propio <style> con visibility ni el id viejo', () => {

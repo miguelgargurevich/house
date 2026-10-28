@@ -155,11 +155,11 @@ describe('pantallas: la torre se ve y se filtra', () => {
     assert.match(s, /m\.unidad\.estructura\?\.nombre/);
   });
 
-  it('Recibo imprimible: la cabecera lleva la torre y «Dónde pagar» separa las cuentas del block y las del condominio', () => {
+  it('Recibo imprimible: el recuadro de propietario lleva el block y las cuentas del block se separan de las del condominio', () => {
     const s = f('src/pages/shared/mantenimiento/ReciboImprimible.tsx');
-    assert.match(s, /Recibo de mantenimiento\{block \? ` · \$\{block\}` : ''\}/);
+    assert.match(s, /Block: <span[^>]*>\{block\}<\/span>/);
     assert.match(s, /m\.ambito === 'block'/);
-    assert.match(s, /Cuentas de \$\{block\}/);
+    assert.match(s, /Cuentas de \{block \?\? 'la torre'\}/);
     assert.match(s, /Cuentas del condominio/);
   });
 
