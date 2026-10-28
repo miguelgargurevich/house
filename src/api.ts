@@ -61,6 +61,8 @@ export function useList<T>(path: string, opts: { pageSize?: number; params?: Rec
   const [data, setData] = useState<Page<T> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Código estable del servidor del último error (p. ej. `MODULO_NO_ACTIVO`: la pantalla muestra «Disponible en el plan Pro» en vez de un error). */
+  const [errorCode, setErrorCode] = useState<string | undefined>();
   const seq = useRef(0);
   const paramsKey = JSON.stringify(opts.params ?? {});
 
@@ -71,6 +73,7 @@ export function useList<T>(path: string, opts: { pageSize?: number; params?: Rec
     const my = ++seq.current;
     setLoading(true);
     setError(null);
+    setErrorCode(undefined);
     const sp = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (dq) sp.set('q', dq);
     for (const [k, v] of Object.entries(JSON.parse(paramsKey) as Record<string, string | undefined>)) if (v) sp.set(k, v);
@@ -78,7 +81,7 @@ export function useList<T>(path: string, opts: { pageSize?: number; params?: Rec
       const r = await api<Page<T>>(`${path}?${sp}`);
       if (my === seq.current) setData(r);
     } catch (e) {
-      if (my === seq.current) setError(errorText(e));
+      if (my === seq.current) { setError(errorText(e)); setErrorCode(e instanceof ApiError ? e.code : undefined); }
     } finally {
       if (my === seq.current) setLoading(false);
     }
@@ -86,7 +89,7 @@ export function useList<T>(path: string, opts: { pageSize?: number; params?: Rec
 
   useEffect(() => { void load(); }, [load]);
 
-  return { items: data?.items ?? [], total: data?.total ?? 0, page, pageSize, setPage, q, setQ, loading, error, reload: load };
+  return { items: data?.items ?? [], total: data?.total ?? 0, page, pageSize, setPage, q, setQ, loading, error, errorCode, reload: load };
 }
 
 /** Carga un recurso único. */

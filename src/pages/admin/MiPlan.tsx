@@ -10,14 +10,14 @@ import { ESTADO_UI, MODULO_NOMBRE, nombreDePlan, type DatosPago, type ModuloClav
 interface Respuesta {
   condominios: VistaSuscripcion[];
   pagar: DatosPago;
-  catalogo: { planes: { clave: string; nombre: string; precio_por_unidad: string }[]; modulos: { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string }[] };
+  catalogo: { planes: { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; unidades_minimas: number | null; total_minimo_mes: string | null; caracteristicas: string[] }[] };
 }
 
 function aviso(c: VistaSuscripcion): { tone: 'warn' | 'bad'; texto: string } | null {
-  if (c.estado === 'por_vencer') return { tone: 'warn', texto: `Tu plan vence ${c.dias_para_vencer === 0 ? 'hoy' : `en ${c.dias_para_vencer} ${c.dias_para_vencer === 1 ? 'día' : 'días'}`}. Renueva para no perder los módulos.` };
+  if (c.estado === 'por_vencer') return { tone: 'warn', texto: `Tu plan vence ${c.dias_para_vencer === 0 ? 'hoy' : `en ${c.dias_para_vencer} ${c.dias_para_vencer === 1 ? 'día' : 'días'}`}. Renueva para no perder lo de Pro.` };
   if (c.estado === 'vencida') return c.en_gracia
-    ? { tone: 'warn', texto: 'Tu plan venció y estás en días de gracia: los módulos siguen activos por ahora.' }
-    : { tone: 'bad', texto: 'Tu plan venció y los módulos están apagados. Tus datos siguen intactos y todo lo gratis sigue funcionando; paga para reactivarlos.' };
+    ? { tone: 'warn', texto: 'Tu plan venció y estás en días de gracia: lo de Pro sigue activo por ahora.' }
+    : { tone: 'bad', texto: 'Tu plan venció y lo de Pro está apagado. Tus datos siguen intactos y todo lo gratis sigue funcionando; paga para reactivarlo.' };
   return null;
 }
 
@@ -40,35 +40,41 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: VistaSuscripcion; 
     <Card>
       <CardHeader
         title={c.complejo}
-        description={`${c.unidades_facturables} ${c.unidades_facturables === 1 ? 'departamento facturable' : 'departamentos facturables'}`}
+        description={c.unidades_maximas != null ? `${c.unidades_facturables} de ${c.unidades_maximas} departamentos` : `${c.unidades_facturables} ${c.unidades_facturables === 1 ? 'departamento' : 'departamentos'}`}
         action={<Badge tone={est.tone}>{est.label}</Badge>}
       />
       <CardBody className="space-y-4">
         {a && <Alert tone={a.tone}>{a.texto}</Alert>}
+        {c.unidades_maximas != null && c.unidades_facturables >= c.unidades_maximas && (
+          <Alert tone="warn">
+            {c.unidades_facturables > c.unidades_maximas ? `Tienes ${c.unidades_facturables} departamentos y ${c.plan.nombre} llega hasta ${c.unidades_maximas}: no podrás agregar más, pero no se oculta ni se borra ninguno.` : `Llegaste al tope de ${c.unidades_maximas} departamentos de ${c.plan.nombre}.`} Pasa a Pro para seguir creciendo.
+          </Alert>
+        )}
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
           <div><dt className="text-xs text-muted">Plan</dt><dd className="text-sm font-medium">{c.plan.nombre}</dd></div>
           <div><dt className="text-xs text-muted">Vigente hasta</dt><dd className="num text-sm font-medium">{esCortesia ? 'Sin vencimiento' : c.vigente_hasta ? fechaCorta(c.vigente_hasta) : '—'}</dd></div>
           <div className="sm:col-span-2">
-            <dt className="text-xs text-muted">Módulos activos</dt>
+            <dt className="text-xs text-muted">Lo que tienes activo de Pro</dt>
             <dd className="mt-1 flex flex-wrap gap-1.5">
-              {c.modulos_activos.length ? c.modulos_activos.map(m => <Badge key={m} tone="brand">{MODULO_NOMBRE[m as ModuloClave] ?? m}</Badge>) : <span className="text-sm text-muted">Ninguno: tienes todo lo gratis.</span>}
+              {c.modulos_activos.length ? c.modulos_activos.map(m => <Badge key={m} tone="brand">{MODULO_NOMBRE[m as ModuloClave] ?? m}</Badge>) : <span className="text-sm text-muted">Nada de Pro: tienes todo lo gratis (IA, WhatsApp, asistente, mora automática y reportes son de Pro).</span>}
             </dd>
+            {c.modulos_sueltos.length > 0 && c.plan.clave !== 'cortesia' && <dd className="mt-1.5 text-xs text-muted">Los módulos sueltos que ya tenías ({c.modulos_sueltos.map(m => MODULO_NOMBRE[m as ModuloClave] ?? m).join(', ')}) se respetan hasta que cambies de plan: ya no se venden por separado.</dd>}
           </div>
           <div>
             <dt className="text-xs text-muted">Total al mes</dt>
-            <dd className="text-sm"><span className="num text-lg font-semibold">{soles(c.cotizacion.total_mes)}</span>{Number(c.cotizacion.total_mes) > 0 && <span className="num block text-xs text-muted">{soles(c.cotizacion.base)} + IGV {soles(c.cotizacion.igv)}</span>}</dd>
+            <dd className="text-sm"><span className="num text-lg font-semibold">{soles(c.cotizacion.total_mes)}</span>{Number(c.cotizacion.total_mes) > 0 && <span className="num block text-xs text-muted">{soles(c.cotizacion.base)} + IGV {soles(c.cotizacion.igv)}</span>}{c.cotizacion.minimo_aplicado && <span className="block text-xs text-muted">Se cobra el mínimo de {c.cotizacion.unidades_cobradas} departamentos por condominio ({c.plan.nombre}).</span>}</dd>
           </div>
         </dl>
 
         {c.solicitud && (
           <Alert tone="info">
-            Pediste {[c.solicitud.plan ? `el plan ${nombreDePlan(c.solicitud.plan)}` : null, c.solicitud.modulos.length ? c.solicitud.modulos.map(m => MODULO_NOMBRE[m as ModuloClave] ?? m).join(', ') : null].filter(Boolean).join(' + ')}. Se activa cuando registremos tu pago.
+            Pediste el plan {nombreDePlan(c.solicitud.plan ?? '')}{c.solicitud.cotizacion.minimo_aplicado ? ` (mínimo de ${c.solicitud.cotizacion.unidades_cobradas} departamentos)` : ''}. Se activa cuando registremos tu pago.
           </Alert>
         )}
         {hayQuePagar && <ComoPagar cot={cobro} referencia={c.referencia_pago} pagar={pagar} />}
 
         <div className="flex flex-wrap items-center gap-2">
-          {!esCortesia && <Button onClick={onSolicitar}>{c.plan.clave === 'gratis' ? 'Solicitar módulo / Pasar a Pro' : 'Solicitar otro módulo o plan'}</Button>}
+          {!esCortesia && <Button onClick={onSolicitar}>{c.plan.clave === 'gratis' ? 'Pasar a Pro' : 'Cambiar de plan'}</Button>}
           {c.solicitud && <Button variant="secondary" loading={cancelando} onClick={() => void cancelar()}>Cancelar solicitud</Button>}
           <Button variant="ghost" onClick={() => setPagos(v => !v)} aria-expanded={pagos}>{pagos ? 'Ocultar pagos' : 'Ver pagos'}</Button>
         </div>
@@ -85,7 +91,7 @@ export default function MiPlan() {
 
   return (
     <>
-      <PageHeader title="Mi plan" description="Lo gratis es para siempre. Activa módulos sólo en los condominios que los necesiten; los precios incluyen IGV." />
+      <PageHeader title="Mi plan" description="Gratis con límite de departamentos, o Pro con todo. El plan se elige por condominio; los precios incluyen IGV." />
       {loading && <div className="space-y-4"><Skeleton className="h-56 w-full" /><Skeleton className="h-56 w-full" /></div>}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && !data.condominios.length && <EmptyState icon={<CreditCardIcon />} title="Aún no tienes condominios" description="Cuando crees tu primer condominio verás aquí su plan." />}

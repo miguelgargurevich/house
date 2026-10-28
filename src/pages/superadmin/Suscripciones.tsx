@@ -23,13 +23,13 @@ export default function Suscripciones() {
   const [historial, setHistorial] = useState<VistaSuscripcion | null>(null);
 
   const columns = useMemo<Column<VistaSuscripcion>[]>(() => [
-    { key: 'condominio', header: 'Condominio', cell: s => <><span className="font-medium">{s.complejo}</span><span className="block text-xs text-muted">{s.empresa?.nombre ?? 'Sin empresa'} · {s.unidades_facturables} deptos</span><span className="block text-xs font-medium sm:hidden">{s.plan.nombre}</span></> },
-    { key: 'plan', header: 'Plan y módulos', hideBelow: 'sm', cell: s => ( // en el celular el plan va bajo el condominio
+    { key: 'condominio', header: 'Condominio', cell: s => <><span className="font-medium">{s.complejo}</span><span className="block text-xs text-muted">{s.empresa?.nombre ?? 'Sin empresa'} · {s.unidades_maximas != null ? `${s.unidades_facturables} de ${s.unidades_maximas} deptos` : s.unidades_cobradas > s.unidades_facturables ? `${s.unidades_facturables} deptos (cobra ${s.unidades_cobradas})` : `${s.unidades_facturables} deptos`}</span><span className="block text-xs font-medium sm:hidden">{s.plan.nombre}</span></> },
+    { key: 'plan', header: 'Plan', hideBelow: 'sm', cell: s => ( // en el celular el plan va bajo el condominio
       <>
         <span className="font-medium">{s.plan.nombre}</span>
         {s.modulos_activos.length > 0 && s.plan.clave !== 'pro' && s.plan.clave !== 'administradora' && s.plan.clave !== 'cortesia'
           ? <span className="mt-1 flex flex-wrap gap-1">{s.modulos_activos.map(m => <Badge key={m} tone="brand">{MODULO_NOMBRE[m as ModuloClave] ?? m}</Badge>)}</span>
-          : s.plan.clave === 'gratis' ? <span className="block text-xs text-muted">sin módulos</span> : <span className="block text-xs text-muted">todos los módulos</span>}
+          : s.plan.clave === 'gratis' ? <span className="block text-xs text-muted">sin IA, WhatsApp, mora ni reportes</span> : <span className="block text-xs text-muted">todo incluido</span>}
       </>
     ) },
     { key: 'monto', header: 'Al mes', align: 'right', hideBelow: 'sm', cell: s => <span className="num">{s.plan.clave === 'cortesia' ? '—' : soles((s.solicitud?.cotizacion ?? s.cotizacion).total_mes)}{s.solicitud && <span className="block text-xs text-muted">solicitado</span>}</span> },

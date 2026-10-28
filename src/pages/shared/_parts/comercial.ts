@@ -1,11 +1,14 @@
 // Tipos y textos de la capa comercial (planes, módulos por condominio). Los PRECIOS nunca van aquí: salen siempre de la API.
 import type { Tone } from '../../../ui';
 
-export type ModuloClave = 'ia_vouchers' | 'whatsapp_avisos' | 'asistente';
+/** Lo que trae un plan de pago (Pro): los tres módulos, la mora automática y los reportes. Ya no se venden sueltos. */
+export type ModuloClave = 'ia_vouchers' | 'whatsapp_avisos' | 'asistente' | 'mora_automatica' | 'reportes';
 export const MODULO_NOMBRE: Record<ModuloClave, string> = {
   ia_vouchers: 'IA que lee y valida vouchers',
   whatsapp_avisos: 'Avisos por WhatsApp',
   asistente: 'Asistente con IA',
+  mora_automatica: 'Mora automática',
+  reportes: 'Reportes y exportes',
 };
 
 export type EstadoSuscripcion = 'gratis' | 'solicitada' | 'activa' | 'por_vencer' | 'vencida';
@@ -17,7 +20,7 @@ export const ESTADO_UI: Record<EstadoSuscripcion, { label: string; tone: Tone }>
   vencida: { label: 'Vencida', tone: 'bad' },
 };
 
-export interface Cotizacion { unidades: number; base: string; igv: string; total_mes: string; total_anio: string; igv_tasa: string }
+export interface Cotizacion { unidades: number; unidades_cobradas: number; minimo_aplicado: boolean; base: string; igv: string; total_mes: string; total_anio: string; igv_tasa: string }
 
 export interface VistaSuscripcion {
   complejo_id: number;
@@ -31,6 +34,12 @@ export interface VistaSuscripcion {
   dias_para_vencer: number | null;
   en_gracia: boolean;
   unidades_facturables: number;
+  /** Departamentos que se cobran: el mayor entre los que tiene y el mínimo del plan. */
+  unidades_cobradas: number;
+  /** Tope de departamentos del plan que cuenta hoy (Gratis); null = sin tope. */
+  unidades_maximas: number | null;
+  /** Mínimo de departamentos que cobra el plan (Pro y Administradora); null = sin mínimo. */
+  unidades_minimas: number | null;
   cotizacion: Cotizacion;
   solicitud: { plan: string | null; modulos: string[]; en: string | null; cotizacion: Cotizacion } | null;
   referencia_pago: string;

@@ -53,7 +53,7 @@ export default function Registro() {
   return (
     <Marco ancho="max-w-xl">
       <h1 className="text-2xl font-semibold sm:text-3xl">Crea tu cuenta gratis</h1>
-      <p className="mt-1 text-sm text-muted">Sin tarjeta y sin límite de departamentos. Te enviaremos un enlace para confirmar tu correo.</p>
+      <p className="mt-1 text-sm text-muted">Sin tarjeta: empiezas en el plan Gratis y pasas a Pro cuando lo necesites. Te enviaremos un enlace para confirmar tu correo.</p>
       <form onSubmit={enviar} className="mt-6 space-y-4" noValidate>
         {error && <Alert tone="bad">{error}</Alert>}
         <Input label="Tu nombre" autoComplete="name" maxLength={120} required {...campo('nombre')} />

@@ -27,7 +27,7 @@ describe('vista móvil', () => {
   });
 
   it('la comparativa de precios no fuerza un ancho mínimo en el celular', () => {
-    assert.match(fuente('src/pages/publico/precios/Comparativa.tsx'), /<table className="w-full text-base sm:min-w-\[34rem\]">/);
+    assert.match(fuente('src/pages/publico/precios/Comparativa.tsx'), /<table className="w-full text-base sm:min-w-\[30rem\]">/);
   });
 
   it('seguridad: el nombre del condominio y del residente bajan de línea en vez de cortarse', () => {

@@ -4,7 +4,7 @@ import { Alert, Button, Card, CardBody, CardHeader, ErrorState, Input, Skeleton,
 import { MODULO_NOMBRE, type ModuloClave } from '../../../shared/_parts/comercial';
 
 interface Modulo { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; activo: boolean }
-interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean }
+interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean; unidades_maximas: number | null; unidades_minimas: number | null }
 interface Config {
   igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean;
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
@@ -29,9 +29,9 @@ function FilaModulo({ m, tasa, onGuardado }: { m: Modulo; tasa: string; onGuarda
   }
   return (
     <li className="flex flex-wrap items-end gap-3 py-3">
-      <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{m.nombre}</p><p className="text-xs text-muted">Se muestra al público: <span className="num">{conIgv(precio, tasa)}</span> por depto al mes</p></div>
+      <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{m.nombre}</p><p className="text-xs text-muted">Sólo para suscripciones antiguas con este módulo suelto: <span className="num">{conIgv(precio, tasa)}</span> por depto al mes</p></div>
       <Input label="Precio base (S/, sin IGV)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
-      <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={activo} onChange={e => setActivo(e.target.checked)} />A la venta</label>
+      <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={activo} onChange={e => setActivo(e.target.checked)} />Se muestra en «lo que trae Pro»</label>
       <Button size="sm" loading={busy} onClick={() => void guardar()}>Guardar</Button>
     </li>
   );
@@ -43,12 +43,14 @@ function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: 
   const [visible, setVisible] = useState(p.visible);
   const [carac, setCarac] = useState(p.caracteristicas.join('\n'));
   const [modulos, setModulos] = useState(p.modulos_incluidos);
+  const [maximo, setMaximo] = useState(p.unidades_maximas == null ? '' : String(p.unidades_maximas));
+  const [minimo, setMinimo] = useState(p.unidades_minimas == null ? '' : String(p.unidades_minimas));
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setPrecio(p.precio_por_unidad); setVisible(p.visible); setCarac(p.caracteristicas.join('\n')); setModulos(p.modulos_incluidos); }, [p]);
+  useEffect(() => { setPrecio(p.precio_por_unidad); setVisible(p.visible); setCarac(p.caracteristicas.join('\n')); setModulos(p.modulos_incluidos); setMaximo(p.unidades_maximas == null ? '' : String(p.unidades_maximas)); setMinimo(p.unidades_minimas == null ? '' : String(p.unidades_minimas)); }, [p]);
   async function guardar() {
     setBusy(true);
     try {
-      await api(`/api/comercial/planes/${p.clave}`, { method: 'PUT', json: { precio_por_unidad: precio, visible, modulos_incluidos: modulos, caracteristicas: carac.split('\n').map(x => x.trim()).filter(Boolean) } });
+      await api(`/api/comercial/planes/${p.clave}`, { method: 'PUT', json: { precio_por_unidad: precio, visible, modulos_incluidos: modulos, unidades_maximas: maximo.trim() ? Number(maximo) : null, unidades_minimas: minimo.trim() ? Number(minimo) : null, caracteristicas: carac.split('\n').map(x => x.trim()).filter(Boolean) } });
       toast.ok(`Plan ${p.nombre} actualizado`);
       onGuardado();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
@@ -60,8 +62,12 @@ function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: 
         <Input label="Precio base (S/, sin IGV)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
         <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={visible} onChange={e => setVisible(e.target.checked)} />Visible</label>
       </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <Input label="Máximo de departamentos por condominio" type="number" min={1} inputMode="numeric" value={maximo} onChange={e => setMaximo(e.target.value)} hint="Vacío = sin tope." className="w-64" />
+        <Input label="Mínimo de departamentos que se cobran" type="number" min={1} inputMode="numeric" value={minimo} onChange={e => setMinimo(e.target.value)} hint="Vacío = sin mínimo." className="w-64" />
+      </div>
       <fieldset>
-        <legend className="text-xs text-muted">Módulos que trae</legend>
+        <legend className="text-xs text-muted">Lo que trae (módulos, mora automática y reportes)</legend>
         <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
           {(Object.keys(MODULO_NOMBRE) as ModuloClave[]).map(m => (
             <label key={m} className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={modulos.includes(m)} onChange={() => setModulos(x => (x.includes(m) ? x.filter(c => c !== m) : [...x, m]))} />{MODULO_NOMBRE[m]}</label>
@@ -126,11 +132,11 @@ export function PreciosYPagos() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Módulos" description="Precio BASE por departamento al mes (lo que tú ganas). Al público se le muestra con IGV." />
+        <CardHeader title="Módulos (ya no se venden sueltos)" description="Pro los trae todos. El precio sólo se usa para las suscripciones antiguas que los tenían sueltos; al público no se le muestra." />
         <CardBody><ul className="divide-y divide-line">{data.modulos.map(m => <FilaModulo key={m.clave} m={m} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
       </Card>
       <Card>
-        <CardHeader title="Planes" description="Gratis y cortesía no cobran. Un plan oculto no sale en la página de precios." />
+        <CardHeader title="Planes" description="Precio BASE por departamento al mes (con IGV es lo que ve el público). Gratis y cortesía no cobran; Pro y Administradora cobran como mínimo los departamentos que indiques. Un plan oculto no sale en la página de precios." />
         <CardBody><ul className="divide-y divide-line">{data.planes.map(p => <FilaPlan key={p.clave} p={p} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
       </Card>
       <Card>

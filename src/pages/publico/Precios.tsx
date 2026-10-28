@@ -12,7 +12,6 @@ import { Preguntas } from './precios/Preguntas';
 import { Recibo, type Eleccion } from './precios/Recibo';
 
 const boton = 'inline-flex h-12 items-center justify-center whitespace-nowrap rounded px-6 text-base font-semibold transition-colors duration-150 active:scale-[0.98]';
-const HECHOS = ['Precios en soles', 'IGV incluido', 'Sin límite de departamentos', 'Sin permanencia'] as const;
 
 /** Entrada de la cabecera: sube y aparece, una pieza tras otra (sin guion no se esconde nada: la animación sólo mueve). */
 const sube = (n: number) => ({ animationDelay: `${n * 80}ms` });
@@ -23,9 +22,11 @@ const sube = (n: number) => ({ animationDelay: `${n * 80}ms` });
  */
 export default function Precios() {
   const { data: cat, loading, error } = useCatalogo();
-  const [eleccion, setEleccion] = useState<Eleccion>({ unidades: '100', plan: 'pro', modulos: [] });
+  const [eleccion, setEleccion] = useState<Eleccion>({ unidades: '100', plan: 'pro' });
   const abierto = cat?.registro_abierto === true;
-  const alternar = (c: string) => setEleccion(e => ({ ...e, modulos: e.modulos.includes(c) ? e.modulos.filter(x => x !== c) : [...e.modulos, c] }));
+  // Los hechos salen del catálogo (el tope de Gratis es un dato que edita el superadmin, no una cifra de esta página).
+  const tope = cat?.planes.find(p => p.clave === 'gratis')?.unidades_maximas;
+  const hechos = ['Precios en soles', 'IGV incluido', tope != null ? `Gratis hasta ${tope} departamentos` : 'Empiezas gratis', 'Sin permanencia'];
 
   return (
     <Marco completo ancho="max-w-6xl">
@@ -33,9 +34,9 @@ export default function Precios() {
         <div className="grid gap-y-16 lg:grid-cols-12 lg:gap-x-14 lg:gap-y-28">
           <header className="lg:col-span-7">
             <h1 style={sube(0)} className="sube text-[1.8rem] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">Cobra el mantenimiento sin Excel ni WhatsApp sueltos</h1>
-            <p style={sube(1)} className="sube mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">House emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis y pagas solo por lo que sumes.</p>
+            <p style={sube(1)} className="sube mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">House emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis y, cuando necesites todo, pasas a Pro.</p>
             <ul style={sube(2)} className="sube mt-6 flex flex-wrap gap-x-5 gap-y-2 text-base font-medium">
-              {HECHOS.map(h => <li key={h} className="inline-flex items-center gap-1.5"><CheckIcon className="h-5 w-5 text-brand" aria-hidden="true" />{h}</li>)}
+              {hechos.map(h => <li key={h} className="inline-flex items-center gap-1.5"><CheckIcon className="h-5 w-5 text-brand" aria-hidden="true" />{h}</li>)}
             </ul>
             <div style={sube(3)} className="sube mt-8 flex flex-wrap items-center gap-3">
               {abierto
@@ -56,13 +57,13 @@ export default function Precios() {
                 </div>
               </div>
               <div className="lg:col-span-7"><Planes cat={cat} onCalcular={clave => setEleccion(e => ({ ...e, plan: clave }))} /></div>
-              <div className="lg:col-span-7"><Modulos cat={cat} planClave={eleccion.plan} elegidos={eleccion.modulos} onAlternar={alternar} onSolo={clave => setEleccion(e => ({ ...e, plan: 'gratis', modulos: [clave] }))} /></div>
+              <div className="lg:col-span-7"><Modulos cat={cat} onCalcular={clave => setEleccion(e => ({ ...e, plan: clave }))} /></div>
             </>
           )}
         </div>
       </div>
       {cat && <Comparativa cat={cat} />}
-      {cat && <Preguntas />}
+      {cat && <Preguntas cat={cat} />}
       {cat && (
         <section aria-labelledby="cierre-titulo" className="bg-brand text-on-brand">
           <Aparece className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-28">

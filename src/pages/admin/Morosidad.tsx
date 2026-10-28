@@ -6,6 +6,7 @@ import type { Column } from '../../ui';
 import { descargarCSV } from './_parts/cobranza/csv';
 import { hoyISO } from './_parts/cobranza/comun';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
+import { AvisoModulo } from '../shared/_parts/AvisoModulo';
 
 type Ref = { id?: number; codigo?: string; nombre?: string } | string | null | undefined;
 
@@ -55,6 +56,16 @@ export default function Morosidad() {
     { key: 'cargos', header: 'Cargos vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.cargos_vencidos}</span> },
     { key: 'atraso', header: 'Atraso', cell: m => <Badge tone={m.dias_max_atraso >= 30 ? 'bad' : 'warn'}>{m.dias_max_atraso} {m.dias_max_atraso === 1 ? 'día' : 'días'}</Badge> },
   ];
+
+  // Los reportes son del plan Pro: sin él el servidor responde 403 (MODULO_NO_ACTIVO) y se muestra el aviso con el enlace a Mi plan, no un error.
+  if (list.errorCode === 'MODULO_NO_ACTIVO') {
+    return (
+      <>
+        <PageHeader title="Morosidad" description="Unidades con cargos vencidos, de mayor a menor deuda." />
+        <Card><div className="p-5"><AvisoModulo modulo="reportes" /><p className="mt-3 text-sm text-muted">La cobranza sigue igual: tus recibos, pagos y cargos vencidos están en sus pantallas. El reporte de morosidad y sus exportes son del plan Pro.</p></div></Card>
+      </>
+    );
+  }
 
   return (
     <>

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
-import { cx, soles } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo, Modulo } from '../catalogo';
 
@@ -30,44 +29,29 @@ const MUESTRAS: Record<string, ReactNode> = {
   ),
 };
 
-function Fila({ m, plan, activo, onAlternar, onSolo }: { m: Modulo; plan: { nombre: string; incluidos: string[] } | null; activo: boolean; onAlternar: () => void; onSolo: () => void }) {
-  const incluido = !!plan?.incluidos.includes(m.clave);
+function Fila({ m }: { m: Modulo }) {
   return (
     <Aparece como="li" className="grid gap-5 sm:grid-cols-[18rem_1fr] sm:gap-8">
       <div aria-hidden="true" data-ui className="flex min-h-36 items-center justify-center rounded-xl bg-surface2 p-4">{MUESTRAS[m.clave]}</div>
       <div className="flex flex-col justify-center">
         <h3 className="text-xl font-semibold leading-snug">{m.nombre}</h3>
         {m.descripcion && <p className="mt-1.5 text-base">{m.descripcion}</p>}
-        <p className="mt-3 flex flex-wrap items-baseline gap-x-2"><span className="num text-2xl font-semibold">{soles(m.precio_por_unidad)}</span><span className="text-base text-muted">por departamento al mes</span></p>
-        <div className="mt-4">
-          {incluido ? (
-            <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="inline-flex h-11 items-center gap-2 text-base font-medium text-ok"><CheckCircleIcon className="h-5 w-5" aria-hidden="true" />Incluido en {plan?.nombre}</span>
-              <a href="#recibo" onClick={onSolo} className="inline-flex h-11 items-center text-base font-medium text-brand underline underline-offset-4 hover:text-brand-hover">Ver solo este módulo</a>
-            </p>
-          ) : (
-            <button type="button" onClick={onAlternar} aria-pressed={activo}
-              className={cx('inline-flex h-11 items-center rounded px-5 text-base font-semibold transition-colors duration-150 active:scale-[0.98]', activo ? 'bg-brand text-on-brand hover:bg-brand-hover' : 'bg-brand-soft text-brand hover:bg-surface2')}>
-              {activo ? 'Sumado a tu recibo' : 'Sumar a mi recibo'}
-            </button>
-          )}
-        </div>
       </div>
     </Aparece>
   );
 }
 
-/** Módulos sueltos: cada uno con su muestra, su beneficio, su precio y un botón que lo suma al recibo de al lado. */
-export function Modulos({ cat, planClave, elegidos, onAlternar, onSolo }: { cat: Catalogo; planClave: string; elegidos: string[]; onAlternar: (clave: string) => void; onSolo: (clave: string) => void }) {
-  const p = cat.planes.find(x => x.clave === planClave);
-  const plan = p ? { nombre: p.nombre, incluidos: p.modulos_incluidos } : null;
+/** Lo que trae Pro: cada módulo con su muestra y su beneficio. Ya no se venden sueltos, así que no llevan precio ni botón de sumar. */
+export function Modulos({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave: string) => void }) {
+  const pro = cat.planes.find(p => p.clave === 'pro');
   return (
     <section aria-labelledby="modulos-titulo" className="scroll-mt-6">
-      <h2 id="modulos-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Suma solo lo que necesites</h2>
-      <p className="mt-3 max-w-xl text-lg">Los módulos se contratan por condominio. En Gratis los eliges uno a uno; Pro los trae todos.</p>
+      <h2 id="modulos-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Lo que trae {pro?.nombre ?? 'Pro'}</h2>
+      <p className="mt-3 max-w-xl text-lg">Estos módulos van incluidos en {pro?.nombre ?? 'Pro'}; no se venden por separado y el plan Gratis no los trae.</p>
       <ul className="mt-8 space-y-10">
-        {cat.modulos.map(m => <Fila key={m.clave} m={m} plan={plan} activo={elegidos.includes(m.clave)} onAlternar={() => onAlternar(m.clave)} onSolo={() => onSolo(m.clave)} />)}
+        {cat.modulos.map(m => <Fila key={m.clave} m={m} />)}
       </ul>
+      {pro && <p className="mt-8"><a href="#recibo" onClick={() => onCalcular(pro.clave)} className="inline-flex h-11 items-center text-base font-medium text-brand underline underline-offset-4 hover:text-brand-hover">Ver mi total con {pro.nombre}</a></p>}
     </section>
   );
 }

@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { api, errorText, useResource, type Page } from '../../../../api';
-import { Button, Input, Modal, Select, Textarea, useToast } from '../../../../ui';
+import { Link } from 'react-router-dom';
+import { ApiError, api, errorText, useResource, type Page } from '../../../../api';
+import { Alert, Button, Input, Modal, Select, Textarea, useToast } from '../../../../ui';
 import { useOpciones } from '../catalogo/opciones';
 import { ESTADOS_UNIDAD, idONull, nombreTorre, type FilaUnidad, type FormUnidad, type Piso, type Torre } from './tipos';
 import { etiquetaTipoUnidad, normalizarTipoUnidad, TIPOS_UNIDAD } from './tipoUnidad';
@@ -20,6 +21,8 @@ export function ModalDeUnidad({ unidad, complejoId, complejoNombre, onClose, onG
   const toast = useToast();
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormUnidad>();
   const esNuevo = unidad === 'nuevo';
+  // Tope de departamentos del plan (Gratis): el servidor responde 403 LIMITE_UNIDADES; se explica aquí con el enlace a Mi plan, no sólo en un aviso que se va.
+  const [limite, setLimite] = useState<string | null>(null);
   const tipoElegido = watch('tipo');
   const complejoElegido = watch('complejo_id');
   const torreElegida = watch('estructura_id');
@@ -31,6 +34,7 @@ export function ModalDeUnidad({ unidad, complejoId, complejoNombre, onClose, onG
 
   useEffect(() => {
     if (!unidad) return;
+    setLimite(null);
     reset(esNuevo
       ? { codigo: '', tipo: 'departamento', complejo_id: complejoId ? String(complejoId) : '', estructura_id: '', piso_id: '', descripcion: '', estado: 'activa', propietario_id: '', inquilino_id: '' }
       : {
@@ -52,7 +56,10 @@ export function ModalDeUnidad({ unidad, complejoId, complejoNombre, onClose, onG
       await api(esNuevo ? '/api/unidades' : `/api/unidades/${(unidad as FilaUnidad).id}`, { method: esNuevo ? 'POST' : 'PUT', json: body });
       toast.ok(esNuevo ? 'Unidad creada' : 'Cambios guardados');
       onGuardada();
-    } catch (e) { toast.error(errorText(e)); }
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'LIMITE_UNIDADES') setLimite(e.message);
+      else toast.error(errorText(e));
+    }
   }
 
   return (
@@ -64,6 +71,7 @@ export function ModalDeUnidad({ unidad, complejoId, complejoNombre, onClose, onG
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={isSubmitting} onClick={handleSubmit(guardar)}>{esNuevo ? 'Crear unidad' : 'Guardar cambios'}</Button></>}
     >
       <form onSubmit={handleSubmit(guardar)} className="grid gap-4 sm:grid-cols-2" noValidate>
+        {limite && <div className="sm:col-span-2"><Alert tone="warn">{limite}. <Link to="/admin/mi-plan" className="font-medium underline">Ir a Mi plan</Link></Alert></div>}
         <Input label="Código" placeholder="Ej. 101 o A-203" error={errors.codigo && 'Ingresa el código'} {...register('codigo', { required: true, validate: v => !!v.trim() })} />
         <Select label="Tipo" error={errors.tipo && 'Elige el tipo'} {...register('tipo', { required: true })}>
           {TIPOS_UNIDAD.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}

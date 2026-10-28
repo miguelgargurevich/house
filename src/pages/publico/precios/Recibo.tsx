@@ -1,28 +1,30 @@
 import { MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { CheckIcon } from '@heroicons/react/24/solid';
 import { cx, soles } from '../../../ui';
 import type { Catalogo } from '../catalogo';
 import { useTotal } from './useTotal';
 
-export interface Eleccion { unidades: string; plan: string; modulos: string[] }
+export interface Eleccion { unidades: string; plan: string }
 
 const PRESETS = [20, 50, 100, 250] as const;
 const MAX = 100_000;
 
 /**
- * El recibo de House: la calculadora presentada como lo que House emite. Los precios por departamento salen del catálogo;
- * el total al mes y al año lo calcula el servidor (`/api/publico/cotizar`).
+ * El recibo de House: la calculadora presentada como lo que House emite. Gratis o Pro (o Administradora); Pro trae todos los módulos.
+ * Los topes y mínimos de departamentos salen del catálogo; el total al mes y al año lo calcula el servidor (`/api/publico/cotizar`).
  */
 export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: Eleccion; onCambio: (e: Eleccion) => void }) {
-  const { unidades, plan: claveplan, modulos } = eleccion;
+  const { unidades, plan: claveplan } = eleccion;
   const plan = cat.planes.find(p => p.clave === claveplan) ?? cat.planes[0];
   const incluidos = plan?.modulos_incluidos ?? [];
-  const sueltos = modulos.filter(m => !incluidos.includes(m));
   const valido = Number(unidades) >= 1;
   const n = Math.min(MAX, Math.max(1, Math.trunc(Number(unidades) || 0)));
-  const total = useTotal(n, plan?.clave ?? null, sueltos, valido && !!plan);
-  const gratis = plan && Number(plan.precio_por_unidad) === 0 && sueltos.length === 0;
+  const total = useTotal(n, plan?.clave ?? null, valido && !!plan);
+  const gratis = plan && Number(plan.precio_por_unidad) === 0;
+  const tope = plan?.unidades_maximas ?? null;
+  const excede = tope != null && n > tope;
+  const pro = cat.planes.find(p => p.clave === 'pro');
   const set = (parcial: Partial<Eleccion>) => onCambio({ ...eleccion, ...parcial });
-  const alternar = (c: string) => set({ modulos: modulos.includes(c) ? modulos.filter(x => x !== c) : [...modulos, c] });
   const paso = (d: number) => set({ unidades: String(Math.min(MAX, Math.max(1, (Math.trunc(Number(unidades)) || 0) + d))) });
 
   return (
@@ -66,32 +68,40 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
           </div>
         </fieldset>
 
-        <fieldset>
-          <legend className="text-sm font-medium">Módulos</legend>
-          <div className="mt-2 space-y-1.5">
+        <div>
+          <p className="text-sm font-medium">{plan ? `Con ${plan.nombre}` : 'Plan'}</p>
+          <ul className="mt-2 space-y-1.5">
             {cat.modulos.map(m => {
               const trae = incluidos.includes(m.clave);
-              const on = trae || modulos.includes(m.clave);
               return (
-                <label key={m.clave} className={cx('flex items-center gap-3 rounded bg-surface2 px-3 py-2.5 transition-colors duration-150', trae ? 'cursor-default' : 'cursor-pointer hover:bg-brand-soft', on && !trae && 'bg-brand-soft')}>
-                  <input type="checkbox" checked={on} disabled={trae} onChange={() => alternar(m.clave)} className="h-5 w-5 shrink-0 accent-[oklch(var(--brand))]" />
+                <li key={m.clave} className={cx('flex items-center gap-3 rounded bg-surface2 px-3 py-2.5', trae ? 'text-ink' : 'text-muted')}>
+                  <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-full', trae ? 'bg-brand text-on-brand' : 'bg-surface')} aria-hidden="true">{trae && <CheckIcon className="h-3.5 w-3.5" />}</span>
                   <span className="min-w-0 flex-1 text-base leading-snug">{m.nombre}</span>
-                  <span className="num shrink-0 text-sm text-muted">{trae ? 'Incluido' : `+ ${soles(m.precio_por_unidad)}`}</span>
-                </label>
+                  <span className="shrink-0 text-sm">{trae ? 'Incluido' : 'Sólo en Pro'}</span>
+                </li>
               );
             })}
-          </div>
-        </fieldset>
+          </ul>
+          {tope != null && <p className="mt-2 text-sm text-muted">Hasta {tope} departamentos por condominio.</p>}
+        </div>
       </div>
 
       <div className="bg-brand p-5 text-on-brand sm:p-7" aria-live="polite" aria-atomic="true">
-        {total.error ? <p className="text-base">No se pudo calcular. Revisa tu conexión e inténtalo de nuevo.</p> : (
+        {total.error ? <p className="text-base">No se pudo calcular. Revisa tu conexión e inténtalo de nuevo.</p> : excede ? (
+          <>
+            <p className="text-sm font-medium opacity-90">{plan?.nombre} · {n} departamentos</p>
+            <p className="mt-1 text-2xl font-semibold leading-tight sm:text-3xl">{plan?.nombre} llega hasta {tope} departamentos</p>
+            <p className="mt-2 text-lg">Con {n} necesitas {pro?.nombre ?? 'Pro'}, que no tiene tope.</p>
+            {pro && <button type="button" onClick={() => set({ plan: pro.clave })} className="mt-4 inline-flex h-11 items-center rounded bg-on-brand px-5 text-base font-semibold text-brand transition-colors duration-150 hover:opacity-90 active:scale-[0.98]">Ver el total con {pro.nombre}</button>}
+          </>
+        ) : (
           <>
             <p className="text-sm font-medium opacity-90">Total al mes · {n} {n === 1 ? 'departamento' : 'departamentos'}</p>
             {total.r ? (
               <div key={total.r.total_mes} className="sube-corto">
                 <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{soles(total.r.total_mes)}</p>
-                <p className="num mt-2 text-lg">{gratis ? 'Gratis para siempre, sin límite de departamentos.' : `${soles(total.r.total_anio)} al año · IGV incluido`}</p>
+                <p className="num mt-2 text-lg">{gratis ? `Gratis para siempre${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${soles(total.r.total_anio)} al año · IGV incluido`}</p>
+                {total.r.minimo_aplicado && <p className="mt-1 text-base">{plan?.nombre} cobra un mínimo de {total.r.unidades_cobradas} departamentos por condominio.</p>}
               </div>
             ) : <div className="mt-2 h-14 w-56 rounded bg-on-brand/20" aria-hidden="true" />}
           </>
