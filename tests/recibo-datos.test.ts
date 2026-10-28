@@ -116,6 +116,15 @@ describe('logo de la empresa', () => {
     assert.ok(!e.texto.includes('"data"'));
   });
 
+  it('el superadmin lo sube, lo ve y lo quita en cualquier empresa (desde la ficha de la empresa)', async () => {
+    assert.equal((await crudo('PUT', ruta(d.empresaB.id), T.superadmin, PNG)).status, 200);
+    assert.equal((await crudo('GET', ruta(d.empresaB.id), T.superadmin)).status, 200);
+    const e = await llamar(base, 'GET', `/api/empresas/${d.empresaB.id}`, T.superadmin);
+    assert.match(e.body.logo_url, /^\/api\/empresas\/\d+\/logo\?v=\d+$/);
+    assert.equal((await crudo('DELETE', ruta(d.empresaB.id), T.superadmin)).status, 204);
+    assert.equal((await crudo('GET', ruta(d.empresaB.id), T.superadmin)).status, 404);
+  });
+
   it('mismo tope y mismo tipo que la foto del condominio', async () => {
     assert.equal((await crudo('PUT', ruta(), T.adminA, Buffer.concat([PNG, Buffer.alloc(2 * 1024 * 1024)]))).status, 413);
     assert.equal((await crudo('PUT', ruta(), T.adminA, PNG, 'application/pdf')).status, 415);

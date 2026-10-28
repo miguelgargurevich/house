@@ -53,6 +53,10 @@ describe('datos del recibo en las fichas', () => {
     assert.match(torres, /correo_vouchers: v\.correo_vouchers\.trim\(\) \|\| null/);
     assert.match(torres, /Correo del block para vouchers/);
   });
+  it('ficha de la empresa (superadmin): logo', () => {
+    assert.match(f('superadmin/EmpresaDetalle.tsx'), /<ImagenEditable titulo="Logo de la empresa"[^>]*ruta=\{`\/api\/empresas\/\$\{e\.id\}\/logo`\}/);
+  });
+
   it('Mi empresa: logo', () => {
     assert.match(f('admin/Configuracion.tsx'), /<ImagenEditable titulo="Logo de la empresa"[^>]*ruta=\{`\/api\/empresas\/\$\{data\.id\}\/logo`\}/);
   });

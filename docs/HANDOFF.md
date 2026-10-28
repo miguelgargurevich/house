@@ -1388,3 +1388,9 @@ Entradas por fecha (la más reciente arriba).
 - **Pago parcial de un concepto:** oculto en el detalle del mantenimiento (`PAGO_PARCIAL_CONCEPTO = false`); el endpoint sigue.
 - **Producción (con auditoría):** se comprobó que el recibo 1 ya es octubre (los 32 dptos. cuadran con el Excel de octubre en total y agua). Se cargaron: emisión 27-10-2026, corte de agua 10-11-2026, notas de pago, contacto de administración (Melina Loayza), correo del block y la lectura de agua de B01-804 (1416.574 → 1430.897, factor 4.9315 → S/ 70.63, igual al impreso).
 - **Pendiente de Miguel:** cuenta BCP y CCI reales, foto de cabecera, logo, lecturas de los otros 31 dptos. y la foto del contómetro.
+
+## 2026-10-28 — Claude Code (Opus 5.5) — Logo de la empresa desde la ficha del superadmin
+
+**Pedido de Miguel:** «Sí, agrégalo» (subir el logo de la empresa desde su cuenta de superadmin).
+
+- `superadmin/EmpresaDetalle.tsx`, pestaña Datos: sección «Recibo impreso» con `ImagenEditable` (mismo componente que «Mi empresa»). El backend ya lo permitía (`requireRole` deja pasar al superadmin y `scopeEmpresas` le da todas); se añadió la prueba de API en `tests/recibo-datos.test.ts`.
