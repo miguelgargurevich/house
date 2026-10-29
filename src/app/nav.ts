@@ -2,7 +2,7 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
-  ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, TruckIcon, SparklesIcon,
+  ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
   SunIcon, MegaphoneIcon, UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
@@ -28,7 +28,6 @@ const operacion: NavItem[] = [
   { to: '/admin/unidades', label: 'Unidades', icon: KeyIcon },
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
-  { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
   { to: '/admin/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
   { to: '/admin/juntas', label: 'Juntas directivas', icon: UserGroupIcon },
   { to: '/admin/whatsapp', label: 'WhatsApp', icon: QrCodeIcon },
@@ -120,7 +119,6 @@ const JUNTA: NavGroup = {
     { to: '/junta/agua', label: 'Lecturas de agua', icon: BeakerIcon },
     { to: '/junta/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
     { to: '/junta/proveedores', label: 'Proveedores', icon: TruckIcon },
-    { to: '/junta/avisos', label: 'Avisos', icon: BellIcon },
   ],
 };
 

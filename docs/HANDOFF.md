@@ -33,6 +33,23 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Gotcha (flaco bajo carga):** la corrida completa deja **1 fallo que cambia de test según la corrida** y pasa aislado en milisegundos (esta vez `multimoneda` «cambiar la moneda», la anterior `comercial-puertas` «con el módulo responde», 5 s). Es el mismo patrón intermitente que ya reportaron otras sesiones: un archivo parece fallar y es el tiempo, no la lógica.
 - **Pendientes que dejó el handoff (de otras sesiones), por si hay que tomar alguno:** (1) el eje del `LineChart` en «Tú contra tu block» arranca en 0 y las dos líneas se montan cuando los montos son parecidos; (2) «Costo por m³» sin datos reales (la base local no trae lecturas de agua de ese usuario); (3) la migración real de juntas contra producción (`scripts/migrar-juntas.ts --aplicar --produccion`, con OK de Miguel); (4) decidir si `/admin/residentes` y `/admin/personal` se borran o quedan como acceso directo (ya están fuera del menú y del prompt del asistente).
 
+## 2026-10-29 — Claude Code (Haiku 5.5, ejecutor delegado) — Comunicados y Envíos en una sola página
+
+- Pedido de Miguel («podemos fusionarlas, no es casi lo mismo»; aprobado): «Avisos» y «Comunicados» pasan a una sola entrada con dos pestañas. Brief de Opus; rama `feat/fusion-comunicados`, commits sin push.
+- **Qué se hizo**:
+  - `_parts/comunicados/PaginaComunicados.tsx`: título «Comunicados», pestañas «Comunicados» y «Envíos». La pestaña sale de la ruta (`baseDe`: `/junta` o `/admin`); cambiar de pestaña navega con `replace`. `Avisos.tsx` y `Comunicados.tsx` son envoltorios, así que `App.tsx` no cambia.
+  - «Comunicados» (`ComunicadosTab.tsx`): lo de siempre + columna **Envíos** («3 enviados · 1 con error» / «Sin envíos») y «Ver envíos» → `/…/avisos?comunicado=<id>`.
+  - «Envíos» (`_parts/avisos/EnviosTab.tsx`): lo de Avisos (cifras, estados, búsqueda, reintento) + filtro por tipo y filtro por comunicado con «Ver todos los envíos».
+  - Backend: `GET /api/comunicados` trae `envios {total, pendiente, enviada, error, omitida}` en UNA consulta (`enviosDe`, con `scopeNotificaciones`). `GET /api/notificaciones` acepta `comunicado_id`; `GET /api/notificaciones/resumen` acepta `tipo` y `comunicado_id`, para que las cifras sigan a los filtros.
+  - Menú: sale «Avisos» (administración y junta); queda «Comunicados». `ai-system-prompt.txt` nombra `/admin/comunicados` y su pestaña Envíos.
+- **Decisiones**: la pestaña se decide por la ruta, no por una prop de `App.tsx`. Los conteos sólo cuentan a quien el usuario alcanza (un aviso ajeno no suma). El filtro se llama `comunicado_id`, como `complejo_id`. Los tipos son los `TIPO` que ya existían; no se inventaron categorías.
+- **Gotchas**:
+  - `Shell.tsx` marca activo el ítem con `NavLink` por prefijo: en `/admin/avisos` ningún ítem se ilumina (ni «Comunicados»). Arreglarlo pide tocar `Shell.tsx` (fuera del alcance de esta tarea).
+  - Cambiar de pestaña cambia de ruta, así que la página se remonta y el foco de teclado se pierde al mover con flechas.
+  - La junta de un block ve sólo los comunicados de su block (`scopeComunicados`); su conteo cuenta sólo a sus vecinos.
+  - Las cifras de Envíos siguen al tipo y al comunicado, pero NO a torre ni condominio (igual que antes).
+- **Próximos pasos**: estado activo del menú en `/…/avisos` (Shell acepta alias); revisar en navegador a 375 px y modo oscuro; cuando `App.tsx` se pueda tocar, quitar las rutas `/…/avisos` o dejarlas como redirección.
+
 ---
 
 ## 2026-10-29 — Claude Code (Opus 5.5) — Revisión e integración de las pestañas de «Mi historial» + fuga del promedio de agua

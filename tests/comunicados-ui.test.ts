@@ -5,11 +5,13 @@ import { describe, it } from 'node:test';
 import { NAV, navPara } from '../src/app/nav';
 import { RUTAS_JUNTA, RUTAS_POR_ROL, rutaPermitida } from '../src/server/lib/rutasApp';
 import { TIPOS } from '../src/server/services/avisos/plantillas';
-import { textoPublicado } from '../src/pages/admin/_parts/comunicados/tipos';
+import { baseDe, enviosDeComunicado, textoEnvios, textoPublicado } from '../src/pages/admin/_parts/comunicados/tipos';
 import { alcanceDe, origenLabel } from '../src/pages/residente/_parts/comunicados/tipos';
 
 const f = (ruta: string) => readFileSync(ruta, 'utf8');
 const ADMIN = 'src/pages/admin/';
+const COM = `${ADMIN}_parts/comunicados/`;
+const AVISOS = `${ADMIN}_parts/avisos/`;
 const RES = 'src/pages/residente/_parts/';
 const app = f('src/App.tsx');
 /** El bloque de rutas (`<Route element={…}>` … `</Route>`) que arranca en `apertura`. */
@@ -22,7 +24,7 @@ const items = (r: Parameters<typeof navPara>[0]) => navPara(r).flatMap((g) => g.
 const usuario = (rol: 'propietario' | 'inquilino' | 'admin', cargo_junta: 'presidente' | 'tesorero' | 'secretario' | 'vocal' | null = null) => ({ rol, cargo_junta, complejo_id: 1 }) as const;
 
 describe('comunicados: el cuerpo es TEXTO, nunca HTML', () => {
-  const archivos = [`${RES}comunicados/ComunicadoItem.tsx`, `${RES}ComunicadosResidente.tsx`, `${RES}ComunicadosInicio.tsx`, `${ADMIN}Comunicados.tsx`, `${ADMIN}_parts/comunicados/ComunicadoModal.tsx`, 'src/pages/propietario/Comunicados.tsx', 'src/pages/inquilino/Comunicados.tsx'];
+  const archivos = [`${RES}comunicados/ComunicadoItem.tsx`, `${RES}ComunicadosResidente.tsx`, `${RES}ComunicadosInicio.tsx`, `${COM}ComunicadosTab.tsx`, `${COM}PaginaComunicados.tsx`, `${COM}ComunicadoModal.tsx`, `${AVISOS}EnviosTab.tsx`, 'src/pages/propietario/Comunicados.tsx', 'src/pages/inquilino/Comunicados.tsx'];
 
   it('ningún archivo de comunicados inyecta HTML', () => {
     for (const a of archivos) assert.doesNotMatch(f(a), /dangerouslySetInnerHTML|innerHTML|insertAdjacentHTML/, a);
@@ -42,7 +44,7 @@ describe('comunicados: el cuerpo es TEXTO, nunca HTML', () => {
   });
 
   it('la gestión muestra el texto en una línea recortada (sin HTML) y el aviso del alcance también cabe en el celular', () => {
-    const s = f(`${ADMIN}Comunicados.tsx`);
+    const s = f(`${COM}ComunicadosTab.tsx`);
     assert.match(s, /<p className="truncate text-xs text-muted">\{c\.cuerpo\.replace\(/);
     assert.match(s, /sm:hidden">\{alcanceLabel\(c\)\} · \{fechaCorta\(c\.created_at\)\}/);
   });
@@ -59,19 +61,19 @@ describe('comunicados: menú y rutas', () => {
     }
   });
 
-  it('el admin y el superadmin lo tienen en Operación, justo después de Avisos', () => {
+  it('el admin y el superadmin lo tienen en Operación, y ya no hay un ítem «Avisos» aparte: los envíos están en su pestaña', () => {
     for (const rol of ['admin', 'superadmin'] as const) {
-      const operacion = NAV[rol].find((g) => g.label === 'Operación')!;
-      const rutas = operacion.items.map((i) => i.to);
-      assert.equal(rutas[rutas.indexOf('/admin/avisos') + 1], '/admin/comunicados', rol);
+      const rutas = NAV[rol].find((g) => g.label === 'Operación')!.items.map((i) => i.to);
+      assert.ok(rutas.includes('/admin/comunicados'), rol);
+      assert.ok(!rutas.includes('/admin/avisos'), rol);
     }
   });
 
-  it('el grupo Junta (presidente y tesorero): Mi junta, Medios de pago, Pagos por validar, Lecturas de agua, Comunicados, Proveedores, Avisos; secretario y vocal no lo tienen', () => {
+  it('el grupo Junta (presidente y tesorero): Mi junta, Medios de pago, Pagos por validar, Lecturas de agua, Comunicados, Proveedores; sin «Avisos»; secretario y vocal no lo tienen', () => {
     for (const cargo of ['presidente', 'tesorero'] as const) {
       const junta = navPara(usuario('propietario', cargo)).find((g) => g.label === 'Junta')!;
-      assert.deepEqual(junta.items.map((i) => i.label), ['Mi junta', 'Medios de pago', 'Pagos por validar', 'Lecturas de agua', 'Comunicados', 'Proveedores', 'Avisos']);
-      assert.deepEqual(junta.items.map((i) => i.to), ['/junta/mi-junta', '/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores', '/junta/avisos']);
+      assert.deepEqual(junta.items.map((i) => i.label), ['Mi junta', 'Medios de pago', 'Pagos por validar', 'Lecturas de agua', 'Comunicados', 'Proveedores']);
+      assert.deepEqual(junta.items.map((i) => i.to), ['/junta/mi-junta', '/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores']);
     }
     for (const cargo of ['secretario', 'vocal', null] as const) {
       assert.ok(!navPara(usuario('propietario', cargo)).some((g) => g.label === 'Junta'), String(cargo));
@@ -108,8 +110,8 @@ describe('comunicados: menú y rutas', () => {
 });
 
 describe('comunicados: pantalla de gestión (administración y junta)', () => {
-  const s = f(`${ADMIN}Comunicados.tsx`);
-  const m = f(`${ADMIN}_parts/comunicados/ComunicadoModal.tsx`);
+  const s = f(`${COM}ComunicadosTab.tsx`);
+  const m = f(`${COM}ComunicadoModal.tsx`);
 
   it('lista con título, alcance, fecha, fijado y enviado por; archiva con ConfirmDialog', () => {
     for (const col of ["key: 'titulo'", "key: 'alcance'", "key: 'fecha'", "key: 'autor'", "key: 'acciones'"]) assert.ok(s.includes(col), col);
@@ -129,7 +131,7 @@ describe('comunicados: pantalla de gestión (administración y junta)', () => {
   it('la misma pantalla sirve a la junta: sale de /api/comunicados/ambitos y no pide /api/complejos', () => {
     assert.match(f(`${ADMIN}_parts/comunicados/useAmbitos.ts`), /useResource<Ambitos>\('\/api\/comunicados\/ambitos'\)/);
     assert.doesNotMatch(s + m, /\/api\/complejos|\/api\/estructuras/);
-    assert.match(s, /const esJunta = user\?\.rol === 'propietario'/);
+    assert.match(f(`${AVISOS}EnviosTab.tsx`), /const esJunta = user\?\.rol === 'propietario'/);
   });
 
   it('el modal: condominio, alcance, título, mensaje y «Fijar arriba»; las casillas de envío SÓLO al crear', () => {
@@ -194,9 +196,70 @@ describe('comunicados: lo que ve el residente', () => {
   });
 });
 
+describe('comunicados: una página con dos pestañas («Comunicados» y «Envíos»)', () => {
+  const pagina = f(`${COM}PaginaComunicados.tsx`);
+  const tab = f(`${COM}ComunicadosTab.tsx`);
+  const envios = f(`${AVISOS}EnviosTab.tsx`);
+
+  it('Comunicados.tsx y Avisos.tsx son envoltorios: cada ruta abre su pestaña (App.tsx no cambia)', () => {
+    assert.match(f(`${ADMIN}Comunicados.tsx`), /<PaginaComunicados pestana="comunicados" \/>/);
+    assert.match(f(`${ADMIN}Avisos.tsx`), /<PaginaComunicados pestana="envios" \/>/);
+    assert.doesNotMatch(f(`${ADMIN}Avisos.tsx`), /useList|api\(/);
+  });
+
+  it('la pestaña sale de la ruta (/junta o /admin) y cambiar de pestaña navega con replace a su segmento', () => {
+    assert.equal(baseDe('/junta/avisos'), '/junta');
+    assert.equal(baseDe('/junta/comunicados'), '/junta');
+    assert.equal(baseDe('/admin/avisos'), '/admin');
+    assert.equal(baseDe('/admin/comunicados'), '/admin');
+    assert.match(pagina, /const SEGMENTO: Record<PestanaComunicados, string> = \{ comunicados: 'comunicados', envios: 'avisos' \}/);
+    assert.match(pagina, /navigate\(`\$\{base\}\/\$\{SEGMENTO\[p\]\}`, \{ replace: true \}\)/);
+  });
+
+  it('las dos pestañas enlazan su panel (mismo idBase), con los nombres pedidos y la descripción que explica las dos cosas', () => {
+    assert.equal((pagina.match(/idBase="comunicados-pestanas"/g) ?? []).length, 3, 'una barra y dos paneles');
+    assert.match(pagina, /items=\{\[\{ id: 'comunicados', label: 'Comunicados' \}, \{ id: 'envios', label: 'Envíos' \}\]\}/);
+    assert.match(pagina, /<PageHeader title="Comunicados" description="Escribe anuncios para los vecinos y revisa qué se les envió por correo y WhatsApp\." \/>/);
+  });
+
+  it('cada comunicado dice cuántos envíos salieron y cuántos fallaron, y enlaza a sus envíos (y el celular lo ve en su línea)', () => {
+    assert.match(tab, /key: 'envios', header: 'Envíos', hideBelow: 'md'/);
+    assert.match(tab, /\{textoEnvios\(c\.envios\)\}/);
+    assert.match(tab, /\{!!c\.envios\?\.total && <Link to=\{enviosDeComunicado\(base, c\.id\)\}[^>]*>Ver envíos<\/Link>\}/);
+    assert.match(tab, /const base = baseDe\(useLocation\(\)\.pathname\)/);
+    assert.match(tab, /sm:hidden">\{alcanceLabel\(c\)\} · \{fechaCorta\(c\.created_at\)\} · \{textoEnvios\(c\.envios\)\}/);
+    assert.equal(textoEnvios(undefined), 'Sin envíos');
+    assert.equal(textoEnvios({ total: 0, pendiente: 0, enviada: 0, error: 0, omitida: 0 }), 'Sin envíos');
+    assert.equal(textoEnvios({ total: 4, pendiente: 0, enviada: 3, error: 1, omitida: 0 }), '3 enviados · 1 con error');
+    assert.equal(textoEnvios({ total: 2, pendiente: 1, enviada: 1, error: 0, omitida: 0 }), '1 enviado · 1 en cola');
+    assert.equal(textoEnvios({ total: 1, pendiente: 0, enviada: 0, error: 1, omitida: 0 }), '0 enviados · 1 con error');
+    assert.equal(enviosDeComunicado('/junta', 7), '/junta/avisos?comunicado=7');
+  });
+
+  it('la pestaña Envíos filtra por el comunicado de la URL (?comunicado=) en la lista y en las cifras, y se puede quitar', () => {
+    assert.match(envios, /const comunicadoId = params\.get\('comunicado'\) \?\? ''/);
+    assert.match(envios, /useList<Envio>\('\/api\/notificaciones', \{ params: \{ estado: filtro, tipo: tipo \|\| undefined, comunicado_id: comunicadoId \|\| undefined,/);
+    assert.match(envios, /\/api\/notificaciones\/resumen\?\$\{query\(\{ tipo: tipo \|\| undefined, comunicado_id: comunicadoId \|\| undefined \}\)\}/);
+    assert.match(envios, /useResource<Comunicado>\(comunicadoId \? `\/api\/comunicados\/\$\{comunicadoId\}` : null\)/);
+    assert.match(envios, /<Button size="sm" variant="secondary" onClick=\{\(\) => setParams\(\{\}\)\}>Ver todos los envíos<\/Button>/);
+  });
+
+  it('la pestaña Envíos tiene el filtro por tipo, con los tipos que acepta la API y en castellano', () => {
+    assert.match(envios, /<FiltroSelect label="Filtrar por tipo" value=\{tipo\} onChange=\{setTipo\}>/);
+    assert.match(envios, /\{Object\.entries\(TIPO\)\.map\(\(\[clave, nombre\]\) => <option key=\{clave\} value=\{clave\}>\{nombre\}<\/option>\)\}/);
+    assert.match(envios, /tipo: tipo \|\| undefined/);
+  });
+
+  it('el asistente conoce la nueva pantalla: /admin/comunicados con su pestaña «Envíos», y ya no nombra /admin/avisos', () => {
+    const prompt = f('src/config/ai-system-prompt.txt');
+    assert.match(prompt, /\[Comunicados\]\(\/admin\/comunicados\) \(su pestaña «Envíos»/);
+    assert.doesNotMatch(prompt, /\(\/admin\/avisos\)/);
+  });
+});
+
 describe('junta: Proveedores y Avisos', () => {
   const prov = f(`${ADMIN}Proveedores.tsx`);
-  const avisos = f(`${ADMIN}Avisos.tsx`);
+  const avisos = f(`${AVISOS}EnviosTab.tsx`);
 
   it('Proveedores: la junta no pide condominios, no los elige ni los manda; el compartido es de sólo lectura y no se elimina', () => {
     assert.match(prov, /const esJunta = user\?\.rol === 'propietario'/);

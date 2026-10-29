@@ -182,7 +182,7 @@ describe('pantallas: la torre se ve y se filtra', () => {
   });
 
   it('Avisos: filtro por torre y de qué recibo/torre trata cada aviso', () => {
-    const s = f(`${ADMIN}Avisos.tsx`);
+    const s = f(`${ADMIN}_parts/avisos/EnviosTab.tsx`);
     assert.match(s, /estructura_id: torre \|\| undefined/);
     assert.match(s, /key: 'recibo', header: 'Recibo'/);
     assert.match(s, /a\.contexto\?\.unidad\?\.torre \?\? r\.torre/);

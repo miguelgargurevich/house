@@ -51,7 +51,7 @@ describe('menú: cada grupo es un objeto de trabajo y la plataforma va al final'
     const cobranza = admin.find(g => g.label === 'Cobranza');
     const operacion = admin.find(g => g.label === 'Operación');
     assert.deepEqual(cobranza?.items.map(i => i.label), ['Recibos', 'Pagos', 'Medios de pago', 'Morosidad']);
-    assert.deepEqual(operacion?.items.map(i => i.label), ['Unidades', 'Mantenimiento', 'Conceptos', 'Avisos', 'Comunicados', 'Juntas directivas', 'WhatsApp', 'Proveedores']);
+    assert.deepEqual(operacion?.items.map(i => i.label), ['Unidades', 'Mantenimiento', 'Conceptos', 'Comunicados', 'Juntas directivas', 'WhatsApp', 'Proveedores']);
     assert.ok(admin.indexOf(cobranza!) < admin.indexOf(operacion!), 'Cobranza antes que Operación');
   });
 

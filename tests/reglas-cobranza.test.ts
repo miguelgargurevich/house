@@ -845,7 +845,7 @@ describe('pantallas: fecha del voucher, línea de mora, mora del condominio, avi
   });
 
   it('la lista de avisos conoce vence_hoy y la subida del Excel muestra el mensaje de la mora', () => {
-    assert.match(fuente('src/pages/admin/Avisos.tsx'), /vence_hoy: 'Vence hoy'/);
+    assert.match(fuente('src/pages/admin/_parts/avisos/EnviosTab.tsx'), /vence_hoy: 'Vence hoy'/);
     assert.match(fuente('src/pages/admin/_parts/cobranza/SubirExcelModal.tsx'), /resumen\?\.mora && /);
     const r = resumenSubida({ recibo_id: 1, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 0, conceptos: 1, mora: { monto: '20.00', cantidad: 2, mensaje: 'Se agregó mora de S/ 20 a 2 departamentos: B.1-103, B.1-104' } });
     assert.equal(r.mora, 'Se agregó mora de S/ 20 a 2 departamentos: B.1-103, B.1-104');
