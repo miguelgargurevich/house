@@ -83,6 +83,8 @@ model EmpresaAdministradora {
   estado              String?                @default("activa")
   whatsapp_instance   String?
   whatsapp_token      String?
+  /// País (ISO 3166-1 alfa-2, `src/lib/paises.ts`) que se propone a sus condominios nuevos.
+  pais                String                 @default("PE")
   complejos           ComplejoHabitacional[]
   contratos           ContratoAdministracion[]
   proveedores         Proveedor[]
@@ -104,6 +106,9 @@ model ComplejoHabitacional {
   direccion   String?
   empresa_id  Int?
   descripcion String?
+  /// País (ISO 3166-1 alfa-2) y moneda (ISO 4217) del condominio, del catálogo `src/lib/paises.ts`. Todo monto del condominio (recibos, pagos, mora) va en esa moneda; con recibos emitidos ya no se cambia.
+  pais        String                 @default("PE")
+  moneda      String                 @default("PEN")
   empresa     EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   estructuras Estructura[]
   recibos     Recibo[]
@@ -114,7 +119,7 @@ model ComplejoHabitacional {
   proveedores ProveedorComplejo[]
   /// Si está activa, un comprobante que la IA lee como «coincide» (confianza alta, sin duplicados) valida el pago solo. Nunca rechaza.
   validacion_automatica_ia Boolean @default(false)
-  /// Mora (S/) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
+  /// Mora (en la moneda del condominio) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
   mora_monto  Decimal @default(20.00)
   /// Recibo impreso: notas de pago (texto libre, una línea por renglón) y contacto de la administración. Todo opcional: si falta, el bloque se omite.
   notas_pago    String?
