@@ -3,7 +3,7 @@
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 import { Prisma } from '@prisma/client';
 import XLSX from 'xlsx';
 import { cabecerasDeSesion, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
@@ -170,6 +170,24 @@ describe('la fecha del pago sale del voucher (IA falsa)', () => {
     const aud = await prisma.auditoria.findFirstOrThrow({ where: { accion: 'fecha_pago_voucher', entidad: 'pago', entidad_id: pagoId } });
     assert.deepEqual(aud.detalle, { origen: 'voucher', anterior: iso(HOY), nueva: leida });
     assert.equal(aud.usuario_id, null);
+  });
+
+  it('la fecha leída se juzga con el día del condominio: el 11-dic es FUTURA en Lima y vale en Madrid (10-dic 23:30 UTC)', async () => {
+    evaluacionDeps.ahora = () => new Date('2026-12-10T23:30:00Z');
+    respuesta = () => lecturaOk({ fecha: '2026-12-11' });
+    try {
+      const lima = await mantenimiento(1);
+      await pagaYSube(lima);
+      assert.equal((await pagosDe(lima))[0]!.fecha_origen, 'invalida', 'en Lima aún es el 10');
+      await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { zona_horaria: 'Europe/Madrid' } });
+      const madrid = await mantenimiento(1);
+      await pagaYSube(madrid);
+      const p = (await pagosDe(madrid))[0]!;
+      assert.equal(p.fecha_origen, 'voucher', 'en Madrid ya es el 11');
+      assert.equal(p.fecha_pago.toISOString(), '2026-12-11T12:00:00.000Z');
+    } finally {
+      await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { zona_horaria: 'America/Lima' } });
+    }
   });
 
   it('el administrador adjunta el voucher a un pago ya validado: cambia la fecha del pago y la de su cargo', async () => {
@@ -661,6 +679,21 @@ describe('mora de S/ 20 en el recibo del mes siguiente', () => {
     moraDeps.ahora = () => new Date('2026-10-03T05:00:00Z'); // ya es 3-oct en Lima
     const r2 = await subirExcel(T.adminA, aXlsx(filasExcel(false)), d.complejoA.id);
     assert.equal(r2.body.mora.cantidad, TARDE.length);
+  });
+
+  it('el recibo se emite con la fecha de hoy EN el condominio (Auckland ya está en el 21 cuando en Lima es el 20)', async () => {
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { zona_horaria: 'Pacific/Auckland' } });
+    mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-10-20T11:30:00Z') }); // 06:30 en Lima; 00:30 del 21 en Auckland (UTC+13)
+    try {
+      const token = await login(base, 'admin.a@test.pe'); // la sesión nace en el instante simulado
+      const r = await subirExcel(token, aXlsx(filasExcel(false)), d.complejoA.id);
+      assert.equal(r.status, 201, r.texto);
+      const recibo = await prisma.recibo.findFirstOrThrow({ where: { complejo_id: d.complejoA.id, estructura_id: torre1.id, mes: 10, anio: 2026 } });
+      assert.equal(recibo.fecha_emision.toISOString().slice(0, 10), '2026-10-21');
+    } finally {
+      mock.timers.reset();
+      await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { zona_horaria: 'America/Lima' } });
+    }
   });
 
   it('el monto es configurable por condominio; 0 significa sin mora', async () => {
