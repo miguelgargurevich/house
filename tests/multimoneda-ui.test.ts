@@ -215,3 +215,11 @@ describe('fuente de las pantallas: lo del condominio con dinero(), lo de House c
     assert.match(fuente('src/pages/admin/_parts/condominio/PaisEmpresa.tsx'), /json: \{ pais: valor \}/);
   });
 });
+
+describe('ficha del condominio: el símbolo de la mora nunca queda vacío', () => {
+  it('sin moneda elegida («La de su país») muestra la del país, y simboloDe(\'\') es soles', async () => {
+    const { simboloDe } = await import('../src/lib/paises');
+    assert.equal(simboloDe(''), 'S/');
+    assert.match(readFileSync('src/pages/admin/_parts/condominio/ModalDeComplejo.tsx', 'utf8'), /simboloDe\(paisMoneda\.moneda \|\| monedaDelPais\(paisMoneda\.pais\)\)/);
+  });
+});

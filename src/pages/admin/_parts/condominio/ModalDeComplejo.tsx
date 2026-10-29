@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { api, errorText } from '../../../../api';
-import { simboloDe } from '../../../../lib/paises';
+import { monedaDelPais, simboloDe } from '../../../../lib/paises';
 import { Button, Input, Modal, Select, TelefonoInput, Textarea, useToast } from '../../../../ui';
 import { parsearTelefono } from '../../../../lib/telefono';
 import { TIPOS_COMPLEJO, useOpciones } from '../catalogo/opciones';
@@ -90,7 +90,7 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
         <Input label="Dirección" className="sm:col-span-2" placeholder="Av. Arequipa 1234, Lince" {...register('direccion')} />
         <SelectorPaisMoneda valor={paisMoneda} onCambio={setPaisMoneda} alCrear={nuevo} />
         <Input
-          label={`Mora por pago fuera de fecha (${simboloDe(paisMoneda.moneda)})`}
+          label={`Mora por pago fuera de fecha (${simboloDe(paisMoneda.moneda || monedaDelPais(paisMoneda.pais))})`}
           className="sm:col-span-2"
           inputMode="decimal"
           hint="Se agrega al recibo del mes siguiente a quien no pagó a tiempo (hasta el día de vencimiento, según la fecha de su voucher). Pon 0 si no cobras mora."

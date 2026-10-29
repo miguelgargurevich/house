@@ -138,4 +138,4 @@ export const decimalesDe = (moneda: string | null | undefined): number => moneda
 export const monedaEnPlural = (codigo: string | null | undefined): string => monedaDe(codigo ?? MONEDA_POR_DEFECTO)?.plural ?? String(codigo);
 
 /** El símbolo de una moneda para un rótulo («Monto (US$)»); soles si no se dice, el código si no está en el catálogo. */
-export const simboloDe = (codigo: string | null | undefined): string => monedaDe(codigo ?? MONEDA_POR_DEFECTO)?.simbolo ?? String(codigo);
+export const simboloDe = (codigo: string | null | undefined): string => monedaDe(codigo || MONEDA_POR_DEFECTO)?.simbolo ?? String(codigo);
