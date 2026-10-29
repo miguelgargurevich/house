@@ -154,14 +154,14 @@ describe('recibo imprimible y consumo de agua con la moneda del condominio', () 
 
 describe('selector de país y moneda del condominio', () => {
   it('lista los países con su bandera y las monedas con su símbolo y código; al crear ofrece «el de tu empresa»', () => {
-    const h = renderToStaticMarkup(createElement(SelectorPaisMoneda, { valor: { pais: 'CL', moneda: 'CLP' }, onCambio: () => undefined }));
+    const h = renderToStaticMarkup(createElement(SelectorPaisMoneda, { valor: { pais: 'CL', moneda: 'CLP', zona: 'America/Santiago' }, onCambio: () => undefined }));
     assert.match(h, /🇨🇱 Chile/);
     assert.match(h, /🇵🇪 Perú/);
     assert.match(h, /S\/ · Sol peruano \(PEN\)/);
     assert.match(h, /<option value="CLP" selected="">/);
     assert.match(h, /<option value="CL" selected="">/);
     assert.doesNotMatch(h, /El de tu empresa/);
-    const nuevo = renderToStaticMarkup(createElement(SelectorPaisMoneda, { valor: { pais: '', moneda: '' }, onCambio: () => undefined, alCrear: true }));
+    const nuevo = renderToStaticMarkup(createElement(SelectorPaisMoneda, { valor: { pais: '', moneda: '', zona: '' }, onCambio: () => undefined, alCrear: true }));
     assert.match(nuevo, /El de tu empresa/);
     assert.match(nuevo, /La de su país/);
   });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { api, errorText } from '../../../../api';
-import { monedaDelPais, simboloDe } from '../../../../lib/paises';
+import { ZONA_POR_DEFECTO, monedaDelPais, simboloDe } from '../../../../lib/paises';
 import { Button, Input, Modal, Select, TelefonoInput, Textarea, useToast } from '../../../../ui';
 import { parsearTelefono } from '../../../../lib/telefono';
 import { TIPOS_COMPLEJO, useOpciones } from '../catalogo/opciones';
@@ -17,6 +17,8 @@ export interface FilaComplejo {
   /** País (ISO 3166-1) y moneda (ISO 4217) del condominio. */
   pais?: string;
   moneda?: string;
+  /** Zona horaria IANA del condominio (America/Lima, Europe/Madrid…): con ella se cuentan vencimientos, mora y avisos. */
+  zona_horaria?: string;
   empresa?: { id: number; nombre: string } | null;
   _count?: { unidades: number };
   unidades_count?: number;
@@ -43,8 +45,8 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
   const empresas = useOpciones(esSuper && nuevo ? '/api/empresas' : null);
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>();
   // País y moneda aparte del formulario: al crear, vacío = el de la empresa / el de su país (el servidor lo completa).
-  const [paisMoneda, setPaisMoneda] = useState<PaisMoneda>({ pais: '', moneda: '' });
-  useEffect(() => { if (complejo) setPaisMoneda(complejo === 'nuevo' ? { pais: '', moneda: '' } : { pais: complejo.pais ?? 'PE', moneda: complejo.moneda ?? 'PEN' }); }, [complejo]);
+  const [paisMoneda, setPaisMoneda] = useState<PaisMoneda>({ pais: '', moneda: '', zona: '' });
+  useEffect(() => { if (complejo) setPaisMoneda(complejo === 'nuevo' ? { pais: '', moneda: '', zona: '' } : { pais: complejo.pais ?? 'PE', moneda: complejo.moneda ?? 'PEN', zona: complejo.zona_horaria ?? ZONA_POR_DEFECTO }); }, [complejo]);
 
   // El formulario se prepara al abrir el modal.
   useEffect(() => {
@@ -59,6 +61,7 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
       notas_pago: v.notas_pago.trim() || null, admin_nombre: v.admin_nombre.trim() || null, admin_celular: v.admin_celular.trim() || null, admin_correo: v.admin_correo.trim() || null };
     if (paisMoneda.pais) body.pais = paisMoneda.pais;
     if (paisMoneda.moneda) body.moneda = paisMoneda.moneda;
+    if (paisMoneda.zona) body.zona_horaria = paisMoneda.zona;
     // La administradora se elige al crear; después se cambia con «Cambiar de administradora» (cierra un contrato y abre otro).
     if (esSuper && nuevo) body.empresa_id = Number(v.empresa_id);
     try {

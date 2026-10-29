@@ -2,19 +2,21 @@ import { useState } from 'react';
 import { ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../../../api';
 import type { Page } from '../../../../api';
+import { ZONA_POR_DEFECTO } from '../../../../lib/paises';
 import { Alert, Badge, Button, DataTable, ErrorState, Input, Modal, Select, Skeleton, Textarea, fechaCorta, useToast } from '../../../../ui';
 import type { Column } from '../../../../ui';
 
 interface Contrato { id: number; empresa: { id: number; nombre: string }; fecha_inicio: string; fecha_fin: string | null; observaciones: string | null }
 interface Props {
-  complejo: { id: number; nombre: string; empresa_id: number | null; empresa?: { id: number; nombre: string } | null };
+  complejo: { id: number; nombre: string; empresa_id: number | null; empresa?: { id: number; nombre: string } | null; zona_horaria?: string };
   /** Sólo el superadmin cambia de administradora. */
   puedeCambiar: boolean;
   onClose: () => void;
   onCambiado: () => void;
 }
 
-const hoyLima = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' });
+/** El día de hoy (aaaa-mm-dd) en la zona del condominio: con él empieza el contrato nuevo si no se elige otra fecha. */
+const hoyEn = (zona: string) => new Date().toLocaleDateString('en-CA', { timeZone: zona });
 
 /** Historial de contratos de administración del condominio y, para el superadmin, el cambio de administradora. */
 export function ContratosModal({ complejo, puedeCambiar, onClose, onCambiado }: Props) {
@@ -23,7 +25,7 @@ export function ContratosModal({ complejo, puedeCambiar, onClose, onCambiado }: 
   const empresas = useResource<Page<{ id: number; nombre: string }>>(puedeCambiar ? '/api/empresas?pageSize=100' : null);
   const [cambiando, setCambiando] = useState(false);
   const [empresa, setEmpresa] = useState('');
-  const [desde, setDesde] = useState(hoyLima());
+  const [desde, setDesde] = useState(hoyEn(complejo.zona_horaria ?? ZONA_POR_DEFECTO));
   const [notas, setNotas] = useState('');
   const [busy, setBusy] = useState(false);
 
