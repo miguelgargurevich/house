@@ -11,7 +11,7 @@ import { forbidden, invalid } from '../errors';
 import { CARGOS_JUNTA, type CargoJunta } from '../lib/junta';
 import { emailSchema, texto, z } from '../validation';
 import { revocarDeUsuario } from './sesiones';
-import { columnas, nombreEntidad, MAX_ACTIVOS, type MedioInput } from './mediosPago';
+import { camposDePago, codigoUnidadDelMedio, columnas, nombreEntidad, MAX_ACTIVOS, type MedioInput } from './mediosPago';
 
 type Tx = Prisma.TransactionClient;
 
@@ -192,7 +192,7 @@ type JuntaCargada = Prisma.JuntaDirectivaGetPayload<{ include: typeof incluirJun
 const ORDEN_CARGO: Record<string, number> = { presidente: 0, tesorero: 1, secretario: 2, vocal: 3 };
 
 /** Departamentos de cada miembro en el ámbito de la junta (para mostrar «B01-804» junto al nombre). */
-async function departamentosDe(juntas: JuntaCargada[]): Promise<Map<string, string[]>> {
+async function departamentosDe(juntas: { id: number; complejo_id: number; estructura_id: number | null; miembros: { usuario_id: number }[] }[]): Promise<Map<string, string[]>> {
   const mapa = new Map<string, string[]>();
   const ids = [...new Set(juntas.flatMap((j) => j.miembros.map((m) => m.usuario_id)))];
   if (!ids.length) return mapa;
@@ -229,6 +229,60 @@ export async function formatearJuntas(juntas: JuntaCargada[]) {
     medios: j.mediosPago.map((m) => ({ ...m, tiene_qr: m.qr_tipo_mime != null, entidad: nombreEntidad(m) })),
     created_at: j.created_at,
   }));
+}
+
+// ---------- Lo que ve el vecino ----------
+type UnidadDelVecino = { codigo: string; complejo_id: number | null; estructura_id: number | null };
+
+/**
+ * «Mi junta»: las juntas VIGENTES de los blocks donde el residente tiene unidades y la Junta central de esos condominios (si existe).
+ * El `select` es explícito: de cada miembro sólo salen cargo, nombre y departamentos; NUNCA su correo, celular ni id de usuario. De la
+ * cuenta, lo mismo que ya ve en «cómo pagar». Un block sin junta vigente sale con `junta: null`; sin Junta central no sale nada de ella.
+ */
+export async function juntasDelResidente(unidades: UnidadDelVecino[]) {
+  const propias = unidades.filter((u): u is UnidadDelVecino & { complejo_id: number } => u.complejo_id != null);
+  const blockIds = [...new Set(propias.flatMap((u) => (u.estructura_id != null ? [u.estructura_id] : [])))];
+  const complejoIds = [...new Set(propias.map((u) => u.complejo_id))];
+  if (!complejoIds.length) return [];
+  const [juntas, blocks, centrales] = await Promise.all([
+    prisma.juntaDirectiva.findMany({
+      where: { hasta: null, OR: [...(blockIds.length ? [{ estructura_id: { in: blockIds } }] : []), { estructura_id: null, complejo_id: { in: complejoIds } }] },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true, complejo_id: true, estructura_id: true, desde: true, correo: true,
+        complejo: { select: { id: true, nombre: true } },
+        estructura: { select: { id: true, nombre: true, tipo: true } },
+        miembros: { orderBy: { id: 'asc' }, select: { id: true, cargo: true, usuario_id: true, usuario: { select: { nombre: true } } } },
+        mediosPago: { where: { activo: true }, orderBy: [{ orden: 'asc' }, { id: 'asc' }], omit: sinQr },
+      },
+    }),
+    blockIds.length ? prisma.estructura.findMany({ where: { id: { in: blockIds } }, select: { id: true, nombre: true, tipo: true, complejo: { select: { id: true, nombre: true } } } }) : [],
+    prisma.complejoHabitacional.findMany({ where: { id: { in: complejoIds } }, select: { id: true, nombre: true } }),
+  ]);
+  const deptos = await departamentosDe(juntas);
+  const vigentes = new Map(juntas.map((j) => [j.estructura_id ?? `c${j.complejo_id}`, j]));
+
+  const deLaJunta = (j: (typeof juntas)[number]) => ({
+    desde: diaTexto(j.desde),
+    correo: j.correo,
+    miembros: [...j.miembros]
+      .sort((a, b) => (ORDEN_CARGO[a.cargo] ?? 9) - (ORDEN_CARGO[b.cargo] ?? 9) || a.id - b.id)
+      .map((m) => ({ cargo: m.cargo as CargoJunta, nombre: m.usuario.nombre, departamentos: deptos.get(`${j.id}:${m.usuario_id}`) ?? [] })),
+    // Los mismos campos que ve en «cómo pagar» (sin documento del titular ni quién la creó).
+    cuentas: j.mediosPago.map((m) => ({
+      id: m.id, tipo: m.tipo, ambito: m.estructura_id != null ? 'block' : 'condominio', banco: m.banco, tipo_cuenta: m.tipo_cuenta,
+      numero_cuenta: m.numero_cuenta, cci: m.cci, titular: m.titular, celular: m.celular, tiene_qr: m.qr_tipo_mime != null, orden: m.orden,
+      ...camposDePago(m, codigoUnidadDelMedio(m, unidades)),
+    })),
+  });
+
+  const deBlocks = [...blocks]
+    .sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { numeric: true }) || a.id - b.id)
+    .map((b) => ({ ambito: { complejo: b.complejo, estructura: { id: b.id, nombre: b.nombre, tipo: b.tipo } }, junta: vigentes.has(b.id) ? deLaJunta(vigentes.get(b.id)!) : null }));
+  const deLaCentral = [...centrales]
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }) || a.id - b.id)
+    .flatMap((c) => { const j = vigentes.get(`c${c.id}`); return j ? [{ ambito: { complejo: c, estructura: null }, junta: deLaJunta(j) }] : []; });
+  return [...deBlocks, ...deLaCentral];
 }
 
 export async function juntaFormateada(id: number) {

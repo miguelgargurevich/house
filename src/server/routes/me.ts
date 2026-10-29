@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import { Router, type RequestHandler } from 'express';
 import { BCRYPT_COST } from '../config';
 import { prisma } from '../db';
-import { HttpError, conflict, invalid, notFound } from '../errors';
+import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
 import { relojDeCondominios } from '../lib/zonas';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
@@ -20,6 +20,7 @@ import { conResumenDeGrupo, detalleMantenimiento, pagarMantenimiento, soloPrinci
 import { idSchema } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { comunicadoDeUnidades, origenDe } from '../services/comunicados';
+import { juntasDelResidente } from '../services/juntas';
 
 /** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
 function unidadesPropias(u: AuthUser) {
@@ -119,6 +120,24 @@ export function meRouter(limitePassword: RequestHandler) {
       }),
     ]);
     res.json({ items: rows.map(({ autor, ...c }) => ({ ...c, origen: origenDe(autor) })), total, page: q.page, pageSize: q.pageSize });
+  });
+
+  /**
+   * @openapi
+   * /api/me/juntas:
+   *   get:
+   *     summary: La junta de mi block y la Junta central (sólo lectura)
+   *     tags: [Juntas]
+   *     description: Las juntas VIGENTES de los blocks donde el residente tiene unidades (propietario o inquilino) y la Junta central de esos condominios, si existe. Por junta, el cargo, el nombre y los departamentos de cada miembro, el correo de la junta y sus cuentas activas. Nunca el correo ni el celular de los miembros. Un block sin junta vigente sale con `junta` null.
+   *     responses:
+   *       200: { description: "`{ items: [{ ambito: { complejo, estructura|null }, junta: { desde, correo, miembros, cuentas }|null }] }`" }
+   *       403: { description: Rol distinto de propietario o inquilino }
+   */
+  router.get('/juntas', residente, async (req, res) => {
+    const u = currentUser(req);
+    if (u.rol !== 'propietario' && u.rol !== 'inquilino') throw forbidden(); // `requireRole` deja pasar al superadmin: aquí no hay unidades propias
+    const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), orderBy: [{ codigo: 'asc' }, { id: 'asc' }], select: { codigo: true, complejo_id: true, estructura_id: true } });
+    res.json({ items: await juntasDelResidente(unidades) });
   });
 
   const cargosQuery = listQuerySchema.extend({ estado: z.enum(['pendiente', 'pagado', 'vencido', 'en_revision']).optional() });
