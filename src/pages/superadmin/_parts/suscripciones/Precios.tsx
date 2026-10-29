@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, errorText, useResource } from '../../../../api';
 import { Alert, Button, Card, CardBody, CardHeader, ErrorState, Input, Skeleton, Textarea, soles, useToast } from '../../../../ui';
 import { MODULO_NOMBRE, type ModuloClave } from '../../../shared/_parts/comercial';
+import { ImpuestosYPrecios, type ImpuestoPais, type PrecioMoneda } from './ImpuestosPais';
 
 interface Modulo { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; activo: boolean }
 interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean; unidades_maximas: number | null; unidades_minimas: number | null }
@@ -9,7 +10,7 @@ interface Config {
   igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean;
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
 }
-interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config }
+interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config; impuestos: ImpuestoPais[]; precios_moneda: PrecioMoneda[] }
 
 /** Precio base → lo que ve el público (base × (1 + tasa)). Sólo para mostrar junto al campo; el servidor es quien lo aplica de verdad. */
 const conIgv = (base: string, tasa: string): string => {
@@ -29,8 +30,8 @@ function FilaModulo({ m, tasa, onGuardado }: { m: Modulo; tasa: string; onGuarda
   }
   return (
     <li className="flex flex-wrap items-end gap-3 py-3">
-      <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{m.nombre}</p><p className="text-xs text-muted">Sólo para suscripciones antiguas con este módulo suelto: <span className="num">{conIgv(precio, tasa)}</span> por depto al mes</p></div>
-      <Input label="Precio base (S/, sin IGV)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
+      <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{m.nombre}</p><p className="text-xs text-muted">Sólo para suscripciones antiguas con este módulo suelto (en soles): <span className="num">{conIgv(precio, tasa)}</span> por depto al mes con IGV</p></div>
+      <Input label="Precio base (S/, sin impuesto)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
       <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={activo} onChange={e => setActivo(e.target.checked)} />Se muestra en «lo que trae Pro»</label>
       <Button size="sm" loading={busy} onClick={() => void guardar()}>Guardar</Button>
     </li>
@@ -58,8 +59,8 @@ function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: 
   return (
     <li className="space-y-3 py-4">
       <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{p.nombre}</p><p className="text-xs text-muted">Se muestra al público: <span className="num">{conIgv(precio, tasa)}</span> por depto al mes</p></div>
-        <Input label="Precio base (S/, sin IGV)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
+        <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{p.nombre}</p><p className="text-xs text-muted">El público lo ve sin impuesto; con el IGV de Perú se paga <span className="num">{conIgv(precio, tasa)}</span> por depto al mes</p></div>
+        <Input label="Precio base en soles (S/, sin impuesto)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-56" />
         <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={visible} onChange={e => setVisible(e.target.checked)} />Visible</label>
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -99,7 +100,7 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
     <div className="space-y-4">
       {error && <Alert tone="bad">{error}</Alert>}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Input label="Tasa de IGV" inputMode="decimal" hint="0.18 = 18 %" {...t('igv_tasa')} />
+        <Input label="Tasa de IGV de Perú" inputMode="decimal" hint="0.18 = 18 %. Es la de Perú en «Impuestos y moneda por país»." {...t('igv_tasa')} />
         <Input label="Días de gracia" type="number" min={0} max={90} {...t('dias_gracia')} />
         <Input label="Avisar de vencimiento (días antes)" type="number" min={1} max={60} {...t('dias_aviso_vencimiento')} />
       </div>
@@ -136,11 +137,12 @@ export function PreciosYPagos() {
         <CardBody><ul className="divide-y divide-line">{data.modulos.map(m => <FilaModulo key={m.clave} m={m} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
       </Card>
       <Card>
-        <CardHeader title="Planes" description="Precio BASE por departamento al mes (con IGV es lo que ve el público). Gratis y cortesía no cobran; Pro y Administradora cobran como mínimo los departamentos que indiques. Un plan oculto no sale en la página de precios." />
+        <CardHeader title="Planes" description="Precio BASE en soles por departamento al mes (el público lo ve sin impuesto y el impuesto se suma al pagar). Las otras monedas se fijan en «Precios por moneda». Gratis y cortesía no cobran; Pro y Administradora cobran como mínimo los departamentos que indiques. Un plan oculto no sale en la página de precios." />
         <CardBody><ul className="divide-y divide-line">{data.planes.map(p => <FilaPlan key={p.clave} p={p} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
       </Card>
+      <ImpuestosYPrecios impuestos={data.impuestos} precios={data.precios_moneda} planes={data.planes} onGuardado={reload} />
       <Card>
-        <CardHeader title="IGV, plazos y datos de pago" />
+        <CardHeader title="Plazos y datos de pago" />
         <CardBody><Configuracion c={data.configuracion} onGuardado={reload} /></CardBody>
       </Card>
     </div>

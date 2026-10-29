@@ -200,9 +200,12 @@ describe('fuente de las pantallas: lo del condominio con dinero(), lo de House c
     assert.doesNotMatch(fuente('src/pages/admin/Pagos.tsx'), /reduce\(\(s, p\) => s \+/, 'Pagos ya no suma la página sin mirar la moneda');
   });
 
-  it('lo de House (suscripción, Mi plan, /precios) sigue en soles', () => {
-    for (const f of DE_HOUSE) assert.match(fuente(f), /\bsoles\b/, `${f} debería seguir con soles()`);
-    assert.match(fuente('src/ui/format.ts'), /export function soles\(/);
+  it('lo de House (suscripción, Mi plan, /precios) ya no es siempre soles: usa dinero() con la moneda del país del condominio, nunca soles()', () => {
+    for (const f of DE_HOUSE) {
+      const src = fuente(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      assert.match(src, /\bdinero\(/, `${f} debería mostrar el dinero con dinero() y su moneda`);
+      assert.doesNotMatch(src, /\bsoles\(/, `${f} no debe llamar a soles(): la moneda es la del país`);
+    }
   });
 
   it('la configuración elige país y moneda: ModalDeComplejo (por condominio) y Mi empresa (país por defecto)', () => {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CreditCardIcon } from '@heroicons/react/24/outline';
 import { useList, useResource } from '../../api';
-import { Badge, Button, Card, DataTable, PageHeader, SearchBox, Tabs, Toolbar, fechaCorta, soles } from '../../ui';
+import { Badge, Button, Card, DataTable, PageHeader, SearchBox, Tabs, Toolbar, dinero, fechaCorta } from '../../ui';
 import type { Column } from '../../ui';
 import { ModalHistorial } from './_parts/suscripciones/ModalHistorial';
 import { ModalPago } from './_parts/suscripciones/ModalPago';
@@ -23,7 +23,7 @@ export default function Suscripciones() {
   const [historial, setHistorial] = useState<VistaSuscripcion | null>(null);
 
   const columns = useMemo<Column<VistaSuscripcion>[]>(() => [
-    { key: 'condominio', header: 'Condominio', cell: s => <><span className="font-medium">{s.complejo}</span><span className="block text-xs text-muted">{s.empresa?.nombre ?? 'Sin empresa'} · {s.unidades_maximas != null ? `${s.unidades_facturables} de ${s.unidades_maximas} deptos` : s.unidades_cobradas > s.unidades_facturables ? `${s.unidades_facturables} deptos (cobra ${s.unidades_cobradas})` : `${s.unidades_facturables} deptos`}</span><span className="block text-xs font-medium sm:hidden">{s.plan.nombre}</span></> },
+    { key: 'condominio', header: 'Condominio', cell: s => <><span className="font-medium">{s.complejo}</span><span className="block text-xs text-muted">{s.empresa?.nombre ?? 'Sin empresa'} · {s.pais} · {s.unidades_maximas != null ? `${s.unidades_facturables} de ${s.unidades_maximas} deptos` : s.unidades_cobradas > s.unidades_facturables ? `${s.unidades_facturables} deptos (cobra ${s.unidades_cobradas})` : `${s.unidades_facturables} deptos`}</span><span className="block text-xs font-medium sm:hidden">{s.plan.nombre}</span></> },
     { key: 'plan', header: 'Plan', hideBelow: 'sm', cell: s => ( // en el celular el plan va bajo el condominio
       <>
         <span className="font-medium">{s.plan.nombre}</span>
@@ -32,7 +32,7 @@ export default function Suscripciones() {
           : s.plan.clave === 'gratis' ? <span className="block text-xs text-muted">sin IA, WhatsApp, mora ni reportes</span> : <span className="block text-xs text-muted">todo incluido</span>}
       </>
     ) },
-    { key: 'monto', header: 'Al mes', align: 'right', hideBelow: 'sm', cell: s => <span className="num">{s.plan.clave === 'cortesia' ? '—' : soles((s.solicitud?.cotizacion ?? s.cotizacion).total_mes)}{s.solicitud && <span className="block text-xs text-muted">solicitado</span>}</span> },
+    { key: 'monto', header: 'Al mes', align: 'right', hideBelow: 'sm', cell: s => <span className="num">{s.plan.clave === 'cortesia' ? '—' : (s.solicitud ? s.solicitud.consultar : s.precio_consultar) ? 'Consúltanos' : dinero((s.solicitud?.cotizacion ?? s.cotizacion).total_mes, s.moneda)}{s.solicitud && <span className="block text-xs text-muted">solicitado</span>}</span> },
     { key: 'estado', header: 'Estado', cell: s => <Badge tone={ESTADO_UI[s.estado].tone}>{ESTADO_UI[s.estado].label}</Badge> },
     { key: 'vigencia', header: 'Vigente hasta', hideBelow: 'md', cell: s => <span className="num text-muted">{s.plan.clave === 'cortesia' ? 'Sin vencimiento' : fechaCorta(s.vigente_hasta)}</span> },
     { key: 'acciones', header: '', align: 'right', cell: s => (

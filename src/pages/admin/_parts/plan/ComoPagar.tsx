@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
-import { Alert, Button, soles, useToast } from '../../../../ui';
+import { Alert, Button, dinero, useToast } from '../../../../ui';
 import type { Cotizacion, DatosPago } from '../../../shared/_parts/comercial';
 
 function Fila({ etiqueta, valor }: { etiqueta: string; valor: string | null }) {
@@ -18,7 +18,7 @@ function Fila({ etiqueta, valor }: { etiqueta: string; valor: string | null }) {
   );
 }
 
-/** Cómo pagar: monto exacto (base + IGV), referencia sugerida y los datos de pago que cargó el superadmin. */
+/** Cómo pagar: monto exacto (base + impuesto del país, en su moneda), referencia sugerida y los datos de pago que cargó el superadmin. */
 export function ComoPagar({ cot, referencia, pagar }: { cot: Cotizacion; referencia: string; pagar: DatosPago }) {
   const sinDatos = !pagar.yape && !pagar.cuenta && !pagar.cci;
   return (
@@ -27,7 +27,7 @@ export function ComoPagar({ cot, referencia, pagar }: { cot: Cotizacion; referen
       <dl className="mt-2 divide-y divide-line">
         <div className="flex items-center justify-between gap-3 py-1.5">
           <dt className="text-sm text-muted">Monto al mes</dt>
-          <dd className="text-right text-sm"><span className="num text-base font-semibold">{soles(cot.total_mes)}</span><span className="num block text-xs text-muted">{soles(cot.base)} + IGV {soles(cot.igv)}</span></dd>
+          <dd className="text-right text-sm"><span className="num text-base font-semibold">{dinero(cot.total_mes, cot.moneda)}</span>{Number(cot.igv) > 0 && <span className="num block text-xs text-muted">{dinero(cot.base, cot.moneda)} + {cot.impuesto_nombre ?? 'IGV'} {dinero(cot.igv, cot.moneda)}</span>}</dd>
         </div>
         <Fila etiqueta="Referencia" valor={referencia} />
         <Fila etiqueta="Yape" valor={pagar.yape} />

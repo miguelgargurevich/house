@@ -42,7 +42,7 @@ describe('estructura de las pantallas', () => {
     const precios = fuente('src/pages/publico/Precios.tsx');
     assert.match(precios, /\/api\/publico\/planes/);
     assert.match(precios, /\/api\/publico\/cotizar/);
-    assert.match(precios, /Más IGV/);
+    assert.match(precios, /Más \$\{cat\.impuesto\.nombre\}/, 'el impuesto es el del país elegido, no un «IGV» fijo');
     assert.doesNotMatch(precios, /IGV incluido/);
   });
   it('rutas públicas y de cuenta: /registro, /precios, /verificar-correo, portada en «/», Mi plan sólo admin y Suscripciones sólo superadmin', () => {
@@ -80,5 +80,30 @@ describe('estructura de las pantallas', () => {
     assert.match(fuente('src/pages/superadmin/_parts/suscripciones/ModalPago.tsx'), /\/pagos`/);
     assert.match(fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx'), /\/api\/comercial\/configuracion/);
     assert.match(fuente('src/pages/admin/_parts/plan/ComoPagar.tsx'), /IGV/);
+  });
+  it('impuesto y moneda por país: Mi plan, la solicitud, el pago y el historial usan los del condominio (nada de «IGV» ni «S/» fijos)', () => {
+    for (const ruta of ['src/pages/admin/MiPlan.tsx', 'src/pages/admin/_parts/plan/ModalSolicitud.tsx', 'src/pages/admin/_parts/plan/HistorialPagos.tsx', 'src/pages/superadmin/_parts/suscripciones/ModalHistorial.tsx', 'src/pages/superadmin/_parts/suscripciones/ModalPago.tsx']) {
+      const f = fuente(ruta).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      assert.match(f, /\bdinero\(/, `${ruta} muestra el dinero con su moneda`);
+      assert.doesNotMatch(f, /\bsoles\(|\+ IGV|S\/\s?\d/, `${ruta} no debe llevar soles() ni «+ IGV» fijos`);
+    }
+    assert.match(fuente('src/pages/admin/MiPlan.tsx'), /c\.impuesto\.nombre/);
+    assert.match(fuente('src/pages/admin/MiPlan.tsx'), /precio_consultar/, 'Mi plan avisa «Consúltanos» si el plan no tiene precio en la moneda del país');
+    assert.match(fuente('src/pages/admin/_parts/plan/HistorialPagos.tsx'), /p\.impuesto_nombre/, 'el historial muestra el impuesto con que se registró cada pago');
+    const m = fuente('src/pages/admin/_parts/plan/ModalSolicitud.tsx');
+    assert.match(m, /\/api\/publico\/planes\?pais=/, 'los precios de la solicitud son los del país del condominio');
+    assert.match(m, /planes_disponibles/);
+    assert.match(m, /Consúltanos/);
+  });
+  it('Suscripciones › Precios y pagos: «Impuestos y moneda por país» (impuesto, tasa en %, moneda de cobro, abierto) y precios por moneda, contra la API auditada', () => {
+    const f = fuente('src/pages/superadmin/_parts/suscripciones/ImpuestosPais.tsx');
+    assert.match(f, /Impuestos y moneda por país/);
+    assert.match(f, /\/api\/comercial\/impuestos\/\$\{f\.pais\}/);
+    assert.match(f, /\/api\/comercial\/planes\/\$\{plan\.clave\}\/precios\/\$\{moneda\}/);
+    assert.match(f, /Precios por moneda/);
+    assert.match(f, /Consúltanos/);
+    const p = fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx');
+    assert.match(p, /<ImpuestosYPrecios /);
+    assert.match(p, /impuestos: ImpuestoPais\[\]/);
   });
 });

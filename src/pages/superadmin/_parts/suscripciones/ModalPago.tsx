@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, errorText } from '../../../../api';
-import { Alert, Button, Input, Modal, Select, soles, useToast } from '../../../../ui';
+import { Alert, Button, Input, Modal, Select, dinero, useToast } from '../../../../ui';
+import { decimalesDe, simboloDe } from '../../../../lib/paises';
 import { MEDIOS, nombreDePlan, type VistaSuscripcion } from '../../../shared/_parts/comercial';
 
 const hoy = () => new Date().toISOString().slice(0, 10);
@@ -55,7 +56,7 @@ export function ModalPago({ sus, onClose, onHecho }: { sus: VistaSuscripcion | n
         {error && <Alert tone="bad">{error}</Alert>}
         {sus?.solicitud && <Alert tone="info">El cliente pidió {sus.solicitud.plan ? `el plan ${nombreDePlan(sus.solicitud.plan)}` : 'módulos'}: el pago lo activa.</Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Monto pagado (S/, con IGV)" inputMode="decimal" required hint={cot ? `Esperado: ${soles(cot.total_mes)} (${soles(cot.base)} + IGV ${soles(cot.igv)})` : undefined} {...campo('monto')} />
+          <Input label={`Monto pagado (${simboloDe(sus?.moneda)}, con ${sus?.impuesto.nombre ?? 'impuesto'})`} inputMode={decimalesDe(sus?.moneda) === 0 ? 'numeric' : 'decimal'} required hint={cot && !(sus?.solicitud ? sus.solicitud.consultar : sus?.precio_consultar) ? `Esperado: ${dinero(cot.total_mes, sus?.moneda)} (${dinero(cot.base, sus?.moneda)} + ${sus?.impuesto.nombre} ${dinero(cot.igv, sus?.moneda)})` : sus?.precio_consultar ? 'Este plan no tiene precio en la moneda del país: escribe el monto acordado.' : undefined} {...campo('monto')} />
           <Input label="Fecha del pago" type="date" required {...campo('fecha_pago')} />
           <Select label="Medio" {...campo('medio')}>{MEDIOS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select>
           <Input label="N.º de operación" maxLength={80} hint="Evita registrar dos veces el mismo pago" {...campo('operacion')} />

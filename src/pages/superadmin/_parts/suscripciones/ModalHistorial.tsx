@@ -1,4 +1,4 @@
-import { Modal, Skeleton, fechaCorta, soles } from '../../../../ui';
+import { Modal, Skeleton, dinero, fechaCorta } from '../../../../ui';
 import { useResource } from '../../../../api';
 import { MEDIOS, type PagoSuscripcion, type VistaSuscripcion } from '../../../shared/_parts/comercial';
 
@@ -22,7 +22,7 @@ export function ModalHistorial({ sus, onClose }: { sus: VistaSuscripcion | null;
                   <td className="num py-2 pr-3">{fechaCorta(p.fecha_pago)}</td>
                   <td className="num py-2 pr-3">{fechaCorta(p.periodo_desde)} – {fechaCorta(p.periodo_hasta)}</td>
                   <td className="py-2 pr-3">{MEDIO[p.medio] ?? p.medio}{p.operacion ? <span className="num text-xs text-muted"> · {p.operacion}</span> : null}{p.notas ? <span className="block text-xs text-muted">{p.notas}</span> : null}</td>
-                  <td className="num py-2 text-right"><span className="font-medium">{soles(p.monto)}</span><span className="block text-xs text-muted">{soles(p.base)} + IGV {soles(p.igv)}</span></td>
+                  <td className="num py-2 text-right"><span className="font-medium">{dinero(p.monto, p.moneda)}</span><span className="block text-xs text-muted">{dinero(p.base, p.moneda)} + {p.impuesto_nombre} {dinero(p.igv, p.moneda)}</span></td>
                 </tr>
               ))}
             </tbody>

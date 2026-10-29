@@ -1,10 +1,10 @@
-import { Skeleton, fechaCorta, soles } from '../../../../ui';
+import { Skeleton, dinero, fechaCorta } from '../../../../ui';
 import { useResource } from '../../../../api';
 import { MEDIOS, type PagoSuscripcion } from '../../../shared/_parts/comercial';
 
 const MEDIO = Object.fromEntries(MEDIOS) as Record<string, string>;
 
-/** Pagos registrados de un condominio, con el desglose (base + IGV) y el periodo que cubren. */
+/** Pagos registrados de un condominio, con el desglose (base + impuesto, como se registró) y el periodo que cubren. */
 export function HistorialPagos({ complejoId }: { complejoId: number }) {
   const { data, loading, error } = useResource<{ items: PagoSuscripcion[] }>(`/api/comercial/mi-plan/${complejoId}/pagos`);
   if (loading) return <Skeleton className="h-16 w-full" />;
@@ -21,7 +21,7 @@ export function HistorialPagos({ complejoId }: { complejoId: number }) {
               <td className="num py-2 pr-3">{fechaCorta(p.fecha_pago)}</td>
               <td className="num py-2 pr-3">{fechaCorta(p.periodo_desde)} – {fechaCorta(p.periodo_hasta)}</td>
               <td className="py-2 pr-3">{MEDIO[p.medio] ?? p.medio}{p.operacion ? <span className="num text-xs text-muted"> · {p.operacion}</span> : null}</td>
-              <td className="num py-2 text-right"><span className="font-medium">{soles(p.monto)}</span><span className="block text-xs text-muted">{soles(p.base)} + IGV {soles(p.igv)}</span></td>
+              <td className="num py-2 text-right"><span className="font-medium">{dinero(p.monto, p.moneda)}</span><span className="block text-xs text-muted">{dinero(p.base, p.moneda)} + {p.impuesto_nombre} {dinero(p.igv, p.moneda)}</span></td>
             </tr>
           ))}
         </tbody>

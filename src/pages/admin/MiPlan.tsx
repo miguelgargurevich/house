@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { CreditCardIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../api';
-import { Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, ErrorState, PageHeader, Skeleton, fechaCorta, soles, useToast } from '../../ui';
+import { Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, ErrorState, PageHeader, Skeleton, dinero, fechaCorta, useToast } from '../../ui';
 import { ComoPagar } from './_parts/plan/ComoPagar';
 import { HistorialPagos } from './_parts/plan/HistorialPagos';
 import { ModalSolicitud } from './_parts/plan/ModalSolicitud';
@@ -10,7 +10,6 @@ import { ESTADO_UI, MODULO_NOMBRE, nombreDePlan, type DatosPago, type ModuloClav
 interface Respuesta {
   condominios: VistaSuscripcion[];
   pagar: DatosPago;
-  catalogo: { planes: { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; unidades_minimas: number | null; total_minimo_mes: string | null; caracteristicas: string[] }[] };
 }
 
 function aviso(c: VistaSuscripcion): { tone: 'warn' | 'bad'; texto: string } | null {
@@ -28,7 +27,9 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: VistaSuscripcion; 
   const est = ESTADO_UI[c.estado];
   const a = aviso(c);
   const cobro = c.solicitud ? c.solicitud.cotizacion : c.cotizacion;
-  const hayQuePagar = Number(cobro.total_mes) > 0 && (c.solicitud != null || c.estado === 'por_vencer' || c.estado === 'vencida');
+  const consultar = c.solicitud ? c.solicitud.consultar : c.precio_consultar;
+  const conImpuesto = Number(c.impuesto.tasa) > 0;
+  const hayQuePagar = !consultar && Number(cobro.total_mes) > 0 && (c.solicitud != null || c.estado === 'por_vencer' || c.estado === 'vencida');
   const esCortesia = c.plan.clave === 'cortesia';
 
   async function cancelar() {
@@ -62,7 +63,10 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: VistaSuscripcion; 
           </div>
           <div>
             <dt className="text-xs text-muted">Total al mes</dt>
-            <dd className="text-sm"><span className="num text-lg font-semibold">{soles(c.cotizacion.total_mes)}</span>{Number(c.cotizacion.total_mes) > 0 && <span className="num block text-xs text-muted">{soles(c.cotizacion.base)} + IGV {soles(c.cotizacion.igv)}</span>}{c.cotizacion.minimo_aplicado && <span className="block text-xs text-muted">Se cobra el mínimo de {c.cotizacion.unidades_cobradas} departamentos por condominio ({c.plan.nombre}).</span>}</dd>
+            <dd className="text-sm">
+              {c.precio_consultar
+                ? <><span className="text-lg font-semibold">Consúltanos</span><span className="block text-xs text-muted">Tu plan todavía no tiene precio en la moneda de tu país.</span></>
+                : <><span className="num text-lg font-semibold">{dinero(c.cotizacion.total_mes, c.moneda)}</span>{Number(c.cotizacion.total_mes) > 0 && conImpuesto && <span className="num block text-xs text-muted">{dinero(c.cotizacion.base, c.moneda)} + {c.impuesto.nombre} {dinero(c.cotizacion.igv, c.moneda)}</span>}</>}{c.cotizacion.minimo_aplicado && <span className="block text-xs text-muted">Se cobra el mínimo de {c.cotizacion.unidades_cobradas} departamentos por condominio ({c.plan.nombre}).</span>}</dd>
           </div>
         </dl>
 
@@ -91,7 +95,7 @@ export default function MiPlan() {
 
   return (
     <>
-      <PageHeader title="Mi plan" description="Gratis con límite de departamentos, o Pro con todo. El plan se elige por condominio; los precios del plan no incluyen IGV; el monto a pagar ya lo suma." />
+      <PageHeader title="Mi plan" description="Gratis con límite de departamentos, o Pro con todo. El plan se elige por condominio; los precios del plan no incluyen el impuesto de tu país (IGV, IVA…); el monto a pagar ya lo suma, en la moneda de tu condominio." />
       {loading && <div className="space-y-4"><Skeleton className="h-56 w-full" /><Skeleton className="h-56 w-full" /></div>}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && !data.condominios.length && <EmptyState icon={<CreditCardIcon />} title="Aún no tienes condominios" description="Cuando crees tu primer condominio verás aquí su plan." />}
@@ -100,7 +104,7 @@ export default function MiPlan() {
           {data.condominios.map(c => (
             <Condominio key={c.complejo_id} c={c} pagar={data.pagar} onSolicitar={() => setSolicitando(c)} onCambio={reload} />
           ))}
-          <ModalSolicitud condominio={solicitando} catalogo={data.catalogo} onClose={() => setSolicitando(null)} onHecho={() => { setSolicitando(null); reload(); }} />
+          <ModalSolicitud condominio={solicitando} onClose={() => setSolicitando(null)} onHecho={() => { setSolicitando(null); reload(); }} />
         </div>
       )}
     </>
