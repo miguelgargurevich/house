@@ -4,6 +4,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Nueva gestión: cuenta nueva por defecto
+
+- Pedido de Miguel: «normalmente cuando se cambia de junta se cambia de cuenta porque son nuevas personas».
+- `NuevaGestionModal`: «La cuenta sigue siendo la misma» arranca APAGADO. Si no se copia la cuenta (o la junta no tenía), al registrar la página abre «Agregar medio de pago» ya atado a la nueva junta (`onSaved(nueva, cuentaNueva)` → `setCuenta({ junta, medio: 'nuevo' })` en `pages/admin/Juntas.tsx`). Se reusa el formulario completo de medios (banco/Yape/Plin/QR); no se duplicó en el diálogo. La API no cambió (`misma_cuenta`/`medio` ya existían).
+- Verificado: `npm test` en verde; en local, nueva gestión del Block 2 → se abrió el formulario de la cuenta de «la junta 2026 (desde 28 oct. 2026) · Block 2» (cancelado sin datos). Ese cambio de Block 2 quedó en la base LOCAL de prueba.
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Juntas: secretario único y «Junta central»
 
 - Pedido de Miguel: «las juntas tienen secretario también, y la junta de todo el condominio se llama junta central».

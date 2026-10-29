@@ -15,7 +15,8 @@ interface Props {
   /** «block» o «torre». */
   palabra: string;
   onClose: () => void;
-  onSaved: () => void;
+  /** `cuentaNueva`: la nueva junta no copió la cuenta, así que la página abre «Agregar cuenta» para ella. */
+  onSaved: (nueva: Junta, cuentaNueva: boolean) => void;
 }
 
 const MAX_NOTAS = 500;
@@ -29,7 +30,8 @@ export function NuevaGestionModal({ junta, palabra, onClose, onSaved }: Props) {
 
   useEffect(() => {
     if (!junta) return;
-    reset({ desde: '', correo: junta.correo ?? '', notas: '', misma_cuenta: activas.length > 0 });
+    // Lo normal es que la nueva junta (personas nuevas) abra su propia cuenta: «la misma» se marca sólo si de verdad sigue.
+    reset({ desde: '', correo: junta.correo ?? '', notas: '', misma_cuenta: false });
     setMiembros([]);
     // Sólo al abrir: lo que se escribe no debe pisarse al recargar la lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,12 +46,13 @@ export function NuevaGestionModal({ junta, palabra, onClose, onSaved }: Props) {
     if (miembros.some(f => f.usuario_id === '')) { toast.error('Elige a la persona de cada fila o quita la fila vacía'); return; }
     if (cargoRepetido(lista)) { toast.error(`Sólo puede haber un ${cargoRepetido(lista)}`); return; }
     try {
-      await api(`/api/juntas/${junta.id}/nueva-gestion`, {
+      const copiar = activas.length > 0 && v.misma_cuenta;
+      const nueva = await api<Junta>(`/api/juntas/${junta.id}/nueva-gestion`, {
         method: 'POST',
-        json: { desde: v.desde, correo: v.correo.trim() || null, notas: v.notas.trim() || null, miembros: lista, misma_cuenta: activas.length > 0 && v.misma_cuenta },
+        json: { desde: v.desde, correo: v.correo.trim() || null, notas: v.notas.trim() || null, miembros: lista, misma_cuenta: copiar },
       });
-      toast.ok('Nueva gestión registrada');
-      onSaved();
+      toast.ok(copiar ? 'Nueva gestión registrada' : 'Nueva gestión registrada: ahora agrega la cuenta de la nueva junta');
+      onSaved(nueva, !copiar);
       onClose();
     } catch (e) { toast.error(errorText(e)); }
   }
@@ -82,12 +85,12 @@ export function NuevaGestionModal({ junta, palabra, onClose, onSaved }: Props) {
             <div className="sm:col-span-2">
               <Interruptor
                 label="La cuenta sigue siendo la misma"
-                hint={misma ? 'La cuenta se copia a la nueva junta; la de la gestión anterior queda en el historial.' : 'Los vecinos dejarán de ver la cuenta actual. La nueva junta la agrega después, en su ficha.'}
+                hint={misma ? 'La cuenta actual se copia a la nueva junta; la de la gestión anterior queda en el historial.' : 'Lo normal: la nueva junta abre su propia cuenta. Al registrar se abre el formulario para agregarla; la cuenta actual queda en el historial y los vecinos dejan de verla.'}
                 {...register('misma_cuenta')}
               />
             </div>
           ) : (
-            <p className="text-sm text-muted sm:col-span-2">La junta actual no tiene cuenta: la nueva la agrega después, en su ficha.</p>
+            <p className="text-sm text-muted sm:col-span-2">La junta actual no tiene cuenta: al registrar se abre el formulario para agregar la de la nueva junta.</p>
           )}
           <div className="sm:col-span-2"><Alert tone="warn">Los cargos pasan solos a los miembros nuevos: quien ya no esté en la junta pierde sus permisos y cierra su sesión. Los medios de pago de la gestión anterior dejan de verse para los vecinos.</Alert></div>
         </form>

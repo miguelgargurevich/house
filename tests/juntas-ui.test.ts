@@ -111,7 +111,15 @@ describe('juntas: formularios', () => {
     assert.match(nueva, /POST[\s\S]*nueva-gestion|`\/api\/juntas\/\$\{junta\.id\}\/nueva-gestion`/);
     assert.match(nueva, /min=\{diaSiguiente\(junta\.desde\)\}/);
     assert.match(nueva, /label="La cuenta sigue siendo la misma"/);
-    assert.match(nueva, /misma_cuenta: activas\.length > 0 && v\.misma_cuenta/);
+    assert.match(nueva, /const copiar = activas\.length > 0 && v\.misma_cuenta;/);
+    assert.match(nueva, /misma_cuenta: copiar/);
+  });
+
+  it('nueva gestión: por defecto la cuenta es NUEVA (personas nuevas) y al registrar se abre «Agregar cuenta» para la nueva junta', () => {
+    const nueva = f(`${JUNTAS}NuevaGestionModal.tsx`);
+    assert.match(nueva, /misma_cuenta: false \}\);/);
+    assert.match(nueva, /onSaved\(nueva, !copiar\)/);
+    assert.match(f(`${ADMIN}Juntas.tsx`), /onSaved=\{\(j, cuentaNueva\) => \{ recargar\(\); if \(cuentaNueva\) setCuenta\(\{ junta: j, medio: 'nuevo' \}\); \}\}/);
   });
 
   it('el editor de miembros: una fila por persona (persona arriba, cargo y quitar debajo en el celular), sólo propietarios del block y avisa del presidente/tesorero repetido', () => {

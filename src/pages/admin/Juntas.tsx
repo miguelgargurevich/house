@@ -84,7 +84,7 @@ export default function Juntas() {
       )}
 
       <JuntaFormModal entrada={registrando} soloCorreo={!puedeGestionar} palabra={palabra} onClose={() => setRegistrando(null)} onSaved={recargar} />
-      <NuevaGestionModal junta={nueva} palabra={palabra} onClose={() => setNueva(null)} onSaved={recargar} />
+      <NuevaGestionModal junta={nueva} palabra={palabra} onClose={() => setNueva(null)} onSaved={(j, cuentaNueva) => { recargar(); if (cuentaNueva) setCuenta({ junta: j, medio: 'nuevo' }); }} />
       <HistorialModal ambito={historial ? { complejo_id: historial.complejo.id, estructura: historial.estructura } : null} onClose={() => setHistorial(null)} />
       {ambitos.data && (
         <MedioFormModal
