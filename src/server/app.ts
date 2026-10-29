@@ -13,6 +13,7 @@ import { crearLimitadores, type RateLimitOptions } from './middleware/rateLimit'
 import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
 import { auditoriaRouter } from './routes/auditoria';
+import { juntasRouter } from './routes/juntas';
 import { llaveroRouter } from './routes/llavero';
 import { mcpRouter } from './routes/mcp';
 import { tokensApiRouter } from './routes/tokensApi';
@@ -109,6 +110,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/me/canales', canalesMeRouter); // antes de /me: vincular el WhatsApp propio
   api.use('/me', meRouter(limiters.password));
   api.use('/medios-pago', mediosPagoRouter);
+  api.use('/juntas', juntasRouter);
   api.use('/notificaciones', notificacionesRouter);
   api.use('/comunicados', comunicadosRouter);
   api.use('/dashboard', dashboardRouter);

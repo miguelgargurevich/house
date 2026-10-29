@@ -17,6 +17,7 @@ import { cuentaCargo, deudaAcumulada, estadoMantenimiento, numeroMantenimiento, 
 import { medioDeUnidades } from '../routes/mediosPago';
 import { aguaDeMantenimiento, type AguaDeMantenimiento } from './agua';
 import { versionImagen } from './imagenes';
+import { correoEfectivo, selectCorreoBlock } from './juntas';
 import { camposDePago } from './mediosPago';
 import { esConceptoMora } from './mora';
 
@@ -146,7 +147,7 @@ export interface DetalleMantenimiento {
   total_general: string;
   /** Detalle del consumo de agua (lecturas, m³, factor, monto y foto del contómetro); `null` si no se cargó la lectura. */
   agua: AguaDeMantenimiento | null;
-  /** «Correo del block» al que se envían los vouchers. */
+  /** Correo al que se envían los vouchers: el de la junta vigente del block o, si no tiene, el `correo_vouchers` del block. */
   correo_vouchers: string | null;
   /** Nombre del concepto de mora/multa del recibo cuando este departamento no tiene ese cargo (se imprime en 0.00); `null` si no aplica. */
   linea_mora: string | null;
@@ -194,7 +195,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
         empresa: { select: { id: true, nombre: true, ruc: true, direccion: true, telefono: true, email: true, imagenRecibo: { select: { updated_at: true } } } },
       },
     }),
-    prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, o.unidadWhere ?? {}] }, include: { estructura: { select: { id: true, nombre: true, correo_vouchers: true } }, propietario: { select: { id: true, nombre: true } }, inquilino: { select: { id: true, nombre: true } } } }),
+    prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, o.unidadWhere ?? {}] }, include: { estructura: { select: { id: true, nombre: true, ...selectCorreoBlock } }, propietario: { select: { id: true, nombre: true } }, inquilino: { select: { id: true, nombre: true } } } }),
   ]);
   if (!recibo || !unidad) throw notFound('Mantenimiento');
   const conceptosDb = await prisma.reciboConcepto.findMany({ where: { recibo_id: reciboId }, select: { id: true, concepto: { select: { nombre: true } } } });
@@ -269,7 +270,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     deuda_acumulada: deuda,
     total_general: new Prisma.Decimal(resumen.total).plus(deuda).toFixed(2),
     agua,
-    correo_vouchers: unidad.estructura?.correo_vouchers ?? null,
+    correo_vouchers: correoEfectivo(unidad.estructura),
     linea_mora: conceptoMora && !tieneMora ? (conceptoMora.concepto?.nombre ?? 'Mora') : null,
     condominio: recibo.complejo ? { ...complejo, cabecera_url: cabecera ? `/api/complejos/${recibo.complejo.id}/cabecera?v=${versionImagen(cabecera.updated_at)}` : null } : null,
     empresa: recibo.empresa ? { ...empresa, logo_url: logo ? `/api/empresas/${recibo.empresa.id}/logo?v=${versionImagen(logo.updated_at)}` : null } : null,

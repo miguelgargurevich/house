@@ -5,6 +5,7 @@ import { invalid, notFound } from '../errors';
 import { ambitoJunta, puedeGestionar } from '../lib/junta';
 import { scopeComplejos, scopeEstructuras } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
+import { correoEfectivo } from '../services/juntas';
 import { emailSchema, idSchema, parseBody, parseId, texto, textoOpcional, z } from '../validation';
 
 /**
@@ -40,11 +41,13 @@ const crud = crudRouter({
   search: ['nombre', 'tipo'],
   orderable: ['id', 'nombre', 'tipo'],
   defaultOrder: { id: 'asc' },
-  include: { complejo: { select: { id: true, nombre: true } } },
+  include: { complejo: { select: { id: true, nombre: true } }, juntas: { where: { hasta: null }, select: { correo: true }, take: 1 } },
   // Conteo de pisos y de unidades por torre (una consulta por cada dato, para toda la página).
   format: async (items) => {
     const ids = items.map(i => i.id as number);
     if (!ids.length) return items;
+    // El «correo del block» que se muestra es el efectivo: el de la junta vigente o, si no tiene, el `correo_vouchers` de la torre.
+    items = items.map(({ juntas, ...i }) => ({ ...i, correo_vouchers: correoEfectivo({ correo_vouchers: (i.correo_vouchers as string | null) ?? null, juntas: juntas as { correo: string | null }[] }) }));
     const [unidades, pisos] = await Promise.all([
       prisma.unidad.groupBy({ by: ['estructura_id'], where: { estructura_id: { in: ids } }, _count: { _all: true } }),
       prisma.piso.groupBy({ by: ['estructura_id'], where: { estructura_id: { in: ids } }, _count: { _all: true } }),
@@ -88,6 +91,8 @@ const crud = crudRouter({
     const id = existing.id as number;
     return prisma.$transaction(async (tx) => {
       const est = await tx.estructura.update({ where: { id }, data: data as never });
+      // Un solo correo: si la torre tiene junta vigente, su correo cambia con el de la torre.
+      if (data.correo_vouchers !== undefined) await tx.juntaDirectiva.updateMany({ where: { estructura_id: id, hasta: null }, data: { correo: data.correo_vouchers as string | null } });
       const n = cantidad_pisos ?? 0;
       if (n > 0) {
         const pisos = await tx.piso.findMany({ where: { estructura_id: id }, select: { numero: true } });
@@ -105,6 +110,10 @@ const crud = crudRouter({
       prisma.unidad.count({ where: { estructura_id: id } }),
       prisma.usuario.count({ where: { estructura_id: id, cargo_junta: { not: null } } }),
     ]);
+    // Borrar la torre se llevaría también su historial de juntas y las cuentas de sus gestiones.
+    if (await prisma.juntaDirectiva.count({ where: { estructura_id: id } }) > 0) {
+      throw invalid('La torre tiene juntas directivas registradas (vigente o anteriores): su historial se perdería', { juntas: 'La torre tiene juntas' });
+    }
     if (unidades > 0) {
       throw invalid(`La torre tiene ${unidades} ${unidades === 1 ? 'unidad asignada' : 'unidades asignadas'}: muévelas a otra torre antes de borrarla`, { unidades: 'La torre tiene unidades' });
     }
@@ -135,7 +144,7 @@ router.post('/:id/asignar-unidades', requireRole('admin'), async (req, res) => {
 });
 
 /**
- * Correo del block para enviar vouchers. Lo cambian la administración (de su empresa) y la junta de ESE block (presidente o tesorero); la junta
+ * Correo del block para enviar vouchers (el de su junta vigente: ver `services/juntas.ts`). Lo cambian la administración (de su empresa) y la junta de ESE block (presidente o tesorero); la junta
  * sin block, el de cualquier torre de su condominio. Otro tenant o la torre de otra junta → 404.
  */
 router.put('/:id/correo-vouchers', async (req, res) => {
@@ -145,7 +154,11 @@ router.put('/:id/correo-vouchers', async (req, res) => {
   const est = await prisma.estructura.findFirst({ where: { id }, select: { id: true, complejo_id: true } });
   const esAdmin = user.rol === 'admin' || user.rol === 'superadmin';
   if (!est || !(esAdmin ? await prisma.estructura.findFirst({ where: { AND: [{ id }, scopeEstructuras(user)] }, select: { id: true } }) : ambitoJunta(user) && puedeGestionar(user, { complejo_id: est.complejo_id, estructura_id: id }))) throw notFound();
-  await prisma.estructura.update({ where: { id }, data: { correo_vouchers } });
+  // El correo del block es el de su junta vigente: se cambian los dos para que lo escrito sea lo que se usa (y borrarlo lo borra de verdad).
+  await prisma.$transaction([
+    prisma.estructura.update({ where: { id }, data: { correo_vouchers } }),
+    prisma.juntaDirectiva.updateMany({ where: { estructura_id: id, hasta: null }, data: { correo: correo_vouchers } }),
+  ]);
   res.locals.entidad = 'estructura';
   res.locals.entidadId = id;
   res.locals.accion = 'correo_vouchers';

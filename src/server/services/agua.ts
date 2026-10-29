@@ -13,6 +13,7 @@ import {
 } from '../lib/agua';
 import { codigoEncajaConDpto, normalizarTexto } from '../lib/excelRecibos';
 import { versionImagen } from './imagenes';
+import { correoEfectivo, selectCorreoBlock } from './juntas';
 
 const D = Prisma.Decimal;
 
@@ -103,7 +104,7 @@ export interface AguaDelRecibo {
 export async function aguaDelRecibo(reciboId: number, o: { reciboWhere: Prisma.ReciboWhereInput; unidadWhere: Prisma.UnidadWhereInput }): Promise<AguaDelRecibo> {
   const recibo = await prisma.recibo.findFirst({
     where: { AND: [{ id: reciboId }, o.reciboWhere] },
-    select: { id: true, mes: true, anio: true, fecha_corte_agua: true, estructura: { select: { id: true, nombre: true, correo_vouchers: true } }, complejo: { select: { moneda: true } } },
+    select: { id: true, mes: true, anio: true, fecha_corte_agua: true, estructura: { select: { id: true, nombre: true, ...selectCorreoBlock } }, complejo: { select: { moneda: true } } },
   });
   if (!recibo) throw notFound();
   const moneda = recibo.complejo?.moneda ?? MONEDA_POR_DEFECTO;
@@ -130,7 +131,7 @@ export async function aguaDelRecibo(reciboId: number, o: { reciboWhere: Prisma.R
   const factores = new Map<string, number>();
   for (const f of items) { const x = f.lectura?.factor ?? f.anterior?.factor; if (x) factores.set(x, (factores.get(x) ?? 0) + 1); }
   const sugerido = [...factores.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  const cabecera = { id: recibo.id, mes: recibo.mes, anio: recibo.anio, fecha_corte_agua: recibo.fecha_corte_agua, estructura: recibo.estructura }; // sin `complejo`: la moneda va arriba
+  const cabecera = { id: recibo.id, mes: recibo.mes, anio: recibo.anio, fecha_corte_agua: recibo.fecha_corte_agua, estructura: recibo.estructura ? { id: recibo.estructura.id, nombre: recibo.estructura.nombre, correo_vouchers: correoEfectivo(recibo.estructura) } : null }; // sin `complejo`: la moneda va arriba. El correo es el efectivo (junta vigente o, si no, el del block)
   return { recibo: cabecera, moneda, factor_sugerido: sugerido, items };
 }
 

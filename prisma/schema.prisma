@@ -57,6 +57,9 @@ model Usuario {
   estructura_id     Int?
   estructura        Estructura?            @relation("JuntaEstructura", fields: [estructura_id], references: [id], onDelete: SetNull)
   mediosPagoCreados MedioPago[]
+  /// Cargo en la junta vigente y gestiones pasadas (`cargo_junta`/`estructura_id` son el reflejo de la vigente: ver `sincronizarCargos`).
+  miembrosJunta     MiembroJunta[]
+  juntasCreadas     JuntaDirectiva[]
   comunicadosPublicados Comunicado[]
   conversacionesIA  ConversacionIA[]
   tokensApi         TokenApi[]
@@ -118,6 +121,7 @@ model ComplejoHabitacional {
   unidades    Unidad[]
   usuarios    Usuario[]
   mediosPago  MedioPago[]
+  juntas      JuntaDirectiva[]
   contratos   ContratoAdministracion[]
   proveedores ProveedorComplejo[]
   comunicados Comunicado[]
@@ -198,6 +202,7 @@ model Estructura {
   unidades    Unidad[]
   juntaUsuarios Usuario[]           @relation("JuntaEstructura")
   mediosPago  MedioPago[]
+  juntas      JuntaDirectiva[]
   recibos     Recibo[]
   comunicados Comunicado[]
   /// «Correo del block» al que se envían los vouchers (sale en el recibo impreso).
@@ -557,13 +562,57 @@ model MedioPago {
   activo            Boolean               @default(true)
   orden             Int                   @default(0)
   creado_por_id     Int?
+  /// Junta (gestión) a la que pertenece la cuenta. Null = medio anterior a las juntas o de un block que aún no tiene junta registrada.
+  junta_id          Int?
   created_at        DateTime              @default(now())
   updated_at        DateTime              @updatedAt
   complejo          ComplejoHabitacional  @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
   estructura        Estructura?           @relation(fields: [estructura_id], references: [id], onDelete: Cascade)
   creado_por        Usuario?              @relation(fields: [creado_por_id], references: [id], onDelete: SetNull)
+  junta             JuntaDirectiva?       @relation(fields: [junta_id], references: [id], onDelete: SetNull)
 
   @@index([complejo_id, estructura_id])
+  @@index([junta_id])
+}
+
+/// Junta directiva de un block (o de todo el condominio si `estructura_id` es null) durante una gestión: de `desde` a `hasta`.
+/// `hasta` null = vigente; hay una sola vigente por (condominio, block) (lo garantiza `services/juntas.ts` con el condominio bloqueado, Prisma no tiene índices parciales).
+/// Su cuenta de cobro son sus `mediosPago`: la cuenta de la junta ES el medio de pago del block.
+model JuntaDirectiva {
+  id            Int                  @id @default(autoincrement())
+  complejo_id   Int
+  estructura_id Int?
+  /// Fechas de calendario (00:00 UTC), como las de los recibos.
+  desde         DateTime
+  hasta         DateTime?
+  /// Correo de la junta: ahí llegan los vouchers de los vecinos (reemplaza a `Estructura.correo_vouchers`, que queda de respaldo).
+  correo        String?
+  notas         String?
+  creado_por_id Int?
+  created_at    DateTime             @default(now())
+  updated_at    DateTime             @updatedAt
+  complejo      ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  estructura    Estructura?          @relation(fields: [estructura_id], references: [id], onDelete: Cascade)
+  creado_por    Usuario?             @relation(fields: [creado_por_id], references: [id], onDelete: SetNull)
+  miembros      MiembroJunta[]
+  mediosPago    MedioPago[]
+
+  @@index([complejo_id, estructura_id, hasta])
+}
+
+/// Un miembro de una gestión. Un solo presidente y un solo tesorero por junta, y una persona en una sola junta vigente (lo exige `services/juntas.ts`).
+model MiembroJunta {
+  id         Int            @id @default(autoincrement())
+  junta_id   Int
+  usuario_id Int
+  /// presidente | tesorero | secretario | vocal
+  cargo      String
+  created_at DateTime       @default(now())
+  junta      JuntaDirectiva @relation(fields: [junta_id], references: [id], onDelete: Cascade)
+  usuario    Usuario        @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@unique([junta_id, usuario_id])
+  @@index([usuario_id])
 }
 
 /// Lectura del contómetro de agua de un departamento en el recibo de su torre del mes (lo que el recibo impreso llama «detalle del consumo de agua»).

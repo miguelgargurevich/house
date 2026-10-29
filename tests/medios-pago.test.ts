@@ -551,41 +551,19 @@ describe('junta: pagos por validar de su ámbito', () => {
 });
 
 describe('cargo en la junta: asignación y sesiones', () => {
-  it('la administradora asigna un cargo; el usuario pierde su sesión y /auth/me lo muestra', async () => {
-    const tp = await login(base, 'prop2@test.pe');
-    assert.equal((await llama(tp, 'GET', '/api/medios-pago')).status, 403);
-    const r = await llama(T.adminA, 'PUT', `/api/usuarios/${d.propietario2.id}`, { cargo_junta: 'tesorero', complejo_id: d.complejoA.id, estructura_id: e2.id });
-    assert.equal(r.status, 200, r.texto);
-    assert.equal(r.body.cargo_junta, 'tesorero');
-    assert.equal(r.body.estructura_id, e2.id);
-    assert.equal((await llama(tp, 'GET', '/api/auth/me')).status, 401); // sesión revocada
-    const t2 = await login(base, 'prop2@test.pe');
-    const me = await llama(t2, 'GET', '/api/auth/me');
-    assert.equal(me.body.cargo_junta, 'tesorero');
-    assert.equal(me.body.estructura_id, e2.id);
-    assert.equal(me.body.complejo.id, d.complejoA.id);
-    assert.equal((await llama(t2, 'GET', '/api/medios-pago')).status, 200);
-    // Quitar el cargo también cierra la sesión y devuelve los permisos
-    assert.equal((await llama(T.adminA, 'PUT', `/api/usuarios/${d.propietario2.id}`, { cargo_junta: null })).status, 200);
-    assert.equal((await llama(t2, 'GET', '/api/medios-pago')).status, 401);
-    const t3 = await login(base, 'prop2@test.pe');
-    assert.equal((await llama(t3, 'GET', '/api/medios-pago')).status, 403);
-    assert.equal((await prisma.usuario.findUniqueOrThrow({ where: { id: d.propietario2.id } })).estructura_id, null); // sin cargo no hay block
-  });
-
-  it('un cargo exige propietario y condominio, y el block debe ser de ese condominio y de la empresa', async () => {
+  it('el cargo ya no se asigna desde el usuario: la API responde 422 claro y no cambia nada (se gestiona en Juntas directivas)', async () => {
     const u = d.propietario2.id;
-    assert.equal((await llama(T.adminA, 'PUT', `/api/usuarios/${d.inquilino1.id}`, { cargo_junta: 'presidente' })).status, 422); // inquilino
-    assert.equal((await llama(T.adminA, 'PUT', `/api/usuarios/${u}`, { cargo_junta: 'presidente', complejo_id: null })).status, 422); // sin condominio
-    assert.equal((await llama(T.adminA, 'PUT', `/api/usuarios/${u}`, { cargo_junta: 'jefe' })).status, 422); // cargo inexistente
-    assert.equal((await llama(T.adminA, 'PUT', `/api/usuarios/${u}`, { cargo_junta: 'presidente', complejo_id: d.complejoA.id, estructura_id: eB.id })).status, 422); // block de otro condominio
-    assert.equal((await llama(T.adminA, 'PUT', `/api/usuarios/${u}`, { cargo_junta: 'presidente', complejo_id: d.complejoA.id, estructura_id: 999999 })).status, 422);
-    assert.equal((await llama(T.adminB, 'PUT', `/api/usuarios/${u}`, { cargo_junta: 'presidente' })).status, 404); // otra empresa
-    assert.equal((await llama(T.adminA, 'POST', '/api/usuarios', { nombre: 'Nuevo', email: 'nuevo.inq@test.pe', rol: 'inquilino', password: 'Passw0rd!123', cargo_junta: 'vocal', complejo_id: d.complejoA.id })).status, 422);
-    const ok = await llama(T.adminA, 'POST', '/api/usuarios', { nombre: 'Nueva presidenta', email: 'nueva.presi@test.pe', rol: 'propietario', password: 'Passw0rd!123', cargo_junta: 'presidente', complejo_id: d.complejoA.id, estructura_id: e1.id });
-    assert.equal(ok.status, 201, ok.texto);
-    assert.equal(ok.body.cargo_junta, 'presidente');
-    assert.equal((await prisma.usuario.findUniqueOrThrow({ where: { id: u } })).cargo_junta, null);
+    for (const cuerpo of [{ cargo_junta: 'tesorero', complejo_id: d.complejoA.id, estructura_id: e2.id }, { cargo_junta: null }, { estructura_id: e2.id }]) {
+      const r = await llama(T.adminA, 'PUT', `/api/usuarios/${u}`, cuerpo);
+      assert.equal(r.status, 422, r.texto);
+      assert.match(r.texto, /Juntas directivas/);
+    }
+    const r = await llama(T.adminA, 'POST', '/api/usuarios', { nombre: 'Nueva presidenta', email: 'nueva.presi@test.pe', rol: 'propietario', password: 'Passw0rd!123', cargo_junta: 'presidente', complejo_id: d.complejoA.id, estructura_id: e1.id });
+    assert.equal(r.status, 422, r.texto);
+    assert.equal(await prisma.usuario.count({ where: { email: 'nueva.presi@test.pe' } }), 0);
+    const x = await prisma.usuario.findUniqueOrThrow({ where: { id: u } });
+    assert.equal(x.cargo_junta, null);
+    assert.equal(x.estructura_id, null);
   });
 
   it('dejar de ser propietario quita el cargo; el usuario no se asigna cargo por su cuenta', async () => {

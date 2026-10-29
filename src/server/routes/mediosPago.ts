@@ -4,18 +4,22 @@ import { prisma } from '../db';
 import { HttpError, forbidden, invalid, notFound } from '../errors';
 import { ambitoJunta, esJunta, puedeGestionar } from '../lib/junta';
 import { scopeComplejos, scopeMediosPago } from '../lib/scope';
+import { diaTexto, vigenteDe } from '../services/juntas';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { detectarTipo, dispositionInline, sanearNombre } from '../services/comprobantes';
 import { ENTIDADES, GRUPOS_ENTIDAD, MAX_ACTIVOS, MAX_QR, TIPOS_QR, ajusteSchema, camposDePago, columnas, medioSchema, nombreEntidad, ultimos4, type TipoQr } from '../services/mediosPago';
 import { boolQuery, idSchema, listQuerySchema, parse, parseBody, parseId, z } from '../validation';
 
-/** Fila sin los bytes del QR (nunca salen en las listas), con `tiene_qr` y el nombre real de la entidad (si es «Otro», el que escribió la junta). */
-function formatear<T extends { qr_tipo_mime: string | null; banco: string | null; banco_otro: string | null }>(m: T) {
-  return { ...m, tiene_qr: m.qr_tipo_mime != null, entidad: nombreEntidad(m) };
+/**
+ * Fila sin los bytes del QR (nunca salen en las listas), con `tiene_qr` y el nombre real de la entidad (si es «Otro», el que escribió la junta).
+ * `junta` = la gestión a la que pertenece la cuenta («Cuenta de la junta 2026, desde …»); null si es un medio anterior a las juntas.
+ */
+function formatear<T extends { qr_tipo_mime: string | null; banco: string | null; banco_otro: string | null; junta?: { id: number; desde: Date; hasta: Date | null } | null }>(m: T) {
+  return { ...m, tiene_qr: m.qr_tipo_mime != null, entidad: nombreEntidad(m), junta: m.junta ? { id: m.junta.id, desde: diaTexto(m.junta.desde), vigente: m.junta.hasta == null } : null };
 }
 
 const ocultarQr = { qr_datos: true } as const;
-const incluir = { complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } } as const;
+const incluir = { complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } }, junta: { select: { id: true, desde: true, hasta: true } } } as const;
 
 /** Unidades en las que el residente vive o es dueño, para saber qué medios le corresponden. */
 async function unidadesDe(u: AuthUser) {
@@ -61,8 +65,10 @@ const detalleAuditoria = (m: MedioAuditable) => m.tipo === 'recaudacion'
 /** Carga el medio dentro del alcance de quien llama ANTES de leer el cuerpo (un QR crudo no se descarga para un ajeno). */
 const cargarMedio: RequestHandler = async (req, res, next) => {
   const u = currentUser(req);
-  const m = await prisma.medioPago.findFirst({ where: { AND: [{ id: parseId(req) }, scopeMediosPago(u)] }, omit: ocultarQr });
+  const m = await prisma.medioPago.findFirst({ where: { AND: [{ id: parseId(req) }, scopeMediosPago(u)] }, omit: ocultarQr, include: { junta: { select: { hasta: true } } } });
   if (!m) throw notFound('Medio de pago');
+  // La cuenta de una gestión que ya terminó es historia: se lee en «Juntas directivas › Historial», no se edita ni se reactiva.
+  if (m.junta?.hasta != null) throw invalid('Esa cuenta es de una gestión anterior de la junta: es sólo de lectura', { medio: 'Gestión cerrada' });
   res.locals.medio = m;
   res.locals.entidadId = m.id;
   next();
@@ -137,6 +143,8 @@ mediosPagoRouter.get('/', async (req, res) => {
       q.complejo_id !== undefined ? { complejo_id: q.complejo_id } : {},
       q.estructura_id !== undefined ? { estructura_id: q.estructura_id === 'ninguna' ? null : q.estructura_id } : {},
       q.activo !== undefined ? { activo: q.activo } : {},
+      // Las cuentas de gestiones anteriores se ven en el historial de la junta, no en esta lista.
+      { OR: [{ junta_id: null }, { junta: { hasta: null } }] },
     ],
   };
   const [total, items] = await Promise.all([
@@ -151,8 +159,10 @@ mediosPagoRouter.post('/', async (req, res) => {
   const d = parseBody(medioSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
   if (d.activo !== false) await verificarTope(ambito);
+  // Todo medio nuevo queda en la junta vigente de su block (sin junta registrada, queda suelto como siempre).
+  const junta = await vigenteDe(prisma, ambito.complejo_id, ambito.estructura_id);
   const m = await prisma.medioPago.create({
-    data: { ...ambito, ...columnas(d), activo: d.activo ?? true, orden: d.orden ?? 0, creado_por_id: u.id },
+    data: { ...ambito, ...columnas(d), activo: d.activo ?? true, orden: d.orden ?? 0, creado_por_id: u.id, junta_id: junta?.id ?? null },
     omit: ocultarQr,
     include: incluir,
   });

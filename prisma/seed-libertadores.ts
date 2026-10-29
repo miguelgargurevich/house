@@ -306,6 +306,7 @@ async function limpiar() {
   await prisma.proveedor.deleteMany({});
   await prisma.contratoAdministracion.deleteMany({});
   await prisma.medioPago.deleteMany({});
+  await prisma.juntaDirectiva.deleteMany({}); // sus miembros se van por cascada
   await prisma.mensajeIA.deleteMany({});
   await prisma.conversacionIA.deleteMany({});
   await prisma.tokenApi.deleteMany({});
@@ -433,7 +434,32 @@ async function main() {
   const idProveedor = (razon: string) => proveedores.find((p) => p.razon_social === razon)!.id;
   const juntaDe = (b: number) => personas.filter((p) => p.cargo_junta && p.estructura_id === blockId(b)).map((p) => p.id!);
 
-  // Medios de pago: cuenta del condominio + Yape/Plin del tesorero en varios blocks.
+  // Juntas directivas: una gestión vigente por block (desde el 1 de enero de 2026, con el presidente y el tesorero que llevan el cargo) y, en el
+  // Block 1, la gestión anterior ya cerrada (2024-2025, otros cuatro vecinos y su cuenta) para ver el historial. El correo es de ejemplo: nunca sale un correo real.
+  const juntaVigente = new Map<number, number>();
+  for (let b = 1; b <= BLOCKS; b++) {
+    const miembros = personas.filter((p) => p.cargo_junta && p.estructura_id === blockId(b));
+    const j = await prisma.juntaDirectiva.create({
+      data: {
+        complejo_id: complejo.id, estructura_id: blockId(b), desde: new Date(Date.UTC(2026, 0, 1)), correo: `junta.block${b}@loslibertadores.example`, creado_por_id: ana,
+        miembros: { create: miembros.map((p) => ({ usuario_id: p.id!, cargo: p.cargo_junta! })) },
+      },
+      select: { id: true },
+    });
+    juntaVigente.set(b, j.id);
+  }
+  const anterioresB1 = barajar(unidades.filter((u) => u.block === 1 && !u.moroso && !especiales.has(u) && conteoDueno.get(u.duenoKey) === 1 && !personas[u.duenoKey]!.cargo_junta)).slice(0, 4);
+  const cargosAnteriores = ['presidente', 'tesorero', 'secretario', 'vocal'] as const;
+  const juntaB1Anterior = await prisma.juntaDirectiva.create({
+    data: {
+      complejo_id: complejo.id, estructura_id: blockId(1), desde: new Date(Date.UTC(2024, 0, 1)), hasta: new Date(Date.UTC(2025, 11, 31)), correo: 'junta.block1.2024@loslibertadores.example',
+      notas: 'Gestión 2024-2025', creado_por_id: ana,
+      miembros: { create: anterioresB1.map((u, i) => ({ usuario_id: idPersona(u.duenoKey), cargo: cargosAnteriores[i]! })) },
+    },
+    select: { id: true },
+  });
+
+  // Medios de pago: cuenta del condominio + Yape/Plin del tesorero en varios blocks (cada una, en la junta vigente de su block).
   const medios: Prisma.MedioPagoCreateManyInput[] = [
     { complejo_id: complejo.id, estructura_id: null, tipo: 'banco', banco: 'BCP', tipo_cuenta: 'corriente', numero_cuenta: '19427318492051', cci: '00219412731849205169', titular: 'Asociación de Propietarios Los Libertadores de Surco', documento_titular: '20512345678', orden: 0, creado_por_id: ana },
   ];
@@ -443,10 +469,15 @@ async function main() {
     const conQr = b % 2 === 1;
     const qr = conQr ? png(64, 64, b, 'qr') : null;
     medios.push({
-      complejo_id: complejo.id, estructura_id: blockId(b), tipo: b % 2 === 1 ? 'yape' : 'plin', celular: tes.telefono, titular: tes.nombre, orden: 1, creado_por_id: tes.id!,
+      complejo_id: complejo.id, estructura_id: blockId(b), tipo: b % 2 === 1 ? 'yape' : 'plin', celular: tes.telefono, titular: tes.nombre, orden: 1, creado_por_id: tes.id!, junta_id: juntaVigente.get(b)!,
       ...(qr ? { qr_nombre: `qr-block-${b}.png`, qr_tipo_mime: 'image/png', qr_datos: new Uint8Array(qr) } : {}),
     });
   }
+  // La cuenta de la gestión anterior del Block 1: inactiva (los vecinos ya no la ven) y sólo en el historial.
+  medios.push({
+    complejo_id: complejo.id, estructura_id: blockId(1), tipo: 'banco', banco: 'Interbank', tipo_cuenta: 'ahorros', numero_cuenta: '8983012345678', cci: '00389800123456789012',
+    titular: personas[anterioresB1[0]!.duenoKey]!.nombre, orden: 0, activo: false, creado_por_id: ana, junta_id: juntaB1Anterior.id,
+  });
   await prisma.medioPago.createMany({ data: medios });
 
   // Conceptos.

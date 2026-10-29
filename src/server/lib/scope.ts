@@ -157,3 +157,12 @@ export function scopeMediosPago(u: AuthUser): Prisma.MedioPagoWhereInput {
   if (!a) throw forbidden();
   return filtroAmbito(a);
 }
+
+/** Juntas directivas: admin = condominios de su empresa; junta (presidente/tesorero) = su ámbito. Cualquier otro rol → 403. */
+export function scopeJuntas(u: AuthUser): Prisma.JuntaDirectivaWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return { complejo: { empresa_id: empresaDe(u) } };
+  const a = ambitoJunta(u);
+  if (!a) throw forbidden();
+  return filtroAmbito(a);
+}

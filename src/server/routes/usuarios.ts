@@ -5,11 +5,12 @@ import { prisma } from '../db';
 import { forbidden, invalid } from '../errors';
 import { filtroEstadoCargo } from '../lib/cargos';
 import { relojDeCondominios } from '../lib/zonas';
-import { CARGOS_JUNTA } from '../lib/junta';
-import { empresaDe, scopeComplejos, scopeEstructuras, scopeUnidades, scopeUsuarios } from '../lib/scope';
+import { empresaDe, scopeComplejos, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { revocarDeUsuario } from '../services/sesiones';
 import { contrasenaIgualACorreo, emailSchema, idSchema, MENSAJE_PASSWORD_CORREO, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
+
+const MENSAJE_CARGO_JUNTA = 'El cargo en la junta se gestiona en Juntas directivas: registra o edita la junta del block';
 
 const base = z.object({
   nombre: texto(120),
@@ -18,8 +19,9 @@ const base = z.object({
   rol: rolSchema,
   empresa_id: idSchema.nullish(),
   complejo_id: idSchema.nullish(),
-  cargo_junta: z.enum(CARGOS_JUNTA, { error: `cargo_junta debe ser: ${CARGOS_JUNTA.join(', ')}` }).nullish(),
-  estructura_id: idSchema.nullish(),
+  // El cargo en la junta es el reflejo de la junta vigente (Juntas directivas): ya no se asigna desde el usuario.
+  cargo_junta: z.never({ error: MENSAJE_CARGO_JUNTA }).optional(),
+  estructura_id: z.never({ error: MENSAJE_CARGO_JUNTA }).optional(),
 });
 const createSchema = base.extend({
   password: passwordSchema,
@@ -35,28 +37,17 @@ type UnidadResidente = { id: number; codigo: string; complejo: { id: number; nom
 const unidadFila = (u: UnidadResidente) => ({ id: u.id, codigo: u.codigo, complejo: u.complejo, estructura: u.estructura });
 
 /**
- * Cargo en la junta: sólo lo asigna un admin/superadmin (este router ya lo exige), exige rol propietario y condominio,
- * y el block debe ser de ese condominio y de la empresa de quien lo asigna. Sin cargo no hay block; si el usuario deja de ser propietario pierde el cargo.
+ * El cargo en la junta ya no se asigna aquí: `cargo_junta`/`estructura_id` son el reflejo de la junta vigente (`services/juntas.ts`).
+ * Lo único que hace falta es que quien deja de ser propietario, o cambia de condominio, pierda el cargo (y su lugar en la junta: ver `update`).
  */
-async function normalizarJunta(out: Record<string, unknown> & { rol?: string; complejo_id?: number | null; cargo_junta?: string | null; estructura_id?: number | null }, user: AuthUser, existing?: Record<string, unknown>) {
-  const toca = ['rol', 'complejo_id', 'cargo_junta', 'estructura_id'].some((k) => out[k] !== undefined);
-  if (!toca) return;
-  const rol = (out.rol !== undefined ? out.rol : existing?.rol) as string | null | undefined;
-  const complejo = (out.complejo_id !== undefined ? out.complejo_id : existing?.complejo_id) as number | null | undefined;
-  let cargo = (out.cargo_junta !== undefined ? out.cargo_junta : existing?.cargo_junta) as string | null | undefined;
-  let estructura = (out.estructura_id !== undefined ? out.estructura_id : existing?.estructura_id) as number | null | undefined;
-  if (rol !== 'propietario' && out.cargo_junta == null) { cargo = null; } // quien deja de ser propietario pierde el cargo
-  if (cargo != null) {
-    if (rol !== 'propietario') throw invalid('Datos inválidos: cargo_junta: solo un propietario puede tener cargo en la junta', { cargo_junta: 'Solo para propietarios' });
-    if (complejo == null) throw invalid('Datos inválidos: complejo_id: un cargo en la junta exige un condominio', { complejo_id: 'Obligatorio con un cargo en la junta' });
-  } else {
-    estructura = null;
+function perderCargoJunta(out: Record<string, unknown> & { rol?: string; complejo_id?: number | null; cargo_junta?: string | null; estructura_id?: number | null }, existing?: Record<string, unknown>) {
+  if (!existing || existing.cargo_junta == null) return;
+  const rol = out.rol !== undefined ? out.rol : existing.rol;
+  const complejo = out.complejo_id !== undefined ? out.complejo_id : existing.complejo_id;
+  if (rol !== 'propietario' || complejo !== existing.complejo_id) {
+    out.cargo_junta = null;
+    out.estructura_id = null;
   }
-  if (estructura != null) {
-    await assertRef(prisma.estructura, estructura, scopeEstructuras(user), 'estructura_id', { complejo_id: complejo as number });
-  }
-  out.cargo_junta = cargo ?? null;
-  out.estructura_id = estructura ?? null;
 }
 
 /** Reglas de tenant y de escalada de privilegios comunes a crear y editar. */
@@ -92,7 +83,7 @@ async function normalizar(data: Record<string, unknown>, user: AuthUser, existin
   if (out.empresa_id != null && user.rol === 'superadmin') {
     await assertRef(prisma.empresaAdministradora, out.empresa_id, {}, 'empresa_id');
   }
-  await normalizarJunta(out, user, existing);
+  perderCargoJunta(out, existing);
   // Al crear o editar un residente se le puede dar su departamento (propietario o inquilino de esa unidad, libre, del condominio elegido).
   if (out.unidad_id != null) {
     if (rolFinal !== 'propietario' && rolFinal !== 'inquilino') throw invalid('Datos inválidos: unidad_id: sólo un propietario o inquilino tiene departamento', { unidad_id: 'Sólo para residentes' });
@@ -203,6 +194,8 @@ export const usuariosRouter = crudRouter({
     const alcance = scopeUnidades(user);
     return prisma.$transaction(async (tx) => {
       await tx.usuario.update({ where: { id }, data: datos as never });
+      // Perdió el cargo (dejó de ser propietario o cambió de condominio): también sale de la junta vigente.
+      if (datos.cargo_junta === null && existing.cargo_junta != null) await tx.miembroJunta.deleteMany({ where: { usuario_id: id, junta: { hasta: null } } });
       if (unidad_id !== undefined && campoNuevo) {
         // El departamento anterior (del rol viejo) se suelta; el nuevo se toma.
         if (campoViejo && campoViejo !== campoNuevo) await tx.unidad.updateMany({ where: { AND: [{ [campoViejo]: id }, alcance] }, data: { [campoViejo]: null } as never });

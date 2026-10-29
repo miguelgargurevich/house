@@ -1,6 +1,6 @@
 /**
  * Aviso del voucher a la junta del block: cuando un VECINO entrega su voucher (el pago del panel, «Adjuntar/Reemplazar comprobante» de un pago suyo
- * o los bots de WhatsApp/Telegram) se manda por correo, con el archivo adjunto, al `correo_vouchers` del block de su departamento.
+ * o los bots de WhatsApp/Telegram) se manda por correo, con el archivo adjunto, al correo de la junta vigente del block de su departamento (y, si la junta no tiene, al `correo_vouchers` del block).
  * Lo que registra la administración desde su panel no pasa por aquí. Sin correo del block, o sin RESEND_API_KEY/MAIL_FROM, no se envía nada (no es un error).
  *
  * Corre en segundo plano, con el pago ya guardado: nunca frena ni hace fallar la respuesta. Un reintento si Resend falla; el resultado
@@ -12,6 +12,7 @@ import { ZONA_POR_DEFECTO } from '../../../lib/paises';
 import { horaEn } from '../../lib/fechas';
 import { nombreMes } from '../../lib/periodo';
 import { registrarAuditoria } from '../../middleware/audit';
+import { correoEfectivo, selectCorreoBlock } from '../juntas';
 import { enviarCorreo, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { ENLACE_APP, dineroTexto } from './plantillas';
 
@@ -41,7 +42,7 @@ const seleccion = {
   comprobante: { select: { nombre: true, sha256: true, datos: true } },
   reciboConceptoUnidad: {
     select: {
-      unidad: { select: { codigo: true, estructura: { select: { nombre: true, correo_vouchers: true } }, propietario: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true, zona_horaria: true } } } },
+      unidad: { select: { codigo: true, estructura: { select: { nombre: true, ...selectCorreoBlock } }, propietario: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true, zona_horaria: true } } } },
       reciboConcepto: { select: { recibo: { select: { mes: true, anio: true } } } },
     },
   },
@@ -61,7 +62,7 @@ export async function avisarVoucherAlBlock(pagoId: number, deps: typeof voucherB
     if (pago?.grupo != null && !pago.grupo_principal) pago = (await prisma.pago.findFirst({ where: { grupo: pago.grupo, grupo_principal: true }, select: seleccion })) ?? pago;
     if (!pago) return;
     const unidad = pago.reciboConceptoUnidad?.unidad;
-    const correo = unidad?.estructura?.correo_vouchers?.trim();
+    const correo = correoEfectivo(unidad?.estructura);
     if (!correo) return void (await registrar(pago.id, 'omitido', { motivo: 'El block no tiene correo para vouchers' }));
     if (!pago.comprobante) return void (await registrar(pago.id, 'omitido', { motivo: 'El pago no tiene voucher' }));
     const { sha256 } = pago.comprobante;
