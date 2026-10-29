@@ -5,7 +5,7 @@ import { errorText, useList } from '../../../api';
 import { ComprobanteVista } from '../../shared/ComprobanteVista';
 import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
-import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, PageHeader, Skeleton, StatusBadge, fechaCorta, soles, useToast } from '../../../ui';
+import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, Skeleton, StatusBadge, fechaCorta, soles, useToast } from '../../../ui';
 import type { Column } from '../../../ui';
 import { ZonaImprimible } from '../../shared/mantenimiento/ZonaImprimible';
 import { Pager } from './Pager';
@@ -84,7 +84,7 @@ export function PagosResidente() {
 
   return (
     <>
-      <PageHeader title="Mis pagos" description="Un pago por cada mantenimiento que pagaste." />
+      <p className="mb-4 text-sm text-muted">Un pago por cada mantenimiento que pagaste.</p>
 
       <div className="md:hidden">
         {list.error ? (

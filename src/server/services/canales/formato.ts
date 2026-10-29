@@ -1,7 +1,7 @@
 import { ENLACE_APP } from '../avisos/plantillas';
 
 /**
- * Markdown del asistente → texto de WhatsApp. Enlaces internos `[Mis pagos](/propietario/pagos)` → «House › Mis pagos» (el chat no
+ * Markdown del asistente → texto de WhatsApp. Enlaces internos `[Mi historial](/propietario/pagos)` → «House › Mi historial» (el chat no
  * abre rutas); enlaces externos → «texto (url)». Negritas `**x**` → `*x*`, títulos → `*título*`, viñetas `*` → `-` (para no chocar con la negrita).
  */
 export function aTextoWhatsapp(md: string): string {

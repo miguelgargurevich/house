@@ -1,5 +1,5 @@
-import { PagosResidente } from '../residente/_parts/PagosResidente';
+import { HistorialResidente } from '../residente/_parts/HistorialResidente';
 
 export default function Pagos() {
-  return <PagosResidente />;
+  return <HistorialResidente />;
 }

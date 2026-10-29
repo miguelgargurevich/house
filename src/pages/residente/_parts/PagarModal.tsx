@@ -59,7 +59,7 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
       let subido = true;
       if (archivo) {
         try { await subirComprobante(pago.pago_id, archivo); }
-        catch (e) { subido = false; toast.error(`Tu pago quedó registrado, pero no se pudo subir el comprobante: ${errorText(e)} Puedes adjuntarlo desde Mis pagos.`); }
+        catch (e) { subido = false; toast.error(`Tu pago quedó registrado, pero no se pudo subir el comprobante: ${errorText(e)} Puedes adjuntarlo desde Mi historial › Pagos.`); }
       }
       onPagado();
       if (archivo && subido) {

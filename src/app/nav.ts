@@ -2,7 +2,7 @@ import type { ComponentType, SVGProps } from 'react';
 import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
-  CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, TruckIcon, SparklesIcon,
+  ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, TruckIcon, SparklesIcon,
   SunIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
@@ -68,14 +68,14 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/propietario/inicio', label: 'Inicio', icon: HomeIcon },
       { to: '/propietario/unidades', label: 'Mis unidades', icon: KeyIcon },
       { to: '/propietario/cargos', label: 'Mis recibos', icon: ReceiptPercentIcon },
-      { to: '/propietario/pagos', label: 'Mis pagos', icon: CreditCardIcon },
+      { to: '/propietario/pagos', label: 'Mi historial', icon: ChartBarIcon },
     ] },
   ],
   inquilino: [
     { items: [
       { to: '/inquilino/inicio', label: 'Inicio', icon: HomeIcon },
       { to: '/inquilino/cargos', label: 'Mis recibos', icon: ReceiptPercentIcon },
-      { to: '/inquilino/pagos', label: 'Mis pagos', icon: CreditCardIcon },
+      { to: '/inquilino/pagos', label: 'Mi historial', icon: ChartBarIcon },
     ] },
   ],
   mantenimiento: [
