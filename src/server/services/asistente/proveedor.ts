@@ -74,6 +74,9 @@ const RE_MODELO_AMBIGUO = /model[^"]{0,80}(not supported|unknown|not available|d
 export const esModeloNoDisponible = (status: number, cuerpo: string) =>
   status === 404 || (status === 400 && (RE_MODELO_CLARO.test(cuerpo) || (RE_MODELO_AMBIGUO.test(cuerpo) && !RE_PARAMETRO.test(cuerpo))));
 
+/** Cuerpos que dicen que la CUENTA no tiene saldo. OpenAI lo responde con 429 (`insufficient_quota`), no con 402. */
+const RE_SIN_SALDO = /insufficient_quota|credit_balance_exhausted|billing_hard_limit_reached|exceeded your current quota/i;
+
 // ---------- Cuerpo según el proveedor ----------
 interface CuerpoOpts { modelo: string; turno: Turno; o: OpcionesLlamada }
 
@@ -219,6 +222,8 @@ export async function llamarProveedor(e: Eslabon, modelo: string, turno: Turno, 
     if (!r.ok) {
       const crudo = await r.text().catch(() => '');
       limpiar();
+      // Sin saldo: el flujo lo trata como 402 («La cuenta no tiene saldo»), no como un límite temporal que se reintenta.
+      if ([400, 403, 429].includes(r.status) && RE_SIN_SALDO.test(crudo)) return fallo({ status: 402 });
       // «No admite herramientas» es de la RUTA para este uso: el modelo sigue sirviendo para chatear, no se retira.
       const sinHerramientas = o.herramientas !== undefined && [400, 404, 422].includes(r.status) && RE_HERRAMIENTAS.test(crudo);
       return fallo({

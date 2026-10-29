@@ -28,6 +28,9 @@ const borde = (p: string) => new RegExp(`(^|[-_/.:])(${p})([-_.:]|$)`, 'i');
 const NO_CHAT = [
   /embed|text-to-speech|speech|whisper|transcri|audio|voice|imagen|image|video|sora|dall-e|flux|stable-diffusion|moderation|safety|safeguard|shield|rerank|robotics|computer-use/i,
   borde('tts|stt|veo|live|guard|guardrail|aqa|lyria|nano-banana'),
+  // OpenAI: legados de completado, tiempo real, codex, investigación profunda, búsqueda y los `pro` que sólo van por la Responses API.
+  /realtime|deep-research|gpt-3\.5-turbo-instruct/i,
+  borde('babbage|davinci|codex|search|o1-pro|o3-pro|gpt-5-pro'),
 ];
 
 export function esModeloDeChat(modelo_id: string): boolean {
@@ -102,6 +105,14 @@ export const PREFERENCIAS: Record<string, RegExp[]> = {
   gemini: [/^gemini-flash-lite-latest$/, /^gemini-flash-latest$/, /^gemini-2\.5-flash$/, /^gemini-[\d.]+-flash$/, /-flash$/],
   groq: [/^openai\/gpt-oss-120b$/, /-versatile$/, /^qwen/],
   openrouter: [/gemma-4.*:free$/, /nemotron.*:free$/, /:free$/],
+  // 29-oct (Miguel): sin esta lista Auto elegía o1 (por nombre) y, tras retirarlo, babbage-002. Mini primero (barato); la versión con fecha va detrás de la sin fecha.
+  openai: [
+    /^gpt-4o-mini$/, /^gpt-4o-mini-\d{4}-\d{2}-\d{2}$/,
+    /^gpt-4\.1-mini$/, /^gpt-4\.1-mini-\d{4}-\d{2}-\d{2}$/,
+    /^gpt-5(\.\d+)?-mini$/, /^gpt-5(\.\d+)?-mini-\d{4}-\d{2}-\d{2}$/,
+    /^gpt-4o$/, /^gpt-4o-\d{4}-\d{2}-\d{2}$/,
+    /^gpt-4\.1$/, /^gpt-4\.1-\d{4}-\d{2}-\d{2}$/,
+  ],
 };
 
 export const indicePreferencia = (proveedor: string, modelo_id: string): number => {
