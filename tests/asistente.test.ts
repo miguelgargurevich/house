@@ -828,8 +828,8 @@ describe('contexto verificado por rol', () => {
   });
 
   it('las rutas de la lista son EXACTAMENTE las que existen en App.tsx', () => {
-    // Pantallas sin sesión (login, registro, precios, verificación del correo): el asistente sólo trabaja con usuarios dentro.
-    const PUBLICAS = ['/login', '/registro', '/precios', '/verificar-correo'];
+    // Pantallas sin sesión (login, registro, precios, verificación del correo, invitación): el asistente sólo trabaja con usuarios dentro.
+    const PUBLICAS = ['/login', '/registro', '/precios', '/verificar-correo', '/invitacion'];
     const app = fs.readFileSync('src/App.tsx', 'utf8');
     const reales = new Set([...app.matchAll(/path="(\/[^"*]+)"/g)].map((m) => m[1]).filter((r) => !PUBLICAS.includes(r)));
     for (const r of TODAS_LAS_RUTAS) assert.ok(reales.has(r), `${r} no existe en App.tsx`);

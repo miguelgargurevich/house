@@ -18,6 +18,7 @@ const SuperadminSuscripciones = lazy(() => import('./pages/superadmin/Suscripcio
 const Precios = lazy(() => import('./pages/publico/Precios'));
 const Registro = lazy(() => import('./pages/publico/Registro'));
 const VerificarCorreo = lazy(() => import('./pages/publico/VerificarCorreo'));
+const Invitacion = lazy(() => import('./pages/publico/Invitacion'));
 const AdminMiPlan = lazy(() => import('./pages/admin/MiPlan'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminComplejos = lazy(() => import('./pages/admin/Complejos'));
@@ -79,6 +80,7 @@ export default function App() {
               <Route path="/registro" element={<Registro />} />
               <Route path="/precios" element={<Precios />} />
               <Route path="/verificar-correo" element={<VerificarCorreo />} />
+              <Route path="/invitacion" element={<Invitacion />} />
               <Route element={<RequireAuth />}>
                 <Route element={<Shell />}>
         <Route element={<RequireRole roles={['superadmin']} />}>

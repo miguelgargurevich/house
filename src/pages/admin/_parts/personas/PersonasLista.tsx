@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { PencilSquareIcon, PlusIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { EnvelopeIcon, PencilSquareIcon, PlusIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../../../api';
 import type { Page } from '../../../../api';
 import type { CargoJunta, Rol } from '../../../../auth/AuthContext';
@@ -13,6 +13,9 @@ import {
 } from '../../../../ui';
 import type { Column } from '../../../../ui';
 import { nombreTorre } from '../medios/tipos';
+import { Interruptor } from '../catalogo/Interruptor';
+import { mensajeDeAlta } from './invitacion';
+import type { RespuestaAlta } from './invitacion';
 
 export type TipoPersona = 'residente' | 'personal' | 'superadmin';
 
@@ -24,6 +27,8 @@ interface Fila {
   cargo_junta?: CargoJunta | null; complejo_id?: number | null; estructura_id?: number | null;
   /** Residentes: sus departamentos (de ahí sale su condominio y su torre) y si están en mora. */
   unidades?: UnidadFila[]; moroso?: boolean;
+  /** Sin contraseña y con un correo real: la invitación se mandó (o falta mandarla) y aún no la acepta. */
+  invitacion_pendiente?: boolean;
 }
 interface Form {
   nombre: string; email: string; telefono: string; rol: Rol; password: string; empresa_id: string;
@@ -102,6 +107,9 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
   const [editando, setEditando] = useState<Fila | 'nuevo' | null>(null);
   const [borrar, setBorrar] = useState<Fila | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reenviando, setReenviando] = useState<number | null>(null);
+  /** Alta: por defecto la persona crea su contraseña con la invitación; este interruptor deja ponérsela ahora. */
+  const [clavePropia, setClavePropia] = useState(false);
 
   const roles = ROLES_POR_TIPO[tipo];
   const { register, handleSubmit, reset, watch, setValue, control, formState: { errors, isSubmitting } } = useForm<Form>();
@@ -121,13 +129,15 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
     reset(f === 'nuevo'
       ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: empresaId ? String(empresaId) : '', complejo_id: complejoId ? String(complejoId) : '', unidad: '', unidad_id: '' }
       : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? roles[0]!) as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', unidad: f.unidades?.[0]?.codigo ?? '', unidad_id: f.unidades?.[0]?.id ? String(f.unidades[0].id) : '' });
+    setClavePropia(false);
     setEditando(f);
   }
 
   async function guardar(v: Form) {
     const nuevo = editando === 'nuevo';
     const body: Record<string, unknown> = { nombre: v.nombre, email: v.email, telefono: v.telefono, rol: v.rol };
-    if (v.password) body.password = v.password;
+    // Alta sin «Asignar una contraseña ahora»: no se manda contraseña y el servidor invita al correo.
+    if (v.password && (!nuevo || clavePropia)) body.password = v.password;
     if (esResidente) {
       body.complejo_id = v.complejo_id ? Number(v.complejo_id) : null;
       // El cargo en la junta ya no se manda desde aquí: se gestiona en «Juntas directivas» (la API lo rechaza).
@@ -161,11 +171,22 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
       if (esSuper) body.empresa_id = v.empresa_id ? Number(v.empresa_id) : null;
     }
     try {
-      await api(nuevo ? '/api/usuarios' : `/api/usuarios/${(editando as Fila).id}`, { method: nuevo ? 'POST' : 'PUT', json: body });
-      toast.ok(nuevo ? `${t.singular[0]!.toUpperCase()}${t.singular.slice(1)} creado` : 'Cambios guardados');
+      const r = await api<RespuestaAlta>(nuevo ? '/api/usuarios' : `/api/usuarios/${(editando as Fila).id}`, { method: nuevo ? 'POST' : 'PUT', json: body });
+      if (nuevo) {
+        const m = mensajeDeAlta(r, v.email, t.singular);
+        (m.tono === 'ok' ? toast.ok : toast.error)(m.texto);
+      } else toast.ok('Cambios guardados');
       setEditando(null);
       void list.reload();
     } catch (e) { toast.error(errorText(e)); }
+  }
+
+  async function reenviar(f: Fila) {
+    setReenviando(f.id);
+    try {
+      await api(`/api/usuarios/${f.id}/invitacion`, { method: 'POST' });
+      toast.ok(`Invitación reenviada a ${f.email}`);
+    } catch (e) { toast.error(errorText(e)); } finally { setReenviando(null); }
   }
 
   async function eliminar() {
@@ -180,12 +201,13 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
   }
 
   const persona: Column<Fila> = { key: 'nombre', header: 'Nombre', cell: f => (
-    <div className="flex items-center gap-3"><Avatar nombre={f.nombre} size="sm" /><div className="min-w-0"><p className="truncate font-medium">{f.nombre}</p><p className="truncate text-xs text-muted">{f.email}</p></div></div>
+    <div className="flex items-center gap-3"><Avatar nombre={f.nombre} size="sm" /><div className="min-w-0"><p className="truncate font-medium">{f.nombre}</p><p className="truncate text-xs text-muted">{f.email}</p>{f.invitacion_pendiente && <div className="mt-1"><Badge tone="warn">Invitación pendiente</Badge></div>}</div></div>
   ) };
   const rol: Column<Fila> = { key: 'rol', header: 'Rol', cell: f => (f.rol ? ROL_LABEL[f.rol] : '—') };
   const telefono: Column<Fila> = { key: 'telefono', header: 'Teléfono', hideBelow: 'lg', cell: f => <span className="num">{f.telefono ?? '—'}</span> };
   const acciones: Column<Fila> = { key: 'acciones', header: '', align: 'right', cell: f => (
     <div className="flex justify-end gap-1">
+      {f.invitacion_pendiente && <IconButton label={`Reenviar invitación a ${f.nombre}`} disabled={reenviando === f.id} onClick={() => void reenviar(f)}><EnvelopeIcon className="h-4 w-4" /></IconButton>}
       <IconButton label={`Editar ${f.nombre}`} onClick={() => abrir(f)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
       <IconButton label={`Eliminar ${f.nombre}`} disabled={f.id === user?.id} onClick={() => setBorrar(f)}><TrashIcon className="h-4 w-4" /></IconButton>
     </div>
@@ -326,14 +348,26 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
               {' · '}se gestiona en <Link className="font-medium text-brand underline underline-offset-2" to="/admin/juntas">Juntas directivas</Link>.
             </p>
           )}
-          <Input
-            label={editando === 'nuevo' ? 'Contraseña' : 'Nueva contraseña'}
-            type="password"
-            autoComplete="new-password"
-            hint={editando === 'nuevo' ? 'Mínimo 8 caracteres.' : 'Déjala vacía para no cambiarla.'}
-            error={errors.password && 'Mínimo 8 caracteres'}
-            {...register('password', { required: editando === 'nuevo', minLength: 8 })}
-          />
+          {editando === 'nuevo' && (
+            <div className="sm:col-span-2" data-invitacion>
+              <Interruptor
+                label="Asignar una contraseña ahora"
+                hint={clavePropia ? 'Entrará con esa contraseña; no se le envía ninguna invitación.' : 'Le enviaremos una invitación a su correo para que cree su contraseña.'}
+                checked={clavePropia}
+                onChange={e => { setClavePropia(e.target.checked); if (!e.target.checked) setValue('password', ''); }}
+              />
+            </div>
+          )}
+          {(editando !== 'nuevo' || clavePropia) && (
+            <Input
+              label={editando === 'nuevo' ? 'Contraseña' : 'Nueva contraseña'}
+              type="password"
+              autoComplete="new-password"
+              hint={editando === 'nuevo' ? 'Mínimo 8 caracteres, con letras y números.' : (editando as Fila | null)?.invitacion_pendiente ? 'Aún no crea su contraseña: déjala vacía para que use la invitación, o escribe una para dársela ya.' : 'Déjala vacía para no cambiarla.'}
+              error={errors.password && 'Mínimo 8 caracteres'}
+              {...register('password', { required: editando === 'nuevo', minLength: 8 })}
+            />
+          )}
         </form>
       </Modal>
 
