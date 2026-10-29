@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import { crudRouter } from '../crud';
 import { prisma } from '../db';
 import { conflict, forbidden, notFound } from '../errors';
@@ -7,9 +8,17 @@ import { scopeNotificaciones } from '../lib/scope';
 import { currentUser } from '../middleware/auth';
 import { estadoCanales, CANALES, TIPOS, procesarPronto } from '../services/avisos';
 import { moduloActivoPara } from '../services/comercial/modulos';
-import { idSchema, parseId, z } from '../validation';
+import { idSchema, parse, parseId, z } from '../validation';
 
 const ESTADOS = ['pendiente', 'enviada', 'error', 'omitida'] as const;
+
+/** Filtros de tipo y de comunicado: los comparten la lista y las cifras, para que cuadren. */
+function filtroEnvios(f: { tipo?: string; comunicado_id?: number }): Prisma.NotificacionWhereInput {
+  return {
+    ...(f.tipo ? { tipo: f.tipo } : {}),
+    ...(f.comunicado_id !== undefined ? { ref_entidad: 'comunicado', ref_id: f.comunicado_id } : {}),
+  };
+}
 
 type FilaAviso = { ref_entidad: string | null; ref_id: number | null };
 type ContextoAviso = { recibo: { id: number; mes: number; anio: number; torre: string | null; condominio: string | null } | null; unidad: { codigo: string; torre: string | null } | null; comunicado?: { id: number; titulo: string } | null };
@@ -52,14 +61,14 @@ const lista = crudRouter({
   omit: { cuerpo: true },
   include: { usuario: { select: { id: true, nombre: true } } },
   filtros: {
-    schema: z.object({ estado: z.enum(ESTADOS).optional(), canal: z.enum(CANALES).optional(), tipo: z.enum(TIPOS).optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional() }),
+    schema: z.object({ estado: z.enum(ESTADOS).optional(), canal: z.enum(CANALES).optional(), tipo: z.enum(TIPOS).optional(), comunicado_id: idSchema.optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional() }),
     where: (f) => {
       // Torre y condominio son de las unidades de quien recibe el aviso (propietario o inquilino).
       const unidad = { ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}), ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}) };
       return {
         ...(f.estado ? { estado: f.estado } : {}),
         ...(f.canal ? { canal: f.canal } : {}),
-        ...(f.tipo ? { tipo: f.tipo } : {}),
+        ...filtroEnvios(f),
         ...(Object.keys(unidad).length ? { usuario: { OR: [{ unidades: { some: unidad } }, { unidadesInquilino: { some: unidad } }] } } : {}),
       };
     },
@@ -91,9 +100,10 @@ router.get('/canales', async (req, res) => {
   res.json({ ...estado, sin_modulo_whatsapp: !(await moduloActivoPara(currentUser(req), 'whatsapp_avisos')) });
 });
 
-/** Conteo por estado dentro del alcance del usuario (para la franja de cifras). */
+/** Conteo por estado dentro del alcance del usuario (para la franja de cifras). Acepta el mismo tipo y comunicado que la lista, para que cuadren. */
 router.get('/resumen', async (req, res) => {
-  const filas = await prisma.notificacion.groupBy({ by: ['estado'], where: scopeNotificaciones(currentUser(req)), _count: { _all: true } });
+  const f = parse(z.object({ tipo: z.enum(TIPOS).optional(), comunicado_id: idSchema.optional() }), req.query);
+  const filas = await prisma.notificacion.groupBy({ by: ['estado'], where: { AND: [scopeNotificaciones(currentUser(req)), filtroEnvios(f)] }, _count: { _all: true } });
   const out: Record<string, number> = { pendiente: 0, enviada: 0, error: 0, omitida: 0 };
   for (const f of filas) out[f.estado] = f._count._all;
   res.json(out);

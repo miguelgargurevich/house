@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { conflict, invalid, notFound } from '../errors';
 import { ambitoJunta, puedeGestionar } from '../lib/junta';
-import { scopeComplejos, scopeComunicados } from '../lib/scope';
+import { scopeComplejos, scopeComunicados, scopeNotificaciones } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { procesarPronto } from '../services/avisos';
 import { encolarComunicado, origenDe } from '../services/comunicados';
@@ -23,6 +23,27 @@ type ConAutor = { autor: { id: number; nombre: string; rol: string | null } | nu
 /** El autor sale con su nombre y de qué lado escribió (`origen`), nunca con su rol crudo. */
 export function formatear<T extends ConAutor>(c: T) {
   return { ...c, autor: c.autor ? { id: c.autor.id, nombre: c.autor.nombre } : null, origen: origenDe(c.autor) };
+}
+
+/** Cuántos envíos (correo y WhatsApp) tuvo cada comunicado, por estado. Sólo cuentan los que quien mira alcanza (`scopeNotificaciones`). */
+export type Envios = { total: number; pendiente: number; enviada: number; error: number; omitida: number };
+
+/** Los envíos de una página de comunicados en UNA consulta (no una por comunicado). Sin envíos = todo en cero. */
+async function enviosDe(u: AuthUser, ids: number[]): Promise<Map<number, Envios>> {
+  const out = new Map<number, Envios>(ids.map((id) => [id, { total: 0, pendiente: 0, enviada: 0, error: 0, omitida: 0 }]));
+  if (!ids.length) return out;
+  const filas = await prisma.notificacion.groupBy({
+    by: ['ref_id', 'estado'],
+    where: { AND: [scopeNotificaciones(u), { ref_entidad: 'comunicado', ref_id: { in: ids } }] },
+    _count: { _all: true },
+  });
+  for (const f of filas) {
+    const e = f.ref_id == null ? undefined : out.get(f.ref_id);
+    if (!e) continue;
+    e[f.estado as Exclude<keyof Envios, 'total'>] += f._count._all;
+    e.total += f._count._all;
+  }
+  return out;
 }
 
 const crearSchema = z.object({
@@ -111,7 +132,7 @@ comunicadosRouter.get('/ambitos', async (req, res) => {
  *       - { in: query, name: estructura_id, schema: { type: string }, description: "id del block o `ninguna` (todo el condominio)" }
  *       - { in: query, name: archivados, schema: { type: boolean }, description: "por omisión sólo los publicados" }
  *     responses:
- *       200: { description: "`{ items, total, page, pageSize }`; fijados primero, luego los más nuevos" }
+ *       200: { description: "`{ items, total, page, pageSize }`; fijados primero, luego los más nuevos. Cada item trae `envios` `{ total, pendiente, enviada, error, omitida }` (correo y WhatsApp, dentro de tu alcance; todo en 0 = sólo se publicó en pantalla)" }
  *       403: { description: "No es administradora ni presidente/tesorero de la junta" }
  */
 comunicadosRouter.get('/', async (req, res) => {
@@ -130,7 +151,8 @@ comunicadosRouter.get('/', async (req, res) => {
     prisma.comunicado.count({ where }),
     prisma.comunicado.findMany({ where, orderBy: [{ fijado: 'desc' }, { created_at: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize, include: incluir }),
   ]);
-  res.json({ items: rows.map(formatear), total, page: q.page, pageSize: q.pageSize });
+  const envios = await enviosDe(u, rows.map((c) => c.id));
+  res.json({ items: rows.map((c) => ({ ...formatear(c), envios: envios.get(c.id) })), total, page: q.page, pageSize: q.pageSize });
 });
 
 comunicadosRouter.get('/:id', async (req, res) => {

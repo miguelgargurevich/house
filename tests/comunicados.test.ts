@@ -506,6 +506,55 @@ describe('comunicados: envío por correo y WhatsApp', () => {
   });
 });
 
+describe('comunicados: envíos por comunicado y filtros de /api/notificaciones', () => {
+  const envios = (r: { body: { items: { id: number; envios?: { total: number } }[] } }, id: number) => r.body.items.find((i) => i.id === id)?.envios;
+
+  it('cada comunicado trae sus envíos por estado; uno sólo en pantalla trae todo en 0', async () => {
+    const con = await crear(T.adminA, nuevo({ complejo_id: d.complejoA.id, enviar_correo: true }));
+    const sin = await crear(T.adminA, nuevo({ complejo_id: d.complejoA.id, titulo: 'Sólo en pantalla' }));
+    const filas = await prisma.notificacion.findMany({ where: { ref_entidad: 'comunicado', ref_id: con.id }, orderBy: { id: 'asc' } });
+    assert.equal(filas.length, 4);
+    await prisma.notificacion.update({ where: { id: filas[0]!.id }, data: { estado: 'enviada' } });
+    await prisma.notificacion.update({ where: { id: filas[1]!.id }, data: { estado: 'error' } });
+    await prisma.notificacion.update({ where: { id: filas[2]!.id }, data: { estado: 'omitida' } });
+    const r = await llama(T.adminA, 'GET', `/api/comunicados?complejo_id=${d.complejoA.id}`);
+    assert.equal(r.status, 200, r.texto);
+    assert.deepEqual(envios(r, con.id), { total: 4, pendiente: 1, enviada: 1, error: 1, omitida: 1 });
+    assert.deepEqual(envios(r, sin.id), { total: 0, pendiente: 0, enviada: 0, error: 0, omitida: 0 });
+  });
+
+  it('el conteo sólo cuenta lo que quien mira alcanza: un aviso de ese comunicado a un vecino de otro condominio no suma', async () => {
+    const c = await crear(T.presi1, nuevo({ enviar_correo: true })); // block 1: inq1, presipropio y prop1
+    await prisma.notificacion.create({ data: { usuario_id: d.propietarioB.id, canal: 'email', tipo: 'comunicado', asunto: 'x', cuerpo: 'x', estado: 'enviada', ref_entidad: 'comunicado', ref_id: c.id } });
+    assert.equal(envios(await llama(T.presi1, 'GET', '/api/comunicados'), c.id)?.total, 3);
+    assert.equal(envios(await llama(T.adminA, 'GET', '/api/comunicados'), c.id)?.total, 3);
+    assert.equal(envios(await llama(T.super, 'GET', '/api/comunicados'), c.id)?.total, 4);
+  });
+
+  it('?comunicado_id= trae sólo los envíos de ese comunicado, y la cifra igual; uno ajeno o de otro condominio no trae nada', async () => {
+    const a = await crear(T.adminA, nuevo({ complejo_id: d.complejoA.id, enviar_correo: true }));
+    const b = await crear(T.adminA, nuevo({ complejo_id: d.complejoA.id, titulo: 'Del block 1', estructura_id: e1.id, enviar_correo: true }));
+    const lista = await llama(T.adminA, 'GET', `/api/notificaciones?comunicado_id=${b.id}&pageSize=100`);
+    assert.equal(lista.status, 200, lista.texto);
+    assert.equal(lista.body.total, 3);
+    assert.ok(lista.body.items.every((i: { contexto: { comunicado: { id: number } } }) => i.contexto.comunicado.id === b.id));
+    assert.deepEqual((await llama(T.adminA, 'GET', `/api/notificaciones/resumen?comunicado_id=${b.id}`)).body, { pendiente: 3, enviada: 0, error: 0, omitida: 0 });
+    assert.equal((await llama(T.adminA, 'GET', `/api/notificaciones?comunicado_id=${a.id}`)).body.total, 4);
+    const deB = await crear(T.adminB, nuevo({ complejo_id: d.complejoB.id, enviar_correo: true }));
+    assert.equal((await llama(T.adminA, 'GET', `/api/notificaciones?comunicado_id=${deB.id}`)).body.total, 0);
+    // La junta de un block sólo ve los envíos de SUS vecinos de un comunicado de todo el condominio (3 de 4).
+    assert.equal((await llama(T.presi1, 'GET', `/api/notificaciones?comunicado_id=${a.id}`)).body.total, 3);
+    assert.equal((await llama(T.adminA, 'GET', '/api/notificaciones?comunicado_id=999999')).body.total, 0);
+  });
+
+  it('el filtro de tipo también mueve la cifra: el resumen de «recibo» no cuenta los de comunicado', async () => {
+    await crear(T.adminA, nuevo({ complejo_id: d.complejoA.id, enviar_correo: true }));
+    assert.deepEqual((await llama(T.adminA, 'GET', '/api/notificaciones/resumen?tipo=recibo_emitido')).body, { pendiente: 0, enviada: 0, error: 0, omitida: 0 });
+    assert.deepEqual((await llama(T.adminA, 'GET', '/api/notificaciones/resumen?tipo=comunicado')).body, { pendiente: 4, enviada: 0, error: 0, omitida: 0 });
+    assert.equal((await llama(T.adminA, 'GET', '/api/notificaciones/resumen?tipo=inventado')).status, 422);
+  });
+});
+
 describe('comunicados: la plantilla del aviso', () => {
   const datos = { nombre: 'María Elena Quispe', periodo: '', monto: '', vencimiento: '', titulo: 'Corte de agua', texto: 'Línea 1\nLínea 2 <b>tal cual</b>', condominio: 'Los Libertadores' };
   it('el asunto es el título; el cuerpo trae el saludo, el texto tal cual, el enlace y la firma del condominio; nada de recibos', () => {
