@@ -2,13 +2,15 @@ import bcrypt from 'bcrypt';
 import { BCRYPT_COST, ROLES_PERSONAL, ROLES_RESIDENTE } from '../config';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { forbidden, invalid } from '../errors';
+import { forbidden, HttpError, invalid, notFound } from '../errors';
 import { filtroEstadoCargo } from '../lib/cargos';
 import { relojDeCondominios } from '../lib/zonas';
 import { empresaDe, scopeComplejos, scopeUnidades, scopeUsuarios } from '../lib/scope';
-import type { AuthUser } from '../middleware/auth';
+import { registrarAuditoria } from '../middleware/audit';
+import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
+import { correoSinBuzon, invitarUsuario, type EstadoInvitacion } from '../services/invitaciones';
 import { revocarDeUsuario } from '../services/sesiones';
-import { contrasenaIgualACorreo, emailSchema, idSchema, MENSAJE_PASSWORD_CORREO, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
+import { contrasenaIgualACorreo, emailSchema, idSchema, parseId, MENSAJE_PASSWORD_CORREO, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
 
 const MENSAJE_CARGO_JUNTA = 'El cargo en la junta se gestiona en Juntas directivas: registra o edita la junta del block';
 
@@ -24,10 +26,11 @@ const base = z.object({
   estructura_id: z.never({ error: MENSAJE_CARGO_JUNTA }).optional(),
 });
 const createSchema = base.extend({
-  password: passwordSchema,
+  /** Opcional: sin contraseña el usuario se crea sin acceso y se le manda una invitación al correo para que cree la suya. Vacío = ausente. */
+  password: z.preprocess((v) => (v === '' ? undefined : v), passwordSchema.optional()),
   /** Sólo al crear un residente: la unidad de la que es propietario o inquilino (según su rol). */
   unidad_id: idSchema.nullish(),
-}).refine((v) => !contrasenaIgualACorreo(v.password, v.email), { path: ['password'], message: MENSAJE_PASSWORD_CORREO });
+}).refine((v) => !v.password || !contrasenaIgualACorreo(v.password, v.email), { path: ['password'], message: MENSAJE_PASSWORD_CORREO });
 const updateSchema = base
   .partial()
   .extend({ password: passwordSchema.optional(), unidad_id: idSchema.nullish() })
@@ -115,6 +118,11 @@ export const usuariosRouter = crudRouter({
   include: { empresa: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } } },
   // Un residente no tiene empresa: se muestra por sus unidades (condominio · block · departamento) y si está en mora.
   format: async (items) => {
+    const ids = items.map((u) => u.id as number);
+    // Sin contraseña = invitación pendiente (o nunca enviada). `password_hash` no sale en las consultas: se pregunta aparte, sólo por quién no la tiene.
+    const sinContrasena = new Set((ids.length ? await prisma.usuario.findMany({ where: { id: { in: ids }, password_hash: null }, select: { id: true } }) : []).map((u) => u.id));
+    const conInvitacion = (u: (typeof items)[number]) => ({ ...u, invitacion_pendiente: sinContrasena.has(u.id as number) && !correoSinBuzon(u.email as string) });
+    // Un residente no tiene empresa: se muestra por sus unidades (condominio · block · departamento) y si está en mora.
     const residentes = items.filter((u) => u.rol === 'propietario' || u.rol === 'inquilino').map((u) => u.id as number);
     const mapa = new Map<number, ReturnType<typeof unidadFila>[]>();
     const morosas = new Set<number>();
@@ -129,9 +137,9 @@ export const usuariosRouter = crudRouter({
       for (const v of vencidas) if (v.unidad_id != null) morosas.add(v.unidad_id);
     }
     return items.map((u) => {
-      if (u.rol !== 'propietario' && u.rol !== 'inquilino') return u;
+      if (u.rol !== 'propietario' && u.rol !== 'inquilino') return conInvitacion(u);
       const unidades = mapa.get(u.id as number) ?? [];
-      return { ...u, unidades, moroso: unidades.some((x) => morosas.has(x.id)) };
+      return { ...conInvitacion(u), unidades, moroso: unidades.some((x) => morosas.has(x.id)) };
     });
   },
   filtros: {
@@ -180,6 +188,15 @@ export const usuariosRouter = crudRouter({
       return creado;
     });
   },
+  // Sin contraseña (`password_hash` ausente) → invitación al correo. Con contraseña, como siempre: sin correo. El estado del envío viaja en la respuesta.
+  afterCreate: async (creado, data, user) => {
+    if (data.password_hash !== undefined) return;
+    const id = creado.id as number;
+    // La cuenta ya está creada: un fallo al invitar no la deshace ni da error, se informa y se puede reenviar.
+    const invitacion = await invitarUsuario(id, user.id).catch((): EstadoInvitacion => ({ estado: 'no_enviada', motivo: 'No se pudo preparar la invitación' }));
+    await registrarAuditoria({ usuario_id: user.id, accion: 'invitar', entidad: 'usuario', entidad_id: id, detalle: { estado: invitacion.estado }, ip: null });
+    return { invitacion };
+  },
   prepareUpdate: (d, u, e) => normalizar(d, u, e),
   // El departamento (unidad) no es una columna del usuario: es el propietario/inquilino de la unidad. Por eso el update
   // va en transacción: primero suelta el departamento anterior, luego toma el nuevo.
@@ -217,4 +234,35 @@ export const usuariosRouter = crudRouter({
   beforeDelete: (e, u) => {
     if (e.id === u.id) throw invalid('No puedes eliminar tu propia cuenta');
   },
+});
+
+/**
+ * @openapi
+ * /api/usuarios/{id}/invitacion:
+ *   post:
+ *     summary: Reenvía la invitación a un usuario que aún no tiene contraseña (invalida el enlace anterior)
+ *     tags: [Usuarios]
+ *     responses:
+ *       200: { description: "{ invitacion: { estado: 'enviada' } }" }
+ *       404: { description: No existe o es de otra empresa }
+ *       409: { description: Ya tiene contraseña }
+ *       422: { description: Su correo no tiene buzón }
+ *       429: { description: Se le envió una hace menos de un minuto }
+ *       502: { description: No se pudo enviar el correo ahora }
+ */
+usuariosRouter.post('/:id/invitacion', requireRole('admin'), async (req, res) => {
+  const user = currentUser(req);
+  const id = parseId(req);
+  // Mismo alcance que editar al usuario: otra empresa → 404.
+  const objetivo = await prisma.usuario.findFirst({ where: { AND: [{ id }, scopeUsuarios(user)] }, select: { id: true, email: true, password_hash: true } });
+  if (!objetivo) throw notFound();
+  if (objetivo.password_hash != null) throw new HttpError(409, 'Esta persona ya creó su contraseña: no necesita invitación.');
+  if (correoSinBuzon(objetivo.email)) throw invalid('Datos inválidos: email: este correo no tiene buzón real; corrígelo para poder enviar la invitación', { email: 'Correo sin buzón' });
+  const invitacion = await invitarUsuario(id, user.id);
+  if (invitacion.estado === 'no_enviada') throw new HttpError(502, 'No pudimos enviar el correo ahora. Intenta de nuevo en unos minutos.');
+  res.locals.entidad = 'usuario';
+  res.locals.accion = 'reenviar_invitacion';
+  res.locals.entidadId = id;
+  res.locals.auditDetalle = { estado: invitacion.estado };
+  res.json({ invitacion });
 });

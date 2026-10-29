@@ -69,6 +69,8 @@ model Usuario {
   /// false sólo en cuentas creadas por el registro público hasta que abren el enlace del correo. Las cuentas existentes y las que crea el superadmin quedan en true.
   correo_verificado Boolean                @default(true)
   tokensVerificacion TokenVerificacionCorreo[]
+  invitaciones      TokenInvitacion[]      @relation("InvitacionDeUsuario")
+  invitacionesHechas TokenInvitacion[]     @relation("InvitacionCreadaPor")
   pagosSuscripcionRegistrados PagoSuscripcion[] @relation("PagoSuscripcionRegistrador")
   lecturasAguaRegistradas LecturaAgua[]
   imagenesReciboSubidas ImagenRecibo[]
@@ -1016,6 +1018,22 @@ model TokenVerificacionCorreo {
   expira_at  DateTime
   usado_at   DateTime?
   created_at DateTime  @default(now())
+
+  @@index([usuario_id])
+}
+
+/// Invitación para crear la contraseña de un usuario dado de alta SIN contraseña. Un solo uso, vence a los 7 días. Sólo se guarda el hash del token.
+model TokenInvitacion {
+  id            Int       @id @default(autoincrement())
+  usuario_id    Int
+  usuario       Usuario   @relation("InvitacionDeUsuario", fields: [usuario_id], references: [id], onDelete: Cascade)
+  token_hash    String    @unique
+  expira_at     DateTime
+  usado_at      DateTime?
+  created_at    DateTime  @default(now())
+  /// Quién invitó (el administrador o superadmin que creó o reenvió); si esa cuenta se borra queda en null.
+  creado_por_id Int?
+  creado_por    Usuario?  @relation("InvitacionCreadaPor", fields: [creado_por_id], references: [id], onDelete: SetNull)
 
   @@index([usuario_id])
 }

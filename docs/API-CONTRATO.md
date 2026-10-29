@@ -369,3 +369,29 @@ La junta deja de ser dos campos del usuario (`cargo_junta` + `estructura_id`) y 
 - **Correo de la junta**: reemplaza al «correo del block». Donde se usaba `Estructura.correo_vouchers` (aviso del voucher al block, recibo impreso `correo_vouchers` en el detalle del mantenimiento, cabecera de lecturas de agua `recibo.estructura.correo_vouchers`, lista de torres) se usa el de la **junta vigente** y, si no tiene, el `correo_vouchers` del block como respaldo (los recibos viejos no se rompen). `PUT /api/estructuras/:id/correo-vouchers` y `PUT /api/estructuras/:id` con `correo_vouchers` cambian los dos a la vez (un solo correo). Una torre con juntas registradas (vigente o pasadas) no se puede borrar (422).
 - **Migración** `scripts/migrar-juntas.ts` (en seco por defecto; `--aplicar`; se niega con una base no local salvo `--produccion`; idempotente): por cada block y condominio con usuarios con cargo, `correo_vouchers` o medios, crea la junta vigente (`desde` = 1 de enero del año actual en la zona del condominio o, si es posterior, el día del medio más antiguo), con esos miembros, el correo y los medios activos. Un block con dos presidentes/tesoreros no se toca (se informa).
 - **Rutas de la app**: `/admin/juntas` (administración, grupo Operación) y `/junta/mi-junta` («Mi junta», presidente/tesorero) en `src/server/lib/rutasApp.ts`.
+
+## Invitación de usuarios: crear la contraseña por correo (29-oct-2026)
+Un usuario dado de alta SIN contraseña recibe un correo con un enlace de un solo uso para crear la suya. Aditivo: modelo nuevo, ningún campo cambia ni se borra.
+
+### Alta — `POST /api/usuarios` (admin de su empresa o superadmin; igual que hoy)
+- `password` pasa a ser **opcional** (`""` = ausente). Con contraseña: como siempre, sin correo. Sin contraseña: se crea con `password_hash` null (no puede entrar: el login responde el mismo 401) y se manda la invitación.
+- La respuesta 201 suma `invitacion: { estado: 'enviada' | 'sin_correo' | 'no_enviada', motivo? }` (sólo si no se mandó contraseña). `sin_correo`: el correo es `…invalid` (los residentes importados, `…@sin-correo.invalid`): no se manda nada ni se crea enlace. `no_enviada`: el canal de correo no está configurado o falló; la cuenta queda creada y no queda enlace colgado (usa «Reenviar»). Un correo que ya existe sigue siendo el 409 de siempre y no envía nada.
+- Sólo esta ruta invita: las importaciones masivas, el seed y los scripts NO mandan correos.
+- Toda fila de `GET /api/usuarios` (lista, detalle, alta y edición) suma `invitacion_pendiente: boolean` = sin contraseña y con correo con buzón.
+
+### Reenviar — `POST /api/usuarios/:id/invitacion` (rol admin; superadmin también)
+Mismo alcance que editar al usuario (otra empresa o id inexistente → **404**; otros roles 403). Sólo para quien no tiene contraseña: 409 si ya la tiene, 422 si su correo es `…invalid`, **429** si ya se le mandó una hace menos de 60 s, **502** si el correo no sale (el enlace anterior se conserva). 200 `{ invitacion: { estado: 'enviada' } }`; el enlace nuevo invalida los anteriores sin usar. Auditoría `reenviar_invitacion` (sin el enlace).
+
+### Público (sin sesión ni CSRF) — `/api/auth/invitacion`
+- `GET ?token=` → 200 `{ nombre, email (enmascarado «m***@casa.pe»), rol, rol_texto, organizacion }`.
+- `POST { token, password }` → 200 `{ user, csrf }` + `Set-Cookie: house_sesion` (inicia sesión como el login). `password` pasa por `passwordSchema` y no puede ser el correo (ni su parte antes de la @): 422 y el enlace sigue valiendo. Fija el hash, marca `correo_verificado`, gasta el token e invalida los demás del usuario, y audita `aceptar_invitacion` (sin contraseña).
+- Todo enlace que no sirve (inexistente, vencido, ya usado, o de alguien que ya tiene contraseña) → el MISMO **410** `{ error: 'El enlace no es válido o ya venció. Pide a tu administración que te reenvíe la invitación.', code: 'INVITACION_INVALIDA' }`: no revela si el usuario existe. Un enlace viejo nunca pisa una contraseña ya creada.
+- Límite: 10 intentos FALLIDOS por IP cada 15 min (429), como el login; los intentos buenos no gastan el cupo.
+
+### Token y correo
+- `TokenInvitacion { usuario_id (Cascade), token_hash @unique, expira_at, usado_at?, created_at, creado_por_id? }`. Token = 32 bytes aleatorios (base64url); **sólo se guarda su sha256**. Vence a los **7 días**, un solo uso (`UPDATE` atómico junto con el hash de la contraseña).
+- Correo «Te invitaron a House»: HTML con la cara del sitio (`services/avisos/correoHtml.ts`, `plantillaCorreo({ titulo, parrafos, boton?, pie? })`: tablas y estilos en línea, 560 px, modo oscuro) y el texto plano de respaldo. `enviarCorreo(deps, destino, asunto, cuerpo, adjuntos?, html?)` manda `text` y, si hay, `html`; el resto de correos sigue mandando sólo texto. El enlace sale de `url_publica` de la configuración (nunca del Host de la petición).
+- Pantallas: `/invitacion?token=…` (pública) y, en «Usuarios del sistema», «Residentes» y «Personal»: interruptor «Asignar una contraseña ahora» en el alta, insignia «Invitación pendiente» y acción «Reenviar invitación».
+
+### Esquema (aditivo)
+Modelo `TokenInvitacion` (con relaciones `Usuario.invitaciones` e `Usuario.invitacionesHechas`). `prisma db push` lo crea sin tocar nada existente.

@@ -20,7 +20,7 @@ import { tokensApiRouter } from './routes/tokensApi';
 import { whatsappRouter } from './routes/whatsapp';
 import { canalesMeRouter } from './routes/canales';
 import { canalesTelegramRouter, canalesWebhookRouter } from './routes/canalesWebhook';
-import { loginRouter, sesionRouter } from './routes/auth';
+import { invitacionRouter, loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
 import { comprobantesRouter } from './routes/comprobantes';
 import { comunicadosRouter } from './routes/comunicados';
@@ -98,6 +98,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use(limiters.api);
   api.get('/health', (_req, res) => { res.json({ ok: true }); }); // público: healthcheck del contenedor
   api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // tramo público: inicio de sesión
+  api.use('/auth/invitacion', invitacionRouter(limiters.invitacion)); // tramo público: el enlace del correo de invitación
   api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion })); // tramo público: planes, registro y verificación del correo
   api.use(authenticate);
   api.use(auditoria);

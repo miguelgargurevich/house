@@ -6,8 +6,9 @@ import { HttpError, notFound } from '../errors';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser } from '../middleware/auth';
 import { MENSAJE_LOGIN_BLOQUEADO, type BloqueoCuenta } from '../middleware/rateLimit';
+import { aceptarInvitacion, datosDeInvitacion } from '../services/invitaciones';
 import { borrarCookie, crearSesion, listarActivas, ponerCookie, revocarDeUsuario, revocarPropia } from '../services/sesiones';
-import { emailSchema, parse, parseBody, z } from '../validation';
+import { emailSchema, parse, parseBody, passwordSchema, z } from '../validation';
 
 // Hash de relleno: si el correo no existe se compara igual contra un hash, para que el tiempo no delate usuarios.
 const HASH_FALSO = bcrypt.hashSync('relleno-no-es-una-contrasena', BCRYPT_COST);
@@ -79,6 +80,64 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
     res.json({ user, csrf });
   });
   return authRouter;
+}
+
+/**
+ * Tramo PÚBLICO (sin sesión): el enlace de invitación del correo. Ver a quién se invita y crear la contraseña. Mismo 410 para todo enlace
+ * inválido (inexistente, vencido, usado o de alguien que ya tiene contraseña): no revela si la cuenta existe.
+ */
+export function invitacionRouter(limitador: RequestHandler) {
+  const r = Router();
+  const tokenSchema = z.string({ error: 'Debe ser un texto' }).min(20, 'Enlace incompleto').max(200, 'Enlace inválido');
+
+  /**
+   * @openapi
+   * /api/auth/invitacion:
+   *   get:
+   *     summary: "Datos de la invitación del enlace (?token=): nombre, correo enmascarado y rol"
+   *     tags: [Auth]
+   *     responses:
+   *       200: { description: "{ nombre, email (enmascarado), rol, rol_texto, organizacion }" }
+   *       410: { description: El enlace no es válido o ya venció }
+   */
+  r.get('/', limitador, async (req, res) => {
+    const { token } = parse(z.object({ token: tokenSchema }), req.query);
+    res.set('Cache-Control', 'no-store');
+    res.json(await datosDeInvitacion(token));
+  });
+
+  /**
+   * @openapi
+   * /api/auth/invitacion:
+   *   post:
+   *     summary: Crea la contraseña con el enlace de invitación (un solo uso) e inicia sesión
+   *     tags: [Auth]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [token, password]
+   *             properties:
+   *               token: { type: string }
+   *               password: { type: string }
+   *     responses:
+   *       200: { description: "{ user, csrf } + Set-Cookie house_sesion" }
+   *       410: { description: El enlace no es válido o ya venció }
+   *       422: { description: Contraseña rechazada }
+   */
+  r.post('/', limitador, async (req, res) => {
+    const { token, password } = parseBody(z.object({ token: tokenSchema, password: passwordSchema }), req);
+    const user = await aceptarInvitacion(token, password);
+    const { token: sesion, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));
+    ponerCookie(res, sesion);
+    await registrarAuditoria({ usuario_id: user.id, accion: 'aceptar_invitacion', entidad: 'usuario', entidad_id: user.id, ip: ipDe(req) });
+    res.set('Cache-Control', 'no-store');
+    res.json({ user, csrf });
+  });
+
+  return r;
 }
 
 /** Se monta DESPUÉS de `authenticate`. */

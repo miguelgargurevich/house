@@ -22,6 +22,8 @@ export interface RateLimitOptions {
   registroCorreo?: number;
   /** Verificación de correo: intentos por IP cada 15 min. */
   verificacion?: number;
+  /** Enlace de invitación (ver y aceptar): intentos FALLIDOS por IP cada 15 min, como el login. */
+  invitacion?: number;
 }
 
 const QUINCE_MIN = 15 * 60 * 1000;
@@ -120,6 +122,8 @@ export function crearLimitadores(opts: RateLimitOptions = {}) {
     registroIp: limiter(opts.registroIp ?? 5, 'Demasiados registros desde esta conexión, intenta de nuevo más tarde', ip, { ventanaMs: UNA_HORA }),
     registroCorreo: limiter(opts.registroCorreo ?? 3, 'Demasiados intentos con este correo, intenta de nuevo más tarde', (req) => `c${typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 160) : ip(req)}`, { ventanaMs: UNA_HORA }),
     verificacion: limiter(opts.verificacion ?? 20, 'Demasiados intentos, intenta de nuevo en unos minutos', ip),
+    // Como el login: sólo cuentan los fallos (enlace inválido, contraseña rechazada); quien entra bien no gasta el cupo.
+    invitacion: limiter(opts.invitacion ?? 10, 'Demasiados intentos, intenta de nuevo en 15 minutos', ip, { soloFallos: true }),
     password: limiter(opts.password ?? 10, 'Demasiados intentos de cambio de contraseña, intenta de nuevo más tarde', (req) => `u${req.user?.id ?? ip(req)}`),
   };
 }

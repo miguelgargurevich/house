@@ -37,6 +37,8 @@ export interface CrudOptions {
   prepareCreate?: (data: Record<string, unknown>, user: AuthUser) => Promise<Record<string, unknown>> | Record<string, unknown>;
   prepareUpdate?: (data: Record<string, unknown>, user: AuthUser, existing: Record<string, unknown>) => Promise<Record<string, unknown>> | Record<string, unknown>;
   beforeDelete?: (existing: Record<string, unknown>, user: AuthUser) => Promise<void> | void;
+  /** Tras crear (y ya guardado): efectos de afuera, como mandar un correo. `data` es lo que se guardó; lo que devuelva se suma a la respuesta 201. */
+  afterCreate?: (created: Record<string, unknown>, data: Record<string, unknown>, user: AuthUser) => Promise<Record<string, unknown> | void>;
   afterUpdate?: (existing: Record<string, unknown>, data: Record<string, unknown>) => Promise<void> | void;
   afterDelete?: (existing: Record<string, unknown>) => Promise<void> | void;
   /** Enriquece/transforma filas ya consultadas (lote, para poder agregar con una sola consulta). */
@@ -104,7 +106,8 @@ export function crudRouter(o: CrudOptions): Router {
       : await o.delegate.create({ data, ...queryArgs(o) });
     res.locals.entidadId = created.id;
     const row = o.create ? await o.delegate.findFirst({ where: { id: created.id }, ...queryArgs(o) }) : created;
-    res.status(201).json((await fmt([row], user))[0]);
+    const extra = o.afterCreate ? await o.afterCreate(created, data, user) : undefined;
+    res.status(201).json({ ...(await fmt([row], user))[0], ...extra });
   });
 
   const update = async (req: Request, res: Response) => {
