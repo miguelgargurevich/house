@@ -8,6 +8,8 @@
  */
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
+import { ZONA_POR_DEFECTO } from '../../../lib/paises';
+import { horaEn } from '../../lib/fechas';
 import { nombreMes } from '../../lib/periodo';
 import { registrarAuditoria } from '../../middleware/audit';
 import { enviarCorreo, type DepsAvisos, type ResultadoEnvio } from './canales';
@@ -25,11 +27,10 @@ export const voucherBlockDeps: DepsAvisos & { esperaReintentoMs: number } = {
 };
 
 const METODOS: Record<string, string> = { transferencia: 'Transferencia', yape: 'Yape', plin: 'Plin', efectivo: 'Efectivo', tarjeta: 'Tarjeta' };
-const LIMA_OFFSET_MS = 5 * 60 * 60 * 1000;
 
-/** «28 de octubre de 2026, 14:32» en hora de Lima. */
-function fechaLima(f: Date): string {
-  const l = new Date(f.getTime() - LIMA_OFFSET_MS);
+/** «28 de octubre de 2026, 14:32» en la hora de la zona del condominio. */
+function fechaEnZona(f: Date, zona: string): string {
+  const l = horaEn(zona, f);
   const hm = `${String(l.getUTCHours()).padStart(2, '0')}:${String(l.getUTCMinutes()).padStart(2, '0')}`;
   return `${l.getUTCDate()} de ${nombreMes(l.getUTCMonth() + 1)} de ${l.getUTCFullYear()}, ${hm}`;
 }
@@ -40,7 +41,7 @@ const seleccion = {
   comprobante: { select: { nombre: true, sha256: true, datos: true } },
   reciboConceptoUnidad: {
     select: {
-      unidad: { select: { codigo: true, estructura: { select: { nombre: true, correo_vouchers: true } }, propietario: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true } } } },
+      unidad: { select: { codigo: true, estructura: { select: { nombre: true, correo_vouchers: true } }, propietario: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true, zona_horaria: true } } } },
       reciboConcepto: { select: { recibo: { select: { mes: true, anio: true } } } },
     },
   },
@@ -90,7 +91,7 @@ export async function avisarVoucherAlBlock(pagoId: number, deps: typeof voucherB
       `Monto: ${monto}`,
       `Método: ${(pago.metodo_pago && METODOS[pago.metodo_pago]) ?? pago.metodo_pago ?? '—'}`,
       ...(pago.referencia ? [`N.º de operación: ${pago.referencia}`] : []),
-      `Fecha: ${fechaLima(pago.fecha_pago)}`,
+      `Fecha: ${fechaEnZona(pago.fecha_pago, unidad?.complejo?.zona_horaria ?? ZONA_POR_DEFECTO)}`,
       '',
       `El pago queda en revisión y se valida en House (${ENLACE_APP}). No hace falta que respondas este correo.`,
     ].join('\n');

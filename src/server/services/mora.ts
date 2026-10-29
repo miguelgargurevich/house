@@ -2,14 +2,15 @@
  * Mora por pago fuera de fecha. Al crear el recibo de un mes (Excel o emisión manual) se mira el recibo del MES ANTERIOR DE LA MISMA TORRE: la
  * unidad que «pagó tarde» lleva una línea de mora en el recibo nuevo (monto configurable por condominio: `ComplejoHabitacional.mora_monto`).
  *
- * «Pagó tarde» = al cierre del día de vencimiento (inclusive, hora de Lima) la unidad NO tiene pagos con `fecha_pago` (la del voucher) ≤ vencimiento
+ * «Pagó tarde» = al cierre del día de vencimiento (inclusive, en la hora de SU condominio: `ComplejoHabitacional.zona_horaria`) la unidad NO tiene pagos con `fecha_pago` (la del voucher) ≤ vencimiento
  * que cubran el saldo de ese recibo. Cuentan los pagos validados y los por validar; el rechazado no. Si el recibo anterior aún no venció (hoy en
- * Lima ≤ vencimiento) nadie puede haber pagado tarde todavía: no se evalúa nada.
+ * su zona ≤ vencimiento) nadie puede haber pagado tarde todavía: no se evalúa nada.
  *
  * Es idempotente porque se calcula al CREAR el recibo: reemplazar el recibo desde Excel borra sus cargos y vuelve a calcular, nunca suma.
  */
 import { Prisma } from '@prisma/client';
-import { hoyLima } from '../lib/fechas';
+import { hoyEn } from '../lib/fechas';
+import { ZONA_POR_DEFECTO } from '../../lib/paises';
 import { diaCalendario } from './fechaVoucher';
 import { periodoTexto } from '../lib/periodo';
 import { formatoDinero } from '../../lib/paises';
@@ -60,8 +61,9 @@ export async function evaluarMora(tx: Tx, o: { complejoId: number; estructuraId:
   });
   const vacio: EvaluacionMora = { anterior, aunNoVence: false, tarde: new Set() };
   if (!anterior || o.unidadIds.length === 0) return vacio;
-  const vence = diaCalendario(anterior.fecha_vencimiento).getTime(); // fecha sin hora: no se pasa por `hoyLima`
-  if (hoyLima(moraDeps.ahora()).getTime() <= vence) return { ...vacio, aunNoVence: true };
+  const vence = diaCalendario(anterior.fecha_vencimiento).getTime(); // fecha sin hora: no se pasa por `hoyEn`
+  const zona = (await tx.complejoHabitacional.findUnique({ where: { id: o.complejoId }, select: { zona_horaria: true } }))?.zona_horaria ?? ZONA_POR_DEFECTO;
+  if (hoyEn(zona, moraDeps.ahora()).getTime() <= vence) return { ...vacio, aunNoVence: true };
   const cargos = await tx.reciboConceptoUnidad.findMany({
     where: { unidad_id: { in: o.unidadIds }, reciboConcepto: { recibo_id: anterior.id } },
     select: { unidad_id: true, monto: true, estado_pago: true, fecha_pago: true, pagos: { where: { estado_validacion: { not: 'rechazado' } }, select: { monto: true, fecha_pago: true } } },
@@ -71,9 +73,9 @@ export async function evaluarMora(tx: Tx, o: { complejoId: number; estructuraId:
     if (c.unidad_id == null) continue;
     let cubierto: boolean;
     if (c.pagos.length === 0) {
-      cubierto = c.estado_pago === 'pagado' ? c.fecha_pago == null || hoyLima(c.fecha_pago).getTime() <= vence : new Prisma.Decimal(c.monto).lte(0);
+      cubierto = c.estado_pago === 'pagado' ? c.fecha_pago == null || hoyEn(zona, c.fecha_pago).getTime() <= vence : new Prisma.Decimal(c.monto).lte(0);
     } else {
-      const aTiempo = c.pagos.filter((p) => hoyLima(p.fecha_pago).getTime() <= vence).reduce((s, p) => s.plus(p.monto), new Prisma.Decimal(0));
+      const aTiempo = c.pagos.filter((p) => hoyEn(zona, p.fecha_pago).getTime() <= vence).reduce((s, p) => s.plus(p.monto), new Prisma.Decimal(0));
       cubierto = aTiempo.gte(c.monto);
     }
     if (!cubierto) tarde.add(c.unidad_id);

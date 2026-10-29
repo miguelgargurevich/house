@@ -11,7 +11,8 @@
  *  - `manual`: la corrigió una persona; ninguna evaluación posterior la pisa.
  */
 import { prisma } from '../db';
-import { hoyLima } from '../lib/fechas';
+import { ZONA_POR_DEFECTO } from '../../lib/paises';
+import { diaEn, hoyEn, medianocheEn } from '../lib/fechas';
 import type { Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
 import { alertaDePeriodo, type Veredicto } from './contraste';
@@ -27,27 +28,39 @@ export type DecisionFecha =
   | { tipo: 'no_leida'; motivo: string }
   | { tipo: 'invalida'; motivo: string; dia: string };
 
-/** El día calendario (00:00 UTC) de una fecha SIN hora, como se guardan emisión y vencimiento: `hoyLima` la correría un día atrás (00:00 UTC son las 19:00 del día anterior en Lima). */
+/** El día calendario (00:00 UTC) de una fecha SIN hora, como se guardan emisión y vencimiento: `hoyEn` la correría un día atrás en una zona al oeste de UTC (00:00 UTC son las 19:00 del día anterior en Lima). */
 export const diaCalendario = (f: Date): Date => new Date(Math.floor(f.getTime() / DIA) * DIA);
 
-/** «2026-10-31» de un instante, según el día en Lima. */
-export const diaLima = (f: Date): string => hoyLima(f).toISOString().slice(0, 10);
+/** «2026-10-31» de un instante, según el día en la zona del condominio. */
+export const diaEnZona = (f: Date, zona: string = ZONA_POR_DEFECTO): string => diaEn(f, zona);
+
+/**
+ * Cómo se guarda el día leído del voucher: al mediodía UTC, que es la mañana en América y la tarde en Europa, así que cualquier zona
+ * razonable muestra el mismo día calendario. Una zona tan al este (Nueva Zelanda) que ese instante ya es otro día lo guarda al mediodía local.
+ */
+const mediodiaDe = (dia: string, zona: string): Date => {
+  const t = Date.parse(`${dia}T12:00:00Z`);
+  if (diaEn(new Date(t), zona) === dia) return new Date(t);
+  const [a, m, d] = dia.split('-').map(Number) as [number, number, number];
+  return new Date(medianocheEn(zona, a, m, d).getTime() + DIA / 2);
+};
 
 /**
  * ¿Se puede usar la fecha que leyó la IA? Exige un comprobante de pago legible cuya operación no esté pendiente ni fallida (la fecha de una operación
- * que no se completó no es la del pago). Futura (después de HOY en Lima) o anterior a `emision − 60 días` → `invalida`.
+ * que no se completó no es la del pago). Futura (después de HOY en la zona del condominio) o anterior a `emision − 60 días` → `invalida`.
  * Se guarda al mediodía UTC (07:00 en Lima) del día leído: así cualquier zona horaria razonable muestra el mismo día calendario.
  */
-export function decidirFecha(lectura: Pick<Lectura, 'fecha' | 'es_comprobante_de_pago' | 'legible' | 'estado_operacion'>, o: { hoy: Date; emision: Date }): DecisionFecha {
+export function decidirFecha(lectura: Pick<Lectura, 'fecha' | 'es_comprobante_de_pago' | 'legible' | 'estado_operacion'>, o: { hoy: Date; emision: Date; zona?: string }): DecisionFecha {
+  const zona = o.zona ?? ZONA_POR_DEFECTO;
   // `emision` es el día calendario de emisión del recibo (fecha sin hora).
   if (!lectura.es_comprobante_de_pago) return { tipo: 'no_leida', motivo: 'La imagen no parece un comprobante de pago' };
   if (!lectura.legible) return { tipo: 'no_leida', motivo: 'El comprobante no se lee con claridad' };
   if (lectura.estado_operacion === 'pendiente' || lectura.estado_operacion === 'fallida') return { tipo: 'no_leida', motivo: 'La operación del comprobante no figura como exitosa' };
   if (!lectura.fecha) return { tipo: 'no_leida', motivo: 'No se encontró la fecha en el comprobante' };
   const t = Date.parse(`${lectura.fecha}T00:00:00Z`);
-  if (t > hoyLima(o.hoy).getTime()) return { tipo: 'invalida', motivo: 'La fecha del comprobante es futura', dia: lectura.fecha };
+  if (t > hoyEn(zona, o.hoy).getTime()) return { tipo: 'invalida', motivo: 'La fecha del comprobante es futura', dia: lectura.fecha };
   if (t < diaCalendario(o.emision).getTime() - DIAS_ANTES_EMISION_VOUCHER * DIA) return { tipo: 'invalida', motivo: `La fecha del comprobante es anterior a la emisión del recibo por más de ${DIAS_ANTES_EMISION_VOUCHER} días`, dia: lectura.fecha };
-  return { tipo: 'aplicar', fecha: new Date(t + DIA / 2), dia: lectura.fecha };
+  return { tipo: 'aplicar', fecha: mediodiaDe(lectura.fecha, zona), dia: lectura.fecha };
 }
 
 export const MOTIVO_NO_COINCIDE = 'El comprobante no coincide con el pago: la fecha no se aplica';
@@ -60,7 +73,7 @@ export const MOTIVO_OTRO_PERIODO = 'El mensaje del comprobante nombra otro mes q
  */
 export function decidirFechaEvaluada(
   lectura: Pick<Lectura, 'fecha' | 'es_comprobante_de_pago' | 'legible' | 'estado_operacion' | 'mensaje'>,
-  o: { hoy: Date; emision: Date; veredicto: Veredicto; periodo: { mes: number; anio: number } | null },
+  o: { hoy: Date; emision: Date; zona?: string; veredicto: Veredicto; periodo: { mes: number; anio: number } | null },
 ): DecisionFecha {
   if (o.veredicto === 'no_coincide') return { tipo: 'no_leida', motivo: MOTIVO_NO_COINCIDE };
   const base = decidirFecha(lectura, o);
@@ -74,8 +87,9 @@ export function decidirFechaEvaluada(
  * posterior no se puede leer. Devuelve la `fecha_pago` que quedó (la que debe usar una validación automática) o `null` si no hay pago.
  */
 export async function aplicarFechaDelVoucher(pagoId: number, decision: DecisionFecha): Promise<{ fecha_pago: Date; origen: OrigenFecha } | null> {
-  const pago = await prisma.pago.findUnique({ where: { id: pagoId }, select: { id: true, grupo: true, fecha_pago: true, fecha_declarada: true, fecha_origen: true } });
+  const pago = await prisma.pago.findUnique({ where: { id: pagoId }, select: { id: true, grupo: true, fecha_pago: true, fecha_declarada: true, fecha_origen: true, reciboConceptoUnidad: { select: { reciboConcepto: { select: { recibo: { select: { complejo: { select: { zona_horaria: true } } } } } } } } } });
   if (!pago) return null;
+  const zona = pago.reciboConceptoUnidad?.reciboConcepto?.recibo?.complejo?.zona_horaria ?? ZONA_POR_DEFECTO;
   if (pago.fecha_origen === 'manual') return { fecha_pago: pago.fecha_pago, origen: 'manual' };
   const declarada = pago.fecha_declarada ?? pago.fecha_pago;
   const origen: OrigenFecha = decision.tipo === 'aplicar' ? 'voucher' : decision.tipo;
@@ -94,7 +108,7 @@ export async function aplicarFechaDelVoucher(pagoId: number, decision: DecisionF
       accion: 'fecha_pago_voucher',
       entidad: 'pago',
       entidad_id: pagoId,
-      detalle: { origen, anterior: diaLima(pago.fecha_pago), nueva: diaLima(nueva), ...(decision.tipo === 'aplicar' ? {} : { motivo: decision.motivo, ...(decision.tipo === 'invalida' ? { leida: decision.dia } : {}) }) },
+      detalle: { origen, anterior: diaEnZona(pago.fecha_pago, zona), nueva: diaEnZona(nueva, zona), ...(decision.tipo === 'aplicar' ? {} : { motivo: decision.motivo, ...(decision.tipo === 'invalida' ? { leida: decision.dia } : {}) }) },
     });
   }
   return { fecha_pago: nueva, origen };

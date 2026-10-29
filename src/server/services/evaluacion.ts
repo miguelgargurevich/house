@@ -7,8 +7,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError } from '../errors';
 import { cooldownDeps, estaEnfriando, parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
-import { MONEDA_POR_DEFECTO } from '../../lib/paises';
-import { hoyLima } from '../lib/fechas';
+import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO } from '../../lib/paises';
+import { hoyEn } from '../lib/fechas';
 import { PROMPT_USUARIO, parsearLectura, promptSistema, type Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
 import { cabecerasDe, fetchProveedor } from './llavero';
@@ -313,7 +313,7 @@ const pagoParaEvaluar = {
     select: {
       id: true,
       unidad: { select: { complejo_id: true, estructura_id: true, complejo: { select: { validacion_automatica_ia: true } } } },
-      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true, mes: true, anio: true, complejo_id: true, complejo: { select: { moneda: true } } } } } },
+      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true, mes: true, anio: true, complejo_id: true, complejo: { select: { moneda: true, zona_horaria: true } } } } } },
     },
   },
 } satisfies Prisma.PagoInclude;
@@ -343,6 +343,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   }
 
   const moneda = cargo0?.reciboConcepto?.recibo?.complejo?.moneda ?? MONEDA_POR_DEFECTO;
+  const zona = cargo0?.reciboConcepto?.recibo?.complejo?.zona_horaria ?? ZONA_POR_DEFECTO; // la fecha del voucher se juzga con el día del condominio
   const salida = await leerConRotacion({ mime: archivo.tipo_mime, base64: Buffer.from(archivo.datos).toString('base64'), moneda });
   let lectura: Lectura | null = salida.tipo === 'texto' ? parsearLectura(salida.texto) : null; // el texto del modelo no se guarda ni se obedece: sólo cuenta si valida el esquema estricto
   let origen: Origen | null = lectura && salida.tipo === 'texto' ? { proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo } : null;
@@ -411,7 +412,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const totalGrupo = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto : null;
   let c = contrastar(
     lectura,
-    { monto: (totalGrupo ?? pago.monto).toString(), moneda, emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()), periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null },
+    { monto: (totalGrupo ?? pago.monto).toString(), moneda, emision: recibo ? hoyEn(zona, recibo.fecha_emision) : hoyEn(zona, pago.created_at), hoy: hoyEn(zona, evaluacionDeps.ahora()), periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null },
     medios.map(medioParaContraste),
     { archivoEnPago: mismoArchivo?.pago_id ?? null, operacionEnPago: mismaOperacion?.pago_id ?? null },
   );
@@ -438,7 +439,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   // Tampoco la de un comprobante que no coincide con el pago o cuyo mensaje nombra otro mes: es el voucher de otro pago.
   const decision: DecisionFecha = origen.ocr
     ? { tipo: 'no_leida', motivo: 'La fecha se leyó con OCR (sin IA) y no se aplica sola' }
-    : decidirFechaEvaluada(lectura, { hoy: evaluacionDeps.ahora(), emision: recibo?.fecha_emision ?? hoyLima(pago.created_at), veredicto: c.veredicto, periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null });
+    : decidirFechaEvaluada(lectura, { hoy: evaluacionDeps.ahora(), zona, emision: recibo?.fecha_emision ?? hoyEn(zona, pago.created_at), veredicto: c.veredicto, periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null });
   const fecha = await aplicarFechaDelVoucher(pagoId, decision);
   const duplicado = mismoArchivo != null || mismaOperacion != null;
   // Una fecha leída pero no creíble (futura o muy antigua) deja el pago para que una persona lo revise: la IA no lo valida sola. El OCR nunca valida.

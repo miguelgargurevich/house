@@ -3,7 +3,8 @@ import { prisma } from '../db';
 import { conflict, invalid, notFound } from '../errors';
 import { ROLES_RESIDENTE } from '../config';
 import { revocarDeUsuario } from '../services/sesiones';
-import { hoyLima } from './fechas';
+import { ZONA_POR_DEFECTO } from '../../lib/paises';
+import { hoyEn } from './fechas';
 
 type Tx = Prisma.TransactionClient;
 
@@ -13,10 +14,16 @@ type Tx = Prisma.TransactionClient;
  * Hay un solo contrato vigente por condominio: lo garantiza esta función (bloquea la fila del condominio) y una prueba.
  */
 
+/** El día de hoy en la zona del condominio: la fecha con la que empieza un contrato que no dice otra. */
+async function hoyDelCondominio(tx: Tx, complejoId: number): Promise<Date> {
+  const c = await tx.complejoHabitacional.findUnique({ where: { id: complejoId }, select: { zona_horaria: true } });
+  return hoyEn(c?.zona_horaria ?? ZONA_POR_DEFECTO);
+}
+
 /** Inicio de un contrato que no se registró: el primer recibo del condominio, o hoy. */
 async function inicioEstimado(tx: Tx, complejoId: number): Promise<Date> {
   const primero = await tx.recibo.findFirst({ where: { complejo_id: complejoId }, orderBy: { fecha_emision: 'asc' }, select: { fecha_emision: true } });
-  return primero?.fecha_emision ?? hoyLima();
+  return primero?.fecha_emision ?? (await hoyDelCondominio(tx, complejoId));
 }
 
 /** Cambia la administradora de un condominio: cierra el contrato vigente, abre el nuevo y mueve lo que sigue a la empresa vigente, todo en una transacción. */
@@ -35,7 +42,7 @@ export async function cambiarAdministradora(complejoId: number, empresaId: numbe
       vigente = await tx.contratoAdministracion.create({ data: { complejo_id: complejoId, empresa_id: complejo.empresa_id, fecha_inicio: await inicioEstimado(tx, complejoId) } });
     }
     if (vigente?.empresa_id === empresaId) throw conflict('Esa empresa ya administra este condominio');
-    const inicio = opts.fecha_inicio ?? hoyLima();
+    const inicio = opts.fecha_inicio ?? (await hoyDelCondominio(tx, complejoId));
     if (vigente && inicio < vigente.fecha_inicio) {
       throw invalid('Datos inválidos: fecha_inicio: no puede ser anterior al inicio del contrato vigente', { fecha_inicio: 'Anterior al contrato vigente' });
     }
@@ -63,6 +70,7 @@ export async function cambiarAdministradora(complejoId: number, empresaId: numbe
 }
 
 /** Condominio nuevo: abre su primer contrato vigente. */
-export async function abrirContrato(tx: Tx, complejoId: number, empresaId: number, inicio: Date = hoyLima(), observaciones: string | null = null) {
+export async function abrirContrato(tx: Tx, complejoId: number, empresaId: number, inicio?: Date, observaciones: string | null = null) {
+  inicio ??= await hoyDelCondominio(tx, complejoId);
   return tx.contratoAdministracion.create({ data: { complejo_id: complejoId, empresa_id: empresaId, fecha_inicio: inicio, observaciones } });
 }
