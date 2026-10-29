@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — OpenCode (MiniMax M3.1) — Lectura del handoff y el estado real del árbol
+
+- Me puse al día con el handoff (habían entrado muchas sesiones de Claude Code: juntas directivas, comunicados, multimoneda, historial con pestañas, usuario arriba a la derecha, medios de pago por block). **`main` = `1896bd9`, sincronizado con `origin/main`.**
+- **Lo mío sigue en pie:** el menú sin «Personas» (Proveedores en Operación, Resumen · Empresas · Condominios en un solo grupo sin rótulo) y las acciones dentro de la pestaña Datos de las fichas de condominio y empresa. Las sesiones siguientes agregaron «Comunicados» y «Juntas directivas» a Operación y actualizaron la aserción del test de menú: la pila quedó coherente.
+- **Lo que estaba roto era el entorno local, no el código:** la base `house_test` quedó con el esquema viejo (le faltaban `PagoSuscripcion`, `Comunicado`, `JuntaDirectiva`, `ImpuestoPais`…) y la suite daba **80 fallos** que no eran de nadie. Se arregló aplicando el esquema actual **sólo a la base de pruebas**: `DATABASE_URL=postgresql://postgres:house@localhost:5433/house_test npx prisma db push` (las pruebas la vacían en cada archivo).
+- **Verificado:** `npm test` → **2180 tests, 2179–2180 en verde**; `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` limpios.
+- **Gotcha (flaco bajo carga):** la corrida completa deja **1 fallo que cambia de test según la corrida** y pasa aislado en milisegundos (esta vez `multimoneda` «cambiar la moneda», la anterior `comercial-puertas` «con el módulo responde», 5 s). Es el mismo patrón intermitente que ya reportaron otras sesiones: un archivo parece fallar y es el tiempo, no la lógica.
+- **Pendientes que dejó el handoff (de otras sesiones), por si hay que tomar alguno:** (1) el eje del `LineChart` en «Tú contra tu block» arranca en 0 y las dos líneas se montan cuando los montos son parecidos; (2) «Costo por m³» sin datos reales (la base local no trae lecturas de agua de ese usuario); (3) la migración real de juntas contra producción (`scripts/migrar-juntas.ts --aplicar --produccion`, con OK de Miguel); (4) decidir si `/admin/residentes` y `/admin/personal` se borran o quedan como acceso directo (ya están fuera del menú y del prompt del asistente).
+
+---
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Revisión e integración de las pestañas de «Mi historial» + fuga del promedio de agua
 
 - Integré con cherry-pick los 2 commits de Sonnet (`feat/historial-pestanas`): revisé el diff, `npm test` 2180/2180, tipos, y mutación de la regla del total del block (rojo). En local, con el seed de 12 meses: las 6 pestañas, «Tú contra tu block» y 375 px sin scroll horizontal.
