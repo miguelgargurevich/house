@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Salida a producción de las fases multi-país
+
+- Desplegado main dc244d2 en Coolify (teléfono con país, multimoneda, impuesto por país, zona horaria y confirmación de «Cerrar sesión»). `prisma db push` al arrancar aplicó el esquema; `ImpuestoPais` sembrado (20 países); el condominio 1 quedó en PE/PEN/America/Lima.
+- Verificado: `/api/publico/cotizar?pais=PE&plan=pro&unidades=10` → S/ 50.00 + IGV 9.00 (mínimo de 20 unidades); `pais=CL` → `consultar: true` (no hay precios en CLP).
+- `scripts/normalizar-telefonos.ts --aplicar --produccion` con OK de Miguel: 4 de 5 teléfonos pasados a formato internacional; una segunda simulación da 0 cambios.
+- Limpieza: worktrees telefono-pais, multimoneda, impuesto-pais y zona-horaria quitados; bases house_test_tel/moneda/imp/tz borradas.
+- Próximos pasos: cargar precios en otras monedas desde Suscripciones si se quiere vender fuera de Perú.
+
+---
+
 ## 2026-10-28 — Claude Code (Sonnet 5.5, delegado por Opus) — Zona horaria por condominio (fase 4)
 
 - Pedido: «la aplicación sea multimoneda, multi IGV/IVA…» (fase 4: zona horaria por condominio). Rama `feat/zona-horaria`, sobre main local bd967c7. Contrato en `docs/API-CONTRATO.md` («Zona horaria por condominio»).
