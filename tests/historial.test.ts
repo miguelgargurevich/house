@@ -5,12 +5,12 @@ import { after, before, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
 import XLSX from 'xlsx';
 import { cabecerasDeSesion, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
-import { MIN_LECTURAS_PROMEDIO } from '../src/server/services/historial';
+import { MIN_LECTURAS_PROMEDIO, MIN_UNIDADES_PROMEDIO } from '../src/server/services/historial';
 
 let base: string;
 let cerrar: () => Promise<void>;
 let d: Datos;
-let T: Record<'propH' | 'inqH' | 'propL' | 'propSin' | 'prop2' | 'adminA', string>;
+let T: Record<'propH' | 'inqH' | 'propL' | 'propSin' | 'prop2' | 'adminA' | 'propM', string>;
 let H1: { id: number };
 let H2: { id: number };
 let L1: { id: number };
@@ -60,7 +60,7 @@ before(async () => {
   // H-1 en 2025. Ene: pagó el día del vencimiento a las 22:00 de Lima (ya es el día siguiente en UTC). Feb: 2 días tarde. May: 5 días antes.
   const ene = await mes(H1, { anio: 2025, mes: 1, vence: '2025-02-10', conceptos: [['Agua', 40], ['Limpieza', 60]], pago: { fecha: '2025-02-11T03:00:00.000Z' } });
   const feb = await mes(H1, { anio: 2025, mes: 2, vence: '2025-03-10', conceptos: [['Agua', 50], ['Limpieza', 60]], pago: { fecha: '2025-03-12T15:00:00.000Z' } });
-  await mes(H1, { anio: 2025, mes: 3, vence: '2025-04-10', conceptos: [['Agua', 30], ['Limpieza', 60], ['Mora', 15]] }); // sin pagar: vencido
+  const mar = await mes(H1, { anio: 2025, mes: 3, vence: '2025-04-10', conceptos: [['Agua', 30], ['Limpieza', 60], ['Mora', 15]] }); // sin pagar: vencido
   await mes(H1, { anio: 2025, mes: 4, vence: '2025-05-10', conceptos: [['Agua', 20], ['Limpieza', 60]], pago: { fecha: '2025-05-09T15:00:00.000Z', estado: 'por_validar' } }); // en revisión
   await mes(H1, { anio: 2025, mes: 5, vence: '2025-06-10', conceptos: [['Agua', 30], ['Limpieza', 60]], pago: { fecha: '2025-06-05T15:00:00.000Z' } });
   await mes(H1, { anio: 2025, mes: 6, vence: '2025-07-10', conceptos: [['Agua', 40], ['Limpieza', 60]], pago: { fecha: '2025-07-01T15:00:00.000Z', cargos: [0] } }); // pagó sólo el agua
@@ -74,6 +74,27 @@ before(async () => {
   await lectura(H1, feb.id, 110, 122.5);
   await lectura(d.unidadA2, feb.id, 330, 337.5);
 
+  // Total del block: los recibos de H-1 traen también cargos de otros departamentos (montos que el residente nunca debe ver).
+  //  ene: H-1 100 + H-2 70 + A-101 55.50 + A-102 94.50 → 4 unidades, promedio 80.00 (H-1 y H-2 son del mismo dueño: quedan 2 ajenas).
+  //  feb: H-1 110 + A-102 41.25 → sólo 2 unidades: sin promedio.  mar: H-1 105 + A-101 201.75 + A-102 38.25 → justo 3 unidades: promedio 115.00.
+  await mes(d.unidadA1, { anio: 2025, mes: 1, vence: '2025-02-10', conceptos: [['Cuota', 55.5]], recibo: ene });
+  await mes(d.unidadA2, { anio: 2025, mes: 1, vence: '2025-02-10', conceptos: [['Cuota', 94.5]], recibo: ene });
+  await mes(d.unidadA2, { anio: 2025, mes: 2, vence: '2025-03-10', conceptos: [['Cuota', 41.25]], recibo: feb });
+  await mes(d.unidadA1, { anio: 2025, mes: 3, vence: '2025-04-10', conceptos: [['Cuota', 201.75]], recibo: mar });
+  await mes(d.unidadA2, { anio: 2025, mes: 3, vence: '2025-04-10', conceptos: [['Cuota', 38.25]], recibo: mar });
+
+  // M-1 y M-2 (mismo dueño) en 2023. ene: con A-101 sólo hay 1 unidad ajena → el promedio dejaría ver su monto exacto. feb: con A-101 y A-102, 2 ajenas.
+  const propM = await usuario('Propietario Doble', 'prop.m@test.pe', 'propietario');
+  const M1 = await unidad('M-1', propM.id);
+  const M2 = await unidad('M-2', propM.id);
+  const m23ene = await mes(M1, { anio: 2023, mes: 1, vence: '2023-02-10', conceptos: [['Mantenimiento', 50]] });
+  await mes(M2, { anio: 2023, mes: 1, vence: '2023-02-10', conceptos: [['Mantenimiento', 30]], recibo: m23ene });
+  await mes(d.unidadA1, { anio: 2023, mes: 1, vence: '2023-02-10', conceptos: [['Cuota', 71.4]], recibo: m23ene });
+  const m23feb = await mes(M1, { anio: 2023, mes: 2, vence: '2023-03-10', conceptos: [['Mantenimiento', 50]] });
+  await mes(M2, { anio: 2023, mes: 2, vence: '2023-03-10', conceptos: [['Mantenimiento', 30]], recibo: m23feb });
+  await mes(d.unidadA1, { anio: 2023, mes: 2, vence: '2023-03-10', conceptos: [['Cuota', 71.4]], recibo: m23feb });
+  await mes(d.unidadA2, { anio: 2023, mes: 2, vence: '2023-03-10', conceptos: [['Cuota', 88.6]], recibo: m23feb });
+
   // L-1: 14 meses seguidos (2024-01 a 2025-02), todos sin pagar y de S/ 10.
   for (let i = 0; i < 14; i++) {
     const anio = 2024 + Math.floor(i / 12);
@@ -83,7 +104,7 @@ before(async () => {
 
   T = {
     propH: await login(base, 'prop.h@test.pe'), inqH: await login(base, 'inq.h@test.pe'), propL: await login(base, 'prop.l@test.pe'),
-    propSin: await login(base, 'prop.sin@test.pe'), prop2: await login(base, 'prop2@test.pe'), adminA: await login(base, 'admin.a@test.pe'),
+    propSin: await login(base, 'prop.sin@test.pe'), prop2: await login(base, 'prop2@test.pe'), propM: await login(base, 'prop.m@test.pe'), adminA: await login(base, 'admin.a@test.pe'),
   };
 });
 after(async () => { await cerrar(); await prisma.$disconnect(); });
@@ -185,6 +206,29 @@ describe('GET /api/me/historial: los meses', () => {
     assert.equal(mesDe(r.body, 2025, 3, 'H-1').agua_promedio_block, null);
     assert.ok(!r.texto.includes('30.000') && !r.texto.includes('7.500'), 'el consumo de otro departamento nunca sale');
     assert.equal(r.body.resumen.agua_promedio_m3, '11.250');
+  });
+
+  it('total del block: el promedio del total de las unidades del recibo, sólo con las suficientes y nunca con montos de otro', async () => {
+    assert.equal(MIN_UNIDADES_PROMEDIO, 3);
+    const r = await historial(T.propH, '?anio=2025');
+    assert.equal(mesDe(r.body, 2025, 1, 'H-1').total_promedio_block, '80.00', '(100 + 70 + 55.50 + 94.50) ÷ 4');
+    assert.equal(mesDe(r.body, 2025, 1, 'H-2').total_promedio_block, '80.00', 'el mismo recibo, el mismo promedio');
+    assert.equal(mesDe(r.body, 2025, 2, 'H-1').total_promedio_block, null, 'dos unidades en el recibo: el promedio dejaría ver el monto del vecino');
+    assert.equal(mesDe(r.body, 2025, 3, 'H-1').total_promedio_block, '115.00', 'justo el mínimo de unidades: se publica');
+    assert.equal(mesDe(r.body, 2025, 4, 'H-1').total_promedio_block, null, 'un recibo donde sólo está la unidad propia');
+    for (const m of r.body.meses) assert.ok(m.total_promedio_block === null || MONTO.test(m.total_promedio_block));
+    for (const ajeno of ['55.50', '94.50', '41.25', '201.75', '38.25']) assert.ok(!r.texto.includes(ajeno), `el monto de otro departamento (${ajeno}) nunca sale`);
+    assert.ok(!r.texto.includes('A-101') && !r.texto.includes('A-102'), 'ni sus códigos');
+    assert.deepEqual(Object.keys(mesDe(r.body, 2025, 1, 'H-1')).filter((k) => /unidades|cantidad|n_|count/i.test(k)), [], 'tampoco cuántas unidades hay');
+  });
+
+  it('total del block: quien tiene dos unidades en el recibo necesita al menos 2 ajenas (con 1, el promedio revelaría su monto exacto)', async () => {
+    const r = await historial(T.propM, '?anio=2023');
+    assert.equal(r.status, 200);
+    assert.equal(mesDe(r.body, 2023, 1, 'M-1').total_promedio_block, null, '3 unidades pero 2 son suyas: promedio × 3 − lo suyo = el monto de A-101');
+    assert.equal(mesDe(r.body, 2023, 1, 'M-2').total_promedio_block, null);
+    assert.equal(mesDe(r.body, 2023, 2, 'M-1').total_promedio_block, '60.00', '(50 + 30 + 71.40 + 88.60) ÷ 4');
+    assert.ok(!r.texto.includes('71.40') && !r.texto.includes('88.60'));
   });
 
   it('sin año: los últimos 12 meses con recibo (L-1 tiene 14)', async () => {

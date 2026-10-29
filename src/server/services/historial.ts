@@ -18,6 +18,12 @@ type Dec = Prisma.Decimal;
 export const MESES_POR_DEFECTO = 12;
 /** Con menos lecturas en el recibo, el promedio del block no se publica: con 1 o 2 vecinos se podría adivinar el consumo de otro. */
 export const MIN_LECTURAS_PROMEDIO = 3;
+/**
+ * El promedio del total del block sale con al menos estas unidades en el recibo (la tuya incluida). Se exige que `MIN_UNIDADES_PROMEDIO - 1` sean
+ * AJENAS (eso ya implica el mínimo): con 1 ajena, quien tiene dos unidades en el recibo despejaría su monto (promedio × n − lo suyo).
+ * Nunca se devuelve cuántas unidades hay.
+ */
+export const MIN_UNIDADES_PROMEDIO = 3;
 
 export interface UnidadHistorial { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null; /** Moneda de su condominio. */ moneda: string }
 
@@ -47,6 +53,8 @@ export interface MesHistorial {
   agua_m3: string | null;
   /** Promedio del recibo (block) en m³; `null` si hay menos de `MIN_LECTURAS_PROMEDIO` lecturas. */
   agua_promedio_block: string | null;
+  /** Promedio del total de las unidades del mismo recibo (misma moneda); `null` si hay pocas unidades (ver `MIN_UNIDADES_PROMEDIO`). */
+  total_promedio_block: string | null;
 }
 
 /** Las cifras en dinero del resumen; se calculan por moneda (nunca se suman monedas distintas). */
@@ -199,6 +207,21 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
         WHERE recibo_id IN (${Prisma.join(reciboIds)})
         GROUP BY recibo_id`
     : [];
+  // Total del block: el promedio, por recibo, del total de cada unidad. Se publica sólo si hay las unidades suficientes y no las despeja quien tiene varias.
+  const propias = unidades.map((u) => u.id); // TODAS las unidades del residente, no sólo la filtrada: lo que él sabe de sí no cambia con el filtro
+  const totales = reciboIds.length
+    ? await prisma.$queryRaw<{ recibo_id: number; ajenas: bigint; promedio: Dec }[]>`
+        SELECT recibo_id, COUNT(*) FILTER (WHERE unidad_id NOT IN (${Prisma.join(propias)})) AS ajenas, AVG(total) AS promedio
+        FROM (
+          SELECT rc.recibo_id, rcu.unidad_id, SUM(rcu.monto) AS total
+          FROM "ReciboConceptoUnidad" rcu
+          JOIN "ReciboConcepto" rc ON rc.id = rcu.recibo_concepto_id
+          WHERE rc.recibo_id IN (${Prisma.join(reciboIds)}) AND rcu.unidad_id IS NOT NULL
+          GROUP BY rc.recibo_id, rcu.unidad_id
+        ) por_unidad
+        GROUP BY recibo_id`
+    : [];
+  const totalPromedioDe = new Map(totales.filter((t) => Number(t.ajenas) >= MIN_UNIDADES_PROMEDIO - 1).map((t) => [t.recibo_id, dec(t.promedio)]));
   const aguaDe = new Map(lecturas.map((l) => [`${l.recibo_id}-${l.unidad_id}`, consumoM3(l.lectura_anterior, l.lectura_actual)]));
   const promedioDe = new Map(promedios.filter((p) => Number(p.n) >= MIN_LECTURAS_PROMEDIO).map((p) => [p.recibo_id, dec(p.promedio)]));
 
@@ -210,6 +233,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
     const fechaPago = estado === 'pagado' && fechas.length ? new Date(Math.max(...fechas.map((f) => f.getTime()))) : null;
     const agua = aguaDe.get(`${g.recibo_id}-${g.unidad.id}`);
     const promedio = promedioDe.get(g.recibo_id);
+    const totalPromedio = totalPromedioDe.get(g.recibo_id);
     return {
       recibo_id: g.recibo_id,
       anio: g.anio,
@@ -227,6 +251,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
       dias_vs_vencimiento: fechaPago ? diasEntre(g.vence, hoyEn(g.zona, fechaPago)) : null, // el día del pago en el condominio, no en UTC
       agua_m3: agua ? agua.toFixed(3) : null,
       agua_promedio_block: agua && promedio ? promedio.toFixed(3) : null,
+      total_promedio_block: totalPromedio ? totalPromedio.toFixed(2) : null,
     };
   });
 
