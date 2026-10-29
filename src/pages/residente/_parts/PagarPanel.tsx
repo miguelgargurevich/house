@@ -3,20 +3,16 @@ import type { ChangeEvent } from 'react';
 import { CameraIcon } from '@heroicons/react/24/outline';
 import { ACCEPT_COMPROBANTE, tamanoLegible } from '../../shared/comprobantes';
 import { Button, Input, Select, Skeleton, fechaCorta, soles } from '../../../ui';
-import { ComoPagar } from './ComoPagar';
 import { FORM_PAGO } from './pago';
 import { METODOS } from './tipos';
-import type { MedioResidente, Metodo } from './tipos';
+import type { Metodo } from './tipos';
 import type { Mantenimiento } from '../../shared/mantenimiento/tipos';
 
 interface PanelProps {
   mant: Mantenimiento;
   /** Saldo a pagar; `null` mientras carga el detalle. */
   saldo: string | null;
-  medios: MedioResidente[] | null;
-  cargando: boolean;
-  errorDatos: string | null;
-  notas: string | null;
+  /** Correo del block (lo carga la junta): el voucher también se le manda ahí. */
   correoVouchers: string | null;
   metodo: Metodo;
   onMetodo: (m: Metodo) => void;
@@ -30,7 +26,7 @@ interface PanelProps {
   onEnviar: () => void;
 }
 
-/** Todo «Pagar mantenimiento» en un solo panel: cuánto, cómo pagar y el voucher. El pie (Cancelar / Enviar pago) es `PiePago`. */
+/** Todo «Pagar mantenimiento» en un solo panel: cuánto y el voucher. Las cuentas de pago van en el recibo. El pie (Cancelar / Enviar pago) es `PiePago`. */
 export function PanelPago(p: PanelProps) {
   const { mant } = p;
   const inputCamara = useRef<HTMLInputElement>(null);
@@ -47,14 +43,10 @@ export function PanelPago(p: PanelProps) {
         </p>
       </div>
 
-      <section aria-labelledby="pago-como" className="space-y-3">
-        <h3 id="pago-como" className="text-base font-semibold">Cómo pagar</h3>
-        <ComoPagar mant={mant} medios={p.medios} loading={p.cargando} error={p.errorDatos} notas={p.notas} correoVouchers={p.correoVouchers} />
-      </section>
-
       <section aria-labelledby="pago-voucher" className="space-y-3">
         <h3 id="pago-voucher" className="text-base font-semibold">Sube tu voucher</h3>
         <p className="text-sm text-muted">Cuando hayas pagado, sube la foto o el PDF de tu voucher y envía tu pago. Queda en revisión hasta que se valide.</p>
+        {p.correoVouchers && <p className="text-sm text-muted">Al enviarlo, también se lo mandamos a la junta del block (<span className="break-all font-medium">{p.correoVouchers}</span>).</p>}
         <form id={FORM_PAGO} onSubmit={e => { e.preventDefault(); p.onEnviar(); }} noValidate className="grid gap-4 sm:grid-cols-2">
           <div>
             <Input

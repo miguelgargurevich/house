@@ -11,7 +11,7 @@ import type { Metodo } from './tipos';
 import type { DetalleMantenimiento, Mantenimiento, ResultadoPagoMantenimiento } from '../../shared/mantenimiento/tipos';
 
 /**
- * Paga el MANTENIMIENTO completo del mes de un departamento en UN solo panel: cuánto, cómo pagar y el voucher (obligatorio).
+ * Paga el MANTENIMIENTO completo del mes de un departamento en UN solo panel: cuánto y el voucher (obligatorio). Las cuentas de pago están en el recibo.
  * Un solo envío (`multipart/form-data`): el servidor guarda el pago y el voucher juntos o no guarda nada.
  */
 interface Props { mant: Mantenimiento | null; onClose: () => void; onPagado: () => void }
@@ -84,10 +84,6 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
         <PanelPago
           mant={mant}
           saldo={d?.saldo ?? null}
-          medios={d?.medios_pago ?? null}
-          cargando={detalle.loading}
-          errorDatos={detalle.error}
-          notas={d?.condominio?.notas_pago ?? null}
           correoVouchers={d?.correo_vouchers ?? null}
           metodo={metodo}
           onMetodo={setMetodo}

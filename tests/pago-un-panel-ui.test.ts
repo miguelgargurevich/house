@@ -1,9 +1,9 @@
-// «Pagar mantenimiento» del residente en UN solo panel: monto, cómo pagar y el voucher (obligatorio) juntos, un solo envío multipart.
+// «Pagar mantenimiento» del residente en UN solo panel: monto y el voucher (obligatorio) juntos, un solo envío multipart.
 // El pie se renderiza de verdad (react-dom/server); la estructura del panel y el envío se fijan con la fuente (el repo no tiene testing-library
 // y `api.ts` usa `import.meta.env`, que Node no tiene, así que el panel completo no se puede importar aquí).
 import './helpers/env';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { before, describe, it } from 'node:test';
@@ -62,9 +62,9 @@ describe('un solo panel (adiós a los pasos «como» y «registrar»)', () => {
     assert.match(s, /<PiePago archivo=\{archivo\} enviando=\{enviando\} onCancelar=\{onClose\} \/>/);
   });
 
-  it('el panel trae, en este orden: el monto con su línea, «Cómo pagar» y «Sube tu voucher»', () => {
+  it('el panel trae, en este orden: el monto con su línea y «Sube tu voucher»', () => {
     const s = panel();
-    const orden = ['Monto a pagar', 'vence el {fechaCorta(mant.fecha_vencimiento)}', '>Cómo pagar<', '<ComoPagar ', '>Sube tu voucher<', 'label="Voucher (foto o PDF)"', 'label="¿Cómo pagaste?"', 'label="N.º de operación (opcional)"'].map((t) => s.indexOf(t));
+    const orden = ['Monto a pagar', 'vence el {fechaCorta(mant.fecha_vencimiento)}', '>Sube tu voucher<', 'label="Voucher (foto o PDF)"', 'label="¿Cómo pagaste?"', 'label="N.º de operación (opcional)"'].map((t) => s.indexOf(t));
     assert.ok(orden.every((i) => i >= 0), JSON.stringify(orden));
     assert.deepEqual([...orden].sort((a, b) => a - b), orden, 'el orden de arriba a abajo');
     assert.match(s, /mant\.titulo\.split\(' · '\)\[0\]} · \{mant\.unidad\.codigo\}\{mant\.unidad\.estructura\?\.nombre/);
@@ -83,13 +83,20 @@ describe('un solo panel (adiós a los pasos «como» y «registrar»)', () => {
     assert.match(modal(), /useState\(esTactil\)/);
   });
 
-  it('«Cómo pagar» ya no trae su tarjeta de monto (está arriba del panel) y los QR van plegados tras «Ver QR»', () => {
-    const c = fuente(`${RES}ComoPagar.tsx`);
-    assert.doesNotMatch(c, /Monto a pagar|saldo/);
-    assert.match(c, /Ver QR/);
-    assert.match(c, /aria-expanded=\{abierto\}/);
-    assert.match(c, /\{abierto && \([\s\S]*?<QrImagen /, 'la imagen no se pide hasta abrir el QR');
-    assert.equal(c.split('<QrImagen ').length - 1, 1);
+  it('el panel ya no tiene «Cómo pagar»: ni la sección, ni el componente, ni sus datos (medios, notas, QR); las cuentas siguen en el recibo', () => {
+    const s = panel();
+    assert.doesNotMatch(s, /Cómo pagar|ComoPagar|medios|notas|QrImagen|Ver QR|Notas de pago/);
+    assert.equal(existsSync(`${RES}ComoPagar.tsx`), false, 'el componente se borró');
+    assert.doesNotMatch(modal(), /ComoPagar|medios_pago|notas_pago/);
+    assert.match(fuente('src/pages/shared/mantenimiento/ReciboImprimible.tsx'), /numero_cuenta/);
+  });
+
+  it('bajo el texto de «Sube tu voucher» avisa que también se le manda a la junta del block, con su correo, sólo si el block lo tiene', () => {
+    const s = panel();
+    assert.match(s, /\{p\.correoVouchers && <p [^>]*>Al enviarlo, también se lo mandamos a la junta del block \(<span [^>]*>\{p\.correoVouchers\}<\/span>\)\.<\/p>\}/);
+    assert.ok(s.indexOf('Queda en revisión hasta que se valide.') < s.indexOf('Al enviarlo, también se lo mandamos'), 'debajo del texto');
+    assert.ok(s.indexOf('Al enviarlo, también se lo mandamos') < s.indexOf('<form id={FORM_PAGO}'), 'antes del formulario');
+    assert.match(modal(), /correoVouchers=\{d\?\.correo_vouchers \?\? null\}/);
   });
 });
 
@@ -135,5 +142,12 @@ describe('el asistente describe el pago en un solo panel', () => {
     assert.doesNotMatch(p, /Ya pagué/);
     assert.match(p, /Enviar pago/);
     assert.match(p, /voucher[^.]*obligatorio|obligatori[^.]*voucher/i);
+  });
+
+  it('el prompt ya no manda al vecino a «Cómo pagar» dentro del panel y dice que House avisa a la junta del block por correo', () => {
+    const p = fuente('src/config/ai-system-prompt.txt');
+    assert.doesNotMatch(p, /luego «Cómo pagar»|«Ver QR»/);
+    assert.match(p, /«Ver detalle» › «Ver \/ imprimir recibo»/);
+    assert.match(p, /House le manda tu voucher a la junta por correo[^.]*no hace falta que lo envíes tú/);
   });
 });

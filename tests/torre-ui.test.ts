@@ -188,12 +188,11 @@ describe('pantallas: la torre se ve y se filtra', () => {
     assert.match(s, /a\.contexto\?\.unidad\?\.torre \?\? r\.torre/);
   });
 
-  it('Residente: el block va junto al código de la unidad en recibos, pagos, inicio, cómo pagar y mis unidades', () => {
+  it('Residente: el block va junto al código de la unidad en recibos, pagos, inicio, el panel de pago y mis unidades', () => {
     assert.match(f(`${RES}MantenimientoItem.tsx`), /mant\.unidad\.estructura\?\.nombre/);
     assert.match(f(`${RES}CargosResidente.tsx`), /m\.unidad\.estructura\?\.nombre/);
     assert.match(f(`${RES}PagosResidente.tsx`), /p\.unidad\.estructura\?\.nombre/);
     assert.match(f(`${RES}InicioResidente.tsx`), /proximo_mantenimiento\.torre/);
-    assert.match(f(`${RES}ComoPagar.tsx`), /mant\.unidad\.estructura\?\.nombre/);
     assert.match(f(`${RES}PagarPanel.tsx`), /mant\.unidad\.estructura\?\.nombre/);
     assert.match(f(`${RES}UnidadesResidente.tsx`), /u\.estructura\?\.nombre/);
   });

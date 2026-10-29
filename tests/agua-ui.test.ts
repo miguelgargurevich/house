@@ -78,14 +78,12 @@ describe('junta: lecturas de agua de su torre', () => {
 });
 
 describe('vista del residente', () => {
-  it('el detalle muestra el consumo de agua, la fecha de corte, la deuda acumulada y el contacto; «Cómo pagar» lleva las notas', () => {
+  it('el detalle muestra el consumo de agua, la fecha de corte, la deuda acumulada y el contacto', () => {
     const det = f('residente/_parts/DetalleMantenimientoModal.tsx');
     assert.match(det, /<ConsumoAgua agua=\{d\.agua\}/);
     assert.match(det, /d\.fecha_corte_agua/);
     assert.match(det, /d\.deuda_acumulada/);
     assert.match(det, /d\.total_general/);
     assert.match(det, /Contacto de la administración/);
-    assert.match(f('residente/_parts/ComoPagar.tsx'), /Notas de pago/);
-    assert.match(f('residente/_parts/PagarModal.tsx'), /notas=\{d\?\.condominio\?\.notas_pago/);
   });
 });

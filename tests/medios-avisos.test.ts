@@ -148,14 +148,6 @@ describe('formulario y pantallas (prueba de fuente)', () => {
     assert.match(form, /ENTIDAD_OTRA/);
   });
 
-  it('el vecino ve la instrucción de recaudación, la moneda y el nombre real de la entidad', () => {
-    const como = leer('residente/_parts/ComoPagar.tsx');
-    assert.match(como, /m\.instruccion/);
-    assert.match(como, /m\.entidad/);
-    assert.match(como, /moneda_nombre/);
-    assert.match(como, /dólares/);
-  });
-
   it('el recibo imprimible muestra moneda, entidad e instrucción de recaudación', () => {
     const recibo = leer('shared/mantenimiento/ReciboImprimible.tsx');
     assert.match(recibo, /m\.instruccion/);
