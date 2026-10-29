@@ -16,7 +16,7 @@ export const comercialCorreo = {
   deps: (): DepsAvisos => depsReales(),
 };
 
-export const correoA = (destino: string | null, asunto: string, cuerpo: string, deps: DepsAvisos = comercialCorreo.deps()): Promise<ResultadoEnvio> => enviarCorreo(deps, destino, asunto, cuerpo);
+export const correoA = (destino: string | null, asunto: string, cuerpo: string, deps: DepsAvisos = comercialCorreo.deps(), html?: string): Promise<ResultadoEnvio> => enviarCorreo(deps, destino, asunto, cuerpo, undefined, html);
 
 /** Enlace a una pantalla pública. La base sale de la configuración (nunca de la cabecera Host de la petición: sería un enlace envenenable). */
 export function enlace(cfg: Pick<ConfiguracionComercial, 'url_publica'>, ruta: string): string {
