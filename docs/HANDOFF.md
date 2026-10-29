@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Haiku 5.5, delegado por Opus) — OpenAI: sin saldo es 402 y Auto no elige o1 ni babbage
+
+- Pedido de Miguel: «puse una key de open ai revisa si tiene modelos free» → la cuenta no tiene saldo (medido: `GET /models` 200 con 88 modelos; chat → 429 `insufficient_quota` / `credit_balance_exhausted`). El Llavero elegía mal el modelo y no avisaba «sin saldo». Rama `fix/openai-modelos`, worktree `.claude/worktrees/openai-modelos`, sobre origin/main d4d4a29.
+- **Hecho:** (1) `services/asistente/proveedor.ts`: un 400/403/429 cuyo cuerpo dice falta de saldo (`insufficient_quota`, `credit_balance_exhausted`, `billing_hard_limit_reached`, «exceeded your current quota») sale como **402**, sin `retryAfterMs`; el flujo existente lo trata como «La cuenta no tiene saldo». Un 429 de límite de tasa sigue 429. (2) `lib/modelosIA.ts`: NO_CHAT excluye babbage/davinci, gpt-3.5-turbo-instruct, realtime, codex, deep-research, search, o1-pro/o3-pro/gpt-5-pro (sólo Responses API). (3) `PREFERENCIAS.openai`: gpt-4o-mini, gpt-4.1-mini, gpt-5(.x)-mini, gpt-4o, gpt-4.1; la versión con fecha va detrás de la sin fecha.
+- **Pruebas:** `tests/openai-saldo.test.ts` (6 pruebas, `fetch` inyectado, sin red) y en `tests/modelos-chat.test.ts` (clasificación y Auto con un catálogo como el de producción). Mutaciones en rojo: quitar el 402, sólo 429, sin `insufficient_quota`, todo 429 a 402, quitar babbage, quitar search, quitar deep-research, quitar PREFERENCIAS.openai.
+- **Decisiones:** `motor.ts` y `rotacion.ts` sin tocar: el 402 ya rechaza la clave; el 402 de OpenRouter ya existía y sigue probando un `:free` antes de rechazar la clave (el cambio sólo toca 400/403/429 con esos textos). `gpt-5-pro` también excluido aunque el brief no lo listaba: la documentación de OpenAI lo marca como sólo Responses API.
+- **Gotchas:** `esInestable` marca los snapshots con fecha (`-MM-DD`) como inestables, así que en Auto van después de los estables; por eso el orden de la lista sólo se compara dentro de cada familia. Los `gpt-5*-mini` van en la lista de preferencia pero el cuerpo del chat manda `temperature`/`top_p`, que algunos modelos gpt-5 rechazan con 400 (el motor reintenta sin opcionales); no se probó contra OpenAI real.
+- **No hecho:** no se verificó en vivo tras el cambio (la clave de Miguel sigue sin saldo). «Sincronizar ahora» debería mover babbage-002 a 'otro' sin migración; no se probó contra la base de Miguel.
+- **Bases usadas:** sólo `house_test_openai` (local).
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Llavero: proveedores con clave arriba
 
 - `src/pages/superadmin/Llavero.tsx`: las tarjetas de proveedores se ordenan con clave primero y sin clave después (sort estable: dentro de cada grupo, el orden del servidor). «Cómo se usan» y los gateways no cambian. Test de fuente en `tests/llavero-ui.test.ts`.
