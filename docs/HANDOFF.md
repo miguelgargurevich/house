@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — El usuario pasa arriba a la derecha
+
+- Pedido de Miguel: «quita la sección del usuario del panel de menú y colócalo arriba a la derecha».
+- `src/app/MenuUsuario.tsx` (nuevo): avatar en la barra de arriba (con nombre y rol desde `sm`) que abre un menú con nombre, correo, rol, «Mi perfil» y «Cerrar sesión». Clic fuera, Escape (devuelve el foco) o cambiar de página lo cierran; flechas recorren las opciones. «Cerrar sesión» sigue pidiendo confirmación (`ConfirmDialog` en `Shell.tsx`).
+- `Shell.tsx`: se quitó el pie del menú lateral (usuario + cerrar sesión), también del riel colapsado y del cajón del celular.
+- Verificado: `npm test` en verde; en local a 1280 px y 375 px (sin scroll horizontal), el menú abre y «Cerrar sesión» muestra la confirmación.
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Nueva gestión: cuenta nueva por defecto
 
 - Pedido de Miguel: «normalmente cuando se cambia de junta se cambia de cuenta porque son nuevas personas».

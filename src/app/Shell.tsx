@@ -1,9 +1,10 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRightStartOnRectangleIcon, Bars3Icon, ChevronDoubleLeftIcon, MoonIcon, SparklesIcon, SunIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, ChevronDoubleLeftIcon, MoonIcon, SparklesIcon, SunIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../auth/AuthContext';
-import { Avatar, ConfirmDialog, IconButton, cx } from '../ui';
-import { PERFIL, ROL_LABEL, navPara } from './nav';
+import { ConfirmDialog, IconButton, cx } from '../ui';
+import { navPara } from './nav';
+import { MenuUsuario } from './MenuUsuario';
 import { useTheme } from './theme';
 import { Assistant } from './Assistant';
 import { useEscritorio, usePanelAbierto } from './asistente/useDock';
@@ -85,28 +86,6 @@ export function Shell() {
           </div>
         ))}
       </nav>
-      <div className={cx('border-t border-line', riel ? 'px-2 py-3' : 'p-3')}>
-        <Pista texto={riel ? `${user.nombre} · ${ROL_LABEL[user.rol]}` : undefined}>
-          <NavLink
-            to={PERFIL.to}
-            aria-label={riel ? `${PERFIL.label}: ${user.nombre}` : undefined}
-            className={({ isActive }) => cx('flex items-center gap-3 rounded px-3 py-2 transition-colors duration-150', riel && linkRiel, isActive ? 'bg-brand-soft' : 'hover:bg-surface2')}
-          >
-            <Avatar nombre={user.nombre} />
-            {!riel && (
-              <span className="min-w-0 leading-tight">
-                <span className="block truncate text-sm font-medium">{user.nombre}</span>
-                <span className="block truncate text-xs text-muted">{ROL_LABEL[user.rol]}</span>
-              </span>
-            )}
-          </NavLink>
-        </Pista>
-        <Pista texto={riel ? 'Cerrar sesión' : undefined}>
-          <button onClick={() => setConfirmarSalida(true)} aria-label={riel ? 'Cerrar sesión' : undefined} className={cx(link, riel && linkRiel, 'mt-1 w-full text-muted hover:bg-surface2 hover:text-ink')}>
-            <ArrowRightStartOnRectangleIcon className="h-5 w-5 shrink-0" /> {!riel && 'Cerrar sesión'}
-          </button>
-        </Pista>
-      </div>
     </div>
   );
 
@@ -145,6 +124,8 @@ export function Shell() {
             {dark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
           </IconButton>
           <IconButton label={chat.abierto ? 'Cerrar asistente' : 'Abrir asistente'} aria-pressed={chat.abierto} onClick={chat.alternar} className={chat.abierto ? '!text-brand' : undefined}><SparklesIcon className="h-5 w-5" /></IconButton>
+          <span className="mx-1 h-6 w-px bg-line" aria-hidden="true" />
+          <MenuUsuario user={user} onSalir={() => setConfirmarSalida(true)} />
         </div>
       </header>
 
@@ -154,7 +135,7 @@ export function Shell() {
       </div>
 
       <Assistant open={chat.abierto} onClose={chat.cerrar} escritorio={escritorio} barra={barra.ancho} />
-      {/* El botón queda justo debajo del usuario: un clic de más sacaba de la app. Se confirma antes de salir. */}
+      {/* Un clic de más en «Cerrar sesión» sacaba de la app: se confirma antes de salir. */}
       <ConfirmDialog open={confirmarSalida} onClose={() => setConfirmarSalida(false)} onConfirm={salir} title="¿Cerrar sesión?" message="Tendrás que volver a ingresar con tu correo y tu contraseña." confirmLabel="Cerrar sesión" />
     </div>
   );

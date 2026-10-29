@@ -61,9 +61,20 @@ describe('vista móvil', () => {
 
   it('cerrar sesión pide confirmación (el botón queda bajo el usuario y un clic de más sacaba de la app)', () => {
     const s = fuente('src/app/Shell.tsx');
-    assert.match(s, /onClick=\{\(\) => setConfirmarSalida\(true\)\}/);
+    assert.match(s, /<MenuUsuario user=\{user\} onSalir=\{\(\) => setConfirmarSalida\(true\)\} \/>/);
     assert.match(s, /<ConfirmDialog open=\{confirmarSalida\}.*onConfirm=\{salir\}.*title="¿Cerrar sesión\?"/);
     assert.doesNotMatch(s, /<button onClick=\{salir\}/);
+  });
+
+  it('el usuario va arriba a la derecha (menú con «Mi perfil» y «Cerrar sesión»), no al pie del menú lateral', () => {
+    const s = fuente('src/app/Shell.tsx');
+    assert.doesNotMatch(s, /PERFIL|<Avatar/, 'el menú lateral ya no lleva el usuario');
+    assert.match(s, /<header[\s\S]*<MenuUsuario[\s\S]*<\/header>/);
+    const m = fuente('src/app/MenuUsuario.tsx');
+    assert.match(m, /aria-haspopup="menu"/);
+    assert.match(m, /<NavLink to=\{PERFIL\.to\} role="menuitem"/);
+    assert.match(m, /onClick=\{\(\) => \{ setAbierto\(false\); onSalir\(\); \}\}/);
+    assert.match(m, /e\.key === 'Escape'/);
   });
 
   it('el pago parcial de un concepto queda oculto en el detalle del mantenimiento', () => {
