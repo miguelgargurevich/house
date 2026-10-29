@@ -8,6 +8,7 @@ import { Interruptor } from '../catalogo/Interruptor';
 import { ACCEPT_QR, errorDeQr, subirQr } from './qr';
 import { QrImagen } from './QrMiniatura';
 import { avisoCci, avisoLargoCuenta } from './avisos';
+import { nombreAmbito, textoCuentaJunta } from '../juntas/tipos';
 import { CODIGOS_PAGO, ENTIDAD_OTRA, MONEDAS, TIPOS, nombreTorre, palabraEstructura, useCatalogo } from './tipos';
 import type { Ambitos, Medio, TipoMedio } from './tipos';
 
@@ -38,6 +39,8 @@ interface Props {
   ambitos: Ambitos;
   /** Condominio/block elegidos en los filtros: valores iniciales del medio nuevo. */
   inicial?: { complejo_id: string; estructura_id: string };
+  /** Dentro de una junta: el medio nuevo es de ESA junta (su block y su gestión), sin elegir a quién va. */
+  junta?: { complejo_id: number; estructura: { id: number; nombre: string | null } | null; desde: string };
   onClose: () => void;
   onSaved: () => void;
 }
@@ -50,7 +53,7 @@ const vacio = (inicial: Props['inicial'], ambitos: Ambitos): Form => {
   return { tipo: 'banco', complejo_id: complejo, estructura_id: estructura, banco: 'BCP', banco_otro: '', tipo_cuenta: 'ahorros', numero_cuenta: '', cci: '', moneda: 'PEN', servicio: '', codigo_pago: 'departamento', codigo_instruccion: '', documento_titular: '', celular: '', titular: '', activo: true };
 };
 
-export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Props) {
+export function MedioFormModal({ medio, ambitos, inicial, junta, onClose, onSaved }: Props) {
   const toast = useToast();
   const nuevo = medio === 'nuevo';
   const { register, handleSubmit, reset, watch, control, formState: { errors, isSubmitting } } = useForm<Form>();
@@ -62,7 +65,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
   useEffect(() => {
     if (medio === null) return;
     reset(medio === 'nuevo'
-      ? vacio(inicial, ambitos)
+      ? vacio(junta ? { complejo_id: String(junta.complejo_id), estructura_id: junta.estructura ? String(junta.estructura.id) : '' } : inicial, ambitos)
       : {
           tipo: medio.tipo, complejo_id: String(medio.complejo_id), estructura_id: medio.estructura_id ? String(medio.estructura_id) : '',
           banco: medio.banco ?? 'BCP', banco_otro: medio.banco_otro ?? '', tipo_cuenta: medio.tipo_cuenta ?? 'ahorros', numero_cuenta: medio.numero_cuenta ?? '', cci: medio.cci ?? '',
@@ -70,7 +73,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
           documento_titular: medio.documento_titular ?? '', celular: medio.celular ?? '', titular: medio.titular, activo: medio.activo,
         });
     setArchivo(null); setErrorArchivo(undefined); setQuitarQr(false);
-  }, [medio, ambitos, inicial, reset]);
+  }, [medio, ambitos, inicial, junta, reset]);
 
   // Vista previa del archivo elegido; se libera al cambiar o cerrar.
   useEffect(() => {
@@ -140,13 +143,14 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={idForm} loading={isSubmitting}>{nuevo ? 'Agregar medio de pago' : 'Guardar cambios'}</Button></>}
     >
       <form id={idForm} onSubmit={handleSubmit(guardar)} className="grid gap-4 sm:grid-cols-2" noValidate>
-        {nuevo && !unCondominio && (
+        {nuevo && !unCondominio && !junta && (
           <Select label="Condominio" className="sm:col-span-2" error={errors.complejo_id && 'Elige el condominio'} {...register('complejo_id', { required: true })}>
             <option value="">Elige un condominio</option>
             {ambitos.complejos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </Select>
         )}
-        {nuevo && (ambitos.fijo
+        {nuevo && junta && <p className="text-sm text-muted sm:col-span-2">{textoCuentaJunta({ desde: junta.desde })} · <span className="font-medium text-ink">{nombreAmbito(junta.estructura)}</span></p>}
+        {nuevo && !junta && (ambitos.fijo
           ? <p className="text-sm text-muted sm:col-span-2"><span className="capitalize">{palabra.una}</span>: <span className="font-medium text-ink">{bloques[0] ? nombreTorre(bloques[0]) : '—'}</span></p>
           : (
             <Select label="¿Para quién es?" className="sm:col-span-2" hint={`Un medio de todo el condominio lo ven ${palabra.todas}.`} {...register('estructura_id')}>
@@ -154,7 +158,7 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
               {bloques.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
             </Select>
           ))}
-        {!nuevo && medio !== null && <p className="text-sm text-muted sm:col-span-2">Para: <span className="font-medium text-ink">{medio.estructura ? nombreTorre(medio.estructura) : 'Todo el condominio'}</span></p>}
+        {!nuevo && medio !== null && <p className="text-sm text-muted sm:col-span-2">{medio.junta ? <>{textoCuentaJunta(medio.junta)} · </> : 'Para: '}<span className="font-medium text-ink">{medio.estructura ? nombreTorre(medio.estructura) : 'Todo el condominio'}</span></p>}
 
         <Select label="Tipo de medio" className="sm:col-span-2" {...register('tipo', { required: true })}>
           {TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}

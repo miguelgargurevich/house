@@ -453,7 +453,7 @@ async function main() {
   const juntaB1Anterior = await prisma.juntaDirectiva.create({
     data: {
       complejo_id: complejo.id, estructura_id: blockId(1), desde: new Date(Date.UTC(2024, 0, 1)), hasta: new Date(Date.UTC(2025, 11, 31)), correo: 'junta.block1.2024@loslibertadores.example',
-      notas: 'Gestión 2024-2025', creado_por_id: ana,
+      notas: 'Elegida en la asamblea de diciembre de 2023', creado_por_id: ana,
       miembros: { create: anterioresB1.map((u, i) => ({ usuario_id: idPersona(u.duenoKey), cargo: cargosAnteriores[i]! })) },
     },
     select: { id: true },

@@ -150,8 +150,11 @@ export const cuentasActivas = (tx: Tx, juntaId: number) => tx.medioPago.findMany
 
 /** Copia cuentas a otra junta (registros nuevos, activos; los viejos quedan en el historial). */
 export async function copiarCuentas(tx: Tx, cuentas: Awaited<ReturnType<typeof cuentasActivas>>, aJuntaId: number, creadoPor: number | null): Promise<number> {
-  for (const { id: _id, created_at: _c, updated_at: _u, junta_id: _j, creado_por_id: _p, ...resto } of cuentas) {
-    await tx.medioPago.create({ data: { ...resto, junta_id: aJuntaId, creado_por_id: creadoPor, activo: true } });
+  for (const m of cuentas) {
+    // Todo lo de la cuenta (con su QR) menos lo que es del registro viejo: su id, sus fechas, su junta y quién la creó.
+    const datos: Record<string, unknown> = { ...m };
+    for (const k of ['id', 'created_at', 'updated_at', 'junta_id', 'creado_por_id']) delete datos[k];
+    await tx.medioPago.create({ data: { ...(datos as Prisma.MedioPagoUncheckedCreateInput), junta_id: aJuntaId, creado_por_id: creadoPor, activo: true } });
   }
   return cuentas.length;
 }

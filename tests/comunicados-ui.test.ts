@@ -67,11 +67,11 @@ describe('comunicados: menú y rutas', () => {
     }
   });
 
-  it('el grupo Junta (presidente y tesorero): Medios de pago, Pagos por validar, Lecturas de agua, Comunicados, Proveedores, Avisos; secretario y vocal no lo tienen', () => {
+  it('el grupo Junta (presidente y tesorero): Mi junta, Medios de pago, Pagos por validar, Lecturas de agua, Comunicados, Proveedores, Avisos; secretario y vocal no lo tienen', () => {
     for (const cargo of ['presidente', 'tesorero'] as const) {
       const junta = navPara(usuario('propietario', cargo)).find((g) => g.label === 'Junta')!;
-      assert.deepEqual(junta.items.map((i) => i.label), ['Medios de pago', 'Pagos por validar', 'Lecturas de agua', 'Comunicados', 'Proveedores', 'Avisos']);
-      assert.deepEqual(junta.items.map((i) => i.to), ['/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores', '/junta/avisos']);
+      assert.deepEqual(junta.items.map((i) => i.label), ['Mi junta', 'Medios de pago', 'Pagos por validar', 'Lecturas de agua', 'Comunicados', 'Proveedores', 'Avisos']);
+      assert.deepEqual(junta.items.map((i) => i.to), ['/junta/mi-junta', '/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores', '/junta/avisos']);
     }
     for (const cargo of ['secretario', 'vocal', null] as const) {
       assert.ok(!navPara(usuario('propietario', cargo)).some((g) => g.label === 'Junta'), String(cargo));

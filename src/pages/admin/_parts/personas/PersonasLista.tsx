@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { PencilSquareIcon, PlusIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../../../api';
 import type { Page } from '../../../../api';
@@ -26,7 +27,7 @@ interface Fila {
 }
 interface Form {
   nombre: string; email: string; telefono: string; rol: Rol; password: string; empresa_id: string;
-  cargo_junta: CargoJunta | ''; complejo_id: string; estructura_id: string; unidad: string; unidad_id: string;
+  complejo_id: string; unidad: string; unidad_id: string;
 }
 interface Opt { id: number; nombre: string; empresa_id?: number | null }
 interface TorreOpt { id: number; nombre: string | null }
@@ -107,12 +108,10 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
   const rolElegido = watch('rol');
   const esResidente = tipo === 'residente';
   const esPersonal = tipo === 'personal';
-  const cargoElegido = rolElegido === 'propietario' && watch('cargo_junta') !== '';
-  // Un residente nuevo debe nacer con condominio (si no, la administración no lo alcanzaría); la junta también lo exige.
-  const exigeCondominio = esResidente && ((editando === 'nuevo' && !esSuper) || cargoElegido);
+  // Un residente nuevo debe nacer con condominio (si no, la administración no lo alcanzaría).
+  const exigeCondominio = esResidente && editando === 'nuevo' && !esSuper;
   const complejoElegido = watch('complejo_id');
   const empresaElegida = watch('empresa_id');
-  const torresJunta = useResource<Page<TorreOpt>>(cargoElegido && complejoElegido ? `/api/estructuras?complejo_id=${complejoElegido}&pageSize=100` : null);
   // El superadmin elige la empresa del personal; el condominio donde trabaja debe ser de ella.
   const complejosDeLaEmpresa = (complejos.data?.items ?? []).filter(c => !esSuper || !esPersonal || !empresaElegida || String(c.empresa_id) === empresaElegida);
   // Con el condominio fijo (ficha del condominio) sólo se ofrecen sus condominios: el que se está viendo.
@@ -120,8 +119,8 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
 
   function abrir(f: Fila | 'nuevo') {
     reset(f === 'nuevo'
-      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: empresaId ? String(empresaId) : '', cargo_junta: '', complejo_id: complejoId ? String(complejoId) : '', estructura_id: '', unidad: '', unidad_id: '' }
-      : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? roles[0]!) as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', cargo_junta: f.cargo_junta ?? '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', estructura_id: f.estructura_id ? String(f.estructura_id) : '', unidad: f.unidades?.[0]?.codigo ?? '', unidad_id: f.unidades?.[0]?.id ? String(f.unidades[0].id) : '' });
+      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: empresaId ? String(empresaId) : '', complejo_id: complejoId ? String(complejoId) : '', unidad: '', unidad_id: '' }
+      : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? roles[0]!) as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', unidad: f.unidades?.[0]?.codigo ?? '', unidad_id: f.unidades?.[0]?.id ? String(f.unidades[0].id) : '' });
     setEditando(f);
   }
 
@@ -131,11 +130,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
     if (v.password) body.password = v.password;
     if (esResidente) {
       body.complejo_id = v.complejo_id ? Number(v.complejo_id) : null;
-      // El cargo sólo existe para propietarios; con cargo va también la torre de la junta.
-      if (v.rol === 'propietario') {
-        body.cargo_junta = v.cargo_junta || null;
-        if (v.cargo_junta) body.estructura_id = v.estructura_id ? Number(v.estructura_id) : null;
-      }
+      // El cargo en la junta ya no se manda desde aquí: se gestiona en «Juntas directivas» (la API lo rechaza).
       const codigo = v.unidad.trim();
       const unidadId = v.unidad_id ? Number(v.unidad_id) : null;
       const codigoActual = (editando as Fila)?.unidades?.[0]?.codigo ?? '';
@@ -310,7 +305,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
               label="Condominio"
               error={errors.complejo_id && 'Elige el condominio'}
               disabled={complejos.loading}
-              {...register('complejo_id', { validate: v => !exigeCondominio || v !== '', onChange: () => setValue('estructura_id', '') })}
+              {...register('complejo_id', { validate: v => !exigeCondominio || v !== '' })}
             >
               <option value="">{esSuper ? 'Sin condominio' : 'Elige un condominio'}</option>
               {complejosVisibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
@@ -325,19 +320,11 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
               {...register('unidad')}
             />
           )}
-          {esResidente && rolElegido === 'propietario' && (
-            <>
-              <Select label="Cargo en la junta" className="sm:col-span-2" hint="Presidente y tesorero gestionan los medios de pago y validan los pagos de su torre. Secretario y vocal no ganan permisos." {...register('cargo_junta')}>
-                <option value="">Ninguno</option>
-                {CARGOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </Select>
-              {cargoElegido && (
-                <Select label="Torre de la junta" className="sm:col-span-2" disabled={!complejoElegido || torresJunta.loading} hint={torresJunta.error ? 'No se pudieron cargar las torres.' : 'Sin torre, la junta alcanza todo el condominio.'} {...register('estructura_id')}>
-                  <option value="">Todo el condominio</option>
-                  {(torresJunta.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
-                </Select>
-              )}
-            </>
+          {esResidente && rolElegido === 'propietario' && editando !== 'nuevo' && editando !== null && (
+            <p className="text-sm text-muted sm:col-span-2" data-cargo-junta>
+              Cargo en la junta: <span className="font-medium text-ink">{editando.cargo_junta ? cargoLabel(editando.cargo_junta) : 'Ninguno'}</span>
+              {' · '}se gestiona en <Link className="font-medium text-brand underline underline-offset-2" to="/admin/juntas">Juntas directivas</Link>.
+            </p>
           )}
           <Input
             label={editando === 'nuevo' ? 'Contraseña' : 'Nueva contraseña'}

@@ -182,7 +182,7 @@ function ModalTorre({ torre, complejoId, onClose, onGuardada }: { torre: Torre |
           type="email"
           className="sm:col-span-2"
           placeholder="juntadirectiva.block1@gmail.com"
-          hint="Al que los vecinos envían su voucher de depósito; sale en su recibo."
+          hint="Al que los vecinos envían su voucher de depósito; sale en su recibo. Es el mismo correo de la junta del block («Juntas directivas»)."
           error={errors.correo_vouchers && 'Correo inválido'}
           {...register('correo_vouchers', { pattern: /^\S+@\S+\.\S+$|^$/ })}
         />

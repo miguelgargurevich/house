@@ -42,7 +42,7 @@ export function DatosRecibo({ reciboId, recibo, onCambio }: { reciboId: number; 
       </div>
       {recibo.estructura ? (
         <div className="flex items-end gap-2">
-          <Input label={`Correo del block${recibo.estructura.nombre ? ` (${recibo.estructura.nombre})` : ''}`} type="email" className="min-w-0 flex-1" hint="Al que los vecinos envían su voucher; sale en el recibo." error={errorCorreo} value={correo} onChange={e => setCorreo(e.target.value)} />
+          <Input label={`Correo del block${recibo.estructura.nombre ? ` (${recibo.estructura.nombre})` : ''}`} type="email" className="min-w-0 flex-1" hint="Al que los vecinos envían su voucher; sale en el recibo. Es el correo de la junta del block." error={errorCorreo} value={correo} onChange={e => setCorreo(e.target.value)} />
           <Button variant="secondary" className="mb-6" loading={guardando === 'correo'} disabled={!cambioCorreo} onClick={() => void guardarCorreo()}>Guardar</Button>
         </div>
       ) : (

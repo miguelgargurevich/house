@@ -51,7 +51,7 @@ describe('menú: cada grupo es un objeto de trabajo y la plataforma va al final'
     const cobranza = admin.find(g => g.label === 'Cobranza');
     const operacion = admin.find(g => g.label === 'Operación');
     assert.deepEqual(cobranza?.items.map(i => i.label), ['Recibos', 'Pagos', 'Medios de pago', 'Morosidad']);
-    assert.deepEqual(operacion?.items.map(i => i.label), ['Unidades', 'Mantenimiento', 'Conceptos', 'Avisos', 'Comunicados', 'WhatsApp', 'Proveedores']);
+    assert.deepEqual(operacion?.items.map(i => i.label), ['Unidades', 'Mantenimiento', 'Conceptos', 'Avisos', 'Comunicados', 'Juntas directivas', 'WhatsApp', 'Proveedores']);
     assert.ok(admin.indexOf(cobranza!) < admin.indexOf(operacion!), 'Cobranza antes que Operación');
   });
 
@@ -293,9 +293,12 @@ describe('vocabulario: la UI habla de torre, no de block', () => {
     }
   });
 
-  it('la junta se elige por torre y se explica que sin torre alcanza todo el condominio', () => {
+  it('la junta ya no se elige en Personas: se gestiona por torre en «Juntas directivas», que llama «torre» o «block» según el condominio', () => {
     const p = fuente('src/pages/admin/_parts/personas/PersonasLista.tsx');
-    assert.ok(p.includes('label="Torre de la junta"'), 'el rótulo');
-    assert.ok(p.includes('Sin torre, la junta alcanza todo el condominio.'), 'la ayuda');
+    assert.ok(!p.includes('label="Torre de la junta"'), 'Personas ya no elige la torre de la junta');
+    assert.ok(p.includes('Juntas directivas'), 'manda a la pantalla de juntas');
+    const j = fuente('src/pages/admin/Juntas.tsx');
+    assert.ok(j.includes('const palabra = palabraDe(items)'), 'la pantalla usa la palabra del condominio');
+    assert.ok(fuente('src/pages/admin/_parts/juntas/MiembrosEditor.tsx').includes('`del ${palabra}`'), 'el editor de miembros también');
   });
 });

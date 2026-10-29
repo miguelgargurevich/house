@@ -6,6 +6,7 @@ import { Alert, Button, Card, ConfirmDialog, DataTable, IconButton, PageHeader, 
 import type { Column } from '../../ui';
 import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
 import { Interruptor } from './_parts/catalogo/Interruptor';
+import { JuntasResumen } from './_parts/juntas/JuntasResumen';
 import { MedioFormModal } from './_parts/medios/MedioFormModal';
 import { ValidacionAutomaticaIA } from './_parts/medios/ValidacionAutomaticaIA';
 import { ambitoLabel, datoPrincipal, monedaCorta, nombreTorre, palabraEstructura, tipoLabel, useAmbitos } from './_parts/medios/tipos';
@@ -81,6 +82,7 @@ export default function MediosPago() {
       />
       {!esJunta && <ValidacionAutomaticaIA />}
       {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y las torres: {ambitos.error}</Alert></div>}
+      <JuntasResumen complejoId={complejo} torreId={torre} esJunta={esJunta} />
       <Card>
         <Toolbar>
           {ambitos.loading ? <Skeleton className="h-9 w-full sm:w-48" /> : (

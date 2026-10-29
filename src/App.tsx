@@ -37,6 +37,7 @@ const AdminConfiguracion = lazy(() => import('./pages/admin/Configuracion'));
 const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
 const AdminComunicados = lazy(() => import('./pages/admin/Comunicados'));
 const AdminMediosPago = lazy(() => import('./pages/admin/MediosPago'));
+const AdminJuntas = lazy(() => import('./pages/admin/Juntas'));
 const AdminWhatsappSync = lazy(() => import('./pages/admin/WhatsappSync'));
 const PropietarioInicio = lazy(() => import('./pages/propietario/Inicio'));
 const PropietarioUnidades = lazy(() => import('./pages/propietario/Unidades'));
@@ -107,12 +108,14 @@ export default function App() {
           <Route path="/admin/avisos" element={<AdminAvisos />} />
           <Route path="/admin/comunicados" element={<AdminComunicados />} />
           <Route path="/admin/medios-pago" element={<AdminMediosPago />} />
+          <Route path="/admin/juntas" element={<AdminJuntas />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsappSync />} />
         </Route>
         <Route element={<RequireRole roles={['admin']} />}>
           <Route path="/admin/mi-plan" element={<AdminMiPlan />} />
         </Route>
         <Route element={<RequireJunta />}>
+          <Route path="/junta/mi-junta" element={<AdminJuntas />} />
           <Route path="/junta/medios-pago" element={<AdminMediosPago />} />
           <Route path="/junta/pagos" element={<AdminPagos />} />
           <Route path="/junta/agua" element={<JuntaAgua />} />

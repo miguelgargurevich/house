@@ -6,7 +6,7 @@ import { esJunta } from './junta';
 
 const OPERACION = [
   '/admin/dashboard', '/admin/complejos', '/admin/condominios/:id', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad',
-  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/comunicados', '/admin/medios-pago', '/admin/whatsapp',
+  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/comunicados', '/admin/juntas', '/admin/medios-pago', '/admin/whatsapp',
 ] as const;
 
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
@@ -19,7 +19,7 @@ export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
   limpieza: ['/limpieza/inicio', '/limpieza/tareas'],
   jardineria: ['/jardineria/inicio', '/jardineria/tareas'],
 };
-export const RUTAS_JUNTA = ['/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores', '/junta/avisos'] as const;
+export const RUTAS_JUNTA = ['/junta/mi-junta', '/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores', '/junta/avisos'] as const;
 export const RUTAS_COMUNES = ['/perfil'] as const;
 
 /** Todas las rutas que el asistente puede conocer (para la prueba contra `App.tsx`). */

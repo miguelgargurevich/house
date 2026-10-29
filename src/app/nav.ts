@@ -3,7 +3,7 @@ import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon, MegaphoneIcon,
+  SunIcon, MegaphoneIcon, UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { Rol, Usuario } from '../auth/AuthContext';
@@ -30,6 +30,7 @@ const operacion: NavItem[] = [
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
   { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
   { to: '/admin/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
+  { to: '/admin/juntas', label: 'Juntas directivas', icon: UserGroupIcon },
   { to: '/admin/whatsapp', label: 'WhatsApp', icon: QrCodeIcon },
   { to: '/admin/proveedores', label: 'Proveedores', icon: TruckIcon },
 ];
@@ -111,6 +112,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
 const JUNTA: NavGroup = {
   label: 'Junta',
   items: [
+    { to: '/junta/mi-junta', label: 'Mi junta', icon: UserGroupIcon },
     { to: '/junta/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
     { to: '/junta/pagos', label: 'Pagos por validar', icon: BanknotesIcon },
     { to: '/junta/agua', label: 'Lecturas de agua', icon: BeakerIcon },

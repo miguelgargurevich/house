@@ -60,7 +60,7 @@ before(async () => {
   carla = await propietario('Carla', 'carla@test.pe', 'B01-202');
   T = { prop1: await login(base, 'prop1@test.pe'), adminA: await login(base, 'admin.a@test.pe') };
   llaveroDeps.fetch = async () => { throw new Error('sin red en las pruebas'); };
-  voucherBlockDeps.fetch = async (url, init) => {
+  voucherBlockDeps.fetch = async (_url, init) => {
     correos.push({ to: JSON.parse(String(init?.body)).to });
     return new Response('{"id":"x"}', { status: 200 });
   };

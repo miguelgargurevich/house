@@ -31,6 +31,8 @@ export interface Medio {
   updated_at: string;
   complejo?: { id: number; nombre: string } | null;
   estructura?: { id: number; nombre: string | null } | null;
+  /** La gestión de la junta a la que pertenece la cuenta (`null` = medio anterior a las juntas o de un block sin junta). */
+  junta?: { id: number; desde: string; vigente: boolean } | null;
 }
 
 export interface Ambitos {
