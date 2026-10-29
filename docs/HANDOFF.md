@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Seed de Los Libertadores al día y con comunicados
+
+- `prisma/seed-libertadores.ts` no corría desde multimoneda: `solesTexto` → `dineroTexto(…, 'PEN')`; `createManyAndReturn` de proveedores con `complejos` anidado (no se admite) → vínculos con `proveedorComplejo.createMany` aparte; tareas abiertas pasaban el proveedor como `fecha_cierre` → `undefined` en su lugar. Ahora también siembra 6 comunicados (fijado, de la junta del Block 1 y 3, uno archivado).
+- Corrido contra la base local `house` (448 unidades, 12 recibos, 35.327 pagos, 694 avisos). La copia de producción anterior quedó en `.claude/respaldos/house-copia-prod-2026-10-29.dump`; cuentas en `.claude/cuentas-prueba-local.md`.
+- Gotcha: el seed BORRA la base local antes de sembrar; si falla a mitad, la deja a medias (vuelve a correrlo o restaura el respaldo). No tiene test: puede volver a quedar desactualizado con cambios del schema.
+
+---
+
 ## 2026-10-29 — Claude Code (Sonnet 5.5, delegado por Opus) — Comunicados, y la junta con Proveedores y Avisos
 
 - Pedido de Miguel: incluir «avisos y proveedores» para propietarios/inquilinos → **Comunicados** de la administración y la junta («Avisos y comunicados») y, a mitad de camino, «la junta también debe poder manejar los proveedores y los avisos». Rama `feat/comunicados`, sobre main local 98138b0. Contrato en `docs/API-CONTRATO.md` («Comunicados, y la junta con Proveedores y Avisos»).
