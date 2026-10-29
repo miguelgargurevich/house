@@ -53,7 +53,7 @@ export default function Dashboard() {
               </CardBody>
             </Card>
             <Card>
-              <CardHeader title="Estado de cargos" description="Todas las empresas." />
+              <CardHeader title="Estado de mantenimientos" description="Un mantenimiento es un departamento en un mes. Todas las empresas." />
               <CardBody className="space-y-4">
                 <EstadoCargos {...data.estados} />
                 <Link to="/superadmin/empresas" className="inline-flex min-h-10 items-center gap-1.5 pt-2 text-sm font-medium text-brand hover:underline">

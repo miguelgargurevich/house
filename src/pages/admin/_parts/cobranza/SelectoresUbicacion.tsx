@@ -1,7 +1,7 @@
 import { useResource } from '../../../../api';
 import { Select } from '../../../../ui';
 import type { Complejo, Lista } from './comun';
-import { etiquetaTorre, hayVariosCondominios } from './torres';
+import { etiquetaTorre, hayVariosCondominios, palabraDeTorres } from './torres';
 import { useTorres } from './useTorres';
 
 interface Props {
@@ -27,6 +27,7 @@ export function SelectoresUbicacion({ complejo, torre, onComplejo, onTorre, comp
   const opcionesComplejo = complejos.data?.items ?? [];
   const opcionesTorre = torres.data?.items ?? [];
   const varios = hayVariosCondominios(opcionesTorre);
+  const palabra = palabraDeTorres(opcionesTorre);
   return (
     <>
       {!complejoFijo && opcionesComplejo.length > 1 && (
@@ -36,8 +37,8 @@ export function SelectoresUbicacion({ complejo, torre, onComplejo, onTorre, comp
         </Select>
       )}
       {opcionesTorre.length > 0 && (
-        <Select label="Torre" className="w-full sm:w-56 [&_label]:sr-only" value={torre} onChange={e => onTorre(e.target.value)}>
-          <option value="">Todas las torres</option>
+        <Select label={palabra.titulo} className="w-full sm:w-56 [&_label]:sr-only" value={torre} onChange={e => onTorre(e.target.value)}>
+          <option value="">{palabra.todas}</option>
           {opcionesTorre.map(t => <option key={t.id} value={t.id}>{etiquetaTorre(t, varios)}</option>)}
         </Select>
       )}

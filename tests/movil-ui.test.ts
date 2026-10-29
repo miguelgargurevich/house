@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
+import { palabraDeTorres } from '../src/pages/admin/_parts/cobranza/torres';
 
 const fuente = (ruta: string) => readFileSync(ruta, 'utf8');
 
@@ -38,8 +39,15 @@ describe('vista móvil', () => {
   it('medios de pago: el CCI admite guiones y el condominio de blocks dice «block», no «torre»', () => {
     const form = fuente('src/pages/admin/_parts/medios/MedioFormModal.tsx');
     assert.match(form, /\/\^\\d\{20\}\$\/\.test\(v\.replace\(\/\[\\s-\]\/g, ''\)\)/);
-    assert.match(fuente('src/pages/admin/_parts/medios/tipos.ts'), /every\(e => e\.tipo === 'block'\)/);
+    assert.match(fuente('src/pages/admin/_parts/medios/tipos.ts'), /every\(e => e\.tipo\.toLowerCase\(\) === 'block'\)/);
     assert.match(fuente('src/pages/admin/MediosPago.tsx'), /label=\{`Filtrar por \$\{palabra\.una\}`\}/);
+  });
+
+  it('filtro de cobranza: «Todos los blocks» si todos son blocks (también «Block» con mayúscula); si no, «Todas las torres»', () => {
+    assert.deepEqual(palabraDeTorres([{ tipo: 'block' }, { tipo: 'Block' }]), { titulo: 'Block', todas: 'Todos los blocks' });
+    assert.deepEqual(palabraDeTorres([{ tipo: 'block' }, { tipo: 'torre' }]), { titulo: 'Torre', todas: 'Todas las torres' });
+    assert.deepEqual(palabraDeTorres([]), { titulo: 'Torre', todas: 'Todas las torres' });
+    assert.match(fuente('src/pages/admin/_parts/cobranza/SelectoresUbicacion.tsx'), /<option value="">\{palabra\.todas\}<\/option>/);
   });
 
   it('el pago parcial de un concepto queda oculto en el detalle del mantenimiento', () => {
