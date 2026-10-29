@@ -28,7 +28,7 @@ interface TabsProps<T extends string> {
 const tabId = (base: string, id: string) => `${base}-tab-${id}`;
 const panelId = (base: string, id: string) => `${base}-panel-${id}`;
 
-/** Pestañas WAI-ARIA: sólo la activa es tabulable; ← → Inicio Fin mueven el foco y activan. */
+/** Pestañas WAI-ARIA: sólo la activa es tabulable; ← → Inicio Fin mueven el foco y activan. Si no caben (celular), la barra se desplaza sola. */
 export function Tabs<T extends string>({ value, onChange, items, idBase, label }: TabsProps<T>) {
   const auto = useId();
   const base = idBase ?? auto;
@@ -44,7 +44,7 @@ export function Tabs<T extends string>({ value, onChange, items, idBase, label }
   };
 
   return (
-    <div role="tablist" aria-label={label} className="inline-flex gap-1 rounded-lg bg-surface2 p-1">
+    <div role="tablist" aria-label={label} className="inline-flex max-w-full gap-1 overflow-x-auto rounded-lg bg-surface2 p-1">
       {items.map((i, n) => (
         <button
           key={i.id}
@@ -57,7 +57,7 @@ export function Tabs<T extends string>({ value, onChange, items, idBase, label }
           tabIndex={n === activa ? 0 : -1}
           onClick={() => onChange(i.id)}
           onKeyDown={e => onKeyDown(e, n)}
-          className={cx('rounded px-3 py-1.5 text-sm font-medium transition-colors duration-150', value === i.id ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink')}
+          className={cx('shrink-0 whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium transition-colors duration-150', value === i.id ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink')}
         >
           {i.label}
         </button>

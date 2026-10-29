@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Sonnet 5.5) — «Mi historial»: pestañas de gráficos y comparar con tu block
+
+- Pedido de Miguel: «varios tabs para ver en gráficos la evolución de mis pagos por conceptos, el acumulado y otras vistas»; aprobó Resumen · Por concepto · Acumulado · Agua · Puntualidad · Pagos, más compararse con el promedio del block (sólo el promedio).
+- **Backend** (`services/historial.ts`, commit aparte): cada mes trae `total_promedio_block` (AVG del total por unidad del mismo recibo, en SQL). Se publica sólo si el recibo tiene al menos `MIN_UNIDADES_PROMEDIO - 1` (= 2) unidades AJENAS a las del residente; si no, `null`. Nunca sale un monto de otra unidad ni cuántas hay. Documentado en `docs/API-CONTRATO.md`. Sin cambios de schema ni de entorno.
+- **Frontend**: `HistorialResidente` sube los filtros (`HistorialFiltros`: unidad, periodo, Excel, error) y hace UNA llamada para todas las pestañas. Vistas: `HistorialGraficos` (Resumen + «Tú contra tu block»), `HistorialConceptos` (selector + línea, peso en %, «el que más subió», tabla concepto × meses), `HistorialAcumulado`, `HistorialAguaPuntualidad` (agua, costo por m³, puntualidad). Las cuentas son funciones puras en `_parts/historial.ts`. Con un solo mes (producción) las líneas se cambian por «Aún no hay meses suficientes».
+- `ui/Misc.tsx` `Tabs`: la barra se desplaza sola si no cabe (celular) en vez de ensanchar la página.
+- **Decisiones**: (1) el promedio exige 2 ajenas, no sólo 3 unidades: con 1 ajena, quien tiene dos unidades en el recibo despejaría su monto (promedio × n − lo suyo). (2) El promedio es por unidad: con varias unidades en el mismo mes no se compara y se pide elegir una. (3) «El que más subió» = mayor diferencia en dinero entre su primer y último mes con monto (no el %). (4) Costo por m³ = monto del ÚNICO concepto cuyo nombre dice «agua» ÷ m³ del mes; con ninguno o varios, no se calcula (no es la tarifa: puede incluir cargos fijos).
+- **Gotchas**: `HistorialResidente` importa `api.ts` (`import.meta.env`): no se monta en Node, se prueba por fuente. El agua ya tenía la fuga de «promedio × n − lo mío» con quien tiene dos unidades en un recibo de 3 lecturas (`MIN_LECTURAS_PROMEDIO`): NO se tocó (fuera del pedido); conviene aplicarle la misma guarda. Con datos casi iguales las dos líneas de «Tú contra tu block» se montan (el eje de `LineChart` empieza en 0).
+- **Próximos pasos**: revisar «Costo por m³» con un recibo real de producción (no se vio con datos: la base local de Libertadores no trae lecturas de agua para este usuario); decidir si se quita el 0 fijo del eje de `LineChart` para las comparaciones.
+
+---
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Medios de pago: una tarjeta por block (junta + cuentas)
 
 - Pedido de Miguel: «se está repitiendo la info entre la junta y el medio de pago, debería ser un card por cada una, si no serían n cards y n filas».

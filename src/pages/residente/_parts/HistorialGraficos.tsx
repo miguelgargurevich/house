@@ -1,113 +1,69 @@
-import { ArrowDownTrayIcon, ChartBarIcon, CloudIcon, ClockIcon } from '@heroicons/react/24/outline';
-import { Alert, BarChart, Button, Card, CardBody, CardHeader, EmptyState, LineChart, Select, StatStrip, dineroCorto } from '../../../ui';
-import { cifras, cifrasPorMoneda, diasCorto, seriesAgua, seriesPorConcepto, seriesPuntualidad } from './historial';
+import type { ReactNode } from 'react';
+import { ChartBarIcon, ScaleIcon } from '@heroicons/react/24/outline';
+import { Alert, BarChart, Card, CardBody, CardHeader, EmptyState, LineChart, StatStrip, dineroCorto } from '../../../ui';
+import { MIN_MESES_GRAFICO, cifras, cifrasPorMoneda, comparacionUltimoMes, cuentaMeses, seriesComparacionBlock, seriesPorConcepto, textoComparacion } from './historial';
 import type { Historial } from './historial';
 
-const metros = (n: number) => `${n.toLocaleString('es-PE', { maximumFractionDigits: 1 })} m³`;
+/** Las pestañas se acomodan en columnas de al menos 24 rem; cada tarjeta puede ocupar todo el ancho con `col-span-full`. */
+export const REJILLA = { gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 24rem), 1fr))' } as const;
 
-export interface VistaResumenProps {
-  data: Historial;
-  loading: boolean;
-  error: string | null;
-  onRetry: () => void;
-  unidad: string;
-  anio: string;
-  setUnidad: (v: string) => void;
-  setAnio: (v: string) => void;
-  consulta: string;
+/** Con unidades de monedas distintas no hay un solo gráfico de dinero: se pide elegir una unidad (el servidor ya separa las cifras por moneda). */
+export function AvisoMonedas() {
+  return <Alert tone="info">Tus unidades están en condominios con monedas distintas: las cifras van separadas por moneda y no se suman. Elige una unidad para ver sus gráficos de dinero.</Alert>;
 }
 
-export function VistaResumen({ data, loading, error, onRetry, unidad, anio, setUnidad, setAnio, consulta }: VistaResumenProps) {
-  const hayMeses = data.meses.length > 0;
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-3">
-        {data.unidades.length > 1 && (
-          <Select label="Unidad" value={unidad} onChange={e => setUnidad(e.target.value)} className="w-full sm:w-56">
-            <option value="">Todas mis unidades</option>
-            {data.unidades.map(u => <option key={u.id} value={u.id}>{u.codigo}{u.estructura?.nombre ? ` · ${u.estructura.nombre}` : ''}</option>)}
-          </Select>
-        )}
-        {data.anios.length > 1 && (
-          <Select label="Periodo" value={anio} onChange={e => setAnio(e.target.value)} className="w-full sm:w-56">
-            <option value="">Últimos 12 meses</option>
-            {data.anios.map(a => <option key={a} value={a}>{a}</option>)}
-          </Select>
-        )}
-        {hayMeses && (
-          <Button variant="secondary" icon={<ArrowDownTrayIcon className="h-4 w-4" />} onClick={() => window.location.assign(`/api/me/historial.xlsx${consulta}`)}>
-            Descargar Excel
-          </Button>
-        )}
-      </div>
-
-      {error && <Alert tone="bad">{error} <button type="button" className="font-medium underline" onClick={onRetry}>Reintentar</button></Alert>}
-
-      <div aria-busy={loading || undefined} className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-        {!hayMeses ? (
-          <Card>
-            <EmptyState icon={<ChartBarIcon />} title="Aún no tienes recibos" description="Cuando la administración emita tu primer mantenimiento, aquí verás cuánto pagas cada mes." />
-          </Card>
-        ) : (
-          <Graficos data={data} />
-        )}
-      </div>
-    </div>
-  );
+/** Lo que se muestra en lugar de una línea de evolución cuando el periodo tiene un solo mes (producción empieza con uno). */
+export function SinMesesSuficientes({ icon = <ChartBarIcon /> }: { icon?: ReactNode }) {
+  return <EmptyState icon={icon} title="Aún no hay meses suficientes" description="Con un solo mes no hay evolución que mostrar. Aparecerá con tu próximo recibo." />;
 }
 
-export function Graficos({ data }: { data: Historial }) {
+export function VistaResumen({ data }: { data: Historial }) {
   const conceptos = seriesPorConcepto(data.meses);
-  const agua = seriesAgua(data.meses);
-  const puntualidad = seriesPuntualidad(data.meses);
   return (
     <>
       <StatStrip stats={data.moneda !== null ? cifras(data.resumen, data.anio, data.moneda) : cifrasPorMoneda(data.resumen, data.anio)} />
-      {data.moneda === null && (
-        <div className="mb-6"><Alert tone="info">Tus unidades están en condominios con monedas distintas: las cifras van separadas por moneda y no se suman. Elige una unidad para ver sus gráficos de dinero.</Alert></div>
-      )}
+      {data.moneda === null && <div className="mb-6"><AvisoMonedas /></div>}
       {data.resumen.meses_en_periodo === 1 && (
         <div className="mb-6"><Alert tone="info">Este es tu primer mes en House. Con cada recibo nuevo, estos gráficos te mostrarán cómo se mueve tu mantenimiento mes a mes.</Alert></div>
       )}
 
-      <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 24rem), 1fr))' }}>
-        {data.moneda !== null && (
+      {data.moneda !== null && (
+        <div className="grid gap-6" style={REJILLA}>
           <Card className="min-w-0 col-span-full">
             <CardHeader title="Cuánto pagas cada mes" description="El total de tu mantenimiento, por concepto. Pasa el cursor sobre una barra para ver el detalle." />
             <CardBody>
               <BarChart stacked className="h-80" labels={conceptos.labels} series={conceptos.series} format={n => dineroCorto(n, data.moneda)} ariaLabel="Cuánto pagas cada mes, por concepto" tablaAccesible />
             </CardBody>
           </Card>
-        )}
-
-        <Card className="min-w-0">
-          <CardHeader title="Agua" description="Tu consumo en m³ contra el promedio de tu block." />
-          <CardBody>
-            {agua.hayLecturas ? (
-              <>
-                <LineChart labels={agua.labels} series={agua.series} format={metros} ariaLabel="Tu consumo de agua contra el promedio del block, en metros cúbicos" />
-                <p className="mt-3 text-xs text-muted">El promedio del block aparece cuando hay al menos 3 lecturas en ese recibo.</p>
-              </>
-            ) : (
-              <EmptyState icon={<CloudIcon />} title="Aún no hay lecturas de agua" description="Cuando la administración cargue la lectura de tu medidor, verás tu consumo mes a mes." />
-            )}
-          </CardBody>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader title="Puntualidad" description="Cuántos días antes o después del vencimiento pagaste cada mes." />
-          <CardBody>
-            {puntualidad.hayPagos ? (
-              <>
-                <BarChart stacked labels={puntualidad.labels} series={puntualidad.series} format={diasCorto} enteros ariaLabel="Días antes o después del vencimiento en que pagaste cada mes" tablaAccesible />
-                <p className="mt-3 text-xs text-muted">Debajo del cero pagaste antes de que venciera; arriba, después. Con varias unidades se muestra la que pagó más tarde.</p>
-              </>
-            ) : (
-              <EmptyState icon={<ClockIcon />} title="Aún no hay pagos para medir" description="Cuando pagues un mantenimiento verás si lo hiciste antes o después de su vencimiento." />
-            )}
-          </CardBody>
-        </Card>
-      </div>
+          <CompararConBlock data={data} />
+        </div>
+      )}
     </>
+  );
+}
+
+/** Tu total contra el PROMEDIO del block: sólo el promedio, nunca el monto de un vecino (el servidor ni lo manda). */
+function CompararConBlock({ data }: { data: Historial }) {
+  const serie = seriesComparacionBlock(data.meses);
+  const ultimo = comparacionUltimoMes(data.meses);
+  return (
+    <Card className="min-w-0 col-span-full">
+      <CardHeader title="Tú contra tu block" description="Tu total de cada mes contra el promedio de las unidades de tu block en el mismo recibo." />
+      <CardBody>
+        {serie.variasUnidades ? (
+          <EmptyState icon={<ScaleIcon />} title="Elige una unidad para comparar" description="El promedio es por unidad: con varias unidades juntas no se pueden comparar." />
+        ) : !serie.hayPromedio || !ultimo ? (
+          <EmptyState icon={<ScaleIcon />} title="Aún no hay un promedio para comparar" description="Aparece cuando hay suficientes recibos de otros vecinos en tu block como para que no se pueda adivinar el monto de ninguno." />
+        ) : (
+          <>
+            <p className="mb-4 text-sm">{textoComparacion(ultimo, data.moneda)}</p>
+            {cuentaMeses(data.meses) >= MIN_MESES_GRAFICO && (
+              <LineChart labels={serie.labels} series={serie.series} format={n => dineroCorto(n, data.moneda)} ariaLabel="Tu total de cada mes contra el promedio del block" />
+            )}
+            <p className="mt-3 text-xs text-muted">Es un promedio de todas las unidades del recibo: nunca se muestra el monto de un vecino. Aparece sólo cuando hay suficientes unidades.</p>
+          </>
+        )}
+      </CardBody>
+    </Card>
   );
 }
