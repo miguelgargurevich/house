@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Llavero: proveedores con clave arriba
+
+- `src/pages/superadmin/Llavero.tsx`: las tarjetas de proveedores se ordenan con clave primero y sin clave después (sort estable: dentro de cada grupo, el orden del servidor). «Cómo se usan» y los gateways no cambian. Test de fuente en `tests/llavero-ui.test.ts`.
+- En curso (Haiku, rama `fix/openai-modelos`): 429 `insufficient_quota` → «sin saldo», modelos no-chat de OpenAI fuera de Auto y preferencias de OpenAI.
+
+---
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Seed de Los Libertadores al día y con comunicados
 
 - `prisma/seed-libertadores.ts` no corría desde multimoneda: `solesTexto` → `dineroTexto(…, 'PEN')`; `createManyAndReturn` de proveedores con `complejos` anidado (no se admite) → vínculos con `proveedorComplejo.createMany` aparte; tareas abiertas pasaban el proveedor como `fecha_cierre` → `undefined` en su lugar. Ahora también siembra 6 comunicados (fijado, de la junta del Block 1 y 3, uno archivado).
