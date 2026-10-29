@@ -107,6 +107,8 @@ describe('cotizar con el impuesto y la moneda del país', () => {
   it('desglosar un pago respeta los decimales de la moneda: $ 45.220 con IVA 19 % = 38.000 + 7.220', () => {
     const r = desglosarMonto('45220', '0.19', 'CLP');
     assert.deepEqual([r.base.toString(), r.igv.toString(), r.total.toString()], ['38000', '7220', '45220']);
+    const x = desglosarMonto('48459', '0.19', 'CLP');
+    assert.deepEqual([x.base.toString(), x.igv.toString()], ['40722', '7737'], 'un monto que no divide exacto también se redondea a pesos enteros (con 2 decimales saldría 40722.02 + 7736.98)');
     const s = desglosarMonto('5.90', '0.18');
     assert.deepEqual([s.base.toFixed(2), s.igv.toFixed(2)], ['5.00', '0.90'], 'sin moneda, soles como siempre');
   });
@@ -125,6 +127,18 @@ describe('Mi plan y la solicitud usan el impuesto y la moneda del país del cond
     const b = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminB)).body.condominios[0];
     assert.deepEqual([b.pais, b.moneda, b.impuesto.nombre, b.cotizacion.total_mes], ['PE', 'PEN', 'IGV', '59.00'], 'Perú: lo de siempre (20 × 2,50 = 50,00 + 9,00)');
     assert.deepEqual(b.planes_disponibles, ['pro', 'administradora']);
+  });
+
+  it('los módulos sueltos heredados tienen precio en soles: en un condominio que no cobra en soles no se suman (no se cobran soles como si fueran pesos)', async () => {
+    await chileConPro();
+    await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '50.00' } });
+    await prisma.suscripcionCondominio.create({ data: { complejo_id: d.complejoA.id, plan_clave: 'gratis', modulos: ['asistente'], estado: 'activa', vigente_hasta: new Date(HOY + 30 * DIA) } });
+    await prisma.suscripcionCondominio.create({ data: { complejo_id: d.complejoB.id, plan_clave: 'gratis', modulos: ['asistente'], estado: 'activa', vigente_hasta: new Date(HOY + 30 * DIA) } });
+    const cl = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0];
+    assert.deepEqual([cl.moneda, cl.cotizacion.total_mes], ['CLP', '0'], 'en pesos el módulo suelto en soles no se cobra');
+    const pe = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminB)).body.condominios[0];
+    assert.equal(pe.cotizacion.base, (pe.unidades_facturables * 50).toFixed(2), 'en soles se cobra como siempre (departamentos × 50,00)');
+    await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '0.50' } });
   });
 
   it('un plan sin precio en la moneda del país no se puede pedir («Consúltanos»): 422 y no queda solicitud; el que sí tiene precio, sí', async () => {
