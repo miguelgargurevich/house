@@ -8,10 +8,10 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
-import { MONEDA_POR_DEFECTO } from '../../lib/paises';
+import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO } from '../../lib/paises';
 import { conflict, notFound } from '../errors';
 import { selectComprobante } from '../lib/cargos';
-import { hoyLima } from '../lib/fechas';
+import { hoyEn } from '../lib/fechas';
 import { conVistaResidente, selectEvaluacion } from '../lib/evaluacionVista';
 import { cuentaCargo, deudaAcumulada, estadoMantenimiento, numeroMantenimiento, repartirSaldos, sumarCuentas, tituloMantenimiento, type CuentaMantenimiento, type EstadoMantenimiento } from '../lib/mantenimientos';
 import { medioDeUnidades } from '../routes/mediosPago';
@@ -190,7 +190,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     prisma.recibo.findFirst({
       where: { AND: [{ id: reciboId }, o.reciboWhere ?? {}] },
       include: {
-        complejo: { select: { id: true, nombre: true, moneda: true, direccion: true, notas_pago: true, admin_nombre: true, admin_celular: true, admin_correo: true, imagenRecibo: { select: { updated_at: true } } } },
+        complejo: { select: { id: true, nombre: true, moneda: true, zona_horaria: true, direccion: true, notas_pago: true, admin_nombre: true, admin_celular: true, admin_correo: true, imagenRecibo: { select: { updated_at: true } } } },
         empresa: { select: { id: true, nombre: true, ruc: true, direccion: true, telefono: true, email: true, imagenRecibo: { select: { updated_at: true } } } },
       },
     }),
@@ -262,7 +262,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     anio: recibo.anio,
     fecha_emision: recibo.fecha_emision,
     fecha_vencimiento: recibo.fecha_vencimiento,
-    estado: estadoMantenimiento(resumen, recibo.fecha_vencimiento, hoyLima()),
+    estado: estadoMantenimiento(resumen, recibo.fecha_vencimiento, hoyEn(recibo.complejo?.zona_horaria ?? ZONA_POR_DEFECTO)), // el día de hoy en el condominio
     moneda: recibo.complejo?.moneda ?? MONEDA_POR_DEFECTO,
     ...resumen,
     fecha_corte_agua: recibo.fecha_corte_agua,

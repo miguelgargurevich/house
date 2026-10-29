@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { decimalAString, filtroEstadoCargo, noPagado } from '../lib/cargos';
-import { hoyLima, inicioAnioLima, inicioMesLima, mesesHasta } from '../lib/fechas';
+import { mesesHasta } from '../lib/fechas';
+import { pagoEnMes, pagoSegunZona, relojDeCondominios, type Reloj } from '../lib/zonas';
 import { listarMantenimientos, type EstadoMantenimiento } from '../lib/mantenimientos';
 import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { cargoEnMoneda, monedasDelAlcance, pagoEnMoneda, porMoneda } from '../lib/paisMoneda';
@@ -27,8 +28,8 @@ type EstadosPanel = Record<(typeof ESTADOS_PANEL)[number], number>;
  * Cuenta mantenimientos (un departamento en un mes) por estado, con la misma regla que la lista. Antes se contaban cargos:
  * un departamento con dos conceptos en el mismo recibo daba dos.
  */
-async function contarEstados(unidadIds: number[]): Promise<EstadosPanel> {
-  const cuentas = await Promise.all(ESTADOS_PANEL.map((estado) => listarMantenimientos({ unidadIds, estado }, { page: 1, pageSize: 1 })));
+async function contarEstados(unidadIds: number[], reloj: Reloj): Promise<EstadosPanel> {
+  const cuentas = await Promise.all(ESTADOS_PANEL.map((estado) => listarMantenimientos({ unidadIds, estado }, { page: 1, pageSize: 1, reloj })));
   return Object.fromEntries(ESTADOS_PANEL.map((estado, i) => [estado, cuentas[i].total])) as EstadosPanel;
 }
 
@@ -61,7 +62,10 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
   const pagosEnTorre: Prisma.PagoWhereInput = filtrando ? { reciboConceptoUnidad: { unidad: enUnidad } } : {};
   const recibosEnTorre: Prisma.ReciboWhereInput = { ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}), ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}) };
   const ahora = new Date();
-  const hoy = hoyLima(ahora);
+  // Cada condominio cuenta con SU día: «cobrado este mes», los vencidos y los meses de la serie salen de la zona de cada uno. La serie llega hasta el
+  // «hoy» más adelantado de los condominios del alcance (así el mes en curso no se corta en ninguno).
+  const reloj = await relojDeCondominios(ahora);
+  const hoy = (await relojDeCondominios(ahora, { AND: [scopeComplejos(u), f.complejo_id !== undefined ? { id: f.complejo_id } : {}] })).hoyMasReciente();
   const [unidadIds, palabra, fin] = await Promise.all([
     prisma.unidad.findMany({ where: { AND: [scopeUnidades(u), enUnidad] }, select: { id: true } }).then((us) => us.map((x) => x.id)),
     palabraEstructura(u, f),
@@ -79,12 +83,12 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
     const pagosM: Prisma.PagoWhereInput = moneda ? { AND: [scopePagos(u), pagosEnTorre, pagoEnMoneda(moneda)] } : { AND: [scopePagos(u), pagosEnTorre] };
     const [pendientes, cobradoMes, serie] = await Promise.all([
       prisma.reciboConceptoUnidad.aggregate({ where: { AND: [cargosM, noPagado] }, _sum: { monto: true } }),
-      prisma.pago.aggregate({ where: { AND: [pagosM, validado, { fecha_pago: { gte: inicioMesLima(ahora) } }] }, _sum: { monto: true } }),
+      prisma.pago.aggregate({ where: { AND: [pagosM, validado, pagoSegunZona(reloj, (d) => ({ fecha_pago: { gte: d.inicioMes } }))] }, _sum: { monto: true } }),
       Promise.all(
         meses.map(async (m) => {
           const [emitido, cobrado] = await Promise.all([
             prisma.reciboConceptoUnidad.aggregate({ where: { AND: [cargosM, { reciboConcepto: { recibo: { anio: m.anio, mes: m.mes } } }] }, _sum: { monto: true } }),
-            prisma.pago.aggregate({ where: { AND: [pagosM, validado, { fecha_pago: { gte: m.desde, lt: m.hasta } }] }, _sum: { monto: true } }),
+            prisma.pago.aggregate({ where: { AND: [pagosM, validado, pagoEnMes(reloj, m.anio, m.mes)] }, _sum: { monto: true } }),
           ]);
           return { mes: m.clave, emitido: sumaMonto(emitido), cobrado: sumaMonto(cobrado) };
         }),
@@ -96,11 +100,11 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
     prisma.recibo.count({ where: { AND: [scopeRecibos(u), recibosEnTorre] } }),
     // Con un recibo por torre, «recibos emitidos» (N torres × meses) se infla sin sentido: lo que se cuenta como emisión es el PERIODO de un condominio.
     prisma.recibo.groupBy({ by: ['complejo_id', 'anio', 'mes'], where: { AND: [scopeRecibos(u), recibosEnTorre] } }),
-    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
+    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido', reloj)] } }),
     prisma.tareaMantenimiento.count({ where: { AND: [scopeTareas(u), { estado: { not: 'completada' } }] } }),
-    contarEstados(unidadIds),
+    contarEstados(unidadIds, reloj),
     prisma.pago.count({ where: { AND: [scopePagos(u), pagosEnTorre, { estado_validacion: 'por_validar' }] } }),
-    desglosePorTorre(cargos, palabra),
+    desglosePorTorre(cargos, palabra, reloj),
     monedas.length === 1 ? dineroDe(null) : null,
   ]);
   const montos = dinero
@@ -124,12 +128,12 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
 }
 
 /** Emitido, cobrado, por cobrar y morosos por torre (el dinero de cada torre se mira aparte: tiene su recibo, su junta y sus cuentas). */
-async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, palabra: 'block' | 'torre') {
+async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, palabra: 'block' | 'torre', reloj: Reloj) {
   const [todo, cobrado, abierto, vencidos] = await Promise.all([
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: cargos, _sum: { monto: true } }),
-    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('pagado')] }, _sum: { monto: true } }),
+    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('pagado', reloj)] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, noPagado] }, _sum: { monto: true } }),
-    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
+    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido', reloj)] } }),
   ]);
   const ids = [...new Set(todo.map((x) => x.unidad_id).filter((x): x is number => x != null))];
   if (!ids.length) return [];
@@ -154,21 +158,22 @@ async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, p
 async function resumenResidente(u: AuthUser) {
   const propias = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
   const mios: Prisma.ReciboConceptoUnidadWhereInput = { unidad: propias };
+  const reloj = await relojDeCondominios();
   // Un vecino con unidades en condominios de monedas distintas ve su deuda y lo pagado por moneda, nunca sumados.
   const monedas = await monedasDelAlcance({ reciboConceptos: { some: { reciboConceptoUnidades: { some: mios } } } }, { unidades: { some: propias } });
   const dineroDe = async (moneda: string | null) => {
     const m: Prisma.ReciboConceptoUnidadWhereInput = moneda ? { AND: [mios, cargoEnMoneda(moneda)] } : mios;
     const [deuda, pagadoAnio] = await Promise.all([
       prisma.reciboConceptoUnidad.aggregate({ where: { AND: [m, noPagado] }, _sum: { monto: true } }),
-      prisma.pago.aggregate({ where: { reciboConceptoUnidad: m, ...validado, fecha_pago: { gte: inicioAnioLima() } }, _sum: { monto: true } }),
+      prisma.pago.aggregate({ where: { AND: [{ reciboConceptoUnidad: m }, validado, pagoSegunZona(reloj, (d) => ({ fecha_pago: { gte: d.inicioAnio } }))] }, _sum: { monto: true } }),
     ]);
     return { deuda_total: sumaMonto(deuda), pagado_ano: sumaMonto(pagadoAnio) };
   };
   const [vencidos, enRevision, proximo, dinero] = await Promise.all([
-    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido')] } }),
-    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision')] } }),
+    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido', reloj)] } }),
+    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision', reloj)] } }),
     prisma.reciboConceptoUnidad.findFirst({
-      where: { AND: [mios, filtroEstadoCargo('pendiente')] },
+      where: { AND: [mios, filtroEstadoCargo('pendiente', reloj)] },
       orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'asc' } } }, { id: 'asc' }],
       select: { id: true, monto: true, reciboConcepto: { select: { recibo: { select: { fecha_vencimiento: true, complejo: { select: { moneda: true } } } } } } },
     }),
@@ -177,7 +182,7 @@ async function resumenResidente(u: AuthUser) {
   const montos = dinero ? { moneda: monedas[0]!, ...dinero } : { moneda: null, deuda_total: null, pagado_ano: null, por_moneda: await porMoneda(monedas, dineroDe) };
   // Lo mismo, a nivel mantenimiento (un recibo por departamento y mes): lo que el vecino ve y paga.
   const unidadIds = (await prisma.unidad.findMany({ where: propias, select: { id: true } })).map((x) => x.id);
-  const una = { page: 1, pageSize: 1, orden: { campo: 'vencimiento', dir: 'asc' } } as const;
+  const una = { page: 1, pageSize: 1, orden: { campo: 'vencimiento', dir: 'asc' }, reloj } as const;
   const [mVencidos, mRevision, mPendiente, mParcial] = await Promise.all([
     listarMantenimientos({ unidadIds, estado: 'vencido' }, una),
     listarMantenimientos({ unidadIds, estado: 'en_revision' }, una),

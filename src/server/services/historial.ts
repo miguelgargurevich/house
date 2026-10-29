@@ -4,10 +4,10 @@
  * El alcance lo decide quien llama (`unidadWhere` = `unidadesPropias`); una unidad fuera de él es 404. Los montos son Decimal y salen como texto.
  */
 import { Prisma } from '@prisma/client';
-import { MONEDA_POR_DEFECTO } from '../../lib/paises';
+import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO } from '../../lib/paises';
 import { prisma } from '../db';
 import { notFound } from '../errors';
-import { diasEntre, hoyLima } from '../lib/fechas';
+import { diasEntre, hoyEn } from '../lib/fechas';
 import { estadoMantenimiento, sumarCuentas, type EstadoMantenimiento } from '../lib/mantenimientos';
 import { consumoM3 } from '../lib/agua';
 
@@ -28,6 +28,8 @@ export interface MesHistorial {
   unidad: { id: number; codigo: string };
   /** Moneda del condominio de la unidad: los montos de este mes van en ella. */
   moneda: string;
+  /** Zona horaria IANA del condominio: el día de `fecha_pago` y de los días contra el vencimiento se cuentan en ella. */
+  zona_horaria: string;
   total: string;
   por_concepto: { concepto: string; monto: string }[];
   /** Lo ya cobrado (pagos validados). */
@@ -86,12 +88,15 @@ export interface Historial {
   meses: MesHistorial[];
 }
 
-export interface OpcionesHistorial { unidadId?: number; anio?: number; hoy?: Date }
+/** `hoy` fija el mismo día para todos (pruebas); `ahora` es el instante con el que cada condominio saca SU día. */
+export interface OpcionesHistorial { unidadId?: number; anio?: number; hoy?: Date; ahora?: Date }
 
 interface Grupo {
   recibo_id: number;
   unidad: { id: number; codigo: string };
   moneda: string;
+  /** Zona del condominio: el día de hoy y el día de un pago se cuentan en ella. */
+  zona: string;
   anio: number;
   mes: number;
   vence: Date;
@@ -115,12 +120,17 @@ const vacio = (unidades: UnidadHistorial[], anio: number | null): Historial => (
 });
 
 export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, opts: OpcionesHistorial = {}): Promise<Historial> {
-  const hoy = opts.hoy ?? hoyLima();
+  const ahora = opts.ahora ?? new Date();
+  const hoyDe = (zona: string) => opts.hoy ?? hoyEn(zona, ahora);
+  const zonaDe = new Map<number, string>(); // zona del condominio de cada unidad (no sale en la respuesta)
   const unidades: UnidadHistorial[] = (await prisma.unidad.findMany({
     where: unidadWhere,
-    select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { moneda: true } } },
+    select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { moneda: true, zona_horaria: true } } },
     orderBy: [{ codigo: 'asc' }, { id: 'asc' }],
-  })).map(({ complejo, ...u }) => ({ ...u, moneda: complejo?.moneda ?? MONEDA_POR_DEFECTO }));
+  })).map(({ complejo, ...u }) => {
+    zonaDe.set(u.id, complejo?.zona_horaria ?? ZONA_POR_DEFECTO);
+    return { ...u, moneda: complejo?.moneda ?? MONEDA_POR_DEFECTO };
+  });
   if (opts.unidadId !== undefined && !unidades.some((u) => u.id === opts.unidadId)) throw notFound('Unidad'); // una unidad ajena no se distingue de una que no existe
   const elegidas = opts.unidadId !== undefined ? unidades.filter((u) => u.id === opts.unidadId) : unidades;
   const anioPedido = opts.anio ?? null;
@@ -146,7 +156,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
     if (!recibo || c.unidad_id == null) continue;
     const k = `${recibo.id}-${c.unidad_id}`;
     let g = grupos.get(k);
-    if (!g) grupos.set(k, (g = { recibo_id: recibo.id, unidad: { id: c.unidad_id, codigo: codigo.get(c.unidad_id) ?? '' }, moneda: monedaDe.get(c.unidad_id) ?? MONEDA_POR_DEFECTO, anio: recibo.anio, mes: recibo.mes, vence: soloDia(recibo.fecha_vencimiento), cargos: [], conceptos: new Map() }));
+    if (!g) grupos.set(k, (g = { recibo_id: recibo.id, unidad: { id: c.unidad_id, codigo: codigo.get(c.unidad_id) ?? '' }, moneda: monedaDe.get(c.unidad_id) ?? MONEDA_POR_DEFECTO, zona: zonaDe.get(c.unidad_id) ?? ZONA_POR_DEFECTO, anio: recibo.anio, mes: recibo.mes, vence: soloDia(recibo.fecha_vencimiento), cargos: [], conceptos: new Map() }));
     const suma = (estado: string) => c.pagos.filter((p) => p.estado_validacion === estado).reduce((a, p) => a.plus(p.monto), dec(0));
     g.cargos.push({
       monto: dec(c.monto),
@@ -166,7 +176,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
   for (const g of grupos.values()) {
     const cuenta = sumarCuentas(g.cargos);
     cuentas.set(g, cuenta);
-    estados.set(g, estadoMantenimiento(cuenta, g.vence, hoy));
+    estados.set(g, estadoMantenimiento(cuenta, g.vence, hoyDe(g.zona)));
   }
 
   const todos = [...grupos.values()].sort((a, b) => a.anio - b.anio || a.mes - b.mes || a.unidad.codigo.localeCompare(b.unidad.codigo, 'es', { numeric: true }) || a.unidad.id - b.unidad.id);
@@ -206,6 +216,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
       mes: g.mes,
       unidad: g.unidad,
       moneda: g.moneda,
+      zona_horaria: g.zona,
       total: cuenta.total,
       por_concepto: [...g.conceptos.entries()].sort((a, b) => a[1].orden - b[1].orden).map(([concepto, v]) => ({ concepto, monto: v.monto.toFixed(2) })),
       pagado: cuenta.cobrado,
@@ -213,7 +224,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
       estado,
       fecha_vencimiento: iso(g.vence),
       fecha_pago: fechaPago ? fechaPago.toISOString() : null,
-      dias_vs_vencimiento: fechaPago ? diasEntre(g.vence, hoyLima(fechaPago)) : null, // el día en Lima, no en UTC
+      dias_vs_vencimiento: fechaPago ? diasEntre(g.vence, hoyEn(g.zona, fechaPago)) : null, // el día del pago en el condominio, no en UTC
       agua_m3: agua ? agua.toFixed(3) : null,
       agua_promedio_block: agua && promedio ? promedio.toFixed(3) : null,
     };

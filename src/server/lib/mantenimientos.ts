@@ -7,7 +7,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { z } from '../validation';
-import { hoyLima } from './fechas';
+import { relojDeCondominios, sqlHoy, type Reloj } from './zonas';
 import { nombreMes } from './periodo';
 
 export type EstadoMantenimiento = 'pagado' | 'en_revision' | 'parcial' | 'vencido' | 'pendiente';
@@ -72,9 +72,10 @@ export function sumarCuentas(cargos: CargoCuenta[]): CuentaMantenimiento {
 /**
  * Estado del mantenimiento (mismas reglas que `estadoCargo`, a nivel recibo del departamento):
  *  - `pagado`: todo cobrado; `en_revision`: lo que falta está entero en revisión (no es moroso);
+ *  - `hoy` es el día de hoy en la zona del condominio del recibo (`hoyEn(zona)`);
  *  - con saldo por pagar: `vencido` si el vencimiento ya pasó; si no, `parcial` (algo cobrado o en revisión) o `pendiente`.
  */
-export function estadoMantenimiento(c: Pick<CuentaMantenimiento, 'total' | 'cobrado' | 'en_revision' | 'saldo'>, vencimiento: Date | null | undefined, hoy = hoyLima()): EstadoMantenimiento {
+export function estadoMantenimiento(c: Pick<CuentaMantenimiento, 'total' | 'cobrado' | 'en_revision' | 'saldo'>, vencimiento: Date | null | undefined, hoy: Date): EstadoMantenimiento {
   const saldo = dec(c.saldo);
   if (saldo.lte(0)) return dec(c.en_revision).gt(0) ? 'en_revision' : dec(c.total).gt(0) ? 'pagado' : 'pendiente';
   if (vencimiento && vencimiento < hoy) return 'vencido';
@@ -162,7 +163,7 @@ function cteCargos(f: FiltroMantenimientos): Prisma.Sql {
 }
 
 /** Misma regla que `estadoMantenimiento`, en SQL (para filtrar y contar sin traer todo). Un test los compara. */
-const sqlEstado = (hoy: Date) => Prisma.sql`CASE
+const sqlEstado = (hoy: Prisma.Sql) => Prisma.sql`CASE
   WHEN m.saldo <= 0 THEN (CASE WHEN m.en_revision > 0 THEN 'en_revision' WHEN m.total > 0 THEN 'pagado' ELSE 'pendiente' END)
   WHEN r.fecha_vencimiento < ${hoy} THEN 'vencido'
   WHEN m.cobrado > 0 OR m.en_revision > 0 THEN 'parcial'
@@ -198,9 +199,10 @@ export type OrdenMantenimientos = (typeof ORDEN_MANTENIMIENTOS)[number];
 /** Una página de mantenimientos (uno por recibo + unidad). El alcance lo decide quien llama (recibo ya verificado / unidades propias). */
 export async function listarMantenimientos(
   f: FiltroMantenimientos,
-  p: { page: number; pageSize: number; orden?: { campo: OrdenMantenimientos; dir: 'asc' | 'desc' }; hoy?: Date },
+  p: { page: number; pageSize: number; orden?: { campo: OrdenMantenimientos; dir: 'asc' | 'desc' }; hoy?: Date; reloj?: Reloj },
 ): Promise<{ items: FilaMantenimiento[]; total: number }> {
-  const hoy = p.hoy ?? hoyLima();
+  // Cada mantenimiento se compara con el «hoy» de la zona de su condominio. `hoy` fija el mismo día para todos (pruebas).
+  const hoy = p.hoy ? Prisma.sql`${p.hoy}` : sqlHoy(p.reloj ?? (await relojDeCondominios()), Prisma.sql`co.zona_horaria`);
   const dir = p.orden?.dir === 'asc' ? Prisma.sql`ASC` : Prisma.sql`DESC`;
   const orden =
     p.orden?.campo === 'codigo' ? Prisma.sql`ORDER BY u.codigo ${dir}, r.fecha_vencimiento DESC`
@@ -244,7 +246,7 @@ export interface FilaBlock {
 }
 
 /** Totales de un recibo por block (agregados en SQL; un renglón por block, no por unidad). */
-export async function resumenPorBlock(reciboId: number, hoy = hoyLima()): Promise<FilaBlock[]> {
+export async function resumenPorBlock(reciboId: number, hoy: Date): Promise<FilaBlock[]> {
   const filas = await prisma.$queryRaw<{ estructura_id: number | null; nombre: string | null; unidades: bigint; emitido: Prisma.Decimal; cobrado: Prisma.Decimal; en_revision: Prisma.Decimal; saldo: Prisma.Decimal; morosos: bigint }[]>`
     WITH ${cteCargos({ reciboId })}
     SELECT u.estructura_id, e.nombre, COUNT(*) AS unidades,

@@ -3,6 +3,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { estadoCargo, filtroEstadoCargo, noPagado } from '../lib/cargos';
+import { relojDeCondominios } from '../lib/zonas';
 import { cuentaLectura } from '../lib/agua';
 import { listarMantenimientos, type EstadoMantenimiento } from '../lib/mantenimientos';
 import type { AuthUser } from '../middleware/auth';
@@ -53,12 +54,13 @@ export const miDeuda = defineHerramienta({
   solo_lectura: true,
   async ejecutar(u) {
     const mios = misCargos(u);
+    const reloj = await relojDeCondominios();
     const [deuda, vencidos, enRevision, proximo, porUnidad] = await Promise.all([
       prisma.reciboConceptoUnidad.aggregate({ where: { AND: [mios, noPagado] }, _sum: { monto: true } }),
-      prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido')] } }),
-      prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision')] } }),
+      prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido', reloj)] } }),
+      prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision', reloj)] } }),
       prisma.reciboConceptoUnidad.findFirst({
-        where: { AND: [mios, filtroEstadoCargo('pendiente')] },
+        where: { AND: [mios, filtroEstadoCargo('pendiente', reloj)] },
         orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'asc' } } }, { id: 'asc' }],
         select: { monto: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { fecha_vencimiento: true } } } } },
       }),
@@ -90,12 +92,13 @@ export const misRecibos = defineHerramienta({
   solo_lectura: true,
   async ejecutar(u, e) {
     const p = pagina(e);
+    const reloj = await relojDeCondominios();
     const filas = await prisma.reciboConceptoUnidad.findMany({
-      where: { AND: [misCargos(u), e.estado ? filtroEstadoCargo(e.estado) : {}] },
+      where: { AND: [misCargos(u), e.estado ? filtroEstadoCargo(e.estado, reloj) : {}] },
       orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'desc' } } }, { id: 'desc' }],
       skip: p.skip,
       take: p.take,
-      select: { id: true, monto: true, estado_pago: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
+      select: { id: true, monto: true, estado_pago: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { zona_horaria: true } } } } } } },
     });
     const c = cortar(filas, p);
     // Lo mismo agrupado: un mantenimiento por departamento y mes, con su desglose (los más recientes; `pendiente` incluye el pago parcial).
@@ -131,7 +134,7 @@ export const misRecibos = defineHerramienta({
       total_mantenimientos: mant.total,
       filas: c.filas.map((x) => ({
         unidad: dato(x.unidad?.codigo, 30), block: dato(x.unidad?.estructura?.nombre), concepto: dato(x.reciboConcepto?.concepto?.nombre), periodo: periodoDe(x.reciboConcepto?.recibo?.anio, x.reciboConcepto?.recibo?.mes),
-        monto: monto(x.monto), estado: estadoCargo(x.estado_pago, x.reciboConcepto?.recibo?.fecha_vencimiento), vencimiento: fechaDia(x.reciboConcepto?.recibo?.fecha_vencimiento),
+        monto: monto(x.monto), estado: estadoCargo(x.estado_pago, x.reciboConcepto?.recibo?.fecha_vencimiento, reloj.hoy(x.reciboConcepto?.recibo?.complejo?.zona_horaria)), vencimiento: fechaDia(x.reciboConcepto?.recibo?.fecha_vencimiento),
       })),
       hay_mas: c.hay_mas,
       siguiente_cursor: c.siguiente_cursor,

@@ -4,6 +4,7 @@ import { BCRYPT_COST } from '../config';
 import { prisma } from '../db';
 import { HttpError, conflict, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
+import { relojDeCondominios } from '../lib/zonas';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
@@ -91,7 +92,7 @@ export function meRouter(limitePassword: RequestHandler) {
   router.get('/cargos', residente, async (req, res) => {
     const u = currentUser(req);
     const q = parse(cargosQuery, req.query);
-    const where = { AND: [{ unidad: unidadesPropias(u) }, q.estado ? filtroEstadoCargo(q.estado as EstadoCargo) : {}, q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' as const } } } : {}] };
+    const where = { AND: [{ unidad: unidadesPropias(u) }, q.estado ? filtroEstadoCargo(q.estado as EstadoCargo, await relojDeCondominios()) : {}, q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' as const } } } : {}] };
     let orderBy: object = { reciboConcepto: { recibo: { fecha_vencimiento: 'desc' } } };
     if (q.orden) {
       const o = parseOrden(q.orden, ['id', 'monto', 'fecha_vencimiento'], {});
@@ -101,7 +102,7 @@ export function meRouter(limitePassword: RequestHandler) {
       prisma.reciboConceptoUnidad.count({ where }),
       prisma.reciboConceptoUnidad.findMany({ where, orderBy: [orderBy, { id: 'asc' }], ...page(q), include: includeCargo }),
     ]);
-    res.json({ items: rows.map(formatearCargo), total, page: q.page, pageSize: q.pageSize });
+    res.json({ items: rows.map((c) => formatearCargo(c)), total, page: q.page, pageSize: q.pageSize });
   });
 
   router.get('/cargos/:id', residente, async (req, res) => {

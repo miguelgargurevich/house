@@ -4,8 +4,9 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { conflict, forbidden, notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
-import { MONEDA_POR_DEFECTO, formatoDinero } from '../../lib/paises';
-import { hoyLima } from '../lib/fechas';
+import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO, formatoDinero } from '../../lib/paises';
+import { hoyEn } from '../lib/fechas';
+import { zonaDeRecibo } from '../lib/zonas';
 import { monedaDeRecibo } from '../lib/paisMoneda';
 import { ambitoJunta, filtroAmbito, filtroReciboAmbito } from '../lib/junta';
 import { descripcionRecibo, periodoTexto } from '../lib/periodo';
@@ -72,20 +73,21 @@ async function totalesPorRecibo(ids: number[]): Promise<Map<number, Totales>> {
   return mapa;
 }
 
-function conTotales(r: { id: number; fecha_vencimiento: Date }, t: Totales | undefined) {
+/** `estado_cobranza` cuenta el día de hoy en la zona del condominio del recibo (Lima si no tiene). */
+function conTotales(r: { id: number; fecha_vencimiento: Date; complejo?: { zona_horaria?: string } | null }, t: Totales | undefined, ahora: Date = new Date()) {
   const totales = t ?? { monto: '0.00', cobrado: '0.00', pendiente: '0.00', en_revision: '0.00' };
   const pendiente = new Prisma.Decimal(totales.pendiente);
   // Lo que está en revisión sigue «por cobrar» (pendiente) pero no puede dejar el recibo como vencido.
   const moroso = pendiente.minus(totales.en_revision);
   const monto = new Prisma.Decimal(totales.monto);
-  const estado_cobranza = monto.gt(0) && pendiente.lte(0) ? 'pagado' : r.fecha_vencimiento < hoyLima() && moroso.gt(0) ? 'vencido' : 'pendiente';
+  const estado_cobranza = monto.gt(0) && pendiente.lte(0) ? 'pagado' : r.fecha_vencimiento < hoyEn(r.complejo?.zona_horaria ?? ZONA_POR_DEFECTO, ahora) && moroso.gt(0) ? 'vencido' : 'pendiente';
   return { totales, estado_cobranza };
 }
 
-const includeRecibo = { complejo: { select: { id: true, nombre: true, moneda: true } }, estructura: { select: { id: true, nombre: true } } } satisfies Prisma.ReciboInclude;
+const includeRecibo = { complejo: { select: { id: true, nombre: true, moneda: true, zona_horaria: true } }, estructura: { select: { id: true, nombre: true } } } satisfies Prisma.ReciboInclude;
 
 /** Cada recibo lleva `moneda` (la de su condominio): todos sus montos y totales van en ella. */
-async function formatearRecibos<T extends { id: number; fecha_vencimiento: Date; complejo?: { moneda: string } | null }>(items: T[]) {
+async function formatearRecibos<T extends { id: number; fecha_vencimiento: Date; complejo?: { moneda: string; zona_horaria?: string } | null }>(items: T[]) {
   const t = await totalesPorRecibo(items.map((r) => r.id));
   return items.map((r) => ({ ...r, moneda: r.complejo?.moneda ?? MONEDA_POR_DEFECTO, ...conTotales(r, t.get(r.id)) }));
 }
@@ -301,7 +303,7 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
   const recibo = await prisma.recibo.findFirst({
     where: { AND: [{ id }, scopeRecibos(user)] },
     include: {
-      complejo: { select: { id: true, nombre: true, moneda: true } },
+      complejo: { select: { id: true, nombre: true, moneda: true, zona_horaria: true } },
       estructura: { select: { id: true, nombre: true } },
       reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: { select: { id: true, nombre: true } } } },
     },
@@ -324,7 +326,7 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
     conceptos: reciboConceptos.map((rc) => ({ id: rc.id, concepto_id: rc.concepto_id, concepto: rc.concepto, monto: rc.monto, es_recargo: rc.es_recargo, orden: rc.orden })),
     cargos: cargosDb.map((c) => {
       const f = formatearCargo(c);
-      return { id: c.id, unidad: c.unidad, concepto: f.concepto, monto: c.monto, estado: estadoCargo(c.estado_pago, recibo.fecha_vencimiento) };
+      return { id: c.id, unidad: c.unidad, concepto: f.concepto, monto: c.monto, estado: estadoCargo(c.estado_pago, recibo.fecha_vencimiento, hoyEn(recibo.complejo?.zona_horaria ?? ZONA_POR_DEFECTO)) };
     }),
   });
 });
@@ -340,7 +342,7 @@ export async function reciboAccesible(req: Parameters<typeof currentUser>[0], id
 router.get('/:id/blocks', requireRole('admin'), async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id);
-  const blocks = await resumenPorBlock(id);
+  const blocks = await resumenPorBlock(id, hoyEn(await zonaDeRecibo(id)));
   res.json({ agrupado: agruparPorBlock(blocks), moneda: await monedaDeRecibo(id), blocks });
 });
 
@@ -478,6 +480,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   // La multa que ya trae el Excel de la administradora («MULTA PAGO FUERA DE FECHA…»): si una unidad la trae con monto > 0 se respeta y no se le suma mora encima.
   const columnasMora = new Set(columnasConcepto.filter((c) => esConceptoMora(c.nombre)).map((c) => c.indice));
   const montoMora = await montoDeMoraAplicable(complejoId, complejo!.mora_monto as Prisma.Decimal | undefined);
+  const hoyDelCondominio = hoyEn((complejo!.zona_horaria as string | undefined) ?? ZONA_POR_DEFECTO); // la emisión es el día de hoy EN el condominio
   const moraPorRecibo: { reciboId: number; torre: string | null; unidades: UnidadConMora[] }[] = [];
 
   const conceptosMap = new Map<string, number>();
@@ -567,10 +570,10 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
         if (conPagos) throw conflict(`El recibo de ${donde} ya tiene pagos registrados; no se puede reemplazar desde Excel`);
         await tx.reciboConceptoUnidad.deleteMany({ where: { reciboConcepto: { recibo_id: reciboId } } });
         await tx.reciboConcepto.deleteMany({ where: { recibo_id: reciboId } });
-        await tx.recibo.update({ where: { id: reciboId }, data: { fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion, estado: 'emitido', creado_por_id: u.id } });
+        await tx.recibo.update({ where: { id: reciboId }, data: { fecha_emision: hoyDelCondominio, fecha_vencimiento: fechaVencimiento, descripcion, estado: 'emitido', creado_por_id: u.id } });
       } else {
         const recibo = await tx.recibo.create({
-          data: { complejo_id: complejoId, estructura_id: estructuraId, empresa_id, mes, anio, fecha_emision: hoyLima(), fecha_vencimiento: fechaVencimiento, descripcion, estado: 'emitido', creado_por_id: u.id },
+          data: { complejo_id: complejoId, estructura_id: estructuraId, empresa_id, mes, anio, fecha_emision: hoyDelCondominio, fecha_vencimiento: fechaVencimiento, descripcion, estado: 'emitido', creado_por_id: u.id },
         });
         reciboId = recibo.id;
       }

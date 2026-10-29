@@ -30,7 +30,7 @@ export interface CrudOptions {
   include?: Record<string, unknown>;
   omit?: Record<string, boolean>;
   /** Filtros extra de la query: esquema zod + cómo convertirlos en `where`. */
-  filtros?: { schema: z.ZodObject; where: (f: Record<string, unknown>, user: AuthUser) => Where };
+  filtros?: { schema: z.ZodObject; where: (f: Record<string, unknown>, user: AuthUser) => Where | Promise<Where> };
   createSchema?: z.ZodType;
   updateSchema?: z.ZodType;
   /** Valida referencias/tenant y completa campos. Lanza HttpError si algo no corresponde. */
@@ -74,7 +74,7 @@ export function crudRouter(o: CrudOptions): Router {
     if (query.q && o.search?.length) {
       and.push({ OR: o.search.map((f) => buscar(f, query.q as string)) });
     }
-    if (o.filtros) and.push(o.filtros.where(query, user));
+    if (o.filtros) and.push(await o.filtros.where(query, user));
     const where = { AND: and };
     const orderBy = parseOrden(query.orden, o.orderable, o.defaultOrder);
     const [total, rows] = await Promise.all([

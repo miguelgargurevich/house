@@ -1,5 +1,6 @@
 import { formatoDinero } from '../../../lib/paises';
 import { periodoTexto } from '../../lib/periodo';
+import { hoyEn } from '../../lib/fechas';
 
 export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
@@ -40,6 +41,11 @@ export function fechaTexto(f: Date): string {
   const dd = String(f.getUTCDate()).padStart(2, '0');
   const mm = String(f.getUTCMonth() + 1).padStart(2, '0');
   return `${dd}/${mm}/${f.getUTCFullYear()}`;
+}
+
+/** Instante → `dd/mm/aaaa` según el día en la zona del condominio (un pago a las 21:00 en Lima ya es el día siguiente en UTC). */
+export function fechaTextoEn(f: Date, zona: string): string {
+  return fechaTexto(hoyEn(zona, f));
 }
 
 const primerNombre = (n: string) => n.trim().split(/\s+/)[0] || 'vecino';

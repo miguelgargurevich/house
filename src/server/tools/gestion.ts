@@ -3,7 +3,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { estadoCargo, filtroEstadoCargo, noPagado } from '../lib/cargos';
-import { hoyLima, mesesAtras } from '../lib/fechas';
+import { hoyEn, medianocheEn, mesesHasta } from '../lib/fechas';
+import { pagoEnMes, relojDeCondominios, relojDeRecibos, zonaDeUsuario, type Reloj } from '../lib/zonas';
 import { ambitoJunta, filtroAmbito, filtroReciboAmbito } from '../lib/junta';
 import {
   empresaDe, scopeCargos, scopeComplejos, scopeMediosPago, scopeNotificaciones, scopePagos, scopePagosJunta, scopeRecibos, scopeTareas, scopeUnidades,
@@ -80,10 +81,11 @@ const selectCargo = {
   monto: true,
   estado_pago: true,
   unidad: { select: { codigo: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } } },
-  reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } },
+  reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { zona_horaria: true } } } } } },
 } satisfies Prisma.ReciboConceptoUnidadSelect;
 type CargoFila = Prisma.ReciboConceptoUnidadGetPayload<{ select: typeof selectCargo }>;
-const filaCargo = (c: CargoFila) => ({
+/** `reloj`: el «hoy» de cada cargo es el de la zona del condominio de su recibo. */
+const filaCargo = (reloj: Reloj) => (c: CargoFila) => ({
   id: c.id,
   unidad: dato(c.unidad?.codigo, 30),
   condominio: dato(c.unidad?.complejo?.nombre),
@@ -91,7 +93,7 @@ const filaCargo = (c: CargoFila) => ({
   concepto: dato(c.reciboConcepto?.concepto?.nombre),
   periodo: periodoDe(c.reciboConcepto?.recibo?.anio, c.reciboConcepto?.recibo?.mes),
   monto: monto(c.monto),
-  estado: estadoCargo(c.estado_pago, c.reciboConcepto?.recibo?.fecha_vencimiento),
+  estado: estadoCargo(c.estado_pago, c.reciboConcepto?.recibo?.fecha_vencimiento, reloj.hoy(c.reciboConcepto?.recibo?.complejo?.zona_horaria)),
   vencimiento: fechaDia(c.reciboConcepto?.recibo?.fecha_vencimiento),
 });
 
@@ -157,13 +159,14 @@ export const resumenCobranza = defineHerramienta({
     const al = alcanceGestion(u);
     const F: Prisma.ReciboConceptoUnidadWhereInput = { AND: [al.cargos, porPeriodo(e.periodo), cargosEn(e)] };
     const con = (x: Prisma.ReciboConceptoUnidadWhereInput) => ({ AND: [F, x] });
+    const reloj = await relojDeCondominios();
     const [emitido, cobrado, porCobrar, vencido, conteos, morosos, porValidar] = await Promise.all([
       prisma.reciboConceptoUnidad.aggregate({ where: F, _sum: { monto: true } }),
-      prisma.reciboConceptoUnidad.aggregate({ where: con(filtroEstadoCargo('pagado')), _sum: { monto: true } }),
+      prisma.reciboConceptoUnidad.aggregate({ where: con(filtroEstadoCargo('pagado', reloj)), _sum: { monto: true } }),
       prisma.reciboConceptoUnidad.aggregate({ where: con(noPagado), _sum: { monto: true } }),
-      prisma.reciboConceptoUnidad.aggregate({ where: con(filtroEstadoCargo('vencido')), _sum: { monto: true }, _count: { _all: true } }),
-      Promise.all(ESTADOS_CARGO.map((s) => prisma.reciboConceptoUnidad.count({ where: con(filtroEstadoCargo(s)) }))),
-      prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: con(filtroEstadoCargo('vencido')) }),
+      prisma.reciboConceptoUnidad.aggregate({ where: con(filtroEstadoCargo('vencido', reloj)), _sum: { monto: true }, _count: { _all: true } }),
+      Promise.all(ESTADOS_CARGO.map((s) => prisma.reciboConceptoUnidad.count({ where: con(filtroEstadoCargo(s, reloj)) }))),
+      prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: con(filtroEstadoCargo('vencido', reloj)) }),
       prisma.pago.count({ where: { AND: [al.pagos, pagosEn(e), { estado_validacion: 'por_validar' }] } }),
     ]);
     const em = new Prisma.Decimal(sumaDe(emitido) ?? 0);
@@ -200,8 +203,9 @@ export const morosos = defineHerramienta({
   solo_lectura: true,
   async ejecutar(u, e) {
     const al = alcanceGestion(u);
+    const reloj = await relojDeCondominios();
     const where: Prisma.ReciboConceptoUnidadWhereInput = {
-      AND: [al.cargos, filtroEstadoCargo('vencido'), { unidad: { ...(e.condominio_id ? { complejo_id: e.condominio_id } : {}), ...(e.estructura_id ? { estructura_id: e.estructura_id } : {}) } }],
+      AND: [al.cargos, filtroEstadoCargo('vencido', reloj), { unidad: { ...(e.condominio_id ? { complejo_id: e.condominio_id } : {}), ...(e.estructura_id ? { estructura_id: e.estructura_id } : {}) } }],
     };
     const grupos = await prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where, _sum: { monto: true }, _count: { _all: true } });
     const minimo = e.deuda_minima === undefined ? null : new Prisma.Decimal(e.deuda_minima);
@@ -215,7 +219,7 @@ export const morosos = defineHerramienta({
     const [unidades, antiguos] = await Promise.all([
       prisma.unidad.findMany({
         where: { AND: [al.unidades, { id: { in: ids } }] },
-        select: { id: true, codigo: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } }, propietario: { select: { nombre: true } }, inquilino: { select: { nombre: true } } },
+        select: { id: true, codigo: true, complejo: { select: { nombre: true, zona_horaria: true } }, estructura: { select: { nombre: true } }, propietario: { select: { nombre: true } }, inquilino: { select: { nombre: true } } },
       }),
       prisma.reciboConceptoUnidad.findMany({ where: { AND: [where, { unidad_id: { in: ids } }] }, select: { unidad_id: true, reciboConcepto: { select: { recibo: { select: { fecha_vencimiento: true } } } } } }),
     ]);
@@ -225,7 +229,6 @@ export const morosos = defineHerramienta({
       const f = c.reciboConcepto?.recibo?.fecha_vencimiento;
       if (c.unidad_id != null && f && (!masAntiguo.has(c.unidad_id) || f < masAntiguo.get(c.unidad_id)!)) masAntiguo.set(c.unidad_id, f);
     }
-    const hoy = hoyLima();
     return respuesta({
       alcance: ALCANCE_TEXTO[al.tipo],
       total_morosos: pag.total,
@@ -242,7 +245,7 @@ export const morosos = defineHerramienta({
           deuda_vencida: monto(x.deuda),
           cargos_vencidos: x.cargos,
           vencido_desde: fechaDia(desde),
-          dias_de_atraso: desde ? Math.max(0, Math.floor((hoy.getTime() - desde.getTime()) / 86_400_000)) : null,
+          dias_de_atraso: desde ? Math.max(0, Math.floor((reloj.hoy(m?.complejo?.zona_horaria).getTime() - desde.getTime()) / 86_400_000)) : null, // los días del condominio, con su «hoy»
         };
       }),
       hay_mas: pag.hay_mas,
@@ -309,9 +312,10 @@ export const detalleUnidad = defineHerramienta({
     }
     const x = unidades[0]!;
     const mios: Prisma.ReciboConceptoUnidadWhereInput = { AND: [al.cargos, { unidad_id: x.id }] };
+    const reloj = await relojDeCondominios();
     const [deuda, vencida, abiertos, pagos] = await Promise.all([
       prisma.reciboConceptoUnidad.aggregate({ where: { AND: [mios, noPagado] }, _sum: { monto: true } }),
-      prisma.reciboConceptoUnidad.aggregate({ where: { AND: [mios, filtroEstadoCargo('vencido')] }, _sum: { monto: true } }),
+      prisma.reciboConceptoUnidad.aggregate({ where: { AND: [mios, filtroEstadoCargo('vencido', reloj)] }, _sum: { monto: true } }),
       prisma.reciboConceptoUnidad.findMany({ where: { AND: [mios, noPagado] }, orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'asc' } } }, { id: 'asc' }], take: 10, select: selectCargo }),
       prisma.pago.findMany({ where: { AND: [al.pagos, { reciboConceptoUnidad: { unidad_id: x.id } }] }, orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], take: 5, select: selectPago }),
     ]);
@@ -322,7 +326,7 @@ export const detalleUnidad = defineHerramienta({
       propietario: nombreCorto(x.propietario?.nombre), inquilino: nombreCorto(x.inquilino?.nombre),
       deuda_total: monto(sumaDe(deuda)),
       deuda_vencida: monto(sumaDe(vencida)),
-      cargos_abiertos: abiertos.map(filaCargo),
+      cargos_abiertos: abiertos.map(filaCargo(reloj)),
       ultimos_pagos: pagos.map(filaPago),
     });
   },
@@ -346,7 +350,8 @@ export const recibos = defineHerramienta({
   async ejecutar(u, e) {
     const al = alcanceGestion(u);
     const p = pagina(e);
-    const cargosDelFiltro: Prisma.ReciboConceptoUnidadWhereInput = { AND: [al.cargos, porUnidad(e.unidad), e.estado ? filtroEstadoCargo(e.estado) : {}] };
+    const reloj = await relojDeCondominios();
+    const cargosDelFiltro: Prisma.ReciboConceptoUnidadWhereInput = { AND: [al.cargos, porUnidad(e.unidad), e.estado ? filtroEstadoCargo(e.estado, reloj) : {}] };
     const periodo = e.periodo ? { anio: Number(e.periodo.slice(0, 4)), mes: Number(e.periodo.slice(5, 7)) } : {};
     const necesitaCargos = al.tipo === 'junta' || e.unidad !== undefined || e.estado !== undefined;
     const filas = await prisma.recibo.findMany({
@@ -410,11 +415,12 @@ export const cargos = defineHerramienta({
     const al = alcanceGestion(u);
     const p = pagina(e);
     const v = rangoVence(e.vence_desde, e.vence_hasta);
+    const reloj = await relojDeCondominios();
     const filas = await prisma.reciboConceptoUnidad.findMany({
       where: {
         AND: [
           al.cargos, porPeriodo(e.periodo), porUnidad(e.unidad), cargosEn(e),
-          e.estado ? filtroEstadoCargo(e.estado) : {},
+          e.estado ? filtroEstadoCargo(e.estado, reloj) : {},
           e.concepto ? { reciboConcepto: { concepto: { nombre: { contains: e.concepto, mode: 'insensitive' } } } } : {},
           v ? { reciboConcepto: { recibo: { fecha_vencimiento: v } } } : {},
         ],
@@ -425,7 +431,7 @@ export const cargos = defineHerramienta({
       select: selectCargo,
     });
     const c = cortar(filas, p);
-    return respuesta({ alcance: ALCANCE_TEXTO[al.tipo], filas: c.filas.map(filaCargo), hay_mas: c.hay_mas, siguiente_cursor: c.siguiente_cursor });
+    return respuesta({ alcance: ALCANCE_TEXTO[al.tipo], filas: c.filas.map(filaCargo(reloj)), hay_mas: c.hay_mas, siguiente_cursor: c.siguiente_cursor });
   },
 });
 
@@ -493,7 +499,7 @@ export const cobranzaPorConcepto = defineHerramienta({
   solo_lectura: true,
   async ejecutar(u, e) {
     const al = alcanceGestion(u);
-    const anio = e.anio ?? hoyLima().getUTCFullYear();
+    const anio = e.anio ?? hoyEn(await zonaDeUsuario(u)).getUTCFullYear(); // el año en curso en el condominio de quien pregunta
     const sumas = await sumasPorRC({ AND: [al.cargos, cargosEn(e), { reciboConcepto: { recibo: { anio, ...(e.mes ? { mes: e.mes } : {}) } } }] });
     const rcs = await prisma.reciboConcepto.findMany({ where: { id: { in: [...sumas.keys()] } }, select: { id: true, concepto_id: true, concepto: { select: { nombre: true } } } });
     const porConcepto = new Map<number | null, { nombre: string | null; emitido: Prisma.Decimal; cobrado: Prisma.Decimal; cargos: number }>();
@@ -522,11 +528,13 @@ export const cobranzaPorMes = defineHerramienta({
   solo_lectura: true,
   async ejecutar(u, e) {
     const al = alcanceGestion(u);
+    const reloj = await relojDeRecibos(al.recibos); // los meses terminan en el de hoy del alcance; cada pago cuenta en el mes de la zona de SU condominio
+    const fin = reloj.hoyMasReciente();
     const serie = await Promise.all(
-      mesesAtras(e.meses).map(async (m) => {
+      mesesHasta(e.meses, fin.getUTCFullYear(), fin.getUTCMonth() + 1).map(async (m) => {
         const [emitido, cobrado] = await Promise.all([
           prisma.reciboConceptoUnidad.aggregate({ where: { AND: [al.cargos, cargosEn(e), { reciboConcepto: { recibo: { anio: m.anio, mes: m.mes } } }] }, _sum: { monto: true } }),
-          prisma.pago.aggregate({ where: { AND: [al.pagos, pagosEn(e), { estado_validacion: 'validado' }, { fecha_pago: { gte: m.desde, lt: m.hasta } }] }, _sum: { monto: true } }),
+          prisma.pago.aggregate({ where: { AND: [al.pagos, pagosEn(e), { estado_validacion: 'validado' }, pagoEnMes(reloj, m.anio, m.mes)] }, _sum: { monto: true } }),
         ]);
         return { periodo: periodoDe(m.anio, m.mes), emitido: monto(sumaDe(emitido)), cobrado: monto(sumaDe(cobrado)) };
       }),
@@ -635,14 +643,16 @@ export const avisosRecientes = defineHerramienta({
   roles: GESTION,
   solo_lectura: true,
   async ejecutar(u, e) {
-    const desde = new Date(hoyLima().getTime() + 5 * 3_600_000 - e.dias * 86_400_000);
+    const zona = await zonaDeUsuario(u);
+    const dia = new Date(hoyEn(zona).getTime() - e.dias * 86_400_000); // el día de calendario de hace `dias` días, en el condominio de quien pregunta
+    const desde = medianocheEn(zona, dia.getUTCFullYear(), dia.getUTCMonth() + 1, dia.getUTCDate());
     const g = await prisma.notificacion.groupBy({
       by: ['tipo', 'canal', 'estado'],
       where: { AND: [scopeNotificaciones(u), { created_at: { gte: desde } }, e.tipo ? { tipo: e.tipo } : {}, e.estado ? { estado: e.estado } : {}] },
       _count: { _all: true },
     });
     const filas = g.map((x) => ({ tipo: dato(x.tipo, 40), canal: dato(x.canal, 20), estado: dato(x.estado, 20), cantidad: x._count._all })).sort((a, b) => b.cantidad - a.cantidad);
-    return respuesta({ desde: fechaDia(desde), dias: e.dias, total: filas.reduce((s, f) => s + f.cantidad, 0), filas: filas.slice(0, 50) });
+    return respuesta({ desde: fechaDia(dia), dias: e.dias, total: filas.reduce((s, f) => s + f.cantidad, 0), filas: filas.slice(0, 50) });
   },
 });
 

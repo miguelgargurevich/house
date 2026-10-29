@@ -1,11 +1,13 @@
 import { Prisma } from '@prisma/client';
-import { MONEDA_POR_DEFECTO } from '../../lib/paises';
-import { hoyLima } from './fechas';
+import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO } from '../../lib/paises';
+import { hoyEn } from './fechas';
+import { cargoSegunZona, type Reloj } from './zonas';
 import { conVistaResidente, selectEvaluacion } from './evaluacionVista';
 
 export type EstadoCargo = 'pagado' | 'pendiente' | 'vencido' | 'en_revision';
 
-export function estadoCargo(estadoPago: string | null, fechaVencimiento: Date | null | undefined, hoy = hoyLima()): EstadoCargo {
+/** `hoy` es el día de HOY en la zona del condominio del recibo (`hoyEn(zona)`): vencido es desde el día siguiente al vencimiento, en SU hora. */
+export function estadoCargo(estadoPago: string | null, fechaVencimiento: Date | null | undefined, hoy: Date): EstadoCargo {
   if (estadoPago === 'pagado') return 'pagado';
   if (estadoPago === 'en_revision') return 'en_revision'; // pagó y falta validar: no es moroso
   if (fechaVencimiento && fechaVencimiento < hoy) return 'vencido';
@@ -18,17 +20,17 @@ const abierto: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: nul
 /** «Por cobrar»: todo lo que no está pagado (incluye los cargos en revisión). */
 export const noPagado: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: { not: 'pagado' } }] };
 
-/** Filtro Prisma equivalente a `estadoCargo`. */
-export function filtroEstadoCargo(estado: EstadoCargo, hoy = hoyLima()): Prisma.ReciboConceptoUnidadWhereInput {
+/** Filtro Prisma equivalente a `estadoCargo`: cada cargo se compara con el «hoy» de la zona de SU condominio (`reloj`, de `relojDeCondominios`). */
+export function filtroEstadoCargo(estado: EstadoCargo, reloj: Reloj): Prisma.ReciboConceptoUnidadWhereInput {
   switch (estado) {
     case 'pagado':
       return { estado_pago: 'pagado' };
     case 'en_revision':
       return { estado_pago: 'en_revision' };
     case 'vencido':
-      return { AND: [abierto, { reciboConcepto: { recibo: { fecha_vencimiento: { lt: hoy } } } }] };
+      return { AND: [abierto, cargoSegunZona(reloj, (d) => ({ reciboConcepto: { recibo: { fecha_vencimiento: { lt: d.hoy } } } }))] };
     case 'pendiente':
-      return { AND: [abierto, { reciboConcepto: { recibo: { fecha_vencimiento: { gte: hoy } } } }] };
+      return { AND: [abierto, cargoSegunZona(reloj, (d) => ({ reciboConcepto: { recibo: { fecha_vencimiento: { gte: d.hoy } } } }))] };
   }
 }
 
@@ -40,7 +42,7 @@ export const includeCargo = {
   reciboConcepto: {
     select: {
       concepto: { select: { id: true, nombre: true } },
-      recibo: { select: { id: true, mes: true, anio: true, descripcion: true, fecha_vencimiento: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { moneda: true } } } },
+      recibo: { select: { id: true, mes: true, anio: true, descripcion: true, fecha_vencimiento: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { moneda: true, zona_horaria: true } } } },
     },
   },
   pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], include: { comprobante: { select: selectComprobante }, evaluacion: { select: { estado: true, veredicto: true } } } },
@@ -48,8 +50,8 @@ export const includeCargo = {
 
 type CargoConIncludes = Prisma.ReciboConceptoUnidadGetPayload<{ include: typeof includeCargo }>;
 
-/** Aplana reciboConcepto → `concepto` y `recibo`, calcula `estado` y pone `moneda` (la del condominio del recibo). */
-export function formatearCargo(c: CargoConIncludes) {
+/** Aplana reciboConcepto → `concepto` y `recibo`, calcula `estado` (con el «hoy» de la zona del condominio) y pone `moneda` (la del condominio del recibo). */
+export function formatearCargo(c: CargoConIncludes, ahora: Date = new Date()) {
   const { reciboConcepto, pagos, ...resto } = c;
   const { complejo, ...recibo } = reciboConcepto?.recibo ?? ({} as NonNullable<NonNullable<typeof reciboConcepto>['recibo']>);
   return {
@@ -58,7 +60,7 @@ export function formatearCargo(c: CargoConIncludes) {
     concepto: reciboConcepto?.concepto ? { nombre: reciboConcepto.concepto.nombre } : null,
     recibo: reciboConcepto?.recibo ? recibo : null,
     moneda: complejo?.moneda ?? MONEDA_POR_DEFECTO,
-    estado: estadoCargo(c.estado_pago, reciboConcepto?.recibo?.fecha_vencimiento),
+    estado: estadoCargo(c.estado_pago, reciboConcepto?.recibo?.fecha_vencimiento, hoyEn(complejo?.zona_horaria ?? ZONA_POR_DEFECTO, ahora)),
   };
 }
 

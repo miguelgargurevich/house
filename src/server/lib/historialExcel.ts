@@ -1,13 +1,13 @@
 /** Excel de «Mi historial»: una hoja «Resumen» (las cifras del periodo) y una hoja «Meses» (una fila por mantenimiento). Sólo arma el archivo; no toca la base. */
 import XLSX from 'xlsx';
-import { formatoDinero, simboloDe } from '../../lib/paises';
+import { ZONA_POR_DEFECTO, formatoDinero, simboloDe } from '../../lib/paises';
 import type { Historial } from '../services/historial';
-import { hoyLima } from './fechas';
+import { diaEn } from './fechas';
 import { periodoTexto } from './periodo';
 
 const dma = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
-/** Un instante (la fecha de pago) como día de Lima. */
-const diaLima = (instante: string) => dma(hoyLima(new Date(instante)).toISOString());
+/** Un instante (la fecha de pago) como día en la zona del condominio. */
+const diaEnZona = (instante: string, zona: string) => dma(diaEn(new Date(instante), zona));
 const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const ESTADOS: Record<string, string> = { pagado: 'Pagado', en_revision: 'En revisión', parcial: 'Pago parcial', vencido: 'Vencido', pendiente: 'Por pagar' };
 
@@ -39,7 +39,7 @@ export function historialXlsx(h: Historial, unidadId?: number, generado = new Da
     ['Meses pagados a tiempo', r.meses_a_tiempo],
     ['Meses evaluados', r.meses_evaluados],
     ['Consumo de agua promedio (m³)', r.agua_promedio_m3 === null ? '' : Number(r.agua_promedio_m3)],
-    ['Generado el', dma(hoyLima(generado).toISOString())],
+    ['Generado el', dma(diaEn(generado, h.meses[0]?.zona_horaria ?? ZONA_POR_DEFECTO))],
   ]);
   resumen['!cols'] = [{ wch: 32 }, { wch: 28 }];
 
@@ -53,7 +53,7 @@ export function historialXlsx(h: Historial, unidadId?: number, generado = new Da
       soles(m.pagado),
       ESTADOS[m.estado] ?? m.estado,
       dma(m.fecha_vencimiento),
-      m.fecha_pago ? diaLima(m.fecha_pago) : '',
+      m.fecha_pago ? diaEnZona(m.fecha_pago, m.zona_horaria) : '',
       m.dias_vs_vencimiento ?? '',
       m.agua_m3 === null ? '' : Number(m.agua_m3),
       ...(h.moneda ? [] : [m.moneda]),

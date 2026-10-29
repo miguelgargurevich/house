@@ -3,18 +3,19 @@
 // teléfonos de personas y sin datos de terceros. Lo único «ajeno» que aparece son los medios de pago ACTIVOS del block del propio
 // residente (lo que ya ve en su pantalla de pago), con sus textos limpios para que no sirvan de vía de inyección.
 import { Prisma } from '@prisma/client';
-import { MONEDA_POR_DEFECTO } from '../../../lib/paises';
+import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO } from '../../../lib/paises';
 import { prisma } from '../../db';
 import { ROLES_OPERATIVOS, type Rol } from '../../config';
 import { cooldownDeps } from '../../lib/cooldown';
 import { decimalAString, filtroEstadoCargo, noPagado } from '../../lib/cargos';
-import { hoyLima } from '../../lib/fechas';
+import { hoyEn } from '../../lib/fechas';
+import { relojDeCondominios, zonaDeUsuario } from '../../lib/zonas';
 import { ambitoJunta, filtroAmbito } from '../../lib/junta';
 import { cargoEnMoneda, monedasDelAlcance, porMoneda } from '../../lib/paisMoneda';
 import { rutaPermitida } from '../../lib/rutasApp';
 import { scopeCargos, scopeComplejos, scopePagos, scopePagosJunta, scopeRecibos, scopeTareas } from '../../lib/scope';
 import type { AuthUser } from '../../middleware/auth';
-import { dineroTexto, fechaTexto } from '../avisos/plantillas';
+import { dineroTexto, fechaTexto, fechaTextoEn } from '../avisos/plantillas';
 import { camposDePago, codigoUnidadDelMedio } from '../mediosPago';
 
 export interface MedioParaPagar {
@@ -101,17 +102,18 @@ async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
   const propias: Prisma.UnidadWhereInput = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
   const mios: Prisma.ReciboConceptoUnidadWhereInput = { unidad: propias };
   const monedas = await monedasDelAlcance({ reciboConceptos: { some: { reciboConceptoUnidades: { some: mios } } } }, { unidades: { some: propias } });
+  const reloj = await relojDeCondominios();
   const [unidades, deuda, vencidos, enRevision, proximo, pagos] = await Promise.all([
     prisma.unidad.findMany({ where: propias, orderBy: { codigo: 'asc' }, take: 10, select: { codigo: true, complejo_id: true, estructura_id: true, complejo: { select: { nombre: true } }, estructura: { select: { nombre: true } } } }),
     porMoneda(monedas, async (m) => decimalAString((await prisma.reciboConceptoUnidad.aggregate({ where: { AND: [mios, cargoEnMoneda(m), noPagado] }, _sum: { monto: true } }))._sum.monto)),
-    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido')] } }),
-    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision')] } }),
+    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('vencido', reloj)] } }),
+    prisma.reciboConceptoUnidad.count({ where: { AND: [mios, filtroEstadoCargo('en_revision', reloj)] } }),
     prisma.reciboConceptoUnidad.findFirst({
-      where: { AND: [mios, filtroEstadoCargo('pendiente')] },
+      where: { AND: [mios, filtroEstadoCargo('pendiente', reloj)] },
       orderBy: [{ reciboConcepto: { recibo: { fecha_vencimiento: 'asc' } } }, { id: 'asc' }],
       select: { monto: true, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { fecha_vencimiento: true, complejo: { select: { moneda: true } } } } } } },
     }),
-    prisma.pago.findMany({ where: { reciboConceptoUnidad: mios }, orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], take: 3, select: { monto: true, fecha_pago: true, estado_validacion: true, reciboConceptoUnidad: { select: { reciboConcepto: { select: { recibo: { select: { complejo: { select: { moneda: true } } } } } } } } } }),
+    prisma.pago.findMany({ where: { reciboConceptoUnidad: mios }, orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], take: 3, select: { monto: true, fecha_pago: true, estado_validacion: true, reciboConceptoUnidad: { select: { reciboConcepto: { select: { recibo: { select: { complejo: { select: { moneda: true, zona_horaria: true } } } } } } } } } }),
   ]);
   const medios = await prisma.medioPago.findMany({
     where: { activo: true, ...medioDeUnidades(unidades) },
@@ -126,7 +128,7 @@ async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
     vencidos,
     en_revision: enRevision,
     proximo_vencimiento: proximo && fecha ? { fecha: fechaTexto(fecha), monto: decimalAString(proximo.monto), moneda: proximo.reciboConcepto?.recibo?.complejo?.moneda ?? MONEDA_POR_DEFECTO, concepto: proximo.reciboConcepto?.concepto?.nombre ? limpiarTexto(proximo.reciboConcepto.concepto.nombre) : null } : null,
-    ultimos_pagos: pagos.map((p) => ({ monto: decimalAString(p.monto), moneda: p.reciboConceptoUnidad?.reciboConcepto?.recibo?.complejo?.moneda ?? MONEDA_POR_DEFECTO, fecha: fechaTexto(p.fecha_pago), estado: ESTADO_PAGO[p.estado_validacion] ?? p.estado_validacion })),
+    ultimos_pagos: pagos.map((p) => ({ monto: decimalAString(p.monto), moneda: p.reciboConceptoUnidad?.reciboConcepto?.recibo?.complejo?.moneda ?? MONEDA_POR_DEFECTO, fecha: fechaTextoEn(p.fecha_pago, p.reciboConceptoUnidad?.reciboConcepto?.recibo?.complejo?.zona_horaria ?? ZONA_POR_DEFECTO), estado: ESTADO_PAGO[p.estado_validacion] ?? p.estado_validacion })),
     // Los del block primero, luego los del condominio (igual que la pantalla de pago).
     medios: [...medios.filter((m) => m.estructura_id != null), ...medios.filter((m) => m.estructura_id == null)].map((m) => {
       const c = camposDePago(m, codigoUnidadDelMedio({ complejo_id: m.complejo_id, estructura_id: m.estructura_id }, unidades));
@@ -176,9 +178,10 @@ async function situacionGestion(u: AuthUser): Promise<SituacionGestion | null> {
   const monedas = alcance === 'junta'
     ? await monedasDelAlcance({ reciboConceptos: { some: { reciboConceptoUnidades: { some: cargos } } } }, { unidades: { some: filtroAmbito(ambitoJunta(u)!) } })
     : await monedasDelAlcance(scopeRecibos(u), scopeComplejos(u));
+  const reloj = await relojDeCondominios();
   const [porCobrar, morosos, porValidar, deudaPorUnidad] = await Promise.all([
     porMoneda(monedas, async (m) => decimalAString((await prisma.reciboConceptoUnidad.aggregate({ where: { AND: [cargos, cargoEnMoneda(m), noPagado] }, _sum: { monto: true } }))._sum.monto)),
-    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
+    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido', reloj)] } }),
     prisma.pago.count({ where: { AND: [pagos, { estado_validacion: 'por_validar' }] } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, noPagado] }, _sum: { monto: true } }),
   ]);
@@ -214,7 +217,7 @@ export async function cargarDatos(user: AuthUser, ruta?: string): Promise<DatosC
     rol: user.rol,
     cargo_junta: ambitoJunta(user) ? user.cargo_junta : null,
     ruta: rutaPermitida(user, ruta),
-    hoy: fechaLarga(hoyLima(new Date(cooldownDeps.ahora()))),
+    hoy: fechaLarga(hoyEn(await zonaDeUsuario(user), new Date(cooldownDeps.ahora()))), // el día en el condominio de la persona
     residente,
     gestion,
     mantenimiento,

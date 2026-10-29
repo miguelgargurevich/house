@@ -24,6 +24,11 @@ function paredEn(zona: string, t: number): number {
   return Date.UTC(v.year!, v.month! - 1, v.day!, v.hour!, v.minute!, v.second!);
 }
 
+/** La hora de pared de un instante en la zona, como un `Date` cuyos campos UTC son los de esa hora (para escribir «14:32» sin desfases). */
+export function horaEn(zona: string, instante: Date): Date {
+  return new Date(paredEn(zona, instante.getTime()));
+}
+
 /** Desfase (ms) de la zona respecto a UTC en ese instante: −5 h en Lima; en Madrid, +1 h en invierno y +2 h en verano. */
 function desfaseEn(zona: string, t: number): number {
   return paredEn(zona, t) - Math.floor(t / 1000) * 1000;

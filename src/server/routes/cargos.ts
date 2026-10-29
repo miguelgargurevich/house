@@ -2,6 +2,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { invalid } from '../errors';
 import { filtroEstadoCargo, formatearCargo, includeCargo, type EstadoCargo } from '../lib/cargos';
+import { relojDeCondominios } from '../lib/zonas';
 import { scopeCargos, scopeCargosEscritura, scopeReciboConceptosEscritura, scopeUnidades } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
@@ -58,8 +59,8 @@ export const cargosRouter = crudRouter({
       estructura_id: idSchema.optional(),
       complejo_id: idSchema.optional(),
     }),
-    where: (f) => ({
-      ...(f.estado ? filtroEstadoCargo(f.estado as EstadoCargo) : {}),
+    where: async (f) => ({
+      ...(f.estado ? filtroEstadoCargo(f.estado as EstadoCargo, await relojDeCondominios()) : {}),
       ...(f.unidad_id !== undefined ? { unidad_id: f.unidad_id } : {}),
       ...(f.recibo_id !== undefined ? { reciboConcepto: { recibo_id: f.recibo_id } } : {}),
       ...(f.estructura_id !== undefined || f.complejo_id !== undefined ? { unidad: { ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}), ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}) } } : {}),
@@ -69,6 +70,6 @@ export const cargosRouter = crudRouter({
   updateSchema: base.partial(),
   prepareCreate: (d, u) => validarRefs(d, u),
   prepareUpdate: (d, u, e) => validarRefs(d, u, e),
-  format: (items) => items.map(formatearCargo),
+  format: (items) => items.map((c) => formatearCargo(c)),
 });
 

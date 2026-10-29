@@ -4,6 +4,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { forbidden, invalid } from '../errors';
 import { filtroEstadoCargo } from '../lib/cargos';
+import { relojDeCondominios } from '../lib/zonas';
 import { CARGOS_JUNTA } from '../lib/junta';
 import { empresaDe, scopeComplejos, scopeEstructuras, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
@@ -133,7 +134,7 @@ export const usuariosRouter = crudRouter({
         select: { id: true, codigo: true, propietario_id: true, inquilino_id: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } },
       });
       for (const un of unidades) for (const id of [un.propietario_id, un.inquilino_id]) if (id != null && residentes.includes(id)) mapa.set(id, [...(mapa.get(id) ?? []), unidadFila(un)]);
-      const vencidas = await prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [{ unidad_id: { in: unidades.map((x) => x.id) } }, filtroEstadoCargo('vencido')] } });
+      const vencidas = await prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [{ unidad_id: { in: unidades.map((x) => x.id) } }, filtroEstadoCargo('vencido', await relojDeCondominios())] } });
       for (const v of vencidas) if (v.unidad_id != null) morosas.add(v.unidad_id);
     }
     return items.map((u) => {
@@ -152,7 +153,7 @@ export const usuariosRouter = crudRouter({
       estructura_id: idSchema.optional(),
       estado: z.enum(['moroso', 'al_dia'], { error: 'estado debe ser: moroso, al_dia' }).optional(),
     }),
-    where: (f, user) => {
+    where: async (f, user) => {
       const and: Record<string, unknown>[] = [];
       if (f.rol) and.push({ rol: f.rol });
       if (f.tipo === 'residente') and.push({ rol: { in: [...ROLES_RESIDENTE] } });
@@ -170,7 +171,7 @@ export const usuariosRouter = crudRouter({
         and.push({ OR: [{ unidades: { some: { estructura_id: f.estructura_id } } }, { unidadesInquilino: { some: { estructura_id: f.estructura_id } } }] });
       }
       if (f.estado) {
-        const enMora = { reciboConceptoUnidades: { some: filtroEstadoCargo('vencido') } };
+        const enMora = { reciboConceptoUnidades: { some: filtroEstadoCargo('vencido', await relojDeCondominios()) } };
         const moroso = { OR: [{ unidades: { some: enMora } }, { unidadesInquilino: { some: enMora } }] };
         and.push({ rol: { in: [...ROLES_RESIDENTE] } }, f.estado === 'moroso' ? moroso : { NOT: moroso });
       }
