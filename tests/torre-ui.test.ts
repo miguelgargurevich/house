@@ -108,7 +108,8 @@ describe('pantallas: la torre se ve y se filtra', () => {
     assert.match(s, /estructura_id: torre \|\| undefined/);
     assert.match(s, /SelectoresUbicacion/);
     assert.match(s, /Todo el condominio/);
-    assert.match(f(`${COB}SelectoresUbicacion.tsx`), /Todas las torres/);
+    assert.match(f(`${COB}SelectoresUbicacion.tsx`), /\{palabra\.todas\}/);
+    assert.match(f(`${COB}torres.ts`), /Todas las torres/);
   });
 
   it('Emitir recibo: elige torre o «todas» (un recibo por torre) y manda estructura_id sólo si eligió una', () => {

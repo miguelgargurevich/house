@@ -4,7 +4,7 @@ import { CameraIcon } from '@heroicons/react/24/outline';
 import { useForm } from 'react-hook-form';
 import { api, errorText, useResource } from '../../../api';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
-import { Alert, Button, DefinitionList, Input, Modal, Select, fechaCorta, soles, useToast } from '../../../ui';
+import { Alert, Button, Input, Modal, Select, fechaCorta, soles, useToast } from '../../../ui';
 import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
 import { ComoPagar } from './ComoPagar';
 import { METODOS } from './tipos';
@@ -103,30 +103,30 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
       )}
       {mant && paso === 'registrar' && (
         <form id="form-pago" onSubmit={handleSubmit(confirmar)} className="space-y-5" noValidate>
-          <div className="rounded bg-surface2 p-4">
-            <p className="text-sm text-muted">Monto a pagar</p>
-            <p className="num mb-4 text-2xl font-semibold">{d ? soles(d.saldo) : '—'}</p>
-            <DefinitionList
-              items={[
-                { label: 'Mantenimiento', value: mant.titulo.split(' · ')[0] },
-                { label: 'Departamento', value: `${mant.unidad.codigo}${mant.unidad.estructura?.nombre ? ` · ${mant.unidad.estructura.nombre}` : ''}` },
-                { label: 'Conceptos', value: d ? d.conceptos.map(c => c.concepto).join(', ') : '—' },
-                { label: 'Vencimiento', value: fechaCorta(mant.fecha_vencimiento) },
-              ]}
-            />
+          {/* Sólo lo que hace falta para registrar: el monto y de qué mes es. El detalle por concepto está en el recibo. */}
+          <div className="rounded border border-line bg-surface2 px-4 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <p className="text-sm text-muted">Monto a pagar</p>
+              <p className="num text-2xl font-semibold">{d ? soles(d.saldo) : '—'}</p>
+            </div>
+            <p className="mt-1 text-sm text-muted">
+              {mant.titulo.split(' · ')[0]} · {mant.unidad.codigo}{mant.unidad.estructura?.nombre ? ` · ${mant.unidad.estructura.nombre}` : ''} · vence el {fechaCorta(mant.fecha_vencimiento)}
+            </p>
           </div>
-          <Alert tone="info">Registra el pago que ya hiciste por el total del mantenimiento. Quedará en revisión hasta que se valide.</Alert>
-          <div className="grid gap-4">
+          <p className="text-sm text-muted">Registra el pago que ya hiciste por el total. Queda en revisión hasta que se valide.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
             <Select label="¿Cómo pagaste?" {...register('metodo_pago', { required: true })}>
               {METODOS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </Select>
-            <Input label="Referencia (opcional)" hint="N.º de operación o de transferencia." autoComplete="off" {...register('referencia')} />
+            <Input label="N.º de operación (opcional)" autoComplete="off" {...register('referencia')} />
+          </div>
+          <div className="grid gap-4">
             <div>
               <Input
                 label="Adjuntar comprobante (opcional)"
                 type="file"
                 accept={ACCEPT_COMPROBANTE}
-                hint="Foto o PDF de tu voucher, hasta 2 MB. Revisamos tu comprobante con inteligencia artificial para acelerar la validación."
+                hint="Foto o PDF del voucher, hasta 2 MB. La IA lo revisa para validarlo más rápido."
                 error={errorArchivo}
                 onChange={elegirArchivo}
                 className="[&_input]:h-auto [&_input]:py-2"
