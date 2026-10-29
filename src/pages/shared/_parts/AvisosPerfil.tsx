@@ -3,6 +3,7 @@ import { api, errorText, useResource } from '../../../api';
 import { useAuth } from '../../../auth/AuthContext';
 import { Button, Card, CardBody, CardHeader, Skeleton, TelefonoInput, cx, useToast } from '../../../ui';
 import { parsearCelular } from '../../../lib/telefono';
+import { MisAvisos } from './MisAvisos';
 
 interface Prefs { aviso_email: boolean; aviso_whatsapp: boolean; telefono: string | null }
 
@@ -87,6 +88,9 @@ export function AvisosPerfil() {
             </div>
           </div>
         )}
+        <div className="mt-6 border-t border-line pt-5 lg:max-w-xl">
+          <MisAvisos />
+        </div>
       </CardBody>
     </Card>
   );

@@ -3,9 +3,28 @@ import { prisma } from '../db';
 import { invalid } from '../errors';
 import { currentUser } from '../middleware/auth';
 import { formatearCelular, normalizarCelular } from '../services/avisos/celular';
+import { MOTIVO_SIN_WHATSAPP } from '../services/avisos/cola';
 import { parseBody, z } from '../validation';
 
 const select = { aviso_email: true, aviso_whatsapp: true, telefono: true } as const;
+
+// Motivos de omisión que escriben services/avisos/canales.ts y cola.ts, en palabras del residente.
+const MOTIVOS_OMITIDA = new Map<string, string>([
+  [MOTIVO_SIN_WHATSAPP, 'Tu condominio no tiene WhatsApp en su plan'],
+  ['Plan sin asistente', 'Tu condominio no tiene el asistente en su plan'],
+  ['Sin correo', 'Falta tu correo'],
+  ['Sin celular', 'Falta tu celular'],
+  ['Celular inválido', 'Tu celular no es válido; corrígelo en «Celular y avisos»'],
+]);
+const NO_ENTREGADO = 'No se pudo entregar';
+
+/** Sólo frases nuestras: nunca el error crudo del proveedor ni el cuerpo del aviso. */
+export function motivoAmigable(n: { estado: string; intentos: number; error: string | null }): string | null {
+  if (n.estado === 'omitida') return MOTIVOS_OMITIDA.get(n.error ?? '') ?? 'No se pudo enviar por este canal';
+  if (n.estado === 'error') return NO_ENTREGADO;
+  if (n.estado === 'pendiente' && n.intentos > 0) return `${NO_ENTREGADO}; lo reintentamos`;
+  return null;
+}
 
 const schema = z.object({
   aviso_email: z.boolean({ error: 'Debe ser verdadero o falso' }),
@@ -24,6 +43,35 @@ avisosPersonalesRouter.use((_req, res, next) => {
 
 avisosPersonalesRouter.get('/', async (req, res) => {
   res.json(await prisma.usuario.findUniqueOrThrow({ where: { id: currentUser(req).id }, select }));
+});
+
+/**
+ * @openapi
+ * /api/me/avisos/historial:
+ *   get:
+ *     summary: Últimos 20 avisos que se le enviaron al usuario actual (más nuevos primero); nunca cuerpo ni error del proveedor
+ *     tags: [Avisos]
+ *     security: [{ cookieAuth: [] }]
+ *     responses:
+ *       200: { description: "Lista de { id, canal (email|whatsapp|telegram), tipo, asunto, estado (pendiente|enviada|error|omitida), fecha (enviada_at o programada_para), motivo (texto amigable o null) }" }
+ *       401: { description: Sin sesión }
+ */
+avisosPersonalesRouter.get('/historial', async (req, res) => {
+  const filas = await prisma.notificacion.findMany({
+    where: { usuario_id: currentUser(req).id },
+    orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+    take: 20,
+    select: { id: true, canal: true, tipo: true, asunto: true, estado: true, intentos: true, error: true, programada_para: true, enviada_at: true },
+  });
+  res.json(filas.map(n => ({
+    id: n.id,
+    canal: n.canal,
+    tipo: n.tipo,
+    asunto: n.asunto,
+    estado: n.estado,
+    fecha: (n.enviada_at ?? n.programada_para).toISOString(),
+    motivo: motivoAmigable(n),
+  })));
 });
 
 avisosPersonalesRouter.put('/', async (req, res) => {

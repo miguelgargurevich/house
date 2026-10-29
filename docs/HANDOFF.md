@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Haiku 5.5, delegado por Opus) — «Mis avisos» en el perfil
+
+- Rama `feat/mis-avisos` (worktree `.claude/worktrees/mis-avisos`, sobre main local 98138b0; sin push). Pedido de Miguel: que el residente vea los avisos que le llegaron, dentro de «Celular y avisos». Contrato en `docs/API-CONTRATO.md` («Mis avisos»).
+- **Hecho:** `GET /api/me/avisos/historial` (`avisosPersonales.ts`): últimos 20 `Notificacion` del propio usuario, más nuevos primero, `{id, canal, tipo, asunto, estado, fecha, motivo}`. `motivo` sale de una lista CERRADA (`MOTIVOS_OMITIDA`, `motivoAmigable`), nunca del `error` ni del `cuerpo`. UI: `MisAvisosLista.tsx` (presentacional; un tipo desconocido se muestra con su asunto, sin mapa de tipos) y `MisAvisos.tsx` (pide el historial), montada en `AvisosPerfil.tsx` debajo del formulario.
+- **Pruebas:** `tests/mis-avisos.test.ts` (11 pruebas, en verde; suite completa 2000/2000 en `house_test_misavisos`; `tsc` app y tests y `npm run build` limpios). Mutaciones (10, todas en rojo y restauradas con `cp` + `cmp`): filtro por usuario, límite 20, orden, campo `error` extra, motivo crudo, fecha, lista vacía, tipo mapeado que revienta con `comunicado`, `cuerpo` en la UI y montaje de la sección.
+- **Gotchas:** `MOTIVO_SIN_WHATSAPP` se importa de `services/avisos/cola.ts`; si la otra sesión lo renombra, el test de motivos lo delata. Los motivos de `canales.ts` no están exportados: se copiaron como texto (si cambian allí, cambiar `MOTIVOS_OMITIDA`). Para la base de pruebas usé `--skip-generate` (el `node_modules` es el del checkout principal).
+- **Próximos pasos:** si la otra sesión agrega `comunicado`, la lista ya lo muestra; si quiere un nombre de tipo, agregarlo a `ListaMisAvisos` sin romper el fallback. No se verificó visualmente a 375 px (sólo por código: `min-w-0`, `break-words`, `flex-wrap`).
+
+---
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Perfil: un solo celular
 
 - «Datos personales» y «Avisos» editaban el mismo `Usuario.telefono`; el primero lo leía de la sesión (vacío tras el login) y, guardado vacío, borraba el celular de WhatsApp. Ahora el celular vive sólo en la tarjeta «Celular y avisos» (`AvisosPerfil.tsx`, refresca la sesión al guardar) y «Datos personales» sólo envía el nombre. `PUT /api/me` sin `telefono` no lo toca. Test en `tests/telefono-ui.test.ts` (con mutación).
