@@ -2,14 +2,14 @@ import { Router, type RequestHandler } from 'express';
 import { ipDe } from '../middleware/audit';
 import { MENSAJE_REGISTRO, registrarCuenta, reenviarVerificacion, verificarCorreo } from '../services/comercial/registro';
 import { catalogoPublico, cotizacionPublica } from '../services/comercial/suscripciones';
-import { contrasenaIgualACorreo, emailSchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, passwordSchema, texto, z } from '../validation';
+import { contrasenaIgualACorreo, emailSchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, passwordSchema, telefonoObligatorio, texto, z } from '../validation';
 
 export interface LimitadoresPublicos { registroIp: RequestHandler; registroCorreo: RequestHandler; verificacion: RequestHandler }
 
 const registroSchema = z.object({
   nombre: texto(120),
   email: emailSchema,
-  celular: z.string({ error: 'Debe ser un texto' }).trim().min(7, 'Celular inválido').max(30, 'Celular inválido').regex(/^[0-9+()\-\s]+$/, 'Celular inválido'),
+  celular: telefonoObligatorio,
   password: passwordSchema,
   empresa: texto(160),
   condominio: texto(160),

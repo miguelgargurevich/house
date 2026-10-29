@@ -42,23 +42,23 @@ const menuDe = (canal: CanalBot, rol: string, junta: boolean): string => {
 
 /** Un mensaje entrante ya interpretado (sin datos de Evolution que no usamos). */
 export interface Entrante extends MensajeEntrante {
-  /** Celular peruano normalizado (`51987654321`). */
+  /** Celular normalizado, E.164 sin «+» (`51987654321`). */
   numero: string;
 }
 
 const objeto = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 const cadena = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
-/** Dígitos de un JID de persona (`51987654321:12@s.whatsapp.net`), o null si no es una persona. */
+/** Dígitos de un JID de persona (`51987654321:12@s.whatsapp.net`), o null si no es una persona. Los JID traen el código de país sin «+»: se le pone para que un número de otro país no se lea como peruano. */
 function numeroDeJid(jid: unknown): string | null {
   const j = cadena(jid);
   if (!j || !j.endsWith('@s.whatsapp.net')) return null;
-  return normalizarCelular(j.split('@')[0]!.split(':')[0]!);
+  return normalizarCelular(`+${j.split('@')[0]!.split(':')[0]!}`);
 }
 
 /**
  * Interpreta el cuerpo del webhook de Evolution. Devuelve los mensajes a atender; `[]` = ignorar (otro evento, grupos, `fromMe`,
- * estados, difusiones, canales, números que no son celulares peruanos, cuerpos raros). Nunca lanza.
+ * estados, difusiones, canales, números que no son celulares válidos, cuerpos raros). Nunca lanza.
  */
 export function interpretarWebhook(body: unknown): Entrante[] {
   const b = objeto(body);

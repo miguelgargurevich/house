@@ -83,7 +83,7 @@ describe('celulares peruanos', () => {
     for (const ok of ['987654321', '987 654 321', '+51 987 654 321', '51987654321', '0051987654321', '(+51) 987-654-321', ' 987.654.321 ']) {
       assert.equal(normalizarCelular(ok), '51987654321', ok);
     }
-    for (const mal of ['', null, undefined, '12345', '887654321', '01 234 5678', '5198765432', '519876543210', '+34 612 345 678', 'abc', '98765432a', '9876543210']) {
+    for (const mal of ['', null, undefined, '12345', '887654321', '01 234 5678', '5198765432', '519876543210', '+51 1 234 5678', 'abc', '98765432a', '9876543210']) {
       assert.equal(normalizarCelular(mal as string), null, String(mal));
     }
     assert.equal(formatearCelular('51987654321'), '+51 987 654 321');

@@ -10,7 +10,7 @@ const select = { aviso_email: true, aviso_whatsapp: true, telefono: true } as co
 const schema = z.object({
   aviso_email: z.boolean({ error: 'Debe ser verdadero o falso' }),
   aviso_whatsapp: z.boolean({ error: 'Debe ser verdadero o falso' }),
-  // undefined = no tocar · '' / null = borrar · texto = celular peruano.
+  // undefined = no tocar · '' / null = borrar · texto = celular de cualquier país (sin código, Perú).
   telefono: z.string().trim().max(30).nullish(),
 });
 
@@ -34,13 +34,13 @@ avisosPersonalesRouter.put('/', async (req, res) => {
     if (body.telefono === null || body.telefono === '') data.telefono = null;
     else {
       const n = normalizarCelular(body.telefono);
-      if (!n) throw invalid('Datos inválidos: telefono: celular peruano inválido (9 dígitos que empiecen con 9)', { telefono: 'Celular peruano inválido: 9 dígitos que empiecen con 9' });
+      if (!n) throw invalid('Datos inválidos: telefono: celular inválido (móvil, con su código de país; sin código se asume Perú)', { telefono: 'Celular inválido para el país elegido' });
       data.telefono = formatearCelular(n);
     }
   }
   if (body.aviso_whatsapp) {
     const telefono = data.telefono !== undefined ? data.telefono : (await prisma.usuario.findUniqueOrThrow({ where: { id: u.id }, select: { telefono: true } })).telefono;
-    if (!normalizarCelular(telefono)) throw invalid('Datos inválidos: telefono: para recibir WhatsApp necesitas un celular peruano', { telefono: 'Necesitas un celular peruano para WhatsApp' });
+    if (!normalizarCelular(telefono)) throw invalid('Datos inválidos: telefono: para recibir WhatsApp necesitas un celular válido', { telefono: 'Necesitas un celular válido para WhatsApp' });
   }
   res.locals.entidadId = u.id;
   res.locals.auditDetalle = { campo: 'avisos', aviso_email: data.aviso_email, aviso_whatsapp: data.aviso_whatsapp };

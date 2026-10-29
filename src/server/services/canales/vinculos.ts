@@ -2,6 +2,7 @@ import { createHash, randomInt } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { HttpError } from '../../errors';
+import { parsearTelefono } from '../../../lib/telefono';
 import { canalesDeps } from './deps';
 import { cargarAuthUser, empresasDelUsuario, perteneceAEmpresa } from './identidad';
 import { limites } from './limites';
@@ -18,9 +19,13 @@ const hashCodigo = (canal: CanalBot, codigo: string) => createHash('sha256').upd
 const claveVigente = (canal: CanalBot, identificador: string) => `${canal}:${identificador}`;
 const claveUsuario = (usuarioId: number, canal: CanalBot) => `${usuarioId}:${canal}`;
 
-/** `51987654321` → `+51 ••• ••• 321` (el número completo no sale en listados); un chat de Telegram → `Telegram ••• 321`. */
+/** `51987654321` → `+51 ••• ••• 321` (el número completo no sale en listados); un chat de Telegram → `Telegram ••• 321`. El prefijo es el del país (`+1`, `+56`…). */
 export const mascara = (identificador: string, canal: CanalBot = 'whatsapp'): string =>
-  canal === 'telegram' ? `Telegram ••• ${identificador.slice(-3)}` : /^\d{8,15}$/.test(identificador) ? `+${identificador.slice(0, 2)} ••• ••• ${identificador.slice(-3)}` : `••• ${identificador.slice(-3)}`;
+  canal === 'telegram'
+    ? `Telegram ••• ${identificador.slice(-3)}`
+    : /^\d{8,15}$/.test(identificador)
+      ? `+${parsearTelefono(`+${identificador}`)?.countryCallingCode ?? identificador.slice(0, 2)} ••• ••• ${identificador.slice(-3)}`
+      : `••• ${identificador.slice(-3)}`;
 
 /** Empresa con la que se vincula un bot GLOBAL (Telegram): la del personal, o la primera con la que el residente tiene unidades. `null` si no tiene ninguna. */
 async function empresaDe(u: { id: number; empresa_id: number | null }): Promise<number | null> {

@@ -259,8 +259,13 @@ describe('medios de pago: validación por tipo', () => {
       assert.equal((await intentar(yape({ tipo, celular: undefined }))).status, 422);
       const ok = await intentar(yape({ tipo, celular: '987 654 321' }));
       assert.equal(ok.status, 201, ok.texto);
-      assert.equal(ok.body.celular, '987654321');
+      assert.equal(ok.body.celular, '+51 987 654 321'); // se guarda en formato internacional
       assert.equal(ok.body.numero_cuenta, null); // un yape no arrastra datos de banco
+      // Un celular de otro país válido también vale; un fijo de Lima no (Yape y Plin son sólo celulares).
+      const chile = await intentar(yape({ tipo, celular: '+56 9 6123 4567' }));
+      assert.equal(chile.status, 201, chile.texto);
+      assert.equal(chile.body.celular, '+56 9 6123 4567');
+      assert.equal((await intentar(yape({ tipo, celular: '+51 1 234 5678' }))).status, 422);
     }
     assert.equal((await intentar({ tipo: 'efectivo', titular: 'X' })).status, 422);
     assert.equal((await intentar({ titular: 'X' })).status, 422);

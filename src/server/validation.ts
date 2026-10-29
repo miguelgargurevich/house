@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { HttpError } from './errors';
 import { ROLES } from './config';
 import { esContrasenaComun } from './lib/contrasenasComunes';
+import { formatearTelefono, parsearTelefono } from '../lib/telefono';
 
 z.config(z.locales.es());
 
@@ -20,7 +21,9 @@ export const textoOpcional = (max = 255) =>
   z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(max, `Máximo ${max} caracteres`).nullish());
 
 export const emailSchema = z.string({ error: 'Debe ser un texto' }).trim().toLowerCase().max(160).pipe(z.email('Correo electrónico inválido'));
-export const telefonoSchema = z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(30).regex(/^[0-9+()\-\s]*$/, 'Teléfono inválido').nullish());
+/** Teléfono de cualquier país (sin «+» se asume Perú). Se guarda en formato internacional: «+51 987 654 321». */
+export const telefonoObligatorio = z.string({ error: 'Debe ser un texto' }).trim().max(30, 'Teléfono inválido').refine((v) => parsearTelefono(v) !== null, 'Teléfono inválido para el país elegido').transform((v) => formatearTelefono(v)!);
+export const telefonoSchema = z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), telefonoObligatorio.nullish());
 /** Sólo al CREAR o CAMBIAR una contraseña (nunca en el login: las cuentas existentes siguen entrando). */
 export const passwordSchema = z
   .string({ error: 'Debe ser un texto' })

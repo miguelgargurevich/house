@@ -1,4 +1,5 @@
 /** Reglas de los medios de pago de un block: catálogo de entidades, validación por tipo y límites del QR. */
+import { formatearTelefono, parsearCelular } from '../../lib/telefono';
 import { idSchema, texto, z } from '../validation';
 
 export const TIPOS_MEDIO = ['banco', 'yape', 'plin', 'recaudacion'] as const;
@@ -86,7 +87,8 @@ const numeroCuenta = z
 /** El CCI se escribe a menudo con guiones (002-194…): se aceptan y se guarda sólo con los 20 dígitos. */
 const cci = z.preprocess((v) => vacioANull(typeof v === 'string' ? v.replace(/[\s-]+/g, '') : v), z.string().regex(/^\d{20}$/, 'El CCI tiene 20 dígitos').nullish());
 const documento = z.preprocess((v) => vacioANull(sinEspacios(v)), z.string().regex(/^(\d{8}|\d{11})$/, 'Usa un DNI de 8 o un RUC de 11 dígitos').nullish());
-const celular = z.preprocess(sinEspacios, z.string({ error: 'Debe ser un texto' }).regex(/^9\d{8}$/, 'Usa un celular peruano de 9 dígitos que empiece con 9'));
+/** Yape y Plin: un celular válido de cualquier país; se guarda en formato internacional (`+51 987 654 321`). */
+const celular = z.preprocess(sinEspacios, z.string({ error: 'Debe ser un texto' }).refine((v) => parsearCelular(v) !== null, 'Usa un celular válido para el país elegido').transform((v) => formatearTelefono(v)!));
 const entidad = z.enum(NOMBRES_ENTIDAD, { error: `banco debe ser una entidad de la lista (GET /api/medios-pago/catalogo)` });
 const bancoOtro = z.preprocess(vacioANull, texto(MAX_BANCO_OTRO).nullish());
 const opcionalTexto = (max: number) => z.preprocess(vacioANull, texto(max).nullish());

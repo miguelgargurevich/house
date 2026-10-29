@@ -253,7 +253,7 @@ describe('paginación y validación', () => {
     const perfil = await llamar(base, 'PUT', '/api/me', T.prop1, { nombre: 'Propietario Uno', telefono: '999888777' });
     assert.equal(perfil.status, 200);
     assert.equal(perfil.body.nombre, 'Propietario Uno');
-    assert.equal(perfil.body.telefono, '999888777');
+    assert.equal(perfil.body.telefono, '+51 999 888 777'); // se guarda en formato internacional
     assert.ok(!perfil.texto.includes('password_hash'));
     assert.equal((await llamar(base, 'PUT', '/api/me', T.prop1, { nombre: '', telefono: '1' })).status, 422);
     assert.equal((await llamar(base, 'PUT', '/api/me/password', T.prop1, { actual: 'mala-actual', nueva: 'NuevaClave123' })).status, 400);

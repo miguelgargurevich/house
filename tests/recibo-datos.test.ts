@@ -176,7 +176,7 @@ describe('notas de pago, contacto de la administración y correo del block', () 
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.correo_vouchers, 'block1@gmail.com');
     assert.equal(r.body.condominio.notas_pago, 'Enviar voucher al correo del block');
-    assert.deepEqual([r.body.condominio.admin_nombre, r.body.condominio.admin_celular, r.body.condominio.admin_correo], ['Administradora Uno', '999 111 222', 'admin@condominio.pe']);
+    assert.deepEqual([r.body.condominio.admin_nombre, r.body.condominio.admin_celular, r.body.condominio.admin_correo], ['Administradora Uno', '+51 999 111 222', 'admin@condominio.pe']);
     assert.match(r.body.condominio.cabecera_url, /^\/api\/complejos\/\d+\/cabecera\?v=\d+$/);
     assert.match(r.body.empresa.logo_url, /^\/api\/empresas\/\d+\/logo\?v=\d+$/);
     assert.equal(r.body.agua, null, 'sin lectura cargada');

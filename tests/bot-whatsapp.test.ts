@@ -571,7 +571,7 @@ describe('B1 · webhook de Evolution', () => {
     assert.equal(chats().length, 0);
   });
 
-  it('ignora grupos, fromMe, estados, difusiones, canales, otros eventos y números que no son celulares peruanos', async () => {
+  it('ignora grupos, fromMe, estados, difusiones, canales, otros eventos y números que no son celulares válidos', async () => {
     await vincularTodos();
     const casos = [
       texto(N.prop1, 'hola', { jid: '120363025246125486@g.us' }),
@@ -580,7 +580,7 @@ describe('B1 · webhook de Evolution', () => {
       texto(N.prop1, 'hola', { jid: '51911111111@broadcast' }),
       texto(N.prop1, 'hola', { jid: '120363@newsletter' }),
       texto(N.prop1, 'hola', { jid: '99999999@lid' }),
-      texto('14155550123', 'hola'),
+      texto('15555555555', 'hola'), // +1 555 555 5555: no es un número válido
       { ...texto(N.prop1, 'hola'), event: 'connection.update' },
       { ...texto(N.prop1, 'hola'), event: 'messages.update' },
       { event: 'messages.upsert', data: { key: { remoteJid: `${N.prop1}@s.whatsapp.net`, fromMe: false } } },
@@ -597,6 +597,10 @@ describe('B1 · webhook de Evolution', () => {
     // Con el celular en remoteJidAlt (direccionamiento @lid) sí se atiende.
     await enviarWebhook(INST_A, { event: 'MESSAGES_UPSERT', data: { key: { remoteJid: '99999999@lid', remoteJidAlt: `${N.prop1}@s.whatsapp.net`, fromMe: false, id: nuevoId() }, message: { conversation: 'hola' } } });
     assert.equal(ultimoPara(N.prop1), 'Hola desde la IA falsa');
+    // Un celular válido de otro país sí se identifica: sin vínculo, responde el aviso de «no vinculado» (una llamada a Evolution).
+    const antesDeChile = llamadasEvo.length;
+    await enviarWebhook(INST_A, texto('56961234567', 'hola'));
+    assert.equal(llamadasEvo.length, antesDeChile + 1, 'un número chileno válido se atiende');
   });
 
   it('idempotente por id de mensaje: Evolution reintenta y el bot responde UNA sola vez', async () => {
