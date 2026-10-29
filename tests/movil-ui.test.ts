@@ -50,13 +50,13 @@ describe('vista móvil', () => {
     assert.match(fuente('src/pages/admin/_parts/cobranza/SelectoresUbicacion.tsx'), /<option value="">\{palabra\.todas\}<\/option>/);
   });
 
-  it('registrar el pago: sólo el monto y una línea con mes, departamento y vencimiento; sin la lista de conceptos', () => {
-    const s = fuente('src/pages/residente/_parts/PagarModal.tsx');
+  it('pagar el mantenimiento: sólo el monto y una línea con mes, departamento y vencimiento; sin la lista de conceptos', () => {
+    const s = fuente('src/pages/residente/_parts/PagarPanel.tsx');
     assert.doesNotMatch(s, /label: 'Conceptos'|d\.conceptos/);
     assert.match(s, /vence el \{fechaCorta\(mant\.fecha_vencimiento\)\}/);
-    assert.match(s, /<div className="grid gap-4 sm:grid-cols-2">/);
-    assert.match(s, /matchMedia\?\.\('\(pointer: coarse\)'\)/, 'la cámara sólo en pantallas táctiles: en la computadora `capture` abre el selector de archivos');
-    assert.match(s, /\{conCamara && <div className="mt-2">/);
+    assert.match(s, /<form id=\{FORM_PAGO\}[\s\S]*?className="grid gap-4 sm:grid-cols-2"/);
+    assert.match(fuente('src/pages/residente/_parts/pago.ts'), /matchMedia\?\.\('\(pointer: coarse\)'\)/, 'la cámara sólo en pantallas táctiles: en la computadora `capture` abre el selector de archivos');
+    assert.match(s, /\{p\.conCamara && <div className="mt-2">/);
   });
 
   it('el pago parcial de un concepto queda oculto en el detalle del mantenimiento', () => {
@@ -69,8 +69,8 @@ describe('vista móvil', () => {
     }
   });
 
-  it('cómo pagar: el monto que carga no mete un bloque dentro de un párrafo (aviso de React en consola)', () => {
-    assert.match(fuente('src/pages/residente/_parts/ComoPagar.tsx'), /<div className="num text-2xl font-semibold">\{saldo !== null \? soles\(saldo\) : <Skeleton/);
+  it('pagar el mantenimiento: el monto que carga no mete un bloque dentro de un párrafo (aviso de React en consola)', () => {
+    assert.match(fuente('src/pages/residente/_parts/PagarPanel.tsx'), /<div className="num text-2xl font-semibold">\{p\.saldo !== null \? soles\(p\.saldo\) : <Skeleton/);
   });
 
   it('la ficha de la empresa no queda «cargando» si no tiene fecha de inicio', () => {

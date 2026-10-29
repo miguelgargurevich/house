@@ -23,11 +23,23 @@ export function errorDeArchivo(f: File): string | null {
   return null;
 }
 
-async function mensajeDe(res: Response): Promise<string> {
-  const data = (await res.json().catch(() => ({}))) as { error?: unknown };
-  if (res.status === 413) return 'El archivo supera los 2 MB.';
-  return typeof data.error === 'string' ? data.error : 'No se pudo completar la operación';
+/** Error del servidor al enviar un formulario con archivo: el mensaje y, si el servidor lo dio, qué campo falló (`campos.voucher` = el archivo). */
+export class ErrorDeEnvio extends Error {
+  campos: Record<string, string>;
+  constructor(mensaje: string, campos: Record<string, string> = {}) {
+    super(mensaje);
+    this.campos = campos;
+  }
 }
+
+async function errorDe(res: Response): Promise<ErrorDeEnvio> {
+  const data = (await res.json().catch(() => ({}))) as { error?: unknown; campos?: unknown };
+  const campos = data.campos && typeof data.campos === 'object' ? Object.fromEntries(Object.entries(data.campos).filter(([, v]) => typeof v === 'string')) as Record<string, string> : {};
+  if (res.status === 413) return new ErrorDeEnvio('El archivo supera los 2 MB.', campos);
+  return new ErrorDeEnvio(typeof data.error === 'string' ? data.error : 'No se pudo completar la operación', campos);
+}
+
+const mensajeDe = async (res: Response): Promise<string> => (await errorDe(res)).message;
 
 /** Sube el archivo como cuerpo crudo (el resto de la app habla JSON, por eso no pasa por `api()`; la sesión va en la cookie y el CSRF en la cabecera). */
 export async function subirComprobante(pagoId: number, archivo: File): Promise<ComprobanteMeta> {
@@ -52,7 +64,7 @@ export async function registrarPagoConVoucher<T>(ruta: string, campos: Record<st
   for (const [k, v] of Object.entries(campos)) fd.append(k, v);
   fd.append('voucher', archivo, archivo.name);
   const res = await fetch(`${BASE}${ruta}`, { method: 'POST', headers: { ...csrfHeader(), Accept: 'application/json' }, body: fd, credentials: 'same-origin' });
-  if (!res.ok) throw new Error(await mensajeDe(res));
+  if (!res.ok) throw await errorDe(res);
   return (await res.json()) as T;
 }
 

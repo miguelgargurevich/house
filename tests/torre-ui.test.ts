@@ -194,7 +194,7 @@ describe('pantallas: la torre se ve y se filtra', () => {
     assert.match(f(`${RES}PagosResidente.tsx`), /p\.unidad\.estructura\?\.nombre/);
     assert.match(f(`${RES}InicioResidente.tsx`), /proximo_mantenimiento\.torre/);
     assert.match(f(`${RES}ComoPagar.tsx`), /mant\.unidad\.estructura\?\.nombre/);
-    assert.match(f(`${RES}PagarModal.tsx`), /mant\.unidad\.estructura\?\.nombre/);
+    assert.match(f(`${RES}PagarPanel.tsx`), /mant\.unidad\.estructura\?\.nombre/);
     assert.match(f(`${RES}UnidadesResidente.tsx`), /u\.estructura\?\.nombre/);
   });
 });
