@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { api, errorText } from '../../../../api';
-import { Button, Input, Modal, Select, Textarea, useToast } from '../../../../ui';
+import { Button, Input, Modal, Select, TelefonoInput, Textarea, useToast } from '../../../../ui';
+import { parsearTelefono } from '../../../../lib/telefono';
 import { TIPOS_COMPLEJO, useOpciones } from '../catalogo/opciones';
 
 export interface FilaComplejo {
@@ -35,7 +36,7 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
   const toast = useToast();
   const nuevo = complejo === 'nuevo';
   const empresas = useOpciones(esSuper && nuevo ? '/api/empresas' : null);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>();
+  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>();
 
   // El formulario se prepara al abrir el modal.
   useEffect(() => {
@@ -90,7 +91,9 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
           <legend className="mb-1 text-sm font-semibold">Recibo impreso</legend>
           <Textarea label="Notas de pago" className="sm:col-span-2" rows={4} hint="Una nota por renglón; salen al pie del recibo (p. ej. «Todo pago en ventanilla tiene un cobro adicional de 9 soles»)." {...register('notas_pago')} />
           <Input label="Administración (nombre)" className="sm:col-span-2" {...register('admin_nombre')} />
-          <Input label="Celular de la administración" inputMode="tel" error={errors.admin_celular && 'Sólo números, espacios, + ( ) y -'} {...register('admin_celular', { pattern: /^[0-9+()\-\s]*$/ })} />
+          <Controller control={control} name="admin_celular" rules={{ validate: v => !v || !!parsearTelefono(v) || 'Teléfono inválido para el país elegido' }} render={({ field }) => (
+            <TelefonoInput label="Celular de la administración" error={errors.admin_celular?.message} value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} />
+          )} />
           <Input label="Correo de la administración" type="email" error={errors.admin_correo && 'Correo inválido'} {...register('admin_correo', { pattern: /^\S+@\S+\.\S+$|^$/ })} />
         </fieldset>
       </form>

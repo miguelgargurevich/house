@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { api, errorText } from '../../../../api';
-import { Alert, Button, Input, Modal, Select, useToast } from '../../../../ui';
+import { Alert, Button, Input, Modal, Select, TelefonoInput, useToast } from '../../../../ui';
+import { parsearCelular } from '../../../../lib/telefono';
 import { Interruptor } from '../catalogo/Interruptor';
 import { ACCEPT_QR, errorDeQr, subirQr } from './qr';
 import { QrImagen } from './QrMiniatura';
@@ -52,7 +53,7 @@ const vacio = (inicial: Props['inicial'], ambitos: Ambitos): Form => {
 export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Props) {
   const toast = useToast();
   const nuevo = medio === 'nuevo';
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<Form>();
+  const { register, handleSubmit, reset, watch, control, formState: { errors, isSubmitting } } = useForm<Form>();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [vista, setVista] = useState<string | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
@@ -228,12 +229,13 @@ export function MedioFormModal({ medio, ambitos, inicial, onClose, onSaved }: Pr
         )}
 
         {(tipo === 'yape' || tipo === 'plin') && (
-          <Input
-            label={`Celular de ${tipo === 'yape' ? 'Yape' : 'Plin'}`} inputMode="tel" autoComplete="off" className="sm:col-span-2"
-            hint="9 dígitos, empieza con 9."
-            error={errors.celular && 'Usa un celular peruano de 9 dígitos que empiece con 9'}
-            {...register('celular', { required: true, validate: v => /^9\d{8}$/.test(v.replace(/\s/g, '')) })}
-          />
+          <Controller control={control} name="celular" rules={{ validate: v => !!parsearCelular(v) || 'Usa un celular válido para el país elegido' }} render={({ field }) => (
+            <TelefonoInput
+              label={`Celular de ${tipo === 'yape' ? 'Yape' : 'Plin'}`} soloCelular className="sm:col-span-2"
+              hint="Celular de cualquier país. Sin código de país se toma como de Perú."
+              error={errors.celular?.message} value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name}
+            />
+          )} />
         )}
 
         <Input label="Titular" className={tipo === 'banco' ? undefined : 'sm:col-span-2'} autoComplete="off" error={errors.titular && 'Ingresa el nombre del titular'} {...register('titular', { required: true, validate: v => v.trim().length > 0 })} />

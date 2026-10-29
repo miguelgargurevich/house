@@ -1,11 +1,9 @@
 import { useEffect, useId, useState } from 'react';
 import { api, errorText, useResource } from '../../../api';
-import { Button, Card, CardBody, CardHeader, Input, Skeleton, cx, useToast } from '../../../ui';
+import { Button, Card, CardBody, CardHeader, Skeleton, TelefonoInput, cx, useToast } from '../../../ui';
+import { parsearCelular } from '../../../lib/telefono';
 
 interface Prefs { aviso_email: boolean; aviso_whatsapp: boolean; telefono: string | null }
-
-/** Celular peruano: 9 dígitos que empiecen con 9, con o sin +51. */
-export const celularValido = (v: string) => /^9\d{8}$/.test(v.replace(/[\s\-().]/g, '').replace(/^\+?(00)?51(?=9\d{8}$)/, ''));
 
 function Interruptor({ checked, onChange, label, detalle }: { checked: boolean; onChange: (v: boolean) => void; label: string; detalle: string }) {
   const id = useId();
@@ -51,7 +49,7 @@ export function AvisosPerfil() {
 
   async function guardar() {
     const c = celular.trim();
-    if (c && !celularValido(c)) { setErrCelular('Ingresa un celular peruano: 9 dígitos que empiecen con 9.'); return; }
+    if (c && !parsearCelular(c)) { setErrCelular('Usa un celular válido para el país elegido.'); return; }
     if (wa && !c) { setErrCelular('Necesitas un celular para recibir WhatsApp.'); return; }
     setErrCelular(undefined);
     setGuardando(true);
@@ -70,15 +68,13 @@ export function AvisosPerfil() {
           <div className="grid gap-5 lg:max-w-xl">
             <Interruptor checked={email} onChange={setEmail} label="Avisos por correo" detalle="Los enviamos al correo con el que ingresas." />
             <Interruptor checked={wa} onChange={setWa} label="Avisos por WhatsApp" detalle="Necesitamos tu celular para escribirte." />
-            <Input
+            <TelefonoInput
               label="Celular para WhatsApp"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="987 654 321"
-              hint="Celular peruano de 9 dígitos. El prefijo +51 es opcional."
+              soloCelular
+              hint="Celular de cualquier país. Sin código de país se toma como de Perú."
               error={errCelular}
               value={celular}
-              onChange={e => { setCelular(e.target.value); setErrCelular(undefined); }}
+              onChange={v => { setCelular(v); setErrCelular(undefined); }}
             />
             <div className="flex justify-end">
               <Button loading={guardando} onClick={() => void guardar()} className="w-full sm:w-auto">Guardar avisos</Button>

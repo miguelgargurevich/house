@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { api, errorText } from '../../../api';
-import { Button, Input, Modal, Select, useToast } from '../../../ui';
+import { Button, Input, Modal, Select, TelefonoInput, useToast } from '../../../ui';
 
 export interface FilaEmpresa {
   id: number;
@@ -22,7 +22,7 @@ const VACIO: Form = { nombre: '', ruc: '', direccion: '', telefono: '', email: '
 export function ModalDeEmpresa({ empresa, onClose, onGuardado }: { empresa: FilaEmpresa | 'nueva' | null; onClose: () => void; onGuardado: () => void }) {
   const toast = useToast();
   const nueva = empresa === 'nueva';
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>({ defaultValues: VACIO });
+  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>({ defaultValues: VACIO });
 
   // El formulario se prepara al abrir el modal.
   useEffect(() => {
@@ -78,7 +78,7 @@ export function ModalDeEmpresa({ empresa, onClose, onGuardado }: { empresa: Fila
           <option value="inactiva">Inactiva</option>
         </Select>
         <Input label="Dirección" className="sm:col-span-2" autoComplete="street-address" {...register('direccion')} />
-        <Input label="Teléfono" inputMode="tel" autoComplete="tel" {...register('telefono')} />
+        <Controller control={control} name="telefono" render={({ field }) => <TelefonoInput label="Teléfono" value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} />} />
         <Input label="Correo electrónico" type="email" error={errors.email && 'Ingresa un correo válido'} {...register('email', { pattern: /^\S+@\S+\.\S+$/ })} />
         <Input label="Representante legal" className="sm:col-span-2" {...register('representante_legal')} />
       </form>

@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { useSearchParams } from 'react-router-dom';
 import { BuildingOffice2Icon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  Button, Card, CardBody, CardHeader, DefinitionList, EmptyState, ErrorState, Input, Modal, PageHeader, Skeleton, StatusBadge, TabPanel, Tabs, useToast,
+  Button, Card, CardBody, CardHeader, DefinitionList, EmptyState, ErrorState, Input, Modal, PageHeader, Skeleton, StatusBadge, TabPanel, Tabs, TelefonoInput, useToast,
 } from '../../ui';
 import { ImagenEditable } from './_parts/condominio/ImagenEditable';
 import PersonasLista from './_parts/personas/PersonasLista';
@@ -40,7 +40,7 @@ export default function Configuracion() {
   const [abierto, setAbierto] = useState(false);
   const [params, setParams] = useSearchParams();
   const vista: Vista = esVista(params.get('vista')) ? (params.get('vista') as Vista) : 'datos';
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>();
+  const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>();
 
   function abrir() {
     if (!data) return;
@@ -148,7 +148,7 @@ export default function Configuracion() {
             {...register('ruc', { validate: v => !v.trim() || /^\d{11}$/.test(v.trim()) })}
           />
           <Input label="Representante legal" {...register('representante_legal')} />
-          <Input label="Teléfono" inputMode="tel" autoComplete="tel" {...register('telefono')} />
+          <Controller control={control} name="telefono" render={({ field }) => <TelefonoInput label="Teléfono" value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} />} />
           <Input label="Correo electrónico" type="email" autoComplete="email" error={errors.email && 'Ingresa un correo válido'} {...register('email', { validate: v => !v.trim() || /^\S+@\S+\.\S+$/.test(v.trim()) })} />
           <Input label="Dirección" className="sm:col-span-2" {...register('direccion')} />
         </form>

@@ -1,3 +1,5 @@
+import { formatearTelefono } from '../../../lib/telefono';
+
 /** Lógica pura de «Vincular WhatsApp» (la pantalla sólo la pinta). */
 
 export interface Destino { empresa: { id: number; nombre: string }; disponible: boolean; numero: string | null }
@@ -6,10 +8,9 @@ export interface TelegramMe { disponible: boolean; bot_usuario: string | null }
 export interface CanalesMe { vinculos: VinculoCanal[]; codigo_vigente: { canal: string; expira_at: string } | null; destinos: Destino[]; telegram?: TelegramMe }
 export interface CodigoGenerado { canal: string; codigo: string; expira_at: string; vigencia_min: number; destinos: Destino[]; telegram?: { bot_usuario: string; enlace: string } }
 
-/** `51987654321` → `+51 987 654 321`; si no parece un celular peruano se muestra con «+». */
+/** `51987654321` → `+51 987 654 321`; `56961234567` → `+56 9 6123 4567`. Si no es un número válido se muestra sólo con «+». */
 export function formatoNumero(digitos: string): string {
-  const m = /^51(\d{3})(\d{3})(\d{3})$/.exec(digitos);
-  return m ? `+51 ${m[1]} ${m[2]} ${m[3]}` : `+${digitos}`;
+  return formatearTelefono(`+${digitos}`) ?? `+${digitos}`;
 }
 
 /** Segundos que faltan para que venza el código (0 si ya venció). */

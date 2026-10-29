@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { PencilSquareIcon, PlusIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../../../api';
 import type { Page } from '../../../../api';
@@ -8,7 +8,7 @@ import type { CargoJunta, Rol } from '../../../../auth/AuthContext';
 import { ROLES_PERSONAL, useAuth } from '../../../../auth/AuthContext';
 import { ROL_LABEL } from '../../../../app/nav';
 import {
-  Avatar, Badge, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, Toolbar, useToast,
+  Avatar, Badge, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, TelefonoInput, Toolbar, useToast,
 } from '../../../../ui';
 import type { Column } from '../../../../ui';
 import { nombreTorre } from '../medios/tipos';
@@ -103,7 +103,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
   const [busy, setBusy] = useState(false);
 
   const roles = ROLES_POR_TIPO[tipo];
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<Form>();
+  const { register, handleSubmit, reset, watch, setValue, control, formState: { errors, isSubmitting } } = useForm<Form>();
   const rolElegido = watch('rol');
   const esResidente = tipo === 'residente';
   const esPersonal = tipo === 'personal';
@@ -291,7 +291,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
         <form onSubmit={handleSubmit(guardar)} className="grid gap-4 sm:grid-cols-2" noValidate>
           <Input label="Nombre completo" className="sm:col-span-2" error={errors.nombre && 'Ingresa el nombre'} {...register('nombre', { required: true })} />
           <Input label="Correo electrónico" type="email" error={errors.email && 'Ingresa un correo válido'} {...register('email', { required: true, pattern: /^\S+@\S+\.\S+$/ })} />
-          <Input label="Teléfono" inputMode="tel" {...register('telefono')} />
+          <Controller control={control} name="telefono" render={({ field }) => <TelefonoInput label="Teléfono" value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} />} />
           {roles.length > 1 && <Select label="Rol" {...register('rol', { required: true })}>{roles.map(r => <option key={r} value={r}>{ROL_LABEL[r]}</option>)}</Select>}
           {esPersonal && esSuper && (
             <Select label="Empresa" hint="Para quién trabaja y qué ve." error={errors.empresa_id && 'Elige la empresa'} {...register('empresa_id', { validate: v => v !== '', onChange: () => setValue('complejo_id', '') })}>

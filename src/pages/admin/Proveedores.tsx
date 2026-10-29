@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { PencilSquareIcon, PlusIcon, TrashIcon, TruckIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../api';
 import type { Page } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
-import { Badge, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, Textarea, Toolbar, useToast } from '../../ui';
+import { Badge, Button, Card, ConfirmDialog, DataTable, IconButton, Input, Modal, PageHeader, SearchBox, Select, TelefonoInput, Textarea, Toolbar, useToast } from '../../ui';
 import type { Column } from '../../ui';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { RUBROS, rubroLabel } from './_parts/personas/proveedores';
@@ -32,7 +32,7 @@ export default function Proveedores() {
   const [busy, setBusy] = useState(false);
   // Los condominios se marcan fuera del formulario: con un solo condominio, react-hook-form trata la casilla como un valor suelto, no como lista.
   const [atiende, setAtiende] = useState<number[]>([]);
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<Form>();
+  const { register, handleSubmit, reset, watch, control, formState: { errors, isSubmitting } } = useForm<Form>();
   const empresaElegida = watch('empresa_id');
   // El superadmin elige la empresa del proveedor: sus condominios deben ser de ella.
   const complejosElegibles = (complejos.data?.items ?? []).filter(c => !esSuper || (empresaElegida !== '' && String(c.empresa_id) === empresaElegida));
@@ -151,7 +151,7 @@ export default function Proveedores() {
           <Select label="Rubro" {...register('rubro', { required: true })}>{RUBROS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</Select>
           <Input label="RUC (opcional)" inputMode="numeric" maxLength={11} error={errors.ruc && 'El RUC tiene 11 dígitos'} {...register('ruc', { pattern: /^(\d{11})?$/ })} />
           <Input label="Persona de contacto" {...register('contacto_nombre')} />
-          <Input label="Teléfono" inputMode="tel" {...register('telefono')} />
+          <Controller control={control} name="telefono" render={({ field }) => <TelefonoInput label="Teléfono" value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} />} />
           <Input label="Correo electrónico" type="email" className="sm:col-span-2" error={errors.email && 'Ingresa un correo válido'} {...register('email', { pattern: /^(\S+@\S+\.\S+)?$/ })} />
           <fieldset className="sm:col-span-2">
             <legend className="mb-1.5 text-sm font-medium">Condominios que atiende</legend>

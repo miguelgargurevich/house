@@ -4,6 +4,7 @@ export * from './IconoProveedor';
 export * from './proveedoresIcono';
 export * from './Badge';
 export * from './Field';
+export * from './TelefonoInput';
 export * from './Modal';
 export * from './Toast';
 export * from './Feedback';

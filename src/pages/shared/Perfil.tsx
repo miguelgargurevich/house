@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { api, errorText } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { ROL_LABEL } from '../../app/nav';
@@ -8,7 +8,7 @@ import { AvisosPerfil } from './_parts/AvisosPerfil';
 import { CanalesPerfil } from './_parts/CanalesPerfil';
 import { TelegramPerfil } from './_parts/TelegramPerfil';
 import { TokensApiPerfil } from './_parts/TokensApi';
-import { Avatar, Button, Card, CardBody, CardHeader, DefinitionList, Input, PageHeader, Skeleton, useToast } from '../../ui';
+import { Avatar, Button, Card, CardBody, CardHeader, DefinitionList, Input, PageHeader, Skeleton, TelefonoInput, useToast } from '../../ui';
 
 /** Roles que tienen herramientas de consulta (mantenimiento y seguridad no): sólo ellos ven los tokens de API. */
 const CON_HERRAMIENTAS: readonly string[] = ['superadmin', 'admin', 'propietario', 'inquilino'];
@@ -71,7 +71,9 @@ export default function Perfil() {
           <CardBody>
             <form onSubmit={datos.handleSubmit(guardarDatos)} className="grid gap-4" noValidate>
               <Input label="Nombre completo" autoComplete="name" error={datos.formState.errors.nombre && 'Ingresa tu nombre'} {...datos.register('nombre', { validate: v => v.trim().length > 0 })} />
-              <Input label="Teléfono" inputMode="tel" autoComplete="tel" hint="Opcional. Ejemplo: 987 654 321." {...datos.register('telefono')} />
+              <Controller control={datos.control} name="telefono" render={({ field }) => (
+                <TelefonoInput label="Teléfono" hint="Opcional. Ejemplo: 987 654 321." value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} />
+              )} />
               <div className="flex justify-end">
                 <Button type="submit" loading={datos.formState.isSubmitting} className="w-full sm:w-auto">Guardar cambios</Button>
               </div>

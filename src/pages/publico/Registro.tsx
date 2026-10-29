@@ -4,7 +4,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import { api, errorText } from '../../api';
 import { HOME, useAuth } from '../../auth/AuthContext';
-import { Alert, Button, Card, CardBody, Input } from '../../ui';
+import { Alert, Button, Card, CardBody, Input, TelefonoInput } from '../../ui';
 import { Marco } from './Marco';
 
 interface Formulario { nombre: string; email: string; celular: string; password: string; empresa: string; condominio: string; unidades: string }
@@ -59,7 +59,7 @@ export default function Registro() {
         <Input label="Tu nombre" autoComplete="name" maxLength={120} required {...campo('nombre')} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Input label="Correo electrónico" type="email" autoComplete="email" maxLength={160} required {...campo('email')} />
-          <Input label="Celular" type="tel" autoComplete="tel" inputMode="tel" maxLength={30} required {...campo('celular')} />
+          <TelefonoInput label="Celular" value={f.celular} onChange={celular => setF(x => ({ ...x, celular }))} required />
         </div>
         <Input label="Contraseña" type="password" autoComplete="new-password" maxLength={72} required hint="Mínimo 8 caracteres, con letras y números." {...campo('password')} />
         <Input label="Nombre de tu administradora o junta" maxLength={160} required {...campo('empresa')} />

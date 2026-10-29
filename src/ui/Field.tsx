@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTML
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import { cx } from './cx';
 
-const control =
+export const control =
   'w-full rounded border border-line bg-surface px-3 text-sm text-ink placeholder:text-muted/70 transition-colors duration-150 hover:border-muted/50 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 disabled:bg-surface2 disabled:opacity-70 aria-[invalid=true]:border-bad aria-[invalid=true]:focus:ring-bad/25';
 
 interface FieldProps {

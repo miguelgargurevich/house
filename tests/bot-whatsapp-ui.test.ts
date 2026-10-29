@@ -11,7 +11,8 @@ const datos = (p: Partial<CanalesMe> = {}): CanalesMe => ({ vinculos: [], codigo
 describe('lógica de «Vincular WhatsApp»', () => {
   it('formatea el número del edificio y el código; la cuenta regresiva no baja de 0', () => {
     assert.equal(formatoNumero('51987654321'), '+51 987 654 321');
-    assert.equal(formatoNumero('14155550123'), '+14155550123');
+    assert.equal(formatoNumero('14155550123'), '+1 415 555 0123'); // EE. UU.: formato de su país
+    assert.equal(formatoNumero('99999'), '+99999'); // no es un número válido: sólo «+»
     assert.equal(codigoEnGrupos('123456'), '123 456');
     assert.equal(reloj(600), '10:00');
     assert.equal(reloj(65), '1:05');
