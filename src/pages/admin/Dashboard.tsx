@@ -5,6 +5,9 @@ import { useResource } from '../../api';
 import { BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, nombreDelMes, soles } from '../../ui';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 
+/** Mantenimientos (un departamento en un mes) por estado. Suman todos los mantenimientos del alcance. */
+interface Estados { pagado: number; pendiente: number; parcial: number; vencido: number; en_revision: number }
+
 interface Resumen {
   recibos_emitidos: number;
   cargos_pendientes_monto: number | string;
@@ -13,16 +16,36 @@ interface Resumen {
   unidades_total: number;
   tareas_abiertas: number;
   cobrado_por_mes: { mes: string; emitido: number | string; cobrado: number | string }[];
-  estados: { pagado: number; pendiente: number; vencido: number };
+  estados: Estados;
+  /** Cómo llama el condominio a sus edificios: «block» si todos son blocks, si no «torre». */
+  palabra_estructura: 'block' | 'torre';
   /** Cada torre tiene su propio recibo: lo emitido, cobrado y por cobrar de cada una. */
   por_torre?: { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; emitido: string; cobrado: string; por_cobrar: string; morosos: number }[];
 }
+
+/** Los textos del panel según cómo se llama el edificio en el condominio. */
+const PALABRA = {
+  block: { una: 'block', titulo: 'Block', mira: 'míralos juntos o filtra por uno' },
+  torre: { una: 'torre', titulo: 'Torre', mira: 'míralas juntas o filtra por una' },
+};
+
+/** Estado de mantenimientos: etiqueta y color de la barra. */
+const ESTADOS: [keyof Estados, string, string][] = [
+  ['pagado', 'Pagados', 'bg-ok/80'],
+  ['pendiente', 'Pendientes', 'bg-warn/80'],
+  ['parcial', 'Pago parcial', 'bg-warn/40'],
+  ['vencido', 'Vencidos', 'bg-bad/80'],
+  ['en_revision', 'En revisión', 'bg-brand/60'],
+];
 
 /** «2026-09» → «Set» (las tres primeras letras del nombre de `nombreDelMes`: en el Perú, setiembre). */
 const mesCorto = (m: string) => {
   const s = nombreDelMes(Number(m.slice(5, 7))).slice(0, 3);
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
+
+/** Los mantenimientos que todavía no se pagaron (incluye los que están en revisión, como «Por cobrar»). */
+const sinPagar = (e: Estados) => e.pendiente + e.parcial + e.vencido + e.en_revision;
 
 export default function Dashboard() {
   const [complejo, setComplejo] = useState('');
@@ -31,10 +54,11 @@ export default function Dashboard() {
   if (complejo) filtros.set('complejo_id', complejo);
   if (torre) filtros.set('estructura_id', torre);
   const { data, loading, error, reload } = useResource<Resumen>(`/api/dashboard/resumen${filtros.size ? `?${filtros}` : ''}`);
+  const palabra = PALABRA[data?.palabra_estructura ?? 'torre'];
 
   return (
     <>
-      <PageHeader title="Resumen" description="Cobranza, morosidad y operación de tus condominios. Cada torre tiene su propio recibo: míralas juntas o filtra por una." />
+      <PageHeader title="Resumen" description={`Cobranza, morosidad y operación de tus condominios. Cada ${palabra.una} tiene su propio recibo: ${palabra.mira}.`} />
       <div className="mb-4 flex flex-wrap gap-3"><SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} /></div>
       {error ? (
         <Card><ErrorState message={error} onRetry={reload} /></Card>
@@ -45,7 +69,7 @@ export default function Dashboard() {
           <StatStrip
             stats={[
               { label: 'Cobrado este mes', value: soles(data.cobrado_mes), tone: 'ok' },
-              { label: 'Por cobrar', value: soles(data.cargos_pendientes_monto), hint: `${data.estados.pendiente} cargos pendientes` },
+              { label: 'Por cobrar', value: soles(data.cargos_pendientes_monto), hint: `${sinPagar(data.estados)} mantenimientos sin pagar` },
               { label: 'Unidades morosas', value: data.morosos, tone: data.morosos > 0 ? 'bad' : undefined, hint: `de ${data.unidades_total} unidades` },
               { label: 'Tareas abiertas', value: data.tareas_abiertas },
             ]}
@@ -66,13 +90,13 @@ export default function Dashboard() {
             </Card>
             {(data.por_torre?.length ?? 0) > 1 && (
               <Card style={{ gridColumn: '1 / -1' }}>
-                <CardHeader title="Por torre" description="Emitido, cobrado y por cobrar de cada torre (todos los recibos)." />
+                <CardHeader title={`Por ${palabra.una}`} description={`Emitido, cobrado y por cobrar de cada ${palabra.una} (todos los recibos).`} />
                 <CardBody>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <caption className="sr-only">Cobranza por torre</caption>
+                      <caption className="sr-only">{`Cobranza por ${palabra.una}`}</caption>
                       <thead><tr className="border-b border-line text-left text-xs text-muted">
-                        <th scope="col" className="py-2 font-medium">Torre</th><th scope="col" className="py-2 text-right font-medium">Emitido</th><th scope="col" className="py-2 text-right font-medium">Cobrado</th><th scope="col" className="py-2 text-right font-medium">Por cobrar</th><th scope="col" className="py-2 text-right font-medium">Morosos</th>
+                        <th scope="col" className="py-2 font-medium">{palabra.titulo}</th><th scope="col" className="py-2 text-right font-medium">Emitido</th><th scope="col" className="py-2 text-right font-medium">Cobrado</th><th scope="col" className="py-2 text-right font-medium">Por cobrar</th><th scope="col" className="py-2 text-right font-medium">Morosos</th>
                       </tr></thead>
                       <tbody className="divide-y divide-line">
                         {data.por_torre!.map(t => (
@@ -88,12 +112,13 @@ export default function Dashboard() {
               </Card>
             )}
             <Card>
-              <CardHeader title="Estado de cargos" />
+              <CardHeader title="Estado de mantenimientos" description="Un mantenimiento es un departamento en un mes." />
               <CardBody className="space-y-4">
-                {([['Pagados', data.estados.pagado, 'bg-ok/80'], ['Pendientes', data.estados.pendiente, 'bg-warn/80'], ['Vencidos', data.estados.vencido, 'bg-bad/80']] as const).map(([l, n, c]) => {
-                  const total = data.estados.pagado + data.estados.pendiente + data.estados.vencido || 1;
+                {ESTADOS.map(([clave, l, c]) => {
+                  const n = data.estados[clave];
+                  const total = Object.values(data.estados).reduce((a, b) => a + b, 0) || 1;
                   return (
-                    <div key={l}>
+                    <div key={clave}>
                       <div className="mb-1.5 flex justify-between text-sm"><span>{l}</span><span className="num font-medium">{n}</span></div>
                       <div className="h-2 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${c}`} style={{ width: `${(n / total) * 100}%` }} /></div>
                     </div>
