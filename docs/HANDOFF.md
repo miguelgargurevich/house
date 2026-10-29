@@ -4,6 +4,21 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-28 — Claude Code (Haiku 5.5, delegado por Opus) — Resumen de la administradora: mantenimientos, serie y block/torre
+
+- Pedido de Miguel: «Fase 1 propietario (incluye arreglar el Resumen de la administradora)». Rama `fix/resumen-admin`, sobre `origin/main` 213b988. Riesgo medio. Medido antes en un recorrido sobre la copia de producción (Los Libertadores, Block 1).
+- **Estado (`routes/dashboard.ts`, `contarEstados`):** «Estado de mantenimientos» cuenta departamentos en un mes (un mantenimiento), con la misma regla de `sqlEstado` que la lista (`listarMantenimientos` con `estado`, `pageSize` 1). Antes contaba cargos (536 en la copia de producción: conceptos × departamentos × meses). Campos nuevos: `estados.{pagado, pendiente, parcial, vencido, en_revision}` (suman el total de mantenimientos). `estados.vencido` y `estados.en_revision` ya NO son cargos: quien lea esos números desde otro sitio debe saberlo.
+- **Serie (`finSerie`, `mesesHasta` en `lib/fechas.ts`):** termina en el último mes con recibo del alcance si es posterior al mes actual; si no, en el de hoy. Seis meses seguidos. `mesesAtras` sigue igual (lo usa `tools/gestion.ts`).
+- **Palabra (`palabraEstructura`):** campo nuevo `palabra_estructura: 'block' | 'torre'`. Es «block» sólo si hay estructuras en el alcance y todas son block. Se compara SIN distinguir mayúsculas: el formulario guarda `'Block'` y `'Torre'` (`TorresDelCondominio.tsx`, `prisma/seed.ts`). Las unidades sin estructura se rotulan «Sin block» o «Sin torre» según esa palabra.
+- **Frontend (`pages/admin/Dashboard.tsx`):** títulos, descripciones y encabezados según `palabra_estructura`; la barra de estados muestra también «Pago parcial» y «En revisión» para que sumen el total.
+- **Tests (`tests/torre-visible.test.ts`, bloque nuevo al final; `tests/negocio.test.ts`):** conteo por mantenimientos (un departamento con dos conceptos cuenta una vez), serie hasta el recibo del mes que viene (fecha relativa al reloj, no fija), palabra block→torre al añadir una torre. Mutaciones (todas en rojo): cargos en vez de mantenimientos; serie anclada a hoy; comparación sensible a mayúsculas; palabra fija «block».
+- **Pendiente, FUERA de esta sesión (no estaba en Permitidos):**
+  - El filtro «Todas las torres» / «Torre» sigue igual: lo pone `pages/admin/_parts/cobranza/SelectoresUbicacion.tsx`. Hace falta que reciba la palabra (prop) y el cambio es chico.
+  - `pages/admin/_parts/medios/tipos.ts` (`palabraEstructura`) compara `e.tipo === 'block'` en minúsculas y el dato real es `'Block'`: siempre dice «torre». Corregir con la misma comparación sin distinguir mayúsculas.
+- **Próximos pasos:** lo de arriba; luego la Fase 1 del propietario (otra sesión, `feat/historial-propietario`).
+- **Decisiones:** `estados` cuenta por `unidadIds` del alcance (no por `scopeCargos`): un mantenimiento siempre es de una unidad del alcance, así que es el mismo conjunto. La serie no filtra por `estado` del recibo (no hay otro estado que `emitido` en el servidor, y el resto del panel tampoco filtra).
+- **Gotcha:** en `mesesHasta` el parámetro `anio` quedaba tapado por el `const anio` del bucle y tiraba `ReferenceError` (500). Por eso los parámetros se llaman `anioFin`/`mesFin`.
+
 ## 2026-10-28 — Claude Code (Haiku 5.5, delegado por Opus) — Cascada: un 400/413 del pedido no quema claves ni retira modelos
 
 - Pedido de Miguel: «Sí, arréglalo» (revisión de Opus sobre la cascada de My Workspace). Rama `fix/cascada-400-413`. Riesgo alto, no delicado.
