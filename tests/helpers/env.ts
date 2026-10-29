@@ -12,5 +12,8 @@ process.env.ASISTENTE_CANARY = 'off';
 process.env.ASISTENTE_LIMPIEZA = 'off';
 delete process.env.CORS_ORIGIN;
 delete process.env.GEMINI_API_KEY;
+// Vacías (no borradas: `dotenv` rellenaría las ausentes desde un .env): ninguna prueba manda correos reales; las que lo prueban inyectan su propio `fetch` y `env`.
+process.env.RESEND_API_KEY = '';
+process.env.MAIL_FROM = '';
 
 export const JWT_SECRET_PRUEBAS = process.env.JWT_SECRET;

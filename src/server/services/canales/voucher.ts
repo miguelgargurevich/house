@@ -8,6 +8,7 @@ import { periodoTexto } from '../../lib/periodo';
 import { registrarAuditoria } from '../../middleware/audit';
 import type { AuthUser } from '../../middleware/auth';
 import { detectarTipo, MAX_COMPROBANTE, sanearNombre } from '../comprobantes';
+import { avisarVoucherEnSegundoPlano } from '../avisos/voucherBlock';
 import { iniciarEvaluacion } from '../evaluacion';
 import { solesTexto } from '../avisos/plantillas';
 import { canalesDeps } from './deps';
@@ -99,6 +100,8 @@ async function registrar(canal: CanalBot, user: AuthUser, empresaId: number, op:
   });
   // La IA lee el voucher en segundo plano (con reintento y OCR de respaldo); si no arranca, el pago queda por validar a mano.
   await iniciarEvaluacion(r.pago_id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
+  // El voucher también va por correo a la junta del block, en segundo plano.
+  avisarVoucherEnSegundoPlano(r.pago_id);
   return MSG.recibido;
 }
 

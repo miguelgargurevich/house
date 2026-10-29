@@ -9,6 +9,7 @@ import { scopePagos, scopePagosEscritura, scopePagosJunta } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { estadoParaResidente, selectEvaluacion } from '../lib/evaluacionVista';
+import { avisarVoucherEnSegundoPlano } from '../services/avisos/voucherBlock';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { avisarResultado, cerrarPago } from '../services/validacionPago';
 import { dispositionInline, detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
@@ -86,6 +87,8 @@ comprobantesRouter.post('/:id/comprobante', requireRole('admin', 'propietario', 
   res.locals.auditDetalle = { nombre, tipo_mime: declarado, tamano: cuerpo.length, sha256 }; // nunca el contenido
   // La IA lee el comprobante en segundo plano: no frena la respuesta ni, si falla, la subida. Un archivo nuevo invalida la evaluación anterior.
   await iniciarEvaluacion(pago.id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
+  // Si lo sube un vecino, el voucher nuevo también va por correo a la junta del block (en segundo plano). Lo que sube la administración no.
+  if (esResidente(u)) avisarVoucherEnSegundoPlano(pago.id);
   res.status(201).json(a);
 });
 

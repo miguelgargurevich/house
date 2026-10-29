@@ -7,6 +7,7 @@ import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, include
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
+import { avisarVoucherEnSegundoPlano } from '../services/avisos/voucherBlock';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { contrasenaIgualACorreo, listQuerySchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
 import { enviarImagen } from '../services/imagenes';
@@ -261,6 +262,8 @@ export function meRouter(limitePassword: RequestHandler) {
     // Mismo registro que al subir un comprobante (sólo metadatos, nunca el contenido), y la IA lo lee en segundo plano: no frena la respuesta ni, si falla, el pago.
     await registrarAuditoria({ usuario_id: u.id, accion: 'subir_comprobante', entidad: 'pago', entidad_id: r.pago_id, detalle: { nombre: voucher.nombre, tipo_mime: voucher.tipo_mime, tamano: voucher.tamano, sha256: voucher.sha256 }, ip: ipDe(req) });
     await iniciarEvaluacion(r.pago_id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
+    // El voucher también va por correo a la junta del block, en segundo plano: no frena la respuesta ni, si falla, el pago.
+    avisarVoucherEnSegundoPlano(r.pago_id);
     res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(reciboId, unidadId, { unidadWhere: unidadesPropias(u), vista: 'residente' }) });
   });
 

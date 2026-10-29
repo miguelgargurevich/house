@@ -45,14 +45,20 @@ async function llamar(deps: DepsAvisos, proveedor: string, url: string, init: Re
   }
 }
 
-/** Correo por la API HTTP de Resend. */
-export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asunto: string, cuerpo: string): Promise<ResultadoEnvio> {
+/** Archivo adjunto de un correo (Resend lo recibe en base64). */
+export interface AdjuntoCorreo { nombre: string; datos: Buffer }
+
+/** Correo por la API HTTP de Resend; `adjuntos` es opcional (sin él el cuerpo es el de siempre). */
+export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asunto: string, cuerpo: string, adjuntos?: AdjuntoCorreo[]): Promise<ResultadoEnvio> {
   if (!estadoCanales(deps.env).email.configurado) return { resultado: 'omitida', motivo: NO_CONFIGURADO };
   if (!destino) return { resultado: 'omitida', motivo: 'Sin correo' };
   return llamar(deps, 'Resend', 'https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${deps.env.RESEND_API_KEY!.trim()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: deps.env.MAIL_FROM!.trim(), to: [destino], subject: asunto, text: cuerpo }),
+    body: JSON.stringify({
+      from: deps.env.MAIL_FROM!.trim(), to: [destino], subject: asunto, text: cuerpo,
+      ...(adjuntos?.length ? { attachments: adjuntos.map((a) => ({ filename: a.nombre, content: a.datos.toString('base64') })) } : {}),
+    }),
   });
 }
 
