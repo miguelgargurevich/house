@@ -110,3 +110,10 @@ describe('el orden de uso lleva los mismos iconos', () => {
     assert.ok(fuente.includes('<IconoProveedor slug={p.id} size={14} />'));
   });
 });
+
+describe('llavero: orden de las tarjetas', () => {
+  it('los proveedores con clave van arriba y los que aún no tienen, abajo (orden estable dentro de cada grupo)', () => {
+    const s = readFileSync('src/pages/superadmin/Llavero.tsx', 'utf8');
+    assert.match(s, /\[\.\.\.data\.proveedores\]\.sort\(\(a, b\) => Number\(clavesDe\(b\)\.length > 0\) - Number\(clavesDe\(a\)\.length > 0\)\)\.map\(p => \(/);
+  });
+});

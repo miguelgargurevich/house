@@ -138,7 +138,8 @@ export default function Llavero() {
           <>
             <ComoSeUsan orden={data.orden} proveedores={[...data.proveedores, ...data.gateways.map(proveedorDeGateway)]} />
             <ul className="divide-y divide-line">
-              {data.proveedores.map(p => (
+              {/* Los que ya tienen clave arriba; dentro de cada grupo se respeta el orden del servidor (sort estable). */}
+              {[...data.proveedores].sort((a, b) => Number(clavesDe(b).length > 0) - Number(clavesDe(a).length > 0)).map(p => (
                 <GrupoProveedor
                   key={p.id}
                   proveedor={p}
