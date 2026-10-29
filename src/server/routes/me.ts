@@ -9,6 +9,8 @@ import { contrasenaIgualACorreo, listQuerySchema, MENSAJE_PASSWORD_CORREO, parse
 import { enviarImagen } from '../services/imagenes';
 import { revocarDeUsuario } from '../services/sesiones';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, listarMantenimientos, type OrdenMantenimientos } from '../lib/mantenimientos';
+import { historialXlsx } from '../lib/historialExcel';
+import { historialResidente } from '../services/historial';
 import { conResumenDeGrupo, detalleMantenimiento, pagarMantenimiento, soloPrincipales } from '../services/mantenimiento';
 import { idSchema } from '../validation';
 import { METODOS_PAGO } from './pagos';
@@ -116,6 +118,25 @@ export function meRouter(limitePassword: RequestHandler) {
       prisma.pago.findMany({ where, orderBy: [orderBy, { id: 'asc' }], ...page(q), include: includePago }),
     ]);
     res.json({ items: await conResumenDeGrupo(rows.map((p) => formatearPago(p))), total, page: q.page, pageSize: q.pageSize });
+  });
+
+  // ---------- Historial (cifras y gráficos de sus mantenimientos) ----------
+  const historialQuery = z.object({ unidad_id: idSchema.optional(), anio: z.coerce.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(2000, 'Año fuera de rango').max(2100, 'Año fuera de rango').optional() });
+
+  router.get('/historial', residente, async (req, res) => {
+    const q = parse(historialQuery, req.query);
+    res.json(await historialResidente(unidadesPropias(currentUser(req)), { unidadId: q.unidad_id, anio: q.anio }));
+  });
+
+  router.get('/historial.xlsx', residente, async (req, res) => {
+    const q = parse(historialQuery, req.query);
+    const h = await historialResidente(unidadesPropias(currentUser(req)), { unidadId: q.unidad_id, anio: q.anio });
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="mi-historial${q.anio ? `-${q.anio}` : ''}.xlsx"`,
+      'Cache-Control': 'private, no-store',
+    });
+    res.send(historialXlsx(h, q.unidad_id));
   });
 
   router.post('/cargos/:id/pagos', residente, async (req, res) => {
