@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BuildingLibraryIcon, DevicePhoneMobileIcon, PencilSquareIcon, PlusIcon, QrCodeIcon, ReceiptPercentIcon, TrashIcon } from '@heroicons/react/24/outline';
-import { api, errorText, useList } from '../../api';
+import { PlusIcon, QrCodeIcon } from '@heroicons/react/24/outline';
+import { api, errorText, useList, useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
-import { Alert, Button, Card, ConfirmDialog, DataTable, IconButton, PageHeader, Skeleton, Toolbar, useToast } from '../../ui';
-import type { Column } from '../../ui';
+import { Alert, Button, Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, Skeleton, Toolbar, useToast } from '../../ui';
 import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
-import { Interruptor } from './_parts/catalogo/Interruptor';
-import { JuntasResumen } from './_parts/juntas/JuntasResumen';
+import type { ListaJuntas } from './_parts/juntas/tipos';
+import { CuentasBlock } from './_parts/medios/CuentasPorBlock';
+import { agrupar } from './_parts/medios/agrupar';
 import { MedioFormModal } from './_parts/medios/MedioFormModal';
 import { ValidacionAutomaticaIA } from './_parts/medios/ValidacionAutomaticaIA';
-import { ambitoLabel, datoPrincipal, monedaCorta, nombreTorre, palabraEstructura, tipoLabel, useAmbitos } from './_parts/medios/tipos';
+import { nombreTorre, palabraEstructura, tipoLabel, useAmbitos } from './_parts/medios/tipos';
 import type { Medio } from './_parts/medios/tipos';
 
-/** Medios de pago de las torres. La usan la administradora (`/admin/medios-pago`) y la junta (`/junta/medios-pago`); la API ya acota cada lista a su ámbito. */
+/**
+ * Medios de pago de las torres, UNA tarjeta por block: su junta vigente arriba y sus cuentas debajo (la cuenta ES la de la junta, así que no se
+ * repite en otra lista). La usan la administradora (`/admin/medios-pago`) y la junta (`/junta/medios-pago`); la API ya acota cada lista a su ámbito.
+ */
 export default function MediosPago() {
   const { user } = useAuth();
   const toast = useToast();
@@ -21,6 +24,8 @@ export default function MediosPago() {
   const [complejo, setComplejo] = useState('');
   const [torre, setTorre] = useState('');
   const [editando, setEditando] = useState<Medio | 'nuevo' | null>(null);
+  /** Block (o «Todo el condominio») del medio nuevo: el de la tarjeta donde se tocó «Agregar cuenta», o los filtros. */
+  const [inicial, setInicial] = useState<{ complejo_id: string; estructura_id: string }>({ complejo_id: '', estructura_id: '' });
   const [quitar, setQuitar] = useState<Medio | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -30,7 +35,10 @@ export default function MediosPago() {
   const torres = complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
   const palabra = palabraEstructura(ambitos.data);
 
-  const list = useList<Medio>('/api/medios-pago', { params: { complejo_id: complejo || undefined, estructura_id: torre || undefined } });
+  // Como mucho 6 activos por block: 100 alcanza para agrupar todo sin paginar (si no, se avisa).
+  const list = useList<Medio>('/api/medios-pago', { pageSize: 100, params: { complejo_id: complejo || undefined, estructura_id: torre || undefined } });
+  const juntas = useResource<ListaJuntas>(`/api/juntas${complejo ? `?complejo_id=${complejo}` : ''}`);
+  const grupos = useMemo(() => agrupar(juntas.data?.items ?? [], list.items, torre), [juntas.data, list.items, torre]);
 
   async function cambiarActivo(m: Medio, activo: boolean) {
     try {
@@ -51,24 +59,7 @@ export default function MediosPago() {
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
   }
 
-  const columns: Column<Medio>[] = [
-    { key: 'tipo', header: 'Medio', cell: m => (
-      <span className="flex items-center gap-2.5 font-medium">
-        {m.tipo === 'banco' ? <BuildingLibraryIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : m.tipo === 'recaudacion' ? <ReceiptPercentIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" /> : <DevicePhoneMobileIcon className="h-4 w-4 shrink-0 text-muted" aria-hidden="true" />}
-        <span>{tipoLabel(m.tipo)}<span className="block text-xs font-normal text-muted">{m.tipo === 'banco' ? `${m.entidad ?? ''} · ${monedaCorta(m.moneda)}` : m.tipo === 'recaudacion' ? [m.entidad, m.servicio].filter(Boolean).join(' · ') : m.tiene_qr ? 'Con código QR' : 'Sin código QR'}</span><span className="block max-w-[10rem] truncate text-xs font-normal text-muted sm:hidden">{m.titular}</span></span>
-      </span>
-    ) },
-    { key: 'titular', header: 'Titular', hideBelow: 'sm', cell: // en el celular el titular va bajo el medio
-       m => <span className="block max-w-[8rem] sm:max-w-[12rem]"><span className="block truncate">{m.titular}</span><span className="block truncate text-xs text-muted">{ambitoLabel(m)}</span></span> },
-    { key: 'dato', header: 'Cuenta o celular', hideBelow: 'md', cell: m => <span className="num">{datoPrincipal(m)}</span> },
-    { key: 'activo', header: 'Estado', cell: m => <Interruptor className="min-h-0 [&>span:last-child]:sr-only" label={m.activo ? 'Activo' : 'Inactivo'} aria-label={`Mostrar a los vecinos: ${tipoLabel(m.tipo)} de ${m.titular}`} checked={m.activo} onChange={e => void cambiarActivo(m, e.target.checked)} /> },
-    { key: 'acciones', header: '', align: 'right', cell: m => (
-      <div className="flex justify-end gap-1">
-        <IconButton label={`Editar ${tipoLabel(m.tipo)} de ${m.titular}`} onClick={() => setEditando(m)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
-        <IconButton label={`Quitar ${tipoLabel(m.tipo)} de ${m.titular}`} onClick={() => setQuitar(m)}><TrashIcon className="h-4 w-4" /></IconButton>
-      </div>
-    ) },
-  ];
+  function nuevo(donde: { complejo_id: string; estructura_id: string }) { setInicial(donde); setEditando('nuevo'); }
 
   const hayFiltros = !!torre || (complejos.length > 1 && !!complejo);
   const puedeAgregar = !!ambitos.data && complejos.length > 0;
@@ -78,12 +69,12 @@ export default function MediosPago() {
       <PageHeader
         title="Medios de pago"
         description={esJunta ? `Las cuentas y los Yape o Plin donde pagan los vecinos de tu ${palabra.una}.` : `Las cuentas bancarias y los Yape o Plin donde pagan los vecinos de cada ${palabra.una}. Los define la administración o la junta directiva.`}
-        actions={<Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedeAgregar} onClick={() => setEditando('nuevo')}>Agregar medio de pago</Button>}
+        actions={<Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedeAgregar} onClick={() => nuevo({ complejo_id: complejo, estructura_id: torre })}>Agregar medio de pago</Button>}
       />
       {!esJunta && <ValidacionAutomaticaIA />}
       {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y las torres: {ambitos.error}</Alert></div>}
-      <JuntasResumen complejoId={complejo} torreId={torre} esJunta={esJunta} />
-      <Card>
+      {(ambitos.loading || complejos.length > 1 || !ambitos.data?.fijo) && (
+      <Card className="mb-4">
         <Toolbar>
           {ambitos.loading ? <Skeleton className="h-9 w-full sm:w-48" /> : (
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -96,36 +87,51 @@ export default function MediosPago() {
               {!ambitos.data?.fijo && (
                 <FiltroSelect label={`Filtrar por ${palabra.una}`} value={torre} onChange={setTorre}>
                   <option value="">{palabra.todas[0]!.toUpperCase() + palabra.todas.slice(1)}</option>
-                  <option value="ninguna">Todo el condominio</option>
+                  <option value="ninguna">Junta central (todo el condominio)</option>
                   {torres.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
                 </FiltroSelect>
               )}
             </div>
           )}
         </Toolbar>
-        <DataTable
-          caption="Medios de pago"
-          columns={columns}
-          rows={list.items}
-          rowKey={m => m.id}
-          loading={list.loading}
-          error={list.error}
-          onRetry={list.reload}
-          page={list.page}
-          pageSize={list.pageSize}
-          total={list.total}
-          onPage={list.setPage}
-          empty={{
-            title: hayFiltros ? 'No hay medios de pago con estos filtros' : 'Aún no hay medios de pago',
-            description: hayFiltros ? `Prueba con otro condominio o ${palabra.una}.` : 'Agrega la cuenta o el Yape de la junta para que los vecinos sepan cómo pagar.',
-            icon: <QrCodeIcon />,
-            action: puedeAgregar && !hayFiltros ? <Button onClick={() => setEditando('nuevo')}>Agregar medio de pago</Button> : undefined,
-          }}
-        />
       </Card>
+      )}
+      {list.error ? (
+        <Card><ErrorState message={list.error} onRetry={list.reload} /></Card>
+      ) : list.loading && !list.items.length ? (
+        <div className="grid gap-4 lg:grid-cols-2"><Skeleton className="h-56 w-full" /><Skeleton className="h-56 w-full" /></div>
+      ) : grupos.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<QrCodeIcon />}
+            title={hayFiltros ? 'No hay medios de pago con estos filtros' : 'Aún no hay medios de pago'}
+            description={hayFiltros ? `Prueba con otro condominio o ${palabra.una}.` : 'Agrega la cuenta o el Yape de la junta para que los vecinos sepan cómo pagar.'}
+            action={puedeAgregar && !hayFiltros ? <Button onClick={() => nuevo({ complejo_id: complejo, estructura_id: torre })}>Agregar medio de pago</Button> : undefined}
+          />
+        </Card>
+      ) : (
+        <>
+          {list.total > list.items.length && <div className="mb-4"><Alert tone="warn">Se muestran {list.items.length} de {list.total} medios de pago: filtra por condominio o {palabra.una} para ver el resto.</Alert></div>}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {grupos.map(g => (
+              <CuentasBlock
+                key={g.clave}
+                grupo={g}
+                mostrarCondominio={complejos.length > 1}
+                enlaceJunta={esJunta ? '/junta/mi-junta' : '/admin/juntas'}
+                esJunta={esJunta}
+                onAgregar={() => nuevo({ complejo_id: String(g.complejo.id), estructura_id: g.estructura ? String(g.estructura.id) : 'ninguna' })}
+                onEditar={setEditando}
+                onQuitar={setQuitar}
+                onActivo={(m, activo) => void cambiarActivo(m, activo)}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {ambitos.data && (
-        <MedioFormModal medio={editando} ambitos={ambitos.data} inicial={{ complejo_id: complejo, estructura_id: torre }} onClose={() => setEditando(null)} onSaved={() => void list.reload()} />
+        <MedioFormModal medio={editando} ambitos={ambitos.data} inicial={inicial} onClose={() => setEditando(null)} onSaved={() => void list.reload()} />
       )}
       <ConfirmDialog
         open={!!quitar}

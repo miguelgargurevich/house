@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Medios de pago: una tarjeta por block (junta + cuentas)
+
+- Pedido de Miguel: «se está repitiendo la info entre la junta y el medio de pago, debería ser un card por cada una, si no serían n cards y n filas».
+- `pages/admin/MediosPago.tsx`: se quitaron el resumen «Junta vigente de cada block» (`JuntasResumen.tsx`, borrado) y la tabla. Ahora hay UNA tarjeta por block (`_parts/medios/CuentasPorBlock.tsx`): arriba la junta vigente (presidente, tesorero, correo, «Ver la junta»), debajo sus cuentas con el interruptor, editar y quitar, y «Agregar cuenta» que abre el formulario con ESE block ya elegido. Insignia «Con cuenta / Sin cuenta». La Junta central sale como su propia tarjeta; el filtro dice «Junta central (todo el condominio)».
+- `_parts/medios/agrupar.ts`: agrupa las cuentas por block en el orden de `/api/juntas`; si esa lista falla, igual agrupa por el block de la cuenta. La lista de medios se pide con `pageSize: 100` (máx. 6 activos por block); si hay más, avisa que se filtre.
+- La caja de filtros no se muestra vacía (junta de un block con un solo condominio).
+- Verificado: `npm test` en verde; en local a 1280 px y 375 px (sin scroll horizontal); «Agregar cuenta» del Block 2 abre con Block 2 elegido.
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — El usuario pasa arriba a la derecha
 
 - Pedido de Miguel: «quita la sección del usuario del panel de menú y colócalo arriba a la derecha».

@@ -94,7 +94,7 @@ describe('juntas: la pantalla', () => {
   });
 
   it('ningún archivo de juntas inyecta HTML', () => {
-    for (const a of [`${ADMIN}Juntas.tsx`, ...['JuntaCard', 'JuntaFormModal', 'NuevaGestionModal', 'HistorialModal', 'MiembrosEditor', 'JuntasResumen'].map((n) => `${JUNTAS}${n}.tsx`)]) {
+    for (const a of [`${ADMIN}Juntas.tsx`, ...['JuntaCard', 'JuntaFormModal', 'NuevaGestionModal', 'HistorialModal', 'MiembrosEditor'].map((n) => `${JUNTAS}${n}.tsx`), `${ADMIN}_parts/medios/CuentasPorBlock.tsx`]) {
       assert.doesNotMatch(f(a), /dangerouslySetInnerHTML|innerHTML|insertAdjacentHTML/, a);
     }
   });
@@ -141,18 +141,31 @@ describe('juntas: formularios', () => {
 });
 
 describe('juntas: Medios de pago y Personas', () => {
-  it('Medios de pago muestra arriba, por block, la junta vigente (presidente, tesorero, correo) con enlace a la junta', () => {
+  it('Medios de pago: UNA tarjeta por block con su junta arriba (presidente, tesorero, correo, enlace) y sus cuentas debajo; ya no hay resumen + tabla', () => {
     const mp = f(`${ADMIN}MediosPago.tsx`);
-    assert.match(mp, /<JuntasResumen complejoId=\{complejo\} torreId=\{torre\} esJunta=\{esJunta\} \/>/);
-    assert.ok(mp.indexOf('<JuntasResumen') < mp.indexOf('<DataTable'), 'el resumen va arriba de la lista');
-    const r = f(`${JUNTAS}JuntasResumen.tsx`);
-    assert.match(r, /const enlace = esJunta \? '\/junta\/mi-junta' : '\/admin\/juntas'/);
-    assert.match(r, /Presidente: \{quien\(f\.vigente, 'presidente'\)\}/);
-    assert.match(r, /Tesorero: \{quien\(f\.vigente, 'tesorero'\)\}/);
-    assert.match(r, /Correo: \{f\.vigente\.correo \?\? 'sin correo'\}/);
-    assert.match(r, /break-all/); // el correo no rompe el 375 px
-    assert.match(r, /grid gap-3 border-t border-line p-4 sm:grid-cols-2 lg:grid-cols-3/);
-    assert.match(r, /torreId === 'ninguna' \? null/); // un medio de todo el condominio no tiene junta de block
+    assert.doesNotMatch(mp, /JuntasResumen|<DataTable/);
+    assert.match(mp, /<CuentasBlock/);
+    assert.match(mp, /enlaceJunta=\{esJunta \? '\/junta\/mi-junta' : '\/admin\/juntas'\}/);
+    const c = f(`${ADMIN}_parts/medios/CuentasPorBlock.tsx`);
+    assert.match(c, /Presidente:<\/span> \{quien\(j, 'presidente'\)\}/);
+    assert.match(c, /Tesorero:<\/span> \{quien\(j, 'tesorero'\)\}/);
+    assert.match(c, /\{j\.correo \?\? 'sin correo'\}/);
+    assert.match(c, /break-all/); // el correo y el número no rompen los 375 px
+    assert.match(c, /onClick=\{onAgregar\}>Agregar cuenta<\/Button>/);
+  });
+
+  it('agrupar: cada cuenta va con su block (y la del condominio con la Junta central); el block sin cuenta también sale; el filtro de block se respeta', async () => {
+    const { agrupar } = await import('../src/pages/admin/_parts/medios/agrupar');
+    const complejo = { id: 1, nombre: 'C' };
+    const ficha = (e: { id: number; nombre: string } | null) => ({ complejo, estructura: e, vigente: null, anteriores: 0 });
+    const b1 = { id: 10, nombre: 'Block 1' }, b2 = { id: 20, nombre: 'Block 2' };
+    const medio = (id: number, estructura_id: number | null) => ({ id, complejo_id: 1, estructura_id }) as never;
+    const g = agrupar([ficha(b1), ficha(b2), ficha(null)], [medio(1, 10), medio(2, 10), medio(3, null)], '');
+    assert.deepEqual(g.map((x) => [x.clave, x.medios.length]), [['1:10', 2], ['1:20', 0], ['1:condominio', 1]]);
+    assert.deepEqual(agrupar([ficha(b1), ficha(b2)], [medio(1, 10)], '20').map((x) => x.clave), ['1:20']);
+    assert.deepEqual(agrupar([ficha(b1), ficha(null)], [medio(3, null)], 'ninguna').map((x) => x.clave), ['1:condominio']);
+    // Sin la lista de juntas (falló), las cuentas igual salen agrupadas por su block.
+    assert.deepEqual(agrupar([], [medio(1, 10), medio(2, 10)], '').map((x) => [x.clave, x.medios.length, x.ficha]), [['1:10', 2, null]]);
   });
 
   it('Personas ya no edita el cargo de junta: sólo lo muestra y manda a «Juntas directivas»; no envía cargo_junta ni estructura_id', () => {

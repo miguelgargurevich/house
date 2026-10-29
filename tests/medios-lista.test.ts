@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-const lista = readFileSync('src/pages/admin/MediosPago.tsx', 'utf8');
+const lista = readFileSync('src/pages/admin/_parts/medios/CuentasPorBlock.tsx', 'utf8');
 const tipos = readFileSync('src/pages/admin/_parts/medios/tipos.ts', 'utf8');
 
 describe('lista de medios: la fila muestra la entidad real', () => {
