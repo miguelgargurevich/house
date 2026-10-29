@@ -99,8 +99,7 @@ describe('lógica del campo (la que llama el componente): escribir, pegar y eleg
 describe('cableado: los formularios de teléfono usan TelefonoInput', () => {
   const pares: [string, RegExp[]][] = [
     ['src/pages/publico/Registro.tsx', [/<TelefonoInput label="Celular"[\s\S]*? required \/>/, /import \{[^}]*\bTelefonoInput\b[^}]*\} from '\.\.\/\.\.\/ui'/]],
-    ['src/pages/shared/Perfil.tsx', [/<TelefonoInput label="Teléfono"/, /Controller control=\{datos\.control\} name="telefono"/]],
-    ['src/pages/shared/_parts/AvisosPerfil.tsx', [/<TelefonoInput[\s\S]*soloCelular/, /parsearCelular\(c\)/]],
+    ['src/pages/shared/_parts/AvisosPerfil.tsx', [/<TelefonoInput[\s\S]*label="Tu celular"[\s\S]*soloCelular/, /parsearCelular\(c\)/]],
     ['src/pages/admin/Configuracion.tsx', [/<TelefonoInput label="Teléfono"/, /control, formState/]],
     ['src/pages/admin/Proveedores.tsx', [/<TelefonoInput label="Teléfono"/]],
     ['src/pages/admin/_parts/personas/PersonasLista.tsx', [/<TelefonoInput label="Teléfono"/]],
@@ -120,6 +119,15 @@ describe('cableado: los formularios de teléfono usan TelefonoInput', () => {
       assert.doesNotMatch(fuente(ruta), /register\('telefono'\)/, ruta);
     }
     assert.doesNotMatch(fuente('src/pages/shared/_parts/AvisosPerfil.tsx'), /celularValido/);
+  });
+
+  it('perfil: un solo celular, en «Celular y avisos»; «Datos personales» ya no lo envía (guardarlo vacío borraba el de WhatsApp)', () => {
+    const perfil = fuente('src/pages/shared/Perfil.tsx');
+    assert.doesNotMatch(perfil, /TelefonoInput|telefono: v\./);
+    assert.match(perfil, /json: \{ nombre: v\.nombre\.trim\(\) \}/);
+    const avisos = fuente('src/pages/shared/_parts/AvisosPerfil.tsx');
+    assert.match(avisos, /title="Celular y avisos"/);
+    assert.match(avisos, /void reload\(\);\s*void refresh\(\);/, 'el resumen del perfil muestra el celular recién guardado');
     assert.doesNotMatch(fuente('src/pages/admin/_parts/medios/MedioFormModal.tsx'), /\^9\\d\{8\}/);
   });
 

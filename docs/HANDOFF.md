@@ -4,6 +4,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Perfil: un solo celular
+
+- «Datos personales» y «Avisos» editaban el mismo `Usuario.telefono`; el primero lo leía de la sesión (vacío tras el login) y, guardado vacío, borraba el celular de WhatsApp. Ahora el celular vive sólo en la tarjeta «Celular y avisos» (`AvisosPerfil.tsx`, refresca la sesión al guardar) y «Datos personales» sólo envía el nombre. `PUT /api/me` sin `telefono` no lo toca. Test en `tests/telefono-ui.test.ts` (con mutación).
+
+---
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Salida a producción de las fases multi-país
 
 - Desplegado main dc244d2 en Coolify (teléfono con país, multimoneda, impuesto por país, zona horaria y confirmación de «Cerrar sesión»). `prisma db push` al arrancar aplicó el esquema; `ImpuestoPais` sembrado (20 países); el condominio 1 quedó en PE/PEN/America/Lima.

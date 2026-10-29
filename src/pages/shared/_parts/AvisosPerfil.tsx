@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { api, errorText, useResource } from '../../../api';
+import { useAuth } from '../../../auth/AuthContext';
 import { Button, Card, CardBody, CardHeader, Skeleton, TelefonoInput, cx, useToast } from '../../../ui';
 import { parsearCelular } from '../../../lib/telefono';
 
@@ -30,9 +31,13 @@ function Interruptor({ checked, onChange, label, detalle }: { checked: boolean; 
   );
 }
 
-/** Sección «Avisos» del perfil: cómo quieres recibir recibos, vencimientos y pagos. */
+/**
+ * Sección «Avisos» del perfil: cómo quieres recibir recibos, vencimientos y pagos, y TU celular (el único teléfono del perfil: `Usuario.telefono`).
+ * Antes «Datos personales» tenía otro campo para el mismo dato y, guardado vacío, borraba el celular de WhatsApp.
+ */
 export function AvisosPerfil() {
   const toast = useToast();
+  const { refresh } = useAuth();
   const { data, loading, error, reload } = useResource<Prefs>('/api/me/avisos');
   const [email, setEmail] = useState(true);
   const [wa, setWa] = useState(false);
@@ -57,27 +62,28 @@ export function AvisosPerfil() {
       await api('/api/me/avisos', { method: 'PUT', json: { aviso_email: email, aviso_whatsapp: wa, telefono: c } });
       toast.ok('Preferencias de avisos guardadas');
       void reload();
+      void refresh();
     } catch (e) { toast.error(errorText(e)); } finally { setGuardando(false); }
   }
 
   return (
     <Card className="lg:col-span-2">
-      <CardHeader title="Avisos" description="Te avisamos cuando se emite un recibo, está por vencer o vence, y cuando revisamos tu pago." />
+      <CardHeader title="Celular y avisos" description="Te avisamos cuando se emite un recibo, está por vencer o vence, y cuando revisamos tu pago." />
       <CardBody>
         {loading && !data ? <Skeleton className="h-28 w-full" /> : error ? <p className="text-sm text-bad">{error}</p> : (
           <div className="grid gap-5 lg:max-w-xl">
             <Interruptor checked={email} onChange={setEmail} label="Avisos por correo" detalle="Los enviamos al correo con el que ingresas." />
             <Interruptor checked={wa} onChange={setWa} label="Avisos por WhatsApp" detalle="Necesitamos tu celular para escribirte." />
             <TelefonoInput
-              label="Celular para WhatsApp"
+              label="Tu celular"
               soloCelular
-              hint="Celular de cualquier país. Sin código de país se toma como de Perú."
+              hint="Para los avisos por WhatsApp y para que la administración te ubique. De cualquier país; sin código se toma como de Perú."
               error={errCelular}
               value={celular}
               onChange={v => { setCelular(v); setErrCelular(undefined); }}
             />
             <div className="flex justify-end">
-              <Button loading={guardando} onClick={() => void guardar()} className="w-full sm:w-auto">Guardar avisos</Button>
+              <Button loading={guardando} onClick={() => void guardar()} className="w-full sm:w-auto">Guardar</Button>
             </div>
           </div>
         )}
