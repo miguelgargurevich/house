@@ -4,7 +4,7 @@ import { prisma } from '../db';
 import { invalid, notFound } from '../errors';
 import { abrirContrato, cambiarAdministradora } from '../lib/contratos';
 import { empresaDe, scopeComplejos } from '../lib/scope';
-import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda } from '../lib/paisMoneda';
+import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda, zonaInicial, zonaSchema } from '../lib/paisMoneda';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
 import { emailSchema, fechaSchema, idSchema, parseBody, parseId, telefonoSchema, texto, textoOpcional, z } from '../validation';
@@ -24,6 +24,8 @@ const base = z.object({
   /** País y moneda del condominio (catálogo `src/lib/paises.ts`). Sin ellos, nace con el país de su empresa y la moneda de ese país; con recibos emitidos la moneda ya no cambia (409). */
   pais: paisSchema.optional(),
   moneda: monedaSchema.optional(),
+  /** Zona horaria IANA: con ella se cuenta el «hoy» de los vencimientos, la mora y los avisos. Sin ella nace con la de su país; se puede cambiar siempre (sólo mueve el día en que algo vence). */
+  zona_horaria: zonaSchema.optional(),
   /** Valida solo los pagos que la IA lee como coincidencia exacta. Sólo admin/superadmin editan complejos (la junta no). */
   validacion_automatica_ia: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
   /** Mora (en la moneda del condominio) que se agrega en el recibo del mes siguiente a quien pagó fuera de fecha; 0 = sin mora (por defecto 20.00). */
@@ -78,7 +80,7 @@ const crud = crudRouter({
       await assertRef(prisma.empresaAdministradora, d.empresa_id as number, {}, 'empresa_id');
     }
     const pais = await paisInicial(r.pais as string | undefined, r.empresa_id as number | null);
-    return { ...r, pais, moneda: monedaInicial(r.moneda as string | undefined, pais) };
+    return { ...r, pais, moneda: monedaInicial(r.moneda as string | undefined, pais), zona_horaria: zonaInicial(r.zona_horaria as string | undefined, pais) };
   },
   // Un condominio nuevo nace con su contrato de administración vigente.
   create: (d) =>

@@ -3,7 +3,8 @@
  * de los dos, así que el mismo archivo los sirve a ambos. Cada condominio lleva su `pais` (código ISO 3166-1 alfa-2) y su `moneda`
  * (ISO 4217); el país propone la moneda, pero se puede cambiar.
  *
- * `zona_horaria` e `impuesto` son referencia para las fases siguientes (hora de los avisos y vencimientos; IGV/IVA): hoy nadie los usa.
+ * `zona_horaria` es la zona IANA que se propone al crear un condominio del país (la hora de sus vencimientos, mora y avisos; `zonas` son las
+ * que ofrece el selector donde el país tiene varias). `impuesto` es referencia para la fase siguiente (IGV/IVA): hoy nadie lo usa.
  */
 
 export interface Moneda {
@@ -37,8 +38,10 @@ export interface Pais {
   bandera: string;
   /** Moneda que se propone al elegir el país (código de `MONEDAS`). */
   moneda: string;
-  /** IANA. */
+  /** IANA. La que se propone al crear un condominio del país. */
   zona_horaria: string;
+  /** Todas las zonas IANA del país (la de arriba incluida) para el selector del condominio. */
+  zonas: readonly string[];
   /** Impuesto general al consumo de referencia; `null` donde no hay uno nacional (EE. UU.: cambia por estado). */
   impuesto: Impuesto | null;
 }
@@ -63,7 +66,18 @@ export const MONEDAS: readonly Moneda[] = [
   { codigo: 'VES', simbolo: 'Bs.S', nombre: 'Bolívar venezolano', plural: 'bolívares', decimales: 2, locale: 'es-VE', posicion: 'antes' },
 ];
 
-const pais = (codigo: string, nombre: string, bandera: string, moneda: string, zona_horaria: string, impuesto: Impuesto | null): Pais => ({ codigo, nombre, bandera, moneda, zona_horaria, impuesto });
+/** Países con varias zonas horarias: las IANA que se ofrecen (la primera es la que se propone). El resto tiene una sola. */
+const ZONAS_VARIAS: Record<string, readonly string[]> = {
+  MX: ['America/Mexico_City', 'America/Cancun', 'America/Chihuahua', 'America/Hermosillo', 'America/Mazatlan', 'America/Tijuana'],
+  US: ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix', 'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu'],
+  BR: ['America/Sao_Paulo', 'America/Fortaleza', 'America/Manaus', 'America/Cuiaba', 'America/Rio_Branco', 'America/Noronha'],
+  AR: ['America/Argentina/Buenos_Aires', 'America/Argentina/Cordoba', 'America/Argentina/Salta', 'America/Argentina/Mendoza', 'America/Argentina/Ushuaia'],
+  CL: ['America/Santiago', 'America/Punta_Arenas', 'Pacific/Easter'],
+  EC: ['America/Guayaquil', 'Pacific/Galapagos'],
+  ES: ['Europe/Madrid', 'Atlantic/Canary', 'Africa/Ceuta'],
+};
+
+const pais = (codigo: string, nombre: string, bandera: string, moneda: string, zona_horaria: string, impuesto: Impuesto | null): Pais => ({ codigo, nombre, bandera, moneda, zona_horaria, zonas: ZONAS_VARIAS[codigo] ?? [zona_horaria], impuesto });
 
 export const PAISES: readonly Pais[] = [
   pais('PE', 'Perú', '🇵🇪', 'PEN', 'America/Lima', { nombre: 'IGV', tasa: 18 }),
@@ -90,6 +104,8 @@ export const PAISES: readonly Pais[] = [
 
 export const PAIS_POR_DEFECTO = 'PE';
 export const MONEDA_POR_DEFECTO = 'PEN';
+/** La hora con la que nacieron todos los condominios (y la de lo que no tiene condominio): Lima. */
+export const ZONA_POR_DEFECTO = 'America/Lima';
 
 export const CODIGOS_PAIS = PAISES.map((p) => p.codigo) as [string, ...string[]];
 export const CODIGOS_MONEDA = MONEDAS.map((m) => m.codigo) as [string, ...string[]];
@@ -99,6 +115,26 @@ export const monedaDe = (codigo: string | null | undefined): Moneda | undefined 
 
 /** La moneda que se propone para un país (soles si no se conoce). */
 export const monedaDelPais = (codigo: string | null | undefined): string => paisDe(codigo)?.moneda ?? MONEDA_POR_DEFECTO;
+
+/** La zona horaria que se propone para un país (la de Lima si no se conoce). */
+export const zonaDelPais = (codigo: string | null | undefined): string => paisDe(codigo)?.zona_horaria ?? ZONA_POR_DEFECTO;
+
+/** Las zonas que ofrece el selector de un país (sólo la de Lima si no se conoce). */
+export const zonasDe = (codigo: string | null | undefined): readonly string[] => paisDe(codigo)?.zonas ?? [ZONA_POR_DEFECTO];
+
+/**
+ * ¿Es una zona IANA que `Intl` conoce («America/Lima», «UTC»)? Se exige la forma `Region/Ciudad`: `Intl` también acepta desfases sueltos
+ * («+05:00») que no respetan el horario de verano, y esos no sirven como zona de un condominio.
+ */
+export function esZonaHoraria(zona: unknown): zona is string {
+  if (typeof zona !== 'string' || !/^(UTC|[A-Za-z]+(\/[A-Za-z0-9_+-]+)+)$/.test(zona)) return false;
+  try {
+    new Intl.DateTimeFormat('es', { timeZone: zona });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 type Numerico = { toFixed(d: number): string } | number | string | null | undefined;
 

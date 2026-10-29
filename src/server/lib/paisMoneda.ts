@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import type { AuthUser } from '../middleware/auth';
 import { scopeComplejos, scopeRecibos } from './scope';
-import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDA_POR_DEFECTO, PAIS_POR_DEFECTO, monedaDe, monedaDelPais, paisDe } from '../../lib/paises';
+import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDA_POR_DEFECTO, PAIS_POR_DEFECTO, esZonaHoraria, monedaDe, monedaDelPais, paisDe, zonaDelPais } from '../../lib/paises';
 import { prisma } from '../db';
 import { conflict } from '../errors';
 import { z } from '../validation';
@@ -9,6 +9,9 @@ import { z } from '../validation';
 /** País (ISO 3166-1 alfa-2) y moneda (ISO 4217) del catálogo `src/lib/paises.ts`; cualquier otro código → 422. */
 export const paisSchema = z.enum(CODIGOS_PAIS, { error: 'País inválido' });
 export const monedaSchema = z.enum(CODIGOS_MONEDA, { error: 'Moneda inválida' });
+
+/** Zona horaria IANA de un condominio: cualquiera que `Intl` conozca (el selector ofrece las del país, pero un condominio puede estar en otra). */
+export const zonaSchema = z.string({ error: 'Zona horaria inválida' }).refine(esZonaHoraria, 'Zona horaria inválida (usa una zona IANA, p. ej. America/Lima)');
 
 /** País con el que nace un condominio: el pedido, si no el de su empresa, si no Perú. */
 export async function paisInicial(pedido: string | undefined, empresa_id: number | null | undefined): Promise<string> {
@@ -20,6 +23,9 @@ export async function paisInicial(pedido: string | undefined, empresa_id: number
 
 /** Moneda con la que nace un condominio: la pedida o, si no, la de su país. */
 export const monedaInicial = (pedida: string | undefined, pais: string): string => pedida ?? monedaDelPais(pais);
+
+/** Zona con la que nace un condominio: la pedida o, si no, la de su país. */
+export const zonaInicial = (pedida: string | undefined, pais: string): string => pedida ?? zonaDelPais(pais);
 
 /** La moneda de un condominio con recibos ya no cambia (sus montos quedarían en otra unidad). Sin recibos o sin cambio, no hace nada. */
 export async function verificarCambioDeMoneda(complejo_id: number, actual: string, nueva: string | undefined): Promise<void> {

@@ -109,6 +109,8 @@ model ComplejoHabitacional {
   /// País (ISO 3166-1 alfa-2) y moneda (ISO 4217) del condominio, del catálogo `src/lib/paises.ts`. Todo monto del condominio (recibos, pagos, mora) va en esa moneda; con recibos emitidos ya no se cambia.
   pais        String                 @default("PE")
   moneda      String                 @default("PEN")
+  /// Zona horaria IANA del condominio («America/Lima»): el «hoy» de sus vencimientos, mora, avisos programados y resumen es el de esa zona (con horario de verano donde lo hay).
+  zona_horaria String                @default("America/Lima")
   empresa     EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   estructuras Estructura[]
   recibos     Recibo[]
