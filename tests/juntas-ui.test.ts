@@ -193,3 +193,10 @@ describe('juntas: el seed muestra el historial', () => {
     assert.match(s, /prisma\.juntaDirectiva\.deleteMany/); // el seed borra antes de sembrar
   });
 });
+
+describe('juntas: orden de los blocks', () => {
+  it('la lista ordena los blocks de forma natural (Block 2 antes que Block 10)', () => {
+    const s = readFileSync('src/server/routes/juntas.ts', 'utf8');
+    assert.match(s, /localeCompare\(y\.nombre \?\? '', 'es', \{ numeric: true \}\)/);
+  });
+});

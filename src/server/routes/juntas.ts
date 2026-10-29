@@ -91,7 +91,9 @@ juntasRouter.get('/', async (req, res) => {
     };
     const delCondominio = ficha(null);
     // La junta de todo el condominio sólo sale si existe (vigente o pasada): no es un block más.
-    return [...c.estructuras.map(ficha), ...(delCondominio.vigente || delCondominio.anteriores ? [delCondominio] : [])];
+    // Orden natural de los blocks: «Block 2» antes que «Block 10» (la base los ordena como texto).
+    const blocks = [...c.estructuras].sort((x, y) => (x.nombre ?? '').localeCompare(y.nombre ?? '', 'es', { numeric: true }) || x.id - y.id);
+    return [...blocks.map(ficha), ...(delCondominio.vigente || delCondominio.anteriores ? [delCondominio] : [])];
   });
   res.json({ items, complejos: complejos.map((c) => ({ id: c.id, nombre: c.nombre })), puede_gestionar: esAdministracion(u) });
 });
