@@ -57,6 +57,7 @@ model Usuario {
   estructura_id     Int?
   estructura        Estructura?            @relation("JuntaEstructura", fields: [estructura_id], references: [id], onDelete: SetNull)
   mediosPagoCreados MedioPago[]
+  comunicadosPublicados Comunicado[]
   conversacionesIA  ConversacionIA[]
   tokensApi         TokenApi[]
   canalesVinculados CanalVinculado[]
@@ -119,6 +120,7 @@ model ComplejoHabitacional {
   mediosPago  MedioPago[]
   contratos   ContratoAdministracion[]
   proveedores ProveedorComplejo[]
+  comunicados Comunicado[]
   /// Si está activa, un comprobante que la IA lee como «coincide» (confianza alta, sin duplicados) valida el pago solo. Nunca rechaza.
   validacion_automatica_ia Boolean @default(false)
   /// Mora (en la moneda del condominio) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
@@ -197,6 +199,7 @@ model Estructura {
   juntaUsuarios Usuario[]           @relation("JuntaEstructura")
   mediosPago  MedioPago[]
   recibos     Recibo[]
+  comunicados Comunicado[]
   /// «Correo del block» al que se envían los vouchers (sale en el recibo impreso).
   correo_vouchers String?
 }
@@ -502,6 +505,30 @@ model Notificacion {
 }
 
 /// Cuenta bancaria, Yape/Plin (con QR) o cuenta recaudadora (el vecino paga desde «Pago de servicios» de su banco) donde los vecinos pagan; la define la administradora o la junta del block.
+/// Comunicado de la administración o la junta a los propietarios e inquilinos de un condominio (`estructura_id` null) o de un block. El cuerpo es texto plano: nunca se pinta como HTML.
+model Comunicado {
+  id               Int                  @id @default(autoincrement())
+  complejo_id      Int
+  /// null = todo el condominio; si no, un block/torre de ese condominio.
+  estructura_id    Int?
+  titulo           String
+  cuerpo           String
+  autor_id         Int?
+  /// Sólo se usan al crear: editar nunca reenvía.
+  enviar_correo    Boolean              @default(false)
+  enviar_whatsapp  Boolean              @default(false)
+  fijado           Boolean              @default(false)
+  archivado_at     DateTime?
+  created_at       DateTime             @default(now())
+  updated_at       DateTime             @updatedAt
+  complejo         ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  estructura       Estructura?          @relation(fields: [estructura_id], references: [id], onDelete: Cascade)
+  autor            Usuario?             @relation(fields: [autor_id], references: [id], onDelete: SetNull)
+
+  @@index([complejo_id, archivado_at])
+  @@index([complejo_id, estructura_id])
+}
+
 model MedioPago {
   id                Int                   @id @default(autoincrement())
   complejo_id       Int

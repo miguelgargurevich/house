@@ -88,8 +88,29 @@ export function scopeUsuarios(u: AuthUser): Prisma.UsuarioWhereInput {
   };
 }
 
-/** Avisos de los usuarios de la empresa (mismo alcance que `scopeUsuarios`). */
-export const scopeNotificaciones = (u: AuthUser): Prisma.NotificacionWhereInput => (esGlobal(u) ? {} : { usuario: scopeUsuarios(u) });
+/**
+ * Avisos de los usuarios de la empresa (mismo alcance que `scopeUsuarios`). La junta (presidente/tesorero) ve los avisos de los residentes de SU
+ * ámbito: quienes son propietarios o inquilinos de una unidad de su block (o de todo su condominio, si no tiene block). Otros propietarios → 403.
+ */
+export function scopeNotificaciones(u: AuthUser): Prisma.NotificacionWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'propietario') {
+    const a = ambitoJunta(u);
+    if (!a) throw forbidden();
+    const unidad = filtroAmbito(a);
+    return { usuario: { OR: [{ unidades: { some: unidad } }, { unidadesInquilino: { some: unidad } }] } };
+  }
+  return { usuario: scopeUsuarios(u) };
+}
+
+/** Comunicados: admin = condominios de su empresa; junta = su ámbito (su block, o todo su condominio sin block). Cualquier otro rol → 403. */
+export function scopeComunicados(u: AuthUser): Prisma.ComunicadoWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return { complejo: { empresa_id: empresaDe(u) } };
+  const a = ambitoJunta(u);
+  if (!a) throw forbidden();
+  return filtroAmbito(a);
+}
 
 export function scopeTareas(u: AuthUser): Prisma.TareaMantenimientoWhereInput {
   switch (u.rol) {
@@ -110,6 +131,16 @@ export function scopeTareas(u: AuthUser): Prisma.TareaMantenimientoWhereInput {
 
 /** Proveedores: cada administradora ve sólo los suyos (directorio propio). */
 export const scopeProveedores = (u: AuthUser): Prisma.ProveedorWhereInput => (esGlobal(u) ? {} : { empresa_id: empresaDe(u) });
+
+/**
+ * Proveedores que ve la junta: los vinculados a SU condominio (sean exclusivos o compartidos con otros). Un proveedor se atiende por condominio,
+ * no por block: la junta de un block ve y gestiona los del condominio. Otros propietarios → 403.
+ */
+export function scopeProveedoresJunta(u: AuthUser): Prisma.ProveedorWhereInput {
+  const a = ambitoJunta(u);
+  if (!a) throw forbidden();
+  return { complejos: { some: { complejo_id: a.complejo_id } } };
+}
 
 /** Pagos de las unidades del ámbito de la junta del usuario (presidente/tesorero). Otros usuarios → 403. */
 export function scopePagosJunta(u: AuthUser): Prisma.PagoWhereInput {

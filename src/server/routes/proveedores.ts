@@ -1,9 +1,11 @@
+import { Router } from 'express';
 import { RUBROS_PROVEEDOR } from '../config';
-import { assertRef, crudRouter } from '../crud';
+import { assertRef, crudRouter, invalidRef } from '../crud';
 import { prisma } from '../db';
-import { invalid } from '../errors';
-import { empresaDe, scopeComplejos, scopeProveedores } from '../lib/scope';
-import type { AuthUser } from '../middleware/auth';
+import { forbidden, invalid } from '../errors';
+import { ambitoJunta, esJunta } from '../lib/junta';
+import { empresaDe, scopeComplejos, scopeProveedores, scopeProveedoresJunta } from '../lib/scope';
+import { currentUser, type AuthUser } from '../middleware/auth';
 import { boolQuery, emailSchema, idSchema, telefonoSchema, texto, textoOpcional, z } from '../validation';
 
 const base = z.object({
@@ -32,7 +34,7 @@ async function complejosAnidados(ids: number[] | undefined, user: AuthUser, empr
   return { complejos: reemplazar ? { deleteMany: {}, create: crear } : { create: crear } };
 }
 
-export const proveedoresRouter = crudRouter({
+const adminRouter = crudRouter({
   entidad: 'proveedor',
   delegate: prisma.proveedor,
   readRoles: ['admin'],
@@ -72,3 +74,70 @@ export const proveedoresRouter = crudRouter({
     return { ...resto, ...(await complejosAnidados(complejo_ids, u, existing.empresa_id as number, true)) };
   },
 });
+
+// ---------- Junta (presidente/tesorero) ----------
+// Ve los proveedores vinculados a SU condominio y administra sólo los que atienden únicamente a ese condominio: los compartidos con otros condominios
+// son de sólo lectura (403 al cambiarlos). Crea proveedores de la empresa que administra su condominio y vinculados sólo a él. No elimina (desactiva).
+
+const MENSAJE_COMPARTIDO = 'Este proveedor atiende también a otros condominios: sólo la administración puede cambiarlo';
+
+/** ¿El proveedor atiende únicamente a este condominio? */
+async function soloDeEsteCondominio(proveedorId: number, complejoId: number): Promise<boolean> {
+  return (await prisma.proveedorComplejo.count({ where: { proveedor_id: proveedorId, complejo_id: { not: complejoId } } })) === 0;
+}
+
+/** La junta sólo puede nombrar su propio condominio; cualquier otro id es «no existe o no tienes acceso». */
+function soloSuCondominio(ids: number[] | undefined, complejoId: number) {
+  for (const id of new Set(ids ?? [])) if (id !== complejoId) throw invalidRef('complejo_ids');
+}
+
+const juntaRouter = crudRouter({
+  entidad: 'proveedor',
+  delegate: prisma.proveedor,
+  readRoles: ['propietario'], // el acceso real lo decide `esJunta` (ver el montaje abajo)
+  writeRoles: ['propietario'],
+  scope: scopeProveedoresJunta,
+  search: ['razon_social', 'ruc', 'contacto_nombre', 'email'],
+  orderable: ['id', 'razon_social', 'rubro', 'activo', 'created_at'],
+  defaultOrder: { razon_social: 'asc' },
+  include,
+  filtros: {
+    schema: z.object({ rubro: z.enum(RUBROS_PROVEEDOR).optional(), activo: boolQuery.optional() }),
+    where: (f) => ({ ...(f.rubro ? { rubro: f.rubro } : {}), ...(f.activo !== undefined ? { activo: f.activo } : {}) }),
+  },
+  // Sólo se nombra SU condominio (los otros no se revelan); `compartido` dice que atiende a más de uno y, por eso, no se puede cambiar.
+  format: (items, u) => {
+    const mio = ambitoJunta(u)!.complejo_id;
+    return items.map((p) => {
+      const todos = (p.complejos as { complejo: { id: number; nombre: string } }[]).map((x) => x.complejo);
+      return { ...p, complejos: todos.filter((c) => c.id === mio), compartido: todos.some((c) => c.id !== mio) };
+    });
+  },
+  createSchema: base,
+  updateSchema: base.partial(),
+  prepareCreate: async (d, u) => {
+    const { complejo_ids, empresa_id: _ignorada, ...resto } = d as z.infer<typeof base>;
+    void _ignorada;
+    const mio = ambitoJunta(u)!.complejo_id;
+    soloSuCondominio(complejo_ids, mio);
+    const complejo = await prisma.complejoHabitacional.findUnique({ where: { id: mio }, select: { empresa_id: true } });
+    if (complejo?.empresa_id == null) throw invalid('Tu condominio no tiene una administradora asignada', { _: 'Sin administradora' });
+    return { ...resto, empresa_id: complejo.empresa_id, complejos: { create: [{ complejo_id: mio }] } };
+  },
+  // Los vínculos no se tocan: un proveedor de la junta queda siempre vinculado sólo a su condominio.
+  prepareUpdate: async (d, u, existing) => {
+    const { complejo_ids, empresa_id: _ignorada, ...resto } = d as z.infer<typeof base>;
+    void _ignorada;
+    const mio = ambitoJunta(u)!.complejo_id;
+    if (!(await soloDeEsteCondominio(existing.id as number, mio))) throw forbidden(MENSAJE_COMPARTIDO);
+    soloSuCondominio(complejo_ids, mio);
+    return resto;
+  },
+  beforeDelete: () => {
+    throw forbidden('La junta no elimina proveedores: márcalo como inactivo');
+  },
+});
+
+export const proveedoresRouter = Router();
+proveedoresRouter.use((req, res, next) => (esJunta(currentUser(req)) ? juntaRouter(req, res, next) : next()));
+proveedoresRouter.use(adminRouter);

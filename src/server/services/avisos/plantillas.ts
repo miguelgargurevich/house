@@ -2,7 +2,7 @@ import { formatoDinero } from '../../../lib/paises';
 import { periodoTexto } from '../../lib/periodo';
 import { hoyEn } from '../../lib/fechas';
 
-export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida'] as const;
+export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
 export const ENLACE_APP = 'https://house.gargurevich.dev';
@@ -25,6 +25,9 @@ export interface DatosAviso {
   motivo?: string;
   /** Condominio del recibo: firma el mensaje. */
   condominio?: string | null;
+  /** Sólo `comunicado`: el título (es el asunto) y el texto plano que escribió la administración o la junta. */
+  titulo?: string;
+  texto?: string;
   /** Departamentos a los que se refiere (con su torre): cada torre tiene su propio recibo y el vecino puede tener unidades en más de una. */
   departamentos?: { codigo: string; torre: string | null; monto?: string }[];
 }
@@ -110,6 +113,11 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
       return {
         asunto: 'El asistente de IA se quedó sin proveedores disponibles',
         cuerpo: `${hola}\n\n${d.motivo ?? 'No queda ninguna ruta de IA sana.'}\n\nMientras tanto el asistente responde con los datos de cada cuenta, sin IA. Revisa el Llavero de IA en ${ENLACE_APP}/superadmin/llavero.\n\n— House`,
+      };
+    case 'comunicado':
+      return {
+        asunto: d.titulo ?? 'Comunicado',
+        cuerpo: `${hola}\n\n${d.texto ?? ''}\n\nLo puedes ver también en ${ENLACE_APP}.\n\n${firma(d)}`,
       };
     case 'ia_restablecida':
       return {

@@ -96,7 +96,7 @@ describe('plantillas', () => {
     assert.equal(datos.periodo, 'octubre de 2026');
     assert.equal(datos.monto, 'S/ 1,234.50');
     assert.equal(datos.vencimiento, '15/11/2026');
-    for (const tipo of TIPOS.filter((t) => !t.startsWith('ia_'))) { // los de la IA no hablan de cargos (ver abajo)
+    for (const tipo of TIPOS.filter((t) => !t.startsWith('ia_') && t !== 'comunicado')) { // los de la IA y el comunicado no hablan de cargos (ver abajo y tests/comunicados.test.ts)
       const { asunto, cuerpo } = plantilla(tipo, datos);
       assert.ok(asunto.length > 5 && asunto.length < 90, tipo);
       assert.match(cuerpo, /^Hola María,/, tipo);

@@ -19,6 +19,7 @@ import { historialResidente } from '../services/historial';
 import { conResumenDeGrupo, detalleMantenimiento, pagarMantenimiento, soloPrincipales } from '../services/mantenimiento';
 import { idSchema } from '../validation';
 import { METODOS_PAGO } from './pagos';
+import { comunicadoDeUnidades, origenDe } from '../services/comunicados';
 
 /** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
 function unidadesPropias(u: AuthUser) {
@@ -85,6 +86,39 @@ export function meRouter(limitePassword: RequestHandler) {
       }),
     ]);
     res.json({ items, total, page: q.page, pageSize: q.pageSize });
+  });
+
+  /**
+   * @openapi
+   * /api/me/comunicados:
+   *   get:
+   *     summary: Comunicados de la administración y la junta que alcanzan al residente
+   *     tags: [Comunicados]
+   *     description: Los no archivados de los condominios de SUS unidades (como propietario o inquilino), de todo el condominio o del block de alguna de sus unidades. Fijados primero, luego los más nuevos.
+   *     responses:
+   *       200: { description: "`{ items, total, page, pageSize }`" }
+   */
+  router.get('/comunicados', residente, async (req, res) => {
+    const u = currentUser(req);
+    const q = parse(listQuerySchema, req.query);
+    const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), select: { complejo_id: true, estructura_id: true } });
+    const where = {
+      AND: [
+        { archivado_at: null },
+        comunicadoDeUnidades(unidades),
+        q.q ? { OR: [{ titulo: { contains: q.q, mode: 'insensitive' as const } }, { cuerpo: { contains: q.q, mode: 'insensitive' as const } }] } : {},
+      ],
+    };
+    const [total, rows] = await Promise.all([
+      prisma.comunicado.count({ where }),
+      prisma.comunicado.findMany({
+        where,
+        orderBy: [{ fijado: 'desc' }, { created_at: 'desc' }, { id: 'desc' }],
+        ...page(q),
+        select: { id: true, titulo: true, cuerpo: true, fijado: true, created_at: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } }, autor: { select: { rol: true } } },
+      }),
+    ]);
+    res.json({ items: rows.map(({ autor, ...c }) => ({ ...c, origen: origenDe(autor) })), total, page: q.page, pageSize: q.pageSize });
   });
 
   const cargosQuery = listQuerySchema.extend({ estado: z.enum(['pendiente', 'pagado', 'vencido', 'en_revision']).optional() });

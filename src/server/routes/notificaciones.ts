@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { crudRouter } from '../crud';
 import { prisma } from '../db';
-import { conflict, notFound } from '../errors';
+import { conflict, forbidden, notFound } from '../errors';
+import { esJunta } from '../lib/junta';
 import { scopeNotificaciones } from '../lib/scope';
-import { currentUser, requireRole } from '../middleware/auth';
+import { currentUser } from '../middleware/auth';
 import { estadoCanales, CANALES, TIPOS, procesarPronto } from '../services/avisos';
 import { moduloActivoPara } from '../services/comercial/modulos';
 import { idSchema, parseId, z } from '../validation';
@@ -11,26 +12,28 @@ import { idSchema, parseId, z } from '../validation';
 const ESTADOS = ['pendiente', 'enviada', 'error', 'omitida'] as const;
 
 type FilaAviso = { ref_entidad: string | null; ref_id: number | null };
-type ContextoAviso = { recibo: { id: number; mes: number; anio: number; torre: string | null; condominio: string | null } | null; unidad: { codigo: string; torre: string | null } | null };
+type ContextoAviso = { recibo: { id: number; mes: number; anio: number; torre: string | null; condominio: string | null } | null; unidad: { codigo: string; torre: string | null } | null; comunicado?: { id: number; titulo: string } | null };
 
-/** De qué trata cada aviso: el recibo (con su torre) y, si es de un cargo o un pago, el departamento. Sólo ids y nombres; nunca el texto. */
+/** De qué trata cada aviso: el recibo (con su torre) y, si es de un cargo o un pago, el departamento; si es un comunicado, su título. Sólo ids y nombres; nunca el texto. */
 async function conContexto<T extends FilaAviso>(items: T[]): Promise<(T & { contexto: ContextoAviso | null })[]> {
   const ids = (e: string) => [...new Set(items.filter((n) => n.ref_entidad === e && n.ref_id != null).map((n) => n.ref_id as number))];
   const selRecibo = { id: true, mes: true, anio: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true } } } as const;
   const selCargo = { id: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } }, reciboConcepto: { select: { recibo: { select: selRecibo } } } } as const;
-  const [recibos, cargos, pagos] = await Promise.all([
+  const [recibos, cargos, pagos, comunicados] = await Promise.all([
     ids('recibo').length ? prisma.recibo.findMany({ where: { id: { in: ids('recibo') } }, select: selRecibo }) : [],
     ids('cargo').length ? prisma.reciboConceptoUnidad.findMany({ where: { id: { in: ids('cargo') } }, select: selCargo }) : [],
     ids('pago').length ? prisma.pago.findMany({ where: { id: { in: ids('pago') } }, select: { id: true, reciboConceptoUnidad: { select: selCargo } } }) : [],
+    ids('comunicado').length ? prisma.comunicado.findMany({ where: { id: { in: ids('comunicado') } }, select: { id: true, titulo: true } }) : [],
   ]);
   const deRecibo = (r: (typeof recibos)[number] | null | undefined) => (r ? { id: r.id, mes: r.mes, anio: r.anio, torre: r.estructura?.nombre ?? null, condominio: r.complejo?.nombre ?? null } : null);
   const deCargo = (c: (typeof cargos)[number] | null | undefined): ContextoAviso | null => (c ? { recibo: deRecibo(c.reciboConcepto?.recibo), unidad: c.unidad ? { codigo: c.unidad.codigo, torre: c.unidad.estructura?.nombre ?? null } : null } : null);
   const porRecibo = new Map(recibos.map((r) => [r.id, r]));
   const porCargo = new Map(cargos.map((c) => [c.id, c]));
   const porPago = new Map(pagos.map((p) => [p.id, p.reciboConceptoUnidad]));
+  const porComunicado = new Map(comunicados.map((c) => [c.id, c]));
   return items.map((n) => ({
     ...n,
-    contexto: n.ref_id == null ? null : n.ref_entidad === 'recibo' ? (porRecibo.has(n.ref_id) ? { recibo: deRecibo(porRecibo.get(n.ref_id)), unidad: null } : null) : n.ref_entidad === 'cargo' ? deCargo(porCargo.get(n.ref_id)) : n.ref_entidad === 'pago' ? deCargo(porPago.get(n.ref_id)) : null,
+    contexto: n.ref_id == null ? null : n.ref_entidad === 'recibo' ? (porRecibo.has(n.ref_id) ? { recibo: deRecibo(porRecibo.get(n.ref_id)), unidad: null } : null) : n.ref_entidad === 'cargo' ? deCargo(porCargo.get(n.ref_id)) : n.ref_entidad === 'pago' ? deCargo(porPago.get(n.ref_id)) : n.ref_entidad === 'comunicado' ? (porComunicado.has(n.ref_id) ? { recibo: null, unidad: null, comunicado: porComunicado.get(n.ref_id)! } : null) : null,
   }));
 }
 
@@ -38,6 +41,7 @@ const lista = crudRouter({
   entidad: 'notificacion',
   delegate: prisma.notificacion,
   readRoles: ['admin'],
+  readAlso: esJunta, // la junta ve los avisos de SU ámbito (`scopeNotificaciones` la acota)
   writeRoles: ['admin'],
   readOnly: true,
   scope: scopeNotificaciones,
@@ -64,13 +68,19 @@ const lista = crudRouter({
 });
 
 const router = Router();
-router.use(requireRole('admin'));
+// Administradora y junta (presidente/tesorero); `scopeNotificaciones` acota cada lista y lanza 403 a cualquier otro propietario.
+router.use((req, _res, next) => {
+  const u = currentUser(req);
+  if (u.rol !== 'superadmin' && u.rol !== 'admin' && !esJunta(u)) throw forbidden();
+  next();
+});
 
 /**
  * Qué canales tienen sus variables. `faltan` son nombres de variables, nunca valores. Para WhatsApp, además, la empresa del admin debe tener
  * su número vinculado (instancia de Evolution): sin él los avisos se omiten aunque el servidor esté configurado.
  */
 router.get('/canales', async (req, res) => {
+  if (esJunta(currentUser(req))) throw forbidden(); // la junta no configura canales: eso es de la administradora
   const estado = estadoCanales();
   const empresaId = currentUser(req).empresa_id;
   if (estado.whatsapp.configurado && empresaId != null) {

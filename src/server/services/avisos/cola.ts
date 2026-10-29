@@ -19,7 +19,7 @@ const MIN = 60_000;
 /** Pendiente = sin pagar y sin comprobante en revisión (`en_revision`) ni `pagado`. */
 const cargoPendiente: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: 'pendiente' }] };
 
-export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number };
+export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number };
 
 interface Cargado {
   datos: Parameters<typeof plantilla>[1];
@@ -29,6 +29,12 @@ interface Cargado {
 async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: string }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
   // Avisos de la plataforma (estado de la IA): no hablan de cargos; el detalle viaja en `opts.motivo`.
   if (ref.entidad === 'ia') return { datos: { nombre: usuario.nombre, periodo: '', monto: '', vencimiento: '' } };
+  // Comunicado: el título es el asunto y el texto va tal cual; lo firma el condominio.
+  if (ref.entidad === 'comunicado') {
+    const c = await prisma.comunicado.findUnique({ where: { id: ref.id }, select: { titulo: true, cuerpo: true, archivado_at: true, complejo: { select: { nombre: true } } } });
+    if (!c || c.archivado_at) return null;
+    return { datos: { nombre: usuario.nombre, periodo: '', monto: '', vencimiento: '', titulo: c.titulo, texto: c.cuerpo, condominio: c.complejo?.nombre ?? null } };
+  }
   if (ref.entidad === 'cargo' || ref.entidad === 'pago') {
     const cargoId = ref.entidad === 'cargo' ? ref.id : (await prisma.pago.findUnique({ where: { id: ref.id }, select: { recibo_concepto_unidad_id: true } }))?.recibo_concepto_unidad_id;
     if (cargoId == null) return null;
@@ -111,13 +117,14 @@ async function chatVinculado(usuarioId: number): Promise<string | null> {
  *  - `{ entidad: 'recibo', id }` → recibo emitido / por vencer / vencido (suma los cargos del usuario en ese recibo);
  *  - `{ entidad: 'cargo', id }`  → un cargo (`ReciboConceptoUnidad.id`);
  *  - `{ entidad: 'ia', id }`     → `ia_caida` / `ia_restablecida` (sólo superadmin; `id` distingue cada episodio; el detalle va en `opts.motivo`);
+ *  - `{ entidad: 'comunicado', id }` → `comunicado` (el título y el texto del comunicado; se avisa una vez por persona y canal aunque se edite);
  *  - `{ entidad: 'pago', id }`   → `pago_validado` / `pago_rechazado` de ESE pago (los datos salen de su cargo; cada pago avisa una vez,
  *    aunque el mismo cargo se rechace, se vuelva a pagar y se rechace de nuevo).
- * `opts.motivo` es el motivo de un rechazo y va en el mensaje.
+ * `opts.motivo` es el motivo de un rechazo y va en el mensaje. `opts.canales` limita los canales (por defecto, los que la persona aceptó).
  *
  * Nunca envía en línea: la notificación queda `pendiente` y la procesa `procesarCola`. Devuelve cuántas creó.
  */
-export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefAviso, opts: { ahora?: Date; motivo?: string } = {}): Promise<number> {
+export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefAviso, opts: { ahora?: Date; motivo?: string; canales?: readonly Canal[] } = {}): Promise<number> {
   const ahora = opts.ahora ?? new Date();
   const u = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true, nombre: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
   if (!u) return 0;
@@ -130,6 +137,8 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   if ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago)) canales.push('whatsapp');
   // Telegram: sólo el resultado del voucher, y sólo a quien vinculó su chat (no hay «preferencia» de Telegram: vincular es aceptarlo).
   if (resultadoDePago && (await chatVinculado(u.id))) canales.push('telegram');
+  // `opts.canales` acota (un comunicado puede ir sólo por correo o sólo por WhatsApp); nunca agrega un canal que la persona no aceptó.
+  if (opts.canales) for (let i = canales.length - 1; i >= 0; i--) if (!(opts.canales as readonly string[]).includes(canales[i]!)) canales.splice(i, 1);
   if (!canales.length) return 0;
   const cargado = await cargarDatos(tipo, u, ref, ahora);
   if (!cargado) return 0;
@@ -212,6 +221,10 @@ function resultadoSinCanal(canal: string): ResultadoEnvio {
  */
 async function resolveInstance(n: { ref_entidad: string | null; ref_id: number | null }): Promise<string | null> {
   if (!n.ref_entidad || n.ref_id == null) return null;
+  if (n.ref_entidad === 'comunicado') {
+    const c = await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo: { select: { empresa: { select: { whatsapp_instance: true } } } } } });
+    return c?.complejo?.empresa?.whatsapp_instance ?? null;
+  }
   if (n.ref_entidad === 'recibo') {
     const r = await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { empresa: { select: { whatsapp_instance: true } } } });
     return r?.empresa?.whatsapp_instance ?? null;
@@ -236,6 +249,7 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
 /** Condominio al que se refiere un aviso (por su recibo): de él depende el módulo de WhatsApp. null = aviso de la plataforma (sin condominio). */
 async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number | null }): Promise<number | null> {
   if (!n.ref_entidad || n.ref_id == null) return null;
+  if (n.ref_entidad === 'comunicado') return (await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   if (n.ref_entidad === 'recibo') return (await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   const porCargo = { unidad: { select: { complejo_id: true } }, reciboConcepto: { select: { recibo: { select: { complejo_id: true } } } } } as const;
   const cargo = n.ref_entidad === 'cargo'
