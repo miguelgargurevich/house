@@ -16,11 +16,11 @@ export function inicioAnioLima(ahora: Date = new Date()): Date {
   return new Date(Date.UTC(h.getUTCFullYear(), 0, 1) + LIMA_OFFSET_MS);
 }
 
-export function mesesAtras(n: number, ahora: Date = new Date()): { clave: string; anio: number; mes: number; desde: Date; hasta: Date }[] {
-  const h = hoyLima(ahora);
+/** Los `n` meses que terminan en `anio`/`mes` (el más viejo primero). `mes` va de 1 a 12. */
+export function mesesHasta(n: number, anioFin: number, mesFin: number): { clave: string; anio: number; mes: number; desde: Date; hasta: Date }[] {
   const out = [];
   for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(Date.UTC(h.getUTCFullYear(), h.getUTCMonth() - i, 1));
+    const d = new Date(Date.UTC(anioFin, mesFin - 1 - i, 1));
     const anio = d.getUTCFullYear();
     const mes = d.getUTCMonth() + 1;
     out.push({
@@ -32,6 +32,12 @@ export function mesesAtras(n: number, ahora: Date = new Date()): { clave: string
     });
   }
   return out;
+}
+
+/** Los `n` meses que terminan en el mes de hoy en Lima. */
+export function mesesAtras(n: number, ahora: Date = new Date()): ReturnType<typeof mesesHasta> {
+  const h = hoyLima(ahora);
+  return mesesHasta(n, h.getUTCFullYear(), h.getUTCMonth() + 1);
 }
 
 export function diasEntre(desde: Date, hasta: Date): number {

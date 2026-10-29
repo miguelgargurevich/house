@@ -3,6 +3,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { cargarDatos, bloqueDe } from '../src/server/services/asistente/contexto';
+import { hoyLima } from '../src/server/lib/fechas';
 import { encolarAviso, encolarReciboEmitido } from '../src/server/services/avisos';
 import { plantilla } from '../src/server/services/avisos/plantillas';
 import { ejecutarHerramienta } from '../src/server/tools';
@@ -273,5 +274,47 @@ describe('Asistente: herramientas con block', () => {
     assert.match(bloqueDe(g), /- Por block \(cada block tiene su propio recibo\):\n\s{2}· Block \d: por cobrar S\/ /);
     const j = await cargarDatos(U.juntaB1);
     assert.deepEqual(j.gestion!.blocks.map((b) => b.nombre), ['Block 1'], 'la junta sólo ve su block');
+  });
+});
+
+describe('panel: estados por mantenimiento, serie hasta el último recibo y palabra block/torre', () => {
+  /** El recibo del mes que viene (ya emitido, como pasa al cerrar el mes): tiene que salir en la serie aunque sea posterior al actual. */
+  let siguiente: { anio: number; mes: number; clave: string };
+  before(async () => {
+    // Un departamento con dos conceptos en julio: dos cargos y un solo mantenimiento.
+    const rc = await prisma.reciboConcepto.create({ data: { recibo_id: recibo1.id, concepto_id: d.conceptoA.id, monto: 30, orden: 2 } });
+    await prisma.reciboConceptoUnidad.create({ data: { recibo_concepto_id: rc.id, unidad_id: d.unidadA1.id, monto: 30, estado_pago: 'pendiente' } });
+    const h = hoyLima();
+    const sig = new Date(Date.UTC(h.getUTCFullYear(), h.getUTCMonth() + 1, 1));
+    siguiente = { anio: sig.getUTCFullYear(), mes: sig.getUTCMonth() + 1, clave: `${sig.getUTCFullYear()}-${String(sig.getUTCMonth() + 1).padStart(2, '0')}` };
+    const recibo = await prisma.recibo.create({ data: { empresa_id: d.empresaA.id, complejo_id: d.complejoA.id, estructura_id: d.block1.id, mes: siguiente.mes, anio: siguiente.anio, fecha_emision: new Date(), fecha_vencimiento: new Date(Date.now() + 40 * DIA), estado: 'emitido', descripcion: 'Mantenimiento del mes siguiente' } });
+    const rc2 = await prisma.reciboConcepto.create({ data: { recibo_id: recibo.id, concepto_id: d.conceptoA.id, monto: 77, orden: 1 } });
+    await prisma.reciboConceptoUnidad.create({ data: { recibo_concepto_id: rc2.id, unidad_id: d.unidadA1.id, monto: 77, estado_pago: 'pendiente' } });
+  });
+
+  it('«estados» cuenta mantenimientos (un departamento en un mes), no cargos', async () => {
+    const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.adminA);
+    assert.equal(r.status, 200);
+    const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { reciboConcepto: { recibo: { empresa_id: d.empresaA.id } } }, select: { unidad_id: true, reciboConcepto: { select: { recibo_id: true } } } });
+    const mantenimientos = new Set(cargos.map((c) => `${c.reciboConcepto?.recibo_id}-${c.unidad_id}`)).size;
+    const e = r.body.estados;
+    assert.equal(e.pagado + e.pendiente + e.parcial + e.vencido + e.en_revision, mantenimientos);
+    assert.ok(cargos.length > mantenimientos, 'el departamento con dos conceptos cuenta una sola vez');
+  });
+
+  it('«Emitido vs. cobrado» llega hasta el recibo del mes que viene (6 meses seguidos)', async () => {
+    const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.adminA);
+    const serie = r.body.cobrado_por_mes as { mes: string; emitido: string }[];
+    assert.equal(serie.length, 6);
+    assert.equal(serie[5].mes, siguiente.clave);
+    assert.equal(serie[5].emitido, '77.00', 'lo emitido en ese mes aunque todavía no empiece');
+    const primero = new Date(Date.UTC(siguiente.anio, siguiente.mes - 1 - 5, 1));
+    assert.equal(serie[0].mes, `${primero.getUTCFullYear()}-${String(primero.getUTCMonth() + 1).padStart(2, '0')}`);
+  });
+
+  it('la palabra es «block» si todas las estructuras son blocks, y «torre» en cuanto hay una torre', async () => {
+    assert.equal((await llamar(base, 'GET', '/api/dashboard/resumen', T.adminA)).body.palabra_estructura, 'block');
+    await prisma.estructura.create({ data: { nombre: 'Torre Z', tipo: 'Torre', complejo_id: d.complejoA.id } });
+    assert.equal((await llamar(base, 'GET', '/api/dashboard/resumen', T.adminA)).body.palabra_estructura, 'torre');
   });
 });

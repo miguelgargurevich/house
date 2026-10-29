@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { decimalAString, filtroEstadoCargo, noPagado } from '../lib/cargos';
-import { inicioAnioLima, inicioMesLima, mesesAtras } from '../lib/fechas';
-import { listarMantenimientos } from '../lib/mantenimientos';
-import { scopeCargos, scopePagos, scopeRecibos, scopeTareas, scopeUnidades } from '../lib/scope';
+import { hoyLima, inicioAnioLima, inicioMesLima, mesesHasta } from '../lib/fechas';
+import { listarMantenimientos, type EstadoMantenimiento } from '../lib/mantenimientos';
+import { scopeCargos, scopeEstructuras, scopePagos, scopeRecibos, scopeTareas, scopeUnidades } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { forbidden } from '../errors';
 import { idSchema, parse, z } from '../validation';
@@ -17,6 +17,41 @@ const sumaMonto = (v: { _sum: { monto: Prisma.Decimal | null } }) => decimalAStr
 const filtroPanel = z.object({ complejo_id: idSchema.optional(), estructura_id: idSchema.optional() });
 type FiltroPanel = z.infer<typeof filtroPanel>;
 
+/** Los estados del bloque «Estado de mantenimientos»: los mismos que usa la lista de mantenimientos. */
+const ESTADOS_PANEL = ['pagado', 'pendiente', 'parcial', 'vencido', 'en_revision'] as const satisfies readonly EstadoMantenimiento[];
+type EstadosPanel = Record<(typeof ESTADOS_PANEL)[number], number>;
+
+/**
+ * Cuenta mantenimientos (un departamento en un mes) por estado, con la misma regla que la lista. Antes se contaban cargos:
+ * un departamento con dos conceptos en el mismo recibo daba dos.
+ */
+async function contarEstados(unidadIds: number[]): Promise<EstadosPanel> {
+  const cuentas = await Promise.all(ESTADOS_PANEL.map((estado) => listarMantenimientos({ unidadIds, estado }, { page: 1, pageSize: 1 })));
+  return Object.fromEntries(ESTADOS_PANEL.map((estado, i) => [estado, cuentas[i].total])) as EstadosPanel;
+}
+
+/**
+ * «block» si todas las estructuras del alcance son blocks; si no, «torre». El tipo se guarda como lo escribió el formulario
+ * («Block» o «Torre»), por eso se compara sin distinguir mayúsculas.
+ */
+async function palabraEstructura(u: AuthUser, f: FiltroPanel): Promise<'block' | 'torre'> {
+  const estructuras = await prisma.estructura.findMany({
+    where: { AND: [scopeEstructuras(u), f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}] },
+    select: { tipo: true },
+  });
+  return estructuras.length > 0 && estructuras.every((e) => e.tipo.toLowerCase() === 'block') ? 'block' : 'torre';
+}
+
+/**
+ * Último mes de la serie: el de hoy, o el último mes con recibo si es posterior (el recibo del mes que viene ya está emitido
+ * antes de su mes y tiene que salir en «Emitido vs. cobrado»).
+ */
+async function finSerie(u: AuthUser, recibosEnTorre: Prisma.ReciboWhereInput, hoy: Date): Promise<{ anio: number; mes: number }> {
+  const ultimo = await prisma.recibo.findFirst({ where: { AND: [scopeRecibos(u), recibosEnTorre] }, orderBy: [{ anio: 'desc' }, { mes: 'desc' }], select: { anio: true, mes: true } });
+  const actual = { anio: hoy.getUTCFullYear(), mes: hoy.getUTCMonth() + 1 };
+  return ultimo && ultimo.anio * 12 + ultimo.mes > actual.anio * 12 + actual.mes ? ultimo : actual;
+}
+
 async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
   const enUnidad: Prisma.UnidadWhereInput = { ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}), ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}) };
   const filtrando = f.complejo_id !== undefined || f.estructura_id !== undefined;
@@ -24,20 +59,22 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
   const pagosEnTorre: Prisma.PagoWhereInput = filtrando ? { reciboConceptoUnidad: { unidad: enUnidad } } : {};
   const recibosEnTorre: Prisma.ReciboWhereInput = { ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}), ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}) };
   const ahora = new Date();
-  const meses = mesesAtras(6, ahora);
-  const [recibos, periodos, pendientes, cobradoMes, morosos, unidades, tareas, pagado, pendiente, vencido, enRevision, porValidar, serie, porTorre] = await Promise.all([
+  const hoy = hoyLima(ahora);
+  const [unidadIds, palabra, fin] = await Promise.all([
+    prisma.unidad.findMany({ where: { AND: [scopeUnidades(u), enUnidad] }, select: { id: true } }).then((us) => us.map((x) => x.id)),
+    palabraEstructura(u, f),
+    finSerie(u, recibosEnTorre, hoy),
+  ]);
+  const meses = mesesHasta(6, fin.anio, fin.mes);
+  const [recibos, periodos, pendientes, cobradoMes, morosos, tareas, estados, porValidar, serie, porTorre] = await Promise.all([
     prisma.recibo.count({ where: { AND: [scopeRecibos(u), recibosEnTorre] } }),
     // Con un recibo por torre, «recibos emitidos» (N torres × meses) se infla sin sentido: lo que se cuenta como emisión es el PERIODO de un condominio.
     prisma.recibo.groupBy({ by: ['complejo_id', 'anio', 'mes'], where: { AND: [scopeRecibos(u), recibosEnTorre] } }),
     prisma.reciboConceptoUnidad.aggregate({ where: { AND: [cargos, noPagado] }, _sum: { monto: true } }),
     prisma.pago.aggregate({ where: { AND: [scopePagos(u), pagosEnTorre, validado, { fecha_pago: { gte: inicioMesLima(ahora) } }] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
-    prisma.unidad.count({ where: { AND: [scopeUnidades(u), enUnidad] } }),
     prisma.tareaMantenimiento.count({ where: { AND: [scopeTareas(u), { estado: { not: 'completada' } }] } }),
-    prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('pagado')] } }),
-    prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('pendiente')] } }),
-    prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('vencido')] } }),
-    prisma.reciboConceptoUnidad.count({ where: { AND: [cargos, filtroEstadoCargo('en_revision')] } }),
+    contarEstados(unidadIds),
     prisma.pago.count({ where: { AND: [scopePagos(u), pagosEnTorre, { estado_validacion: 'por_validar' }] } }),
     Promise.all(
       meses.map(async (m) => {
@@ -48,19 +85,20 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
         return { mes: m.clave, emitido: sumaMonto(emitido), cobrado: sumaMonto(cobrado) };
       }),
     ),
-    desglosePorTorre(cargos),
+    desglosePorTorre(cargos, palabra),
   ]);
   const base = {
     recibos_emitidos: periodos.length,
     recibos_total: recibos,
+    palabra_estructura: palabra,
     por_torre: porTorre,
     cargos_pendientes_monto: sumaMonto(pendientes),
     cobrado_mes: sumaMonto(cobradoMes),
     morosos: morosos.length,
-    unidades_total: unidades,
+    unidades_total: unidadIds.length,
     tareas_abiertas: tareas,
     cobrado_por_mes: serie,
-    estados: { pagado, pendiente, vencido, en_revision: enRevision },
+    estados,
     pagos_por_validar: porValidar,
   };
   if (u.rol !== 'superadmin') return base;
@@ -69,7 +107,7 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
 }
 
 /** Emitido, cobrado, por cobrar y morosos por torre (el dinero de cada torre se mira aparte: tiene su recibo, su junta y sus cuentas). */
-async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput) {
+async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, palabra: 'block' | 'torre') {
   const [todo, cobrado, abierto, vencidos] = await Promise.all([
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: cargos, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('pagado')] }, _sum: { monto: true } }),
@@ -84,7 +122,7 @@ async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput) {
   const fila = (unidadId: number) => {
     const t = torreDe.get(unidadId) ?? null;
     const clave = t?.id ?? null;
-    return filas.get(clave) ?? filas.set(clave, { estructura_id: clave, nombre: t?.nombre ?? 'Sin torre', complejo: t?.complejo ?? null, emitido: new Prisma.Decimal(0), cobrado: new Prisma.Decimal(0), por_cobrar: new Prisma.Decimal(0), morosos: 0 }).get(clave)!;
+    return filas.get(clave) ?? filas.set(clave, { estructura_id: clave, nombre: t?.nombre ?? `Sin ${palabra}`, complejo: t?.complejo ?? null, emitido: new Prisma.Decimal(0), cobrado: new Prisma.Decimal(0), por_cobrar: new Prisma.Decimal(0), morosos: 0 }).get(clave)!;
   };
   for (const x of todo) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.emitido = f.emitido.plus(x._sum.monto ?? 0); }
   for (const x of cobrado) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.cobrado = f.cobrado.plus(x._sum.monto ?? 0); }

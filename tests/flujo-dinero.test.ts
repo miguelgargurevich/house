@@ -150,7 +150,7 @@ describe('flujo del dinero de un condominio', () => {
     assert.equal(r.cargos_pendientes_monto, TOTAL, 'por cobrar = suma de los 3 cargos (el recibo de otra empresa no cuenta)');
     assert.equal(r.cobrado_mes, '0.00');
     assert.equal(r.morosos, 0);
-    assert.deepEqual(r.estados, { pagado: 0, pendiente: 3, vencido: 0, en_revision: 0 });
+    assert.deepEqual(r.estados, { pagado: 0, pendiente: 3, parcial: 0, vencido: 0, en_revision: 0 });
     await conciliar('0.00');
   });
 
@@ -171,7 +171,7 @@ describe('flujo del dinero de un condominio', () => {
     const r = await resumen();
     assert.equal(r.cargos_pendientes_monto, TOTAL, 'en revisión sigue siendo por cobrar');
     assert.equal(r.cobrado_mes, '0.00', 'todavía no es dinero cobrado');
-    assert.deepEqual(r.estados, { pagado: 0, pendiente: 2, vencido: 0, en_revision: 1 });
+    assert.deepEqual(r.estados, { pagado: 0, pendiente: 2, parcial: 0, vencido: 0, en_revision: 1 });
     assert.equal(r.pagos_por_validar, 1);
     await conciliar('0.00');
   });
@@ -245,7 +245,7 @@ describe('flujo del dinero de un condominio', () => {
 
     const r = await resumen();
     assert.equal(r.morosos, 1);
-    assert.deepEqual(r.estados, { pagado: 1, pendiente: 0, vencido: 1, en_revision: 1 });
+    assert.deepEqual(r.estados, { pagado: 1, pendiente: 0, parcial: 0, vencido: 1, en_revision: 1 });
     assert.equal(r.cargos_pendientes_monto, '361.00', 'Jorge (en revisión) y Carmen siguen por cobrar');
     assert.equal(await estadoDe(ids.cargoC), 'vencido');
     assert.equal((await ok(get('carmen', `/api/me/cargos/${ids.cargoC}`))).estado, 'vencido');
@@ -264,7 +264,7 @@ describe('flujo del dinero de un condominio', () => {
     await conciliar(TOTAL);
     const final = await resumen();
     assert.equal(final.cargos_pendientes_monto, '0.00');
-    assert.deepEqual(final.estados, { pagado: 3, pendiente: 0, vencido: 0, en_revision: 0 });
+    assert.deepEqual(final.estados, { pagado: 3, pendiente: 0, parcial: 0, vencido: 0, en_revision: 0 });
     assert.equal((await detalleRecibo()).estado_cobranza, 'pagado');
   });
 

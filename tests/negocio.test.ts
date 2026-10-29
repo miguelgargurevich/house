@@ -125,13 +125,13 @@ describe('dashboard por rol', () => {
   it('admin: forma del resumen con sus números y sólo su empresa', async () => {
     const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.adminB);
     assert.equal(r.status, 200);
-    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'morosos', 'pagos_por_validar', 'por_torre', 'recibos_emitidos', 'recibos_total', 'tareas_abiertas', 'unidades_total']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'morosos', 'pagos_por_validar', 'palabra_estructura', 'por_torre', 'recibos_emitidos', 'recibos_total', 'tareas_abiertas', 'unidades_total']);
     assert.equal(r.body.recibos_emitidos, 1);
     assert.equal(r.body.cargos_pendientes_monto, '90.00');
     assert.equal(r.body.morosos, 1);
     assert.equal(r.body.unidades_total, 1);
     assert.equal(r.body.tareas_abiertas, 1);
-    assert.deepEqual(r.body.estados, { pagado: 0, pendiente: 0, vencido: 1, en_revision: 0 });
+    assert.deepEqual(r.body.estados, { pagado: 0, pendiente: 0, parcial: 0, vencido: 1, en_revision: 0 });
     assert.equal(r.body.cobrado_por_mes.length, 6);
     assert.match(r.body.cobrado_por_mes[5].mes, /^\d{4}-\d{2}$/);
     assert.deepEqual(Object.keys(r.body.cobrado_por_mes[0]).sort(), ['cobrado', 'emitido', 'mes']);
