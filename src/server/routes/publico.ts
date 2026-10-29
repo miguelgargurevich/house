@@ -1,4 +1,5 @@
 import { Router, type RequestHandler } from 'express';
+import { CODIGOS_PAIS } from '../../lib/paises';
 import { ipDe } from '../middleware/audit';
 import { MENSAJE_REGISTRO, registrarCuenta, reenviarVerificacion, verificarCorreo } from '../services/comercial/registro';
 import { catalogoPublico, cotizacionPublica } from '../services/comercial/suscripciones';
@@ -20,9 +21,13 @@ const registroSchema = z.object({
   if (contrasenaIgualACorreo(d.password, d.email)) ctx.addIssue({ code: 'custom', path: ['password'], message: MENSAJE_PASSWORD_CORREO });
 });
 
+/** País para cobrar (ISO 3166-1 alfa-2, mayúsculas o minúsculas); sin él, Perú. Un código que no es de un país del catálogo → 422. */
+const paisQuery = z.string().transform((v) => v.trim().toUpperCase()).pipe(z.enum(CODIGOS_PAIS, { error: 'País inválido' })).optional();
+const planesSchema = z.object({ pais: paisQuery });
 const cotizarSchema = z.object({
   unidades: z.coerce.number().int().min(1).max(100_000).default(100),
   plan: z.string().max(40).optional(),
+  pais: paisQuery,
 });
 
 /** Tramo SIN sesión: planes y precios, registro y verificación del correo. Nunca devuelve datos de pago, correos ni cuentas. */
@@ -31,18 +36,19 @@ export function publicoRouter(l: LimitadoresPublicos) {
 
   /** @openapi
    * /api/publico/planes:
-   *   get: { summary: "Planes y módulos con su precio por departamento al mes (sin IGV) y los topes de unidades", tags: [Público], responses: { 200: { description: "{ moneda, igv_incluido, planes, modulos, registro_abierto }" } } } */
-  r.get('/planes', async (_req, res) => {
+   *   get: { summary: "Planes y módulos con su precio por departamento al mes (sin impuesto, en la moneda del país de `?pais=`; Perú por defecto) y los topes de unidades", tags: [Público], responses: { 200: { description: "{ pais, moneda, impuesto, paises, igv_incluido, planes, modulos, registro_abierto }; un plan sin precio en esa moneda trae `precio_por_unidad: null` y `consultar: true`" } } } */
+  r.get('/planes', async (req, res) => {
+    const q = parse(planesSchema, req.query);
     res.set('Cache-Control', 'public, max-age=60');
-    res.json(await catalogoPublico());
+    res.json(await catalogoPublico(q.pais));
   });
 
   /** @openapi
    * /api/publico/cotizar:
-   *   get: { summary: "Total al mes y al año (sin IGV; aparte el IGV y el total con IGV del mes) para N departamentos y un plan; Pro y Administradora cobran un mínimo de unidades. Ya no hay módulos sueltos", tags: [Público], responses: { 200: { description: "{ unidades, unidades_cobradas, minimo_aplicado, total_mes, total_anio, igv_mes, total_con_igv_mes }" } } } */
+   *   get: { summary: "Total al mes y al año (sin impuesto; aparte el impuesto y el total con impuesto del mes) para N departamentos y un plan, en la moneda del país de `?pais=` (Perú por defecto); Pro y Administradora cobran un mínimo de unidades. Ya no hay módulos sueltos", tags: [Público], responses: { 200: { description: "{ pais, moneda, impuesto_nombre, consultar, unidades, unidades_cobradas, minimo_aplicado, total_mes, total_anio, igv_mes, total_con_igv_mes }; sin precio del plan en esa moneda los totales son null y `consultar` true" } } } */
   r.get('/cotizar', async (req, res) => {
     const q = parse(cotizarSchema, req.query);
-    res.json(await cotizacionPublica(q.unidades, q.plan ?? null));
+    res.json(await cotizacionPublica(q.unidades, q.plan ?? null, q.pais));
   });
 
   /** @openapi

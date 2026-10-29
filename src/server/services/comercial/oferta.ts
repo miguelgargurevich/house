@@ -6,7 +6,7 @@ import { CAPACIDADES, PLANES_SEED, sembrarCatalogoComercial } from './catalogo';
 import { invalidarComercial } from './modulos';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Cliente = Pick<PrismaClient<any, any, any>, 'moduloComercial' | 'planComercial' | 'configuracionComercial'>;
+type Cliente = Pick<PrismaClient<any, any, any>, 'moduloComercial' | 'planComercial' | 'configuracionComercial' | 'impuestoPais'>;
 
 export interface CambioDePlan { clave: string; cambios: string[] }
 

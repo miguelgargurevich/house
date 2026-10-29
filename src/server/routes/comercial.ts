@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../db';
-import { forbidden, notFound } from '../errors';
+import { Prisma } from '@prisma/client';
+import { forbidden, invalid, notFound } from '../errors';
 import { scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
-import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS } from '../services/comercial/catalogo';
+import { CODIGOS_MONEDA, CODIGOS_PAIS, decimalesDe, monedaEnPlural } from '../../lib/paises';
+import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
+import { cambiarImpuesto, reflejarTasaEnPeru } from '../services/comercial/impuestos';
 import { invalidarComercial } from '../services/comercial/modulos';
 import { cambiarSuscripcion, cancelarSolicitud, catalogoPublico, datosParaPagar, pagoVista, registrarPago, solicitar, vistas } from '../services/comercial/suscripciones';
 import { fechaSchema, idSchema, listQuerySchema, parse, parseBody, parseQuery, texto, textoOpcional, z } from '../validation';
@@ -48,8 +51,15 @@ const planSchema = z.object({
   igv_incluido: z.boolean().optional(),
   visible: z.boolean().optional(),
 });
+/** Tasa de un impuesto en fracción (18 % = 0.18), hasta 4 decimales. */
+const tasaSchema = z.union([z.number(), z.string()]).transform((v) => String(v).trim()).pipe(z.string().regex(/^(0(\.\d{1,4})?|1)$/, 'La tasa va entre 0 y 1 (18 % = 0.18)'));
+const paisEnum = z.string().transform((v) => v.trim().toUpperCase()).pipe(z.enum(CODIGOS_PAIS, { error: 'País inválido' }));
+const monedaEnum = z.string().transform((v) => v.trim().toUpperCase()).pipe(z.enum(CODIGOS_MONEDA, { error: 'Moneda inválida' }));
+const impuestoParams = z.object({ pais: paisEnum });
+const precioMonedaParams = z.object({ clave: z.string().min(1).max(40), moneda: monedaEnum });
+const impuestoSchema = z.object({ nombre: texto(20).optional(), tasa: tasaSchema.optional(), moneda: monedaEnum.optional(), activo: z.boolean().optional() });
 const configSchema = z.object({
-  igv_tasa: z.union([z.number(), z.string()]).transform((v) => String(v).trim()).pipe(z.string().regex(/^(0(\.\d{1,4})?|1)$/, 'La tasa va entre 0 y 1 (18 % = 0.18)')).optional(),
+  igv_tasa: tasaSchema.optional(),
   dias_gracia: z.number().int().min(0).max(90).optional(),
   dias_aviso_vencimiento: z.number().int().min(1).max(60).optional(),
   correo_superadmin: z.preprocess((v) => (v === '' ? null : v), z.email('Correo inválido').max(160).nullish()),
@@ -173,7 +183,7 @@ comercialRouter.post('/suscripciones/:complejoId/pagos', superadmin, async (req,
   res.locals.entidad = 'pago_suscripcion';
   res.locals.entidadId = pago.id;
   res.locals.accion = 'registrar_pago';
-  res.locals.auditDetalle = { complejo_id: complejoId, monto: pago.monto.toFixed(2), medio: pago.medio, operacion: pago.operacion, periodo_desde: body.periodo_desde.toISOString().slice(0, 10), periodo_hasta: body.periodo_hasta.toISOString().slice(0, 10) };
+  res.locals.auditDetalle = { complejo_id: complejoId, monto: pago.monto.toFixed(decimalesDe(pago.moneda)), moneda: pago.moneda, medio: pago.medio, operacion: pago.operacion, periodo_desde: body.periodo_desde.toISOString().slice(0, 10), periodo_hasta: body.periodo_hasta.toISOString().slice(0, 10) };
   res.status(201).json({ pago: pagoVista(pago), suscripcion: (await vistas([complejoId], { conNotas: true }))[0] });
 });
 
@@ -183,10 +193,58 @@ comercialRouter.get('/suscripciones/:complejoId/pagos', superadmin, async (req, 
   res.json({ items: pagos.map(pagoVista) });
 });
 
-/** Precios BASE y datos completos para editarlos (el público sólo ve el precio con IGV). */
+/** Precios BASE y datos completos para editarlos (el público sólo ve el precio sin impuesto, en la moneda de su país), más el impuesto de cada país y los precios por moneda. */
 comercialRouter.get('/catalogo', superadmin, async (_req, res) => {
   const [planes, modulos, configuracion] = await Promise.all([prisma.planComercial.findMany({ orderBy: { orden: 'asc' } }), prisma.moduloComercial.findMany({ orderBy: { orden: 'asc' } }), obtenerConfiguracion()]);
-  res.json({ planes, modulos, configuracion });
+  const [impuestos, precios_moneda] = await Promise.all([prisma.impuestoPais.findMany({ orderBy: { pais: 'asc' } }), prisma.precioPlanMoneda.findMany({ orderBy: [{ plan_clave: 'asc' }, { moneda: 'asc' }] })]);
+  res.json({ planes, modulos, configuracion, impuestos, precios_moneda });
+});
+
+/** @openapi
+ * /api/comercial/impuestos/{pais}:
+ *   put: { summary: "Edita el impuesto (nombre, tasa en fracción), la moneda de cobro y si el país está abierto a contratar (sólo superadmin; auditado)", tags: [Comercial], responses: { 200: { description: "La fila del país" }, 403: { description: "Sólo superadmin" }, 404: { description: "País desconocido" }, 422: { description: "Datos inválidos" } } } */
+comercialRouter.put('/impuestos/:pais', superadmin, async (req, res) => {
+  const { pais } = parse(impuestoParams, req.params);
+  const body = parseBody(impuestoSchema, req);
+  const fila = await cambiarImpuesto(pais, body);
+  invalidarComercial();
+  res.locals.entidad = 'impuesto_pais';
+  res.locals.accion = 'editar';
+  res.locals.auditDetalle = { pais, ...definidos(body) };
+  res.json(fila);
+});
+
+/** @openapi
+ * /api/comercial/planes/{clave}/precios/{moneda}:
+ *   put: { summary: "Fija el precio base por departamento al mes de un plan en una moneda (en soles es el precio del plan); sin precio en la moneda de un país, ese país no puede contratarlo (sólo superadmin; auditado)", tags: [Comercial], responses: { 200: { description: "El precio" }, 404: { description: "Plan inexistente" } } }
+ *   delete: { summary: "Quita el precio de un plan en una moneda (vuelve a «Consúltanos»); el de soles no se quita", tags: [Comercial], responses: { 204: { description: "Quitado" } } } */
+comercialRouter.put('/planes/:clave/precios/:moneda', superadmin, async (req, res) => {
+  const { clave, moneda } = parse(precioMonedaParams, req.params);
+  const { precio_por_unidad } = parseBody(z.object({ precio_por_unidad: precio }), req);
+  if (decimalesDe(moneda) === 0 && /\./.test(precio_por_unidad)) throw invalid(`Datos inválidos: precio_por_unidad: en ${monedaEnPlural(moneda)} el precio no lleva decimales`, { precio_por_unidad: 'Sin decimales en esta moneda' });
+  if (!(await prisma.planComercial.findUnique({ where: { clave }, select: { clave: true } }))) throw notFound('Plan');
+  const dato = new Prisma.Decimal(precio_por_unidad);
+  // El precio en soles es el del plan mismo (lo que ya existía); las demás monedas viven en PrecioPlanMoneda.
+  if (moneda === MONEDA_BASE_PRECIOS) await prisma.planComercial.update({ where: { clave }, data: { precio_por_unidad: dato } });
+  else await prisma.precioPlanMoneda.upsert({ where: { plan_clave_moneda: { plan_clave: clave, moneda } }, create: { plan_clave: clave, moneda, precio_por_unidad: dato }, update: { precio_por_unidad: dato } });
+  invalidarComercial();
+  res.locals.entidad = 'precio_plan_moneda';
+  res.locals.accion = 'editar';
+  res.locals.auditDetalle = { plan: clave, moneda, precio_por_unidad };
+  res.json({ plan_clave: clave, moneda, precio_por_unidad });
+});
+
+comercialRouter.delete('/planes/:clave/precios/:moneda', superadmin, async (req, res) => {
+  const { clave, moneda } = parse(precioMonedaParams, req.params);
+  if (moneda === MONEDA_BASE_PRECIOS) throw invalid('Datos inválidos: moneda: el precio en soles es el del plan y no se quita', { moneda: 'El precio en soles no se quita' });
+  const hay = await prisma.precioPlanMoneda.findUnique({ where: { plan_clave_moneda: { plan_clave: clave, moneda } }, select: { plan_clave: true } });
+  if (!hay) throw notFound('Precio');
+  await prisma.precioPlanMoneda.delete({ where: { plan_clave_moneda: { plan_clave: clave, moneda } } });
+  invalidarComercial();
+  res.locals.entidad = 'precio_plan_moneda';
+  res.locals.accion = 'quitar';
+  res.locals.auditDetalle = { plan: clave, moneda };
+  res.status(204).end();
 });
 
 comercialRouter.put('/modulos/:clave', superadmin, async (req, res) => {
@@ -217,6 +275,7 @@ comercialRouter.put('/configuracion', superadmin, async (req, res) => {
   const body = parseBody(configSchema, req);
   await obtenerConfiguracion();
   const c = await prisma.configuracionComercial.update({ where: { id: 1 }, data: definidos(body) });
+  if (body.igv_tasa !== undefined) await reflejarTasaEnPeru(body.igv_tasa); // el IGV de aquí es el de Perú: la tabla de impuestos por país lo sigue
   invalidarComercial();
   res.locals.entidad = 'configuracion_comercial';
   res.locals.entidadId = null;

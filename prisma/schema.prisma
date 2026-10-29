@@ -861,8 +861,13 @@ model PagoSuscripcion {
   empresa_id        Int?
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id], onDelete: SetNull)
   monto_base        Decimal
+  /// El impuesto del pago (IGV, IVA…): `impuesto_nombre` y `impuesto_tasa` son los que regían en el país del condominio al registrarlo.
   igv               Decimal
   monto             Decimal
+  /// Moneda (ISO 4217) en la que se pagó, la del país del condominio al registrarlo. Un pago registrado ya no cambia.
+  moneda            String                 @default("PEN")
+  impuesto_nombre   String                 @default("IGV")
+  impuesto_tasa     Decimal                @default(0.18)
   fecha_pago        DateTime
   medio             String
   operacion         String?
@@ -900,6 +905,28 @@ model ConfiguracionComercial {
   pago_yape              String?
   pago_instrucciones     String?
   updated_at             DateTime @updatedAt
+}
+
+/// Impuesto y moneda con que se cobra la suscripción a House en un país (ISO 3166-1 alfa-2): IGV en Perú, IVA en Chile… Se siembra desde `src/lib/paises.ts`
+/// (sólo CREA lo que falta) y el superadmin lo edita. `tasa` es fracción (0.18 = 18 %). `activo = false`: el país no se ofrece en /precios ni se puede contratar.
+model ImpuestoPais {
+  pais       String   @id
+  nombre     String   @default("IGV")
+  tasa       Decimal  @default(0)
+  moneda     String   @default("PEN")
+  activo     Boolean  @default(true)
+  updated_at DateTime @updatedAt
+}
+
+/// Precio base (sin impuesto) por departamento al mes de un plan en una moneda. El precio en soles vive en `PlanComercial.precio_por_unidad`; esta tabla trae el
+/// de las demás monedas. Un plan de pago sin fila en la moneda de un país no se puede contratar ahí («Consúltanos»).
+model PrecioPlanMoneda {
+  plan_clave        String
+  moneda            String
+  precio_por_unidad Decimal
+  updated_at        DateTime @updatedAt
+
+  @@id([plan_clave, moneda])
 }
 
 /// Enlace de un solo uso para verificar el correo del registro público. Sólo se guarda el hash del token.

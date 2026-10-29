@@ -274,7 +274,7 @@ describe('endpoint público de planes', () => {
 
   it('cotizar: 448 deptos en Pro = 1.120,00 + IGV al mes (1.321,60 con IGV) y 13.440,00 + IGV al año; sin módulos sueltos; plan inexistente 422', async () => {
     const pro = await llamar(base, 'GET', '/api/publico/cotizar?unidades=448&plan=pro');
-    assert.deepEqual(pro.body, { unidades: 448, unidades_cobradas: 448, minimo_aplicado: false, total_mes: '1120.00', total_anio: '13440.00', igv_mes: '201.60', total_con_igv_mes: '1321.60', igv_incluido: false });
+    assert.deepEqual(pro.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 448, unidades_cobradas: 448, minimo_aplicado: false, total_mes: '1120.00', total_anio: '13440.00', igv_mes: '201.60', total_con_igv_mes: '1321.60', igv_incluido: false });
     const mod = await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&modulos=ia_vouchers,asistente');
     assert.equal(mod.body.total_mes, '0.00', 'los módulos sueltos ya no se cotizan: sin plan, nada que cobrar');
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=cortesia')).status, 422, 'cortesía no se cotiza al público');

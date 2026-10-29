@@ -77,7 +77,7 @@ export async function vaciarBase() {
     `TRUNCATE TABLE "PagoSuscripcion","SuscripcionCondominio","TokenVerificacionCorreo","Auditoria","EstadoIA","ClaveIntegracion","GatewayIA","DominioGatewayPermitido","ConfiguracionOcr","ConfiguracionTelegram","Pago","ReciboConceptoUnidad","ReciboConcepto","Recibo","Concepto","TareaMantenimiento","Unidad","Piso","Estructura","Usuario","ComplejoHabitacional","EmpresaAdministradora" RESTART IDENTITY CASCADE`,
   );
   // Planes, módulos y configuración (no se vacían con el resto): se dejan como el seed los crea.
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE "ModuloComercial","PlanComercial","ConfiguracionComercial"`);
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE "ModuloComercial","PlanComercial","ConfiguracionComercial","ImpuestoPais","PrecioPlanMoneda"`);
   await sembrarCatalogoComercial(prisma);
   invalidarComercial();
 }

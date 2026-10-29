@@ -3,16 +3,23 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { conflict, HttpError, invalid, notFound } from '../../errors';
 import { hoyLima } from '../../lib/fechas';
-import { esModulo, type EstadoSuscripcion } from './catalogo';
+import { PAISES, decimalesDe, formatoDinero, monedaEnPlural } from '../../../lib/paises';
+import { MONEDA_BASE_PRECIOS, esModulo, type EstadoSuscripcion } from './catalogo';
 import { cotizar, desglosarMonto, precioSinIgv, type Cotizacion, type PrecioPlan } from './calculo';
 import { correoA, obtenerConfiguracion } from './configuracion';
 import { estadoEfectivo, type EntradaSuscripcion } from './estado';
+import { cargarReferencias, contextoDe, contextoPublico, planContratable, precioEnMoneda, type ContextoCobro } from './impuestos';
 import { comercialDeps, invalidarComercial } from './modulos';
 
-/** La fila del plan en la forma que usa `cotizar` (precio, módulos que trae y mínimo de unidades cobradas). */
-const precioDePlan = (p: { clave: string; precio_por_unidad: Prisma.Decimal; igv_incluido: boolean; modulos_incluidos: string[]; unidades_minimas: number | null }): PrecioPlan => ({
-  clave: p.clave, precio_por_unidad: p.precio_por_unidad, igv_incluido: p.igv_incluido, modulos_incluidos: p.modulos_incluidos, unidades_minimas: p.unidades_minimas,
+type FilaPlan = { clave: string; precio_por_unidad: Prisma.Decimal; igv_incluido: boolean; modulos_incluidos: string[]; unidades_minimas: number | null };
+
+/** La fila del plan en la forma que usa `cotizar` (precio EN LA MONEDA DEL COBRO, módulos que trae y mínimo de unidades cobradas). */
+const precioDePlan = (p: FilaPlan, precio: Prisma.Decimal = p.precio_por_unidad): PrecioPlan => ({
+  clave: p.clave, precio_por_unidad: precio, igv_incluido: p.igv_incluido, modulos_incluidos: p.modulos_incluidos, unidades_minimas: p.unidades_minimas,
 });
+
+/** Los datos de impuesto de un contexto, en la forma que viaja a las pantallas. */
+const impuestoVista = (c: ContextoCobro) => ({ nombre: c.impuesto_nombre, tasa: c.tasa.toString() });
 
 export interface VistaSuscripcion {
   complejo_id: number;
@@ -34,9 +41,17 @@ export interface VistaSuscripcion {
   unidades_maximas: number | null;
   /** Mínimo de unidades que cobra el plan contratado (Pro y Administradora = 20); null = sin mínimo. */
   unidades_minimas: number | null;
+  /** País del condominio y, de él, la moneda en que paga y el impuesto que se le suma (IGV, IVA…). */
+  pais: string;
+  moneda: string;
+  impuesto: { nombre: string; tasa: string };
   /** Lo que corresponde pagar al mes con lo contratado. */
   cotizacion: Cotizacion;
-  solicitud: { plan: string | null; modulos: string[]; en: Date | null; cotizacion: Cotizacion } | null;
+  /** El plan de pago contratado no tiene precio en la moneda de su país: la cotización no vale, hay que «consultar». */
+  precio_consultar: boolean;
+  /** Planes de pago que este condominio puede pedir hoy (su país está abierto y el plan tiene precio en su moneda). */
+  planes_disponibles: string[];
+  solicitud: { plan: string | null; modulos: string[]; en: Date | null; cotizacion: Cotizacion; consultar: boolean } | null;
   /** «HOUSE-<condominio>-<AAAAMM>»: lo que el cliente escribe como referencia al transferir. */
   referencia_pago: string;
   notas?: string | null;
@@ -51,13 +66,14 @@ export const referenciaPago = (complejoId: number, ahora: Date): string => {
 export async function vistas(complejoIds: number[], opts: { conNotas?: boolean } = {}): Promise<VistaSuscripcion[]> {
   if (!complejoIds.length) return [];
   const ahora = comercialDeps.ahora();
-  const [complejos, suscripciones, unidades, planes, catalogo, cfg] = await Promise.all([
-    prisma.complejoHabitacional.findMany({ where: { id: { in: complejoIds } }, select: { id: true, nombre: true, empresa: { select: { id: true, nombre: true } } }, orderBy: { nombre: 'asc' } }),
+  const [complejos, suscripciones, unidades, planes, catalogo, cfg, ref] = await Promise.all([
+    prisma.complejoHabitacional.findMany({ where: { id: { in: complejoIds } }, select: { id: true, nombre: true, pais: true, empresa: { select: { id: true, nombre: true } } }, orderBy: { nombre: 'asc' } }),
     prisma.suscripcionCondominio.findMany({ where: { complejo_id: { in: complejoIds } } }),
     prisma.unidad.groupBy({ by: ['complejo_id'], where: { complejo_id: { in: complejoIds } }, _count: { _all: true } }),
-    prisma.planComercial.findMany(),
+    prisma.planComercial.findMany({ orderBy: { orden: 'asc' } }),
     prisma.moduloComercial.findMany(),
     obtenerConfiguracion(),
+    cargarReferencias(),
   ]);
   const sus = new Map(suscripciones.map((s) => [s.complejo_id, s]));
   const uni = new Map(unidades.map((u) => [u.complejo_id, u._count._all]));
@@ -70,18 +86,25 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
     const ef = estadoEfectivo(entrada, planes, plazos, ahora);
     const plan = planDe(ef.plan_clave) ?? planDe('gratis');
     const n = uni.get(c.id) ?? 0;
-    const precio = plan ? precioDePlan(plan) : null;
+    const ctx = contextoDe(c.pais, ref);
+    // Los módulos sueltos de las suscripciones antiguas tienen su precio en soles: sólo cuentan donde se cobra en soles.
+    const preciosModulos = ctx.moneda === MONEDA_BASE_PRECIOS ? catalogoPrecios : [];
+    /** El plan cotizado en la moneda del condominio; sin precio ahí queda sin cotizar y `consultar` en true. */
+    const cotizarPlan = (p: typeof plan, modulosSueltos: string[]) => {
+      const precioMoneda = p ? precioEnMoneda(p, ctx.moneda, ref.precios) : null;
+      const cot = cotizar({ unidades: n, plan: p && precioMoneda !== null ? precioDePlan(p, precioMoneda) : null, modulosSueltos, catalogo: preciosModulos, tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
+      return { cot, consultar: p != null && precioMoneda === null };
+    };
     // Vencido y apagado se comporta como Gratis también para el tope de unidades.
     const planTope = ef.apagada ? planDe('gratis') : plan;
     const sueltos = s?.modulos ?? [];
     // Cortesía no cobra nada aunque su plan traiga todo.
     const cobra = ef.plan_clave !== 'cortesia';
-    const cot = cobra ? cotizar({ unidades: n, plan: precio, modulosSueltos: sueltos, catalogo: catalogoPrecios, tasa: cfg.igv_tasa }) : cotizar({ unidades: n, plan: null, modulosSueltos: [], catalogo: catalogoPrecios, tasa: cfg.igv_tasa });
+    const { cot, consultar } = cobra ? cotizarPlan(plan, sueltos) : { cot: cotizarPlan(null, []).cot, consultar: false };
     let solicitud: VistaSuscripcion['solicitud'] = null;
     if (s && (s.solicitud_plan || s.solicitud_modulos.length)) {
-      const planSol = planDe(s.solicitud_plan) ?? plan;
-      const psol = planSol ? precioDePlan(planSol) : null;
-      solicitud = { plan: s.solicitud_plan, modulos: s.solicitud_modulos, en: s.solicitada_at, cotizacion: cotizar({ unidades: n, plan: psol, modulosSueltos: [...new Set([...sueltos, ...s.solicitud_modulos])], catalogo: catalogoPrecios, tasa: cfg.igv_tasa }) };
+      const { cot: cotSol, consultar: consultarSol } = cotizarPlan(planDe(s.solicitud_plan) ?? plan, [...new Set([...sueltos, ...s.solicitud_modulos])]);
+      solicitud = { plan: s.solicitud_plan, modulos: s.solicitud_modulos, en: s.solicitada_at, cotizacion: cotSol, consultar: consultarSol };
     }
     return {
       complejo_id: c.id,
@@ -98,7 +121,12 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       unidades_cobradas: cot.unidades_cobradas,
       unidades_maximas: planTope?.unidades_maximas ?? null,
       unidades_minimas: cobra ? plan?.unidades_minimas ?? null : null,
+      pais: ctx.pais,
+      moneda: ctx.moneda,
+      impuesto: impuestoVista(ctx),
       cotizacion: cot,
+      precio_consultar: consultar,
+      planes_disponibles: planes.filter((p) => p.visible && !['gratis', 'cortesia'].includes(p.clave) && planContratable(ctx, p, ref.precios)).map((p) => p.clave),
       solicitud,
       referencia_pago: referenciaPago(c.id, ahora),
       ...(opts.conNotas ? { notas: s?.notas ?? null } : {}),
@@ -114,9 +142,16 @@ export async function datosParaPagar() {
 
 // ---------- Solicitud del cliente ----------
 export async function solicitar(complejoId: number, d: { plan: string }, quien: { nombre: string; email: string }): Promise<void> {
-  const planes = await prisma.planComercial.findMany({ where: { visible: true, clave: { notIn: ['gratis', 'cortesia'] } }, select: { clave: true } });
+  const [planes, complejo, ref] = await Promise.all([
+    prisma.planComercial.findMany({ where: { visible: true, clave: { notIn: ['gratis', 'cortesia'] } } }),
+    prisma.complejoHabitacional.findUniqueOrThrow({ where: { id: complejoId }, select: { pais: true } }),
+    cargarReferencias(),
+  ]);
   // Los módulos ya no se piden sueltos: se pide un plan (Pro o Administradora) y trae todo.
-  if (!planes.some((p) => p.clave === d.plan)) throw invalid('Datos inválidos: plan: ese plan no está disponible', { plan: 'Plan no disponible' });
+  const plan = planes.find((p) => p.clave === d.plan);
+  if (!plan) throw invalid('Datos inválidos: plan: ese plan no está disponible', { plan: 'Plan no disponible' });
+  // Sin precio en la moneda del país del condominio no se puede contratar: se atiende por consulta.
+  if (!planContratable(contextoDe(complejo.pais, ref), plan, ref.precios)) throw invalid('Datos inválidos: plan: todavía no tiene precio en tu país; consúltanos', { plan: 'Consúltanos: aún no hay precio en tu país' });
   const actual = await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId }, select: { estado: true } });
   const guardado = !actual || actual.estado === 'gratis' || actual.estado === 'activa' ? 'solicitada' : actual.estado; // por_vencer / vencida siguen siendo lo que son
   await prisma.suscripcionCondominio.upsert({
@@ -128,7 +163,7 @@ export async function solicitar(complejoId: number, d: { plan: string }, quien: 
   const [v] = await vistas([complejoId]);
   const cfg = await obtenerConfiguracion();
   if (cfg.correo_superadmin) {
-    await correoA(cfg.correo_superadmin, `Solicitud de plan: ${v.complejo}`, `${quien.nombre} (${quien.email}) de ${v.empresa?.nombre ?? 'sin empresa'} pidió el plan ${d.plan} para «${v.complejo}» (${v.unidades_facturables} departamentos${v.unidades_cobradas > v.unidades_facturables ? `; se cobra el mínimo de ${v.unidades_cobradas}` : ''}).\nMonto al mes con lo pedido: S/ ${v.solicitud?.cotizacion.total_mes ?? '—'} (IGV incluido).\nReferencia de pago: ${v.referencia_pago}.\nActívalo desde Suscripciones cuando llegue el pago.`).catch(() => undefined);
+    await correoA(cfg.correo_superadmin, `Solicitud de plan: ${v.complejo}`, `${quien.nombre} (${quien.email}) de ${v.empresa?.nombre ?? 'sin empresa'} pidió el plan ${d.plan} para «${v.complejo}» (${v.unidades_facturables} departamentos${v.unidades_cobradas > v.unidades_facturables ? `; se cobra el mínimo de ${v.unidades_cobradas}` : ''}).\nMonto al mes con lo pedido: ${v.solicitud ? formatoDinero(v.solicitud.cotizacion.total_mes, v.moneda) : '—'} (${v.impuesto.nombre} incluido).\nReferencia de pago: ${v.referencia_pago}.\nActívalo desde Suscripciones cuando llegue el pago.`).catch(() => undefined);
   }
 }
 
@@ -184,10 +219,12 @@ export interface DatosPago { monto: string; fecha_pago: Date; medio: string; ope
  */
 export async function registrarPago(complejoId: number, d: DatosPago, registradoPorId: number) {
   if (d.periodo_hasta < d.periodo_desde) throw invalid('Datos inválidos: periodo_hasta: debe ser igual o posterior al inicio', { periodo_hasta: 'Debe ser posterior al inicio' });
-  const complejo = await prisma.complejoHabitacional.findUnique({ where: { id: complejoId }, select: { id: true, empresa_id: true } });
+  const complejo = await prisma.complejoHabitacional.findUnique({ where: { id: complejoId }, select: { id: true, empresa_id: true, pais: true } });
   if (!complejo) throw notFound('Condominio');
-  const cfg = await obtenerConfiguracion();
-  const { base, igv, total } = desglosarMonto(d.monto, cfg.igv_tasa);
+  // El pago es en la moneda del país del condominio y con el impuesto que rige ahí HOY; queda guardado así y ya no cambia.
+  const ctx = contextoDe(complejo.pais, await cargarReferencias());
+  if (decimalesDe(ctx.moneda) === 0 && /\./.test(d.monto)) throw invalid(`Datos inválidos: monto: en ${monedaEnPlural(ctx.moneda)} el monto no lleva decimales`, { monto: 'Sin decimales en esta moneda' });
+  const { base, igv, total } = desglosarMonto(d.monto, ctx.tasa, ctx.moneda);
   const pago = await prisma.$transaction(async (tx) => {
     const s = await tx.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId } });
     if (d.operacion && (await tx.pagoSuscripcion.findFirst({ where: { complejo_id: complejoId, operacion: d.operacion }, select: { id: true } }))) throw conflict('Ya hay un pago registrado con esa operación para este condominio');
@@ -203,7 +240,7 @@ export async function registrarPago(complejoId: number, d: DatosPago, registrado
     await tx.suscripcionCondominio.upsert({ where: { complejo_id: complejoId }, create: { complejo_id: complejoId, ...datos }, update: datos });
     return tx.pagoSuscripcion.create({
       data: {
-        complejo_id: complejoId, empresa_id: complejo.empresa_id, monto_base: base, igv, monto: total, fecha_pago: d.fecha_pago, medio: d.medio,
+        complejo_id: complejoId, empresa_id: complejo.empresa_id, monto_base: base, igv, monto: total, moneda: ctx.moneda, impuesto_nombre: ctx.impuesto_nombre, impuesto_tasa: ctx.tasa, fecha_pago: d.fecha_pago, medio: d.medio,
         operacion: d.operacion ?? null, periodo_desde: d.periodo_desde, periodo_hasta: d.periodo_hasta, voucher_ref: d.voucher_ref ?? null, notas: d.notas ?? null, registrado_por_id: registradoPorId,
       },
     });
@@ -212,38 +249,64 @@ export async function registrarPago(complejoId: number, d: DatosPago, registrado
   return pago;
 }
 
-export const pagoVista = (p: { id: number; complejo_id: number; monto_base: Prisma.Decimal; igv: Prisma.Decimal; monto: Prisma.Decimal; fecha_pago: Date; medio: string; operacion: string | null; periodo_desde: Date; periodo_hasta: Date; voucher_ref: string | null; notas: string | null; created_at: Date }) => ({
-  id: p.id, complejo_id: p.complejo_id, base: p.monto_base.toFixed(2), igv: p.igv.toFixed(2), monto: p.monto.toFixed(2), fecha_pago: p.fecha_pago, medio: p.medio,
+export const pagoVista = (p: { id: number; complejo_id: number; monto_base: Prisma.Decimal; igv: Prisma.Decimal; monto: Prisma.Decimal; moneda: string; impuesto_nombre: string; impuesto_tasa: Prisma.Decimal; fecha_pago: Date; medio: string; operacion: string | null; periodo_desde: Date; periodo_hasta: Date; voucher_ref: string | null; notas: string | null; created_at: Date }) => ({
+  id: p.id, complejo_id: p.complejo_id, base: p.monto_base.toFixed(decimalesDe(p.moneda)), igv: p.igv.toFixed(decimalesDe(p.moneda)), monto: p.monto.toFixed(decimalesDe(p.moneda)), moneda: p.moneda, impuesto_nombre: p.impuesto_nombre, impuesto_tasa: p.impuesto_tasa.toString(), fecha_pago: p.fecha_pago, medio: p.medio,
   operacion: p.operacion, periodo_desde: p.periodo_desde, periodo_hasta: p.periodo_hasta, voucher_ref: p.voucher_ref, notas: p.notas, registrado_en: p.created_at,
 });
 
-/** Precios públicos SIN IGV (el IGV se suma al pagar; Mi plan muestra el monto con IGV). */
-export async function catalogoPublico() {
-  const [planes, modulos, cfg] = await Promise.all([
+/** Los países abiertos a contratar, para el selector de /precios (con su moneda y el nombre de su impuesto). */
+const paisesAbiertos = (ref: Awaited<ReturnType<typeof cargarReferencias>>) => PAISES
+  .map((p) => contextoDe(p.codigo, ref))
+  .filter((c) => c.activo)
+  .map((c) => ({ codigo: c.pais, nombre: PAISES.find((p) => p.codigo === c.pais)?.nombre ?? c.pais, bandera: PAISES.find((p) => p.codigo === c.pais)?.bandera ?? '', moneda: c.moneda, impuesto: impuestoVista(c) }));
+
+/**
+ * Precios públicos SIN impuesto, en la moneda del país pedido (Perú si no se pide o el país no está abierto); el impuesto (IGV, IVA…) se suma al
+ * pagar. Un plan de pago sin precio en esa moneda sale con `precio_por_unidad: null` y `consultar: true` («Consúltanos»).
+ */
+export async function catalogoPublico(pais?: string | null) {
+  const [planes, modulos, cfg, ref] = await Promise.all([
     prisma.planComercial.findMany({ where: { visible: true }, orderBy: { orden: 'asc' } }),
     prisma.moduloComercial.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } }),
     obtenerConfiguracion(),
+    cargarReferencias(),
   ]);
+  const ctx = contextoPublico(pais, ref);
+  const dm = decimalesDe(ctx.moneda);
   return {
-    moneda: 'PEN',
+    pais: ctx.pais,
+    moneda: ctx.moneda,
+    impuesto: impuestoVista(ctx),
+    paises: paisesAbiertos(ref),
     igv_incluido: false,
-    planes: planes.map((p) => ({
-      clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precioSinIgv(p.precio_por_unidad, cfg.igv_tasa, p.igv_incluido).toFixed(2), modulos_incluidos: p.modulos_incluidos, caracteristicas: p.caracteristicas,
-      unidades_maximas: p.unidades_maximas, unidades_minimas: p.unidades_minimas,
-      // Lo menos que paga un condominio con este plan (el mínimo de unidades × el precio, sin IGV), calculado aquí para que la página no haga cuentas.
-      total_minimo_mes: p.unidades_minimas ? cotizar({ unidades: 0, plan: precioDePlan(p), modulosSueltos: [], catalogo: [], tasa: cfg.igv_tasa }).base : null,
-    })),
+    planes: planes.map((p) => {
+      const precio = precioEnMoneda(p, ctx.moneda, ref.precios);
+      return {
+        clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precio === null ? null : precioSinIgv(precio, ctx.tasa, p.igv_incluido, dm).toFixed(dm), consultar: precio === null,
+        modulos_incluidos: p.modulos_incluidos, caracteristicas: p.caracteristicas, unidades_maximas: p.unidades_maximas, unidades_minimas: p.unidades_minimas,
+        // Lo menos que paga un condominio con este plan (el mínimo de unidades × el precio, sin impuesto), calculado aquí para que la página no haga cuentas.
+        total_minimo_mes: p.unidades_minimas && precio !== null ? cotizar({ unidades: 0, plan: precioDePlan(p, precio), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base : null,
+      };
+    }),
     // Los módulos ya no se venden sueltos: se muestran como «lo que trae Pro» (sin precio).
     modulos: modulos.map((m) => ({ clave: m.clave, nombre: m.nombre, descripcion: m.descripcion })),
     registro_abierto: cfg.registro_abierto,
   };
 }
 
-/** Cotización pública SIN IGV (`total_mes`, `total_anio`); aparte el IGV y el total con IGV del mes, para quien quiera verlo: el mismo cálculo que Mi plan (con el mínimo de unidades del plan), sin precios en el código del frontend. Sin módulos sueltos. */
-export async function cotizacionPublica(unidades: number, planClave: string | null) {
-  const [planes, cfg] = await Promise.all([prisma.planComercial.findMany({ where: { visible: true } }), obtenerConfiguracion()]);
+/**
+ * Cotización pública SIN impuesto (`total_mes`, `total_anio`); aparte el impuesto y el total con impuesto del mes, para quien quiera verlo: el mismo cálculo
+ * que Mi plan (con el mínimo de unidades del plan), sin precios en el código del frontend. Sin módulos sueltos. Si el plan no tiene precio en la moneda del
+ * país, los totales son `null` y `consultar` es true.
+ */
+export async function cotizacionPublica(unidades: number, planClave: string | null, pais?: string | null) {
+  const [planes, ref] = await Promise.all([prisma.planComercial.findMany({ where: { visible: true } }), cargarReferencias()]);
   const plan = planClave ? planes.find((p) => p.clave === planClave) : null;
   if (planClave && !plan) throw new HttpError(422, 'Datos inválidos: plan: no existe', { plan: 'Plan inexistente' });
-  const c = cotizar({ unidades, plan: plan ? precioDePlan(plan) : null, modulosSueltos: [], catalogo: [], tasa: cfg.igv_tasa });
-  return { unidades: c.unidades, unidades_cobradas: c.unidades_cobradas, minimo_aplicado: c.minimo_aplicado, total_mes: c.base, total_anio: new Prisma.Decimal(c.base).times(12).toFixed(2), igv_mes: c.igv, total_con_igv_mes: c.total_mes, igv_incluido: false };
+  const ctx = contextoPublico(pais, ref);
+  const precio = plan ? precioEnMoneda(plan, ctx.moneda, ref.precios) : null;
+  const c = cotizar({ unidades, plan: plan && precio !== null ? precioDePlan(plan, precio) : null, modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
+  const comun = { pais: ctx.pais, moneda: ctx.moneda, impuesto_nombre: ctx.impuesto_nombre, unidades: c.unidades, unidades_cobradas: c.unidades_cobradas, minimo_aplicado: c.minimo_aplicado, igv_incluido: false };
+  if (plan && precio === null) return { ...comun, consultar: true, total_mes: null, total_anio: null, igv_mes: null, total_con_igv_mes: null };
+  return { ...comun, consultar: false, total_mes: c.base, total_anio: new Prisma.Decimal(c.base).times(12).toFixed(decimalesDe(ctx.moneda)), igv_mes: c.igv, total_con_igv_mes: c.total_mes };
 }

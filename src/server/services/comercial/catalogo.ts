@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { PAISES } from '../../../lib/paises';
 
 /** Módulos que se venden por condominio. Las claves son contrato con el código (puertas) y con los datos. */
 export const MODULOS = ['ia_vouchers', 'whatsapp_avisos', 'asistente'] as const;
@@ -41,15 +42,33 @@ export const PLANES_SEED = [
   { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 4, unidades_maximas: null as number | null, unidades_minimas: null as number | null, caracteristicas: [] as string[] },
 ] as const;
 
+/** Moneda en la que está escrito `PlanComercial.precio_por_unidad`; las demás monedas llevan su precio en `PrecioPlanMoneda`. */
+export const MONEDA_BASE_PRECIOS = 'PEN';
+
 export const CONFIGURACION_ID = 1;
 export const URL_PUBLICA_INICIAL = 'https://house.gargurevich.dev';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Cliente = Pick<PrismaClient<any, any, any>, 'moduloComercial' | 'planComercial' | 'configuracionComercial'>;
+type Cliente = Pick<PrismaClient<any, any, any>, 'moduloComercial' | 'planComercial' | 'configuracionComercial' | 'impuestoPais'>;
 
-/** Idempotente: crea los módulos, planes y la configuración que falten (`skipDuplicates`); lo ya existente no se toca. */
+/**
+ * Un país por fila, con el impuesto de referencia de `src/lib/paises.ts` (18 → 0.18) y la moneda del país. Donde el catálogo no tiene un impuesto
+ * nacional (Brasil, EE. UU.) la tasa queda en 0: no se cobra ni se muestra impuesto hasta que el superadmin lo fije. Perú arranca con la tasa de
+ * `igv_tasa` si ya había una configuración (`tasaPeru`), para no cambiar lo que ya se cobra.
+ */
+export const impuestosSeed = (tasaPeru: Prisma.Decimal | string = '0.18') => PAISES.map((p) => ({
+  pais: p.codigo,
+  nombre: p.impuesto?.nombre ?? 'Impuesto',
+  tasa: p.codigo === 'PE' ? new Prisma.Decimal(tasaPeru) : new Prisma.Decimal(p.impuesto?.tasa ?? 0).div(100),
+  moneda: p.moneda,
+  activo: true,
+}));
+
+/** Idempotente: crea los módulos, planes, impuestos por país y la configuración que falten (`skipDuplicates`); lo ya existente no se toca. */
 export async function sembrarCatalogoComercial(db: Cliente): Promise<void> {
   await db.moduloComercial.createMany({ data: MODULOS_SEED.map((m) => ({ ...m, precio_por_unidad: new Prisma.Decimal(m.precio_por_unidad) })), skipDuplicates: true });
   await db.planComercial.createMany({ data: PLANES_SEED.map((p) => ({ ...p, modulos_incluidos: [...p.modulos_incluidos], caracteristicas: [...p.caracteristicas], precio_por_unidad: new Prisma.Decimal(p.precio_por_unidad) })), skipDuplicates: true });
   await db.configuracionComercial.createMany({ data: [{ id: CONFIGURACION_ID, igv_tasa: new Prisma.Decimal('0.18'), dias_gracia: 7, dias_aviso_vencimiento: 5, url_publica: URL_PUBLICA_INICIAL }], skipDuplicates: true });
+  const cfg = await db.configuracionComercial.findUnique({ where: { id: CONFIGURACION_ID }, select: { igv_tasa: true } });
+  await db.impuestoPais.createMany({ data: impuestosSeed(cfg?.igv_tasa), skipDuplicates: true });
 }

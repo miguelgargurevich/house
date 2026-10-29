@@ -3,6 +3,7 @@
 // Idempotente por periodo: cada aviso queda anotado con el `vigente_hasta` al que corresponde, así que repetir el ciclo no repite el correo
 // y un pago nuevo (otro `vigente_hasta`) vuelve a habilitar los avisos del periodo siguiente.
 import { prisma } from '../../db';
+import { formatoDinero } from '../../../lib/paises';
 import type { DepsAvisos } from '../avisos/canales';
 import { fechaTexto } from '../avisos/plantillas';
 import { correoA, obtenerConfiguracion } from './configuracion';
@@ -18,7 +19,8 @@ export interface ResultadoVencimientos { revisadas: number; estados: number; cor
 async function cuerpoAviso(tipo: Aviso, complejoId: number, vigente: Date, diasGracia: number, ahora: Date): Promise<{ asunto: string; cuerpo: string }> {
   const [v] = await vistas([complejoId]);
   const pago = await datosParaPagar();
-  const monto = `S/ ${v.cotizacion.total_mes} al mes (IGV incluido)`;
+  // En la moneda del país del condominio y con su impuesto (IGV, IVA…); sin precio en esa moneda no hay monto que decir: se confirma por escrito.
+  const monto = v.precio_consultar ? 'a confirmar (escríbenos y te lo pasamos)' : `${formatoDinero(v.cotizacion.total_mes, v.moneda)} al mes (${v.impuesto.nombre} incluido)`;
   const medios = [pago.yape ? `Yape: ${pago.yape}` : null, pago.banco ? `${pago.banco}${pago.cuenta ? ` cuenta ${pago.cuenta}` : ''}${pago.cci ? ` · CCI ${pago.cci}` : ''}` : null, pago.titular ? `Titular: ${pago.titular}` : null, pago.instrucciones].filter(Boolean).join('\n');
   const comoPagar = `Cómo pagar:\n${medios || 'Escríbenos y te pasamos los datos.'}\nReferencia: ${referenciaPago(complejoId, ahora)}\nCuando pagues, avísanos con el voucher y lo activamos.`;
   const hasta = fechaTexto(vigente);

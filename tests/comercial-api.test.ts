@@ -59,6 +59,7 @@ beforeEach(async () => {
   await prisma.configuracionComercial.update({ where: { id: 1 }, data: { correo_superadmin: 'miguel@house.test', pago_titular: 'Miguel G.', pago_banco: 'BCP', pago_cuenta: '191-0000000-0-00', pago_cci: '002-191-000000000000-00', pago_yape: '999 888 777', dias_gracia: 7, dias_aviso_vencimiento: 5, igv_tasa: '0.18' } });
   await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '0.50' } });
   await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '2.50' } });
+  await prisma.impuestoPais.update({ where: { pais: 'PE' }, data: { tasa: '0.18', nombre: 'IGV', moneda: 'PEN', activo: true } }); // el IGV de Perú vive aquí; `igv_tasa` es su respaldo
   await fijar(d.complejoA.id, { plan_clave: 'gratis' });
   await fijar(d.complejoB.id, { plan_clave: 'gratis' });
 });
