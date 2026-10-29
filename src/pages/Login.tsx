@@ -110,9 +110,10 @@ export default function Login() {
         <p className="max-w-md text-balance text-3xl font-semibold leading-tight tracking-tight xl:text-4xl">Cobra a tiempo y que cada vecino sepa qué debe.</p>
         <p className="mt-3 max-w-md text-pretty text-base opacity-85">Recibos por concepto, pagos validados y recordatorios por WhatsApp, en un solo lugar.</p>
 
-        <div className="relative mt-12 h-[23rem] w-full max-w-xl">
+        <div className="relative mt-12 h-[31rem] w-full max-w-xl">
           <EscenaRecibo />
           <EscenaAviso />
+          <EscenaGrafico />
           <EscenaCobro />
         </div>
       </aside>
@@ -166,7 +167,7 @@ function EscenaAviso() {
 /** Lo que ve la administradora: cuánto del block ya pagó. */
 function EscenaCobro() {
   return (
-    <div className={`absolute bottom-0 right-6 w-72 rounded-xl bg-escena-tarjeta p-4 text-ink shadow-[0_18px_40px_-14px_oklch(0.2_0.05_180/0.4)] [animation-delay:360ms] ${entra}`}>
+    <div className={`absolute bottom-0 left-8 w-72 rounded-xl bg-escena-tarjeta p-4 text-ink shadow-[0_18px_40px_-14px_oklch(0.2_0.05_180/0.4)] [animation-delay:540ms] ${entra}`}>
       <div className="flex items-baseline justify-between">
         <p className="text-xs font-semibold">Cobranza de octubre · Block 1</p>
         <p className="num text-sm font-semibold text-brand">92 %</p>
@@ -174,5 +175,28 @@ function EscenaCobro() {
       <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-surface2"><div className="h-full w-[92%] rounded-full bg-brand" /></div>
       <p className="mt-2 text-xs text-muted"><span className="num">29</span> de <span className="num">32</span> departamentos al día</p>
     </div>
+  );
+}
+
+/** Lo que mide la administradora mes a mes: qué parte del mantenimiento se cobró. Barras de ejemplo que terminan en el 92 % del mes. */
+function EscenaGrafico() {
+  const meses: [string, number][] = [['May', 81], ['Jun', 84], ['Jul', 83], ['Ago', 88], ['Set', 90], ['Oct', 92]];
+  return (
+    <figure className={`absolute right-0 top-[11.5rem] w-60 rounded-xl bg-escena-tarjeta p-4 text-ink shadow-[0_18px_40px_-14px_oklch(0.2_0.05_180/0.4)] [animation-delay:360ms] ${entra}`}>
+      <figcaption className="flex items-baseline justify-between">
+        <span className="text-xs font-semibold">Cobrado por mes</span>
+        <span className="text-xs text-ok">+11 pts</span>
+      </figcaption>
+      <div className="mt-3 flex h-24 items-end gap-2" role="img" aria-label="Porcentaje cobrado de mayo a octubre: de 81 % a 92 %">
+        {meses.map(([m, v], i) => (
+          <div key={m} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+            <span className="num text-[10px] text-muted">{v}</span>
+            {/* La escala empieza en 70 % para que la mejora se lea; la altura es relativa a ese piso. */}
+            <div className={`w-full rounded-t ${i === meses.length - 1 ? 'bg-brand' : 'bg-brand/30'}`} style={{ height: `${((v - 70) / 30) * 100}%` }} />
+            <span className="text-[10px] text-muted">{m}</span>
+          </div>
+        ))}
+      </div>
+    </figure>
   );
 }

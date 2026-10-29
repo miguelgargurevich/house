@@ -9,7 +9,10 @@ const css = readFileSync('src/index.css', 'utf8');
 describe('login', () => {
   it('sin los círculos de fondo: el panel muestra el producto (recibo, recordatorio y cobro)', () => {
     assert.doesNotMatch(login, /rounded-full border border-on-brand/);
-    for (const parte of ['<EscenaRecibo />', '<EscenaAviso />', '<EscenaCobro />']) assert.ok(login.includes(parte), parte);
+    for (const parte of ['<EscenaRecibo />', '<EscenaAviso />', '<EscenaGrafico />', '<EscenaCobro />']) assert.ok(login.includes(parte), parte);
+    // El gráfico de cobranza mensual termina en el mismo 92 % de la tarjeta de cobro, y se describe para lectores de pantalla.
+    assert.match(login, /\['Oct', 92\]/);
+    assert.match(login, /role="img" aria-label="Porcentaje cobrado de mayo a octubre/);
     // El total del recibo cuadra con sus conceptos (70 + 50.93 + 35 + 16.10 + 10).
     assert.match(login, /S\/ 182\.03/);
   });
