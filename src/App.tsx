@@ -35,15 +35,18 @@ const AdminPersonal = lazy(() => import('./pages/admin/Personal'));
 const AdminProveedores = lazy(() => import('./pages/admin/Proveedores'));
 const AdminConfiguracion = lazy(() => import('./pages/admin/Configuracion'));
 const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
+const AdminComunicados = lazy(() => import('./pages/admin/Comunicados'));
 const AdminMediosPago = lazy(() => import('./pages/admin/MediosPago'));
 const AdminWhatsappSync = lazy(() => import('./pages/admin/WhatsappSync'));
 const PropietarioInicio = lazy(() => import('./pages/propietario/Inicio'));
 const PropietarioUnidades = lazy(() => import('./pages/propietario/Unidades'));
 const PropietarioCargos = lazy(() => import('./pages/propietario/Cargos'));
 const PropietarioPagos = lazy(() => import('./pages/propietario/Pagos'));
+const PropietarioComunicados = lazy(() => import('./pages/propietario/Comunicados'));
 const InquilinoInicio = lazy(() => import('./pages/inquilino/Inicio'));
 const InquilinoCargos = lazy(() => import('./pages/inquilino/Cargos'));
 const InquilinoPagos = lazy(() => import('./pages/inquilino/Pagos'));
+const InquilinoComunicados = lazy(() => import('./pages/inquilino/Comunicados'));
 const MantenimientoInicio = lazy(() => import('./pages/mantenimiento/Inicio'));
 const MantenimientoTareas = lazy(() => import('./pages/mantenimiento/Tareas'));
 const SeguridadInicio = lazy(() => import('./pages/seguridad/Inicio'));
@@ -102,6 +105,7 @@ export default function App() {
           <Route path="/admin/proveedores" element={<AdminProveedores />} />
           <Route path="/admin/configuracion" element={<AdminConfiguracion />} />
           <Route path="/admin/avisos" element={<AdminAvisos />} />
+          <Route path="/admin/comunicados" element={<AdminComunicados />} />
           <Route path="/admin/medios-pago" element={<AdminMediosPago />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsappSync />} />
         </Route>
@@ -112,17 +116,22 @@ export default function App() {
           <Route path="/junta/medios-pago" element={<AdminMediosPago />} />
           <Route path="/junta/pagos" element={<AdminPagos />} />
           <Route path="/junta/agua" element={<JuntaAgua />} />
+          <Route path="/junta/comunicados" element={<AdminComunicados />} />
+          <Route path="/junta/proveedores" element={<AdminProveedores />} />
+          <Route path="/junta/avisos" element={<AdminAvisos />} />
         </Route>
         <Route element={<RequireRole roles={['propietario']} />}>
           <Route path="/propietario/inicio" element={<PropietarioInicio />} />
           <Route path="/propietario/unidades" element={<PropietarioUnidades />} />
           <Route path="/propietario/cargos" element={<PropietarioCargos />} />
           <Route path="/propietario/pagos" element={<PropietarioPagos />} />
+          <Route path="/propietario/comunicados" element={<PropietarioComunicados />} />
         </Route>
         <Route element={<RequireRole roles={['inquilino']} />}>
           <Route path="/inquilino/inicio" element={<InquilinoInicio />} />
           <Route path="/inquilino/cargos" element={<InquilinoCargos />} />
           <Route path="/inquilino/pagos" element={<InquilinoPagos />} />
+          <Route path="/inquilino/comunicados" element={<InquilinoComunicados />} />
         </Route>
         <Route element={<RequireRole roles={['mantenimiento']} />}>
           <Route path="/mantenimiento/inicio" element={<MantenimientoInicio />} />

@@ -6,20 +6,20 @@ import { esJunta } from './junta';
 
 const OPERACION = [
   '/admin/dashboard', '/admin/complejos', '/admin/condominios/:id', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad',
-  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/medios-pago', '/admin/whatsapp',
+  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/comunicados', '/admin/medios-pago', '/admin/whatsapp',
 ] as const;
 
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
   superadmin: ['/superadmin/dashboard', '/superadmin/empresas', '/superadmin/empresas/:id', '/superadmin/usuarios', '/superadmin/auditoria', '/superadmin/llavero', '/superadmin/integraciones', '/superadmin/suscripciones', ...OPERACION],
   admin: [...OPERACION, '/admin/mi-plan'],
-  propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos'],
-  inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos'],
+  propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos', '/propietario/comunicados'],
+  inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos', '/inquilino/comunicados'],
   mantenimiento: ['/mantenimiento/inicio', '/mantenimiento/tareas'],
   seguridad: ['/seguridad/inicio', '/seguridad/unidades'],
   limpieza: ['/limpieza/inicio', '/limpieza/tareas'],
   jardineria: ['/jardineria/inicio', '/jardineria/tareas'],
 };
-export const RUTAS_JUNTA = ['/junta/medios-pago', '/junta/pagos', '/junta/agua'] as const;
+export const RUTAS_JUNTA = ['/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores', '/junta/avisos'] as const;
 export const RUTAS_COMUNES = ['/perfil'] as const;
 
 /** Todas las rutas que el asistente puede conocer (para la prueba contra `App.tsx`). */

@@ -4,6 +4,7 @@ import { ArrowRightIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../../api';
 import { useAuth } from '../../../auth/AuthContext';
 import { Alert, Button, Card, CardHeader, ErrorState, PageHeader, Skeleton, dinero, fechaCorta, useToast } from '../../../ui';
+import { ComunicadosInicio } from './ComunicadosInicio';
 import { DetalleMantenimientoModal } from './DetalleMantenimientoModal';
 import { MantenimientoItem } from './MantenimientoItem';
 import { PagarModal } from './PagarModal';
@@ -120,6 +121,8 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
           )}
         </div>
       )}
+
+      <div className="mt-6"><ComunicadosInicio base={base} /></div>
 
       <DetalleMantenimientoModal mant={viendo} onClose={() => setViendo(null)} onPagar={setPagando} />
       <PagarModal mant={pagando} onClose={() => setPagando(null)} onPagado={recargar} />

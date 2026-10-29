@@ -3,7 +3,7 @@ import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, BellIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon,
+  SunIcon, MegaphoneIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { Rol, Usuario } from '../auth/AuthContext';
@@ -29,6 +29,7 @@ const operacion: NavItem[] = [
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
   { to: '/admin/avisos', label: 'Avisos', icon: BellIcon },
+  { to: '/admin/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
   { to: '/admin/whatsapp', label: 'WhatsApp', icon: QrCodeIcon },
   { to: '/admin/proveedores', label: 'Proveedores', icon: TruckIcon },
 ];
@@ -69,6 +70,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/propietario/unidades', label: 'Mis unidades', icon: KeyIcon },
       { to: '/propietario/cargos', label: 'Mis recibos', icon: ReceiptPercentIcon },
       { to: '/propietario/pagos', label: 'Mi historial', icon: ChartBarIcon },
+      { to: '/propietario/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
     ] },
   ],
   inquilino: [
@@ -76,6 +78,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/inquilino/inicio', label: 'Inicio', icon: HomeIcon },
       { to: '/inquilino/cargos', label: 'Mis recibos', icon: ReceiptPercentIcon },
       { to: '/inquilino/pagos', label: 'Mi historial', icon: ChartBarIcon },
+      { to: '/inquilino/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
     ] },
   ],
   mantenimiento: [
@@ -111,6 +114,9 @@ const JUNTA: NavGroup = {
     { to: '/junta/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
     { to: '/junta/pagos', label: 'Pagos por validar', icon: BanknotesIcon },
     { to: '/junta/agua', label: 'Lecturas de agua', icon: BeakerIcon },
+    { to: '/junta/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
+    { to: '/junta/proveedores', label: 'Proveedores', icon: TruckIcon },
+    { to: '/junta/avisos', label: 'Avisos', icon: BellIcon },
   ],
 };
 

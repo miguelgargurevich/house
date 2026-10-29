@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowPathIcon, BellIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../api';
+import { useAuth } from '../../auth/AuthContext';
 import { Badge, Button, Card, DataTable, PageHeader, SearchBox, Skeleton, StatStrip, Tabs, Toolbar, periodo, useToast } from '../../ui';
 import type { Column, Tone } from '../../ui';
 import { Canales } from './_parts/avisos/Canales';
@@ -22,7 +23,7 @@ interface Aviso {
   enviada_at: string | null;
   created_at: string;
   /** De qué trata el aviso: el recibo (con su torre) y, si es de un cargo o un pago, el departamento. */
-  contexto?: { recibo: { id: number; mes: number; anio: number; torre: string | null; condominio: string | null } | null; unidad: { codigo: string; torre: string | null } | null } | null;
+  contexto?: { recibo: { id: number; mes: number; anio: number; torre: string | null; condominio: string | null } | null; unidad: { codigo: string; torre: string | null } | null; comunicado?: { id: number; titulo: string } | null } | null;
 }
 
 const TIPO: Record<string, string> = {
@@ -34,6 +35,7 @@ const TIPO: Record<string, string> = {
   pago_rechazado: 'Pago rechazado',
   ia_caida: 'IA sin servicio',
   ia_restablecida: 'IA restablecida',
+  comunicado: 'Comunicado',
 };
 const CANAL = { email: 'Correo', whatsapp: 'WhatsApp' } as const;
 const ESTADO: Record<Estado, { tone: Tone; label: string }> = {
@@ -46,8 +48,11 @@ const ESTADO: Record<Estado, { tone: Tone; label: string }> = {
 const fechaHora = new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 const cuando = (a: Aviso) => fechaHora.format(new Date(a.enviada_at ?? (a.estado === 'pendiente' ? a.programada_para : a.created_at)));
 
+/** Avisos enviados. La usan la administración (`/admin/avisos`) y la junta (`/junta/avisos`): la API acota la lista de la junta a los vecinos de su ámbito, y ella no configura canales. */
 export default function Avisos() {
+  const { user } = useAuth();
   const toast = useToast();
+  const esJunta = user?.rol === 'propietario';
   const [filtro, setFiltro] = useState<Filtro>('');
   const [reenviando, setReenviando] = useState<number | null>(null);
   const [complejo, setComplejo] = useState('');
@@ -75,7 +80,9 @@ export default function Avisos() {
       return <span className="block">{periodo(r.mes, r.anio)}<span className="block text-xs text-muted">{[a.contexto?.unidad?.codigo, torreDe, r.condominio].filter(Boolean).join(' · ')}</span></span>;
     } },
     { key: 'canal', header: 'Canal', hideBelow: 'sm', cell: a => CANAL[a.canal] },
-    { key: 'tipo', header: 'Aviso', hideBelow: 'md', cell: a => TIPO[a.tipo] ?? a.tipo },
+    { key: 'tipo', header: 'Aviso', hideBelow: 'md', cell: a => (
+      <span className="block">{TIPO[a.tipo] ?? a.tipo}{a.contexto?.comunicado && <span className="block max-w-[14rem] truncate text-xs text-muted">{a.contexto.comunicado.titulo}</span>}</span>
+    ) },
     { key: 'estado', header: 'Estado', cell: a => <Badge tone={ESTADO[a.estado].tone}>{ESTADO[a.estado].label}</Badge> },
     { key: 'fecha', header: 'Fecha', hideBelow: 'lg', cell: a => <span className="num text-muted">{cuando(a)}</span> },
     { key: 'error', header: 'Motivo', hideBelow: 'lg', cell: a => (a.error ? <span className="text-xs text-muted">{a.error}</span> : '—') },
@@ -88,7 +95,7 @@ export default function Avisos() {
 
   return (
     <>
-      <PageHeader title="Avisos" description="Correos y mensajes de WhatsApp que enviamos a propietarios e inquilinos: recibos, vencimientos y pagos." />
+      <PageHeader title="Avisos" description={esJunta ? 'Correos y mensajes de WhatsApp que enviamos a los vecinos de tu ámbito: recibos, vencimientos, pagos y comunicados. Si uno falló, puedes reintentarlo.' : 'Correos y mensajes de WhatsApp que enviamos a propietarios e inquilinos: recibos, vencimientos, pagos y comunicados.'} />
       <StatStrip
         stats={[
           { label: 'Enviadas', value: cifra('enviada'), tone: 'ok' },
@@ -97,7 +104,7 @@ export default function Avisos() {
           { label: 'Pendientes', value: cifra('pendiente') },
         ]}
       />
-      <Canales />
+      {!esJunta && <Canales />}
       <Card>
         <Toolbar>
           <Tabs<Filtro>
@@ -106,7 +113,7 @@ export default function Avisos() {
             items={[{ id: '', label: 'Todos' }, { id: 'pendiente', label: 'Pendientes' }, { id: 'enviada', label: 'Enviadas' }, { id: 'error', label: 'Con error' }, { id: 'omitida', label: 'Omitidas' }]}
           />
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por destinatario…" />
-          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} />
+          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} oculto={esJunta} />
         </Toolbar>
         <DataTable
           caption="Avisos enviados y por enviar"
@@ -120,7 +127,7 @@ export default function Avisos() {
           pageSize={list.pageSize}
           total={list.total}
           onPage={list.setPage}
-          empty={{ title: 'Sin avisos', description: 'Cuando emitas un recibo, aquí verás a quién se le avisó.', icon: <BellIcon /> }}
+          empty={{ title: 'Sin avisos', description: esJunta ? 'Cuando se envíe un aviso a los vecinos de tu ámbito, aquí verás a quién le llegó.' : 'Cuando emitas un recibo o publiques un comunicado, aquí verás a quién se le avisó.', icon: <BellIcon /> }}
         />
       </Card>
     </>

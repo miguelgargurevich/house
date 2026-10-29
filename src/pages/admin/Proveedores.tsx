@@ -11,21 +11,28 @@ import { RUBROS, rubroLabel } from './_parts/personas/proveedores';
 import type { Proveedor, Rubro } from './_parts/personas/proveedores';
 
 interface Opt { id: number; nombre: string; empresa_id?: number | null }
+/** La junta recibe además `compartido`: atiende también a otros condominios y sólo la administración lo cambia. */
+type Fila = Proveedor & { compartido?: boolean };
 interface Form {
   razon_social: string; rubro: Rubro; ruc: string; contacto_nombre: string; telefono: string; email: string; notas: string;
   activo: boolean; empresa_id: string;
 }
 
-/** Directorio de proveedores de la administradora (ascensores, gasfitería, pintura…): sólo ficha, no inician sesión. Se asignan a tareas de mantenimiento. */
+/**
+ * Directorio de proveedores de la administradora (ascensores, gasfitería, pintura…): sólo ficha, no inician sesión. Se asignan a tareas de mantenimiento.
+ * También la usa la junta (`/junta/proveedores`): ve los de su condominio, administra los que atienden sólo a él (no los elimina: los desactiva) y
+ * los compartidos con otros condominios los ve en sólo lectura.
+ */
 export default function Proveedores() {
   const { user } = useAuth();
   const toast = useToast();
   const esSuper = user?.rol === 'superadmin';
+  const esJunta = user?.rol === 'propietario';
   const [filtroRubro, setFiltroRubro] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroComplejo, setFiltroComplejo] = useState('');
-  const list = useList<Proveedor>('/api/proveedores', { params: { rubro: filtroRubro, activo: filtroEstado, complejo_id: filtroComplejo } });
-  const complejos = useResource<Page<Opt>>('/api/complejos?pageSize=100');
+  const list = useList<Fila>('/api/proveedores', { params: { rubro: filtroRubro, activo: filtroEstado, complejo_id: filtroComplejo } });
+  const complejos = useResource<Page<Opt>>(esJunta ? null : '/api/complejos?pageSize=100'); // la junta no lista condominios: sólo trabaja con el suyo
   const empresas = useResource<Page<Opt>>(esSuper ? '/api/empresas?pageSize=100' : null);
   const [editando, setEditando] = useState<Proveedor | 'nuevo' | null>(null);
   const [borrar, setBorrar] = useState<Proveedor | null>(null);
@@ -49,7 +56,8 @@ export default function Proveedores() {
     const nuevo = editando === 'nuevo';
     const body: Record<string, unknown> = {
       razon_social: v.razon_social, rubro: v.rubro, ruc: v.ruc, contacto_nombre: v.contacto_nombre, telefono: v.telefono, email: v.email, notas: v.notas,
-      activo: v.activo, complejo_ids: atiende,
+      activo: v.activo,
+      ...(esJunta ? {} : { complejo_ids: atiende }), // la API deja siempre los de la junta vinculados sólo a su condominio
     };
     if (nuevo && esSuper) body.empresa_id = Number(v.empresa_id);
     try {
@@ -71,7 +79,7 @@ export default function Proveedores() {
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
   }
 
-  const columns: Column<Proveedor>[] = [
+  const columns: Column<Fila>[] = [
     { key: 'razon', header: 'Proveedor', cell: p => (
       <div className="min-w-0"><p className="truncate font-medium">{p.razon_social}</p>{p.ruc && <p className="num truncate text-xs text-muted">RUC {p.ruc}</p>}</div>
     ) },
@@ -79,13 +87,22 @@ export default function Proveedores() {
     { key: 'contacto', header: 'Contacto', hideBelow: 'md', cell: p => (
       <div className="min-w-0"><p className="truncate">{p.contacto_nombre ?? '—'}</p><p className="num truncate text-xs text-muted">{[p.telefono, p.email].filter(Boolean).join(' · ')}</p></div>
     ) },
-    { key: 'complejos', header: 'Atiende', hideBelow: 'lg', cell: p => (p.complejos.length ? p.complejos.map(c => c.nombre).join(', ') : <span className="text-muted">Sin condominio asignado</span>) },
+    { key: 'complejos', header: 'Atiende', hideBelow: 'lg', cell: p => (
+      <span className="block">
+        {p.complejos.length ? p.complejos.map(c => c.nombre).join(', ') : <span className="text-muted">Sin condominio asignado</span>}
+        {esJunta && p.compartido && <span className="block text-xs text-muted">También atiende a otros condominios</span>}
+      </span>
+    ) },
     { key: 'activo', header: 'Estado', hideBelow: 'sm', cell: p => (p.activo ? <Badge tone="ok">Activo</Badge> : <Badge>Inactivo</Badge>) },
     { key: 'acciones', header: '', align: 'right', cell: p => (
-      <div className="flex justify-end gap-1">
-        <IconButton label={`Editar ${p.razon_social}`} onClick={() => abrir(p)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
-        <IconButton label={`Eliminar ${p.razon_social}`} onClick={() => setBorrar(p)}><TrashIcon className="h-4 w-4" /></IconButton>
-      </div>
+      esJunta && p.compartido ? (
+        <span title="Atiende a más de un condominio: sólo la administración puede cambiarlo"><Badge>Sólo lectura</Badge></span>
+      ) : (
+        <div className="flex justify-end gap-1">
+          <IconButton label={`Editar ${p.razon_social}`} onClick={() => abrir(p)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
+          {!esJunta && <IconButton label={`Eliminar ${p.razon_social}`} onClick={() => setBorrar(p)}><TrashIcon className="h-4 w-4" /></IconButton>}
+        </div>
+      )
     ) },
   ];
 
@@ -93,7 +110,7 @@ export default function Proveedores() {
 
   return (
     <>
-      <PageHeader title="Proveedores" description="Ascensores, gasfitería, pintura y demás servicios externos. Son una ficha de contacto (no inician sesión) que asignas a las tareas de mantenimiento." actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>Nuevo proveedor</Button>} />
+      <PageHeader title="Proveedores" description={esJunta ? 'Los servicios externos de tu condominio (ascensores, gasfitería, pintura…). Puedes agregar y editar los que atienden sólo a tu condominio; si un proveedor ya no sirve, márcalo como inactivo. Los que también atienden a otros condominios los ve la administración y aquí son de sólo lectura.' : 'Ascensores, gasfitería, pintura y demás servicios externos. Son una ficha de contacto (no inician sesión) que asignas a las tareas de mantenimiento.'} actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>Nuevo proveedor</Button>} />
       <Card>
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por nombre, RUC o contacto" />
@@ -102,10 +119,12 @@ export default function Proveedores() {
               <option value="">Todos los rubros</option>
               {RUBROS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </Select>
-            <Select label="Filtrar por condominio" className="sm:w-52" value={filtroComplejo} onChange={e => setFiltroComplejo(e.target.value)} disabled={complejos.loading}>
-              <option value="">Todos los condominios</option>
-              {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </Select>
+            {!esJunta && (
+              <Select label="Filtrar por condominio" className="sm:w-52" value={filtroComplejo} onChange={e => setFiltroComplejo(e.target.value)} disabled={complejos.loading}>
+                <option value="">Todos los condominios</option>
+                {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </Select>
+            )}
             <Select label="Filtrar por estado" className="sm:w-40" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
               <option value="">Todos</option>
               <option value="true">Activos</option>
@@ -153,7 +172,7 @@ export default function Proveedores() {
           <Input label="Persona de contacto" {...register('contacto_nombre')} />
           <Controller control={control} name="telefono" render={({ field }) => <TelefonoInput label="Teléfono" value={field.value} onChange={field.onChange} onBlur={field.onBlur} ref={field.ref} name={field.name} />} />
           <Input label="Correo electrónico" type="email" className="sm:col-span-2" error={errors.email && 'Ingresa un correo válido'} {...register('email', { pattern: /^(\S+@\S+\.\S+)?$/ })} />
-          <fieldset className="sm:col-span-2">
+          {!esJunta && <fieldset className="sm:col-span-2">
             <legend className="mb-1.5 text-sm font-medium">Condominios que atiende</legend>
             {esSuper && empresaElegida === '' ? (
               <p className="text-sm text-muted">Elige primero la empresa.</p>
@@ -169,7 +188,7 @@ export default function Proveedores() {
                 ))}
               </div>
             )}
-          </fieldset>
+          </fieldset>}
           <Textarea label="Notas (opcional)" className="sm:col-span-2" {...register('notas')} />
           <Interruptor label="Activo" hint="Un proveedor inactivo no se puede asignar a tareas nuevas." className="sm:col-span-2" {...register('activo')} />
         </form>
