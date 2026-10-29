@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Login rediseñado
+
+- Pedido de Miguel: «quiero que mejores el login, es un poco básico y no me gustan los círculos de fondo» (servirá también para los videos de marketing).
+- `src/pages/Login.tsx`: el panel derecho ya no tiene círculos ni la lista de 3 beneficios: es una escena del producto (recibo del mes por concepto «Pagado», recordatorio por WhatsApp, avance de cobro del block), con un ascenso leve y escalonado que parte de visible (`sube-corto`, `motion-safe`). Montos de ejemplo que cuadran (S/ 182.03). Botón «Mostrar/Ocultar contraseña».
+- Tokens nuevos `escena`, `on-escena`, `escena-tarjeta` (`src/index.css` + `tailwind.config.js`): en oscuro el panel es verde azulado profundo con tarjetas elevadas (antes el `brand` del modo oscuro es claro y las tarjetas parecían huecos).
+- Verificado: 1440 px claro y oscuro, 375 px sin scroll (la escena sólo en `lg`), detector de impeccable limpio, `tests/login-ui.test.ts`.
+- Gotcha: el panel del navegador de Claude congela las animaciones CSS (página en segundo plano); para capturas, `document.getAnimations().forEach(a => a.finish())`.
+
 ## 2026-10-29 — OpenCode (MiniMax M3.1) — Lectura del handoff y el estado real del árbol
 
 - Me puse al día con el handoff (habían entrado muchas sesiones de Claude Code: juntas directivas, comunicados, multimoneda, historial con pestañas, usuario arriba a la derecha, medios de pago por block). **`main` = `1896bd9`, sincronizado con `origin/main`.**
