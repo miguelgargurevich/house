@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { HomeModernIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../../../api';
-import { Button, DataTable, Select, SearchBox, StatusBadge, Toolbar, soles } from '../../../../ui';
+import { Button, DataTable, Select, SearchBox, StatusBadge, Toolbar, dinero } from '../../../../ui';
 import type { Column } from '../../../../ui';
 import type { Mantenimiento } from '../../../shared/mantenimiento/tipos';
 
@@ -48,9 +48,9 @@ export function MantenimientosLista({ reciboId, estructuraId, sinBlock, estado, 
       </button>
     ) },
     { key: 'propietario', header: 'Propietario', hideBelow: 'sm', cell: m => m.propietario?.nombre ?? '—' },
-    { key: 'total', header: 'Total', align: 'right', cell: m => <span className="num font-medium">{soles(m.total)}</span> },
-    { key: 'cobrado', header: 'Pagado', align: 'right', hideBelow: 'md', cell: m => <span className="num text-muted">{soles(m.cobrado)}</span> },
-    { key: 'saldo', header: 'Saldo', align: 'right', hideBelow: 'lg', cell: m => <span className="num">{soles(m.saldo)}</span> },
+    { key: 'total', header: 'Total', align: 'right', cell: m => <span className="num font-medium">{dinero(m.total, m.moneda)}</span> },
+    { key: 'cobrado', header: 'Pagado', align: 'right', hideBelow: 'md', cell: m => <span className="num text-muted">{dinero(m.cobrado, m.moneda)}</span> },
+    { key: 'saldo', header: 'Saldo', align: 'right', hideBelow: 'lg', cell: m => <span className="num">{dinero(m.saldo, m.moneda)}</span> },
     { key: 'estado', header: 'Estado', cell: m => <StatusBadge estado={m.estado} /> },
     { key: 'acciones', header: '', align: 'right', hideBelow: 'sm', cell: m => <Button size="sm" variant="secondary" onClick={e => { e.stopPropagation(); onVer(m); }}>Ver</Button> }, // en el celular se toca la fila
   ];

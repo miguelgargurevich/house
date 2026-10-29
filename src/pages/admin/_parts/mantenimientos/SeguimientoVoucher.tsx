@@ -58,7 +58,7 @@ export function SeguimientoVoucher({ reciboId, unidadId, pagoId, inicial, onList
       {fase === 'en_revision' && <Alert tone="warn">Pago registrado: queda en revisión. {motivoEnRevision(pago, agotado)} Ábrelo en el historial de pagos para validarlo o rechazarlo.</Alert>}
       {fase === 'rechazado' && <Alert tone="bad">El pago fue rechazado{pago?.motivo_rechazo ? `: ${pago.motivo_rechazo}` : ''}.</Alert>}
       {pago && (
-        <EvaluacionPanel evaluacion={pago.evaluacion} montoEsperado={detalle.total} validadoPorIA={pago.validado_por_ia} puedeReevaluar={false} reevaluando={false} onReevaluar={() => undefined} fase={agotado ? 'agotada' : faseDeEspera(consultasHechas * INTERVALO_SEGUIMIENTO_MS)} />
+        <EvaluacionPanel evaluacion={pago.evaluacion} montoEsperado={detalle.total} moneda={detalle.moneda} validadoPorIA={pago.validado_por_ia} puedeReevaluar={false} reevaluando={false} onReevaluar={() => undefined} fase={agotado ? 'agotada' : faseDeEspera(consultasHechas * INTERVALO_SEGUIMIENTO_MS)} />
       )}
       <ComprobanteVista pagoId={pagoId} descripcion="Voucher adjunto al pago" />
       <Button onClick={onListo}>Listo</Button>

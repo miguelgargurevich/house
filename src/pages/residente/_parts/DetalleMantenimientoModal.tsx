@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { PrinterIcon } from '@heroicons/react/24/outline';
-import { ErrorState, Alert, Button, DefinitionList, Modal, Skeleton, StatusBadge, fechaCorta, soles } from '../../../ui';
+import { ErrorState, Alert, Button, DefinitionList, Modal, Skeleton, StatusBadge, dinero, fechaCorta } from '../../../ui';
 import { useResource } from '../../../api';
 import { ConceptosTabla, HistorialPagos } from '../../shared/mantenimiento/Desglose';
 import { ConsumoAgua } from '../../shared/mantenimiento/ConsumoAgua';
@@ -43,7 +43,7 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-muted">{Number(d.deuda_acumulada) > 0 ? 'Total (incluye deuda anterior)' : 'Total del mantenimiento'}</p>
-                  <p className="num text-2xl font-semibold">{soles(d.total_general)}</p>
+                  <p className="num text-2xl font-semibold">{dinero(d.total_general, d.moneda)}</p>
                 </div>
                 <StatusBadge estado={d.estado} />
               </div>
@@ -53,10 +53,10 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
                     { label: 'N.º de recibo', value: <span className="num">{d.numero}</span> },
                     { label: 'Vencimiento', value: <span className={d.estado === 'vencido' ? 'text-bad' : ''}>{fechaCorta(d.fecha_vencimiento)}</span> },
                     ...(d.fecha_corte_agua ? [{ label: 'Corte de agua', value: fechaCorta(d.fecha_corte_agua) }] : []),
-                    ...(Number(d.deuda_acumulada) > 0 ? [{ label: 'Mantenimiento de este mes', value: <span className="num">{soles(d.total)}</span> }, { label: 'Deuda acumulada', value: <span className="num text-bad">{soles(d.deuda_acumulada)}</span> }] : []),
-                    ...(Number(d.cobrado) > 0 ? [{ label: 'Pagado', value: <span className="num text-ok">{soles(d.cobrado)}</span> }] : []),
-                    ...(Number(d.en_revision) > 0 ? [{ label: 'En revisión', value: <span className="num">{soles(d.en_revision)}</span> }] : []),
-                    { label: 'Saldo por pagar', value: <span className="num font-medium">{soles(d.saldo)}</span> },
+                    ...(Number(d.deuda_acumulada) > 0 ? [{ label: 'Mantenimiento de este mes', value: <span className="num">{dinero(d.total, d.moneda)}</span> }, { label: 'Deuda acumulada', value: <span className="num text-bad">{dinero(d.deuda_acumulada, d.moneda)}</span> }] : []),
+                    ...(Number(d.cobrado) > 0 ? [{ label: 'Pagado', value: <span className="num text-ok">{dinero(d.cobrado, d.moneda)}</span> }] : []),
+                    ...(Number(d.en_revision) > 0 ? [{ label: 'En revisión', value: <span className="num">{dinero(d.en_revision, d.moneda)}</span> }] : []),
+                    { label: 'Saldo por pagar', value: <span className="num font-medium">{dinero(d.saldo, d.moneda)}</span> },
                   ]}
                 />
               </div>
@@ -64,13 +64,13 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
             {rechazo && <Alert tone="bad">Tu último pago fue rechazado: {rechazo}. Puedes volver a pagar el mantenimiento.</Alert>}
             <section aria-labelledby="conceptos-mant">
               <h3 id="conceptos-mant" className="mb-2 text-sm font-semibold">Detalle por concepto</h3>
-              <ConceptosTabla conceptos={d.conceptos} total={d.total} />
+              <ConceptosTabla conceptos={d.conceptos} total={d.total} moneda={d.moneda} />
             </section>
-            {Number(d.deuda_acumulada) > 0 && <Alert tone="warn">Tienes <strong>{soles(d.deuda_acumulada)}</strong> de meses anteriores sin pagar. Se pagan desde cada mes; este total es sólo para que veas todo lo que debes.</Alert>}
+            {Number(d.deuda_acumulada) > 0 && <Alert tone="warn">Tienes <strong>{dinero(d.deuda_acumulada, d.moneda)}</strong> de meses anteriores sin pagar. Se pagan desde cada mes; este total es sólo para que veas todo lo que debes.</Alert>}
             {d.agua && (
               <section aria-labelledby="agua-mant">
                 <h3 id="agua-mant" className="mb-2 text-sm font-semibold">Consumo de agua</h3>
-                <ConsumoAgua agua={d.agua} codigo={d.unidad.codigo} />
+                <ConsumoAgua agua={d.agua} codigo={d.unidad.codigo} moneda={d.moneda} />
               </section>
             )}
             {(d.condominio?.admin_nombre || d.condominio?.admin_celular || d.condominio?.admin_correo) && (
@@ -87,7 +87,7 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
             )}
             <section aria-labelledby="pagos-mant">
               <h3 id="pagos-mant" className="mb-2 text-sm font-semibold">Pagos de este mantenimiento</h3>
-              <HistorialPagos pagos={d.pagos} />
+              <HistorialPagos pagos={d.pagos} moneda={d.moneda} />
             </section>
           </div>
         )}

@@ -1,3 +1,4 @@
+import { decimalesDe } from '../../../lib/paises';
 import { nombreDelMes } from '../../../ui';
 
 /** Las fechas sin hora llegan como medianoche UTC («2026-10-10T00:00:00.000Z»): se leen con los componentes UTC para no correrse un día. */
@@ -19,10 +20,11 @@ export function fechaLarga(v: string | Date | null | undefined): string {
   return p ? `${String(p.d).padStart(2, '0')} DE ${nombreDelMes(p.m).toUpperCase()} DE ${p.y}` : '—';
 }
 
-/** Monto sin símbolo, con 2 decimales («272.15»): la columna ya dice S/. */
-export const monto2 = (v: string | number | null | undefined): string => {
+/** Monto sin símbolo, con los decimales de la moneda («272.15» en soles): la columna ya dice el símbolo. */
+export const monto2 = (v: string | number | null | undefined, moneda?: string | null): string => {
   const n = Number(v ?? 0);
-  return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+  const d = decimalesDe(moneda);
+  return Number.isFinite(n) ? n.toFixed(d) : (0).toFixed(d);
 };
 
 /** Las notas de pago son texto libre: una nota por renglón; los renglones vacíos se descartan. */

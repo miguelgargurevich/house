@@ -1,15 +1,23 @@
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
-import { BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, soles } from '../../ui';
+import { monedaEnPlural } from '../../lib/paises';
+import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto } from '../../ui';
 import { EstadoCargos } from './_parts/EstadoCargos';
 
-interface Resumen {
+/** Lo cobrado, en UNA moneda. */
+interface DineroPlataforma {
+  cobrado_mes: number | string;
+  cobrado_por_mes: { mes: string; emitido: number | string; cobrado: number | string }[];
+}
+
+interface Resumen extends Partial<DineroPlataforma> {
   empresas_total: number;
   usuarios_total: number;
   unidades_total: number;
-  cobrado_mes: number | string;
-  cobrado_por_mes: { mes: string; emitido: number | string; cobrado: number | string }[];
+  /** `null` si hay condominios de monedas distintas: las cifras van por moneda en `por_moneda`, nunca sumadas. */
+  moneda: string | null;
+  por_moneda?: Record<string, DineroPlataforma>;
   estados: { pagado: number; pendiente: number; vencido: number };
 }
 
@@ -20,6 +28,8 @@ const mesCorto = (m: string) => {
 
 export default function Dashboard() {
   const { data, loading, error, reload } = useResource<Resumen>('/api/dashboard/resumen');
+  const bloques: [string, DineroPlataforma][] = !data ? [] : data.moneda !== null ? [[data.moneda, data as DineroPlataforma]] : Object.entries(data.por_moneda ?? {});
+  const variasMonedas = data?.moneda === null;
 
   return (
     <>
@@ -30,28 +40,31 @@ export default function Dashboard() {
         <div className="space-y-6" aria-busy="true"><Skeleton className="h-24 w-full" /><Skeleton className="h-80 w-full" /></div>
       ) : (
         <>
+          {variasMonedas && <div className="mb-4"><Alert>Hay condominios que cobran en monedas distintas: las cifras van separadas por moneda y no se suman.</Alert></div>}
           <StatStrip
             stats={[
               { label: 'Empresas', value: data.empresas_total },
               { label: 'Usuarios', value: data.usuarios_total },
               { label: 'Unidades', value: data.unidades_total },
-              { label: 'Cobrado este mes', value: soles(data.cobrado_mes), tone: 'ok' },
+              ...bloques.map(([moneda, b]) => ({ label: variasMonedas ? `Cobrado este mes (${moneda})` : 'Cobrado este mes', value: dinero(b.cobrado_mes, moneda), tone: 'ok' as const })),
             ]}
           />
           <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 24rem), 1fr))' }}>
-            <Card>
-              <CardHeader title="Emitido vs. cobrado" description="Últimos 6 meses, en soles, de toda la plataforma." />
-              <CardBody>
-                <BarChart
-                  labels={data.cobrado_por_mes.map(m => mesCorto(m.mes))}
-                  series={[
-                    { label: 'Emitido', token: 'muted', data: data.cobrado_por_mes.map(m => Number(m.emitido)) },
-                    { label: 'Cobrado', token: 'brand', data: data.cobrado_por_mes.map(m => Number(m.cobrado)) },
-                  ]}
-                  format={n => `S/ ${n.toLocaleString('es-PE')}`}
-                />
-              </CardBody>
-            </Card>
+            {bloques.map(([moneda, b]) => (
+              <Card key={moneda}>
+                <CardHeader title="Emitido vs. cobrado" description={`Últimos 6 meses, en ${monedaEnPlural(moneda)}, de toda la plataforma.`} />
+                <CardBody>
+                  <BarChart
+                    labels={b.cobrado_por_mes.map(m => mesCorto(m.mes))}
+                    series={[
+                      { label: 'Emitido', token: 'muted', data: b.cobrado_por_mes.map(m => Number(m.emitido)) },
+                      { label: 'Cobrado', token: 'brand', data: b.cobrado_por_mes.map(m => Number(m.cobrado)) },
+                    ]}
+                    format={n => dineroCorto(n, moneda)}
+                  />
+                </CardBody>
+              </Card>
+            ))}
             <Card>
               <CardHeader title="Estado de mantenimientos" description="Un mantenimiento es un departamento en un mes. Todas las empresas." />
               <CardBody className="space-y-4">

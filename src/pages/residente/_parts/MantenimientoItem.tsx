@@ -1,4 +1,4 @@
-import { Button, StatusBadge, fechaCorta, soles } from '../../../ui';
+import { Button, StatusBadge, dinero, fechaCorta } from '../../../ui';
 import { sePuedePagar } from '../../shared/mantenimiento/tipos';
 import type { Mantenimiento } from '../../shared/mantenimiento/tipos';
 
@@ -17,8 +17,8 @@ export function MantenimientoItem({ mant, rechazo, onPagar, onVer }: { mant: Man
       {rechazo && <p className="mt-2 text-sm text-bad">Pago rechazado: {rechazo}</p>}
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="num text-xl font-semibold">{soles(mant.total)}</p>
-          {mant.estado === 'parcial' && <p className="text-xs text-muted">Saldo {soles(mant.saldo)}</p>}
+          <p className="num text-xl font-semibold">{dinero(mant.total, mant.moneda)}</p>
+          {mant.estado === 'parcial' && <p className="text-xs text-muted">Saldo {dinero(mant.saldo, mant.moneda)}</p>}
           <p className={`text-xs ${vencido ? 'text-bad' : 'text-muted'}`}>Vence {fechaCorta(mant.fecha_vencimiento)}</p>
         </div>
         {/* En el celular los botones pasan a su propia fila a todo el ancho (antes «Pagar mantenimiento» quedaba cortado). */}

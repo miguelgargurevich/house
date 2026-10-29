@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon, DocumentTextIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../api';
+import { monedaDe, paisDe } from '../../lib/paises';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  Button, Card, ConfirmDialog, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, fechaCorta, soles, useToast,
+  Button, Card, ConfirmDialog, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, dinero, fechaCorta, useToast,
 } from '../../ui';
 import { ImagenEditable } from './_parts/condominio/ImagenEditable';
 import { TorresDelCondominio } from './_parts/condominio/TorresDelCondominio';
@@ -101,7 +102,8 @@ export default function CondominioDetalle() {
                   { label: 'Dirección', value: c.direccion },
                   { label: 'Administrado por', value: c.empresa?.nombre ?? '—' },
                   { label: 'Contrato vigente', value: c.contrato_vigente ? `Desde ${fechaCorta(c.contrato_vigente.fecha_inicio)}` : 'Sin contrato vigente' },
-                  { label: 'Mora por pago fuera de fecha', value: c.mora_monto != null ? (Number(c.mora_monto) > 0 ? `${soles(c.mora_monto)} en el recibo del mes siguiente` : 'Sin mora') : '—' },
+                  { label: 'País y moneda', value: `${paisDe(c.pais ?? 'PE')?.bandera ?? ''} ${paisDe(c.pais ?? 'PE')?.nombre ?? c.pais} · ${monedaDe(c.moneda ?? 'PEN')?.nombre ?? c.moneda} (${c.moneda ?? 'PEN'})` },
+                  { label: 'Mora por pago fuera de fecha', value: c.mora_monto != null ? (Number(c.mora_monto) > 0 ? `${dinero(c.mora_monto, c.moneda)} en el recibo del mes siguiente` : 'Sin mora') : '—' },
                   { label: 'Descripción', value: c.descripcion },
                 ]}
               />

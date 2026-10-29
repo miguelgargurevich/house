@@ -8,6 +8,7 @@ import {
   Button, Card, CardBody, CardHeader, DefinitionList, EmptyState, ErrorState, Input, Modal, PageHeader, Skeleton, StatusBadge, TabPanel, Tabs, TelefonoInput, useToast,
 } from '../../ui';
 import { ImagenEditable } from './_parts/condominio/ImagenEditable';
+import { PaisEmpresa } from './_parts/condominio/PaisEmpresa';
 import PersonasLista from './_parts/personas/PersonasLista';
 
 const VISTAS = [
@@ -29,6 +30,8 @@ interface Empresa {
   estado: string | null;
   /** Logo del recibo impreso (URL con su versión); `null` si no hay. */
   logo_url?: string | null;
+  /** País (ISO 3166-1) de la empresa: el de sus condominios nuevos. */
+  pais?: string;
 }
 interface Form { nombre: string; ruc: string; direccion: string; telefono: string; email: string; representante_legal: string }
 
@@ -121,6 +124,7 @@ export default function Configuracion() {
                 <h3 id="logo-empresa" className="mb-3 text-sm font-semibold">Recibo impreso</h3>
                 <ImagenEditable titulo="Logo de la empresa" ayuda="Sale al pie de cada recibo de mantenimiento. JPG, PNG o WebP, hasta 2 MB." url={data.logo_url ?? null} ruta={`/api/empresas/${data.id}/logo`} onCambio={() => void reload()} />
               </section>
+              <PaisEmpresa key={data.pais} empresaId={data.id} pais={data.pais ?? 'PE'} onCambio={() => void reload()} />
             </CardBody>
           )}
         </Card>

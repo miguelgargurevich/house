@@ -1,8 +1,9 @@
 /**
  * Vista previa de las cuentas del agua mientras se escribe la lectura. Exacta (enteros BigInt, nunca `number` para sumar o multiplicar) y con las
  * mismas reglas que el servidor (`src/server/lib/agua.ts`): consumo = actual − anterior (3 decimales); monto = consumo × factor, 2 decimales,
- * half-up; el aviso salta con más de S/ 0.05 de diferencia. El servidor vuelve a calcular y es quien manda.
+ * half-up; el aviso salta con más de 0.05 (de la moneda del condominio) de diferencia. El servidor vuelve a calcular y es quien manda.
  */
+import { formatoDinero } from '../../../../lib/paises';
 
 /** «1416,574» → 1416574n (milésimas). Más decimales se redondean half-up; texto no numérico → null. */
 function escalar(v: string, decimales: number): bigint | null {
@@ -33,12 +34,12 @@ export function cuentaAgua(anterior: string, actual: string, factor: string): Cu
 
 const centimos = (v: string): bigint | null => escalar(v, 2);
 
-/** Aviso si el agua del recibo y la de la lectura difieren en más de S/ 0.05; `null` si cuadran o el recibo no tiene concepto de agua. */
-export function avisoAgua(montoLectura: string, montoRecibo: string | null): string | null {
+/** Aviso si el agua del recibo y la de la lectura difieren en más de 0.05; `null` si cuadran o el recibo no tiene concepto de agua. El texto es el del servidor. */
+export function avisoAgua(montoLectura: string, montoRecibo: string | null, moneda?: string | null): string | null {
   if (montoRecibo === null) return null;
   const l = centimos(montoLectura);
   const r = centimos(montoRecibo);
   if (l === null || r === null) return null;
   const dif = l > r ? l - r : r - l;
-  return dif > 5n ? `El agua del recibo es S/ ${texto(r, 2)}; con la lectura sale S/ ${texto(l, 2)}` : null;
+  return dif > 5n ? `El agua del recibo es ${formatoDinero(texto(r, 2), moneda)}; con la lectura sale ${formatoDinero(texto(l, 2), moneda)}` : null;
 }

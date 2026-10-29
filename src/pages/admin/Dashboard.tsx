@@ -2,25 +2,33 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
-import { BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, nombreDelMes, soles } from '../../ui';
+import { monedaEnPlural } from '../../lib/paises';
+import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto, nombreDelMes } from '../../ui';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 
 /** Mantenimientos (un departamento en un mes) por estado. Suman todos los mantenimientos del alcance. */
 interface Estados { pagado: number; pendiente: number; parcial: number; vencido: number; en_revision: number }
 
-interface Resumen {
-  recibos_emitidos: number;
+/** Lo que se cobra y se debe, en UNA moneda. */
+interface DineroPanel {
   cargos_pendientes_monto: number | string;
   cobrado_mes: number | string;
+  cobrado_por_mes: { mes: string; emitido: number | string; cobrado: number | string }[];
+}
+
+interface Resumen extends Partial<DineroPanel> {
+  recibos_emitidos: number;
+  /** Moneda de las cifras; `null` si el alcance mezcla condominios de monedas distintas (entonces van por moneda en `por_moneda`, nunca sumadas). */
+  moneda: string | null;
+  por_moneda?: Record<string, DineroPanel>;
   morosos: number;
   unidades_total: number;
   tareas_abiertas: number;
-  cobrado_por_mes: { mes: string; emitido: number | string; cobrado: number | string }[];
   estados: Estados;
   /** Cómo llama el condominio a sus edificios: «block» si todos son blocks, si no «torre». */
   palabra_estructura: 'block' | 'torre';
   /** Cada torre tiene su propio recibo: lo emitido, cobrado y por cobrar de cada una. */
-  por_torre?: { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; emitido: string; cobrado: string; por_cobrar: string; morosos: number }[];
+  por_torre?: { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; moneda: string; emitido: string; cobrado: string; por_cobrar: string; morosos: number }[];
 }
 
 /** Los textos del panel según cómo se llama el edificio en el condominio. */
@@ -55,6 +63,9 @@ export default function Dashboard() {
   if (torre) filtros.set('estructura_id', torre);
   const { data, loading, error, reload } = useResource<Resumen>(`/api/dashboard/resumen${filtros.size ? `?${filtros}` : ''}`);
   const palabra = PALABRA[data?.palabra_estructura ?? 'torre'];
+  // Una moneda: las cifras de siempre. Varias: un juego de cifras y un gráfico por moneda (nunca se suman).
+  const bloques: [string, DineroPanel][] = !data ? [] : data.moneda !== null ? [[data.moneda, data as DineroPanel]] : Object.entries(data.por_moneda ?? {});
+  const variasMonedas = data?.moneda === null;
 
   return (
     <>
@@ -66,28 +77,33 @@ export default function Dashboard() {
         <div className="space-y-6"><Skeleton className="h-24 w-full" /><Skeleton className="h-80 w-full" /></div>
       ) : (
         <>
+          {variasMonedas && <div className="mb-4"><Alert>Tus condominios cobran en más de una moneda: las cifras van separadas por moneda y no se suman. Filtra por condominio para ver uno solo.</Alert></div>}
           <StatStrip
             stats={[
-              { label: 'Cobrado este mes', value: soles(data.cobrado_mes), tone: 'ok' },
-              { label: 'Por cobrar', value: soles(data.cargos_pendientes_monto), hint: `${sinPagar(data.estados)} mantenimientos sin pagar` },
+              ...bloques.flatMap(([moneda, b], i) => [
+                { label: variasMonedas ? `Cobrado este mes (${moneda})` : 'Cobrado este mes', value: dinero(b.cobrado_mes, moneda), tone: 'ok' as const },
+                { label: variasMonedas ? `Por cobrar (${moneda})` : 'Por cobrar', value: dinero(b.cargos_pendientes_monto, moneda), hint: i === 0 ? `${sinPagar(data.estados)} mantenimientos sin pagar` : undefined },
+              ]),
               { label: 'Unidades morosas', value: data.morosos, tone: data.morosos > 0 ? 'bad' : undefined, hint: `de ${data.unidades_total} unidades` },
               { label: 'Tareas abiertas', value: data.tareas_abiertas },
             ]}
           />
           <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 24rem), 1fr))' }}>
-            <Card>
-              <CardHeader title="Emitido vs. cobrado" description="Últimos 6 meses, en soles." />
-              <CardBody>
-                <BarChart
-                  labels={data.cobrado_por_mes.map(m => mesCorto(m.mes))}
-                  series={[
-                    { label: 'Emitido', token: 'muted', data: data.cobrado_por_mes.map(m => Number(m.emitido)) },
-                    { label: 'Cobrado', token: 'brand', data: data.cobrado_por_mes.map(m => Number(m.cobrado)) },
-                  ]}
-                  format={n => `S/ ${n.toLocaleString('es-PE')}`}
-                />
-              </CardBody>
-            </Card>
+            {bloques.map(([moneda, b]) => (
+              <Card key={moneda}>
+                <CardHeader title="Emitido vs. cobrado" description={`Últimos 6 meses, en ${monedaEnPlural(moneda)}.`} />
+                <CardBody>
+                  <BarChart
+                    labels={b.cobrado_por_mes.map(m => mesCorto(m.mes))}
+                    series={[
+                      { label: 'Emitido', token: 'muted', data: b.cobrado_por_mes.map(m => Number(m.emitido)) },
+                      { label: 'Cobrado', token: 'brand', data: b.cobrado_por_mes.map(m => Number(m.cobrado)) },
+                    ]}
+                    format={n => dineroCorto(n, moneda)}
+                  />
+                </CardBody>
+              </Card>
+            ))}
             {(data.por_torre?.length ?? 0) > 1 && (
               <Card style={{ gridColumn: '1 / -1' }}>
                 <CardHeader title={`Por ${palabra.una}`} description={`Emitido, cobrado y por cobrar de cada ${palabra.una} (todos los recibos).`} />
@@ -102,7 +118,7 @@ export default function Dashboard() {
                         {data.por_torre!.map(t => (
                           <tr key={t.estructura_id ?? 'sin'}>
                             <th scope="row" className="py-2 text-left font-medium">{t.nombre}{t.complejo && <span className="block text-xs font-normal text-muted">{t.complejo.nombre}</span>}</th>
-                            <td className="num py-2 text-right">{soles(t.emitido)}</td><td className="num py-2 text-right">{soles(t.cobrado)}</td><td className="num py-2 text-right">{soles(t.por_cobrar)}</td><td className="num py-2 text-right">{t.morosos}</td>
+                            <td className="num py-2 text-right">{dinero(t.emitido, t.moneda)}</td><td className="num py-2 text-right">{dinero(t.cobrado, t.moneda)}</td><td className="num py-2 text-right">{dinero(t.por_cobrar, t.moneda)}</td><td className="num py-2 text-right">{t.morosos}</td>
                           </tr>
                         ))}
                       </tbody>

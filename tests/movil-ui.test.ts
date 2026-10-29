@@ -77,7 +77,7 @@ describe('vista móvil', () => {
   });
 
   it('pagar el mantenimiento: el monto que carga no mete un bloque dentro de un párrafo (aviso de React en consola)', () => {
-    assert.match(fuente('src/pages/residente/_parts/PagarPanel.tsx'), /<div className="num text-2xl font-semibold">\{p\.saldo !== null \? soles\(p\.saldo\) : <Skeleton/);
+    assert.match(fuente('src/pages/residente/_parts/PagarPanel.tsx'), /<div className="num text-2xl font-semibold">\{p\.saldo !== null \? dinero\(p\.saldo, mant\.moneda\) : <Skeleton/);
   });
 
   it('la ficha de la empresa no queda «cargando» si no tiene fecha de inicio', () => {

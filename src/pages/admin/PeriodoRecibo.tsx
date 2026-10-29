@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
-import { Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, Toolbar, fechaCorta, soles, tituloRecibo } from '../../ui';
+import { Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, Toolbar, dinero, fechaCorta, tituloRecibo } from '../../ui';
 import { AguaRecibo } from './_parts/agua/AguaRecibo';
 import { BloquesPeriodo } from './_parts/mantenimientos/BloquesPeriodo';
 import type { BlockResumen } from './_parts/mantenimientos/BloquesPeriodo';
@@ -18,6 +18,8 @@ interface Periodo {
   fecha_emision: string;
   fecha_vencimiento: string;
   estado: string | null;
+  /** Moneda del condominio del recibo: las cifras del periodo van en ella. */
+  moneda?: string;
   complejo?: { id: number; nombre: string } | null;
   /** Torre del recibo: cada torre tiene el suyo. Sin torre = condominio sin torres, recibo general o recibo viejo que mezcla torres. */
   estructura?: { id: number; nombre: string | null } | null;
@@ -72,9 +74,9 @@ export default function PeriodoRecibo() {
           />
           <StatStrip
             stats={[
-              { label: 'Emitido', value: t ? soles(t.monto) : <Skeleton className="h-7 w-28" /> },
-              { label: 'Cobrado', value: t ? soles(t.cobrado) : <Skeleton className="h-7 w-28" />, tone: 'ok', hint: t ? `${pct} %` : undefined },
-              { label: 'Por cobrar', value: t ? soles(t.pendiente) : <Skeleton className="h-7 w-28" />, hint: t && Number(t.en_revision) > 0 ? `${soles(t.en_revision)} en revisión` : undefined },
+              { label: 'Emitido', value: t ? dinero(t.monto, p?.moneda) : <Skeleton className="h-7 w-28" /> },
+              { label: 'Cobrado', value: t ? dinero(t.cobrado, p?.moneda) : <Skeleton className="h-7 w-28" />, tone: 'ok', hint: t ? `${pct} %` : undefined },
+              { label: 'Por cobrar', value: t ? dinero(t.pendiente, p?.moneda) : <Skeleton className="h-7 w-28" />, hint: t && Number(t.en_revision) > 0 ? `${dinero(t.en_revision, p?.moneda)} en revisión` : undefined },
               { label: 'Departamentos morosos', value: morosos === undefined ? <Skeleton className="h-7 w-10" /> : morosos, tone: morosos ? 'bad' : undefined },
             ]}
           />
@@ -107,7 +109,7 @@ export default function PeriodoRecibo() {
       </Card>
 
       {agrupado && !filtrando ? (
-        <BloquesPeriodo reciboId={reciboId} blocks={bloques.data?.blocks ?? null} loading={bloques.loading} error={bloques.error} onRetry={bloques.reload} recargar={recargar} onVer={setViendo} />
+        <BloquesPeriodo reciboId={reciboId} moneda={p?.moneda} blocks={bloques.data?.blocks ?? null} loading={bloques.loading} error={bloques.error} onRetry={bloques.reload} recargar={recargar} onVer={setViendo} />
       ) : bloques.loading && !bloques.data ? (
         <Card><div className="space-y-3 p-5"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div></Card>
       ) : (

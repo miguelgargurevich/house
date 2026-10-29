@@ -1,7 +1,7 @@
 // «Mi historial»: tipos de GET /api/me/historial y las cuentas puras que arman cifras y series de los gráficos (probadas aparte del render).
 import { MAX_CATEGORIAS, CATEGORIA_OTROS } from '../../../ui/chartTema';
 import type { Stat } from '../../../ui/PageHeader';
-import { soles } from '../../../ui/format';
+import { dinero } from '../../../ui/format';
 
 export type EstadoMes = 'pagado' | 'en_revision' | 'parcial' | 'vencido' | 'pendiente';
 
@@ -10,6 +10,8 @@ export interface MesHistorial {
   anio: number;
   mes: number;
   unidad: { id: number; codigo: string };
+  /** Moneda del condominio de la unidad: los montos de este mes van en ella. */
+  moneda: string;
   total: string;
   por_concepto: { concepto: string; monto: string }[];
   pagado: string;
@@ -23,23 +25,35 @@ export interface MesHistorial {
   agua_promedio_block: string | null;
 }
 
-export interface ResumenHistorial {
+/** Las cifras en dinero del resumen, en UNA moneda. */
+export interface DineroHistorial {
   pagado: string;
   promedio_mes: string;
   deuda_actual: string;
   en_revision: string;
+}
+
+export interface ResumenHistorial {
+  /** Con unidades de monedas distintas estas cuatro cifras vienen en `null` y se leen de `por_moneda` (elegir una unidad las devuelve). */
+  pagado: string | null;
+  promedio_mes: string | null;
+  deuda_actual: string | null;
+  en_revision: string | null;
+  por_moneda?: Record<string, DineroHistorial>;
   meses_a_tiempo: number;
   meses_evaluados: number;
   meses_en_periodo: number;
   agua_promedio_m3: string | null;
 }
 
-export interface UnidadHistorial { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null }
+export interface UnidadHistorial { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null; moneda?: string }
 
 export interface Historial {
   unidades: UnidadHistorial[];
   anios: number[];
   anio: number | null;
+  /** Moneda de las unidades mostradas; `null` si son de condominios con monedas distintas. */
+  moneda: string | null;
   resumen: ResumenHistorial;
   meses: MesHistorial[];
 }
@@ -150,17 +164,29 @@ export function textoDias(n: number): string {
 /** Eje de días del gráfico de puntualidad: «5 d antes», «0», «2 d después». */
 export const diasCorto = (n: number): string => (n === 0 ? 'Día del venc.' : `${Math.abs(n)} d ${n < 0 ? 'antes' : 'después'}`);
 
-/** Las cuatro cifras de arriba. */
-export function cifras(r: ResumenHistorial, anio: number | null): Stat[] {
+/** Las cuatro cifras de arriba, en la moneda dada (soles si no se dice). Con unidades de monedas distintas, ver `cifrasPorMoneda`. */
+export function cifras(r: ResumenHistorial, anio: number | null, moneda?: string | null): Stat[] {
+  const en = (v: string | null) => dinero(v, moneda);
   const deuda = Number(r.deuda_actual);
   const enRevision = Number(r.en_revision);
   const alDia = r.meses_evaluados > 0 && r.meses_a_tiempo === r.meses_evaluados;
   return [
-    { label: 'Pagado', value: soles(r.pagado), tone: 'ok', hint: anio ? `En ${anio}` : r.meses_en_periodo === 1 ? 'En tu único mes con recibo' : `En tus ${r.meses_en_periodo} meses con recibo` },
-    { label: 'Promedio por mes', value: soles(r.promedio_mes), hint: 'En los meses que pagaste' },
-    { label: 'Deuda de hoy', value: soles(r.deuda_actual), tone: deuda > 0 ? 'bad' : 'ok', hint: deuda > 0 ? (enRevision > 0 ? `Y ${soles(r.en_revision)} en revisión` : 'Incluye la mora, si la hay') : enRevision > 0 ? `${soles(r.en_revision)} en revisión` : 'Estás al día' },
+    { label: 'Pagado', value: en(r.pagado), tone: 'ok', hint: anio ? `En ${anio}` : r.meses_en_periodo === 1 ? 'En tu único mes con recibo' : `En tus ${r.meses_en_periodo} meses con recibo` },
+    { label: 'Promedio por mes', value: en(r.promedio_mes), hint: 'En los meses que pagaste' },
+    { label: 'Deuda de hoy', value: en(r.deuda_actual), tone: deuda > 0 ? 'bad' : 'ok', hint: deuda > 0 ? (enRevision > 0 ? `Y ${en(r.en_revision)} en revisión` : 'Incluye la mora, si la hay') : enRevision > 0 ? `${en(r.en_revision)} en revisión` : 'Estás al día' },
     r.meses_evaluados > 0
       ? { label: 'Puntualidad', value: `A tiempo ${r.meses_a_tiempo} de ${r.meses_evaluados}`, tone: alDia ? 'ok' : r.meses_a_tiempo * 2 < r.meses_evaluados ? 'warn' : undefined, hint: r.meses_evaluados === 1 ? 'mes' : 'meses' }
       : { label: 'Puntualidad', value: '—', hint: 'Aún no hay meses para evaluar' },
   ];
+}
+
+/**
+ * Las cifras con unidades de monedas distintas: las de dinero van UNA VEZ POR MONEDA (rotuladas con su código, nunca sumadas) y la puntualidad,
+ * que no es dinero, una sola vez.
+ */
+export function cifrasPorMoneda(r: ResumenHistorial, anio: number | null): Stat[] {
+  const porMoneda = Object.entries(r.por_moneda ?? {}).flatMap(([moneda, d]) =>
+    cifras({ ...r, ...d }, anio, moneda).slice(0, 3).map(s => ({ ...s, label: `${s.label} (${moneda})` })),
+  );
+  return [...porMoneda, cifras({ ...r, pagado: '0', promedio_mes: '0', deuda_actual: '0', en_revision: '0' }, anio)[3]!];
 }

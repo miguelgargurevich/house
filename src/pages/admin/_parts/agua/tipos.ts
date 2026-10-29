@@ -21,6 +21,8 @@ export interface FilaAgua {
 }
 
 export interface AguaDelRecibo {
+  /** Moneda del condominio: los montos de las lecturas, el del recibo y el factor (por m³) van en ella. */
+  moneda: string;
   recibo: { id: number; mes: number; anio: number; fecha_corte_agua: string | null; estructura: { id: number; nombre: string | null; correo_vouchers: string | null } | null };
   factor_sugerido: string | null;
   items: FilaAgua[];

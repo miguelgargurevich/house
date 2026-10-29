@@ -1,9 +1,8 @@
 import { ArrowDownTrayIcon, ChartBarIcon, CloudIcon, ClockIcon } from '@heroicons/react/24/outline';
-import { Alert, BarChart, Button, Card, CardBody, CardHeader, EmptyState, LineChart, Select, StatStrip, soles } from '../../../ui';
-import { cifras, diasCorto, seriesAgua, seriesPorConcepto, seriesPuntualidad } from './historial';
+import { Alert, BarChart, Button, Card, CardBody, CardHeader, EmptyState, LineChart, Select, StatStrip, dineroCorto } from '../../../ui';
+import { cifras, cifrasPorMoneda, diasCorto, seriesAgua, seriesPorConcepto, seriesPuntualidad } from './historial';
 import type { Historial } from './historial';
 
-const monto = (n: number) => (Number.isInteger(n) ? `S/ ${n.toLocaleString('es-PE')}` : soles(n));
 const metros = (n: number) => `${n.toLocaleString('es-PE', { maximumFractionDigits: 1 })} m³`;
 
 export interface VistaResumenProps {
@@ -63,18 +62,23 @@ export function Graficos({ data }: { data: Historial }) {
   const puntualidad = seriesPuntualidad(data.meses);
   return (
     <>
-      <StatStrip stats={cifras(data.resumen, data.anio)} />
+      <StatStrip stats={data.moneda !== null ? cifras(data.resumen, data.anio, data.moneda) : cifrasPorMoneda(data.resumen, data.anio)} />
+      {data.moneda === null && (
+        <div className="mb-6"><Alert tone="info">Tus unidades están en condominios con monedas distintas: las cifras van separadas por moneda y no se suman. Elige una unidad para ver sus gráficos de dinero.</Alert></div>
+      )}
       {data.resumen.meses_en_periodo === 1 && (
         <div className="mb-6"><Alert tone="info">Este es tu primer mes en House. Con cada recibo nuevo, estos gráficos te mostrarán cómo se mueve tu mantenimiento mes a mes.</Alert></div>
       )}
 
       <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 24rem), 1fr))' }}>
-        <Card className="min-w-0 col-span-full">
-          <CardHeader title="Cuánto pagas cada mes" description="El total de tu mantenimiento, por concepto. Pasa el cursor sobre una barra para ver el detalle." />
-          <CardBody>
-            <BarChart stacked className="h-80" labels={conceptos.labels} series={conceptos.series} format={monto} ariaLabel="Cuánto pagas cada mes, por concepto" tablaAccesible />
-          </CardBody>
-        </Card>
+        {data.moneda !== null && (
+          <Card className="min-w-0 col-span-full">
+            <CardHeader title="Cuánto pagas cada mes" description="El total de tu mantenimiento, por concepto. Pasa el cursor sobre una barra para ver el detalle." />
+            <CardBody>
+              <BarChart stacked className="h-80" labels={conceptos.labels} series={conceptos.series} format={n => dineroCorto(n, data.moneda)} ariaLabel="Cuánto pagas cada mes, por concepto" tablaAccesible />
+            </CardBody>
+          </Card>
+        )}
 
         <Card className="min-w-0">
           <CardHeader title="Agua" description="Tu consumo en m³ contra el promedio de tu block." />

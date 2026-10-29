@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRightIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource } from '../../../api';
 import { useAuth } from '../../../auth/AuthContext';
-import { Alert, Button, Card, CardHeader, ErrorState, PageHeader, Skeleton, fechaCorta, soles, useToast } from '../../../ui';
+import { Alert, Button, Card, CardHeader, ErrorState, PageHeader, Skeleton, dinero, fechaCorta, useToast } from '../../../ui';
 import { DetalleMantenimientoModal } from './DetalleMantenimientoModal';
 import { MantenimientoItem } from './MantenimientoItem';
 import { PagarModal } from './PagarModal';
@@ -11,12 +11,15 @@ import { primerNombre } from './tipos';
 import type { Mantenimiento } from '../../shared/mantenimiento/tipos';
 
 interface Resumen {
-  deuda_total: number | string;
+  /** Moneda de las cifras; `null` si tus unidades están en condominios de monedas distintas (entonces van por moneda en `por_moneda`, nunca sumadas). */
+  moneda: string | null;
+  deuda_total: number | string | null;
+  por_moneda?: Record<string, { deuda_total: number | string; pagado_ano: number | string }>;
   /** Mantenimientos (un recibo por departamento y mes), no conceptos sueltos. */
   mantenimientos_vencidos: number;
   mantenimientos_en_revision: number;
-  proximo_mantenimiento: { recibo_id: number; unidad_id: number; titulo: string; torre?: string | null; monto: number | string; fecha: string } | null;
-  pagado_ano: number | string;
+  proximo_mantenimiento: { recibo_id: number; unidad_id: number; titulo: string; torre?: string | null; monto: number | string; moneda: string; fecha: string } | null;
+  pagado_ano: number | string | null;
 }
 
 export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' }) {
@@ -44,7 +47,9 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
   const proximos = pendientes.items;
   const r = resumen.data;
   const hayVencidos = r ? r.mantenimientos_vencidos > 0 : false;
-  const alDia = r ? Number(r.deuda_total) <= 0 : false;
+  // Con unidades en dos monedas la deuda y lo pagado se dicen por moneda: «S/ 150.00 · US$ 40.00».
+  const montos = (campo: 'deuda_total' | 'pagado_ano') => (r?.moneda != null ? dinero(r[campo], r.moneda) : Object.entries(r?.por_moneda ?? {}).map(([m, x]) => dinero(x[campo], m)).join(' · '));
+  const alDia = r ? (r.moneda != null ? Number(r.deuda_total) <= 0 : Object.values(r.por_moneda ?? {}).every(x => Number(x.deuda_total) <= 0)) : false;
 
   return (
     <>
@@ -60,7 +65,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
             <div className="grid divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               <div className="p-5">
                 <p className="text-sm text-muted">Deuda total</p>
-                <p className={`num mt-1 text-3xl font-semibold ${hayVencidos ? 'text-bad' : ''}`}>{soles(r.deuda_total)}</p>
+                <p className={`num mt-1 text-3xl font-semibold ${hayVencidos ? 'text-bad' : ''}`}>{montos('deuda_total')}</p>
                 {alDia
                   ? <p className="mt-1 flex items-center gap-1.5 text-sm text-ok"><CheckCircleIcon className="h-4 w-4" />Estás al día</p>
                   : hayVencidos && <p className="mt-1 text-sm text-bad">{r.mantenimientos_vencidos === 1 ? 'Tienes 1 mantenimiento vencido' : `Tienes ${r.mantenimientos_vencidos} mantenimientos vencidos`}</p>}
@@ -70,7 +75,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
                 <p className="text-sm text-muted">Próximo vencimiento</p>
                 {r.proximo_mantenimiento ? (
                   <>
-                    <p className="num mt-1 text-xl font-semibold">{soles(r.proximo_mantenimiento.monto)}</p>
+                    <p className="num mt-1 text-xl font-semibold">{dinero(r.proximo_mantenimiento.monto, r.proximo_mantenimiento.moneda)}</p>
                     <p className="text-sm text-muted">{r.proximo_mantenimiento.titulo.split(' · ')[0]}{r.proximo_mantenimiento.torre ? ` · ${r.proximo_mantenimiento.torre}` : ''} · vence {fechaCorta(r.proximo_mantenimiento.fecha)}</p>
                     <Button className="mt-3" loading={abriendo} onClick={() => void pagarProximo(r.proximo_mantenimiento!)}>Pagar mantenimiento</Button>
                   </>
@@ -80,7 +85,7 @@ export function InicioResidente({ base }: { base: '/propietario' | '/inquilino' 
               </div>
               <div className="p-5">
                 <p className="text-sm text-muted">Pagado este año</p>
-                <p className="num mt-1 text-xl font-semibold">{soles(r.pagado_ano)}</p>
+                <p className="num mt-1 text-xl font-semibold">{montos('pagado_ano')}</p>
               </div>
             </div>
           </Card>

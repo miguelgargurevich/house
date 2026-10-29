@@ -5,7 +5,7 @@ import { errorText, useList } from '../../../api';
 import { ComprobanteVista } from '../../shared/ComprobanteVista';
 import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
-import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, Skeleton, StatusBadge, fechaCorta, soles, useToast } from '../../../ui';
+import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, Skeleton, StatusBadge, dinero, fechaCorta, useToast } from '../../../ui';
 import type { Column } from '../../../ui';
 import { ZonaImprimible } from '../../shared/mantenimiento/ZonaImprimible';
 import { Pager } from './Pager';
@@ -44,7 +44,7 @@ export function PagosResidente() {
   function comprobante(p: PagoResidente) {
     return (
       <>
-        <p className="num mb-5 text-3xl font-semibold">{soles(montoPago(p))}</p>
+        <p className="num mb-5 text-3xl font-semibold">{dinero(montoPago(p), p.moneda)}</p>
         <DefinitionList
           items={[
             { label: 'N.º de pago', value: <span className="num">{String(p.id).padStart(6, '0')}</span> },
@@ -77,7 +77,7 @@ export function PagosResidente() {
     { key: 'unidad', header: 'Unidad', hideBelow: 'lg', cell: p => (p.unidad ? `${p.unidad.codigo}${p.unidad.estructura?.nombre ? ` · ${p.unidad.estructura.nombre}` : ''}` : '—') },
     { key: 'metodo', header: 'Método', cell: p => metodoLabel(p.metodo_pago) },
     { key: 'referencia', header: 'Referencia', hideBelow: 'lg', cell: p => <span className="num">{p.referencia || '—'}</span> },
-    { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{soles(montoPago(p))}</span> },
+    { key: 'monto', header: 'Monto', align: 'right', cell: p => <span className="num font-medium">{dinero(montoPago(p), p.moneda)}</span> },
     { key: 'estado', header: 'Estado', cell: p => <span className="flex flex-wrap items-center gap-1.5"><StatusBadge estado={estadoVisible(p.estado_validacion)} /><ValidadoPorIABadge validado={p.validado_por_ia} /></span> },
     { key: 'acciones', header: '', align: 'right', cell: p => <IconButton label={`Ver comprobante del ${fechaCorta(p.fecha_pago)}`} onClick={() => setVer(p)}><DocumentTextIcon className="h-4 w-4" /></IconButton> },
   ];
@@ -105,7 +105,7 @@ export function PagosResidente() {
                         <span className="block text-sm text-muted">{fechaCorta(p.fecha_pago)} · {metodoLabel(p.metodo_pago)}</span>
                       </span>
                       <span className="flex shrink-0 flex-col items-end gap-1">
-                        <span className="num font-semibold">{soles(montoPago(p))}</span>
+                        <span className="num font-semibold">{dinero(montoPago(p), p.moneda)}</span>
                         <StatusBadge estado={estadoVisible(p.estado_validacion)} />
                         <ValidadoPorIABadge validado={p.validado_por_ia} />
                       </span>

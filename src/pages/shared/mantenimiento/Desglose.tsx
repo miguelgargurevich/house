@@ -1,10 +1,10 @@
-import { Badge, StatusBadge, fechaCorta, soles } from '../../../ui';
+import { Badge, StatusBadge, dinero, fechaCorta } from '../../../ui';
 import { metodoLabel } from '../../admin/_parts/cobranza/comun';
 import { textoFechaPago } from './fechaPago';
 import type { ConceptoMantenimiento, PagoMantenimiento } from './tipos';
 
 /** Los conceptos del mantenimiento: sólo el desglose (no se pagan por separado). */
-export function ConceptosTabla({ conceptos, total }: { conceptos: ConceptoMantenimiento[]; total: string }) {
+export function ConceptosTabla({ conceptos, total, moneda }: { conceptos: ConceptoMantenimiento[]; total: string; moneda?: string }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -22,12 +22,12 @@ export function ConceptosTabla({ conceptos, total }: { conceptos: ConceptoManten
                 {c.concepto}{c.es_recargo && <span className="ml-1.5 text-xs text-muted">recargo</span>}
                 {c.motivo && <span className="block text-xs text-muted">{c.motivo}</span>}
               </td>
-              <td className="num py-2 text-right">{soles(c.monto)}</td>
+              <td className="num py-2 text-right">{dinero(c.monto, moneda)}</td>
             </tr>
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t border-line font-semibold"><th scope="row" className="py-2 pr-3 text-left">Total</th><td className="num py-2 text-right">{soles(total)}</td></tr>
+          <tr className="border-t border-line font-semibold"><th scope="row" className="py-2 pr-3 text-left">Total</th><td className="num py-2 text-right">{dinero(total, moneda)}</td></tr>
         </tfoot>
       </table>
     </div>
@@ -35,7 +35,7 @@ export function ConceptosTabla({ conceptos, total }: { conceptos: ConceptoManten
 }
 
 /** Pagos del mantenimiento: uno por operación (los pagos antiguos de un solo concepto se marcan con el concepto). */
-export function HistorialPagos({ pagos, onVer }: { pagos: PagoMantenimiento[]; onVer?: (p: PagoMantenimiento) => void }) {
+export function HistorialPagos({ pagos, onVer, moneda }: { pagos: PagoMantenimiento[]; onVer?: (p: PagoMantenimiento) => void; moneda?: string }) {
   if (pagos.length === 0) return <p className="text-sm text-muted">Aún no hay pagos de este mantenimiento.</p>;
   return (
     <ul className="divide-y divide-line rounded border border-line" aria-label="Historial de pagos del mantenimiento">
@@ -50,7 +50,7 @@ export function HistorialPagos({ pagos, onVer }: { pagos: PagoMantenimiento[]; o
               </span>
             </span>
             <span className="flex shrink-0 flex-col items-end gap-1">
-              <span className="num text-sm font-semibold">{soles(p.monto)}</span>
+              <span className="num text-sm font-semibold">{dinero(p.monto, moneda)}</span>
               <span className="flex flex-wrap items-center justify-end gap-1.5">
                 <StatusBadge estado={p.estado_validacion === 'por_validar' ? 'en_revision' : p.estado_validacion} />
                 {p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}

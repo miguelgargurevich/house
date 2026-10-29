@@ -3,7 +3,7 @@ import { periodo } from '../../../../ui/format';
 
 export type Lista<T> = Page<T>;
 
-export interface Complejo { id: number; nombre: string }
+export interface Complejo { id: number; nombre: string; /** Moneda del condominio (ISO 4217). */ moneda?: string }
 export interface Concepto { id: number; nombre: string; activo?: boolean | null }
 
 export const METODOS = [
@@ -50,6 +50,8 @@ export interface ReciboFila {
   fecha_emision: string;
   fecha_vencimiento: string;
   estado: string | null;
+  /** Moneda del condominio del recibo: los totales van en ella. */
+  moneda?: string;
   complejo?: { id: number; nombre: string } | null;
   estructura?: { id: number; nombre: string | null } | null;
   totales?: { monto: number | string; cobrado: number | string; pendiente: number | string };

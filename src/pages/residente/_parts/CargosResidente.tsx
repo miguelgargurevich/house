@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ReceiptPercentIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../../api';
-import { Button, Card, DataTable, EmptyState, ErrorState, PageHeader, Skeleton, StatusBadge, Tabs, fechaCorta, soles } from '../../../ui';
+import { Button, Card, DataTable, EmptyState, ErrorState, PageHeader, Skeleton, StatusBadge, Tabs, dinero, fechaCorta } from '../../../ui';
 import type { Column } from '../../../ui';
 import { sePuedePagar } from '../../shared/mantenimiento/tipos';
 import type { Mantenimiento } from '../../shared/mantenimiento/tipos';
@@ -48,8 +48,8 @@ export function CargosResidente() {
     { key: 'vence', header: 'Vence', cell: m => <span className={m.estado === 'vencido' ? 'text-bad' : ''}>{fechaCorta(m.fecha_vencimiento)}</span> },
     { key: 'total', header: 'Total', align: 'right', cell: m => (
       <span className="block">
-        <span className="num font-medium">{soles(m.total)}</span>
-        {m.estado === 'parcial' && <span className="block text-xs text-muted">Saldo {soles(m.saldo)}</span>}
+        <span className="num font-medium">{dinero(m.total, m.moneda)}</span>
+        {m.estado === 'parcial' && <span className="block text-xs text-muted">Saldo {dinero(m.saldo, m.moneda)}</span>}
       </span>
     ) },
     { key: 'estado', header: 'Estado', cell: m => <StatusBadge estado={m.estado} /> },

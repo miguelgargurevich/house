@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDownIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
-import { Badge, Card, ErrorState, Skeleton, soles } from '../../../../ui';
+import { Badge, Card, ErrorState, Skeleton, dinero } from '../../../../ui';
 import { ProgresoCobro } from '../cobranza/ProgresoCobro';
 import { MantenimientosLista } from './MantenimientosLista';
 import type { Mantenimiento } from '../../../shared/mantenimiento/tipos';
@@ -19,6 +19,8 @@ export interface BlockResumen {
 
 interface Props {
   reciboId: number;
+  /** Moneda del recibo: lo emitido y cobrado de cada torre va en ella. */
+  moneda?: string;
   blocks: BlockResumen[] | null;
   loading: boolean;
   error: string | null;
@@ -28,7 +30,7 @@ interface Props {
 }
 
 /** El periodo agrupado por torre: una fila por torre con su avance; al abrirla se lista (paginada) la de sus departamentos. */
-export function BloquesPeriodo({ reciboId, blocks, loading, error, onRetry, recargar, onVer }: Props) {
+export function BloquesPeriodo({ reciboId, moneda, blocks, loading, error, onRetry, recargar, onVer }: Props) {
   const [abierto, setAbierto] = useState<number | 'sin' | null>(null);
   if (error) return <Card><ErrorState message={error} onRetry={onRetry} /></Card>;
   if (loading || !blocks) return <Card><div className="space-y-3 p-5"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div></Card>;
@@ -55,8 +57,8 @@ export function BloquesPeriodo({ reciboId, blocks, loading, error, onRetry, reca
                   <span className="block text-xs text-muted md:hidden">{b.unidades} departamentos · {b.porcentaje} % cobrado</span>
                 </span>
                 <span className="num hidden text-right text-sm md:block"><span className="block text-xs text-muted">Departamentos</span>{b.unidades}</span>
-                <span className="num hidden text-right text-sm md:block"><span className="block text-xs text-muted">Emitido</span>{soles(b.emitido)}</span>
-                <span className="hidden md:block"><ProgresoCobro cobrado={b.cobrado} total={b.emitido} /></span>
+                <span className="num hidden text-right text-sm md:block"><span className="block text-xs text-muted">Emitido</span>{dinero(b.emitido, moneda)}</span>
+                <span className="hidden md:block"><ProgresoCobro cobrado={b.cobrado} total={b.emitido} moneda={moneda} /></span>
                 <span className="justify-self-end">
                   {b.morosos > 0 ? <Badge tone="bad">{b.morosos} {b.morosos === 1 ? 'moroso' : 'morosos'}</Badge> : <Badge tone="ok">Al día</Badge>}
                 </span>

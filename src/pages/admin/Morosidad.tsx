@@ -1,7 +1,8 @@
 import { ArrowDownTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { useList, useResource } from '../../api';
-import { Badge, Button, Card, DataTable, PageHeader, Skeleton, StatStrip, Toolbar, fechaCorta, soles } from '../../ui';
+import { simboloDe } from '../../lib/paises';
+import { Badge, Button, Card, DataTable, PageHeader, Skeleton, StatStrip, Toolbar, dinero, fechaCorta, sumaPorMoneda } from '../../ui';
 import type { Column } from '../../ui';
 import { descargarCSV } from './_parts/cobranza/csv';
 import { hoyISO } from './_parts/cobranza/comun';
@@ -15,6 +16,8 @@ interface Moroso {
   estructura?: { id: number; nombre: string | null } | null;
   complejo?: { id: number; nombre: string } | null;
   propietario: Ref;
+  /** Moneda del condominio de la unidad: la deuda va en ella. */
+  moneda: string;
   deuda_total: number | string;
   cargos_vencidos: number;
   dias_max_atraso: number;
@@ -31,19 +34,27 @@ export default function Morosidad() {
   const params = { complejo_id: complejo || undefined, estructura_id: torre || undefined };
   const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100, params });
   // Las cifras de arriba son de TODO el filtro, no sólo de las filas de la página.
-  const cifras = useResource<{ resumen: { unidades: number; deuda_total: string; cargos_vencidos: number } }>(`/api/reportes/morosidad?pageSize=1${complejo ? `&complejo_id=${complejo}` : ''}${torre ? `&estructura_id=${torre}` : ''}`);
+  // Con condominios de monedas distintas el servidor no da un total único: `deuda_total` viene en null y las cifras van por moneda.
+  const cifras = useResource<{ resumen: { unidades: number; deuda_total: string | null; cargos_vencidos: number; moneda: string | null; por_moneda?: Record<string, { deuda_total: string }> } }>(`/api/reportes/morosidad?pageSize=1${complejo ? `&complejo_id=${complejo}` : ''}${torre ? `&estructura_id=${torre}` : ''}`);
 
-  const deudaTotal = cifras.data ? Number(cifras.data.resumen.deuda_total) : list.items.reduce((s, m) => s + (Number(m.deuda_total) || 0), 0);
+  // Deuda por moneda: del resumen del filtro completo; mientras llega, la de las filas cargadas (nunca sumando monedas distintas).
+  const deudas: { moneda: string; total: number }[] = cifras.data
+    ? cifras.data.resumen.moneda !== null ? [{ moneda: cifras.data.resumen.moneda, total: Number(cifras.data.resumen.deuda_total) }] : Object.entries(cifras.data.resumen.por_moneda ?? {}).map(([moneda, x]) => ({ moneda, total: Number(x.deuda_total) }))
+    : sumaPorMoneda(list.items.map(m => ({ monto: m.deuda_total, moneda: m.moneda })));
+  const deudaTotal = deudas.reduce((s, x) => Math.max(s, x.total), 0); // sólo para el tono: «hay deuda» en alguna moneda
   const mayorAtraso = list.items.reduce((s, m) => Math.max(s, m.dias_max_atraso || 0), 0);
   const parcial = list.total > list.items.length;
   const esperando = list.loading && list.items.length === 0;
   const hint = parcial ? 'Sólo las filas cargadas' : undefined;
 
   function exportar() {
+    // Una sola moneda: «Deuda (S/)»; varias: «Deuda» y una columna «Moneda» (el CSV no mezcla monedas bajo un mismo rótulo).
+    const monedas = [...new Set(list.items.map(m => m.moneda))];
+    const una = monedas.length <= 1 ? (monedas[0] ?? 'PEN') : null;
     descargarCSV(
       `morosidad-${hoyISO()}.csv`,
-      ['Unidad', 'Condominio', 'Torre', 'Propietario', 'Deuda (S/)', 'Cargos vencidos', 'Días de atraso'],
-      list.items.map(m => [texto(m.unidad), m.complejo?.nombre ?? '', m.estructura?.nombre ?? '', texto(m.propietario), Number(m.deuda_total).toFixed(2), m.cargos_vencidos, m.dias_max_atraso]),
+      ['Unidad', 'Condominio', 'Torre', 'Propietario', una ? `Deuda (${simboloDe(una)})` : 'Deuda', 'Cargos vencidos', 'Días de atraso', ...(una ? [] : ['Moneda'])],
+      list.items.map(m => [texto(m.unidad), m.complejo?.nombre ?? '', m.estructura?.nombre ?? '', texto(m.propietario), Number(m.deuda_total).toFixed(2), m.cargos_vencidos, m.dias_max_atraso, ...(una ? [] : [m.moneda])]),
     );
   }
 
@@ -52,7 +63,7 @@ export default function Morosidad() {
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: m => m.complejo?.nombre ?? '—' },
     { key: 'torre', header: 'Torre', hideBelow: 'sm', cell: m => m.estructura?.nombre ?? '—' },
     { key: 'propietario', header: 'Propietario', hideBelow: 'sm', cell: m => texto(m.propietario) || '—' },
-    { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{soles(m.deuda_total)}</span> },
+    { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{dinero(m.deuda_total, m.moneda)}</span> },
     { key: 'cargos', header: 'Cargos vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.cargos_vencidos}</span> },
     { key: 'atraso', header: 'Atraso', cell: m => <Badge tone={m.dias_max_atraso >= 30 ? 'bad' : 'warn'}>{m.dias_max_atraso} {m.dias_max_atraso === 1 ? 'día' : 'días'}</Badge> },
   ];
@@ -80,7 +91,7 @@ export default function Morosidad() {
       />
       <StatStrip
         stats={[
-          { label: 'Deuda vencida', value: esperando && !cifras.data ? <Skeleton className="h-7 w-28" /> : soles(deudaTotal), tone: deudaTotal > 0 ? 'bad' : undefined, hint: cifras.data ? undefined : hint },
+          { label: 'Deuda vencida', value: esperando && !cifras.data ? <Skeleton className="h-7 w-28" /> : deudas.length > 1 ? deudas.map(x => dinero(x.total, x.moneda)).join(' · ') : dinero(deudas[0]?.total ?? 0, deudas[0]?.moneda), tone: deudaTotal > 0 ? 'bad' : undefined, hint: cifras.data ? (deudas.length > 1 ? 'Una cifra por moneda: no se suman' : undefined) : hint },
           { label: 'Unidades morosas', value: esperando ? <Skeleton className="h-7 w-10" /> : list.total },
           { label: 'Mayor atraso', value: esperando ? <Skeleton className="h-7 w-20" /> : `${mayorAtraso} ${mayorAtraso === 1 ? 'día' : 'días'}`, tone: mayorAtraso >= 30 ? 'bad' : mayorAtraso > 0 ? 'warn' : undefined, hint },
         ]}

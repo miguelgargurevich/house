@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { api, errorText } from '../../../../api';
-import { Button, Input, Select, soles, useToast } from '../../../../ui';
+import { Button, Input, Select, dinero, useToast } from '../../../../ui';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, registrarPagoConVoucher, tamanoLegible } from '../../../shared/comprobantes';
 import type { ResultadoPagoMantenimiento } from '../../../shared/mantenimiento/tipos';
 import { METODOS, hoyISO } from '../cobranza/comun';
@@ -16,7 +16,7 @@ interface Form { metodo_pago: string; referencia: string; fecha_pago: string }
  * tiene la validación automática queda pagado; si no, queda en revisión. Con voucher la pantalla se queda mostrando el resultado hasta «Listo»
  * (`onRegistrado` se llama entonces; `onPagoCreado` avisa al instante que ya hay un pago, para refrescar listas sin cerrar nada).
  */
-export function FormPagoMantenimiento({ reciboId, unidadId, saldo, onRegistrado, onPagoCreado }: { reciboId: number; unidadId: number; saldo: string; onRegistrado: () => void; onPagoCreado?: () => void }) {
+export function FormPagoMantenimiento({ reciboId, unidadId, saldo, moneda, onRegistrado, onPagoCreado }: { reciboId: number; unidadId: number; saldo: string; moneda?: string; onRegistrado: () => void; onPagoCreado?: () => void }) {
   const toast = useToast();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({ defaultValues: { metodo_pago: 'transferencia', referencia: '', fecha_pago: hoyISO() } });
   const [archivo, setArchivo] = useState<File | null>(null);
@@ -52,7 +52,7 @@ export function FormPagoMantenimiento({ reciboId, unidadId, saldo, onRegistrado,
 
   return (
     <form onSubmit={handleSubmit(enviar)} className="grid gap-4 sm:grid-cols-2" noValidate>
-      <p className="text-sm sm:col-span-2">Se registrará el pago del saldo completo: <span className="num font-semibold">{soles(saldo)}</span>.</p>
+      <p className="text-sm sm:col-span-2">Se registrará el pago del saldo completo: <span className="num font-semibold">{dinero(saldo, moneda)}</span>.</p>
       <Select label="Método de pago" {...register('metodo_pago', { required: true })}>
         {METODOS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
       </Select>

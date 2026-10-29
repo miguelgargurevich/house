@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircleIcon, ExclamationTriangleIcon, MinusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { api } from '../../api';
-import { Alert, Badge, Button, Spinner, fechaCorta, soles } from '../../ui';
+import { Alert, Badge, Button, Spinner, dinero, fechaCorta } from '../../ui';
 import type { Tone } from '../../ui';
 import {
   AVISO_TARDA_GESTION, AVISO_TARDA_MS, AVISO_TARDA_RESIDENTE, INTERVALO_EVALUACION_MS,
@@ -62,6 +62,8 @@ interface Props {
   evaluacion: EvaluacionCompleta | null;
   /** Lo que se esperaba: monto del pago y fecha de emisión del recibo (el rango válido arranca 3 días antes). */
   montoEsperado: number | string;
+  /** Moneda del condominio del pago (ISO 4217; soles si falta): el monto esperado va en ella y un comprobante sin moneda se lee en ella. */
+  moneda?: string;
   validadoPorIA: boolean;
   puedeReevaluar: boolean;
   reevaluando: boolean;
@@ -72,7 +74,7 @@ interface Props {
 }
 
 /** Panel «Evaluación automática» del modal de validar: la IA lee el comprobante y el código lo compara con lo esperado. */
-export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, puedeReevaluar, reevaluando, onReevaluar, errorReevaluar, fase = 'normal' }: Props) {
+export function EvaluacionPanel({ evaluacion: ev, montoEsperado, moneda, validadoPorIA, puedeReevaluar, reevaluando, onReevaluar, errorReevaluar, fase = 'normal' }: Props) {
   const evaluando = estaEvaluando(ev?.estado, reevaluando, fase);
   const sinResultado = evaluando ? null : ev ? mensajeSinResultado(ev.estado, ev.error, fase === 'agotada') : null;
   // Condominio sin el módulo de IA: no es un fallo, es un plan; se dice así y no se ofrece «Reintentar».
@@ -80,7 +82,7 @@ export function EvaluacionPanel({ evaluacion: ev, montoEsperado, validadoPorIA, 
   const x = ev?.estado === 'completada' ? ev.extraido : null;
   const c = ev?.estado === 'completada' ? ev.coincidencias : null;
   const filas: { etiqueta: string; detectado: string | null; esperado?: string; ok: Comprobacion }[] = x && c ? [
-    { etiqueta: 'Monto', detectado: x.monto != null ? `${x.moneda === 'USD' ? 'US$ ' : ''}${x.moneda === 'USD' ? x.monto.toFixed(2) : soles(x.monto)}` : null, esperado: soles(montoEsperado), ok: c.monto },
+    { etiqueta: 'Monto', detectado: x.monto != null ? dinero(x.monto, x.moneda ?? moneda) : null, esperado: dinero(montoEsperado, moneda), ok: c.monto },
     { etiqueta: 'Destino', detectado: [x.destinatario_nombre, x.destino_numero ? `…${x.destino_numero}` : null].filter(Boolean).join(' · ') || null, esperado: 'Medios de pago activos', ok: c.destino },
     { etiqueta: 'Fecha', detectado: fechaDia(x.fecha), esperado: 'Dentro del rango del recibo', ok: c.fecha },
     { etiqueta: 'N.º de operación', detectado: x.numero_operacion, ok: x.numero_operacion ? true : null },

@@ -7,6 +7,8 @@ export type Metodo = 'transferencia' | 'yape' | 'plin' | 'efectivo' | 'tarjeta';
 export interface PagoResidente {
   id: number;
   monto: number | string;
+  /** Moneda del condominio del pago (ISO 4217). */
+  moneda: string;
   fecha_pago: string;
   metodo_pago: Metodo | string | null;
   referencia: string | null;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useList, useResource } from '../../../../api';
-import { Alert, Button, EmptyState, ErrorState, Input, Modal, Select, Skeleton, StatusBadge, fechaCorta, soles } from '../../../../ui';
+import { Alert, Button, EmptyState, ErrorState, Input, Modal, Select, Skeleton, StatusBadge, dinero, fechaCorta } from '../../../../ui';
 import type { Mantenimiento } from '../../../shared/mantenimiento/tipos';
 import { FormPagoMantenimiento } from '../mantenimientos/FormPagoMantenimiento';
 import { etiquetaRecibo } from './comun';
@@ -35,7 +35,7 @@ function ListaPorPagar({ reciboId, q, elegido, onElegir }: ListaProps) {
                     <span className="block text-sm font-medium"><span className="num">{m.unidad.codigo}</span>{m.unidad.estructura?.nombre ? ` · ${m.unidad.estructura.nombre}` : ''}{m.propietario ? ` · ${m.propietario.nombre}` : ''}</span>
                     <span className="block truncate text-xs text-muted">Vence {fechaCorta(m.fecha_vencimiento)}</span>
                   </span>
-                  <span className="flex shrink-0 items-center gap-3"><StatusBadge estado={m.estado} /><span className="num text-sm font-semibold">{soles(m.saldo)}</span></span>
+                  <span className="flex shrink-0 items-center gap-3"><StatusBadge estado={m.estado} /><span className="num text-sm font-semibold">{dinero(m.saldo, m.moneda)}</span></span>
                 </button>
               </li>
             ))}
@@ -81,7 +81,7 @@ export function RegistrarPagoModal({ onClose, onSaved }: { onClose: () => void; 
             {periodoActual && <ListaPorPagar key={periodoActual} reciboId={periodoActual} q={q} elegido={elegido} onElegir={setElegido} />}
             {elegido && (
               <section aria-label={`Registrar el pago de ${elegido.unidad.codigo}`} className="rounded border border-line p-4">
-                <FormPagoMantenimiento key={`${elegido.recibo_id}-${elegido.unidad_id}`} reciboId={elegido.recibo_id} unidadId={elegido.unidad_id} saldo={elegido.saldo} onRegistrado={() => { onSaved(); onClose(); }} />
+                <FormPagoMantenimiento key={`${elegido.recibo_id}-${elegido.unidad_id}`} reciboId={elegido.recibo_id} unidadId={elegido.unidad_id} saldo={elegido.saldo} moneda={elegido.moneda} onRegistrado={() => { onSaved(); onClose(); }} />
               </section>
             )}
           </>

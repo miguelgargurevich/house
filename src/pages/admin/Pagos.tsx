@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { BanknotesIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
-import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, StatusBadge, Tabs, Toolbar, fechaCorta, soles } from '../../ui';
+import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, StatusBadge, Tabs, Toolbar, dinero, dinerosPorMoneda, fechaCorta, sumaPorMoneda } from '../../ui';
 import type { Column } from '../../ui';
 import { VeredictoBadge } from '../shared/evaluacion';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
@@ -46,7 +46,9 @@ export default function Pagos() {
   });
   const textos = TEXTOS[pestana];
 
-  const cobradoPagina = list.items.reduce((s, p) => s + (Number(p.mantenimiento?.total ?? p.monto) || 0), 0);
+  // La suma de la página va POR MONEDA: dos condominios de monedas distintas nunca se suman.
+  const montosPagina = list.items.map(p => ({ monto: p.mantenimiento?.total ?? p.monto, moneda: p.moneda }));
+  const monedasEnPagina = sumaPorMoneda(montosPagina).length;
   const cargandoStats = list.loading && list.items.length === 0;
   // Cada torre cobra a su cuenta: la suma de la página puede juntar varias; se dice, y filtrar por torre las separa.
   const torresEnPagina = new Set(list.items.map(p => p.unidad?.estructura?.id ?? 0)).size;
@@ -72,7 +74,7 @@ export default function Pagos() {
       <span className="block"><Badge>{metodoLabel(p.metodo_pago)}</Badge>{p.referencia && <span className="num mt-1 block text-xs text-muted">{p.referencia}</span>}</span>
     ) },
     ...(pestana === 'rechazado' ? [{ key: 'motivo', header: 'Motivo', hideBelow: 'md' as const, cell: (p: PagoFila) => <span className="text-muted">{p.motivo_rechazo ?? '—'}</span> }] : []),
-    { key: 'monto', header: 'Total', align: 'right', cell: p => <span className="num whitespace-nowrap font-medium">{soles(monto(p))}</span> },
+    { key: 'monto', header: 'Total', align: 'right', cell: p => <span className="num whitespace-nowrap font-medium">{dinero(monto(p), p.moneda)}</span> },
     { key: 'estado', header: 'Estado', cell: p => (
       <span className="flex flex-col items-start gap-1">
         <StatusBadge estado={p.estado_validacion} />
@@ -98,7 +100,7 @@ export default function Pagos() {
       />
       <StatStrip
         stats={[
-          { label: textos.stat, value: cargandoStats ? <Skeleton className="h-7 w-28" /> : soles(cobradoPagina), tone: textos.tone, hint: !cargandoStats && torresEnPagina > 1 ? `Suma ${torresEnPagina} torres: filtra por torre para separarlas` : undefined },
+          { label: textos.stat, value: cargandoStats ? <Skeleton className="h-7 w-28" /> : dinerosPorMoneda(montosPagina), tone: textos.tone, hint: !cargandoStats && monedasEnPagina > 1 ? 'Una cifra por moneda: no se suman' : !cargandoStats && torresEnPagina > 1 ? `Suma ${torresEnPagina} torres: filtra por torre para separarlas` : undefined },
           { label: 'Pagos en esta página', value: cargandoStats ? <Skeleton className="h-7 w-10" /> : list.items.length, hint: list.error ? undefined : `${list.total} en total` },
         ]}
       />

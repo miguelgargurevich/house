@@ -16,6 +16,8 @@ export interface Mantenimiento {
   fecha_vencimiento: string;
   unidad: { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null };
   propietario: { id: number; nombre: string } | null;
+  /** Moneda del condominio (ISO 4217): todos los montos van en ella. */
+  moneda: string;
   total: string;
   cobrado: string;
   en_revision: string;
@@ -87,10 +89,10 @@ export interface AguaMantenimiento {
   lectura_anterior: string;
   fecha_actual: string;
   lectura_actual: string;
-  /** S/ por m³. */
+  /** Moneda del condominio por m³. */
   factor: string;
   consumo_m3: string;
-  /** Consumo × factor, en S/. */
+  /** Consumo × factor, en la moneda del condominio. */
   monto: string;
   tiene_foto: boolean;
   /** URL de la foto del contómetro (con el alcance de quien mira); `null` si no hay. */
@@ -108,9 +110,9 @@ export interface DetalleMantenimiento extends Omit<Mantenimiento, 'propietario'>
   agua: AguaMantenimiento | null;
   /** «Correo del block» para enviar vouchers. */
   correo_vouchers: string | null;
-  /** Concepto de mora/multa del recibo que este departamento no debe: se imprime en S/ 0.00. */
+  /** Concepto de mora/multa del recibo que este departamento no debe: se imprime en 0.00. */
   linea_mora: string | null;
-  condominio: { id: number; nombre: string; direccion: string | null; notas_pago: string | null; admin_nombre: string | null; admin_celular: string | null; admin_correo: string | null; cabecera_url: string | null } | null;
+  condominio: { id: number; nombre: string; moneda: string; direccion: string | null; notas_pago: string | null; admin_nombre: string | null; admin_celular: string | null; admin_correo: string | null; cabecera_url: string | null } | null;
   empresa: { id: number; nombre: string; ruc: string | null; direccion: string | null; telefono: string | null; email: string | null; logo_url: string | null } | null;
   propietario: { id: number; nombre: string } | null;
   inquilino: { id: number; nombre: string } | null;

@@ -77,8 +77,8 @@ describe('recibo de mantenimiento', () => {
 
   it('el recibo impreso incluye todos los conceptos, el total y los medios de pago', () => {
     assert.match(articulo, /d\.conceptos\.map\(/);
-    assert.match(articulo, /monto2\(d\.total\)/);
-    assert.match(articulo, /monto2\(d\.total_general\)/);
+    assert.match(articulo, /monto2\(d\.total, d\.moneda\)/);
+    assert.match(articulo, /monto2\(d\.total_general, d\.moneda\)/);
     assert.match(articulo, /SALDO POR PAGAR/);
     assert.match(articulo, /d\.medios_pago\.filter\(m => m\.ambito === 'block'\)/, 'las cuentas del block');
     assert.match(articulo, /d\.medios_pago\.filter\(m => m\.ambito !== 'block'\)/, 'y las del condominio, separadas');
@@ -100,7 +100,7 @@ describe('comprobante del residente', () => {
   });
 
   it('el comprobante muestra el monto, los datos del pago y la nota de estado', () => {
-    assert.match(funcion, /soles\(montoPago\(p\)\)/);
+    assert.match(funcion, /dinero\(montoPago\(p\), p\.moneda\)/);
     assert.match(funcion, /<DefinitionList/);
     assert.match(funcion, /Pago validado automáticamente por la inteligencia artificial/);
   });

@@ -29,11 +29,11 @@ const CONCEPTOS = [
 /** B01-804 de octubre 2026 con datos de prueba (la cuenta es falsa). */
 const completo = (): DetalleMantenimiento => ({
   recibo_id: 2, unidad_id: 1, numero: '2026-10-B01-804', titulo: 'Mantenimiento de octubre de 2026 · B01-804', mes: 10, anio: 2026,
-  fecha_emision: '2026-10-27T00:00:00.000Z', fecha_vencimiento: '2026-11-02T00:00:00.000Z', fecha_corte_agua: '2026-11-10T00:00:00.000Z', estado: 'pendiente',
+  fecha_emision: '2026-10-27T00:00:00.000Z', fecha_vencimiento: '2026-11-02T00:00:00.000Z', fecha_corte_agua: '2026-11-10T00:00:00.000Z', estado: 'pendiente', moneda: 'PEN',
   total: '272.15', cobrado: '0.00', en_revision: '0.00', saldo: '272.15', deuda_acumulada: '0.00', total_general: '272.15',
   agua: { fecha_anterior: '2026-09-10T00:00:00.000Z', lectura_anterior: '1416.574', fecha_actual: '2026-10-10T00:00:00.000Z', lectura_actual: '1430.897', factor: '4.9300', consumo_m3: '14.323', monto: '70.61', tiene_foto: true, foto_url: '/api/recibos/2/agua/1/foto?v=1' },
   correo_vouchers: 'junta.block1@example.com', linea_mora: 'MULTA PAGO FUERA DE FECHA',
-  condominio: { id: 1, nombre: 'CONDOMINIO LOS LIBERTADORES DE SURCO', direccion: 'AV. GAVIOTAS N° 2121 - SANTIAGO DE SURCO', notas_pago: 'Todo pago en ventanilla tiene un cobro adicional de 9 soles\n\nLos pagos realizados en provincia tienen un cobro adicional de 9 soles', admin_nombre: 'ADMINISTRADORA DE PRUEBA', admin_celular: '999 000 111', admin_correo: 'adm@example.com', cabecera_url: '/api/complejos/1/cabecera?v=1' },
+  condominio: { id: 1, nombre: 'CONDOMINIO LOS LIBERTADORES DE SURCO', moneda: 'PEN', direccion: 'AV. GAVIOTAS N° 2121 - SANTIAGO DE SURCO', notas_pago: 'Todo pago en ventanilla tiene un cobro adicional de 9 soles\n\nLos pagos realizados en provincia tienen un cobro adicional de 9 soles', admin_nombre: 'ADMINISTRADORA DE PRUEBA', admin_celular: '999 000 111', admin_correo: 'adm@example.com', cabecera_url: '/api/complejos/1/cabecera?v=1' },
   empresa: { id: 1, nombre: 'GRUPO PRUEBA SAC', ruc: '20000000001', direccion: null, telefono: null, email: null, logo_url: '/api/empresas/1/logo?v=1' },
   unidad: { id: 1, codigo: 'B01-804', estructura: { id: 1, nombre: 'Block 1' } },
   propietario: { id: 1, nombre: 'FERNANDEZ GARGUVERICH MIGUEL ARTURO' }, inquilino: null,

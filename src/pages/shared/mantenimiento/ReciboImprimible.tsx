@@ -1,5 +1,6 @@
 import { PrinterIcon } from '@heroicons/react/24/outline';
 import type { ReactNode } from 'react';
+import { simboloDe } from '../../../lib/paises';
 import { Button, Modal, cx, fechaCorta, nombreDelMes } from '../../../ui';
 import { fechaLarga, fechaNumerica, lineasDeNotas, monto2 } from './formato';
 import { ImagenRecibo } from './ImagenRecibo';
@@ -60,8 +61,9 @@ function CajaMedio({ m, correo }: { m: MedioPagoMant; correo: string | null }) {
   );
 }
 
-/** Tabla de conceptos con bordes, como la primera cara del impreso: concepto | monto S/, total del mantenimiento, deuda acumulada y total. */
+/** Tabla de conceptos con bordes, como la primera cara del impreso: concepto | monto (con el símbolo de la moneda), total del mantenimiento, deuda acumulada y total. */
 function TablaConceptos({ d }: { d: DetalleMantenimiento }) {
+  const simbolo = simboloDe(d.moneda);
   const fila = 'px-1.5 py-0.5 align-top print:py-[1px]';
   return (
     <table className={cx('w-full border-collapse', linea)}>
@@ -69,14 +71,14 @@ function TablaConceptos({ d }: { d: DetalleMantenimiento }) {
       <thead>
         <tr className={gris}>
           <th scope="col" className={cx(linea, 'px-1.5 py-0.5 text-center font-medium')}>CONCEPTO</th>
-          <th scope="col" className={cx(linea, 'w-24 px-1.5 py-0.5 text-center font-medium sm:w-32')}>MONTO S/</th>
+          <th scope="col" className={cx(linea, 'w-24 px-1.5 py-0.5 text-center font-medium sm:w-32')}>MONTO {simbolo}</th>
         </tr>
       </thead>
       <tbody>
         {d.conceptos.map(c => (
           <tr key={c.cargo_id}>
             <td className={cx(linea, fila, 'uppercase')}>{c.concepto}{c.es_recargo && <span> (recargo)</span>}{c.motivo && <span className="block text-[0.9em] normal-case text-neutral-600">{c.motivo}</span>}</td>
-            <td className={cx(linea, fila, 'num text-right')}>{monto2(c.monto)}</td>
+            <td className={cx(linea, fila, 'num text-right')}>{monto2(c.monto, d.moneda)}</td>
           </tr>
         ))}
         {d.linea_mora && (
@@ -87,22 +89,22 @@ function TablaConceptos({ d }: { d: DetalleMantenimiento }) {
         )}
         <tr className={cx('font-bold', gris)}>
           <th scope="row" className={cx(linea, fila, 'text-center')}>TOTAL MANTENIMIENTO</th>
-          <td className={cx(linea, fila, 'num text-right')}>{monto2(d.total)}</td>
+          <td className={cx(linea, fila, 'num text-right')}>{monto2(d.total, d.moneda)}</td>
         </tr>
         <tr>
           <th scope="row" className={cx(linea, fila, 'text-left font-normal')}>DEUDA ACUMULADA Y/O SALDO A FAVOR</th>
-          <td className={cx(linea, fila, 'num text-right')}>{monto2(d.deuda_acumulada)}</td>
+          <td className={cx(linea, fila, 'num text-right')}>{monto2(d.deuda_acumulada, d.moneda)}</td>
         </tr>
         <tr className={cx('text-[1.1em] font-bold', gris)}>
           <th scope="row" className={cx(linea, fila, 'text-center')}>TOTAL</th>
-          <td className={cx(linea, fila, 'num text-right')}>{monto2(d.total_general)}</td>
+          <td className={cx(linea, fila, 'num text-right')}>{monto2(d.total_general, d.moneda)}</td>
         </tr>
       </tbody>
       {(Number(d.cobrado) > 0 || Number(d.en_revision) > 0) && (
         <tfoot>
-          {Number(d.cobrado) > 0 && <tr><th scope="row" className={cx(linea, fila, 'text-left font-normal')}>PAGADO (ESTE MANTENIMIENTO)</th><td className={cx(linea, fila, 'num text-right')}>{monto2(d.cobrado)}</td></tr>}
-          {Number(d.en_revision) > 0 && <tr><th scope="row" className={cx(linea, fila, 'text-left font-normal')}>EN REVISIÓN</th><td className={cx(linea, fila, 'num text-right')}>{monto2(d.en_revision)}</td></tr>}
-          <tr className="font-bold"><th scope="row" className={cx(linea, fila, 'text-left')}>SALDO POR PAGAR (ESTE MANTENIMIENTO)</th><td className={cx(linea, fila, 'num text-right')}>{monto2(d.saldo)}</td></tr>
+          {Number(d.cobrado) > 0 && <tr><th scope="row" className={cx(linea, fila, 'text-left font-normal')}>PAGADO (ESTE MANTENIMIENTO)</th><td className={cx(linea, fila, 'num text-right')}>{monto2(d.cobrado, d.moneda)}</td></tr>}
+          {Number(d.en_revision) > 0 && <tr><th scope="row" className={cx(linea, fila, 'text-left font-normal')}>EN REVISIÓN</th><td className={cx(linea, fila, 'num text-right')}>{monto2(d.en_revision, d.moneda)}</td></tr>}
+          <tr className="font-bold"><th scope="row" className={cx(linea, fila, 'text-left')}>SALDO POR PAGAR (ESTE MANTENIMIENTO)</th><td className={cx(linea, fila, 'num text-right')}>{monto2(d.saldo, d.moneda)}</td></tr>
         </tfoot>
       )}
     </table>
@@ -112,6 +114,7 @@ function TablaConceptos({ d }: { d: DetalleMantenimiento }) {
 /** «Lectura de contómetro» (foto) y «Detalle del consumo de agua». Sin lectura no sale; sin foto, el detalle ocupa todo el ancho. */
 function BloqueAgua({ d }: { d: DetalleMantenimiento }) {
   const a = d.agua;
+  const simbolo = simboloDe(d.moneda);
   if (!a) return null;
   const celda = cx(linea, 'px-1 py-0.5 text-center');
   return (
@@ -140,14 +143,14 @@ function BloqueAgua({ d }: { d: DetalleMantenimiento }) {
                 <th scope="col" className={cx(celda, 'font-normal')}>Lect. Actual</th>
                 <th scope="col" className={cx(celda, 'font-normal')}>consumo m3</th>
                 <th scope="col" className={cx(celda, 'font-normal')}>factor</th>
-                <th scope="col" className={cx(celda, 'font-normal')}>consumo S/</th>
+                <th scope="col" className={cx(celda, 'font-normal')}>consumo {simbolo}</th>
               </tr>
               <tr className="num">
                 <td className={celda}>{a.lectura_anterior}</td>
                 <td className={celda}>{a.lectura_actual}</td>
                 <td className={celda}>{a.consumo_m3}</td>
                 <td className={celda}>{Number(a.factor).toString()}</td>
-                <td className={celda}>{monto2(a.monto)}</td>
+                <td className={celda}>{monto2(a.monto, d.moneda)}</td>
               </tr>
             </tbody>
           </table>

@@ -18,7 +18,7 @@ before(async () => {
 });
 
 const mes = (anio: number, m: number, extra: Partial<MesHistorial> = {}): MesHistorial => ({
-  recibo_id: anio * 100 + m, anio, mes: m, unidad: { id: 1, codigo: 'H-1' }, total: '100.00', por_concepto: [{ concepto: 'Agua', monto: '40.00' }, { concepto: 'Limpieza', monto: '60.00' }],
+  recibo_id: anio * 100 + m, anio, mes: m, unidad: { id: 1, codigo: 'H-1' }, moneda: 'PEN', total: '100.00', por_concepto: [{ concepto: 'Agua', monto: '40.00' }, { concepto: 'Limpieza', monto: '60.00' }],
   pagado: '100.00', saldo: '0.00', estado: 'pagado', fecha_vencimiento: `${anio}-${String(m).padStart(2, '0')}-10`, fecha_pago: null, dias_vs_vencimiento: null, agua_m3: null, agua_promedio_block: null, ...extra,
 });
 
@@ -27,7 +27,7 @@ const resumen = (extra: Partial<ResumenHistorial> = {}): ResumenHistorial => ({
 });
 
 const datos = (meses: MesHistorial[], extra: Partial<Historial> = {}): Historial => ({
-  unidades: [{ id: 1, codigo: 'H-1', estructura: null }], anios: [2026], anio: null, resumen: resumen({ meses_en_periodo: new Set(meses.map(m => `${m.anio}-${m.mes}`)).size }), meses, ...extra,
+  unidades: [{ id: 1, codigo: 'H-1', estructura: null }], anios: [2026], anio: null, moneda: 'PEN', resumen: resumen({ meses_en_periodo: new Set(meses.map(m => `${m.anio}-${m.mes}`)).size }), meses, ...extra,
 });
 
 describe('series de los gráficos (funciones puras)', () => {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { api, errorText } from '../../../../api';
 import { useAuth } from '../../../../auth/AuthContext';
-import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, fechaCorta, soles, useToast } from '../../../../ui';
+import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, dinero, fechaCorta, useToast } from '../../../../ui';
 import { ComprobanteVista } from '../../../shared/ComprobanteVista';
 import type { ComprobanteMeta } from '../../../shared/comprobantes';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../../shared/comprobantes';
@@ -18,6 +18,8 @@ export interface PagoRevisable {
   /** De dónde salió `fecha_pago`: la del voucher (leída por la IA), la declarada, o una que no se pudo leer/aplicar. */
   fecha_origen?: FechaOrigen;
   monto: number | string;
+  /** Moneda del condominio del pago (la trae el servidor en cada pago). */
+  moneda?: string;
   metodo_pago: string | null;
   referencia: string | null;
   observaciones?: string | null;
@@ -126,7 +128,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
         <div className="space-y-5">
           <div className="rounded bg-surface2 p-4">
             <div className="flex items-start justify-between gap-3">
-              <div><p className="num text-2xl font-semibold">{soles(monto)}</p>{pago.mantenimiento && <p className="text-xs text-muted">Mantenimiento completo · {pago.mantenimiento.conceptos} conceptos</p>}</div>
+              <div><p className="num text-2xl font-semibold">{dinero(monto, pago.moneda)}</p>{pago.mantenimiento && <p className="text-xs text-muted">Mantenimiento completo · {pago.mantenimiento.conceptos} conceptos</p>}</div>
               <StatusBadge estado={estadoPago ?? pago.estado_validacion} />
             </div>
             <div className="mt-4">
@@ -160,7 +162,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               Comprobante{comprobante && <span className="ml-2 font-normal text-muted">{comprobante.nombre} · {tamanoLegible(comprobante.tamano)}</span>}
             </h3>
             {comprobante ? (
-              <ComprobanteVista key={comprobante.created_at} pagoId={pago.id} descripcion={`Comprobante de pago de ${pago.unidad?.codigo ?? 'la unidad'}, ${soles(monto)}`} nombre={comprobante.nombre} />
+              <ComprobanteVista key={comprobante.created_at} pagoId={pago.id} descripcion={`Comprobante de pago de ${pago.unidad?.codigo ?? 'la unidad'}, ${dinero(monto, pago.moneda)}`} nombre={comprobante.nombre} />
             ) : (
               <>
                 <Alert tone="warn">{pago.usuario ? `${pago.usuario.nombre} no adjuntó comprobante.` : 'Este pago no tiene comprobante adjunto.'}</Alert>
@@ -191,6 +193,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
             <EvaluacionPanel
               evaluacion={ia.ev}
               montoEsperado={monto}
+              moneda={pago.moneda}
               validadoPorIA={ia.validadoPorIA || pago.validado_por_ia === true}
               puedeReevaluar={porValidar}
               reevaluando={ia.esperando}

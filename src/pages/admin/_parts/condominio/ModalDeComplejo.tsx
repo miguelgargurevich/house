@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { api, errorText } from '../../../../api';
+import { simboloDe } from '../../../../lib/paises';
 import { Button, Input, Modal, Select, TelefonoInput, Textarea, useToast } from '../../../../ui';
 import { parsearTelefono } from '../../../../lib/telefono';
 import { TIPOS_COMPLEJO, useOpciones } from '../catalogo/opciones';
+import { SelectorPaisMoneda, type PaisMoneda } from './SelectorPaisMoneda';
 
 export interface FilaComplejo {
   id: number;
@@ -12,12 +14,15 @@ export interface FilaComplejo {
   direccion: string | null;
   descripcion: string | null;
   empresa_id: number | null;
+  /** País (ISO 3166-1) y moneda (ISO 4217) del condominio. */
+  pais?: string;
+  moneda?: string;
   empresa?: { id: number; nombre: string } | null;
   _count?: { unidades: number };
   unidades_count?: number;
   /** Número de torres del condominio. */
   blocks_count?: number;
-  /** Mora (S/) por pago fuera de fecha, en el recibo del mes siguiente; «0.00» = sin mora. */
+  /** Mora (en la moneda del condominio) por pago fuera de fecha, en el recibo del mes siguiente; «0.00» = sin mora. */
   mora_monto?: string;
   /** Contrato de administración vigente (desde cuándo la administra su empresa). */
   contrato_vigente?: { id: number; fecha_inicio: string } | null;
@@ -37,6 +42,9 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
   const nuevo = complejo === 'nuevo';
   const empresas = useOpciones(esSuper && nuevo ? '/api/empresas' : null);
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>();
+  // País y moneda aparte del formulario: al crear, vacío = el de la empresa / el de su país (el servidor lo completa).
+  const [paisMoneda, setPaisMoneda] = useState<PaisMoneda>({ pais: '', moneda: '' });
+  useEffect(() => { if (complejo) setPaisMoneda(complejo === 'nuevo' ? { pais: '', moneda: '' } : { pais: complejo.pais ?? 'PE', moneda: complejo.moneda ?? 'PEN' }); }, [complejo]);
 
   // El formulario se prepara al abrir el modal.
   useEffect(() => {
@@ -49,6 +57,8 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
   async function guardar(v: Form) {
     const body: Record<string, unknown> = { nombre: v.nombre.trim(), tipo: v.tipo, direccion: v.direccion.trim() || null, descripcion: v.descripcion.trim() || null, mora_monto: v.mora_monto.trim().replace(',', '.'),
       notas_pago: v.notas_pago.trim() || null, admin_nombre: v.admin_nombre.trim() || null, admin_celular: v.admin_celular.trim() || null, admin_correo: v.admin_correo.trim() || null };
+    if (paisMoneda.pais) body.pais = paisMoneda.pais;
+    if (paisMoneda.moneda) body.moneda = paisMoneda.moneda;
     // La administradora se elige al crear; después se cambia con «Cambiar de administradora» (cierra un contrato y abre otro).
     if (esSuper && nuevo) body.empresa_id = Number(v.empresa_id);
     try {
@@ -78,8 +88,9 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
           </Select>
         )}
         <Input label="Dirección" className="sm:col-span-2" placeholder="Av. Arequipa 1234, Lince" {...register('direccion')} />
+        <SelectorPaisMoneda valor={paisMoneda} onCambio={setPaisMoneda} alCrear={nuevo} />
         <Input
-          label="Mora por pago fuera de fecha (S/)"
+          label={`Mora por pago fuera de fecha (${simboloDe(paisMoneda.moneda)})`}
           className="sm:col-span-2"
           inputMode="decimal"
           hint="Se agrega al recibo del mes siguiente a quien no pagó a tiempo (hasta el día de vencimiento, según la fecha de su voucher). Pon 0 si no cobras mora."

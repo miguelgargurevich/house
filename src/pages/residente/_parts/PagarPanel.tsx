@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { CameraIcon } from '@heroicons/react/24/outline';
 import { ACCEPT_COMPROBANTE, tamanoLegible } from '../../shared/comprobantes';
-import { Button, Input, Select, Skeleton, fechaCorta, soles } from '../../../ui';
+import { Button, Input, Select, Skeleton, dinero, fechaCorta } from '../../../ui';
 import { FORM_PAGO } from './pago';
 import { METODOS } from './tipos';
 import type { Metodo } from './tipos';
@@ -36,7 +36,7 @@ export function PanelPago(p: PanelProps) {
       <div className="rounded border border-line bg-surface2 px-4 py-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p className="text-sm text-muted">Monto a pagar</p>
-          <div className="num text-2xl font-semibold">{p.saldo !== null ? soles(p.saldo) : <Skeleton className="h-7 w-32" />}</div>
+          <div className="num text-2xl font-semibold">{p.saldo !== null ? dinero(p.saldo, mant.moneda) : <Skeleton className="h-7 w-32" />}</div>
         </div>
         <p className="mt-1 text-sm text-muted">
           {mant.titulo.split(' · ')[0]} · {mant.unidad.codigo}{mant.unidad.estructura?.nombre ? ` · ${mant.unidad.estructura.nombre}` : ''} · vence el {fechaCorta(mant.fecha_vencimiento)}

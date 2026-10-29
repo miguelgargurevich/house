@@ -2,7 +2,8 @@ import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../../../api';
-import { Alert, Button, EmptyState, ErrorState, IconButton, Input, Modal, Select, Skeleton, Textarea, soles, useToast } from '../../../../ui';
+import { simboloDe } from '../../../../lib/paises';
+import { Alert, Button, EmptyState, ErrorState, IconButton, Input, Modal, Select, Skeleton, Textarea, dinero, useToast } from '../../../../ui';
 import { fechaAISO, hoyISO, nombreMes } from './comun';
 import type { Complejo, Concepto, Lista } from './comun';
 import { nombreTorre } from './torres';
@@ -48,6 +49,8 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
   // Cada torre tiene su propio recibo: con torres se elige una o «todas» (un recibo por torre); un condominio sin torres emite uno solo.
   const torres = useTorres(complejoElegido, Boolean(complejoElegido));
   const opcionesTorre = complejoElegido ? torres.data?.items ?? [] : [];
+  // Los montos del recibo van en la moneda del condominio elegido.
+  const moneda = complejos.data?.items.find(c => String(c.id) === complejoElegido)?.moneda;
   const totalPorUnidad = (filas ?? []).reduce((s, f) => s + (Number(f?.monto) || 0), 0);
 
   const cargando = complejos.loading || conceptos.loading;
@@ -141,7 +144,7 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
                       <option value="">Elige un concepto</option>
                       {opcionesConcepto.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </Select>
-                    <Input label="Monto (S/)" type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00" error={ce?.monto && 'Monto mayor a 0'}
+                    <Input label={`Monto (${simboloDe(moneda)})`} type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00" error={ce?.monto && 'Monto mayor a 0'}
                       {...register(`conceptos.${i}.monto`, { required: true, validate: v => Number(v) > 0 })} />
                     <label className={`flex h-10 items-center gap-2 text-sm ${i === 0 ? 'sm:mt-[1.625rem]' : ''}`}>
                       <input type="checkbox" className="h-4 w-4 accent-brand" {...register(`conceptos.${i}.es_recargo`)} />
@@ -165,7 +168,7 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
           <div className="space-y-3 sm:col-span-2">
             <div className="flex items-baseline justify-between border-t border-line pt-4">
               <span className="text-sm text-muted">Total por unidad</span>
-              <span className="num text-xl font-semibold">{soles(totalPorUnidad)}</span>
+              <span className="num text-xl font-semibold">{dinero(totalPorUnidad, moneda)}</span>
             </div>
             <Alert>{opcionesTorre.length === 0
               ? 'Se generará un cargo por cada unidad activa del condominio.'

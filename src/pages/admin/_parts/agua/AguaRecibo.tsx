@@ -2,7 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, CameraIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useResource } from '../../../../api';
-import { Alert, Button, Card, ConfirmDialog, ErrorState, IconButton, Input, Skeleton, soles, useToast } from '../../../../ui';
+import { simboloDe } from '../../../../lib/paises';
+import { Alert, Button, Card, ConfirmDialog, ErrorState, IconButton, Input, Skeleton, dinero, useToast } from '../../../../ui';
 import { avisoAgua, cuentaAgua } from './calculo';
 import { DatosRecibo } from './DatosRecibo';
 import { FotoContometroModal } from './FotoContometroModal';
@@ -113,6 +114,7 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
   if (error) return <Card><ErrorState message={error} onRetry={reload} /></Card>;
   if (!data && loading) return <Card><div className="space-y-3 p-5"><Skeleton className="h-10 w-full" /><Skeleton className="h-40 w-full" /></div></Card>;
   if (!data) return null;
+  const simbolo = simboloDe(data.moneda);
 
   return (
     <div className="space-y-4">
@@ -130,7 +132,7 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
             <p className="text-sm text-muted">La lectura anterior sale de la actual del mes previo. Escribe la actual de cada departamento, o sube el Excel con la plantilla. Si el agua que cobra el recibo no cuadra con la lectura, la fila lo avisa; no cambia ningún monto.</p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <Input label="Factor (S/ por m³)" inputMode="decimal" className="w-36" placeholder="Ej. 4.93" value={factor} onChange={e => setFactor(e.target.value)} />
+            <Input label={`Factor (${simbolo} por m³)`} inputMode="decimal" className="w-36" placeholder="Ej. 4.93" value={factor} onChange={e => setFactor(e.target.value)} />
             <Button variant="secondary" className="mb-6" disabled={!factor.trim()} onClick={aplicarFactor}>Aplicar a todas las filas</Button>
             <div className="mb-6 ml-auto flex flex-wrap gap-2">
               <Button variant="secondary" icon={<ArrowDownTrayIcon className="h-4 w-4" />} onClick={() => window.location.assign(`/api/recibos/${reciboId}/agua/plantilla`)}>Descargar plantilla</Button>
@@ -166,8 +168,8 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
                   <th scope="col" className="px-2 py-2 font-medium">Lectura actual</th>
                   <th scope="col" className="px-2 py-2 font-medium">Factor</th>
                   <th scope="col" className="px-2 py-2 text-right font-medium">m³</th>
-                  <th scope="col" className="px-2 py-2 text-right font-medium">Lectura S/</th>
-                  <th scope="col" className="px-2 py-2 text-right font-medium">Recibo S/</th>
+                  <th scope="col" className="px-2 py-2 text-right font-medium">Lectura {simbolo}</th>
+                  <th scope="col" className="px-2 py-2 text-right font-medium">Recibo {simbolo}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -180,7 +182,7 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
                   // Mientras se edita, la vista previa; ya guardada, lo que calculó el servidor.
                   const monto = sucia ? c?.monto ?? null : f.lectura?.monto ?? c?.monto ?? null;
                   const m3 = sucia ? c?.consumo_m3 ?? null : f.lectura?.consumo_m3 ?? c?.consumo_m3 ?? null;
-                  const alerta = sucia ? (c ? avisoAgua(c.monto, f.agua_recibo) : null) : f.alerta;
+                  const alerta = sucia ? (c ? avisoAgua(c.monto, f.agua_recibo, data.moneda) : null) : f.alerta;
                   const malo = errores[f.unidad.codigo];
                   const incoherente = b.lc.trim() !== '' && b.la.trim() !== '' && !c;
                   return (
@@ -197,8 +199,8 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
                         <td className="px-2 py-1.5"><input inputMode="decimal" aria-label={`Lectura actual de ${f.unidad.codigo}`} aria-invalid={incoherente || undefined} className={`${campo} num`} value={b.lc} onChange={e => editar(f.unidad.id, { lc: e.target.value })} /></td>
                         <td className="w-24 px-2 py-1.5"><input inputMode="decimal" aria-label={`Factor de ${f.unidad.codigo}`} className={`${campo} num`} value={b.fx} onChange={e => editar(f.unidad.id, { fx: e.target.value })} /></td>
                         <td className="num whitespace-nowrap px-2 py-1.5 text-right">{m3 ?? '—'}</td>
-                        <td className="num whitespace-nowrap px-2 py-1.5 text-right font-medium">{monto !== null ? soles(monto) : '—'}</td>
-                        <td className="num whitespace-nowrap px-2 py-1.5 text-right text-muted">{f.agua_recibo !== null ? soles(f.agua_recibo) : '—'}</td>
+                        <td className="num whitespace-nowrap px-2 py-1.5 text-right font-medium">{monto !== null ? dinero(monto, data.moneda) : '—'}</td>
+                        <td className="num whitespace-nowrap px-2 py-1.5 text-right text-muted">{f.agua_recibo !== null ? dinero(f.agua_recibo, data.moneda) : '—'}</td>
                       </tr>
                       {(alerta || malo || incoherente) && (
                         <tr>

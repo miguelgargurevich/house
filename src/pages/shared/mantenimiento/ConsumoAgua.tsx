@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline';
-import { Button, Modal, soles } from '../../../ui';
+import { monedaEnPlural, simboloDe } from '../../../lib/paises';
+import { Button, Modal, dinero } from '../../../ui';
 import { fechaNumerica } from './formato';
 import { ImagenRecibo } from './ImagenRecibo';
 import type { AguaMantenimiento } from './tipos';
 
 /** Detalle del consumo de agua del departamento: lecturas, m³, factor y monto, con la foto del contómetro (se puede ampliar). */
-export function ConsumoAgua({ agua, codigo }: { agua: AguaMantenimiento; codigo: string }) {
+export function ConsumoAgua({ agua, codigo, moneda }: { agua: AguaMantenimiento; codigo: string; moneda?: string }) {
   const [ampliada, setAmpliada] = useState(false);
   const datos: [string, string][] = [
     [`Lectura anterior (${fechaNumerica(agua.fecha_anterior)})`, agua.lectura_anterior],
     [`Lectura actual (${fechaNumerica(agua.fecha_actual)})`, agua.lectura_actual],
     ['Consumo', `${agua.consumo_m3} m³`],
-    ['Factor', `S/ ${Number(agua.factor)} por m³`],
-    ['Consumo en soles', soles(agua.monto)],
+    ['Factor', `${simboloDe(moneda)} ${Number(agua.factor)} por m³`],
+    [`Consumo en ${monedaEnPlural(moneda)}`, dinero(agua.monto, moneda)],
   ];
   return (
     <div className="flex flex-col gap-4 sm:flex-row">
