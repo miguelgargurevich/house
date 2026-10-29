@@ -16,7 +16,10 @@ type Dec = Prisma.Decimal;
 
 /** Meses con recibo que se muestran cuando no se pide un año. */
 export const MESES_POR_DEFECTO = 12;
-/** Con menos lecturas en el recibo, el promedio del block no se publica: con 1 o 2 vecinos se podría adivinar el consumo de otro. */
+/**
+ * Con menos lecturas en el recibo, el promedio del block no se publica: con 1 o 2 vecinos se podría adivinar el consumo de otro. Como en el total
+ * (`MIN_UNIDADES_PROMEDIO`), `MIN_LECTURAS_PROMEDIO - 1` de ellas deben ser AJENAS: quien tiene dos unidades con lectura despejaría la del vecino.
+ */
 export const MIN_LECTURAS_PROMEDIO = 3;
 /**
  * El promedio del total del block sale con al menos estas unidades en el recibo (la tuya incluida). Se exige que `MIN_UNIDADES_PROMEDIO - 1` sean
@@ -200,15 +203,15 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
   const lecturas = reciboIds.length
     ? await prisma.lecturaAgua.findMany({ where: { unidad_id: { in: elegidas.map((u) => u.id) }, recibo_id: { in: reciboIds } }, select: { unidad_id: true, recibo_id: true, lectura_anterior: true, lectura_actual: true } })
     : [];
+  const propias = unidades.map((u) => u.id); // TODAS las unidades del residente, no sólo la filtrada: lo que él sabe de sí no cambia con el filtro
   const promedios = reciboIds.length
-    ? await prisma.$queryRaw<{ recibo_id: number; n: bigint; promedio: Dec }[]>`
-        SELECT recibo_id, COUNT(*) AS n, AVG(lectura_actual - lectura_anterior) AS promedio
+    ? await prisma.$queryRaw<{ recibo_id: number; ajenas: bigint; promedio: Dec }[]>`
+        SELECT recibo_id, COUNT(*) FILTER (WHERE unidad_id NOT IN (${Prisma.join(propias)})) AS ajenas, AVG(lectura_actual - lectura_anterior) AS promedio
         FROM "LecturaAgua"
         WHERE recibo_id IN (${Prisma.join(reciboIds)})
         GROUP BY recibo_id`
     : [];
   // Total del block: el promedio, por recibo, del total de cada unidad. Se publica sólo si hay las unidades suficientes y no las despeja quien tiene varias.
-  const propias = unidades.map((u) => u.id); // TODAS las unidades del residente, no sólo la filtrada: lo que él sabe de sí no cambia con el filtro
   const totales = reciboIds.length
     ? await prisma.$queryRaw<{ recibo_id: number; ajenas: bigint; promedio: Dec }[]>`
         SELECT recibo_id, COUNT(*) FILTER (WHERE unidad_id NOT IN (${Prisma.join(propias)})) AS ajenas, AVG(total) AS promedio
@@ -223,7 +226,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
     : [];
   const totalPromedioDe = new Map(totales.filter((t) => Number(t.ajenas) >= MIN_UNIDADES_PROMEDIO - 1).map((t) => [t.recibo_id, dec(t.promedio)]));
   const aguaDe = new Map(lecturas.map((l) => [`${l.recibo_id}-${l.unidad_id}`, consumoM3(l.lectura_anterior, l.lectura_actual)]));
-  const promedioDe = new Map(promedios.filter((p) => Number(p.n) >= MIN_LECTURAS_PROMEDIO).map((p) => [p.recibo_id, dec(p.promedio)]));
+  const promedioDe = new Map(promedios.filter((p) => Number(p.ajenas) >= MIN_LECTURAS_PROMEDIO - 1).map((p) => [p.recibo_id, dec(p.promedio)]));
 
   const meses: MesHistorial[] = enPeriodo.map((g) => {
     const cuenta = cuentas.get(g)!;

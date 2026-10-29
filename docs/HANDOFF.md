@@ -4,6 +4,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Revisión e integración de las pestañas de «Mi historial» + fuga del promedio de agua
+
+- Integré con cherry-pick los 2 commits de Sonnet (`feat/historial-pestanas`): revisé el diff, `npm test` 2180/2180, tipos, y mutación de la regla del total del block (rojo). En local, con el seed de 12 meses: las 6 pestañas, «Tú contra tu block» y 375 px sin scroll horizontal.
+- **Fuga cerrada en el promedio de AGUA** (la señaló Sonnet; ya estaba en producción): con 3 lecturas en el recibo pero 2 del mismo dueño, promedio × 3 − lo suyo = el consumo del vecino. `services/historial.ts` ahora cuenta las lecturas AJENAS (`COUNT(*) FILTER (WHERE unidad_id NOT IN propias)`) y exige `MIN_LECTURAS_PROMEDIO - 1`, igual que el total. Test con M-1/M-2 en `tests/historial.test.ts`; mutación (`ajenas >= 1`) → 2 rojos.
+- Pendiente opcional: en «Tú contra tu block» el eje del `LineChart` empieza en 0 y las dos líneas se montan cuando los montos son parecidos.
+
 ## 2026-10-29 — Claude Code (Sonnet 5.5) — «Mi historial»: pestañas de gráficos y comparar con tu block
 
 - Pedido de Miguel: «varios tabs para ver en gráficos la evolución de mis pagos por conceptos, el acumulado y otras vistas»; aprobó Resumen · Por concepto · Acumulado · Agua · Puntualidad · Pagos, más compararse con el promedio del block (sólo el promedio).

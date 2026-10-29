@@ -94,6 +94,14 @@ before(async () => {
   await mes(M2, { anio: 2023, mes: 2, vence: '2023-03-10', conceptos: [['Mantenimiento', 30]], recibo: m23feb });
   await mes(d.unidadA1, { anio: 2023, mes: 2, vence: '2023-03-10', conceptos: [['Cuota', 71.4]], recibo: m23feb });
   await mes(d.unidadA2, { anio: 2023, mes: 2, vence: '2023-03-10', conceptos: [['Cuota', 88.6]], recibo: m23feb });
+  // Agua con la misma trampa: ene trae lecturas de M-1, M-2 y A-101 (3, pero 1 ajena); feb, de M-1, M-2, A-101 y A-102 (2 ajenas).
+  await lectura(M1, m23ene.id, 0, 10);
+  await lectura(M2, m23ene.id, 0, 20);
+  await lectura(d.unidadA1, m23ene.id, 0, 33);
+  await lectura(M1, m23feb.id, 10, 20);
+  await lectura(M2, m23feb.id, 20, 30);
+  await lectura(d.unidadA1, m23feb.id, 33, 41);
+  await lectura(d.unidadA2, m23feb.id, 0, 12);
 
   // L-1: 14 meses seguidos (2024-01 a 2025-02), todos sin pagar y de S/ 10.
   for (let i = 0; i < 14; i++) {
@@ -229,6 +237,11 @@ describe('GET /api/me/historial: los meses', () => {
     assert.equal(mesDe(r.body, 2023, 1, 'M-2').total_promedio_block, null);
     assert.equal(mesDe(r.body, 2023, 2, 'M-1').total_promedio_block, '60.00', '(50 + 30 + 71.40 + 88.60) ÷ 4');
     assert.ok(!r.texto.includes('71.40') && !r.texto.includes('88.60'));
+    // El agua: 3 lecturas pero 2 suyas → promedio × 3 − lo suyo = los 33 m³ de A-101; con 2 ajenas, sí.
+    assert.equal(mesDe(r.body, 2023, 1, 'M-1').agua_promedio_block, null, 'quien tiene dos lecturas en el recibo despejaría la del vecino');
+    assert.equal(mesDe(r.body, 2023, 1, 'M-2').agua_promedio_block, null);
+    assert.equal(mesDe(r.body, 2023, 2, 'M-1').agua_promedio_block, '10.000', '(10 + 10 + 8 + 12) ÷ 4');
+    assert.ok(!r.texto.includes('33.000'));
   });
 
   it('sin año: los últimos 12 meses con recibo (L-1 tiene 14)', async () => {
