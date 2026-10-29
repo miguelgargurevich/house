@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Juntas: secretario único y «Junta central»
+
+- Pedido de Miguel: «las juntas tienen secretario también, y la junta de todo el condominio se llama junta central».
+- **Secretario**: ya era un cargo, pero ahora es único como presidente y tesorero (`validarCargos` en `services/juntas.ts` → 422; `cargoRepetido` y `CARGOS_UNICOS` en `_parts/juntas/tipos.ts`). Vocales puede haber varios. «Agregar miembro» propone el primer cargo único que falte (presidente → tesorero → secretario → vocal). La tarjeta muestra un hueco punteado «Secretario · Sin asignar» (igual para presidente/tesorero) cuando falta. Permisos sin cambio: sólo presidente y tesorero gestionan.
+- **Junta central**: `nombreAmbito(null)` = «Junta central», el botón de la cabecera dice «Junta central», `laJuntaDe()` para las frases. El asistente (`tools/personas.ts`) dice «junta central (todo el condominio)». No cambia datos ni API (`estructura_id` null sigue siendo la del condominio).
+- Verificado: `npm test` 2151/2151; mutación (quitar 'secretario' de `validarCargos`) → 1 rojo; en local, la tarjeta del Block 1 muestra el hueco de secretario y la nueva fila del editor sale como Secretario.
+- Prod: sólo existe la junta del Block 1 (presidente y tesorero); queda con el hueco de secretario hasta que lo agreguen con «Editar».
+
 ## 2026-10-29 — Claude Code (Sonnet 5.5, delegado por Opus) — Juntas directivas por block, con gestiones e historial
 
 - Pedido de Miguel: «¿cómo veo los datos de las juntas de cada Block? … esos datos pueden cambiar cada año … de esos datos de la junta se llena el método de pago». Decisiones suyas: (1) la cuenta de la junta y el medio de pago del block son UNA SOLA ficha; (2) cambio de junta = «gestión con fechas» con historial, y los permisos pasan solos; (3) de cada miembro: nombre, correo, celular y departamento. Rama `feat/juntas-directivas` (sobre origin/main 0ccd8bf), worktree `.claude/worktrees/juntas-directivas`. Contrato en `docs/API-CONTRATO.md` («Juntas directivas por block, con gestiones e historial»).

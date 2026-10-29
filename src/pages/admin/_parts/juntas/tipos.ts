@@ -68,8 +68,14 @@ export const palabraDe = (items: { estructura: { tipo?: string } | null }[]): st
   return tipos.length > 0 && tipos.every(t => t?.toLowerCase() === 'block') ? 'block' : 'torre';
 };
 
-/** «Block 1», o «Todo el condominio» si la junta no es de un block. */
-export const nombreAmbito = (e: { id: number; nombre: string | null } | null) => (e ? e.nombre?.trim() || `Torre ${e.id}` : 'Todo el condominio');
+/** «Block 1», o «Junta central» si la junta no es de un block (la de todo el condominio). */
+export const nombreAmbito = (e: { id: number; nombre: string | null } | null) => (e ? e.nombre?.trim() || `Torre ${e.id}` : 'Junta central');
+
+/** «la junta de Block 1» o «la Junta central»: para frases. */
+export const laJuntaDe = (e: { id: number; nombre: string | null } | null) => (e ? `la junta de ${nombreAmbito(e)}` : 'la Junta central');
+
+/** Los cargos únicos de una junta; vocales puede haber varios. */
+export const CARGOS_UNICOS = ['presidente', 'tesorero', 'secretario'] as const;
 
 /** «2026» de «2026-01-01». */
 export const anioDe = (dia: string) => dia.slice(0, 4);
@@ -94,8 +100,8 @@ export const lineaCuenta = (m: Pick<Medio, 'tipo' | 'entidad' | 'tipo_cuenta' | 
       : m.tipo === 'yape' ? 'Yape' : 'Plin';
 
 /** Cuántos miembros de cada cargo único hay (para avisar antes de enviar). */
-export function cargoRepetido(miembros: { cargo: string }[]): 'presidente' | 'tesorero' | null {
-  for (const c of ['presidente', 'tesorero'] as const) if (miembros.filter(m => m.cargo === c).length > 1) return c;
+export function cargoRepetido(miembros: { cargo: string }[]): (typeof CARGOS_UNICOS)[number] | null {
+  for (const c of CARGOS_UNICOS) if (miembros.filter(m => m.cargo === c).length > 1) return c;
   return null;
 }
 

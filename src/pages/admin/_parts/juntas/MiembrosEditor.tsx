@@ -2,7 +2,7 @@ import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../../../api';
 import type { CargoJunta } from '../../../../auth/AuthContext';
 import { Alert, Button, IconButton, Select, Skeleton } from '../../../../ui';
-import { CARGOS, cargoRepetido } from './tipos';
+import { CARGOS, CARGOS_UNICOS, cargoRepetido } from './tipos';
 import type { Candidato, FilaMiembro } from './tipos';
 
 interface Props {
@@ -29,7 +29,7 @@ export function MiembrosEditor({ complejoId, estructuraId, palabra, value, onCha
   return (
     <fieldset className="flex flex-col gap-3 sm:col-span-2">
       <legend className="text-sm font-medium">Miembros de la junta</legend>
-      <p className="text-xs text-muted">Sólo propietarios {estructuraId != null ? `del ${palabra}` : 'del condominio'}. Un solo presidente y un solo tesorero; ellos gestionan los medios de pago y validan los pagos. Secretario y vocal no ganan permisos.</p>
+      <p className="text-xs text-muted">Sólo propietarios {estructuraId != null ? `del ${palabra}` : 'del condominio'}. Un solo presidente, un solo tesorero y un solo secretario; vocales puede haber varios. Presidente y tesorero gestionan los medios de pago y validan los pagos. Secretario y vocal no ganan permisos.</p>
       {q.loading && <Skeleton className="h-10 w-full" />}
       {q.error && <Alert tone="bad">No se pudo cargar la lista de propietarios: {q.error}</Alert>}
       {repetido && <Alert tone="warn">Sólo puede haber un {repetido}.</Alert>}
@@ -57,7 +57,7 @@ export function MiembrosEditor({ complejoId, estructuraId, palabra, value, onCha
         ))}
       </ul>
       <div>
-        <Button variant="secondary" size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => onChange([...value, { usuario_id: '', cargo: value.some(f => f.cargo === 'presidente') ? (value.some(f => f.cargo === 'tesorero') ? 'vocal' : 'tesorero') : 'presidente' }])}>Agregar miembro</Button>
+        <Button variant="secondary" size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => onChange([...value, { usuario_id: '', cargo: CARGOS_UNICOS.find(c => !value.some(f => f.cargo === c)) ?? 'vocal' }])}>Agregar miembro</Button>
       </div>
     </fieldset>
   );

@@ -121,7 +121,7 @@ describe('juntas: formularios', () => {
     assert.match(m, /disabled=\{\(elegidos\.has\(String\(c\.id\)\) && String\(c\.id\) !== f\.usuario_id\) \|\| otra\}/);
     assert.match(m, /\(ya está en otra junta\)/);
     assert.match(m, /Sólo puede haber un \{repetido\}/);
-    assert.match(m, /Un solo presidente y un solo tesorero/);
+    assert.match(m, /Un solo presidente, un solo tesorero y un solo secretario/);
   });
 
   it('el historial es de sólo lectura (sin formularios ni botones de guardar) y pide el de ESE block', () => {
@@ -173,10 +173,11 @@ describe('juntas: funciones de la pantalla', () => {
     assert.equal(palabraDe([]), 'torre');
   });
 
-  it('cargoRepetido avisa sólo del presidente y el tesorero repetidos; diaSiguiente respeta los bisiestos', () => {
+  it('cargoRepetido avisa del presidente, el tesorero y el secretario repetidos (no de los vocales); diaSiguiente respeta los bisiestos', () => {
     assert.equal(cargoRepetido([{ cargo: 'presidente' }, { cargo: 'presidente' }]), 'presidente');
     assert.equal(cargoRepetido([{ cargo: 'tesorero' }, { cargo: 'tesorero' }]), 'tesorero');
-    assert.equal(cargoRepetido([{ cargo: 'vocal' }, { cargo: 'vocal' }, { cargo: 'secretario' }, { cargo: 'secretario' }]), null);
+    assert.equal(cargoRepetido([{ cargo: 'secretario' }, { cargo: 'secretario' }]), 'secretario');
+    assert.equal(cargoRepetido([{ cargo: 'vocal' }, { cargo: 'vocal' }, { cargo: 'secretario' }]), null);
     assert.equal(diaSiguiente('2026-02-28'), '2026-03-01');
     assert.equal(diaSiguiente('2024-02-28'), '2024-02-29');
     assert.equal(diaSiguiente('2026-12-31'), '2027-01-01');
@@ -198,5 +199,18 @@ describe('juntas: orden de los blocks', () => {
   it('la lista ordena los blocks de forma natural (Block 2 antes que Block 10)', () => {
     const s = readFileSync('src/server/routes/juntas.ts', 'utf8');
     assert.match(s, /localeCompare\(y\.nombre \?\? '', 'es', \{ numeric: true \}\)/);
+  });
+});
+
+describe('Junta central y cargos que faltan', () => {
+  it('la junta de todo el condominio se llama «Junta central» y la tarjeta muestra el hueco de presidente, tesorero o secretario sin asignar', async () => {
+    const { nombreAmbito, laJuntaDe } = await import('../src/pages/admin/_parts/juntas/tipos');
+    assert.equal(nombreAmbito(null), 'Junta central');
+    assert.equal(laJuntaDe(null), 'la Junta central');
+    assert.equal(laJuntaDe({ id: 1, nombre: 'Block 1' }), 'la junta de Block 1');
+    const c = readFileSync('src/pages/admin/_parts/juntas/JuntaCard.tsx', 'utf8');
+    assert.match(c, /CARGOS_UNICOS\.filter\(c => !j\.miembros\.some/);
+    assert.match(c, /Sin asignar/);
+    assert.match(readFileSync('src/pages/admin/Juntas.tsx', 'utf8'), />Junta central<\/Button>/);
   });
 });

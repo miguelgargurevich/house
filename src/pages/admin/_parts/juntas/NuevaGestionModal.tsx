@@ -4,7 +4,7 @@ import { api, errorText } from '../../../../api';
 import { Alert, Button, Input, Modal, Textarea, fechaCorta, useToast } from '../../../../ui';
 import { Interruptor } from '../catalogo/Interruptor';
 import { MiembrosEditor } from './MiembrosEditor';
-import { cargoRepetido, diaSiguiente, filasAApi, nombreAmbito } from './tipos';
+import { cargoRepetido, diaSiguiente, filasAApi, laJuntaDe } from './tipos';
 import type { FilaMiembro, Junta } from './tipos';
 
 interface Form { desde: string; correo: string; notas: string; misma_cuenta: boolean }
@@ -61,7 +61,7 @@ export function NuevaGestionModal({ junta, palabra, onClose, onSaved }: Props) {
       onClose={onClose}
       size="lg"
       title="Nueva gestión"
-      description={junta ? `Junta de ${nombreAmbito(junta.estructura)}: la gestión desde ${fechaCorta(junta.desde)} pasa al historial.` : undefined}
+      description={junta ? `${laJuntaDe(junta.estructura).replace(/^l/, 'L')}: la gestión desde ${fechaCorta(junta.desde)} pasa al historial.` : undefined}
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={idForm} loading={isSubmitting}>Registrar la nueva gestión</Button></>}
     >
       {junta && (

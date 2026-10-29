@@ -2,7 +2,7 @@ import { ArrowPathIcon, ClockIcon, PencilSquareIcon, PlusIcon, UserGroupIcon } f
 import { Badge, Button, Card, CardBody, CardHeader, IconButton, fechaCorta } from '../../../../ui';
 import { QrImagen } from '../medios/QrMiniatura';
 import type { Medio } from '../medios/tipos';
-import { cargoLabel, lineaCuenta, nombreAmbito, nombreGestion } from './tipos';
+import { CARGOS_UNICOS, cargoLabel, laJuntaDe, lineaCuenta, nombreAmbito, nombreGestion } from './tipos';
 import type { FichaJunta, Junta } from './tipos';
 
 interface Props {
@@ -40,6 +40,8 @@ function Cuenta({ m, onEditar }: { m: Medio; onEditar: () => void }) {
 export function JuntaCard({ ficha, puedeGestionar, mostrarCondominio, palabra, onRegistrar, onEditar, onNuevaGestion, onHistorial, onCuenta }: Props) {
   const j = ficha.vigente;
   const nombre = nombreAmbito(ficha.estructura);
+  const deLaJunta = laJuntaDe(ficha.estructura);
+  const faltan = j ? CARGOS_UNICOS.filter(c => !j.miembros.some(m => m.cargo === c)) : [];
   return (
     <Card>
       <CardHeader
@@ -50,7 +52,7 @@ export function JuntaCard({ ficha, puedeGestionar, mostrarCondominio, palabra, o
       <CardBody className="flex flex-col gap-5">
         {!j ? (
           <div className="flex flex-col items-start gap-3">
-            <p className="text-sm text-muted">{puedeGestionar ? `${nombre} aún no tiene la junta registrada. Regístrala para que sus miembros gestionen los medios de pago y los vecinos sepan a quién pagar.` : `${nombre} aún no tiene la junta registrada.`}</p>
+            <p className="text-sm text-muted">{`Aún no está registrada ${deLaJunta}.`}{puedeGestionar && ' Regístrala para que sus miembros gestionen los medios de pago y los vecinos sepan a quién pagar.'}</p>
             <div className="flex flex-wrap gap-2">
               {puedeGestionar && <Button icon={<UserGroupIcon className="h-4 w-4" />} onClick={onRegistrar}>Registrar la junta</Button>}
               {ficha.anteriores > 0 && <Button variant="secondary" icon={<ClockIcon className="h-4 w-4" />} onClick={onHistorial}>Historial ({ficha.anteriores})</Button>}
@@ -58,7 +60,7 @@ export function JuntaCard({ ficha, puedeGestionar, mostrarCondominio, palabra, o
           </div>
         ) : (
           <>
-            <section aria-label={`Miembros de la junta de ${nombre}`}>
+            <section aria-label={`Miembros de ${deLaJunta}`}>
               <h3 className="mb-2 text-sm font-semibold">Miembros</h3>
               {j.miembros.length === 0 ? (
                 <p className="text-sm text-muted">La junta no tiene miembros registrados.</p>
@@ -75,17 +77,24 @@ export function JuntaCard({ ficha, puedeGestionar, mostrarCondominio, palabra, o
                       {m.telefono && <p className="num text-xs text-muted">{m.telefono}</p>}
                     </li>
                   ))}
+                  {/* Los cargos únicos sin nadie se ven como un hueco, para que se note que falta registrarlos. */}
+                  {faltan.map(c => (
+                    <li key={c} className="min-w-0 rounded-lg border border-dashed border-line p-3 text-sm">
+                      <Badge tone="neutral">{cargoLabel(c)}</Badge>
+                      <p className="mt-1 text-xs text-muted">Sin asignar{puedeGestionar ? ': agrégalo con «Editar».' : '.'}</p>
+                    </li>
+                  ))}
                 </ul>
               )}
             </section>
 
-            <section aria-label={`Correo de la junta de ${nombre}`}>
+            <section aria-label={`Correo de ${deLaJunta}`}>
               <h3 className="mb-1 text-sm font-semibold">Correo de la junta</h3>
               <p className="break-all text-sm">{j.correo ?? <span className="text-muted">{`Sin correo: se usa el del ${palabra}, si lo hay.`}</span>}</p>
               {j.notas && <p className="mt-1 whitespace-pre-line break-words text-xs text-muted">{j.notas}</p>}
             </section>
 
-            <section aria-label={`Cuenta de la junta de ${nombre}`}>
+            <section aria-label={`Cuenta de ${deLaJunta}`}>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">Cuenta donde pagan los vecinos</h3>
                 <Button variant="secondary" size="sm" icon={<PlusIcon className="h-4 w-4" />} onClick={() => onCuenta(j, 'nuevo')}>Agregar cuenta</Button>

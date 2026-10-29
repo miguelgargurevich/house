@@ -104,7 +104,7 @@ export const juntaYResidentes = defineHerramienta({
           nombre: nombreCorto(m.nombre),
           condominio: dato(m.complejo?.nombre),
           block: m.estructura_id != null ? dato(m.estructura?.nombre) : null,
-          ambito: m.estructura_id != null ? 'block' : 'todo el condominio',
+          ambito: m.estructura_id != null ? 'block' : 'junta central (todo el condominio)',
           ...(al.vecinos ? { departamento: depto.length ? depto.slice(0, 3).join(', ') : null } : {}),
         };
       });
@@ -140,7 +140,7 @@ export const juntaYResidentes = defineHerramienta({
         nombre: nombreCorto(x.nombre),
         rol: x.rol,
         cargo: x.cargo_junta,
-        cargo_de: x.cargo_junta ? (x.estructura_id != null ? dato(x.estructura?.nombre) : 'todo el condominio') : null,
+        cargo_de: x.cargo_junta ? (x.estructura_id != null ? dato(x.estructura?.nombre) : 'junta central (todo el condominio)') : null,
         departamentos: [...x.unidades, ...x.unidadesInquilino].slice(0, MAX_UNIDADES_POR_PERSONA).map((d) => ({ unidad: dato(d.codigo, 30), block: dato(d.estructura?.nombre), condominio: dato(d.complejo?.nombre) })),
       }));
     }

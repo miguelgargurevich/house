@@ -208,16 +208,17 @@ describe('registrar la junta: miembros, cargos y reflejo en el usuario', () => {
     assert.equal((await llama(T.adminA, 'POST', '/api/juntas', { complejo_id: d.complejoA.id, estructura_id: e2.id, desde: dia(0) })).status, 201);
   });
 
-  it('un solo presidente y un solo tesorero; nadie repetido', async () => {
+  it('un solo presidente, un solo tesorero y un solo secretario (vocales, varios); nadie repetido', async () => {
     const intento = (m: { usuario_id: number; cargo: string }[]) => llama(T.adminA, 'POST', '/api/juntas', { complejo_id: d.complejoA.id, estructura_id: e1.id, desde: dia(-5), miembros: m });
     const dosPresis = await intento(miembros(['ana', 'presidente'], ['beto', 'presidente']));
     assert.equal(dosPresis.status, 422, dosPresis.texto);
     assert.match(dosPresis.texto, /presidente/);
     assert.equal((await intento(miembros(['ana', 'tesorero'], ['beto', 'tesorero']))).status, 422);
+    assert.equal((await intento(miembros(['ana', 'secretario'], ['beto', 'secretario']))).status, 422);
     assert.equal((await intento(miembros(['ana', 'presidente'], ['ana', 'vocal']))).status, 422); // repetida
     assert.equal((await intento([{ usuario_id: U.ana!, cargo: 'jefe' }])).status, 422); // cargo inexistente
-    // Varios secretarios y vocales sí
-    assert.equal((await intento(miembros(['ana', 'presidente'], ['beto', 'secretario'], ['carla', 'secretario'], ['dario', 'vocal']))).status, 201);
+    // Varios vocales sí
+    assert.equal((await intento(miembros(['ana', 'presidente'], ['beto', 'secretario'], ['carla', 'vocal'], ['dario', 'vocal']))).status, 201);
     assert.equal(await prisma.juntaDirectiva.count(), 1);
   });
 

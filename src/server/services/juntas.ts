@@ -41,14 +41,14 @@ export const diaTexto = (d: Date) => d.toISOString().slice(0, 10);
 export const diaAnterior = (d: Date) => new Date(d.getTime() - DIA_MS);
 
 // ---------- Reglas ----------
-/** Un solo presidente y un solo tesorero; nadie repetido. */
+/** Un solo presidente, un solo tesorero y un solo secretario (vocales, varios); nadie repetido. */
 export function validarCargos(miembros: MiembroEntrada[]) {
   const vistos = new Set<number>();
   for (const m of miembros) {
     if (vistos.has(m.usuario_id)) throw invalid('Datos inválidos: miembros: una persona no puede estar dos veces en la junta', { miembros: 'Persona repetida' });
     vistos.add(m.usuario_id);
   }
-  for (const cargo of ['presidente', 'tesorero'] as const) {
+  for (const cargo of ['presidente', 'tesorero', 'secretario'] as const) {
     if (miembros.filter((m) => m.cargo === cargo).length > 1) throw invalid(`Datos inválidos: miembros: solo puede haber un ${cargo}`, { miembros: `Solo un ${cargo}` });
   }
 }

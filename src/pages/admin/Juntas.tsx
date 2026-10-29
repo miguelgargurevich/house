@@ -48,7 +48,7 @@ export default function Juntas() {
           ? 'Los miembros de tu junta, su correo y la cuenta donde pagan los vecinos. Puedes editar el correo y la cuenta; los miembros y las gestiones nuevas las registra la administración.'
           : `La junta de cada ${palabra} con sus miembros, su correo y la cuenta donde pagan los vecinos. Cuando cambia la junta, registra una nueva gestión: los permisos pasan solos y la anterior queda en el historial.`}
         actions={puedeGestionar && complejoElegido && !hayJuntaDelCondominio && !lista.loading
-          ? <Button variant="secondary" icon={<UserGroupIcon className="h-4 w-4" />} onClick={() => setRegistrando({ nueva: { complejo_id: complejoElegido.id, estructura: null } })}>Junta de todo el condominio</Button>
+          ? <Button variant="secondary" icon={<UserGroupIcon className="h-4 w-4" />} onClick={() => setRegistrando({ nueva: { complejo_id: complejoElegido.id, estructura: null } })}>Junta central</Button>
           : undefined}
       />
       {lista.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar las juntas: {lista.error}</Alert></div>}

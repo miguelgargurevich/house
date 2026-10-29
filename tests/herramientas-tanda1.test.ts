@@ -165,7 +165,7 @@ describe('junta_y_residentes', () => {
     assert.deepEqual(r.junta.map(cargoDe), ['presidente:*', 'vocal:*', 'tesorero:Block 1', 'secretario:Block 1', 'presidente:Block 2']);
     const tesorero = r.junta.find((j: any) => j.cargo === 'tesorero');
     assert.deepEqual(tesorero, { cargo: 'tesorero', nombre: 'Tesorero Block1', condominio: 'Complejo A', block: 'Block 1', ambito: 'block', departamento: 'A-103' });
-    assert.equal(r.junta.find((j: any) => j.cargo === 'presidente' && j.block == null).ambito, 'todo el condominio');
+    assert.equal(r.junta.find((j: any) => j.cargo === 'presidente' && j.block == null).ambito, 'junta central (todo el condominio)');
     assert.deepEqual(r.filas, [], 'solo_junta: sin lista de residentes');
     const t = texto(r);
     for (const ajeno of ['Presidente Bravo', 'Propietario B', 'B-101', 'B-102', 'Complejo B']) assert.ok(!t.includes(ajeno), `se coló «${ajeno}»`);
