@@ -11,6 +11,7 @@ import {
 import { avisarResultado } from '../src/server/services/validacionPago';
 import { esperarEvaluaciones } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
+import { pagarComoResidente } from './helpers/pagoResidente';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
 const DIA = 86_400_000;
@@ -100,8 +101,9 @@ async function mantenimiento(unidad: { id: number }, opts: { mes?: number; vence
   return { reciboId: recibo.id, unidadId: unidad.id, cargos, total: conceptos.reduce((a, [, m]) => a + m, 0) };
 }
 
-const pagarMant = (token: string, m: Mant, cuerpo: unknown = { metodo_pago: 'yape', referencia: 'OP123456' }) =>
-  llamar(base, 'POST', `/api/me/mantenimientos/${m.reciboId}/${m.unidadId}/pagos`, token, cuerpo);
+/** El residente paga como la pantalla: un formulario con los campos y el voucher. Los valores que no son texto viajan como JSON (el servidor los rechaza igual). */
+const pagarMant = (token: string, m: Mant, cuerpo: Record<string, unknown> = { metodo_pago: 'yape', referencia: 'OP123456' }) =>
+  pagarComoResidente(base, token, m.reciboId, m.unidadId, Object.fromEntries(Object.entries(cuerpo).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])));
 const pagosDe = (m: Mant) => prisma.pago.findMany({ where: { reciboConceptoUnidad: { unidad_id: m.unidadId, reciboConcepto: { recibo_id: m.reciboId } } }, orderBy: { id: 'asc' } });
 const estadosCargos = async (m: Mant) => (await prisma.reciboConceptoUnidad.findMany({ where: { id: { in: m.cargos.map((c) => c.id) } }, orderBy: { id: 'asc' } })).map((c) => c.estado_pago);
 const validar = (token: string, id: number, cuerpo: unknown = { estado: 'validado' }) => llamar(base, 'PATCH', `/api/pagos/${id}/validacion`, token, cuerpo);
@@ -242,7 +244,7 @@ describe('pagar el mantenimiento completo (residente)', () => {
     assert.equal((await pagarMant(T.prop1, m)).status, 404, 'otro propietario de la misma empresa');
     assert.equal((await pagarMant(T.propB, m)).status, 404, 'otra empresa');
     assert.equal((await llamar(base, 'POST', `/api/me/mantenimientos/${m.reciboId}/99999/pagos`, T.prop1, { metodo_pago: 'yape' })).status, 404);
-    assert.equal((await llamar(base, 'POST', `/api/me/mantenimientos/${m.reciboId + 999}/${d.unidadA1.id}/pagos`, T.prop1, { metodo_pago: 'yape' })).status, 404, 'recibo sin cargos de esa unidad');
+    assert.equal((await pagarComoResidente(base, T.prop1, m.reciboId + 999, d.unidadA1.id, { metodo_pago: 'yape' })).status, 404, 'recibo sin cargos de esa unidad');
     assert.equal((await pagarMant(T.adminA, m)).status, 403);
     assert.equal((await pagosDe(m)).length, 0);
   });
@@ -443,7 +445,8 @@ describe('comprobante y evaluación de la IA van contra el TOTAL del grupo', () 
     lectura = lec();
     await pagarMant(T.prop1, m);
     const [principal, , ultimo] = await pagosDe(m);
-    const s = await subir(T.prop1, ultimo.id); // el id de un pago que no es el principal
+    await esperarEvaluaciones(); // el voucher del pago ya está evaluado
+    const s = await subir(T.prop1, ultimo.id); // reemplazarlo con el id de un pago que no es el principal
     assert.equal(s.status, 201, JSON.stringify(s.body));
     assert.equal(s.body.pago_id, principal.id, 'va al principal');
     await esperarEvaluaciones();
@@ -462,7 +465,6 @@ describe('comprobante y evaluación de la IA van contra el TOTAL del grupo', () 
     const m1 = await mantenimiento(d.unidadA1, { mes: 2 });
     lectura = lec({ monto: 115 });
     const r1 = await pagarMant(T.prop1, m1);
-    await subir(T.prop1, r1.body.pago_id);
     await esperarEvaluaciones();
     const ev1 = await prisma.evaluacionComprobante.findUniqueOrThrow({ where: { pago_id: r1.body.pago_id } });
     assert.equal(ev1.veredicto, 'coincide');
@@ -471,7 +473,6 @@ describe('comprobante y evaluación de la IA van contra el TOTAL del grupo', () 
     const m2 = await mantenimiento(d.unidadA1, { mes: 3 });
     lectura = lec({ monto: 60 }); // sólo la limpieza
     const r2 = await pagarMant(T.prop1, m2);
-    await subir(T.prop1, r2.body.pago_id);
     await esperarEvaluaciones();
     const ev2 = await prisma.evaluacionComprobante.findUniqueOrThrow({ where: { pago_id: r2.body.pago_id } });
     assert.equal(ev2.veredicto, 'no_coincide');
@@ -483,8 +484,7 @@ describe('comprobante y evaluación de la IA van contra el TOTAL del grupo', () 
     await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { validacion_automatica_ia: true } });
     const m = await mantenimiento(d.unidadA1, { mes: 4 });
     lectura = lec({ monto: 115 });
-    const r = await pagarMant(T.prop1, m);
-    await subir(T.prop1, r.body.pago_id);
+    await pagarMant(T.prop1, m);
     await esperarEvaluaciones();
     const pagos = await pagosDe(m);
     assert.ok(pagos.every((p) => p.estado_validacion === 'validado' && p.validado_por_ia === true), JSON.stringify(pagos.map((p) => p.estado_validacion)));
@@ -492,8 +492,7 @@ describe('comprobante y evaluación de la IA van contra el TOTAL del grupo', () 
 
     const m2 = await mantenimiento(d.unidadA1, { mes: 8 });
     lectura = lec({ monto: 60 });
-    const r2 = await pagarMant(T.prop1, m2);
-    await subir(T.prop1, r2.body.pago_id);
+    await pagarMant(T.prop1, m2);
     await esperarEvaluaciones();
     assert.ok((await pagosDe(m2)).every((p) => p.estado_validacion === 'por_validar'), 'con un monto distinto queda para revisión manual');
   });
@@ -590,7 +589,7 @@ describe('administración: periodo agrupado por block y recibos de departamento'
     }
     // BL-1 paga completo (validado); BL-4 queda en revisión; BL-2, BL-3 y BL-5 deben (vencido)
     await llamar(base, 'POST', `/api/recibos/${reciboId}/mantenimientos/${unidades[0].id}/pagos`, T.adminA, { metodo_pago: 'efectivo' });
-    await llamar(base, 'POST', `/api/me/mantenimientos/${reciboId}/${unidades[3].id}/pagos`, T.prop2, { metodo_pago: 'yape' });
+    await pagarComoResidente(base, T.prop2, reciboId, unidades[3].id, { metodo_pago: 'yape' });
   });
 
   it('el periodo se agrupa por block con unidades, emitido, cobrado, % y morosos', async () => {

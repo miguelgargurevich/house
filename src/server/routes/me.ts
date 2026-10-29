@@ -4,7 +4,10 @@ import { BCRYPT_COST } from '../config';
 import { prisma } from '../db';
 import { HttpError, conflict, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
+import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
+import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
+import { iniciarEvaluacion } from '../services/evaluacion';
 import { contrasenaIgualACorreo, listQuerySchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
 import { enviarImagen } from '../services/imagenes';
 import { revocarDeUsuario } from '../services/sesiones';
@@ -230,16 +233,34 @@ export function meRouter(limitePassword: RequestHandler) {
     observaciones: texto(500).nullish(),
   });
 
-  /** Paga el mantenimiento completo: un formulario y UN comprobante (se sube después a `POST /api/pagos/:pago_id/comprobante`). El servidor calcula los montos. */
-  router.post('/mantenimientos/:reciboId/:unidadId/pagos', residente, async (req, res) => {
+  /** El departamento del pago, sólo si es de quien paga (404 si no). */
+  async function ubicarPropio(req: Parameters<typeof currentUser>[0], unidadId: number) {
+    const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesPropias(currentUser(req))] }, select: { id: true } });
+    if (!unidad) throw notFound('Mantenimiento');
+    return unidad;
+  }
+  /** El departamento se ubica ANTES de recibir el archivo: uno ajeno recibe 404 sin que se lea el cuerpo. */
+  const voucherDelPago = recibirVoucher('unidadPropia', (req) => ubicarPropio(req, parse(ids2, req.params).unidadId));
+
+  /**
+   * Paga el mantenimiento completo en UN solo pedido: `multipart/form-data` con los campos (`metodo_pago`, `referencia` opcional) y el voucher en `voucher`,
+   * que es obligatorio. Pago y comprobante se guardan en la MISMA transacción (el pago nace `por_validar`) y la IA lee el voucher en segundo plano.
+   * Sin voucher, o con uno que no sirve, no se crea nada. El servidor calcula los montos.
+   */
+  router.post('/mantenimientos/:reciboId/:unidadId/pagos', residente, voucherDelPago, async (req, res) => {
     const u = currentUser(req);
     const { reciboId, unidadId } = parse(ids2, req.params);
-    const body = parseBody(pagoMantenimiento, req);
-    if (!(await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesPropias(u)] }, select: { id: true } }))) throw notFound('Mantenimiento');
-    const r = await pagarMantenimiento({ reciboId, unidadId, usuarioId: u.id, modo: 'residente', ...body });
+    if (!ubicado(res, 'unidadPropia')) await ubicarPropio(req, unidadId);
+    const body = req.is('multipart/form-data') ? parse(pagoMantenimiento, camposDeFormulario(req.body)) : parseBody(pagoMantenimiento, req);
+    if (!req.file) throw invalid('Adjunta la foto o el PDF de tu voucher', { voucher: 'Obligatorio' });
+    const voucher = voucherVerificado(req.file, u.id);
+    const r = await pagarMantenimiento({ reciboId, unidadId, usuarioId: u.id, modo: 'residente', comprobante: voucher, ...body });
     res.locals.entidad = 'pago';
     res.locals.entidadId = r.pago_id;
-    res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: reciboId, unidad_id: unidadId };
+    res.locals.auditDetalle = { grupo: r.grupo, total: r.total, cargos: r.cargos, recibo_id: reciboId, unidad_id: unidadId, con_voucher: true };
+    // Mismo registro que al subir un comprobante (sólo metadatos, nunca el contenido), y la IA lo lee en segundo plano: no frena la respuesta ni, si falla, el pago.
+    await registrarAuditoria({ usuario_id: u.id, accion: 'subir_comprobante', entidad: 'pago', entidad_id: r.pago_id, detalle: { nombre: voucher.nombre, tipo_mime: voucher.tipo_mime, tamano: voucher.tamano, sha256: voucher.sha256 }, ip: ipDe(req) });
+    await iniciarEvaluacion(r.pago_id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
     res.status(201).json({ ...r, mantenimiento: await detalleMantenimiento(reciboId, unidadId, { unidadWhere: unidadesPropias(u), vista: 'residente' }) });
   });
 

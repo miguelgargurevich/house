@@ -375,6 +375,13 @@ describe('alcance: igual que el pago sin voucher', () => {
     assert.equal((await registrar(T.tesoJ1, suyo, undefined, archivoPng())).status, 201);
   });
 
+  it('el alcance se comprueba ANTES de recibir el archivo: junta de otro block con un archivo de más de 2 MB → 404 (no 422 «pesa más de 2 MB»)', async () => {
+    const otro = await mantenimiento(unidadJ2);
+    const r = await registrar(T.tesoJ1, otro, undefined, { bytes: Buffer.concat([PNG(), Buffer.alloc(3 * 1024 * 1024)]), tipo: 'image/png', nombre: 'grande.png' });
+    assert.equal(r.status, 404, r.texto);
+    assert.equal((await pagosDe(otro)).length, 0);
+  });
+
   it('otra empresa → 404; un residente sin cargo → 403; sin sesión → 401; nada se crea', async () => {
     const m = await mantenimiento(d.unidadA1);
     assert.equal((await registrar(T.adminB, m, undefined, archivoPng())).status, 404);

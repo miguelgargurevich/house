@@ -12,6 +12,7 @@ import { alertaDePeriodo, contrastar, mesDelMensaje } from '../src/server/servic
 import { esperarEvaluaciones, evaluacionDeps } from '../src/server/services/evaluacion';
 import { decidirFechaEvaluada, MOTIVO_NO_COINCIDE, MOTIVO_OTRO_PERIODO } from '../src/server/services/fechaVoucher';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
+import { pagarComoResidente } from './helpers/pagoResidente';
 import { alertasDeOcr, ALERTA_OCR, mesDelMensaje as mesDelMensajeOcr } from '../src/server/services/ocrVoucher';
 import { limpiarTodo } from '../src/server/lib/cooldown';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
@@ -248,16 +249,12 @@ describe('la fecha del voucher de punta a punta (IA falsa)', () => {
   }
   type Mant = Awaited<ReturnType<typeof mantenimientoDeOctubre>>;
   const pagosDe = (m: Mant) => prisma.pago.findMany({ where: { recibo_concepto_unidad_id: { in: m.cargos.map((c) => c.id) } }, orderBy: { id: 'asc' } });
-  async function paga(m: Mant) {
-    const r = await llamar(base, 'POST', `/api/me/mantenimientos/${m.recibo.id}/${m.unidad.id}/pagos`, T.prop1, { metodo_pago: 'transferencia' });
-    assert.equal(r.status, 201, JSON.stringify(r.body));
-    return r.body.pago_id as number;
-  }
+  /** El residente paga con su voucher en el mismo pedido y la IA lo lee (con la `respuesta` vigente). */
   async function pagaYSube(m: Mant) {
-    const pagoId = await paga(m);
-    await subirVoucher(T.prop1, pagoId);
+    const r = await pagarComoResidente(base, T.prop1, m.recibo.id, m.unidad.id, { metodo_pago: 'transferencia' });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
     await esperarEvaluaciones();
-    return pagoId;
+    return r.body.pago_id as number;
   }
   const evaluacionDe = (pagoId: number) => prisma.evaluacionComprobante.findUniqueOrThrow({ where: { pago_id: pagoId } });
   const cercaDeAhora = (f: Date) => Math.abs(f.getTime() - Date.now()) < 60_000;

@@ -13,6 +13,7 @@ import { plantilla } from '../src/server/services/avisos/plantillas';
 import { decidirFecha, DIAS_ANTES_EMISION_VOUCHER } from '../src/server/services/fechaVoucher';
 import { evaluacionDeps, esperarEvaluaciones } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
+import { pagarComoResidente } from './helpers/pagoResidente';
 import { invalidarComercial } from '../src/server/services/comercial/modulos';
 import { agregarMora, CONCEPTO_MORA, esConceptoMora, evaluarMora, informeDeMora, moraDeps } from '../src/server/services/mora';
 import { olvidarTodoUso } from '../src/server/services/rotacion';
@@ -129,12 +130,11 @@ describe('la fecha del pago sale del voucher (IA falsa)', () => {
     }
     return { unidad, recibo, cargos };
   }
-  /** El residente paga el mantenimiento completo (un pago por cargo, un grupo) y sube su voucher al principal. */
+  /** El residente paga el mantenimiento completo (un pago por cargo, un grupo) con su voucher en el mismo pedido; la IA lo lee. */
   async function pagaYSube(m: Awaited<ReturnType<typeof mantenimiento>>, token = T.prop1) {
-    const r = await llamar(base, 'POST', `/api/me/mantenimientos/${m.recibo.id}/${m.unidad.id}/pagos`, token, { metodo_pago: 'yape' });
+    const r = await pagarComoResidente(base, token, m.recibo.id, m.unidad.id, { metodo_pago: 'yape' });
     assert.equal(r.status, 201, JSON.stringify(r.body));
     const pagoId = r.body.pago_id as number;
-    await subirVoucher(token, pagoId);
     await esperarEvaluaciones();
     return pagoId;
   }
@@ -281,13 +281,16 @@ describe('la fecha del pago sale del voucher (IA falsa)', () => {
   it('otro mantenimiento (y otro tenant) no se toca', async () => {
     const m1 = await mantenimiento(1);
     const m2 = await mantenimiento(1, d.propietario2.id);
-    const r2 = await llamar(base, 'POST', `/api/me/mantenimientos/${m2.recibo.id}/${m2.unidad.id}/pagos`, T.prop2, { metodo_pago: 'yape' });
+    respuesta = () => lecturaOk({ fecha: iso(HOY - 1 * DIA) });
+    const r2 = await pagarComoResidente(base, T.prop2, m2.recibo.id, m2.unidad.id, { metodo_pago: 'yape' });
     assert.equal(r2.status, 201);
+    await esperarEvaluaciones();
     respuesta = () => lecturaOk({ fecha: iso(HOY - 3 * DIA) });
     await pagaYSube(m1);
+    // El voucher de m1 (hace 3 días) no toca la fecha de m2: conserva la de SU voucher (ayer).
     const otro = (await pagosDe(m2))[0]!;
-    assert.equal(otro.fecha_origen, 'declarada');
-    assert.equal(otro.fecha_declarada, null);
+    assert.equal(otro.fecha_origen, 'voucher');
+    assert.equal(iso(otro.fecha_pago.getTime()), iso(HOY - 1 * DIA));
     const ajeno = await prisma.pago.findMany({ where: { reciboConceptoUnidad: { unidad: { complejo_id: d.complejoB.id } } } });
     assert.ok(ajeno.every((p) => p.fecha_origen === 'declarada'));
   });

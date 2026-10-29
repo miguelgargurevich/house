@@ -98,7 +98,7 @@ describe('formulario «Registrar pago» del administrador', () => {
 
   it('el campo del archivo se llama «voucher», igual que en el servidor', () => {
     assert.match(fuente('src/pages/shared/comprobantes.ts'), /fd\.append\('voucher', archivo, archivo\.name\)/);
-    assert.match(fuente('src/server/routes/recibos.ts'), /subirVoucher\.single\('voucher'\)/);
+    assert.match(fuente('src/server/lib/voucherSubida.ts'), /subirVoucher\.single\('voucher'\)/);
   });
 
   it('el multipart no fija Content-Type (el navegador pone el boundary) y lleva la cabecera CSRF', () => {

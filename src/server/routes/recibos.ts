@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { Router, type RequestHandler } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { HttpError, conflict, forbidden, notFound, invalid } from '../errors';
+import { conflict, forbidden, notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
 import { ambitoJunta, filtroAmbito, filtroReciboAmbito } from '../lib/junta';
@@ -14,14 +13,14 @@ import { bloquearPeriodo, recibosDelPeriodo } from '../services/reciboUnico';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
-import { detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
-import { detalleMantenimiento, pagarMantenimiento, type ComprobanteAdjunto } from '../services/mantenimiento';
+import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { agregarMora, esConceptoMora, informeDeMora, montoDeMoraAplicable, type InformeMora, type UnidadConMora } from '../services/mora';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
 import multer from 'multer';
+import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
 import XLSX from 'xlsx';
 
 const conceptoItem = z.object({ concepto_id: idSchema, monto: montoSchema, es_recargo: z.boolean().optional() });
@@ -387,38 +386,11 @@ async function ubicarParaCobrar(req: Parameters<typeof currentUser>[0], reciboId
   return unidad;
 }
 
-const subirVoucher = multer({ storage: multer.memoryStorage(), defParamCharset: 'utf8', limits: { fileSize: MAX_COMPROBANTE, files: 1, fields: 8, fieldSize: 1024, parts: 9 } });
-
-/**
- * Con `multipart/form-data` el pago puede traer el voucher (campo `voucher`). El departamento se ubica ANTES de recibir el archivo: quien no
- * alcanza ese mantenimiento recibe 404 sin que se lea el cuerpo. Con JSON no hace nada (la petición de siempre).
- */
-const voucherOpcional: RequestHandler = async (req, res, next) => {
-  if (!req.is('multipart/form-data')) return next();
+/** Con `multipart/form-data` el pago puede traer el voucher (campo `voucher`): el departamento se ubica ANTES de recibir el archivo (404 sin leer el cuerpo). Con JSON no hace nada. */
+const voucherOpcional = recibirVoucher('unidadPago', (req) => {
   const { id, unidadId } = parse(idsMant, req.params);
-  res.locals.unidadPago = await ubicarParaCobrar(req, id, unidadId);
-  subirVoucher.single('voucher')(req, res, (err?: unknown) => {
-    if (err instanceof multer.MulterError) {
-      const grande = err.code === 'LIMIT_FILE_SIZE';
-      return next(invalid(grande ? 'El archivo pesa más de 2 MB' : 'Datos inválidos: voucher: adjunta un solo archivo en el campo voucher', { voucher: grande ? 'Demasiado grande' : 'Archivo inválido' }));
-    }
-    next(err);
-  });
-};
-
-/** Los campos de texto del formulario llegan como cadenas: los vacíos (un campo sin llenar) se descartan; el resto lo valida zod igual que en JSON (`usuario_id` se convierte a número ahí). */
-function camposDeFormulario(body: unknown): Record<string, unknown> {
-  return Object.fromEntries(Object.entries((body ?? {}) as Record<string, unknown>).filter(([, v]) => v !== ''));
-}
-
-/** Verifica el voucher igual que `POST /api/pagos/:id/comprobante`: tipo declarado permitido (415), no vacío y bytes que correspondan al tipo (422). */
-function voucherVerificado(file: Express.Multer.File, subidoPorId: number): ComprobanteAdjunto {
-  const declarado = file.mimetype as TipoComprobante;
-  if (!(TIPOS_COMPROBANTE as readonly string[]).includes(declarado)) throw new HttpError(415, 'Tipo de archivo no permitido: sube una imagen JPG, PNG o WebP, o un PDF');
-  if (file.size === 0) throw invalid('El archivo está vacío', { voucher: 'Vacío' });
-  if (detectarTipo(file.buffer) !== declarado) throw invalid('El contenido del archivo no corresponde a su tipo', { voucher: 'No corresponde a su tipo' });
-  return { nombre: sanearNombre(file.originalname, declarado), tipo_mime: declarado, tamano: file.size, sha256: createHash('sha256').update(file.buffer).digest('hex'), datos: file.buffer, subidoPorId };
-}
+  return ubicarParaCobrar(req, id, unidadId);
+});
 
 /**
  * La administración o la junta registran el pago del mantenimiento completo.
@@ -431,7 +403,7 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, voucherOpcional,
   const { id, unidadId } = parse(idsMant, req.params);
   const multipart = Boolean(req.is('multipart/form-data'));
   const body = multipart ? parse(pagoMantenimiento, camposDeFormulario(req.body)) : parseBody(pagoMantenimiento, req);
-  const unidad = (res.locals.unidadPago as Awaited<ReturnType<typeof ubicarParaCobrar>> | undefined) ?? (await ubicarParaCobrar(req, id, unidadId));
+  const unidad = ubicado<Awaited<ReturnType<typeof ubicarParaCobrar>>>(res, 'unidadPago') ?? (await ubicarParaCobrar(req, id, unidadId));
   const voucher = req.file ? voucherVerificado(req.file, u.id) : undefined;
   const { usuario_id, ...datos } = body;
   if (usuario_id != null) {
