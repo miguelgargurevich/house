@@ -1,6 +1,6 @@
 import { MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
-import { cx, soles } from '../../../ui';
+import { cx, dinero } from '../../../ui';
 import type { Catalogo } from '../catalogo';
 import { useTotal } from './useTotal';
 
@@ -19,7 +19,10 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
   const incluidos = plan?.modulos_incluidos ?? [];
   const valido = Number(unidades) >= 1;
   const n = Math.min(MAX, Math.max(1, Math.trunc(Number(unidades) || 0)));
-  const total = useTotal(n, plan?.clave ?? null, valido && !!plan);
+  const total = useTotal(n, plan?.clave ?? null, cat.pais, valido && !!plan);
+  const conImpuesto = Number(cat.impuesto.tasa) > 0;
+  const nombreImp = cat.impuesto.nombre;
+  const paisNombre = cat.paises.find(p => p.codigo === cat.pais)?.nombre ?? cat.pais;
   const gratis = plan && Number(plan.precio_por_unidad) === 0;
   const tope = plan?.unidades_maximas ?? null;
   const excede = tope != null && n > tope;
@@ -32,7 +35,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
       <div className="space-y-6 p-5 sm:p-7">
         <header>
           <h2 id="recibo-titulo" className="text-2xl font-semibold tracking-tight sm:text-3xl">Calcula tu recibo</h2>
-          <p className="mt-1 text-base text-muted">Lo que pagas por condominio. Precios sin IGV.</p>
+          <p className="mt-1 text-base text-muted">Lo que pagas por condominio. {conImpuesto ? `Precios sin ${nombreImp}.` : 'Sin impuesto adicional.'}</p>
         </header>
 
         <div>
@@ -87,7 +90,13 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
       </div>
 
       <div className="bg-brand p-5 text-on-brand sm:p-7" aria-live="polite" aria-atomic="true">
-        {total.error ? <p className="text-base">No se pudo calcular. Revisa tu conexión e inténtalo de nuevo.</p> : excede ? (
+        {total.error ? <p className="text-base">No se pudo calcular. Revisa tu conexión e inténtalo de nuevo.</p> : plan?.consultar ? (
+          <>
+            <p className="text-sm font-medium opacity-90">{plan.nombre} · {n} {n === 1 ? 'departamento' : 'departamentos'}</p>
+            <p className="mt-1 text-4xl font-semibold leading-tight sm:text-5xl">Consúltanos</p>
+            <p className="mt-2 text-lg">{plan.nombre} todavía no tiene precio publicado para {paisNombre}. Consúltanos y te cotizamos.</p>
+          </>
+        ) : excede ? (
           <>
             <p className="text-sm font-medium opacity-90">{plan?.nombre} · {n} departamentos</p>
             <p className="mt-1 text-2xl font-semibold leading-tight sm:text-3xl">{plan?.nombre} llega hasta {tope} departamentos</p>
@@ -99,9 +108,9 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
             <p className="text-sm font-medium opacity-90">Total al mes · {n} {n === 1 ? 'departamento' : 'departamentos'}</p>
             {total.r ? (
               <div key={total.r.total_mes} className="sube-corto">
-                <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{soles(total.r.total_mes)}</p>
-                <p className="num mt-2 text-lg">{gratis ? `Gratis para siempre${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `Más IGV · ${soles(total.r.total_anio)} al año`}</p>
-                {!gratis && total.r.total_con_igv_mes && <p className="num mt-1 text-base opacity-90">Con IGV: {soles(total.r.total_con_igv_mes)} al mes</p>}
+                <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(total.r.total_mes, total.r.moneda)}</p>
+                <p className="num mt-2 text-lg">{gratis ? `Gratis para siempre${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${conImpuesto ? `Más ${nombreImp} · ` : ''}${dinero(total.r.total_anio, total.r.moneda)} al año`}</p>
+                {!gratis && conImpuesto && total.r.total_con_igv_mes && <p className="num mt-1 text-base opacity-90">Con {total.r.impuesto_nombre}: {dinero(total.r.total_con_igv_mes, total.r.moneda)} al mes</p>}
                 {total.r.minimo_aplicado && <p className="mt-1 text-base">{plan?.nombre} cobra un mínimo de {total.r.unidades_cobradas} departamentos por condominio.</p>}
               </div>
             ) : <div className="mt-2 h-14 w-56 rounded bg-on-brand/20" aria-hidden="true" />}

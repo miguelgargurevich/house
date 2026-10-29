@@ -3,7 +3,7 @@ import { BanknotesIcon, BellAlertIcon, ReceiptPercentIcon } from '@heroicons/rea
 import { Marco } from './Marco';
 
 const BENEFICIOS = [
-  { icono: ReceiptPercentIcon, titulo: 'Recibos claros por torre', texto: 'Emite desde tu Excel y cada vecino ve qué debe, en soles, desde su celular.' },
+  { icono: ReceiptPercentIcon, titulo: 'Recibos claros por torre', texto: 'Emite desde tu Excel y cada vecino ve qué debe, en tu moneda, desde su celular.' },
   { icono: BanknotesIcon, titulo: 'Cobranza y morosidad al día', texto: 'Vouchers, medios de pago del condominio y seguimiento de lo vencido.' },
   { icono: BellAlertIcon, titulo: 'Gratis para empezar', texto: 'El plan Gratis es para siempre, con un límite de departamentos. Pro trae todo: IA de vouchers, WhatsApp, asistente, mora automática y reportes.' },
 ] as const;

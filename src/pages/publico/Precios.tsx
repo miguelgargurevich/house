@@ -10,6 +10,8 @@ import { Modulos } from './precios/Modulos';
 import { Planes } from './precios/Planes';
 import { Preguntas } from './precios/Preguntas';
 import { Recibo, type Eleccion } from './precios/Recibo';
+import { SelectorPais } from './precios/SelectorPais';
+import { monedaDe } from '../../lib/paises';
 
 const boton = 'inline-flex h-12 items-center justify-center whitespace-nowrap rounded px-6 text-base font-semibold transition-colors duration-150 active:scale-[0.98]';
 
@@ -26,7 +28,9 @@ export default function Precios() {
   const abierto = cat?.registro_abierto === true;
   // Los hechos salen del catálogo (el tope de Gratis es un dato que edita el superadmin, no una cifra de esta página).
   const tope = cat?.planes.find(p => p.clave === 'gratis')?.unidades_maximas;
-  const hechos = ['Precios en soles', 'Más IGV', tope != null ? `Gratis hasta ${tope} departamentos` : 'Empiezas gratis', 'Sin permanencia'];
+  // Moneda e impuesto son los del país elegido (selector): vienen del servidor, no de esta página.
+  const impuesto = cat && Number(cat.impuesto.tasa) > 0 ? `Más ${cat.impuesto.nombre}` : 'Sin impuesto adicional';
+  const hechos = [cat ? `Precios en ${monedaDe(cat.moneda)?.plural ?? cat.moneda}` : 'Precios por país', impuesto, tope != null ? `Gratis hasta ${tope} departamentos` : 'Empiezas gratis', 'Sin permanencia'];
 
   return (
     <Marco completo ancho="max-w-6xl">
@@ -35,6 +39,7 @@ export default function Precios() {
           <header className="lg:col-span-7">
             <h1 style={sube(0)} className="sube text-[1.8rem] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">Cobra el mantenimiento sin Excel ni WhatsApp sueltos</h1>
             <p style={sube(1)} className="sube mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">House emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis y, cuando necesites todo, pasas a Pro.</p>
+            {cat && cat.paises.length > 1 && <SelectorPais cat={cat} className="sube mt-6" />}
             <ul style={sube(2)} className="sube mt-6 flex flex-wrap gap-x-5 gap-y-2 text-base font-medium">
               {hechos.map(h => <li key={h} className="inline-flex items-center gap-1.5"><CheckIcon className="h-5 w-5 text-brand" aria-hidden="true" />{h}</li>)}
             </ul>

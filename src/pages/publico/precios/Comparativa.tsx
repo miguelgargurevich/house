@@ -1,5 +1,5 @@
 import { CheckIcon, MinusIcon } from '@heroicons/react/24/outline';
-import { soles } from '../../../ui';
+import { dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo } from '../catalogo';
 
@@ -35,8 +35,8 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
               <thead>
                 <tr>
                   <th scope="col" className="px-3 py-4 text-left align-bottom font-medium text-muted sm:px-6">Función</th>
-                  <th scope="col" className={cabeza}><span className="block text-lg font-semibold">{gratis?.nombre ?? 'Gratis'}</span><span className="num block text-sm font-normal text-muted">{soles(gratis?.precio_por_unidad ?? 0)}</span></th>
-                  <th scope="col" className={`${cabeza} bg-brand text-on-brand`}><span className="block text-lg font-semibold">{pro?.nombre ?? 'Pro'}</span><span className="num block text-sm font-normal">{soles(pro?.precio_por_unidad ?? 0)}</span></th>
+                  <th scope="col" className={cabeza}><span className="block text-lg font-semibold">{gratis?.nombre ?? 'Gratis'}</span><span className="num block text-sm font-normal text-muted">{dinero(gratis?.precio_por_unidad ?? 0, cat.moneda)}</span></th>
+                  <th scope="col" className={`${cabeza} bg-brand text-on-brand`}><span className="block text-lg font-semibold">{pro?.nombre ?? 'Pro'}</span><span className="num block text-sm font-normal">{pro?.precio_por_unidad == null ? 'Consúltanos' : dinero(pro.precio_por_unidad, cat.moneda)}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -54,7 +54,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
             </table>
           </div>
         </div>
-        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes, sin IGV.{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}, a ${soles(adm.precio_por_unidad)}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
+        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}.{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `, a ${dinero(adm.precio_por_unidad, cat.moneda)}`}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
       </Aparece>
     </section>
   );
