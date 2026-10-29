@@ -805,7 +805,7 @@ describe('pantallas: fecha del voucher, línea de mora, mora del condominio, avi
 
   it('la ficha del condominio muestra y edita la mora', () => {
     const modal = fuente('src/pages/admin/_parts/condominio/ModalDeComplejo.tsx');
-    assert.match(modal, /Mora por pago fuera de fecha \(\$\{simboloDe\(paisMoneda\.moneda\)\}\)/); // el símbolo es el de la moneda del condominio (S/ en soles)
+    assert.match(modal, /Mora por pago fuera de fecha \(\$\{simboloDe\(paisMoneda\.moneda \|\| monedaDelPais\(paisMoneda\.pais\)\)\}\)/); // el símbolo es el de la moneda del condominio (S/ en soles)
     assert.match(modal, /register\('mora_monto'/);
     assert.match(modal, /mora_monto: v\.mora_monto\.trim\(\)\.replace\(',', '\.'\)/);
     assert.match(fuente('src/pages/admin/CondominioDetalle.tsx'), /label: 'Mora por pago fuera de fecha'/);
