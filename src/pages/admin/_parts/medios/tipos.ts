@@ -44,7 +44,7 @@ export const useAmbitos = () => useResource<Ambitos>('/api/medios-pago/ambitos')
 /** Cómo llama el condominio a sus edificios: «block» si todos son blocks (como VRANY), si no «torre». */
 export function palabraEstructura(a: Ambitos | null | undefined): { una: string; todas: string } {
   const todas = a?.complejos.flatMap(c => c.estructuras) ?? [];
-  return todas.length > 0 && todas.every(e => e.tipo.toLowerCase() === 'block') ? { una: 'block', todas: 'todos los blocks' } : { una: 'torre', todas: 'todas las torres' };
+  return todas.length > 0 && todas.every(e => e.tipo?.toLowerCase() === 'block') ? { una: 'block', todas: 'todos los blocks' } : { una: 'torre', todas: 'todas las torres' };
 }
 
 export const TIPOS: { value: TipoMedio; label: string }[] = [

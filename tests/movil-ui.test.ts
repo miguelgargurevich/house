@@ -39,7 +39,7 @@ describe('vista móvil', () => {
   it('medios de pago: el CCI admite guiones y el condominio de blocks dice «block», no «torre»', () => {
     const form = fuente('src/pages/admin/_parts/medios/MedioFormModal.tsx');
     assert.match(form, /\/\^\\d\{20\}\$\/\.test\(v\.replace\(\/\[\\s-\]\/g, ''\)\)/);
-    assert.match(fuente('src/pages/admin/_parts/medios/tipos.ts'), /every\(e => e\.tipo\.toLowerCase\(\) === 'block'\)/);
+    assert.match(fuente('src/pages/admin/_parts/medios/tipos.ts'), /every\(e => e\.tipo\?\.toLowerCase\(\) === 'block'\)/);
     assert.match(fuente('src/pages/admin/MediosPago.tsx'), /label=\{`Filtrar por \$\{palabra\.una\}`\}/);
   });
 
@@ -55,6 +55,8 @@ describe('vista móvil', () => {
     assert.doesNotMatch(s, /label: 'Conceptos'|d\.conceptos/);
     assert.match(s, /vence el \{fechaCorta\(mant\.fecha_vencimiento\)\}/);
     assert.match(s, /<div className="grid gap-4 sm:grid-cols-2">/);
+    assert.match(s, /matchMedia\?\.\('\(pointer: coarse\)'\)/, 'la cámara sólo en pantallas táctiles: en la computadora `capture` abre el selector de archivos');
+    assert.match(s, /\{conCamara && <div className="mt-2">/);
   });
 
   it('el pago parcial de un concepto queda oculto en el detalle del mantenimiento', () => {

@@ -13,6 +13,12 @@ import type { DetalleMantenimiento, Mantenimiento, ResultadoPagoMantenimiento } 
 
 interface Form { metodo_pago: Metodo; referencia: string }
 
+/**
+ * ¿Pantalla táctil (celular o tablet)? Sólo ahí `capture` abre la cámara; en una computadora el navegador lo ignora y abre el selector de
+ * archivos, igual que «Adjuntar comprobante», así que el botón de la cámara no se muestra.
+ */
+const esTactil = () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true;
+
 /** Paga el MANTENIMIENTO completo del mes de un departamento: un formulario y un solo comprobante por el total. */
 interface Props { mant: Mantenimiento | null; onClose: () => void; onPagado: () => void }
 
@@ -25,6 +31,7 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
   const [pagoSubido, setPagoSubido] = useState<number | null>(null);
   const evaluacion = useEvaluacionResidente(pagoSubido);
   const inputCamara = useRef<HTMLInputElement>(null);
+  const [conCamara] = useState(esTactil);
   const detalle = useResource<DetalleMantenimiento>(mant ? `/api/me/mantenimientos/${mant.recibo_id}/${mant.unidad_id}` : null);
   const d = mant && detalle.data && detalle.data.recibo_id === mant.recibo_id && detalle.data.unidad_id === mant.unidad_id ? detalle.data : null;
 
@@ -131,10 +138,10 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
                 onChange={elegirArchivo}
                 className="[&_input]:h-auto [&_input]:py-2"
               />
-              <div className="mt-2">
+              {conCamara && <div className="mt-2">
                 <Button size="sm" variant="secondary" icon={<CameraIcon className="h-4 w-4" />} onClick={() => inputCamara.current?.click()}>Tomar foto con la cámara</Button>
                 <input ref={inputCamara} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={elegirArchivo} className="sr-only" tabIndex={-1} aria-label="Tomar una foto del comprobante" />
-              </div>
+              </div>}
               {archivo && (
                 <p className="mt-2 flex items-center justify-between gap-3 rounded bg-surface2 px-3 py-2 text-sm">
                   <span className="min-w-0 truncate">{archivo.name} · <span className="num text-muted">{tamanoLegible(archivo.size)}</span></span>
