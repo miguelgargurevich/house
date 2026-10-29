@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Sonnet 5.5) — «Mi junta» para propietarios e inquilinos
+
+- Pedido de Miguel: «cada vecino, propietario o inquilino debería poder ver la junta de su block … que vea solo la de su block y la junta central».
+- **API** `GET /api/me/juntas` (`routes/me.ts`; lógica en `services/juntas.ts › juntasDelResidente`): juntas VIGENTES de los blocks donde tiene unidades (`propietario_id` o `inquilino_id`) y la Junta central de sus condominios si existe; un block sin junta vigente sale con `junta: null`. `select` explícito: de cada miembro sólo `cargo`, `nombre` y `departamentos` (los de ESE block); NUNCA correo/celular/ids de usuario. Cuentas = sólo las activas, con los campos de `/api/me/medios-pago`. Superadmin → 403 explícito (`requireRole` lo deja pasar). `/api/juntas` sigue cerrada a residentes. Documentado en `docs/API-CONTRATO.md`.
+- **Pantalla** `/propietario/junta` y `/inquilino/junta` (`pages/residente/MiJunta.tsx` + `_parts/MiJuntaResidente.tsx`, `_parts/junta/*`): una tarjeta por junta (block primero, central al final), cargo + nombre + dpto., «Escríbele a tu junta» (`mailto:`), «Dónde pagas» con «Copiar» (cuenta, CCI, celular) y el QR. Menú «Mi junta» entre «Mi historial» y «Comunicados»; asistente (`ai-system-prompt.txt`) la nombra.
+- **Pruebas**: `tests/mi-junta.test.ts` (12, API) y `tests/mi-junta-ui.test.ts` (13, fuente/menú/rutas). Mutaciones en rojo: regla del block (todas las del condominio), central de todos los condominios, gestiones cerradas, cuentas inactivas, departamentos de otros blocks, correo/celular del miembro, superadmin sin 403, inquilino por `propietario_id`.
+- **Gotchas**: (1) la salida se arma sólo desde los blocks/condominios propios Y la consulta también los filtra: aflojar una sola capa no filtra nada (mutante equivalente); hay que aflojar las dos. (2) Un presidente/tesorero verá dos ítems «Mi junta» en el menú (el del residente y el de su grupo «Junta», que es la gestión), igual que ya pasa con «Comunicados»; si molesta, renombrar uno. (3) El modo oscuro es la clase `dark` en `<html>` (`app/theme.ts`), no `prefers-color-scheme`. (4) Las rutas nuevas tocan `App.tsx`, `rutasApp.ts` y `nav.ts` con un ítem/ruta cada uno (aditivo) por el cruce con las ramas de invitación de usuarios y Avisos+Comunicados.
+- **Próximos pasos**: integrar (cherry-pick) y subir con OK de Miguel; ver con datos reales de producción cuántas juntas tienen correo/cuenta cargados (sin ellos la tarjeta sólo lista miembros).
+- **Integración**: cherry-pick sobre `main` local (sobre `eb9ce70`, el login); sólo hubo cruce en este archivo (entradas arriba). Suite completa en `main` fusionado: 2208/2208 (tipos de app y de tests sin errores). Una primera corrida dio 511 fallos de auth (401/403) en archivos ajenos (`asistente`…) y no se reprodujo: el mismo archivo pasa solo y la suite entera pasó al repetirla; causa no aclarada (carga de la Mac ~9 o algo usando esa base a la vez). Subida pendiente del OK de Miguel.
+
+---
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Login rediseñado
 
 - Pedido de Miguel: «quiero que mejores el login, es un poco básico y no me gustan los círculos de fondo» (servirá también para los videos de marketing).
