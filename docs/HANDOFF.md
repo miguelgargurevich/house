@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-28 — Claude Code (Opus 5.5) — Ajustes chicos de UI: Resumen block/torre, panel de pago, cámara y cerrar sesión
+
+- Filtro de cobranza: «Todos los blocks» / «Todas las torres» según el tipo (`palabraDeTorres` en `admin/_parts/cobranza/torres.ts`); «block» se compara sin distinguir mayúsculas (también en medios de pago). Superadmin rotula «Estado de mantenimientos».
+- «Tomar foto con la cámara» sólo en pantallas táctiles (`(pointer: coarse)`): en la computadora `capture` se ignora y abría el selector de archivos.
+- «Cerrar sesión» (src/app/Shell.tsx) pide confirmación con ConfirmDialog: el botón está bajo el usuario y un clic de más sacaba de la app. Test en tests/movil-ui.test.ts.
+- Próximo: fase 1 de teléfono con selector de país (delegada a Haiku, rama feat/telefono-pais); fases 2–4 (moneda y país por condominio, impuesto de la suscripción por país, zona horaria) quedan propuestas.
+- Gotcha: en tests de fuente, `[^>]*` se corta en el `=>` de una flecha; usa `.*` si el atributo tiene una función.
+
 ## 2026-10-28 — Claude Code (Sonnet 5.5, delegado por Opus) — El voucher del vecino también va por correo a la junta del block; «Cómo pagar» sale del panel
 
 - Pedido de Miguel: «quita el panel de como pagar y tambien … eso … lo podemos hacer cuando se sube el voucher, avisar al correo del block asi que ese paso manual lo automatizamos». Rama `feat/voucher-correo-block`, sobre `origin/main` 6fa77a6. Riesgo alto, delicado.
