@@ -660,6 +660,56 @@ describe('6c. OCR como última red de la evaluación', () => {
     assert.equal(p.fecha_origen, 'no_leida', 'la fecha de un OCR no se aplica sola');
   });
 
+  it('multimoneda: en un condominio en pesos el OCR no toma un «$» por dólares (sin moneda, no se compara ni se alerta); con soles sigue igual', async () => {
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'CLP' } });
+    try {
+      await conOcr(YAPE_PERFECTO.replace('S/ 100', '$ 100'));
+      const { ev } = await evaluado(1);
+      assert.equal(ev.proveedor, 'ocr');
+      assert.equal((ev.extraido as { moneda: string | null }).moneda, null, 'un «$» en pesos no se lee como dólares');
+      assert.equal((ev.coincidencias as { monto: boolean | null }).monto, null, 'sin moneda no se compara el monto: lo decide una persona');
+      assert.ok(!(ev.alertas as string[]).some((a) => /dólares/.test(a)), JSON.stringify(ev.alertas));
+    } finally {
+      await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'PEN' } });
+    }
+  });
+
+  it('multimoneda: en un condominio en dólares un voucher en dólares coincide en el monto (y uno en soles no)', async () => {
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'USD' } });
+    try {
+      await conOcr(YAPE_PERFECTO.replace('S/ 100', 'US$ 100'));
+      const usd = await evaluado(1);
+      assert.equal((usd.ev.coincidencias as { monto: boolean | null }).monto, true, 'US$ 100 contra 100 en un condominio en dólares');
+      assert.ok(!(usd.ev.alertas as string[]).some((a) => /dólares/.test(a)), JSON.stringify(usd.ev.alertas));
+      await conOcr(YAPE_PERFECTO);
+      const pen = await evaluado(1);
+      assert.equal((pen.ev.coincidencias as { monto: boolean | null }).monto, false, 'S/ 100 en un condominio en dólares no coincide');
+      assert.ok((pen.ev.alertas as string[]).includes('El comprobante está en soles, no en dólares'), JSON.stringify(pen.ev.alertas));
+    } finally {
+      await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'PEN' } });
+    }
+  });
+
+  it('multimoneda: a la IA se le dice la moneda esperada del condominio (en soles el prompt es el de siempre)', async () => {
+    await claves('gemini', 'openai');
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'CLP' } });
+    try {
+      await evaluado(1);
+      assert.ok(llamadas.length > 0);
+      assert.match(JSON.stringify(llamadas[0]!.cuerpo), /un \\"\$\\" sin más es CLP/, 'Gemini (systemInstruction)');
+      llamadas = [];
+      await prisma.claveIntegracion.deleteMany();
+      await claves('openai');
+      await evaluado(1);
+      assert.match(JSON.stringify(llamadas[0]!.cuerpo), /un \\"\$\\" sin más es CLP/, 'compatibles con OpenAI (mensaje de sistema)');
+    } finally {
+      await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'PEN' } });
+    }
+    llamadas = [];
+    await evaluado(1);
+    assert.ok(!JSON.stringify(llamadas[0]!.cuerpo).includes('sin más es'), 'en soles el prompt no cambia');
+  });
+
   it('si TODOS los proveedores fallan (transitorio), primero se reintenta la IA; sólo agotado el reintento entra el OCR', async () => {
     await claves('openai');
     responder = () => estado(503);

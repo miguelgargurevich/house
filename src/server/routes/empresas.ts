@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { crudRouter } from '../crud';
 import { prisma } from '../db';
 import { notFound } from '../errors';
+import { paisSchema } from '../lib/paisMoneda';
 import { scopeEmpresas } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
@@ -17,6 +18,8 @@ const base = z.object({
   fecha_inicio: fechaSchema.nullish(),
   fecha_fin: fechaSchema.nullish(),
   estado: texto(30).optional(),
+  /** País por defecto de sus condominios nuevos (catálogo `src/lib/paises.ts`). */
+  pais: paisSchema.optional(),
 });
 
 // El admin sólo lee y edita SU empresa (el scope lo limita); crear y borrar empresas es del superadmin.

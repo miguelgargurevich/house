@@ -12,6 +12,8 @@ export interface Moneda {
   simbolo: string;
   /** En español, para listas y mensajes: «Sol peruano». */
   nombre: string;
+  /** En plural y en minúsculas, para frases: «Últimos 6 meses, en dólares». */
+  plural: string;
   /** Decimales con los que se muestra y se cobra (CLP y PYG no tienen centavos). */
   decimales: number;
   /** Cómo se escriben los miles y los decimales en esa moneda (`Intl`). */
@@ -42,23 +44,23 @@ export interface Pais {
 }
 
 export const MONEDAS: readonly Moneda[] = [
-  { codigo: 'PEN', simbolo: 'S/', nombre: 'Sol peruano', decimales: 2, locale: 'es-PE', posicion: 'antes' },
-  { codigo: 'USD', simbolo: 'US$', nombre: 'Dólar estadounidense', decimales: 2, locale: 'en-US', posicion: 'antes' },
-  { codigo: 'EUR', simbolo: '€', nombre: 'Euro', decimales: 2, locale: 'es-ES', posicion: 'despues' },
-  { codigo: 'CLP', simbolo: '$', nombre: 'Peso chileno', decimales: 0, locale: 'es-CL', posicion: 'antes' },
-  { codigo: 'COP', simbolo: '$', nombre: 'Peso colombiano', decimales: 0, locale: 'es-CO', posicion: 'antes' },
-  { codigo: 'MXN', simbolo: '$', nombre: 'Peso mexicano', decimales: 2, locale: 'es-MX', posicion: 'antes' },
-  { codigo: 'ARS', simbolo: '$', nombre: 'Peso argentino', decimales: 2, locale: 'es-AR', posicion: 'antes' },
-  { codigo: 'BOB', simbolo: 'Bs', nombre: 'Boliviano', decimales: 2, locale: 'es-BO', posicion: 'antes' },
-  { codigo: 'UYU', simbolo: '$U', nombre: 'Peso uruguayo', decimales: 2, locale: 'es-UY', posicion: 'antes' },
-  { codigo: 'PYG', simbolo: '₲', nombre: 'Guaraní paraguayo', decimales: 0, locale: 'es-PY', posicion: 'antes' },
-  { codigo: 'GTQ', simbolo: 'Q', nombre: 'Quetzal guatemalteco', decimales: 2, locale: 'es-GT', posicion: 'antes' },
-  { codigo: 'CRC', simbolo: '₡', nombre: 'Colón costarricense', decimales: 2, locale: 'es-CR', posicion: 'antes' },
-  { codigo: 'DOP', simbolo: 'RD$', nombre: 'Peso dominicano', decimales: 2, locale: 'es-DO', posicion: 'antes' },
-  { codigo: 'BRL', simbolo: 'R$', nombre: 'Real brasileño', decimales: 2, locale: 'pt-BR', posicion: 'antes' },
-  { codigo: 'HNL', simbolo: 'L', nombre: 'Lempira hondureño', decimales: 2, locale: 'es-HN', posicion: 'antes' },
-  { codigo: 'NIO', simbolo: 'C$', nombre: 'Córdoba nicaragüense', decimales: 2, locale: 'es-NI', posicion: 'antes' },
-  { codigo: 'VES', simbolo: 'Bs.S', nombre: 'Bolívar venezolano', decimales: 2, locale: 'es-VE', posicion: 'antes' },
+  { codigo: 'PEN', simbolo: 'S/', nombre: 'Sol peruano', plural: 'soles', decimales: 2, locale: 'es-PE', posicion: 'antes' },
+  { codigo: 'USD', simbolo: 'US$', nombre: 'Dólar estadounidense', plural: 'dólares', decimales: 2, locale: 'en-US', posicion: 'antes' },
+  { codigo: 'EUR', simbolo: '€', nombre: 'Euro', plural: 'euros', decimales: 2, locale: 'es-ES', posicion: 'despues' },
+  { codigo: 'CLP', simbolo: '$', nombre: 'Peso chileno', plural: 'pesos chilenos', decimales: 0, locale: 'es-CL', posicion: 'antes' },
+  { codigo: 'COP', simbolo: '$', nombre: 'Peso colombiano', plural: 'pesos colombianos', decimales: 0, locale: 'es-CO', posicion: 'antes' },
+  { codigo: 'MXN', simbolo: '$', nombre: 'Peso mexicano', plural: 'pesos mexicanos', decimales: 2, locale: 'es-MX', posicion: 'antes' },
+  { codigo: 'ARS', simbolo: '$', nombre: 'Peso argentino', plural: 'pesos argentinos', decimales: 2, locale: 'es-AR', posicion: 'antes' },
+  { codigo: 'BOB', simbolo: 'Bs', nombre: 'Boliviano', plural: 'bolivianos', decimales: 2, locale: 'es-BO', posicion: 'antes' },
+  { codigo: 'UYU', simbolo: '$U', nombre: 'Peso uruguayo', plural: 'pesos uruguayos', decimales: 2, locale: 'es-UY', posicion: 'antes' },
+  { codigo: 'PYG', simbolo: '₲', nombre: 'Guaraní paraguayo', plural: 'guaraníes', decimales: 0, locale: 'es-PY', posicion: 'antes' },
+  { codigo: 'GTQ', simbolo: 'Q', nombre: 'Quetzal guatemalteco', plural: 'quetzales', decimales: 2, locale: 'es-GT', posicion: 'antes' },
+  { codigo: 'CRC', simbolo: '₡', nombre: 'Colón costarricense', plural: 'colones', decimales: 2, locale: 'es-CR', posicion: 'antes' },
+  { codigo: 'DOP', simbolo: 'RD$', nombre: 'Peso dominicano', plural: 'pesos dominicanos', decimales: 2, locale: 'es-DO', posicion: 'antes' },
+  { codigo: 'BRL', simbolo: 'R$', nombre: 'Real brasileño', plural: 'reales', decimales: 2, locale: 'pt-BR', posicion: 'antes' },
+  { codigo: 'HNL', simbolo: 'L', nombre: 'Lempira hondureño', plural: 'lempiras', decimales: 2, locale: 'es-HN', posicion: 'antes' },
+  { codigo: 'NIO', simbolo: 'C$', nombre: 'Córdoba nicaragüense', plural: 'córdobas', decimales: 2, locale: 'es-NI', posicion: 'antes' },
+  { codigo: 'VES', simbolo: 'Bs.S', nombre: 'Bolívar venezolano', plural: 'bolívares', decimales: 2, locale: 'es-VE', posicion: 'antes' },
 ];
 
 const pais = (codigo: string, nombre: string, bandera: string, moneda: string, zona_horaria: string, impuesto: Impuesto | null): Pais => ({ codigo, nombre, bandera, moneda, zona_horaria, impuesto });
@@ -101,11 +103,12 @@ export const monedaDelPais = (codigo: string | null | undefined): string => pais
 type Numerico = { toFixed(d: number): string } | number | string | null | undefined;
 
 const formatos = new Map<string, Intl.NumberFormat>();
-function formatoNumero(m: Moneda): Intl.NumberFormat {
-  let f = formatos.get(m.codigo);
+function formatoNumero(m: Moneda, decimales: number): Intl.NumberFormat {
+  const clave = `${m.codigo}:${decimales}`;
+  let f = formatos.get(clave);
   if (!f) {
-    f = new Intl.NumberFormat(m.locale, { minimumFractionDigits: m.decimales, maximumFractionDigits: m.decimales, useGrouping: 'always' });
-    formatos.set(m.codigo, f);
+    f = new Intl.NumberFormat(m.locale, { minimumFractionDigits: decimales, maximumFractionDigits: decimales, useGrouping: 'always' as unknown as boolean }) // 'always' es de ES2023: el motor lo entiende aunque el tipo del navegador aún no;
+    formatos.set(clave, f);
   }
   return f;
 }
@@ -116,16 +119,23 @@ function formatoNumero(m: Moneda): Intl.NumberFormat {
  * espacio duro para que no se parta la línea; los textos del servidor, uno normal). Un valor no numérico cuenta como 0.
  *
  * Un `Decimal` de Prisma (o cualquier cosa con `toFixed`) se pasa por su texto exacto, sin convertirlo antes a `number`.
+ * `sinCerosDeMas`: un monto entero sale sin decimales (`S/ 20`, no `S/ 20.00`), para frases como «una mora de S/ 20».
  */
-export function formatoDinero(valor: Numerico, moneda: string | null | undefined, espacio = ' '): string {
+export function formatoDinero(valor: Numerico, moneda: string | null | undefined, espacio = ' ', sinCerosDeMas = false): string {
   const m = monedaDe(moneda ?? MONEDA_POR_DEFECTO);
   const n = typeof valor === 'object' && valor !== null ? Number(valor.toFixed(m?.decimales ?? 2)) : Number(valor ?? 0);
   const x = Number.isFinite(n) ? n : 0;
   if (!m) return `${moneda} ${x.toFixed(2)}`.replace(' ', espacio);
-  const num = formatoNumero(m).format(Math.abs(x));
+  const num = formatoNumero(m, sinCerosDeMas && Number.isInteger(x) ? 0 : m.decimales).format(Math.abs(x));
   const signo = x < 0 && Number(num.replace(/[^\d]/g, '')) !== 0 ? '-' : '';
   return m.posicion === 'despues' ? `${signo}${num}${espacio}${m.simbolo}` : `${signo}${m.simbolo}${espacio}${num}`;
 }
 
 /** Cuántos decimales lleva una moneda (2 si no se conoce). */
 export const decimalesDe = (moneda: string | null | undefined): number => monedaDe(moneda)?.decimales ?? 2;
+
+/** «soles», «dólares», «pesos chilenos»: la moneda en plural para una frase (el código si no está en el catálogo). */
+export const monedaEnPlural = (codigo: string | null | undefined): string => monedaDe(codigo ?? MONEDA_POR_DEFECTO)?.plural ?? String(codigo);
+
+/** El símbolo de una moneda para un rótulo («Monto (US$)»); soles si no se dice, el código si no está en el catálogo. */
+export const simboloDe = (codigo: string | null | undefined): string => monedaDe(codigo ?? MONEDA_POR_DEFECTO)?.simbolo ?? String(codigo);

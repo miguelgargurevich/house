@@ -3,10 +3,11 @@
  * concepto de agua del recibo y la lectura del Excel/CSV de lecturas. No tocan la base. El formato del archivo está en docs/EXCEL-RECIBOS.md.
  *
  *   consumo (m³) = lectura actual − lectura anterior            (3 decimales)
- *   monto (S/)   = consumo × factor (S/ por m³), half-up        (2 decimales)
+ *   monto        = consumo × factor (moneda del condominio por m³), half-up   (2 decimales)
  */
 import { Prisma } from '@prisma/client';
 import XLSX from 'xlsx';
+import { formatoDinero } from '../../lib/paises';
 import { invalid } from '../errors';
 import { fechaDeTexto, normalizarTexto, type Fila } from './excelRecibos';
 
@@ -32,7 +33,7 @@ export interface DatosLectura {
 /** Consumo en m³ con 3 decimales. */
 export const consumoM3 = (anterior: Prisma.Decimal.Value, actual: Prisma.Decimal.Value): Dec => new D(actual).minus(anterior).toDecimalPlaces(DECIMALES_LECTURA, D.ROUND_HALF_UP);
 
-/** Monto en S/ del consumo: m³ × factor, 2 decimales, half-up. */
+/** Monto del consumo (en la moneda del condominio): m³ × factor, 2 decimales, half-up. */
 export const montoAgua = (m3: Prisma.Decimal.Value, factor: Prisma.Decimal.Value): Dec => new D(m3).mul(factor).toDecimalPlaces(2, D.ROUND_HALF_UP);
 
 export interface CuentaLectura { consumo_m3: string; monto: string }
@@ -80,17 +81,16 @@ const sinAcentos = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
 /** ¿Es el concepto de agua DEL DEPARTAMENTO («AGUA DPTO.», «Agua depto», «AGUA DEPARTAMENTO»)? «AGUA COMÚN DEL CONDOMINIO» no. */
 export const esConceptoAgua = (nombre: string | null | undefined): boolean => /\bAGUA (DPTO|DEPTO|DEP|DEPARTAMENTO)\b/.test(sinAcentos(nombre ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, ' '));
 
-const soles = (v: Dec) => v.toFixed(2);
 
 /**
- * Mensaje si el agua del recibo (`recibo`) y la que sale con la lectura (`lectura`) difieren en más de S/ 0.05; si no hay concepto de agua en el
+ * Mensaje si el agua del recibo (`recibo`) y la que sale con la lectura (`lectura`) difieren en más de 0.05 (de la moneda del condominio; soles si no se dice); si no hay concepto de agua en el
  * recibo (`null`) o cuadran, `null`. Es sólo un aviso para quien revisa: no cambia montos ni cargos.
  */
-export function alertaAgua(lectura: Prisma.Decimal.Value, recibo: Prisma.Decimal.Value | null): string | null {
+export function alertaAgua(lectura: Prisma.Decimal.Value, recibo: Prisma.Decimal.Value | null, moneda?: string | null): string | null {
   if (recibo == null) return null;
   const l = new D(lectura);
   const r = new D(recibo);
-  return l.minus(r).abs().gt(TOLERANCIA_AGUA) ? `El agua del recibo es S/ ${soles(r)}; con la lectura sale S/ ${soles(l)}` : null;
+  return l.minus(r).abs().gt(TOLERANCIA_AGUA) ? `El agua del recibo es ${formatoDinero(r, moneda)}; con la lectura sale ${formatoDinero(l, moneda)}` : null;
 }
 
 // ---------- Archivo de lecturas (Excel o CSV) ----------

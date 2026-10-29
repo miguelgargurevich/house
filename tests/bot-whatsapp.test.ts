@@ -792,6 +792,22 @@ describe('B3 · voucher por foto o PDF', () => {
     assert.equal((await prisma.archivoComprobante.findFirstOrThrow()).tipo_mime, 'application/pdf');
   });
 
+  it('multimoneda: en un condominio en dólares las opciones dicen el saldo en «US$»', async () => {
+    await prisma.complejoHabitacional.update({ where: { id: D.complejoA.id }, data: { moneda: 'USD' } });
+    try {
+      await vincular(D.propietario1.id, N.prop1, D.empresaA.id);
+      const id = nuevoId();
+      ponerMedio(id, PNG);
+      await enviarWebhook(INST_A, imagen(N.prop1, { id }));
+      const pregunta = ultimoPara(N.prop1)!;
+      assert.match(pregunta, /1\) A-101 agosto de 2026 \(saldo US\$ 150\.00\)/);
+      assert.match(pregunta, /2\) A-101 octubre de 2026 \(saldo US\$ 200\.00\)/);
+      assert.ok(!pregunta.includes('S/'), pregunta);
+    } finally {
+      await prisma.complejoHabitacional.update({ where: { id: D.complejoA.id }, data: { moneda: 'PEN' } });
+    }
+  });
+
   it('varios pendientes: pregunta «¿Cuál pagaste?», espera la respuesta (estado en la base) y «2» registra el segundo', async () => {
     await vincular(D.propietario1.id, N.prop1, D.empresaA.id);
     const id = nuevoId();

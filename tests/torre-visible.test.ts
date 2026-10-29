@@ -80,7 +80,7 @@ describe('API: Pagos con torre y condominio', () => {
     const todos = await llamar(base, 'GET', '/api/pagos?pageSize=100', T.adminA);
     const p = todos.body.items.find((x: { id: number }) => x.id === pago1.id);
     assert.deepEqual(p.unidad.estructura, { id: d.block1.id, nombre: 'Block 1' });
-    assert.deepEqual(p.unidad.complejo, { id: d.complejoA.id, nombre: 'Complejo A' });
+    assert.deepEqual(p.unidad.complejo, { id: d.complejoA.id, nombre: 'Complejo A', moneda: 'PEN' });
     assert.equal(p.recibo.estructura.nombre, 'Block 1');
     const b2 = await llamar(base, 'GET', `/api/pagos?estructura_id=${d.block2.id}&pageSize=100`, T.adminA);
     assert.ok(b2.body.items.length > 0);
@@ -113,7 +113,7 @@ describe('API: panel, morosidad y residente', () => {
     const b2 = r.body.por_torre.find((x: { estructura_id: number }) => x.estructura_id === d.block2.id);
     assert.equal(b2.nombre, 'Block 2');
     assert.equal(b2.complejo.nombre, 'Complejo A');
-    assert.deepEqual(Object.keys(b2).sort(), ['cobrado', 'complejo', 'emitido', 'estructura_id', 'morosos', 'nombre', 'por_cobrar']);
+    assert.deepEqual(Object.keys(b2).sort(), ['cobrado', 'complejo', 'emitido', 'estructura_id', 'moneda', 'morosos', 'nombre', 'por_cobrar']);
   });
 
   it('el panel se filtra por torre (cifras sólo de esa torre) y por condominio', async () => {
@@ -132,7 +132,7 @@ describe('API: panel, morosidad y residente', () => {
     const r = await llamar(base, 'GET', `/api/reportes/morosidad?complejo_id=${d.complejoA.id}&pageSize=1`, T.adminA);
     assert.equal(r.status, 200);
     assert.equal(r.body.items.length, 1);
-    assert.deepEqual(r.body.items[0].complejo, { id: d.complejoA.id, nombre: 'Complejo A' });
+    assert.deepEqual(r.body.items[0].complejo, { id: d.complejoA.id, nombre: 'Complejo A', moneda: 'PEN' });
     assert.ok(r.body.total >= 2);
     assert.equal(r.body.resumen.unidades, r.body.total);
     const todas = await llamar(base, 'GET', `/api/reportes/morosidad?complejo_id=${d.complejoA.id}&pageSize=100`, T.adminA);

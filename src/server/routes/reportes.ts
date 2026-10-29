@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { Router } from 'express';
+import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { prisma } from '../db';
 import { decimalAString, filtroEstadoCargo } from '../lib/cargos';
 import { diasEntre, hoyLima } from '../lib/fechas';
@@ -44,24 +45,31 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
 
   const unidades = await prisma.unidad.findMany({
     where: { id: { in: [...porUnidad.keys()] } },
-    select: { id: true, codigo: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } }, propietario: { select: { id: true, nombre: true } } },
+    select: { id: true, codigo: true, complejo: { select: { id: true, nombre: true, moneda: true } }, estructura: { select: { id: true, nombre: true } }, propietario: { select: { id: true, nombre: true } } },
   });
   const filas = unidades.map((un) => {
     const a = porUnidad.get(un.id)!;
-    return { unidad: { id: un.id, codigo: un.codigo }, complejo: un.complejo, estructura: un.estructura, propietario: un.propietario, deuda_total: decimalAString(a.deuda), cargos_vencidos: a.cargos, dias_max_atraso: a.maxDias };
+    return { unidad: { id: un.id, codigo: un.codigo }, complejo: un.complejo, moneda: un.complejo?.moneda ?? MONEDA_POR_DEFECTO, estructura: un.estructura, propietario: un.propietario, deuda_total: decimalAString(a.deuda), cargos_vencidos: a.cargos, dias_max_atraso: a.maxDias };
   });
 
   const signo = dir === 'asc' ? 1 : -1;
   const valor = (f: (typeof filas)[number]) =>
     campo === 'deuda_total' ? Number(f.deuda_total) : campo === 'cargos_vencidos' ? f.cargos_vencidos : campo === 'codigo' ? f.unidad.codigo : f.dias_max_atraso;
   filas.sort((a, b) => {
+    // La deuda de monedas distintas no se compara: se ordena dentro de cada moneda.
+    if (campo === 'deuda_total' && a.moneda !== b.moneda) return a.moneda.localeCompare(b.moneda);
     const [x, y] = [valor(a), valor(b)];
     const c = typeof x === 'string' ? x.localeCompare(y as string) : (x as number) - (y as number);
     return c * signo || a.unidad.id - b.unidad.id;
   });
 
-  // Las cifras de arriba son de TODO el filtro (no sólo de la página cargada).
-  const resumen = { unidades: filas.length, deuda_total: decimalAString(filas.reduce((s, f) => s.plus(f.deuda_total), new Prisma.Decimal(0))), cargos_vencidos: filas.reduce((s, f) => s + f.cargos_vencidos, 0) };
+  // Las cifras de arriba son de TODO el filtro (no sólo de la página cargada). Con condominios de monedas distintas la deuda nunca se suma:
+  // `deuda_total` queda en null y las cifras van por moneda en `por_moneda`.
+  const cifras = (fs: typeof filas) => ({ unidades: fs.length, deuda_total: decimalAString(fs.reduce((s, f) => s.plus(f.deuda_total), new Prisma.Decimal(0))), cargos_vencidos: fs.reduce((s, f) => s + f.cargos_vencidos, 0) });
+  const monedas = [...new Set(filas.map((f) => f.moneda))].sort();
+  const resumen = monedas.length > 1
+    ? { ...cifras(filas), deuda_total: null, moneda: null, por_moneda: Object.fromEntries(monedas.map((m) => [m, cifras(filas.filter((f) => f.moneda === m))])) }
+    : { ...cifras(filas), moneda: monedas[0] ?? MONEDA_POR_DEFECTO };
   const inicio = (q.page - 1) * q.pageSize;
   res.json({ items: filas.slice(inicio, inicio + q.pageSize), total: filas.length, page: q.page, pageSize: q.pageSize, resumen });
 });

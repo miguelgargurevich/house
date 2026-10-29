@@ -249,6 +249,16 @@ export async function leerConOcr(a: { mime: string; bytes: Uint8Array }): Promis
  * Lo que el código le hace a un contraste armado con una lectura de OCR: confianza topada (jamás alcanza la de validar sola), «coincide» baja a
  * «revisar», y delante de las alertas normales van las del OCR (incluida la del mes del mensaje).
  */
+/**
+ * El OCR sólo distingue «S/» (soles) de «$» (que lee como dólares). En un condominio que no cobra en soles ni en dólares, un «$» es la moneda del
+ * condominio (el peso chileno también se escribe «$»): no se puede saber cuál, así que queda sin moneda y la persona que valida lo revisa a mano.
+ * Con soles o dólares esperados, la lectura se queda como está.
+ */
+export function lecturaOcrEnMoneda(l: Lectura, monedaEsperada: string): Lectura {
+  if (monedaEsperada === 'PEN' || monedaEsperada === 'USD') return l;
+  return { ...l, moneda: l.moneda === 'PEN' ? 'PEN' : null };
+}
+
 export function ajustarPorOcr(c: Contraste, l: LecturaOcr, recibo: { mes: number; anio: number } | null): Contraste {
   const bajo = c.veredicto === 'coincide';
   return {

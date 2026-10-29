@@ -4,6 +4,7 @@
  * El alcance lo decide quien llama (`unidadWhere` = `unidadesPropias`); una unidad fuera de él es 404. Los montos son Decimal y salen como texto.
  */
 import { Prisma } from '@prisma/client';
+import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { prisma } from '../db';
 import { notFound } from '../errors';
 import { diasEntre, hoyLima } from '../lib/fechas';
@@ -18,13 +19,15 @@ export const MESES_POR_DEFECTO = 12;
 /** Con menos lecturas en el recibo, el promedio del block no se publica: con 1 o 2 vecinos se podría adivinar el consumo de otro. */
 export const MIN_LECTURAS_PROMEDIO = 3;
 
-export interface UnidadHistorial { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null }
+export interface UnidadHistorial { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null; /** Moneda de su condominio. */ moneda: string }
 
 export interface MesHistorial {
   recibo_id: number;
   anio: number;
   mes: number;
   unidad: { id: number; codigo: string };
+  /** Moneda del condominio de la unidad: los montos de este mes van en ella. */
+  moneda: string;
   total: string;
   por_concepto: { concepto: string; monto: string }[];
   /** Lo ya cobrado (pagos validados). */
@@ -44,7 +47,8 @@ export interface MesHistorial {
   agua_promedio_block: string | null;
 }
 
-export interface ResumenHistorial {
+/** Las cifras en dinero del resumen; se calculan por moneda (nunca se suman monedas distintas). */
+export interface DineroHistorial {
   /** Lo cobrado en los meses del periodo. */
   pagado: string;
   /** Pagado ÷ meses del periodo en los que hubo algún pago. */
@@ -53,6 +57,15 @@ export interface ResumenHistorial {
   deuda_actual: string;
   /** Lo que ya enviaste y espera validación; no cuenta como deuda. */
   en_revision: string;
+}
+
+export interface ResumenHistorial {
+  /** Con unidades de monedas distintas estas cuatro cifras van en `null` y se leen de `por_moneda`; elegir una unidad las devuelve. */
+  pagado: string | null;
+  promedio_mes: string | null;
+  deuda_actual: string | null;
+  en_revision: string | null;
+  por_moneda?: Record<string, DineroHistorial>;
   /** Meses pagados con fecha de pago ≤ vencimiento… */
   meses_a_tiempo: number;
   /** …de los meses evaluados: los pagados con fecha conocida y los vencidos sin pagar (los que están en revisión se esperan). */
@@ -67,6 +80,8 @@ export interface Historial {
   anios: number[];
   /** El año pedido; `null` = últimos meses con recibo. */
   anio: number | null;
+  /** Moneda de las unidades mostradas; `null` si son de condominios con monedas distintas. */
+  moneda: string | null;
   resumen: ResumenHistorial;
   meses: MesHistorial[];
 }
@@ -76,6 +91,7 @@ export interface OpcionesHistorial { unidadId?: number; anio?: number; hoy?: Dat
 interface Grupo {
   recibo_id: number;
   unidad: { id: number; codigo: string };
+  moneda: string;
   anio: number;
   mes: number;
   vence: Date;
@@ -93,17 +109,18 @@ const vacio = (unidades: UnidadHistorial[], anio: number | null): Historial => (
   unidades,
   anios: [],
   anio,
+  moneda: unidades.length && unidades.every((u) => u.moneda === unidades[0]!.moneda) ? unidades[0]!.moneda : unidades.length ? null : MONEDA_POR_DEFECTO,
   resumen: { pagado: '0.00', promedio_mes: '0.00', deuda_actual: '0.00', en_revision: '0.00', meses_a_tiempo: 0, meses_evaluados: 0, meses_en_periodo: 0, agua_promedio_m3: null },
   meses: [],
 });
 
 export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, opts: OpcionesHistorial = {}): Promise<Historial> {
   const hoy = opts.hoy ?? hoyLima();
-  const unidades = (await prisma.unidad.findMany({
+  const unidades: UnidadHistorial[] = (await prisma.unidad.findMany({
     where: unidadWhere,
-    select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } } },
+    select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { moneda: true } } },
     orderBy: [{ codigo: 'asc' }, { id: 'asc' }],
-  })) as UnidadHistorial[];
+  })).map(({ complejo, ...u }) => ({ ...u, moneda: complejo?.moneda ?? MONEDA_POR_DEFECTO }));
   if (opts.unidadId !== undefined && !unidades.some((u) => u.id === opts.unidadId)) throw notFound('Unidad'); // una unidad ajena no se distingue de una que no existe
   const elegidas = opts.unidadId !== undefined ? unidades.filter((u) => u.id === opts.unidadId) : unidades;
   const anioPedido = opts.anio ?? null;
@@ -122,13 +139,14 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
   });
 
   const codigo = new Map(elegidas.map((u) => [u.id, u.codigo]));
+  const monedaDe = new Map(elegidas.map((u) => [u.id, u.moneda]));
   const grupos = new Map<string, Grupo>();
   for (const c of cargos) {
     const recibo = c.reciboConcepto?.recibo;
     if (!recibo || c.unidad_id == null) continue;
     const k = `${recibo.id}-${c.unidad_id}`;
     let g = grupos.get(k);
-    if (!g) grupos.set(k, (g = { recibo_id: recibo.id, unidad: { id: c.unidad_id, codigo: codigo.get(c.unidad_id) ?? '' }, anio: recibo.anio, mes: recibo.mes, vence: soloDia(recibo.fecha_vencimiento), cargos: [], conceptos: new Map() }));
+    if (!g) grupos.set(k, (g = { recibo_id: recibo.id, unidad: { id: c.unidad_id, codigo: codigo.get(c.unidad_id) ?? '' }, moneda: monedaDe.get(c.unidad_id) ?? MONEDA_POR_DEFECTO, anio: recibo.anio, mes: recibo.mes, vence: soloDia(recibo.fecha_vencimiento), cargos: [], conceptos: new Map() }));
     const suma = (estado: string) => c.pagos.filter((p) => p.estado_validacion === estado).reduce((a, p) => a.plus(p.monto), dec(0));
     g.cargos.push({
       monto: dec(c.monto),
@@ -187,6 +205,7 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
       anio: g.anio,
       mes: g.mes,
       unidad: g.unidad,
+      moneda: g.moneda,
       total: cuenta.total,
       por_concepto: [...g.conceptos.entries()].sort((a, b) => a[1].orden - b[1].orden).map(([concepto, v]) => ({ concepto, monto: v.monto.toFixed(2) })),
       pagado: cuenta.cobrado,
@@ -200,11 +219,23 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
     };
   });
 
-  // Resumen. La deuda mira todos los periodos (es «hoy»); lo demás, sólo los meses mostrados.
-  const deuda = [...cuentas.values()].reduce((a, c) => a.plus(c.saldo), dec(0));
-  const enRevision = [...cuentas.values()].reduce((a, c) => a.plus(c.en_revision), dec(0));
-  const pagado = meses.reduce((a, m) => a.plus(m.pagado), dec(0));
-  const mesesConPago = new Set(meses.filter((m) => dec(m.pagado).gt(0)).map((m) => m.anio * 12 + m.mes));
+  // Resumen. La deuda mira todos los periodos (es «hoy»); lo demás, sólo los meses mostrados. El dinero se suma por moneda: nunca entre monedas distintas.
+  const dineroDe = (moneda: string): DineroHistorial => {
+    const ms = meses.filter((m) => m.moneda === moneda);
+    const cs = [...cuentas].filter(([g]) => g.moneda === moneda).map(([, c]) => c);
+    const pagado = ms.reduce((a, m) => a.plus(m.pagado), dec(0));
+    const mesesConPago = new Set(ms.filter((m) => dec(m.pagado).gt(0)).map((m) => m.anio * 12 + m.mes));
+    return {
+      pagado: pagado.toFixed(2),
+      promedio_mes: (mesesConPago.size ? pagado.div(mesesConPago.size) : dec(0)).toFixed(2),
+      deuda_actual: cs.reduce((a, c) => a.plus(c.saldo), dec(0)).toFixed(2),
+      en_revision: cs.reduce((a, c) => a.plus(c.en_revision), dec(0)).toFixed(2),
+    };
+  };
+  const monedas = [...new Set(elegidas.map((u) => u.moneda))].sort();
+  const dinero = monedas.length === 1
+    ? dineroDe(monedas[0]!)
+    : { pagado: null, promedio_mes: null, deuda_actual: null, en_revision: null, por_moneda: Object.fromEntries(monedas.map((m) => [m, dineroDe(m)])) };
   const evaluados = meses.filter((m) => m.estado === 'vencido' || (m.estado === 'pagado' && m.dias_vs_vencimiento !== null));
   const consumos = meses.flatMap((m) => (m.agua_m3 ? [dec(m.agua_m3)] : []));
 
@@ -212,11 +243,9 @@ export async function historialResidente(unidadWhere: Prisma.UnidadWhereInput, o
     unidades,
     anios,
     anio: anioPedido,
+    moneda: monedas.length === 1 ? monedas[0]! : null,
     resumen: {
-      pagado: pagado.toFixed(2),
-      promedio_mes: (mesesConPago.size ? pagado.div(mesesConPago.size) : dec(0)).toFixed(2),
-      deuda_actual: deuda.toFixed(2),
-      en_revision: enRevision.toFixed(2),
+      ...dinero,
       meses_a_tiempo: evaluados.filter((m) => m.estado === 'pagado' && m.dias_vs_vencimiento! <= 0).length,
       meses_evaluados: evaluados.length,
       meses_en_periodo: new Set(meses.map((m) => m.anio * 12 + m.mes)).size,

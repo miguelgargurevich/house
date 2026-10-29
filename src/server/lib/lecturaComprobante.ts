@@ -4,6 +4,7 @@
  * se limpian y truncan, y NINGUNA decisión sale de ahí: las comparaciones las hace `services/contraste.ts` con código.
  */
 import { z } from 'zod';
+import { CODIGOS_MONEDA, MONEDA_POR_DEFECTO, monedaDe } from '../../lib/paises';
 
 export const MEDIOS_LECTURA = ['yape', 'plin', 'transferencia', 'deposito', 'otro'] as const;
 export const ESTADOS_OPERACION = ['exitosa', 'pendiente', 'fallida', 'desconocido'] as const;
@@ -39,7 +40,7 @@ export const lecturaSchema = z
     medio: z.enum(MEDIOS_LECTURA).nullable(),
     estado_operacion: z.enum(ESTADOS_OPERACION),
     monto: z.number().finite().min(0).max(10_000_000).nullable(),
-    moneda: z.enum(['PEN', 'USD']).nullable(),
+    moneda: z.enum(CODIGOS_MONEDA).nullable(),
     fecha,
     numero_operacion: texto.transform((v) => (v ? v.replace(/\s+/g, '').toUpperCase() : v)),
     destinatario_nombre: texto,
@@ -72,6 +73,17 @@ FORMATO (exactamente estas claves, ninguna otra):
   "destino_numero": string | null,     // celular o cuenta de quien RECIBE; solo los últimos dígitos visibles
   "mensaje": string | null             // el texto libre que escribió quien pagó (mensaje, glosa, concepto, descripción), tal cual; null si no hay
 }`;
+
+/**
+ * El prompt para un condominio cuya moneda no es el sol: el lector devuelve el código ISO 4217 del comprobante y un «$» sin más es la moneda esperada
+ * (el peso chileno, el colombiano… se escriben igual que el dólar). Para soles es `PROMPT_SISTEMA` tal cual: no cambia nada.
+ */
+export function promptSistema(monedaEsperada: string | null | undefined): string {
+  const m = monedaDe(monedaEsperada);
+  if (!m || m.codigo === MONEDA_POR_DEFECTO) return PROMPT_SISTEMA;
+  const linea = `  "moneda": "${CODIGOS_MONEDA.join('" | "')}" | null, // código ISO 4217 del comprobante; "S/" es PEN, "US$" es USD y un "$" sin más es ${m.codigo} (${m.nombre})`;
+  return PROMPT_SISTEMA.replace(/^ {2}"moneda": .*$/m, linea);
+}
 
 export const PROMPT_USUARIO = 'Extrae los datos de este comprobante de pago y responde solo el JSON.';
 

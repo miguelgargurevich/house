@@ -5,7 +5,7 @@ import { enviarTelegram } from '../canales/telegram';
 import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
-import { fechaTexto, periodoTexto, plantilla, solesTexto, type TipoAviso } from './plantillas';
+import { dineroTexto, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
 export const MAX_INTENTOS = 3;
@@ -32,7 +32,7 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
     if (cargoId == null) return null;
     const c = await prisma.reciboConceptoUnidad.findUnique({
       where: { id: cargoId },
-      select: { monto: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
+      select: { monto: true, unidad: { select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } },
     });
     const recibo = c?.reciboConcepto?.recibo;
     if (!c || !recibo) return null;
@@ -41,14 +41,14 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
         nombre: usuario.nombre,
         periodo: periodoTexto(recibo.mes, recibo.anio),
         concepto: c.reciboConcepto?.concepto?.nombre,
-        monto: solesTexto(c.monto),
+        monto: dineroTexto(c.monto, c.unidad?.complejo?.moneda),
         vencimiento: fechaTexto(recibo.fecha_vencimiento),
         condominio: c.unidad?.complejo?.nombre ?? null,
         departamentos: c.unidad ? [{ codigo: c.unidad.codigo, torre: c.unidad.estructura?.nombre ?? null }] : [],
       },
     };
   }
-  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { id: true, nombre: true, mora_monto: true } } } });
+  const recibo = await prisma.recibo.findUnique({ where: { id: ref.id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { id: true, nombre: true, moneda: true, mora_monto: true } } } });
   if (!recibo) return null;
   // Sin mora automática (plan Gratis) el recordatorio no la promete.
   const moraMonto = recibo.complejo ? await montoDeMoraAplicable(recibo.complejo.id, recibo.complejo.mora_monto) : new Prisma.Decimal(0);
@@ -78,13 +78,13 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
       nombre: usuario.nombre,
       periodo: periodoTexto(recibo.mes, recibo.anio),
       concepto: conceptos.slice(0, 3).join(', ') + (conceptos.length > 3 ? '…' : ''),
-      monto: solesTexto(total),
+      monto: dineroTexto(total, recibo.complejo?.moneda),
       vencimiento: fechaTexto(recibo.fecha_vencimiento),
       dias: diasEntre(hoyLima(ahora), recibo.fecha_vencimiento),
       // Los recordatorios avisan de la mora (si el condominio la cobra) para que el vecino suba su voucher a tiempo.
-      ...((tipo === 'por_vencer' || tipo === 'vence_hoy') && moraMonto.gt(0) ? { mora: montoMoraTexto(moraMonto) } : {}),
+      ...((tipo === 'por_vencer' || tipo === 'vence_hoy') && moraMonto.gt(0) ? { mora: montoMoraTexto(moraMonto, recibo.complejo?.moneda) } : {}),
       condominio: recibo.complejo?.nombre ?? null,
-      departamentos: [...porUnidad.values()].sort((a, b) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true })).map((x) => ({ codigo: x.codigo, torre: x.torre, monto: solesTexto(x.monto) })),
+      departamentos: [...porUnidad.values()].sort((a, b) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true })).map((x) => ({ codigo: x.codigo, torre: x.torre, monto: dineroTexto(x.monto, recibo.complejo?.moneda) })),
     },
   };
 }

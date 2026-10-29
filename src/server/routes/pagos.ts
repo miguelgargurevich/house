@@ -3,6 +3,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { conflict, invalid } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
+import { formatoDinero } from '../../lib/paises';
 import { esJunta } from '../lib/junta';
 import { conResumenDeGrupo, soloPrincipales } from '../services/mantenimiento';
 import { scopeCargosEscritura, scopePagos, scopePagosEscritura, scopePagosJunta, scopeUsuarios } from '../lib/scope';
@@ -42,12 +43,13 @@ async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
   if (d.recibo_concepto_unidad_id != null) {
     const cargo = await assertRef(prisma.reciboConceptoUnidad, d.recibo_concepto_unidad_id as number, scopeCargosEscritura(user), 'recibo_concepto_unidad_id');
     if (d.monto != null) {
+      const moneda = (await prisma.reciboConceptoUnidad.findUnique({ where: { id: cargo!.id as number }, select: { reciboConcepto: { select: { recibo: { select: { complejo: { select: { moneda: true } } } } } } } }))?.reciboConcepto?.recibo?.complejo?.moneda;
       // Un pago por validar ya reclama su monto; uno rechazado no.
       const { _sum } = await prisma.pago.aggregate({ where: { recibo_concepto_unidad_id: cargo!.id as number, estado_validacion: { not: 'rechazado' } }, _sum: { monto: true } });
       const saldo = new Prisma.Decimal(cargo!.monto as Prisma.Decimal).minus(_sum.monto ?? 0);
       if (saldo.lte(0)) throw conflict(cargo!.estado_pago === 'en_revision' ? 'Este cargo tiene un pago en revisión: valídalo o recházalo primero' : 'Este cargo ya está pagado');
       if (new Prisma.Decimal(d.monto as string).gt(saldo)) {
-        throw invalid(`Datos inválidos: monto: excede el saldo del cargo (S/ ${saldo.toFixed(2)})`, { monto: 'Excede el saldo del cargo' });
+        throw invalid(`Datos inválidos: monto: excede el saldo del cargo (${formatoDinero(saldo, moneda)})`, { monto: 'Excede el saldo del cargo' });
       }
     }
   }

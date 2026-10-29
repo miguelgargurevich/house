@@ -2,6 +2,7 @@
  * Contraste (por código, nunca por el texto del modelo) entre lo que leyó la IA y lo que debía pagarse.
  * Funciones puras: sin base de datos ni red, para poder probarlas en matriz.
  */
+import { MONEDA_POR_DEFECTO, monedaDe } from '../../lib/paises';
 import type { Lectura } from '../lib/lecturaComprobante';
 
 export type Comprobacion = boolean | null;
@@ -26,6 +27,8 @@ export interface MedioParaContraste {
 
 export interface Esperado {
   monto: string; // decimal como texto
+  /** Moneda del condominio (ISO 4217); sin ella, soles. Un comprobante en otra moneda no puede coincidir. */
+  moneda?: string;
   /** Mes y año del recibo: si el mensaje del comprobante nombra otro mes, se alerta y el veredicto no puede ser «coincide». */
   periodo?: { mes: number; anio: number } | null;
   /** Fecha de emisión del recibo (el día en Lima, 00:00 UTC). */
@@ -110,8 +113,8 @@ export function contrastarDestino(l: Pick<Lectura, 'medio' | 'destino_numero' | 
   return medios.some(esRecaudacion) ? null : false;
 }
 
-export function contrastarMonto(l: Pick<Lectura, 'monto' | 'moneda'>, esperado: string): Comprobacion {
-  if (l.moneda === 'USD') return false;
+export function contrastarMonto(l: Pick<Lectura, 'monto' | 'moneda'>, esperado: string, moneda: string = MONEDA_POR_DEFECTO): Comprobacion {
+  if (l.moneda != null && l.moneda !== moneda) return false;
   if (l.monto == null || l.moneda == null) return null;
   return Math.abs(l.monto - Number(esperado)) <= TOLERANCIA_MONTO + 1e-9;
 }
@@ -164,9 +167,13 @@ export function alertaDePeriodo(mensaje: string | null | undefined, recibo: { me
 const NO_ES = 'La imagen no parece un comprobante de pago';
 const SIN_LEER = 'No se pudo leer el comprobante con claridad';
 
+/** «dólares», «soles», «pesos chilenos»: para la alerta. */
+const nombreDeMoneda = (codigo: string): string =>
+  codigo === 'USD' ? 'dólares' : codigo === 'PEN' ? 'soles' : codigo === 'EUR' ? 'euros' : (monedaDe(codigo)?.nombre.toLowerCase() ?? codigo);
+
 export function contrastar(l: Lectura, esperado: Esperado, medios: MedioParaContraste[], dup: Duplicados): Contraste {
   const coincidencias: Coincidencias = {
-    monto: contrastarMonto(l, esperado.monto),
+    monto: contrastarMonto(l, esperado.monto, esperado.moneda),
     destino: contrastarDestino(l, medios),
     fecha: contrastarFecha(l.fecha, esperado),
     estado_operacion: l.estado_operacion === 'exitosa' ? true : l.estado_operacion === 'desconocido' ? null : false,
@@ -179,8 +186,9 @@ export function contrastar(l: Lectura, esperado: Esperado, medios: MedioParaCont
   if (dup.operacionEnPago != null) alertas.push(`El número de operación ya se usó en el pago #${dup.operacionEnPago}`);
   if (l.estado_operacion === 'fallida') alertas.push('La operación figura como fallida');
   if (l.estado_operacion === 'pendiente') alertas.push('La operación figura como pendiente');
-  if (l.moneda === 'USD') alertas.push('El comprobante está en dólares');
-  if (coincidencias.monto === false && l.moneda !== 'USD') alertas.push('El monto del comprobante no coincide con lo que se debe');
+  const otraMoneda = l.moneda != null && l.moneda !== (esperado.moneda ?? MONEDA_POR_DEFECTO);
+  if (otraMoneda) alertas.push(`El comprobante está en ${nombreDeMoneda(l.moneda!)}${esperado.moneda && esperado.moneda !== MONEDA_POR_DEFECTO ? `, no en ${nombreDeMoneda(esperado.moneda)}` : ''}`);
+  if (coincidencias.monto === false && !otraMoneda) alertas.push('El monto del comprobante no coincide con lo que se debe');
   if (coincidencias.destino === false) alertas.push('El destino no coincide con los medios de pago activos');
   if (coincidencias.destino === null && hayDatosDeDestino(l) && medios.some(esRecaudacion)) alertas.push('El destino no se pudo comparar con la cuenta recaudadora: revísalo a mano');
   if (coincidencias.fecha === false) alertas.push('La fecha del comprobante está fuera del rango esperado');

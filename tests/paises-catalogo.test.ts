@@ -3,7 +3,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { prisma, vaciarBase } from './helpers/app';
-import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDAS, PAISES, decimalesDe, formatoDinero, monedaDe, monedaDelPais, paisDe } from '../src/lib/paises';
+import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDAS, PAISES, decimalesDe, formatoDinero, monedaDe, monedaDelPais, monedaEnPlural, paisDe, simboloDe } from '../src/lib/paises';
 
 describe('catálogo de países y monedas', () => {
   it('cada país apunta a una moneda del catálogo, con zona horaria IANA válida', () => {
@@ -39,6 +39,18 @@ describe('catálogo de países y monedas', () => {
     assert.equal(decimalesDe('CLP'), 0);
     assert.equal(decimalesDe('PEN'), 2);
     assert.equal(decimalesDe('???'), 2);
+  });
+
+  it('el plural para frases y el símbolo para rótulos (soles si no se dice; el código si la moneda no existe)', () => {
+    assert.equal(monedaEnPlural('PEN'), 'soles');
+    assert.equal(monedaEnPlural('USD'), 'dólares');
+    assert.equal(monedaEnPlural('CLP'), 'pesos chilenos');
+    assert.equal(monedaEnPlural(null), 'soles');
+    assert.equal(monedaEnPlural('XYZ'), 'XYZ');
+    assert.equal(simboloDe('USD'), 'US$');
+    assert.equal(simboloDe(undefined), 'S/');
+    assert.equal(simboloDe('XYZ'), 'XYZ');
+    for (const m of MONEDAS) assert.ok(m.plural && m.plural === m.plural.toLowerCase(), `${m.codigo}: plural en minúsculas`);
   });
 
   it('el impuesto de referencia del Perú es el IGV de 18 %; EE. UU. no tiene uno nacional', () => {

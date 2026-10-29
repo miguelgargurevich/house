@@ -3,10 +3,11 @@
 import type { Prisma } from '@prisma/client';
 import { HttpError } from '../errors';
 import { cooldownDeps } from '../lib/cooldown';
+import { monedasDeUsuario } from '../lib/paisMoneda';
 import { registrarAuditoria } from '../middleware/audit';
 import type { AuthUser } from '../middleware/auth';
 import { z } from '../validation';
-import { ContactoInstitucional, HERRAMIENTAS_CON_CONTACTO_INSTITUCIONAL, MAX_FILAS, puedeUsar, type Herramienta } from './base';
+import { ContactoInstitucional, HERRAMIENTAS_CON_CONTACTO_INSTITUCIONAL, MAX_FILAS, MONEDA, puedeUsar, type Herramienta } from './base';
 import { HERRAMIENTAS_GESTION } from './gestion';
 import { HERRAMIENTAS_INSTITUCIONAL } from './institucional';
 import { HERRAMIENTAS_PERSONAS } from './personas';
@@ -133,6 +134,18 @@ const MAX_CARACTERES = { asistente: 12_000, mcp: 60_000 } as const;
  * herramienta inventada o de otro rol no existe, la entrada pasa por zod estricto y la salida por `depurar` y `acotar`. Nunca lanza.
  * Cada llamada queda en la auditoría (herramienta, origen, argumentos sin datos sensibles, filas, tiempo).
  */
+/**
+ * Cambia el `moneda: 'PEN'` que pone `respuesta()` por la moneda real del alcance de quien consulta. Con condominios de monedas distintas
+ * `moneda` va en null, `monedas` las lista y `nota_monedas` avisa que no se suman (las herramientas que totalizan varios condominios los
+ * suman por su cuenta: ahí el aviso es lo único que protege al asistente).
+ */
+async function conMonedas(u: AuthUser, r: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (r.moneda !== MONEDA) return r;
+  const monedas = await monedasDeUsuario(u);
+  if (monedas.length === 1) return { ...r, moneda: monedas[0] };
+  return { ...r, moneda: null, monedas, nota_monedas: 'Hay condominios con monedas distintas: los montos de cada uno están en su propia moneda y NO se pueden sumar entre sí.' };
+}
+
 export async function ejecutarHerramienta(u: AuthUser, nombre: string, entradaCruda: unknown, opts: OpcionesEjecucion): Promise<ResultadoHerramienta> {
   const t0 = cooldownDeps.ahora();
   const ms = () => cooldownDeps.ahora() - t0;
@@ -154,7 +167,7 @@ export async function ejecutarHerramienta(u: AuthUser, nombre: string, entradaCr
     return { ok: false, codigo: 'entrada_invalida', mensaje: `Argumentos inválidos: ${detalle}`, ms: ms() };
   }
   try {
-    const bruto = await h.ejecutar(u, entrada.data);
+    const bruto = await conMonedas(u, await h.ejecutar(u, entrada.data));
     const { valor } = depurar(bruto, undefined, nombre);
     const desde = typeof (entrada.data as { cursor?: unknown }).cursor === 'string' ? Number(/^o(\d+)$/.exec((entrada.data as { cursor: string }).cursor)?.[1] ?? 0) : 0;
     const datos = acotar(valor as Json, opts.maxCaracteres ?? MAX_CARACTERES[opts.origen], desde);

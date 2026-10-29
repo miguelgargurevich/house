@@ -7,12 +7,13 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError } from '../errors';
 import { cooldownDeps, estaEnfriando, parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
+import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { hoyLima } from '../lib/fechas';
-import { PROMPT_SISTEMA, PROMPT_USUARIO, parsearLectura, type Lectura } from '../lib/lecturaComprobante';
+import { PROMPT_USUARIO, parsearLectura, promptSistema, type Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
 import { cabecerasDe, fetchProveedor } from './llavero';
 import { contrastar, type MedioParaContraste, MIN_OPERACION } from './contraste';
-import { ajustarPorOcr, leerConOcr, type LecturaOcr } from './ocrVoucher';
+import { ajustarPorOcr, lecturaOcrEnMoneda, leerConOcr, type LecturaOcr } from './ocrVoucher';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
 import { aplicarFechaDelVoucher, decidirFechaEvaluada, type DecisionFecha } from './fechaVoucher';
 import { avisarResultado, cerrarPago } from './validacionPago';
@@ -145,7 +146,8 @@ export async function iniciarEvaluacion(pagoId: number, modo: 'subida' | 'manual
 }
 
 // ---------- Llamada al proveedor ----------
-interface Archivo { mime: string; base64: string }
+/** `moneda`: la del condominio del pago, para que el prompt diga qué significa un «$» sin más (soles si falta). */
+interface Archivo { mime: string; base64: string; moneda?: string }
 interface Respuesta { ok: boolean; status: number; texto: string; retryAfterMs: number | null; claveInvalida: boolean }
 
 /** Familias que se sabe que leen imágenes, para cuando el catálogo vivo (`ModeloIA.vision`) no dice nada de ese modelo. */
@@ -180,7 +182,7 @@ async function consultarVision(e: Eslabon, modelo: string, a: Archivo, topeMs: n
   const url = gemini ? `${e.proveedor.baseUrl}/models/${encodeURIComponent(modelo)}:generateContent` : `${e.proveedor.baseUrl}/chat/completions`;
   const cuerpo = gemini
     ? {
-        systemInstruction: { parts: [{ text: PROMPT_SISTEMA }] },
+        systemInstruction: { parts: [{ text: promptSistema(a.moneda) }] },
         contents: [{ role: 'user', parts: [{ text: PROMPT_USUARIO }, { inlineData: { mimeType: a.mime, data: a.base64 } }] }],
         generationConfig: { temperature: 0, responseMimeType: 'application/json' },
       }
@@ -189,7 +191,7 @@ async function consultarVision(e: Eslabon, modelo: string, a: Archivo, topeMs: n
         temperature: 0,
         ...(e.proveedor.id === 'openai' || e.proveedor.id === 'mistral' ? { response_format: { type: 'json_object' } } : {}),
         messages: [
-          { role: 'system', content: PROMPT_SISTEMA },
+          { role: 'system', content: promptSistema(a.moneda) },
           { role: 'user', content: [{ type: 'text', text: PROMPT_USUARIO }, { type: 'image_url', image_url: { url: `data:${a.mime};base64,${a.base64}` } }] },
         ],
       };
@@ -311,7 +313,7 @@ const pagoParaEvaluar = {
     select: {
       id: true,
       unidad: { select: { complejo_id: true, estructura_id: true, complejo: { select: { validacion_automatica_ia: true } } } },
-      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true, mes: true, anio: true, complejo_id: true } } } },
+      reciboConcepto: { select: { recibo: { select: { fecha_emision: true, empresa_id: true, mes: true, anio: true, complejo_id: true, complejo: { select: { moneda: true } } } } } },
     },
   },
 } satisfies Prisma.PagoInclude;
@@ -340,7 +342,8 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
     return;
   }
 
-  const salida = await leerConRotacion({ mime: archivo.tipo_mime, base64: Buffer.from(archivo.datos).toString('base64') });
+  const moneda = cargo0?.reciboConcepto?.recibo?.complejo?.moneda ?? MONEDA_POR_DEFECTO;
+  const salida = await leerConRotacion({ mime: archivo.tipo_mime, base64: Buffer.from(archivo.datos).toString('base64'), moneda });
   let lectura: Lectura | null = salida.tipo === 'texto' ? parsearLectura(salida.texto) : null; // el texto del modelo no se guarda ni se obedece: sólo cuenta si valida el esquema estricto
   let origen: Origen | null = lectura && salida.tipo === 'texto' ? { proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo } : null;
 
@@ -349,7 +352,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const iaTermino = salida.tipo === 'sin_clave' || (salida.tipo === 'fallo' && !(salida.transitorio && intento < 2)) || (salida.tipo === 'texto' && lectura === null);
   if (!lectura && iaTermino) {
     const ocr = await leerConOcr({ mime: archivo.tipo_mime, bytes: archivo.datos });
-    if (ocr) { lectura = ocr.lectura; origen = { proveedor: 'ocr', modelo: null, ocr }; }
+    if (ocr) { lectura = lecturaOcrEnMoneda(ocr.lectura, moneda); origen = { proveedor: 'ocr', modelo: null, ocr }; }
   }
 
   if (!lectura || !origen) {
@@ -408,7 +411,7 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const totalGrupo = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto : null;
   let c = contrastar(
     lectura,
-    { monto: (totalGrupo ?? pago.monto).toString(), emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()), periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null },
+    { monto: (totalGrupo ?? pago.monto).toString(), moneda, emision: recibo ? hoyLima(recibo.fecha_emision) : hoyLima(pago.created_at), hoy: hoyLima(evaluacionDeps.ahora()), periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null },
     medios.map(medioParaContraste),
     { archivoEnPago: mismoArchivo?.pago_id ?? null, operacionEnPago: mismaOperacion?.pago_id ?? null },
   );

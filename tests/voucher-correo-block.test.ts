@@ -118,6 +118,20 @@ describe('el pago del panel avisa al correo del block, con el voucher adjunto', 
     for (const secreto of [CLAVE, CORREO_BLOCK, c.body.attachments![0]!.content.slice(0, 40)]) assert.ok(!volcado.includes(secreto), 'la auditoría no filtra la clave, el correo ni el archivo');
   });
 
+  it('multimoneda: en un condominio en dólares el asunto y el monto del correo dicen «US$»', async () => {
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'USD' } });
+    try {
+      const r = await pagar(await mantenimiento(d.unidadA1), { metodo_pago: 'yape' });
+      assert.equal(r.status, 201, r.texto);
+      assert.equal(correos.length, 1);
+      assert.equal(correos[0]!.body.subject, 'Voucher de pago · A-101 · octubre 2026 · US$ 115.00');
+      assert.ok(correos[0]!.body.text.includes('Monto: US$ 115.00'), correos[0]!.body.text);
+      assert.ok(!correos[0]!.body.text.includes('S/'));
+    } finally {
+      await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { moneda: 'PEN' } });
+    }
+  });
+
   it('si paga el inquilino, el correo dice quién pagó además del propietario', async () => {
     const m = await mantenimiento(d.unidadA1);
     const inq = await login(base, 'inq1@test.pe');

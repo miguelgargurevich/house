@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
+import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { conflict, notFound } from '../errors';
 import { selectComprobante } from '../lib/cargos';
 import { hoyLima } from '../lib/fechas';
@@ -131,6 +132,8 @@ export interface DetalleMantenimiento {
   fecha_emision: Date;
   fecha_vencimiento: Date;
   estado: EstadoMantenimiento;
+  /** Moneda del condominio (ISO 4217): todos los montos del mantenimiento van en ella. */
+  moneda: string;
   total: string;
   cobrado: string;
   en_revision: string;
@@ -145,9 +148,9 @@ export interface DetalleMantenimiento {
   agua: AguaDeMantenimiento | null;
   /** «Correo del block» al que se envían los vouchers. */
   correo_vouchers: string | null;
-  /** Nombre del concepto de mora/multa del recibo cuando este departamento no tiene ese cargo (se imprime en S/ 0.00); `null` si no aplica. */
+  /** Nombre del concepto de mora/multa del recibo cuando este departamento no tiene ese cargo (se imprime en 0.00); `null` si no aplica. */
   linea_mora: string | null;
-  condominio: { id: number; nombre: string; direccion: string | null; notas_pago: string | null; admin_nombre: string | null; admin_celular: string | null; admin_correo: string | null; cabecera_url: string | null } | null;
+  condominio: { id: number; nombre: string; moneda: string; direccion: string | null; notas_pago: string | null; admin_nombre: string | null; admin_celular: string | null; admin_correo: string | null; cabecera_url: string | null } | null;
   empresa: { id: number; nombre: string; ruc: string | null; direccion: string | null; telefono: string | null; email: string | null; logo_url: string | null } | null;
   unidad: { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null };
   propietario: { id: number; nombre: string } | null;
@@ -187,7 +190,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     prisma.recibo.findFirst({
       where: { AND: [{ id: reciboId }, o.reciboWhere ?? {}] },
       include: {
-        complejo: { select: { id: true, nombre: true, direccion: true, notas_pago: true, admin_nombre: true, admin_celular: true, admin_correo: true, imagenRecibo: { select: { updated_at: true } } } },
+        complejo: { select: { id: true, nombre: true, moneda: true, direccion: true, notas_pago: true, admin_nombre: true, admin_celular: true, admin_correo: true, imagenRecibo: { select: { updated_at: true } } } },
         empresa: { select: { id: true, nombre: true, ruc: true, direccion: true, telefono: true, email: true, imagenRecibo: { select: { updated_at: true } } } },
       },
     }),
@@ -236,7 +239,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
   for (const g of porGrupo.values()) pagos.push(dePago(g.principal ?? g.alguno, g.monto, g.conceptos, false));
   pagos.sort((a, b) => b.fecha_pago.getTime() - a.fecha_pago.getTime() || b.id - a.id);
 
-  // Los cargos en S/ 0.00 no existen (no son deuda): si el recibo tiene concepto de mora y este departamento no tiene ese cargo, se imprime igual en 0.00.
+  // Los cargos en 0.00 no existen (no son deuda): si el recibo tiene concepto de mora y este departamento no tiene ese cargo, se imprime igual en 0.00.
   const conceptoMora = conceptosDb.find((c) => esConceptoMora(c.concepto?.nombre));
   const tieneMora = conceptoMora != null && cargos.some((c) => c.recibo_concepto_id === conceptoMora.id);
   const deuda = await deudaAcumulada(unidadId, recibo.anio, recibo.mes);
@@ -260,6 +263,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     fecha_emision: recibo.fecha_emision,
     fecha_vencimiento: recibo.fecha_vencimiento,
     estado: estadoMantenimiento(resumen, recibo.fecha_vencimiento, hoyLima()),
+    moneda: recibo.complejo?.moneda ?? MONEDA_POR_DEFECTO,
     ...resumen,
     fecha_corte_agua: recibo.fecha_corte_agua,
     deuda_acumulada: deuda,

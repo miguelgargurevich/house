@@ -4,7 +4,9 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { conflict, forbidden, notFound, invalid } from '../errors';
 import { estadoCargo, includeCargo, formatearCargo } from '../lib/cargos';
+import { MONEDA_POR_DEFECTO, formatoDinero } from '../../lib/paises';
 import { hoyLima } from '../lib/fechas';
+import { monedaDeRecibo } from '../lib/paisMoneda';
 import { ambitoJunta, filtroAmbito, filtroReciboAmbito } from '../lib/junta';
 import { descripcionRecibo, periodoTexto } from '../lib/periodo';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
@@ -80,11 +82,12 @@ function conTotales(r: { id: number; fecha_vencimiento: Date }, t: Totales | und
   return { totales, estado_cobranza };
 }
 
-const includeRecibo = { complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } } satisfies Prisma.ReciboInclude;
+const includeRecibo = { complejo: { select: { id: true, nombre: true, moneda: true } }, estructura: { select: { id: true, nombre: true } } } satisfies Prisma.ReciboInclude;
 
-async function formatearRecibos<T extends { id: number; fecha_vencimiento: Date }>(items: T[]) {
+/** Cada recibo lleva `moneda` (la de su condominio): todos sus montos y totales van en ella. */
+async function formatearRecibos<T extends { id: number; fecha_vencimiento: Date; complejo?: { moneda: string } | null }>(items: T[]) {
   const t = await totalesPorRecibo(items.map((r) => r.id));
-  return items.map((r) => ({ ...r, ...conTotales(r, t.get(r.id)) }));
+  return items.map((r) => ({ ...r, moneda: r.complejo?.moneda ?? MONEDA_POR_DEFECTO, ...conTotales(r, t.get(r.id)) }));
 }
 
 /** Un recibo por cada torre con unidades activas (y uno sin torre si quedan unidades sin torre); sin torres, uno solo. */
@@ -182,7 +185,7 @@ async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser): P
       console.error('[avisos] no se pudieron encolar los avisos del recibo', id, err instanceof Error ? err.message : 'error');
     }
   }
-  return { ids: emitidos, mora: informeDeMora(montoMora, moraPorRecibo), avisosMora };
+  return { ids: emitidos, mora: informeDeMora(montoMora, moraPorRecibo, complejo!.moneda as string), avisosMora };
 }
 
 const crud = crudRouter({
@@ -285,10 +288,10 @@ router.get('/periodos', adminOJunta, async (req, res) => {
     ? await prisma.recibo.findMany({
         where: { AND: [where, { OR: meses.map((m) => ({ anio: m.anio, mes: m.mes })) }] },
         orderBy: [{ anio: 'desc' }, { mes: 'desc' }, { estructura: { nombre: 'asc' } }, { id: 'desc' }],
-        select: { id: true, mes: true, anio: true, descripcion: true, fecha_emision: true, fecha_vencimiento: true, estado: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } },
+        select: { id: true, mes: true, anio: true, descripcion: true, fecha_emision: true, fecha_vencimiento: true, estado: true, complejo: { select: { id: true, nombre: true, moneda: true } }, estructura: { select: { id: true, nombre: true } } },
       })
     : [];
-  res.json({ items, total: items.length, page: 1, pageSize: items.length });
+  res.json({ items: items.map((r) => ({ ...r, moneda: r.complejo?.moneda ?? MONEDA_POR_DEFECTO })), total: items.length, page: 1, pageSize: items.length });
 });
 
 // Detalle ampliado: conceptos y cargos por unidad (se declara antes del CRUD para tomar GET /:id).
@@ -298,7 +301,7 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
   const recibo = await prisma.recibo.findFirst({
     where: { AND: [{ id }, scopeRecibos(user)] },
     include: {
-      complejo: { select: { id: true, nombre: true } },
+      complejo: { select: { id: true, nombre: true, moneda: true } },
       estructura: { select: { id: true, nombre: true } },
       reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: { select: { id: true, nombre: true } } } },
     },
@@ -316,6 +319,7 @@ router.get('/:id', requireRole('admin'), async (req, res) => {
   const t = (await totalesPorRecibo([id])).get(id);
   res.json({
     ...resto,
+    moneda: recibo.complejo?.moneda ?? MONEDA_POR_DEFECTO,
     ...conTotales(recibo, t),
     conceptos: reciboConceptos.map((rc) => ({ id: rc.id, concepto_id: rc.concepto_id, concepto: rc.concepto, monto: rc.monto, es_recargo: rc.es_recargo, orden: rc.orden })),
     cargos: cargosDb.map((c) => {
@@ -337,7 +341,7 @@ router.get('/:id/blocks', requireRole('admin'), async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id);
   const blocks = await resumenPorBlock(id);
-  res.json({ agrupado: agruparPorBlock(blocks), blocks });
+  res.json({ agrupado: agruparPorBlock(blocks), moneda: await monedaDeRecibo(id), blocks });
 });
 
 const mantQuery = listQuerySchema.extend({
@@ -538,7 +542,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
       }
       const totalMant = columnaTotalMant == null ? null : limpiarMonto(fila[columnaTotalMant]);
       if (totalMant != null && suma.minus(redondearMonto(totalMant)).abs().gt(TOLERANCIA_TOTAL)) {
-        advertencias.push(`${etiqueta}: la suma de los conceptos (S/ ${suma.toFixed(2)}) no coincide con TOTAL MANT (S/ ${redondearMonto(totalMant)})`);
+        advertencias.push(`${etiqueta}: la suma de los conceptos (${formatoDinero(suma.toFixed(2), complejo!.moneda as string)}) no coincide con TOTAL MANT (${formatoDinero(redondearMonto(totalMant), complejo!.moneda as string)})`);
       }
       grupo.unidades++;
     }
@@ -608,7 +612,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   res.locals.entidad = 'recibo';
   res.locals.entidadId = primero.recibo_id;
   res.locals.accion = 'crear_desde_excel';
-  const mora = informeDeMora(montoMora, moraPorRecibo);
+  const mora = informeDeMora(montoMora, moraPorRecibo, complejo!.moneda as string);
   advertencias.push(...resultado.avisosMora);
   res.locals.auditDetalle = { recibo_ids: resultado.porTorre.map((r) => r.recibo_id), torres: resultado.porTorre.map((r) => r.torre), mes, anio, mora: mora.cantidad };
   res.status(201).json({

@@ -125,7 +125,7 @@ describe('dashboard por rol', () => {
   it('admin: forma del resumen con sus números y sólo su empresa', async () => {
     const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.adminB);
     assert.equal(r.status, 200);
-    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'morosos', 'pagos_por_validar', 'palabra_estructura', 'por_torre', 'recibos_emitidos', 'recibos_total', 'tareas_abiertas', 'unidades_total']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['cargos_pendientes_monto', 'cobrado_mes', 'cobrado_por_mes', 'estados', 'moneda', 'morosos', 'pagos_por_validar', 'palabra_estructura', 'por_torre', 'recibos_emitidos', 'recibos_total', 'tareas_abiertas', 'unidades_total']);
     assert.equal(r.body.recibos_emitidos, 1);
     assert.equal(r.body.cargos_pendientes_monto, '90.00');
     assert.equal(r.body.morosos, 1);
@@ -147,7 +147,7 @@ describe('dashboard por rol', () => {
 
   it('propietario: deuda, vencidos, próximo vencimiento y pagado del año', async () => {
     const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.prop2);
-    assert.deepEqual(Object.keys(r.body).sort(), ['deuda_total', 'en_revision', 'mantenimientos_en_revision', 'mantenimientos_vencidos', 'pagado_ano', 'proximo_mantenimiento', 'proximo_vencimiento', 'vencidos']);
+    assert.deepEqual(Object.keys(r.body).sort(), ['deuda_total', 'en_revision', 'mantenimientos_en_revision', 'mantenimientos_vencidos', 'moneda', 'pagado_ano', 'proximo_mantenimiento', 'proximo_vencimiento', 'vencidos']);
     // prop2 pagó su único cargo en la prueba anterior, pero sigue en revisión: es «por cobrar», no moroso y no cuenta como pagado
     assert.equal(r.body.deuda_total, '150.00');
     assert.equal(r.body.en_revision, 1);
@@ -270,7 +270,7 @@ describe('recibos y cargos (admin)', () => {
     assert.equal(r.status, 200);
     const a101 = r.body.items.find((x: { unidad: { codigo: string } }) => x.unidad.codigo === 'A-101');
     assert.ok(a101);
-    assert.deepEqual(Object.keys(a101).sort(), ['cargos_vencidos', 'complejo', 'deuda_total', 'dias_max_atraso', 'estructura', 'propietario', 'unidad']);
+    assert.deepEqual(Object.keys(a101).sort(), ['cargos_vencidos', 'complejo', 'deuda_total', 'dias_max_atraso', 'estructura', 'moneda', 'propietario', 'unidad']);
     assert.equal(a101.deuda_total, '150.00');
     assert.equal(a101.cargos_vencidos, 1);
     assert.equal(a101.dias_max_atraso, 30);

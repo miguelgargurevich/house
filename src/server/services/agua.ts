@@ -4,6 +4,7 @@
  * quien llama) lo decide el router y llega como `unidadWhere`.
  */
 import { Prisma } from '@prisma/client';
+import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { prisma } from '../db';
 import { notFound } from '../errors';
 import {
@@ -90,6 +91,8 @@ async function unidadesDelRecibo(reciboId: number, unidadWhere: Prisma.UnidadWhe
 }
 
 export interface AguaDelRecibo {
+  /** Moneda del condominio: el monto de cada lectura, el del recibo y el factor (por m³) van en ella. */
+  moneda: string;
   recibo: { id: number; mes: number; anio: number; fecha_corte_agua: Date | null; estructura: { id: number; nombre: string | null; correo_vouchers: string | null } | null };
   /** El factor más usado en este recibo; si aún no hay lecturas, el del mes anterior. Sirve de sugerencia al cargar. */
   factor_sugerido: string | null;
@@ -100,9 +103,10 @@ export interface AguaDelRecibo {
 export async function aguaDelRecibo(reciboId: number, o: { reciboWhere: Prisma.ReciboWhereInput; unidadWhere: Prisma.UnidadWhereInput }): Promise<AguaDelRecibo> {
   const recibo = await prisma.recibo.findFirst({
     where: { AND: [{ id: reciboId }, o.reciboWhere] },
-    select: { id: true, mes: true, anio: true, fecha_corte_agua: true, estructura: { select: { id: true, nombre: true, correo_vouchers: true } } },
+    select: { id: true, mes: true, anio: true, fecha_corte_agua: true, estructura: { select: { id: true, nombre: true, correo_vouchers: true } }, complejo: { select: { moneda: true } } },
   });
   if (!recibo) throw notFound();
+  const moneda = recibo.complejo?.moneda ?? MONEDA_POR_DEFECTO;
   const unidades = await unidadesDelRecibo(reciboId, o.unidadWhere);
   const ids = unidades.map((u) => u.id);
   const [lecturas, previas, aguaRecibo] = await Promise.all([
@@ -120,13 +124,14 @@ export async function aguaDelRecibo(reciboId: number, o: { reciboWhere: Prisma.R
       lectura,
       anterior: previas.get(u.id) ?? null,
       agua_recibo: recibido?.toFixed(2) ?? null,
-      alerta: lectura ? alertaAgua(lectura.monto, recibido) : null,
+      alerta: lectura ? alertaAgua(lectura.monto, recibido, moneda) : null,
     };
   });
   const factores = new Map<string, number>();
   for (const f of items) { const x = f.lectura?.factor ?? f.anterior?.factor; if (x) factores.set(x, (factores.get(x) ?? 0) + 1); }
   const sugerido = [...factores.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  return { recibo, factor_sugerido: sugerido, items };
+  const cabecera = { id: recibo.id, mes: recibo.mes, anio: recibo.anio, fecha_corte_agua: recibo.fecha_corte_agua, estructura: recibo.estructura }; // sin `complejo`: la moneda va arriba
+  return { recibo: cabecera, moneda, factor_sugerido: sugerido, items };
 }
 
 export type EntradaLectura = { unidad_id: number } & DatosLectura;

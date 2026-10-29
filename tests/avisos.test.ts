@@ -6,7 +6,7 @@ import { hoyLima } from '../src/server/lib/fechas';
 import { encolarAviso, encolarRecordatorios, encolarReciboEmitido, procesarCola, ciclo, MAX_INTENTOS, type DepsAvisos } from '../src/server/services/avisos';
 import { LOCK_AVISOS, planificadorActivo } from '../src/server/services/avisos/planificador';
 import { formatearCelular, normalizarCelular } from '../src/server/services/avisos/celular';
-import { fechaTexto, periodoTexto, plantilla, solesTexto, TIPOS } from '../src/server/services/avisos/plantillas';
+import { fechaTexto, periodoTexto, plantilla, dineroTexto, TIPOS } from '../src/server/services/avisos/plantillas';
 import { estadoCanales } from '../src/server/services/avisos/canales';
 
 const DIA = 86_400_000;
@@ -91,7 +91,7 @@ describe('celulares peruanos', () => {
 });
 
 describe('plantillas', () => {
-  const datos = { nombre: 'María Elena Quispe', periodo: periodoTexto(10, 2026), concepto: 'Mantenimiento', monto: solesTexto('1234.5'), vencimiento: fechaTexto(new Date(Date.UTC(2026, 10, 15))), dias: 3 };
+  const datos = { nombre: 'María Elena Quispe', periodo: periodoTexto(10, 2026), concepto: 'Mantenimiento', monto: dineroTexto('1234.5'), vencimiento: fechaTexto(new Date(Date.UTC(2026, 10, 15))), dias: 3 };
   it('cada tipo lleva nombre, periodo, monto, enlace y está en español con tuteo', () => {
     assert.equal(datos.periodo, 'octubre de 2026');
     assert.equal(datos.monto, 'S/ 1,234.50');

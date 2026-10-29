@@ -184,7 +184,7 @@ describe('lectura del modelo: esquema estricto', () => {
       { ...lectura(), monto: -5 },
       { ...lectura(), medio: 'paypal' },
       { ...lectura(), estado_operacion: 'ok' },
-      { ...lectura(), moneda: 'EUR' },
+      { ...lectura(), moneda: 'XYZ' }, // fuera del catálogo de monedas (el euro y las demás del catálogo sí valen: ver multimoneda.test.ts)
       { ...lectura(), fecha: '2026-02-31' },
       { ...lectura(), fecha: '31/12/2026' },
       { ...lectura(), legible: 'si' },

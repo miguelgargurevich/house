@@ -5,6 +5,7 @@
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
+import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { z } from '../validation';
 import { hoyLima } from './fechas';
 import { nombreMes } from './periodo';
@@ -109,6 +110,8 @@ export interface FilaMantenimiento {
   fecha_vencimiento: Date;
   unidad: { id: number; codigo: string; estructura: { id: number; nombre: string | null } | null };
   propietario: { id: number; nombre: string } | null;
+  /** Moneda del condominio (ISO 4217): todos los montos de la fila van en ella. */
+  moneda: string;
   total: string;
   cobrado: string;
   en_revision: string;
@@ -167,7 +170,7 @@ const sqlEstado = (hoy: Date) => Prisma.sql`CASE
 
 type FilaSql = {
   recibo_id: number; unidad_id: number; mes: number; anio: number; fecha_vencimiento: Date; codigo: string;
-  estructura_id: number | null; estructura_nombre: string | null; propietario_id: number | null; propietario_nombre: string | null;
+  estructura_id: number | null; estructura_nombre: string | null; propietario_id: number | null; propietario_nombre: string | null; moneda: string;
   total: Prisma.Decimal; cobrado: Prisma.Decimal; en_revision: Prisma.Decimal; saldo: Prisma.Decimal; estado: EstadoMantenimiento; n: bigint;
 };
 
@@ -181,6 +184,7 @@ const aFila = (f: FilaSql): FilaMantenimiento => ({
   fecha_vencimiento: f.fecha_vencimiento,
   unidad: { id: f.unidad_id, codigo: f.codigo, estructura: f.estructura_id != null ? { id: f.estructura_id, nombre: f.estructura_nombre } : null },
   propietario: f.propietario_id != null ? { id: f.propietario_id, nombre: f.propietario_nombre ?? '' } : null,
+  moneda: f.moneda,
   total: dec(f.total).toFixed(2),
   cobrado: dec(f.cobrado).toFixed(2),
   en_revision: dec(f.en_revision).toFixed(2),
@@ -211,6 +215,7 @@ export async function listarMantenimientos(
     SELECT * FROM (
       SELECT m.recibo_id, m.unidad_id, r.mes, r.anio, r.fecha_vencimiento, u.codigo,
              e.id AS estructura_id, e.nombre AS estructura_nombre, pr.id AS propietario_id, pr.nombre AS propietario_nombre,
+             COALESCE(co.moneda, ${MONEDA_POR_DEFECTO}) AS moneda,
              m.total, m.cobrado, m.en_revision, m.saldo, ${estado} AS estado,
              COUNT(*) OVER () AS n, ROW_NUMBER() OVER (${orden}) AS rn
       FROM mant m
@@ -218,6 +223,7 @@ export async function listarMantenimientos(
       JOIN "Unidad" u ON u.id = m.unidad_id
       LEFT JOIN "Estructura" e ON e.id = u.estructura_id
       LEFT JOIN "Usuario" pr ON pr.id = u.propietario_id
+      LEFT JOIN "ComplejoHabitacional" co ON co.id = r.complejo_id
       ${estados.length ? Prisma.sql`WHERE ${estado} IN (${Prisma.join(estados)})` : Prisma.empty}
     ) t
     WHERE t.rn > ${(p.page - 1) * p.pageSize} AND t.rn <= ${p.page * p.pageSize}

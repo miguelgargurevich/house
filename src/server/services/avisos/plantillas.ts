@@ -1,3 +1,4 @@
+import { formatoDinero } from '../../../lib/paises';
 import { periodoTexto } from '../../lib/periodo';
 
 export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida'] as const;
@@ -11,13 +12,13 @@ export interface DatosAviso {
   periodo: string;
   /** Concepto o conceptos del cargo (puede ir vacío). */
   concepto?: string;
-  /** Monto ya formateado, p. ej. `S/ 350.00`. */
+  /** Monto ya formateado con la moneda del condominio, p. ej. `S/ 350.00` o `US$ 350.00`. */
   monto: string;
   /** Vencimiento `dd/mm/aaaa`. */
   vencimiento: string;
   /** Días que faltan para vencer (negativo si ya venció). Sólo para `por_vencer`. */
   dias?: number;
-  /** Mora (ya formateada, p. ej. `S/ 20`) que se agrega al recibo del mes siguiente si no se paga a tiempo. Sin ella, el recordatorio no la menciona. */
+  /** Mora (ya formateada, p. ej. `S/ 20` o `US$ 20`) que se agrega al recibo del mes siguiente si no se paga a tiempo. Sin ella, el recordatorio no la menciona. */
   mora?: string;
   /** Motivo del rechazo (`pago_rechazado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
   motivo?: string;
@@ -29,9 +30,9 @@ export interface DatosAviso {
 
 export { periodoTexto };
 
-export function solesTexto(valor: { toFixed(d: number): string } | number | string): string {
-  const [ent, dec] = (typeof valor === 'object' ? valor.toFixed(2) : Number(valor).toFixed(2)).split('.');
-  return `S/ ${ent!.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${dec}`;
+/** Monto con el símbolo, los decimales y los separadores de la moneda del condominio (`S/ 1,234.50`, `US$ 20.00`, `$ 15.000`). Sin moneda, soles. */
+export function dineroTexto(valor: { toFixed(d: number): string } | number | string, moneda?: string | null): string {
+  return formatoDinero(valor, moneda);
 }
 
 /** `Date` (00:00 UTC, como se guardan los vencimientos) → `dd/mm/aaaa`. */

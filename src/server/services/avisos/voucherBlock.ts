@@ -11,7 +11,7 @@ import { prisma } from '../../db';
 import { nombreMes } from '../../lib/periodo';
 import { registrarAuditoria } from '../../middleware/audit';
 import { enviarCorreo, type DepsAvisos, type ResultadoEnvio } from './canales';
-import { ENLACE_APP, solesTexto } from './plantillas';
+import { ENLACE_APP, dineroTexto } from './plantillas';
 
 export const ACCION_AVISO_VOUCHER = 'avisar_voucher_block';
 type Resultado = 'enviado' | 'omitido' | 'fallo';
@@ -40,7 +40,7 @@ const seleccion = {
   comprobante: { select: { nombre: true, sha256: true, datos: true } },
   reciboConceptoUnidad: {
     select: {
-      unidad: { select: { codigo: true, estructura: { select: { nombre: true, correo_vouchers: true } }, propietario: { select: { nombre: true } }, complejo: { select: { nombre: true } } } },
+      unidad: { select: { codigo: true, estructura: { select: { nombre: true, correo_vouchers: true } }, propietario: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true } } } },
       reciboConcepto: { select: { recibo: { select: { mes: true, anio: true } } } },
     },
   },
@@ -72,7 +72,7 @@ export async function avisarVoucherAlBlock(pagoId: number, deps: typeof voucherB
 
     const recibo = pago.reciboConceptoUnidad?.reciboConcepto?.recibo;
     const total = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto ?? pago.monto : pago.monto;
-    const monto = solesTexto(total);
+    const monto = dineroTexto(total, unidad?.complejo?.moneda);
     const mes = recibo ? `${nombreMes(recibo.mes)} ${recibo.anio}` : null;
     const block = unidad?.estructura?.nombre ?? null;
     const propietario = unidad?.propietario?.nombre ?? null;

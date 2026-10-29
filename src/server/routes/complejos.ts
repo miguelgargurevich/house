@@ -4,11 +4,12 @@ import { prisma } from '../db';
 import { invalid, notFound } from '../errors';
 import { abrirContrato, cambiarAdministradora } from '../lib/contratos';
 import { empresaDe, scopeComplejos } from '../lib/scope';
+import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda } from '../lib/paisMoneda';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
 import { emailSchema, fechaSchema, idSchema, parseBody, parseId, telefonoSchema, texto, textoOpcional, z } from '../validation';
 
-/** Monto en soles con hasta 2 decimales; 0 es válido (el condominio no cobra mora). */
+/** Monto (en la moneda del condominio) con hasta 2 decimales; 0 es válido (el condominio no cobra mora). */
 const moraSchema = z
   .union([z.number(), z.string()], { error: 'Monto inválido' })
   .transform((v) => String(v).trim())
@@ -20,9 +21,12 @@ const base = z.object({
   direccion: textoOpcional(255),
   descripcion: textoOpcional(1000),
   empresa_id: idSchema.nullish(),
+  /** País y moneda del condominio (catálogo `src/lib/paises.ts`). Sin ellos, nace con el país de su empresa y la moneda de ese país; con recibos emitidos la moneda ya no cambia (409). */
+  pais: paisSchema.optional(),
+  moneda: monedaSchema.optional(),
   /** Valida solo los pagos que la IA lee como coincidencia exacta. Sólo admin/superadmin editan complejos (la junta no). */
   validacion_automatica_ia: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
-  /** Mora (S/) que se agrega en el recibo del mes siguiente a quien pagó fuera de fecha; 0 = sin mora (por defecto 20.00). */
+  /** Mora (en la moneda del condominio) que se agrega en el recibo del mes siguiente a quien pagó fuera de fecha; 0 = sin mora (por defecto 20.00). */
   mora_monto: moraSchema.optional(),
   /** Recibo impreso: notas de pago (una línea por renglón) y contacto de la administración. Todo opcional. */
   notas_pago: textoOpcional(2000),
@@ -67,10 +71,14 @@ const crud = crudRouter({
   createSchema: base,
   updateSchema: base.partial(),
   prepareCreate: async (d, u) => {
-    if (u.rol === 'admin') return { ...d, empresa_id: empresaDe(u) };
-    if (d.empresa_id == null) throw invalid('Datos inválidos: empresa_id: es obligatorio', { empresa_id: 'Obligatorio' });
-    await assertRef(prisma.empresaAdministradora, d.empresa_id as number, {}, 'empresa_id');
-    return d;
+    let r = d;
+    if (u.rol === 'admin') r = { ...d, empresa_id: empresaDe(u) };
+    else {
+      if (d.empresa_id == null) throw invalid('Datos inválidos: empresa_id: es obligatorio', { empresa_id: 'Obligatorio' });
+      await assertRef(prisma.empresaAdministradora, d.empresa_id as number, {}, 'empresa_id');
+    }
+    const pais = await paisInicial(r.pais as string | undefined, r.empresa_id as number | null);
+    return { ...r, pais, moneda: monedaInicial(r.moneda as string | undefined, pais) };
   },
   // Un condominio nuevo nace con su contrato de administración vigente.
   create: (d) =>
@@ -82,6 +90,7 @@ const crud = crudRouter({
   prepareUpdate: async (d, u, existing) => {
     // La administradora no se edita aquí: cambiarla cierra un contrato y abre otro (POST /:id/administradora).
     const { empresa_id, ...resto } = d;
+    await verificarCambioDeMoneda(existing.id as number, existing.moneda as string, resto.moneda as string | undefined);
     if (u.rol !== 'admin' && empresa_id != null && empresa_id !== existing.empresa_id) {
       throw invalid('Datos inválidos: empresa_id: para cambiar de administradora usa «Cambiar de administradora»', { empresa_id: 'Usa «Cambiar de administradora»' });
     }

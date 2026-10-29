@@ -12,7 +12,8 @@ import { Prisma } from '@prisma/client';
 import { hoyLima } from '../lib/fechas';
 import { diaCalendario } from './fechaVoucher';
 import { periodoTexto } from '../lib/periodo';
-import { fechaTexto, solesTexto } from './avisos/plantillas';
+import { formatoDinero } from '../../lib/paises';
+import { fechaTexto } from './avisos/plantillas';
 import { moduloActivo } from './comercial/modulos';
 
 type Tx = Prisma.TransactionClient;
@@ -83,9 +84,9 @@ export async function evaluarMora(tx: Tx, o: { complejoId: number; estructuraId:
 /** «pago fuera de fecha del recibo de octubre»: el motivo que ve el residente en su línea de mora. */
 export const motivoMora = (a: { mes: number; anio: number }): string => `Pago fuera de fecha del recibo de ${periodoTexto(a.mes, a.anio)}`;
 
-/** `S/ 20` (sin decimales si es entero) o `S/ 20.50`. */
-export function montoMoraTexto(monto: Prisma.Decimal): string {
-  return monto.isInteger() ? `S/ ${monto.toFixed(0)}` : solesTexto(monto);
+/** `S/ 20` (sin decimales si es entero) o `S/ 20.50`, con el símbolo de la moneda del condominio (soles si no se dice). */
+export function montoMoraTexto(monto: Prisma.Decimal, moneda?: string | null): string {
+  return formatoDinero(monto, moneda, ' ', true);
 }
 
 /** Lo que se devuelve al admin: cuántos departamentos recibieron mora, cuáles, y el mensaje listo para mostrar. */
@@ -96,13 +97,13 @@ export interface InformeMora {
   mensaje: string | null;
 }
 
-export function informeDeMora(monto: Prisma.Decimal, porRecibo: { reciboId: number; torre: string | null; unidades: UnidadConMora[] }[]): InformeMora {
+export function informeDeMora(monto: Prisma.Decimal, porRecibo: { reciboId: number; torre: string | null; unidades: UnidadConMora[] }[], moneda?: string | null): InformeMora {
   const departamentos = porRecibo.flatMap((r) => r.unidades.map((u) => ({ recibo_id: r.reciboId, torre: r.torre, unidad_id: u.id, codigo: u.codigo })));
   const n = departamentos.length;
   if (n === 0) return { monto: monto.toFixed(2), cantidad: 0, departamentos, mensaje: null };
   const codigos = departamentos.map((d) => d.codigo).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
   const lista = codigos.length > 20 ? `${codigos.slice(0, 20).join(', ')}… y ${codigos.length - 20} más` : codigos.join(', ');
-  return { monto: monto.toFixed(2), cantidad: n, departamentos, mensaje: `Se agregó mora de ${montoMoraTexto(monto)} a ${n} ${n === 1 ? 'departamento' : 'departamentos'}: ${lista}` };
+  return { monto: monto.toFixed(2), cantidad: n, departamentos, mensaje: `Se agregó mora de ${montoMoraTexto(monto, moneda)} a ${n} ${n === 1 ? 'departamento' : 'departamentos'}: ${lista}` };
 }
 
 /**

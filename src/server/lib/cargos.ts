@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { hoyLima } from './fechas';
 import { conVistaResidente, selectEvaluacion } from './evaluacionVista';
 
@@ -39,7 +40,7 @@ export const includeCargo = {
   reciboConcepto: {
     select: {
       concepto: { select: { id: true, nombre: true } },
-      recibo: { select: { id: true, mes: true, anio: true, descripcion: true, fecha_vencimiento: true, estructura: { select: { id: true, nombre: true } } } },
+      recibo: { select: { id: true, mes: true, anio: true, descripcion: true, fecha_vencimiento: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { moneda: true } } } },
     },
   },
   pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'desc' }], include: { comprobante: { select: selectComprobante }, evaluacion: { select: { estado: true, veredicto: true } } } },
@@ -47,14 +48,16 @@ export const includeCargo = {
 
 type CargoConIncludes = Prisma.ReciboConceptoUnidadGetPayload<{ include: typeof includeCargo }>;
 
-/** Aplana reciboConcepto → `concepto` y `recibo` y calcula `estado`. */
+/** Aplana reciboConcepto → `concepto` y `recibo`, calcula `estado` y pone `moneda` (la del condominio del recibo). */
 export function formatearCargo(c: CargoConIncludes) {
   const { reciboConcepto, pagos, ...resto } = c;
+  const { complejo, ...recibo } = reciboConcepto?.recibo ?? ({} as NonNullable<NonNullable<typeof reciboConcepto>['recibo']>);
   return {
     ...resto,
     pagos: pagos.map(conVistaResidente), // la evaluación de la IA sólo sale resumida: el detalle va en los pagos de la junta y el admin
     concepto: reciboConcepto?.concepto ? { nombre: reciboConcepto.concepto.nombre } : null,
-    recibo: reciboConcepto?.recibo ?? null,
+    recibo: reciboConcepto?.recibo ? recibo : null,
+    moneda: complejo?.moneda ?? MONEDA_POR_DEFECTO,
     estado: estadoCargo(c.estado_pago, reciboConcepto?.recibo?.fecha_vencimiento),
   };
 }
@@ -69,7 +72,7 @@ export const includePago = {
   reciboConceptoUnidad: {
     select: {
       id: true,
-      unidad: { select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } } } },
+      unidad: { select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true, moneda: true } } } },
       reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { id: true, mes: true, anio: true, estructura: { select: { id: true, nombre: true } } } } } },
     },
   },
@@ -87,6 +90,7 @@ export function formatearPago(p: PagoConIncludes, vista: 'residente' | 'completa
   return {
     ...resto,
     unidad: c?.unidad ?? null,
+    moneda: c?.unidad?.complejo?.moneda ?? MONEDA_POR_DEFECTO,
     concepto: c?.reciboConcepto?.concepto ?? null,
     recibo: c?.reciboConcepto?.recibo ?? null,
   };

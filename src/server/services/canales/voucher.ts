@@ -10,7 +10,7 @@ import type { AuthUser } from '../../middleware/auth';
 import { detectarTipo, MAX_COMPROBANTE, sanearNombre } from '../comprobantes';
 import { avisarVoucherEnSegundoPlano } from '../avisos/voucherBlock';
 import { iniciarEvaluacion } from '../evaluacion';
-import { solesTexto } from '../avisos/plantillas';
+import { dineroTexto } from '../avisos/plantillas';
 import { canalesDeps } from './deps';
 import { unidadesDeResidenteEnEmpresa } from './identidad';
 import { MedioMuyGrande, type MedioBajado, type MedioEntrante, type Transporte } from './transporte';
@@ -41,7 +41,7 @@ export async function pendientesDe(user: AuthUser, empresaId: number): Promise<O
   const unidades = await prisma.unidad.findMany({ where: unidadesDeResidenteEnEmpresa(user.id, empresaId), select: { id: true } });
   if (!unidades.length) return [];
   const r = await listarMantenimientos({ unidadIds: unidades.map((u) => u.id), estado: ['pendiente', 'vencido', 'parcial'] }, { page: 1, pageSize: MAX_OPCIONES, orden: { campo: 'vencimiento', dir: 'asc' } });
-  return r.items.map((i) => ({ recibo_id: i.recibo_id, unidad_id: i.unidad_id, etiqueta: `${i.unidad.codigo} ${periodoTexto(i.mes, i.anio)} (saldo ${solesTexto(i.saldo)})` }));
+  return r.items.map((i) => ({ recibo_id: i.recibo_id, unidad_id: i.unidad_id, etiqueta: `${i.unidad.codigo} ${periodoTexto(i.mes, i.anio)} (saldo ${dineroTexto(i.saldo, i.moneda)})` }));
 }
 
 export interface Archivo { nombre: string; tipo_mime: string; tamano: number; sha256: string; datos: Buffer }
