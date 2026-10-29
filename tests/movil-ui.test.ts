@@ -59,6 +59,13 @@ describe('vista móvil', () => {
     assert.match(s, /\{p\.conCamara && <div className="mt-2">/);
   });
 
+  it('cerrar sesión pide confirmación (el botón queda bajo el usuario y un clic de más sacaba de la app)', () => {
+    const s = fuente('src/app/Shell.tsx');
+    assert.match(s, /onClick=\{\(\) => setConfirmarSalida\(true\)\}/);
+    assert.match(s, /<ConfirmDialog open=\{confirmarSalida\}.*onConfirm=\{salir\}.*title="¿Cerrar sesión\?"/);
+    assert.doesNotMatch(s, /<button onClick=\{salir\}/);
+  });
+
   it('el pago parcial de un concepto queda oculto en el detalle del mantenimiento', () => {
     assert.match(fuente('src/pages/admin/_parts/mantenimientos/MantenimientoAdminModal.tsx'), /const PAGO_PARCIAL_CONCEPTO = false;[\s\S]*puedeRegistrar && PAGO_PARCIAL_CONCEPTO &&/);
   });

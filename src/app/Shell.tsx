@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRightStartOnRectangleIcon, Bars3Icon, ChevronDoubleLeftIcon, MoonIcon, SparklesIcon, SunIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../auth/AuthContext';
-import { Avatar, IconButton, cx } from '../ui';
+import { Avatar, ConfirmDialog, IconButton, cx } from '../ui';
 import { PERFIL, ROL_LABEL, navPara } from './nav';
 import { useTheme } from './theme';
 import { Assistant } from './Assistant';
@@ -31,6 +31,7 @@ export function Shell() {
   const nav = useNavigate();
   const loc = useLocation();
   const [menu, setMenu] = useState(false);
+  const [confirmarSalida, setConfirmarSalida] = useState(false);
   const escritorio = useEscritorio();
   const chat = usePanelAbierto(user?.id ?? 0, escritorio);
   const barra = useBarra(escritorio);
@@ -101,7 +102,7 @@ export function Shell() {
           </NavLink>
         </Pista>
         <Pista texto={riel ? 'Cerrar sesión' : undefined}>
-          <button onClick={salir} aria-label={riel ? 'Cerrar sesión' : undefined} className={cx(link, riel && linkRiel, 'mt-1 w-full text-muted hover:bg-surface2 hover:text-ink')}>
+          <button onClick={() => setConfirmarSalida(true)} aria-label={riel ? 'Cerrar sesión' : undefined} className={cx(link, riel && linkRiel, 'mt-1 w-full text-muted hover:bg-surface2 hover:text-ink')}>
             <ArrowRightStartOnRectangleIcon className="h-5 w-5 shrink-0" /> {!riel && 'Cerrar sesión'}
           </button>
         </Pista>
@@ -153,6 +154,8 @@ export function Shell() {
       </div>
 
       <Assistant open={chat.abierto} onClose={chat.cerrar} escritorio={escritorio} barra={barra.ancho} />
+      {/* El botón queda justo debajo del usuario: un clic de más sacaba de la app. Se confirma antes de salir. */}
+      <ConfirmDialog open={confirmarSalida} onClose={() => setConfirmarSalida(false)} onConfirm={salir} title="¿Cerrar sesión?" message="Tendrás que volver a ingresar con tu correo y tu contraseña." confirmLabel="Cerrar sesión" />
     </div>
   );
 }
