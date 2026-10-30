@@ -1,5 +1,5 @@
-// El voucher es obligatorio para que un pago de residente llegue a «validado»: quien valida (la administradora, el presidente o el tesorero de la junta)
-// lo comprueba contra el archivo. Sin voucher: validar → 409 (rechazar sí se puede); el pago suelto del residente exige el voucher igual que el del
+// El voucher es obligatorio para que un pago de residente llegue a «validado»: quien valida (la administradora; la junta ya no valida, el tesorero da la
+// conformidad: ver conformidad-tesorero.test.ts) lo comprueba contra el archivo. Sin voucher: validar → 409 (rechazar sí se puede); el pago suelto del residente exige el voucher igual que el del
 // mantenimiento; lo que registra la administración sin voucher (efectivo) sigue naciendo validado. IA sin claves: nunca hay red.
 import './helpers/env';
 import assert from 'node:assert/strict';
@@ -50,8 +50,8 @@ const archivos = (pagoId: number) => prisma.archivoComprobante.count({ where: { 
 const validar = (token: string, id: number, cuerpo: unknown = { estado: 'validado' }) => llamar(base, 'PATCH', `/api/pagos/${id}/validacion`, token, cuerpo);
 const filasDe = (id: number, accion: string) => prisma.auditoria.count({ where: { entidad: 'pago', entidad_id: id, accion } });
 
-/** Quienes validan: la administradora de la empresa y las dos personas de la junta que gestionan pagos. */
-const VALIDADORES = ['adminA', 'presi', 'tesor'] as const;
+/** Quien valida: la administradora de la empresa (la junta revisa el voucher y el tesorero da la conformidad, pero no cierra el pago). */
+const VALIDADORES = ['adminA'] as const;
 
 describe('validar un pago sin voucher → 409', () => {
   for (const quien of VALIDADORES) {
@@ -69,10 +69,17 @@ describe('validar un pago sin voucher → 409', () => {
     });
   }
 
-  it('el secretario de la junta sigue sin poder validar (403), con o sin voucher', async () => {
-    const pago = await pagoSinVoucher(base, T.prop1, (await cargoNuevo()).id);
-    assert.equal((await validar(T.secre, pago.body.id)).status, 403);
-    assert.equal((await pagoDb(pago.body.id)).estado_validacion, 'por_validar');
+  it('la junta (presidente, tesorero, secretario) no valida ni rechaza: 403, con o sin voucher', async () => {
+    const sinVoucher = await pagoSinVoucher(base, T.prop1, (await cargoNuevo()).id);
+    const conVoucher = await pagarCargo(base, T.prop1, (await cargoNuevo()).id);
+    for (const quien of ['presi', 'tesor', 'secre'] as const) {
+      for (const id of [sinVoucher.body.id, conVoucher.body.id]) {
+        assert.equal((await validar(T[quien], id)).status, 403, quien);
+        assert.equal((await validar(T[quien], id, { estado: 'rechazado', motivo: 'No me convence' })).status, 403, quien);
+      }
+    }
+    assert.equal((await pagoDb(sinVoucher.body.id)).estado_validacion, 'por_validar');
+    assert.equal((await pagoDb(conVoucher.body.id)).estado_validacion, 'por_validar');
   });
 
   it('un pago ya revisado dice «ya fue revisado», no «sin voucher» (el 409 de siempre)', async () => {

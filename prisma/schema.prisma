@@ -49,6 +49,7 @@ model Usuario {
   complejo_id       Int?
   complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
   pagosValidados    Pago[]                 @relation("PagoValidador")
+  pagosConformes    Pago[]                 @relation("PagoConformidad")
   comprobantesSubidos ArchivoComprobante[]
   aviso_email       Boolean                @default(true)
   aviso_whatsapp    Boolean                @default(false)
@@ -335,6 +336,10 @@ model Pago {
   validado_at               DateTime?
   motivo_rechazo            String?
   validado_por              Usuario?              @relation("PagoValidador", fields: [validado_por_id], references: [id], onDelete: SetNull)
+  /// Conformidad del tesorero de la junta: «el dinero llegó a la cuenta». Quién y cuándo; null = aún no la da. La administradora la ve al validar (no la bloquea).
+  conformidad_at            DateTime?
+  conformidad_por_id        Int?
+  conformidad_por           Usuario?              @relation("PagoConformidad", fields: [conformidad_por_id], references: [id], onDelete: SetNull)
   comprobante               ArchivoComprobante?
   validado_por_ia           Boolean               @default(false)
   evaluacion                EvaluacionComprobante?

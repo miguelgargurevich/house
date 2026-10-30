@@ -4,7 +4,7 @@ import type { AuthUser } from '../middleware/auth';
 export const CARGOS_JUNTA = ['presidente', 'tesorero', 'secretario', 'vocal'] as const;
 export type CargoJunta = (typeof CARGOS_JUNTA)[number];
 
-/** Sólo presidente y tesorero gestionan medios de pago y validan comprobantes; secretario y vocal no ganan permisos. */
+/** Sólo presidente y tesorero gestionan medios de pago y revisan comprobantes (la validación es de la administración; el tesorero da la conformidad); secretario y vocal no ganan permisos. */
 const CARGOS_GESTORES: readonly string[] = ['presidente', 'tesorero'];
 
 export interface AmbitoJunta {
@@ -20,6 +20,9 @@ export function ambitoJunta(user: AuthUser): AmbitoJunta | null {
 }
 
 export const esJunta = (user: AuthUser) => ambitoJunta(user) !== null;
+
+/** La conformidad de un pago («llegó a la cuenta») la da sólo el TESORERO: ni el presidente ni el resto de la junta, ni la administración. */
+export const esTesorero = (user: AuthUser) => ambitoJunta(user) !== null && user.cargo_junta === 'tesorero';
 
 /**
  * ¿La junta del usuario gestiona algo de este condominio/block? Sólo evalúa a la junta (admin y superadmin se

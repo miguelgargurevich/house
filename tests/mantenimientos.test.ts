@@ -335,13 +335,15 @@ describe('validar o rechazar el pago del mantenimiento (atómico por grupo)', ()
     assert.equal(estados.size, 1);
   });
 
-  it('el alcance de validar es el de siempre: otra empresa → 404; el que pagó no se valida a sí mismo; la junta del block sí valida', async () => {
+  it('el alcance de validar: otra empresa → 404; el que pagó no se valida a sí mismo; la junta ya no valida (la conformidad la da el tesorero); la administración sí', async () => {
     const m = await mantenimiento(d.unidadA1);
     await pagarMant(T.prop1, m);
     const [principal, , ultimo] = await pagosDe(m);
     assert.equal((await validar(T.adminB, ultimo.id)).status, 404);
     assert.equal((await validar(T.prop1, principal.id)).status, 403);
-    assert.equal((await validar(T.presiA, ultimo.id)).status, 200, 'presidente de la junta del condominio');
+    assert.equal((await validar(T.presiA, ultimo.id)).status, 403, 'presidente de la junta del condominio: ya no valida');
+    assert.deepEqual(await estadosCargos(m), ['en_revision', 'en_revision', 'en_revision']);
+    assert.equal((await validar(T.adminA, ultimo.id)).status, 200);
     assert.deepEqual(await estadosCargos(m), ['pagado', 'pagado', 'pagado']);
   });
 });

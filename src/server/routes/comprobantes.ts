@@ -4,7 +4,8 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
-import { esJunta } from '../lib/junta';
+import { conTesoreroRegistrado } from '../lib/conformidad';
+import { esJunta, esTesorero } from '../lib/junta';
 import { scopePagos, scopePagosEscritura, scopePagosJunta } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
@@ -44,8 +45,12 @@ const cargador = (alcanceDe: (u: AuthUser) => Prisma.PagoWhereInput): RequestHan
 const cargarPago = cargador(alcance);
 /** Subir o reemplazar: el residente con su alcance de siempre; la administración sólo si administra el condominio HOY (la anterior consulta, no escribe). */
 const cargarPagoASubir = cargador((u) => (esResidente(u) ? alcance(u) : scopePagosEscritura(u)));
-/** Validar: el admin de la empresa o la junta del ámbito de la unidad (no basta ser dueño de la unidad). */
+/** Revisar el voucher y pedir la evaluación de la IA: el admin de la empresa o la junta del ámbito de la unidad (no basta ser dueño de la unidad). */
 const cargarPagoAValidar = cargador((u) => (u.rol === 'propietario' ? scopePagosJunta(u) : scopePagosEscritura(u)));
+/** Validar o rechazar: sólo la administración de la empresa. La junta revisa el voucher y el tesorero da la conformidad, pero no cierra el pago. */
+const cargarPagoDeLaEmpresa = cargador(scopePagosEscritura);
+/** Conformidad: pagos del ámbito de la junta del usuario (otro block u otro condominio → 404; sin cargo de gestión → 403). */
+const cargarPagoDeLaJunta = cargador(scopePagosJunta);
 
 type PagoCargado = { id: number; usuario_id: number | null; estado_validacion: string; recibo_concepto_unidad_id: number | null; fecha_pago: Date };
 
@@ -111,13 +116,12 @@ comprobantesRouter.get('/:id/comprobante', requireRole('admin', 'propietario', '
 });
 
 // ---------- Validar o rechazar ----------
-comprobantesRouter.patch('/:id/validacion', requireRole('admin', 'propietario'), cargarPagoAValidar, async (req, res) => {
+comprobantesRouter.patch('/:id/validacion', requireRole('admin'), cargarPagoDeLaEmpresa, async (req, res) => {
   const u = currentUser(req);
-  if (u.rol !== 'admin' && u.rol !== 'superadmin' && !esJunta(u)) throw forbidden(); // propietario sin cargo de gestión
   const pago = res.locals.pago as PagoCargado;
-  if (u.rol === 'propietario' && pago.usuario_id === u.id) throw forbidden('No puedes validar tu propio pago: pídeselo a la administración u otro miembro de la junta');
   const v = parseBody(validacionSchema, req);
   // Sin voucher no se da por bueno un pago: quien valida lo comprueba contra el archivo. Rechazar sí se puede. Un pago ya revisado cae en el 409 de `cerrarPago`.
+  // La conformidad del tesorero NO se exige: si falta, la pantalla avisa pero la administradora puede validar igual.
   if (v.estado === 'validado' && pago.estado_validacion === 'por_validar' && !(await prisma.archivoComprobante.findUnique({ where: { pago_id: pago.id }, select: { id: true } }))) {
     throw conflict('Este pago no tiene voucher: pídele al vecino que lo suba o recházalo');
   }
@@ -128,6 +132,31 @@ comprobantesRouter.patch('/:id/validacion', requireRole('admin', 'propietario'),
   const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: pago.id }, include: includePago });
   res.json(formatearPago(actualizado, 'completa'));
 });
+
+// ---------- Conformidad del tesorero («el dinero llegó a la cuenta») ----------
+/**
+ * Da o quita la conformidad del pago (en su principal, si es de un mantenimiento). Sólo mientras el pago siga por validar; idempotente:
+ * darla dos veces deja la primera (quién y cuándo), quitarla sin tenerla no cambia nada. El cierre (`UPDATE … WHERE por_validar`) y la lectura
+ * posterior evitan que una validación que llega a la vez deje una conformidad cambiada en un pago ya revisado.
+ */
+async function cambiarConformidad(req: Parameters<RequestHandler>[0], res: Parameters<RequestHandler>[1], dar: boolean) {
+  const u = currentUser(req);
+  if (!esTesorero(u)) throw forbidden('La conformidad la da el tesorero de la junta');
+  const pago = res.locals.pago as PagoCargado;
+  if (pago.usuario_id === u.id) throw forbidden('No puedes dar la conformidad de tu propio pago: lo hace otra persona de la junta o la administración lo valida');
+  const cambio = await prisma.pago.updateMany({
+    where: { id: pago.id, estado_validacion: 'por_validar', conformidad_at: dar ? null : { not: null } },
+    data: dar ? { conformidad_at: new Date(), conformidad_por_id: u.id } : { conformidad_at: null, conformidad_por_id: null },
+  });
+  const actual = await prisma.pago.findUniqueOrThrow({ where: { id: pago.id }, include: includePago });
+  if (cambio.count === 0 && actual.estado_validacion !== 'por_validar') throw conflict('Este pago ya fue revisado: la conformidad ya no se puede cambiar');
+  res.locals.accion = dar ? 'dar_conformidad' : 'quitar_conformidad';
+  res.locals.auditDetalle = { conformidad: dar, cambio: cambio.count > 0 };
+  res.json((await conTesoreroRegistrado([formatearPago(actual, 'completa')]))[0]);
+}
+
+comprobantesRouter.put('/:id/conformidad', requireRole('propietario'), cargarPagoDeLaJunta, (req, res) => cambiarConformidad(req, res, true));
+comprobantesRouter.delete('/:id/conformidad', requireRole('propietario'), cargarPagoDeLaJunta, (req, res) => cambiarConformidad(req, res, false));
 
 // ---------- Evaluación automática (IA) ----------
 /** Admin/superadmin de la empresa o junta en su ámbito: ven la evaluación completa; el residente, sólo un estado simple. */

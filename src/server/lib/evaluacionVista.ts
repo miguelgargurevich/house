@@ -17,11 +17,18 @@ export function estadoParaResidente(ev: { estado: string; veredicto: string | nu
   return 'necesita_revision';
 }
 
-/** Reemplaza `evaluacion` por `{ estado }` simple (o null). Nunca deja pasar alertas, extraído ni comprobaciones. */
-export function conVistaResidente<T extends { evaluacion?: { estado: string; veredicto: string | null } | null }>(p: T): Omit<T, 'evaluacion'> & { evaluacion: { estado: EstadoResidente } | null } {
+/** Quita las columnas crudas de la conformidad del tesorero (quién y cuándo): salen formateadas en `conformidad` sólo para quien valida. */
+export function sinConformidadCruda<T extends object>(p: T): Omit<T, 'conformidad_at' | 'conformidad_por_id'> {
+  const { conformidad_at, conformidad_por_id, ...resto } = p as T & { conformidad_at?: unknown; conformidad_por_id?: unknown };
+  void conformidad_at; void conformidad_por_id;
+  return resto;
+}
+
+/** Reemplaza `evaluacion` por `{ estado }` simple (o null). Nunca deja pasar alertas, extraído ni comprobaciones, ni la conformidad del tesorero (es de quien valida). */
+export function conVistaResidente<T extends { evaluacion?: { estado: string; veredicto: string | null } | null }>(p: T): Omit<T, 'evaluacion' | 'conformidad_at' | 'conformidad_por_id'> & { evaluacion: { estado: EstadoResidente } | null } {
   const { evaluacion, ...resto } = p;
   const estado = estadoParaResidente(evaluacion);
-  return { ...resto, evaluacion: estado ? { estado } : null };
+  return { ...sinConformidadCruda(resto), evaluacion: estado ? { estado } : null } as Omit<T, 'evaluacion' | 'conformidad_at' | 'conformidad_por_id'> & { evaluacion: { estado: EstadoResidente } | null };
 }
 
 // ---------- Vista de gestión (para el asistente: quien valida pregunta «¿qué leyó la IA del voucher?») ----------

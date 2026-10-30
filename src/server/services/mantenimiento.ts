@@ -12,6 +12,7 @@ import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO } from '../../lib/paises';
 import { conflict, notFound } from '../errors';
 import { selectComprobante } from '../lib/cargos';
 import { hoyEn } from '../lib/fechas';
+import { conTesoreroRegistrado, formatearConformidad } from '../lib/conformidad';
 import { conVistaResidente, selectEvaluacion } from '../lib/evaluacionVista';
 import { cuentaCargo, deudaAcumulada, estadoMantenimiento, numeroMantenimiento, repartirSaldos, sumarCuentas, tituloMantenimiento, type CuentaMantenimiento, type EstadoMantenimiento } from '../lib/mantenimientos';
 import { medioDeUnidades } from '../routes/mediosPago';
@@ -118,7 +119,7 @@ const includeDetalle = {
   cargos: {
     include: {
       reciboConcepto: { select: { orden: true, es_recargo: true, concepto: { select: { id: true, nombre: true } } } },
-      pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'asc' }] as Prisma.PagoOrderByWithRelationInput[], include: { comprobante: { select: selectComprobante }, evaluacion: { select: selectEvaluacion }, validado_por: { select: { id: true, nombre: true } }, usuario: { select: { id: true, nombre: true } } } },
+      pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'asc' }] as Prisma.PagoOrderByWithRelationInput[], include: { comprobante: { select: selectComprobante }, evaluacion: { select: selectEvaluacion }, validado_por: { select: { id: true, nombre: true } }, conformidad_por: { select: { id: true, nombre: true } }, usuario: { select: { id: true, nombre: true } } } },
     },
   },
 } as const;
@@ -180,6 +181,9 @@ export interface PagoDeMantenimiento {
   registrado_por: { id: number; nombre: string } | null;
   comprobante: unknown;
   evaluacion: unknown;
+  /** Sólo en la vista de la administración: la conformidad del tesorero y si el block tiene tesorero (`lib/conformidad.ts`). */
+  conformidad?: { at: Date; por: { nombre: string } } | null;
+  tesorero_registrado?: boolean;
 }
 
 /**
@@ -214,6 +218,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
   // Pagos: uno por grupo (el principal lleva el comprobante); los pagos sueltos antiguos se muestran tal cual.
   const porGrupo = new Map<string, { principal?: (typeof cargos)[number]['pagos'][number]; monto: Prisma.Decimal; conceptos: string[]; alguno: (typeof cargos)[number]['pagos'][number] }>();
   const pagos: PagoDeMantenimiento[] = [];
+  const tesorero = o.vista === 'completa' ? (await conTesoreroRegistrado([{ unidad: { complejo: unidad.complejo_id != null ? { id: unidad.complejo_id } : null, estructura: unidad.estructura } }]))[0]!.tesorero_registrado : false;
   const dePago = (p: (typeof cargos)[number]['pagos'][number], monto: Prisma.Decimal, conceptos: string[], suelto: boolean): PagoDeMantenimiento => {
     const base = { ...p, evaluacion: p.evaluacion };
     const vista = o.vista === 'completa' ? base : conVistaResidente(base);
@@ -221,6 +226,7 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
       id: p.id, grupo: p.grupo, suelto, monto: monto.toFixed(2), conceptos, metodo_pago: p.metodo_pago, referencia: p.referencia, fecha_pago: p.fecha_pago, fecha_origen: p.fecha_origen,
       estado_validacion: p.estado_validacion, motivo_rechazo: p.motivo_rechazo, validado_por_ia: p.validado_por_ia,
       registrado_por: p.usuario ?? null, comprobante: p.comprobante, evaluacion: vista.evaluacion,
+      ...(o.vista === 'completa' ? { conformidad: formatearConformidad(p), tesorero_registrado: tesorero } : {}),
     };
   };
   for (const c of cargos) {

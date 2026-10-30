@@ -473,7 +473,7 @@ describe('junta: pagos por validar de su ámbito', () => {
   }
   const ids2 = (r: { body: { items: { id: number }[] } }) => r.body.items.map((p) => p.id);
 
-  it('ve y valida los pagos de su block; no los de otro block ni condominio', async () => {
+  it('ve los pagos de su block (y no valida: la valida la administración); no ve los de otro block ni condominio', async () => {
     const enBlock1 = await pagoPorValidar(T.prop1, d.unidadA1.id);
     const enBlock2 = await pagoPorValidar(T.prop2, d.unidadA2.id);
     const lista = (t: string) => llama(t, 'GET', '/api/pagos?estado_validacion=por_validar');
@@ -486,17 +486,15 @@ describe('junta: pagos por validar de su ámbito', () => {
     assert.equal((await llama(T.presi1, 'GET', `/api/pagos/${enBlock2.pagoId}`)).status, 404);
     assert.equal((await llama(T.presiB, 'GET', `/api/pagos/${enBlock1.pagoId}`)).status, 404);
 
-    // Valida/rechaza sólo dentro del block
-    assert.equal((await llama(T.presi1, 'PATCH', `/api/pagos/${enBlock2.pagoId}/validacion`, { estado: 'validado' })).status, 404);
-    assert.equal((await llama(T.presiB, 'PATCH', `/api/pagos/${enBlock1.pagoId}/validacion`, { estado: 'validado' })).status, 404);
-    const ok = await llama(T.presi1, 'PATCH', `/api/pagos/${enBlock1.pagoId}/validacion`, { estado: 'validado' });
+    // La junta ya no valida ni rechaza (ni en su block ni fuera): lo hace la administración; la conformidad es del tesorero (conformidad-tesorero.test.ts).
+    for (const quien of ['presi1', 'tesor1', 'presiTodo', 'presi2', 'presiB'] as const) {
+      assert.equal((await llama(T[quien], 'PATCH', `/api/pagos/${enBlock1.pagoId}/validacion`, { estado: 'validado' })).status, 403, quien);
+      assert.equal((await llama(T[quien], 'PATCH', `/api/pagos/${enBlock2.pagoId}/validacion`, { estado: 'rechazado', motivo: 'No coincide el monto' })).status, 403, quien);
+    }
+    assert.equal((await prisma.pago.findUniqueOrThrow({ where: { id: enBlock1.pagoId } })).estado_validacion, 'por_validar');
+    const ok = await llama(T.adminA, 'PATCH', `/api/pagos/${enBlock1.pagoId}/validacion`, { estado: 'validado' });
     assert.equal(ok.status, 200, ok.texto);
-    assert.equal(ok.body.estado_validacion, 'validado');
     assert.equal((await prisma.reciboConceptoUnidad.findUniqueOrThrow({ where: { id: enBlock1.cargoId } })).estado_pago, 'pagado');
-    const rech = await llama(T.tesor1, 'PATCH', `/api/pagos/${(await pagoPorValidar(T.inq1, d.unidadA1.id)).pagoId}/validacion`, { estado: 'rechazado', motivo: 'No coincide el monto' });
-    assert.equal(rech.status, 200, rech.texto);
-    assert.equal(rech.body.estado_validacion, 'rechazado');
-    assert.equal((await llama(T.presiTodo, 'PATCH', `/api/pagos/${enBlock2.pagoId}/validacion`, { estado: 'validado' })).status, 200);
   });
 
   it('secretario, vocal y propietario sin cargo no ven ni validan pagos ajenos', async () => {
@@ -525,12 +523,12 @@ describe('junta: pagos por validar de su ámbito', () => {
     assert.equal(await prisma.pago.count({ where: { id: p.pagoId } }), 1);
   });
 
-  it('no puede validar su propio pago, aunque sea presidente de ese block; la administradora sí', async () => {
+  it('el presidente con pago propio tampoco lo valida (la junta no valida); la administradora sí', async () => {
     const unidadPropia = await prisma.unidad.findFirstOrThrow({ where: { codigo: 'J-1' } });
     const p = await pagoPorValidar(T.presiPropio, unidadPropia.id);
-    const r = await llama(T.presiPropio, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' });
-    assert.equal(r.status, 403);
-    assert.equal((await llama(T.presi1, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' })).status, 200); // otro miembro de la junta
+    assert.equal((await llama(T.presiPropio, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' })).status, 403);
+    assert.equal((await llama(T.presi1, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' })).status, 403); // ni otro miembro de la junta
+    assert.equal((await llama(T.adminA, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' })).status, 200);
   });
 
   it('el comprobante lo ven el admin, la junta del ámbito y los dueños; otra junta, 404', async () => {

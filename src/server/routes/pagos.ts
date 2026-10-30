@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import { conflict, invalid } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
 import { formatoDinero } from '../../lib/paises';
+import { conTesoreroRegistrado } from '../lib/conformidad';
 import { esJunta } from '../lib/junta';
 import { conResumenDeGrupo, soloPrincipales } from '../services/mantenimiento';
 import { scopeCargosEscritura, scopePagos, scopePagosEscritura, scopePagosJunta, scopeUsuarios } from '../lib/scope';
@@ -71,13 +72,15 @@ export const pagosRouter = crudRouter({
   defaultOrder: { fecha_pago: 'desc' },
   include: includePago,
   // Una fila por pago del mantenimiento (el principal de cada grupo); los pagos sueltos antiguos salen como siempre.
-  format: (items) => conResumenDeGrupo(items.map((p) => formatearPago(p, 'completa'))), // los lee el admin o la junta: ven la evaluación completa
+  // los lee el admin o la junta: ven la evaluación completa y la conformidad del tesorero (`conformidad`, más `tesorero_registrado`: ¿el block tiene tesorero que pueda darla?)
+  format: async (items) => conTesoreroRegistrado(await conResumenDeGrupo(items.map((p) => formatearPago(p, 'completa')))),
   filtros: {
-    schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional() }),
+    schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional(), conformidad: z.enum(['con', 'sin'], { error: 'conformidad debe ser con o sin' }).optional() }),
     where: (f) => ({
       ...soloPrincipales,
       ...(f.metodo_pago ? { metodo_pago: f.metodo_pago } : {}),
       ...(f.estado_validacion ? { estado_validacion: f.estado_validacion } : {}),
+      ...(f.conformidad ? { conformidad_at: f.conformidad === 'con' ? { not: null } : null } : {}),
       ...(f.recibo_concepto_unidad_id !== undefined ? { recibo_concepto_unidad_id: f.recibo_concepto_unidad_id } : {}),
       // Torre y condominio son de la unidad del cargo pagado.
       ...(f.estructura_id !== undefined || f.complejo_id !== undefined ? { reciboConceptoUnidad: { unidad: { ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}), ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}) } } } : {}),
