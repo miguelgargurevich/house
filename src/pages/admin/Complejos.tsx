@@ -1,22 +1,34 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BuildingStorefrontIcon, PlusIcon } from '@heroicons/react/24/outline';
-import { useList } from '../../api';
+import { useList, useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  Badge, Button, Card, DataTable, PageHeader, SearchBox, Toolbar, fechaCorta,
+  Alert, Badge, Button, Card, DataTable, PageHeader, SearchBox, Toolbar, fechaCorta,
 } from '../../ui';
 import type { Column } from '../../ui';
 import { ModalDeComplejo, type FilaComplejo } from './_parts/condominio/ModalDeComplejo';
 
 const cantidad = (f: FilaComplejo) => f._count?.unidades ?? f.unidades_count;
 
+/** ¿Puede la administradora crear otro condominio? Gratis incluye uno: con uno ya en Gratis, no, y el motivo lo dice. */
+interface PuedeAgregar { puede: boolean; motivo: string | null }
+
 /** Lista de condominios: sólo el camino a la ficha, donde viven sus datos, sus torres y sus acciones. */
 export default function Complejos() {
   const { user } = useAuth();
   const esSuper = user?.rol === 'superadmin';
   const list = useList<FilaComplejo>('/api/complejos');
+  // El superadmin no tiene este límite: sólo la administradora pregunta.
+  const puede = useResource<PuedeAgregar>(esSuper ? null : '/api/comercial/puede-agregar-condominio');
   const [nuevo, setNuevo] = useState(false);
+  const [motivo, setMotivo] = useState(false);
+
+  /** Con el límite de Gratis no se abre el formulario: se muestra el motivo y el camino a Mi plan. */
+  function nuevoCondominio() {
+    if (puede.data && !puede.data.puede) return setMotivo(true);
+    setNuevo(true);
+  }
 
   const columns: Column<FilaComplejo>[] = [
     { key: 'nombre', header: 'Condominio', cell: f => (
@@ -38,8 +50,13 @@ export default function Complejos() {
       <PageHeader
         title="Condominios"
         description="Edificios, condominios y conjuntos residenciales que administras. Cada unidad y cada recibo pertenece a uno."
-        actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setNuevo(true)}>Nuevo condominio</Button>}
+        actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={nuevoCondominio}>Nuevo condominio</Button>}
       />
+      {motivo && puede.data?.motivo && (
+        <Alert tone="info">
+          {puede.data.motivo} <Link to="/admin/mi-plan" className="font-medium text-brand hover:underline">Ver Mi plan</Link>
+        </Alert>
+      )}
       <Card>
         <Toolbar><SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por nombre o dirección" /></Toolbar>
         <DataTable
@@ -58,12 +75,12 @@ export default function Complejos() {
             title: list.q ? 'Sin resultados' : 'Aún no hay condominios',
             description: list.q ? 'Prueba con otra búsqueda.' : 'Registra el primero para poder crear sus unidades y emitir recibos.',
             icon: <BuildingStorefrontIcon />,
-            action: list.q ? undefined : <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setNuevo(true)}>Nuevo condominio</Button>,
+            action: list.q ? undefined : <Button icon={<PlusIcon className="h-4 w-4" />} onClick={nuevoCondominio}>Nuevo condominio</Button>,
           }}
         />
       </Card>
 
-      <ModalDeComplejo complejo={nuevo ? 'nuevo' : null} esSuper={esSuper} onClose={() => setNuevo(false)} onGuardado={() => void list.reload()} />
+      <ModalDeComplejo complejo={nuevo ? 'nuevo' : null} esSuper={esSuper} onClose={() => setNuevo(false)} onGuardado={() => { void list.reload(); void puede.reload(); }} />
     </>
   );
 }

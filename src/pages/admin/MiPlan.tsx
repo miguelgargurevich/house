@@ -10,6 +10,8 @@ import { ESTADO_UI, MODULO_NOMBRE, nombreDePlan, type DatosPago, type ModuloClav
 interface Respuesta {
   condominios: VistaSuscripcion[];
   pagar: DatosPago;
+  /** Gratis incluye un condominio: con uno ya en Gratis, `motivo` dice por qué no se agrega otro. */
+  puede_agregar_condominio: { puede: boolean; motivo: string | null };
 }
 
 function aviso(c: VistaSuscripcion): { tone: 'warn' | 'bad'; texto: string } | null {
@@ -101,6 +103,7 @@ export default function MiPlan() {
       {data && !data.condominios.length && <EmptyState icon={<CreditCardIcon />} title="Aún no tienes condominios" description="Cuando crees tu primer condominio verás aquí su plan." />}
       {data && (
         <div className="space-y-6">
+          {!data.puede_agregar_condominio.puede && data.puede_agregar_condominio.motivo && <Alert tone="info">{data.puede_agregar_condominio.motivo}</Alert>}
           {data.condominios.map(c => (
             <Condominio key={c.complejo_id} c={c} pagar={data.pagar} onSolicitar={() => setSolicitando(c)} onCambio={reload} />
           ))}
