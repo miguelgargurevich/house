@@ -100,7 +100,10 @@
    @container todas las columnas quedan visibles y la tabla conserva su scroll horizontal de siempre. */
 @layer components {
   .tabla-contenedor { container-type: inline-size; }
-  .tabla-celda { padding-inline: 0.75rem; overflow-wrap: anywhere; }
+  .tabla-celda { padding-inline: 0.75rem; overflow-wrap: break-word; }
+  /* Correos, RUC y títulos sin espacios: con `anywhere` la celda puede partirlos y no se queda más ancha que la tabla. Sólo en esas celdas:
+     en una columna estrecha `anywhere` parte cada palabra letra por letra. */
+  .tabla-texto-largo { overflow-wrap: anywhere; }
   @container (min-width: 640px) { .tabla-celda { padding-inline: 1rem; } }
   @container (min-width: 960px) { .tabla-celda { padding-inline: 1.25rem; } }
   @container (max-width: 479px) { .col-desde-sm { display: none; } }

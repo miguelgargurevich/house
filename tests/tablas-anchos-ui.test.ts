@@ -25,13 +25,21 @@ describe('ancho de las tablas', () => {
 
   it('la tabla es el contenedor (container-type) para que sus @container lean su propio ancho', () => {
     assert.match(tabla, /<div className="tabla-contenedor">/);
+    assert.match(tabla, /<div className="relative overflow-x-auto">/, 'sin relative, el sr-only de las acciones ensancha la página (67 px en el celular)');
     assert.match(css, /\.tabla-contenedor \{ container-type: inline-size; \}/);
   });
 
-  it('el relleno de las celdas se afloja con el contenedor (0.75 → 1 → 1.25 rem en 640 y 960 px) y las celdas parten textos largos', () => {
-    assert.match(css, /\.tabla-celda \{ padding-inline: 0\.75rem; overflow-wrap: anywhere; \}/);
+  it('el relleno de las celdas se afloja con el contenedor (0.75 → 1 → 1.25 rem en 640 y 960 px); las celdas parten palabras, no letras', () => {
+    assert.match(css, /\.tabla-celda \{ padding-inline: 0\.75rem; overflow-wrap: break-word; \}/, 'con anywhere la columna «Torre» del celular se partía letra por letra');
+    assert.match(css, /\.tabla-texto-largo \{ overflow-wrap: anywhere; \}/);
     assert.match(css, /@container \(min-width: 640px\) \{ \.tabla-celda \{ padding-inline: 1rem; \} \}/);
     assert.match(css, /@container \(min-width: 960px\) \{ \.tabla-celda \{ padding-inline: 1\.25rem; \} \}/);
+  });
+
+  it('las celdas con correos, RUC o títulos largos (sin espacios) llevan tabla-texto-largo', () => {
+    assert.match(fuente('src/pages/admin/Proveedores.tsx'), /tabla-texto-largo min-w-0"><p className="font-medium">\{p\.razon_social\}/);
+    assert.match(fuente('src/pages/admin/_parts/personas/PersonasLista.tsx'), /tabla-texto-largo min-w-0"><p className="font-medium">\{f\.nombre\}/);
+    assert.match(fuente('src/pages/admin/_parts/comunicados/ComunicadosTab.tsx'), /tabla-texto-largo min-w-0 max-w-\[18rem\]/);
   });
 
   it('el contenido usa el ancho de la ventana hasta 1600 px (antes max-w-6xl, 1152 px)', () => {

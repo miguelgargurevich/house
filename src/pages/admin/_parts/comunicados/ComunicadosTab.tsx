@@ -48,7 +48,7 @@ export function ComunicadosTab() {
 
   const columns: Column<Comunicado>[] = [
     { key: 'titulo', header: 'Comunicado', cell: c => (
-      <div className="min-w-0 max-w-[18rem]">
+      <div className="tabla-texto-largo min-w-0 max-w-[18rem]">
         <p className="flex items-center gap-1.5 font-medium">
           {c.fijado && <MapPinIcon className="h-4 w-4 shrink-0 text-brand" aria-label="Fijado" />}
           <span>{c.titulo}</span>
@@ -58,7 +58,7 @@ export function ComunicadosTab() {
       </div>
     ) },
     { key: 'alcance', header: 'Para', hideBelow: 'sm', cell: c => (
-      <span className="block"><span className="block">{alcanceLabel(c)}</span>{complejos.length > 1 && <span className="block text-xs text-muted">{c.complejo?.nombre}</span>}</span>
+      <span className="tabla-texto-largo block"><span className="block">{alcanceLabel(c)}</span>{complejos.length > 1 && <span className="block text-xs text-muted">{c.complejo?.nombre}</span>}</span>
     ) },
     { key: 'envios', header: 'Notificaciones', hideBelow: 'md', cell: c => (
       <span className="block">

@@ -35,7 +35,7 @@ export default function Mantenimientos() {
   const columns: Column<Tarea>[] = [
     { key: 'titulo', header: 'Tarea', cell: t => (
       <div className="min-w-0">
-        <p className="max-w-[18rem] font-medium">{t.titulo}</p>
+        <p className="tabla-texto-largo max-w-[18rem] font-medium">{t.titulo}</p>
         <p className="truncate text-xs text-muted md:hidden">{[t.unidad?.codigo, t.asignado?.nombre].filter(Boolean).join(' · ') || 'Sin unidad ni responsable'}</p>
       </div>
     ) },

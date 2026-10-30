@@ -42,7 +42,8 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
 
   return (
     <div className="tabla-contenedor">
-      <div className="overflow-x-auto">
+      {/* `relative`: el texto sr-only de las acciones es absoluto; sin un ancestro posicionado se escapa del recorte y ensancha la página. */}
+      <div className="relative overflow-x-auto">
         <table className="w-full text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead>

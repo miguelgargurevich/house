@@ -20,7 +20,7 @@ export default function Complejos() {
 
   const columns: Column<FilaComplejo>[] = [
     { key: 'nombre', header: 'Condominio', cell: f => (
-      <div className="min-w-0"><p className="font-medium">{f.nombre}</p>{f.direccion && <p className="truncate text-xs text-muted sm:hidden">{f.direccion}</p>}</div>
+      <div className="tabla-texto-largo min-w-0"><p className="font-medium">{f.nombre}</p>{f.direccion && <p className="truncate text-xs text-muted sm:hidden">{f.direccion}</p>}</div>
     ) },
     { key: 'tipo', header: 'Tipo', hideBelow: 'sm', cell: f => <Badge tone="brand">{f.tipo}</Badge> },
     { key: 'direccion', header: 'Dirección', hideBelow: 'sm', cell: f => f.direccion ?? '—' },
