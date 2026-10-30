@@ -26,6 +26,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Desplegado a producción (`2e63c75`, Coolify): todo lo del día. `migrate diff` contra prod antes de subir: sólo 5 tablas nuevas y 15 columnas opcionales; el contenedor arrancó con «database is now in sync».
 - Próximos pasos: grabar los videos (Playwright sobre el seed local + voz + ffmpeg) y el manual por roles (documentos-mw, `web_crear` diseño manual). En prod, Miguel asigna el destino de los 11 conceptos de VRANY y carga la cuenta de VRANY en «Cierres del mes».
 - Gotcha: el cierre de algunos worktrees (`delegar.sh limpiar`) no los quitó porque los cherry-picks con conflictos resueltos a mano no cuadran por contenido; ya están integrados en origin/main.
+## 2026-10-30 — Claude Code (Haiku 5.5) — Tesoreros de prueba y Junta central local (rama `feat/junta-central-local`, sin push)
+
+- Pedido de Miguel: «agrega el rol de tesorero a las pruebas y luego creas una junta central para probar sus flujos».
+- **Login** (`src/pages/Login.tsx`, `DEMO`, sólo en desarrollo): botones «Tesorero» (`patricia.alarcon.9@prueba.house`, tesorera del Block 1) y «Tesorero central» (`gustavo.cruz.4@prueba.house`). Ambos con `prop1234`, la clave del seed.
+- **Script** `scripts/junta-central-local.ts` (`npm run junta-central:local`): deja en el Condominio Los Libertadores de Surco una junta central vigente (`estructura_id` null) con presidente `teresa.neyra.3@prueba.house` y tesorero `gustavo.cruz.4@prueba.house`. Sólo corre contra la base `house` en localhost (aborta antes de conectarse si no). Idempotente. No cambia contraseñas; sólo informa si la del tesorero central es la del seed.
+- **Gotcha de datos**: la brief decía que la base local no tenía junta central, pero **ya existía** la junta id 15 (estructura null, vigente desde 2026-10-29, sin miembros, nota «Creada al pasar a las juntas directivas», con un medio de pago). El script la completó en lugar de crear otra: dos vigentes se pisarían (`vigenteDe` toma la última).
+- **Verificado** contra la base local `house` y la API en `localhost:4000`: dos corridas del script (la primera completa la junta 15, la segunda no cambia nada); login del tesorero central 200, `GET /api/auth/me` con `cargo_junta: tesorero` y `estructura_id: null`, `GET /api/cierres/central` 200 y `GET /api/cierres/aportes` 200. Con `?mes=10&anio=2026`: central estado `faltan_aportes` (1 block facturado S/ 3 008, sin registrar).
+- **Próximos pasos**: recorrer en la UI los flujos de la Junta central con la cuenta «Tesorero central»; sin parámetros, el `GET` de central y de aportes devuelve septiembre (`mes: 9`, `sin_blocks`), conviene revisar ese valor por defecto con Miguel.
+- **Decisiones**: el presidente y el tesorero central son propietarios de B01-101 y B01-102, no la cuenta «Propietario» (Javier Castro) para no alterar esa demo; ninguna clave se cambió.
+- **Gotchas**: en Prisma no se pueden usar `omit` y `select` a la vez (`omit: { password_hash: false }`); `validarMiembros` necesita `juntaSaliente` = la junta que se completa, o cuenta a sus propios miembros como «otra junta».
+- **Tests**: `tests/junta-central-local.test.ts` (9 pruebas; mutaciones del guard, de la reutilización y de `validarMiembros`, todas en rojo) y una prueba nueva en `tests/login-ui.test.ts`. Suite completa (`tests/*.test.ts`) contra `house_test_junta_central`: 2661 pruebas, 0 fallos. `tsc` backend+tests y `tsc -b` en verde.
 
 ## 2026-10-29 — Claude Code (Sonnet 5.5) — Cierre de la Junta central (rama `feat/cierre-central`, sin push)
 
