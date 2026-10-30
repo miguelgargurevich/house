@@ -4,8 +4,8 @@ import { CheckIcon } from '@heroicons/react/20/solid';
 /** Lo que trae el plan Gratis (espejo de `caracteristicas` del servidor, sin los que son sólo de Pro). */
 const BENEFICIOS = [
   'Recibos por torre, con cada concepto desglosado',
-  'Cobranza y morosidad, al día en un tablero',
-  'Importas tu Excel de departamentos y listo',
+  'La cobranza del mes, al día en tu resumen',
+  'Subes el Excel del recibo de cada torre',
   'Vouchers validados a mano y avisos por correo',
 ];
 
