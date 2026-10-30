@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Opus 5.5) — Videos 2–4 y manual de usuario por roles
+
+- Videos de marketing 2 (administradora), 3 (junta) y 4 (vecino), en escritorio y celular, sobre el seed local (`.claude/videos/`, no se commitean). Guiones al día en `docs/marketing/guiones-videos.md`.
+- Manual «Cómo usar House, según tu rol» (My Workspace, recurso `cmvuwrn5z000yzt7dybudh1r1`, `web_crear` diseño manual): 34 secciones (administradora, junta y Junta central, propietario, inquilino, personal, fallas y preguntas). Para actualizarlo, regenerar y reemplazar ese recurso.
+- Capturas: `node scripts/marketing/capturas-manual.mjs [nombre…]` → `.claude/manual/capturas/` (seed local; cambia en pantalla el nombre de Miguel por uno de prueba). Publicadas en `https://sitios.gargurevich.dev/manual-house-capturas/` (VPS `/opt/stack/sitios/manual-house-capturas`, por `scp gds-vps`).
+- Gotchas: la API local limita 300 solicitudes / 15 min por IP: reiniciar el backend antes de una tanda de capturas o grabaciones (si no, las últimas salen en el login). La base local se tocó para los videos (recibo propio del Block 1 en octubre, destinos de conceptos 22–29, 5 proveedores visibles); respaldo previo con `pg_dump`.
+- Pendiente detectado: en el detalle de un recibo «En revisión» el vecino no tiene acceso a su voucher; sólo lo ve en Mi historial › lista de pagos.
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Guiones de los videos de marketing + despliegue del día
 
 - `docs/marketing/guiones-videos.md`: guiones de 4 videos (House en un minuto, administradora, junta, vecino), cada uno en escritorio 16:9 y celular 9:16; escena = lo que se ve + lo que dice la voz. Voz aprobada por Miguel: OpenVoice de My Workspace (`audio_generar`). Cómo regrabar al final del archivo.
