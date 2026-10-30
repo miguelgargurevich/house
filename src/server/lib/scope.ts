@@ -166,3 +166,24 @@ export function scopeJuntas(u: AuthUser): Prisma.JuntaDirectivaWhereInput {
   if (!a) throw forbidden();
   return filtroAmbito(a);
 }
+
+/**
+ * Cierre del mes (egresos de cada block): admin = condominios de su empresa; junta (presidente/tesorero) = su ámbito (la de un block sólo ve SU block;
+ * la de todo el condominio, la Junta central, ve el de todos los blocks). Otro block u otra empresa → no entra (404). Cualquier otro rol → 403.
+ */
+export function scopeEgresos(u: AuthUser): Prisma.EgresoBlockWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return { complejo: { empresa_id: empresaDe(u) } };
+  const a = ambitoJunta(u);
+  if (!a) throw forbidden();
+  return filtroAmbito(a);
+}
+
+/** Blocks cuyo cierre alcanza el usuario (mismo criterio que `scopeEgresos`, sobre la estructura). */
+export function scopeBlocksCierre(u: AuthUser): Prisma.EstructuraWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return scopeEstructuras(u);
+  const a = ambitoJunta(u);
+  if (!a) throw forbidden();
+  return a.estructura_id == null ? { complejo_id: a.complejo_id } : { id: a.estructura_id, complejo_id: a.complejo_id };
+}

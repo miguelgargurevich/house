@@ -9,6 +9,7 @@ import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
 import { dineroTexto, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
 import { correoSinBuzon } from '../invitaciones';
+import { cierrePendiente } from '../cierres/pendientes';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
 export const MAX_INTENTOS = 3;
@@ -20,7 +21,7 @@ const MIN = 60_000;
 /** Pendiente = sin pagar y sin comprobante en revisión (`en_revision`) ni `pagado`. */
 const cargoPendiente: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: 'pendiente' }] };
 
-export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number };
+export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number } | { entidad: `cierre:${string}`; id: number };
 
 interface Cargado {
   datos: Parameters<typeof plantilla>[1];
@@ -35,6 +36,13 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
     const c = await prisma.comunicado.findUnique({ where: { id: ref.id }, select: { titulo: true, cuerpo: true, archivado_at: true, complejo: { select: { nombre: true } } } });
     if (!c || c.archivado_at) return null;
     return { datos: { nombre: usuario.nombre, periodo: '', monto: '', vencimiento: '', titulo: c.titulo, texto: c.cuerpo, condominio: c.complejo?.nombre ?? null } };
+  }
+  // Cierre del mes de un block (`cierre:<año>-<mes>`, id = block): lo que le falta registrar a su junta.
+  if (ref.entidad.startsWith('cierre:')) {
+    const [anio, mes] = ref.entidad.slice('cierre:'.length).split('-').map(Number);
+    const p = anio && mes ? await cierrePendiente(ref.id, anio, mes) : null;
+    if (!p) return null;
+    return { datos: { nombre: usuario.nombre, periodo: p.periodo, monto: '', vencimiento: '', concepto: p.lineas.join(', '), bloque: p.bloque, condominio: p.condominio } };
   }
   if (ref.entidad === 'cargo' || ref.entidad === 'pago') {
     const cargoId = ref.entidad === 'cargo' ? ref.id : (await prisma.pago.findUnique({ where: { id: ref.id }, select: { recibo_concepto_unidad_id: true } }))?.recibo_concepto_unidad_id;
@@ -301,6 +309,10 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
     const c = await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo: { select: { empresa: { select: { whatsapp_instance: true } } } } } });
     return c?.complejo?.empresa?.whatsapp_instance ?? null;
   }
+  if (n.ref_entidad.startsWith('cierre:')) {
+    const e = await prisma.estructura.findUnique({ where: { id: n.ref_id }, select: { complejo: { select: { empresa: { select: { whatsapp_instance: true } } } } } });
+    return e?.complejo?.empresa?.whatsapp_instance ?? null;
+  }
   if (n.ref_entidad === 'recibo') {
     const r = await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { empresa: { select: { whatsapp_instance: true } } } });
     return r?.empresa?.whatsapp_instance ?? null;
@@ -326,6 +338,7 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
 async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number | null }): Promise<number | null> {
   if (!n.ref_entidad || n.ref_id == null) return null;
   if (n.ref_entidad === 'comunicado') return (await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
+  if (n.ref_entidad.startsWith('cierre:')) return (await prisma.estructura.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   if (n.ref_entidad === 'recibo') return (await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   const porCargo = { unidad: { select: { complejo_id: true } }, reciboConcepto: { select: { recibo: { select: { complejo_id: true } } } } } as const;
   const cargo = n.ref_entidad === 'cargo'

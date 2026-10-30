@@ -22,6 +22,7 @@ import { canalesMeRouter } from './routes/canales';
 import { canalesTelegramRouter, canalesWebhookRouter } from './routes/canalesWebhook';
 import { invitacionRouter, loginRouter, sesionRouter } from './routes/auth';
 import { cargosRouter } from './routes/cargos';
+import { cierresRouter } from './routes/cierres';
 import { comprobantesRouter } from './routes/comprobantes';
 import { comunicadosRouter } from './routes/comunicados';
 import { complejosRouter } from './routes/complejos';
@@ -112,6 +113,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/me', meRouter(limiters.password));
   api.use('/medios-pago', mediosPagoRouter);
   api.use('/juntas', juntasRouter);
+  api.use('/cierres', cierresRouter);
   api.use('/notificaciones', notificacionesRouter);
   api.use('/comunicados', comunicadosRouter);
   api.use('/dashboard', dashboardRouter);

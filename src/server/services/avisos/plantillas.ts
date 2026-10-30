@@ -2,7 +2,7 @@ import { formatoDinero } from '../../../lib/paises';
 import { periodoTexto } from '../../lib/periodo';
 import { hoyEn } from '../../lib/fechas';
 
-export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado'] as const;
+export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
 export const ENLACE_APP = 'https://house.gargurevich.dev';
@@ -28,6 +28,8 @@ export interface DatosAviso {
   /** Sólo `comunicado`: el título (es el asunto) y el texto plano que escribió la administración o la junta. */
   titulo?: string;
   texto?: string;
+  /** Sólo `cierre_pendiente`: el block (`concepto` trae las líneas que faltan registrar). */
+  bloque?: string;
   /** Departamentos a los que se refiere (con su torre): cada torre tiene su propio recibo y el vecino puede tener unidades en más de una. */
   departamentos?: { codigo: string; torre: string | null; monto?: string }[];
 }
@@ -135,6 +137,11 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
       return {
         asunto: d.titulo ?? 'Comunicado',
         cuerpo: `${hola}\n\n${d.texto ?? ''}\n\nLo puedes ver también en ${ENLACE_APP}.\n\n${firma(d)}`,
+      };
+    case 'cierre_pendiente':
+      return {
+        asunto: `Faltan pagos por registrar en el cierre de ${d.periodo}`,
+        cuerpo: `${hola}\n\nEl cierre de ${d.periodo} del ${d.bloque ?? 'block'} aún tiene pagos sin registrar: ${d.concepto ?? 'revisa las líneas pendientes'}. Entra a ${ENLACE_APP}, abre Junta › Cierre del mes y registra cada pago con su voucher.\n\n${firma(d)}`,
       };
     case 'ia_restablecida':
       return {
