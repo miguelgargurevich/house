@@ -1,7 +1,7 @@
 /**
  * Validación automática «IA + tesorero». El pago se valida solo cuando se cumplen las dos cosas:
- *  (a) la IA leyó el voucher y coincide (veredicto `coincide`, confianza ≥ umbral, sin duplicados, fecha creíble, nunca OCR) y el condominio tiene
- *      encendido `validacion_automatica_ia`;
+ *  (a) la IA (o el OCR, sólo si decidió SOLO: `MODELO_OCR_SOLO`) leyó el voucher y coincide (veredicto `coincide`, confianza ≥ umbral, sin duplicados,
+ *      fecha creíble) y el condominio tiene encendido `validacion_automatica_ia`;
  *  (b) el tesorero del block dio su conformidad («el dinero llegó a la cuenta»), salvo que nadie pueda darla (`ExencionConformidad`: el block no
  *      tiene tesorero, o el pago lo registró el propio tesorero): ahí basta (a), como antes.
  * Se dispara desde el que llegue SEGUNDO: al terminar la evaluación y al dar la conformidad. Es idempotente: sólo cierra un pago `por_validar`.
@@ -11,6 +11,7 @@ import { HttpError } from '../errors';
 import { exencionDelPago, type ExencionConformidad } from '../lib/conformidad';
 import { registrarAuditoria } from '../middleware/audit';
 import { moduloActivo } from './comercial/modulos';
+import { MODELO_OCR_SOLO } from './ocrVoucher';
 import { avisarResultado, cerrarPago } from './validacionPago';
 
 /** Confianza mínima de la IA para validar sola. */
@@ -34,7 +35,7 @@ export async function validarSiCumple(pagoId: number, opciones: OpcionesAutovali
       fecha_origen: true,
       recibo_concepto_unidad_id: true,
       comprobante: { select: { sha256: true, created_at: true } },
-      evaluacion: { select: { estado: true, proveedor: true, veredicto: true, confianza: true, updated_at: true } },
+      evaluacion: { select: { estado: true, proveedor: true, modelo: true, veredicto: true, confianza: true, updated_at: true } },
       reciboConceptoUnidad: { select: { unidad: { select: { complejo_id: true, complejo: { select: { validacion_automatica_ia: true } } } } } },
     },
   });
@@ -43,8 +44,9 @@ export async function validarSiCumple(pagoId: number, opciones: OpcionesAutovali
   const unidad = pago.reciboConceptoUnidad?.unidad;
   if (!comprobante || !ev || !unidad || unidad.complejo?.validacion_automatica_ia !== true) return false;
 
-  // (a) La evaluación es de ESTE archivo (terminó después de subirlo), coincide y es de la IA: el OCR sólo informa.
-  if (ev.estado !== 'completada' || ev.proveedor === 'ocr' || ev.veredicto !== 'coincide') return false;
+  // (a) La evaluación es de ESTE archivo (terminó después de subirlo) y coincide. Un OCR que sólo fue la última red (la IA no leyó) informa y nada más;
+  // el que decidió solo (todo calzó, sin alertas) lleva `MODELO_OCR_SOLO`.
+  if (ev.estado !== 'completada' || (ev.proveedor === 'ocr' && ev.modelo !== MODELO_OCR_SOLO) || ev.veredicto !== 'coincide') return false;
   if (ev.confianza == null || ev.confianza < UMBRAL_AUTOVALIDACION) return false;
   if (ev.updated_at.getTime() < comprobante.created_at.getTime()) return false; // la evaluación es anterior al archivo vigente (lo reemplazaron y falta releerlo)
   if (opciones.fechaInvalida === true || pago.fecha_origen === 'invalida') return false;

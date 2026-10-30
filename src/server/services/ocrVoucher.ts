@@ -1,10 +1,12 @@
 /**
- * Última red de la evaluación de comprobantes: OCR propio (Tesseract, `ocr-service/`) + un lector de REGLAS para vouchers peruanos
- * (BCP, Interbank, BBVA, Scotiabank, Yape, Plin). Sólo corre cuando TODOS los proveedores de visión fallaron o no hay ninguna clave.
+ * OCR propio (Tesseract, `ocr-service/`) + un lector de REGLAS para vouchers peruanos (BCP, Interbank, BBVA, Scotiabank, Yape, Plin). Va PRIMERO en la
+ * evaluación de comprobantes: si TODO calza (`ocrAlcanza`) se acepta sin llamar a la IA; si no, escala a la IA, y sólo si la IA tampoco lee se
+ * usa esta lectura como última red.
  *
- * Es menos fiable que la IA y lo trata así: la lectura sale con la misma forma que la de la IA (`Lectura`), pero `evaluacion.ts` la marca
- * `proveedor: 'ocr'`, topa su confianza en `TOPE_CONFIANZA_OCR` y NUNCA la usa para validar sola ni para fijar la fecha del pago: sólo informa
- * y alerta (p. ej. el mensaje dice «Setiembre» y el recibo es de octubre). El texto del OCR viene de una imagen de terceros: no es confiable.
+ * Esa última red es menos fiable que la IA y se trata así: la lectura sale con la misma forma que la de la IA (`Lectura`), pero `evaluacion.ts` la
+ * marca `proveedor: 'ocr'`, topa su confianza en `TOPE_CONFIANZA_OCR` y NUNCA la usa para validar sola ni para fijar la fecha del pago: sólo informa
+ * y alerta (p. ej. el mensaje dice «Setiembre» y el recibo es de octubre). Lo que el OCR decide solo (`MODELO_OCR_SOLO`) sí valida y fija la fecha,
+ * siempre con el check del tesorero. El texto del OCR viene de una imagen de terceros: no es confiable.
  * El destino sale de la BASE (Llavero › «OCR de comprobantes»), nunca de variables de entorno: un destino INTERNO de la lista fija del código
  * (`OCR_DESTINOS_INTERNOS`) o un https público que pasa las mismas barreras anti-SSRF que los gateways (`lib/gateways.ts`).
  */
@@ -16,7 +18,7 @@ import { alertaDePeriodo, mesDelMensaje, MES_RE, MESES, MIN_OPERACION, norm, typ
 // La detección del mes que nombra el mensaje es una sola (la comparte la IA): vive en `contraste.ts`.
 export { mesDelMensaje };
 
-/** La lectura por OCR nunca llega a la confianza con que se valida sola (`UMBRAL_AUTOVALIDACION` = 0,9). */
+/** La lectura por OCR que NO alcanzó (última red tras fallar la IA) nunca llega a la confianza con que se valida sola (`UMBRAL_AUTOVALIDACION` = 0,9). */
 export const TOPE_CONFIANZA_OCR = 0.6;
 const MAX_TEXTO_OCR = 20_000;
 
@@ -158,7 +160,8 @@ const ES_ETIQUETA = /^(?:cuenta|monto|importe|numero|nro|fecha|hora|mensaje|comi
 function leerOperacion(lineas: Linea[]): string | null {
   const etiqueta = /(?:numero|nro|n°|nº|no\.?|codigo|cod\.?|id)\s*\.?\s*(?:de\s+)?(?:operacion|transaccion|referencia|constancia|movimiento)\b/;
   const v = despuesDeEtiqueta(lineas, etiqueta, (x) => /\d/.test(x.split(/\s+/)[0] ?? '') && /^[a-z0-9-]{4,}/.test(x));
-  const token = v?.split(/\s+/)[0]?.replace(/[^a-z0-9-]/g, '');
+  // Se conservan las mayúsculas tal como salen impresas (igual que la IA): «OPA11111» no puede quedar «11111», o la operación repetida no se detecta.
+  const token = v?.split(/\s+/)[0]?.replace(/[^A-Za-z0-9-]/g, '');
   return token && token.length >= MIN_OPERACION ? token : null;
 }
 
@@ -257,6 +260,31 @@ export async function leerConOcr(a: { mime: string; bytes: Uint8Array }): Promis
 export function lecturaOcrEnMoneda(l: Lectura, monedaEsperada: string): Lectura {
   if (monedaEsperada === 'PEN' || monedaEsperada === 'USD') return l;
   return { ...l, moneda: l.moneda === 'PEN' ? 'PEN' : null };
+}
+
+// ---------- OCR primero: ¿alcanza sin IA? ----------
+/** Marca en `EvaluacionComprobante.modelo` de una lectura que el OCR decidió SOLO (sin IA): es la única lectura de OCR que puede validar sola. */
+export const MODELO_OCR_SOLO = 'ocr-solo';
+export const RESUMEN_OCR_SOLO = 'Leído con OCR: todo coincide';
+
+/**
+ * ¿La lectura del OCR basta para dar el comprobante por bueno SIN llamar a la IA? Sólo si TODO calza: monto exacto, destino reconocido (un medio de
+ * pago activo), fecha leída y dentro del rango, número de operación leído (≥ `MIN_OPERACION`) y CERO alertas: ni archivo u operación repetidos, ni
+ * operación fallida o pendiente, ni moneda distinta, ni un mensaje que nombre otro mes. Cualquier duda, falta o alerta → `false` y escala a la IA.
+ * `c` es el contraste de la lectura SIN ajustar (`contrastar`); `periodo` el del recibo (el mes del mensaje no entra en `c`: el OCR lo lleva aparte).
+ */
+export function ocrAlcanza(c: Contraste, l: LecturaOcr, periodo: { mes: number; anio: number } | null): boolean {
+  if (c.coincidencias.monto !== true) return false;
+  if (c.coincidencias.destino !== true) return false;
+  if (c.coincidencias.fecha !== true) return false;
+  if (!l.lectura.numero_operacion || l.lectura.numero_operacion.length < MIN_OPERACION) return false;
+  if (alertaDePeriodo(l.mensaje, periodo, 'voucher') !== null) return false;
+  return c.alertas.length === 0;
+}
+
+/** El contraste de una lectura que `ocrAlcanza`: «coincide», sin alertas, con la confianza que calculó el código (≥ 0,9 por construcción: monto + destino + fecha + operación). */
+export function aceptarPorOcr(c: Contraste): Contraste {
+  return { ...c, veredicto: 'coincide', alertas: [], resumen: RESUMEN_OCR_SOLO };
 }
 
 export function ajustarPorOcr(c: Contraste, l: LecturaOcr, recibo: { mes: number; anio: number } | null): Contraste {

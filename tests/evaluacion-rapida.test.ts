@@ -622,7 +622,7 @@ describe('6b. llamada al servicio OCR', () => {
   });
 });
 
-describe('6c. OCR como última red de la evaluación', () => {
+describe('6c. OCR como última red de la evaluación (cuando no alcanza solo y la IA no lee)', () => {
   const conOcr = async (texto: string) => {
     await guardarOcr({ modo: 'interno', clave: 'clave-ocr-falsa' }, d.superadmin.id);
     ocrDeps.fetch = async () => new Response(JSON.stringify({ text: texto, pages: 1, blocks: [] }));
@@ -646,7 +646,7 @@ describe('6c. OCR como última red de la evaluación', () => {
     assert.equal((await prisma.pago.findUniqueOrThrow({ where: { id: pagoId } })).estado_validacion, 'por_validar');
   });
 
-  it('un voucher perfecto leído por OCR NUNCA valida solo, ni con la validación automática encendida, y no aplica su fecha', async () => {
+  it('un voucher leído por OCR como última red (no alcanzó: su mensaje nombra otro mes) NUNCA valida solo, ni con la validación automática encendida, y no aplica su fecha', async () => {
     await configurar(d.complejoA.id, true);
     await conOcr(YAPE_PERFECTO);
     const { ev, pagoId } = await evaluado(1);
@@ -711,22 +711,23 @@ describe('6c. OCR como última red de la evaluación', () => {
     assert.ok(!JSON.stringify(llamadas[0]!.cuerpo).includes('sin más es'), 'en soles el prompt no cambia');
   });
 
-  it('si TODOS los proveedores fallan (transitorio), primero se reintenta la IA; sólo agotado el reintento entra el OCR', async () => {
+  it('si TODOS los proveedores fallan (transitorio), primero se reintenta la IA; sólo agotado el reintento se usa la lectura del OCR (sin llamarlo dos veces en la misma ejecución)', async () => {
     await claves('openai');
     responder = () => estado(503);
-    await conOcr(YAPE_PERFECTO);
+    await conOcr(YAPE_PERFECTO.replace('S/ 100', 'S/ 99')); // el OCR no alcanza (monto distinto): escala a la IA
     let ocrLlamado = 0;
     const f = ocrDeps.fetch; ocrDeps.fetch = async (u, i) => { ocrLlamado++; return f(u, i); };
     const { pagoId, ev } = await evaluado(1);
     assert.equal(ev.estado, 'pendiente', 'a la espera del reintento de la IA');
-    assert.equal(ocrLlamado, 0);
+    assert.equal(ocrLlamado, 1, 'el OCR va primero, una vez por ejecución');
     avanzar(61_000);
     await barrerEvaluaciones();
     const dos = await evaluacionDe(pagoId);
     assert.equal(dos.estado, 'completada');
     assert.equal(dos.proveedor, 'ocr');
+    assert.ok(dos.confianza! <= TOPE_CONFIANZA_OCR);
     assert.equal(dos.intentos, 2);
-    assert.equal(ocrLlamado, 1);
+    assert.equal(ocrLlamado, 2, 'una llamada por ejecución (intento 1 y reintento), nunca una segunda dentro de la misma');
   });
 
   it('un fallo definitivo de la IA (clave rechazada / petición inválida) también cae al OCR en el primer intento', async () => {
@@ -746,14 +747,14 @@ describe('6c. OCR como última red de la evaluación', () => {
     assert.equal(ev.proveedor, 'ocr');
   });
 
-  it('si la IA sí leyó, el OCR ni se llama', async () => {
+  it('si el OCR no alcanza y la IA sí leyó, manda la IA (la lectura del OCR se descarta)', async () => {
     await claves('openai');
-    await conOcr(YAPE_PERFECTO);
-    let llamado = false;
-    ocrDeps.fetch = async () => { llamado = true; return new Response('{}'); };
+    await conOcr(YAPE_PERFECTO.replace('S/ 100', 'S/ 99'));
+    let llamado = 0;
+    const f = ocrDeps.fetch; ocrDeps.fetch = async (u, i) => { llamado++; return f(u, i); };
     const { ev } = await evaluado(1);
     assert.equal(ev.proveedor, 'openai');
-    assert.equal(llamado, false);
+    assert.equal(llamado, 1, 'el OCR va primero');
   });
 
   it('sin OCR configurado, o con un OCR caído o que no lee nada útil, todo sigue como antes (no_disponible)', async () => {

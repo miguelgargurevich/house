@@ -1,7 +1,9 @@
 /**
- * Evaluación automática del comprobante con IA (visión). La IA LEE la captura; el contraste y las decisiones los hace
- * `contraste.ts` con código. Corre en segundo plano tras subir el comprobante, con la cadena de claves del llavero
- * filtrada a los proveedores con visión. Nunca bloquea ni rechaza: sin IA disponible el pago sigue por validación manual.
+ * Evaluación automática del comprobante: OCR PRIMERO, IA (visión) sólo si hace falta. El OCR propio lee la captura y, si TODO calza
+ * (`ocrAlcanza`), la evaluación se cierra sin llamar a la IA; si no, la IA lee con la cadena de claves del llavero filtrada a los
+ * proveedores con visión, y sólo si la IA tampoco da lectura se usa la del OCR (topada, sin validar sola). El contraste y las decisiones
+ * los hace `contraste.ts` con código. Corre en segundo plano tras subir el comprobante. Nunca bloquea ni rechaza: sin lectura disponible
+ * el pago sigue por validación manual, y un OCR que no calza escala a la IA, nunca deja `no_coincide` por sí solo.
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
@@ -11,8 +13,8 @@ import { hoyEn } from '../lib/fechas';
 import { PROMPT_USUARIO, parsearLectura, promptSistema, type Lectura } from '../lib/lecturaComprobante';
 import { registrarAuditoria } from '../middleware/audit';
 import { cabecerasDe, fetchProveedor } from './llavero';
-import { contrastar, type MedioParaContraste, MIN_OPERACION } from './contraste';
-import { ajustarPorOcr, lecturaOcrEnMoneda, leerConOcr, type LecturaOcr } from './ocrVoucher';
+import { contrastar, type Contraste, type MedioParaContraste, MIN_OPERACION } from './contraste';
+import { aceptarPorOcr, ajustarPorOcr, lecturaOcrEnMoneda, leerConOcr, MODELO_OCR_SOLO, ocrAlcanza, type LecturaOcr } from './ocrVoucher';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
 import { aplicarFechaDelVoucher, decidirFechaEvaluada, type DecisionFecha } from './fechaVoucher';
 import { validarSiCumple } from './validacionAutomatica';
@@ -306,7 +308,7 @@ async function leerConRotacion(a: Archivo): Promise<Salida> {
 }
 
 // ---------- Ejecución ----------
-const pagoParaEvaluar = {
+export const pagoParaEvaluar = {
   comprobante: true,
   reciboConceptoUnidad: {
     select: {
@@ -327,6 +329,51 @@ const medioParaContraste = (m: { tipo: string; titular: string; celular: string 
 
 interface Origen { proveedor: string; modelo: string | null; ocr?: LecturaOcr }
 
+export type PagoEvaluado = Prisma.PagoGetPayload<{ include: typeof pagoParaEvaluar }>;
+
+/** Lo que hace falta para contrastar CUALQUIER lectura de un pago: se consulta una sola vez (la del OCR y, si escala, la de la IA comparten medios, total y archivo). */
+export interface ContextoContraste {
+  periodo: { mes: number; anio: number } | null;
+  contrastarLectura: (lectura: Lectura) => Promise<Contraste>;
+}
+
+export async function prepararContraste(pago: PagoEvaluado, sha: string, moneda: string, zona: string): Promise<ContextoContraste> {
+  const pagoId = pago.id;
+  const cargo = pago.reciboConceptoUnidad;
+  const unidad = cargo?.unidad;
+  const recibo = cargo?.reciboConcepto?.recibo;
+  const empresaId = recibo?.empresa_id ?? null;
+  const delEmpresa: Prisma.PagoWhereInput = { reciboConceptoUnidad: { reciboConcepto: { recibo: { empresa_id: empresaId } } } };
+  const medios = unidad?.complejo_id != null
+    ? await prisma.medioPago.findMany({
+        where: { activo: true, complejo_id: unidad.complejo_id, OR: [{ estructura_id: null }, ...(unidad.estructura_id != null ? [{ estructura_id: unidad.estructura_id }] : [])] },
+        select: { tipo: true, titular: true, celular: true, numero_cuenta: true, cci: true, servicio: true },
+      })
+    : [];
+  const mismoArchivo = await prisma.archivoComprobante.findFirst({ where: { sha256: sha, pago_id: { not: pagoId }, pago: delEmpresa }, select: { pago_id: true }, orderBy: { pago_id: 'asc' } });
+  // Pago de un mantenimiento: se compara contra el TOTAL del grupo (el comprobante es uno solo), no contra un cargo.
+  const totalGrupo = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto : null;
+  const periodo = recibo ? { mes: recibo.mes, anio: recibo.anio } : null;
+  return {
+    periodo,
+    contrastarLectura: async (lectura) => {
+      const mismaOperacion = lectura.numero_operacion && lectura.numero_operacion.length >= MIN_OPERACION
+        ? await prisma.evaluacionComprobante.findFirst({
+            where: { pago_id: { not: pagoId }, estado: 'completada', extraido: { path: ['numero_operacion'], equals: lectura.numero_operacion }, pago: delEmpresa },
+            select: { pago_id: true },
+            orderBy: { pago_id: 'asc' },
+          })
+        : null;
+      return contrastar(
+        lectura,
+        { monto: (totalGrupo ?? pago.monto).toString(), moneda, emision: recibo ? hoyEn(zona, recibo.fecha_emision) : hoyEn(zona, pago.created_at), hoy: hoyEn(zona, evaluacionDeps.ahora()), periodo },
+        medios.map(medioParaContraste),
+        { archivoEnPago: mismoArchivo?.pago_id ?? null, operacionEnPago: mismaOperacion?.pago_id ?? null },
+      );
+    },
+  };
+}
+
 async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const pago = await prisma.pago.findUnique({ where: { id: pagoId }, include: pagoParaEvaluar });
   const archivo = pago?.comprobante;
@@ -343,17 +390,63 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
 
   const moneda = cargo0?.reciboConcepto?.recibo?.complejo?.moneda ?? MONEDA_POR_DEFECTO;
   const zona = cargo0?.reciboConcepto?.recibo?.complejo?.zona_horaria ?? ZONA_POR_DEFECTO; // la fecha del voucher se juzga con el día del condominio
+  const recibo = cargo0?.reciboConcepto?.recibo;
+  let contexto: ContextoContraste | null = null;
+  const contextoDelPago = async () => (contexto ??= await prepararContraste(pago, sha, moneda, zona));
+
+  /** Guarda la evaluación, la audita, aplica (o no) la fecha del voucher y deja correr la validación automática. */
+  const concluir = async (lectura: Lectura, origen: Origen, c: Contraste): Promise<void> => {
+    const ocrSolo = origen.ocr != null && origen.modelo === MODELO_OCR_SOLO;
+    const guardada = await final({
+      estado: 'completada',
+      proveedor: origen.proveedor,
+      modelo: origen.modelo,
+      veredicto: c.veredicto,
+      confianza: c.confianza,
+      extraido: (origen.ocr ? { ...lectura, mensaje: origen.ocr.mensaje } : lectura) as unknown as Prisma.InputJsonValue,
+      coincidencias: c.coincidencias as unknown as Prisma.InputJsonValue,
+      alertas: c.alertas,
+      resumen: c.resumen,
+      error: null,
+      evaluada_at: evaluacionDeps.ahora(),
+    });
+    if (!guardada) return; // reemplazaron el comprobante mientras tanto: la nueva evaluación manda
+    await auditar(pagoId, { estado: 'completada', intento, proveedor: origen.proveedor, ...(origen.modelo ? { modelo: origen.modelo } : {}), veredicto: c.veredicto, confianza: c.confianza });
+
+    // La fecha del pago es la del voucher: se aplica ANTES de una posible validación automática (que guarda esa fecha en los cargos).
+    // La que leyó un OCR que sólo fue la última red no se aplica: con confianza baja, la fecha declarada se queda y una persona decide.
+    // La de un OCR que decidió solo (todo calzó) sí. Tampoco la de un comprobante que no coincide con el pago o cuyo mensaje nombra otro mes: es el voucher de otro pago.
+    const decision: DecisionFecha = origen.ocr && !ocrSolo
+      ? { tipo: 'no_leida', motivo: 'La fecha se leyó con OCR (sin IA) y no se aplica sola' }
+      : decidirFechaEvaluada(lectura, { hoy: evaluacionDeps.ahora(), zona, emision: recibo?.fecha_emision ?? hoyEn(zona, pago.created_at), veredicto: c.veredicto, periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null });
+    await aplicarFechaDelVoucher(pagoId, decision);
+    // Validación automática «IA + tesorero»: si el tesorero ya dio su conformidad (o nadie puede darla), se valida ahora; si no, la dispara la conformidad.
+    // Un duplicado ya sale como `no_coincide`, y una fecha leída pero no creíble (futura o muy antigua) deja el pago para una persona.
+    // Un OCR que sólo fue la última red nunca valida; el que decidió solo, sí (con el mismo check del tesorero).
+    await validarSiCumple(pagoId, { fechaInvalida: decision.tipo === 'invalida' });
+  };
+
+  // 1. OCR primero. Si TODO calza (monto, destino, fecha, operación, sin alertas) se acepta sin llamar a la IA; si no, escala a la IA.
+  const ocr = await leerConOcr({ mime: archivo.tipo_mime, bytes: archivo.datos });
+  const leidoOcr: LecturaOcr | null = ocr ? { ...ocr, lectura: lecturaOcrEnMoneda(ocr.lectura, moneda) } : null;
+  if (leidoOcr) {
+    const cx = await contextoDelPago();
+    const cOcr = await cx.contrastarLectura(leidoOcr.lectura);
+    if (ocrAlcanza(cOcr, leidoOcr, cx.periodo)) {
+      await concluir({ ...leidoOcr.lectura, mensaje: leidoOcr.mensaje }, { proveedor: 'ocr', modelo: MODELO_OCR_SOLO, ocr: leidoOcr }, aceptarPorOcr(cOcr));
+      return;
+    }
+  }
+
+  // 2. La IA lee como siempre.
   const salida = await leerConRotacion({ mime: archivo.tipo_mime, base64: Buffer.from(archivo.datos).toString('base64'), moneda });
   let lectura: Lectura | null = salida.tipo === 'texto' ? parsearLectura(salida.texto) : null; // el texto del modelo no se guarda ni se obedece: sólo cuenta si valida el esquema estricto
   let origen: Origen | null = lectura && salida.tipo === 'texto' ? { proveedor: salida.eslabon.proveedor.id, modelo: salida.modelo } : null;
 
   // La IA terminó sin darnos una lectura y no habrá otro intento suyo (sin clave, fallo definitivo, reintento agotado o respuesta inválida):
-  // última red, el OCR propio. Un fallo transitorio con un reintento por delante NO pasa por aquí: se espera a la IA.
+  // última red, la lectura del OCR de arriba (no se vuelve a llamar). Un fallo transitorio con un reintento por delante NO pasa por aquí: se espera a la IA.
   const iaTermino = salida.tipo === 'sin_clave' || (salida.tipo === 'fallo' && !(salida.transitorio && intento < 2)) || (salida.tipo === 'texto' && lectura === null);
-  if (!lectura && iaTermino) {
-    const ocr = await leerConOcr({ mime: archivo.tipo_mime, bytes: archivo.datos });
-    if (ocr) { lectura = lecturaOcrEnMoneda(ocr.lectura, moneda); origen = { proveedor: 'ocr', modelo: null, ocr }; }
-  }
+  if (!lectura && iaTermino && leidoOcr) { lectura = leidoOcr.lectura; origen = { proveedor: 'ocr', modelo: null, ocr: leidoOcr }; }
 
   if (!lectura || !origen) {
     if (salida.tipo === 'sin_clave') {
@@ -386,63 +479,11 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
     return;
   }
 
-  const cargo = pago.reciboConceptoUnidad;
-  const unidad = cargo?.unidad;
-  const recibo = cargo?.reciboConcepto?.recibo;
-  const empresaId = recibo?.empresa_id ?? null;
-  const delEmpresa: Prisma.PagoWhereInput = { reciboConceptoUnidad: { reciboConcepto: { recibo: { empresa_id: empresaId } } } };
-  const medios = unidad?.complejo_id != null
-    ? await prisma.medioPago.findMany({
-        where: { activo: true, complejo_id: unidad.complejo_id, OR: [{ estructura_id: null }, ...(unidad.estructura_id != null ? [{ estructura_id: unidad.estructura_id }] : [])] },
-        select: { tipo: true, titular: true, celular: true, numero_cuenta: true, cci: true, servicio: true },
-      })
-    : [];
-  const [mismoArchivo, mismaOperacion] = await Promise.all([
-    prisma.archivoComprobante.findFirst({ where: { sha256: sha, pago_id: { not: pagoId }, pago: delEmpresa }, select: { pago_id: true }, orderBy: { pago_id: 'asc' } }),
-    lectura.numero_operacion && lectura.numero_operacion.length >= MIN_OPERACION
-      ? prisma.evaluacionComprobante.findFirst({
-          where: { pago_id: { not: pagoId }, estado: 'completada', extraido: { path: ['numero_operacion'], equals: lectura.numero_operacion }, pago: delEmpresa },
-          select: { pago_id: true },
-          orderBy: { pago_id: 'asc' },
-        })
-      : null,
-  ]);
-  // Pago de un mantenimiento: la IA compara contra el TOTAL del grupo (el comprobante es uno solo), no contra un cargo.
-  const totalGrupo = pago.grupo != null ? (await prisma.pago.aggregate({ where: { grupo: pago.grupo }, _sum: { monto: true } }))._sum.monto : null;
-  let c = contrastar(
-    lectura,
-    { monto: (totalGrupo ?? pago.monto).toString(), moneda, emision: recibo ? hoyEn(zona, recibo.fecha_emision) : hoyEn(zona, pago.created_at), hoy: hoyEn(zona, evaluacionDeps.ahora()), periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null },
-    medios.map(medioParaContraste),
-    { archivoEnPago: mismoArchivo?.pago_id ?? null, operacionEnPago: mismaOperacion?.pago_id ?? null },
-  );
-  // El OCR es menos fiable que la IA: sólo informa y alerta (confianza topada, nunca «coincide», sin validar sola ni fijar la fecha).
-  if (origen.ocr) c = ajustarPorOcr(c, origen.ocr, recibo ? { mes: recibo.mes, anio: recibo.anio } : null);
-  const guardada = await final({
-    estado: 'completada',
-    proveedor: origen.proveedor,
-    modelo: origen.modelo,
-    veredicto: c.veredicto,
-    confianza: c.confianza,
-    extraido: (origen.ocr ? { ...lectura, mensaje: origen.ocr.mensaje } : lectura) as unknown as Prisma.InputJsonValue,
-    coincidencias: c.coincidencias as unknown as Prisma.InputJsonValue,
-    alertas: c.alertas,
-    resumen: c.resumen,
-    error: null,
-    evaluada_at: evaluacionDeps.ahora(),
-  });
-  if (!guardada) return; // reemplazaron el comprobante mientras tanto: la nueva evaluación manda
-  await auditar(pagoId, { estado: 'completada', intento, proveedor: origen.proveedor, ...(origen.modelo ? { modelo: origen.modelo } : {}), veredicto: c.veredicto, confianza: c.confianza });
-
-  // La fecha del pago es la del voucher: se aplica ANTES de una posible validación automática (que guarda esa fecha en los cargos).
-  // La que leyó el OCR no se aplica: con confianza baja, la fecha declarada se queda y una persona decide.
-  // Tampoco la de un comprobante que no coincide con el pago o cuyo mensaje nombra otro mes: es el voucher de otro pago.
-  const decision: DecisionFecha = origen.ocr
-    ? { tipo: 'no_leida', motivo: 'La fecha se leyó con OCR (sin IA) y no se aplica sola' }
-    : decidirFechaEvaluada(lectura, { hoy: evaluacionDeps.ahora(), zona, emision: recibo?.fecha_emision ?? hoyEn(zona, pago.created_at), veredicto: c.veredicto, periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null });
-  await aplicarFechaDelVoucher(pagoId, decision);
-  // Validación automática «IA + tesorero»: si el tesorero ya dio su conformidad (o nadie puede darla), se valida ahora; si no, la dispara la conformidad.
-  // Un duplicado ya sale como `no_coincide`, y una fecha leída pero no creíble (futura o muy antigua) deja el pago para una persona. El OCR nunca valida.
-  await validarSiCumple(pagoId, { fechaInvalida: decision.tipo === 'invalida' });
+  const cx = await contextoDelPago();
+  let c = await cx.contrastarLectura(lectura);
+  // El OCR que sólo fue la última red es menos fiable que la IA: sólo informa y alerta (confianza topada, nunca «coincide», sin validar sola ni fijar la fecha).
+  if (origen.ocr) c = ajustarPorOcr(c, origen.ocr, cx.periodo);
+  await concluir(lectura, origen, c);
 }
 
 /**
