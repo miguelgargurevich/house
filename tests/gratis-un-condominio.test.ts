@@ -77,6 +77,13 @@ describe('Gratis incluye un condominio por administradora', () => {
     assert.equal((await crear(T.adminA, 'Nuevo Gratis Tres')).status, 409);
   });
 
+  it('la prueba de Pro vigente cuenta como Gratis: también frena (si no, al vencer quedarían dos gratis)', async () => {
+    const primero = await crear(T.adminA, 'Nuevo Gratis Uno');
+    await prisma.suscripcionCondominio.create({ data: { complejo_id: primero.body.id, plan_clave: 'pro', modulos: [], estado: 'activa', es_prueba: true, vigente_hasta: new Date(hoyLima().getTime() + 20 * DIA) } });
+    const r = await crear(T.adminA, 'Nuevo Gratis Dos');
+    assert.equal(r.status, 409, r.texto);
+  });
+
   it('un Pro vencido pasada la gracia cuenta como Gratis: también frena', async () => {
     const primero = await crear(T.adminA, 'Nuevo Gratis Uno');
     await ponerPlan(primero.body.id, 'pro', -60, 'vencida');

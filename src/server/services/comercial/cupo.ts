@@ -1,5 +1,5 @@
-// Gratis incluye UN condominio por administradora. Un condominio «cuenta como Gratis» si no tiene suscripción, su plan es Gratis o está
-// apagado (vencido pasada la gracia). Los que ya existen no se tocan: sólo se frena crear otro mientras la empresa tenga uno en Gratis.
+// Gratis incluye UN condominio por administradora. Un condominio «cuenta como Gratis» si no tiene suscripción, su plan es Gratis, está en la
+// prueba de Pro o está apagado (vencido pasada la gracia). Los que ya existen no se tocan: sólo se frena crear otro mientras la empresa tenga uno en Gratis.
 // Se lee en fresco (sin la caché de `modulos.ts`): es una puerta de escritura y no debe decidir con un dato de hace 30 s.
 import { prisma } from '../../db';
 import { conflict } from '../../errors';
@@ -22,7 +22,8 @@ export async function condominiosEnGratis(empresaId: number, ahora: Date = comer
   return complejos
     .filter((c) => {
       const ef = estadoEfectivo(c.suscripcion, planes, plazos, ahora);
-      return ef.plan_clave === 'gratis' || ef.apagada;
+      // La prueba de Pro también cuenta: al vencer vuelve a Gratis, y si no, en esos días se podía crear otro y quedarse con dos gratis.
+      return ef.plan_clave === 'gratis' || ef.apagada || ef.en_prueba;
     })
     .map(({ id, nombre }) => ({ id, nombre }));
 }
