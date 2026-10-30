@@ -274,6 +274,8 @@ export const RESUMEN_OCR_SOLO = 'Leído con OCR: todo coincide';
  * `c` es el contraste de la lectura SIN ajustar (`contrastar`); `periodo` el del recibo (el mes del mensaje no entra en `c`: el OCR lo lleva aparte).
  */
 export function ocrAlcanza(c: Contraste, l: LecturaOcr, periodo: { mes: number; anio: number } | null): boolean {
+  // El propio contraste tiene que haber dicho «coincide»: `aceptarPorOcr` no convierte en bueno lo que el código no dio por bueno.
+  if (c.veredicto !== 'coincide') return false;
   if (c.coincidencias.monto !== true) return false;
   if (c.coincidencias.destino !== true) return false;
   if (c.coincidencias.fecha !== true) return false;

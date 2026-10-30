@@ -71,11 +71,12 @@ describe('1. ocrAlcanza: sólo si TODO calza', () => {
     assert.ok(aceptado.confianza >= UMBRAL_AUTOVALIDACION);
   });
 
-  it('sin palabras de éxito (estado «desconocido») pero con todo lo demás, también alcanza: el estado sólo se exige si el voucher lo trae', () => {
-    // «Yape» a secas, sin «Yapeaste»/«exitosa»: el lector deja el estado en «desconocido».
+  it('sin palabras de éxito (estado «desconocido») NO alcanza: el contraste sólo llega a «revisar» y la duda la resuelve la IA', () => {
+    // «Yape» a secas, sin «Yapeaste»/«exitosa»: el lector deja el estado en «desconocido». El OCR no es más permisivo que la IA.
     const r = evaluarPuro('Yape\nS/ 100\nMaria Perez Garcia\n' + `${fechaTexto()}\nCelular: *** *** 321\nCódigo de operación\n1234567`);
     assert.equal(r.ocr.lectura.estado_operacion, 'desconocido');
-    assert.equal(r.alcanza, true, JSON.stringify(r.c));
+    assert.equal(r.c.veredicto, 'revisar');
+    assert.equal(r.alcanza, false, JSON.stringify(r.c));
   });
 
   const NO_ALCANZA: [string, () => ReturnType<typeof evaluarPuro>][] = [
@@ -106,13 +107,11 @@ describe('1. ocrAlcanza: sólo si TODO calza', () => {
     assert.equal(ocrAlcanza(r.c, { ...r.ocr, lectura: { ...r.ocr.lectura, numero_operacion: '12345' } }, ESPERADO.periodo), true);
   });
 
-  it('aceptarPorOcr: sube a «coincide» un contraste con estado «desconocido» (que sólo llegó a «revisar») y limpia las alertas', () => {
-    const sinEstado = evaluarPuro('Yape\nS/ 100\nMaria Perez Garcia\n' + `${fechaTexto()}\nCelular: *** *** 321\nCódigo de operación\n1234567`);
-    assert.equal(sinEstado.c.veredicto, 'revisar', 'sin palabras de éxito el contraste normal no llega a «coincide»');
-    const a = aceptarPorOcr(sinEstado.c);
-    assert.equal(a.veredicto, 'coincide');
-    assert.ok(a.confianza >= UMBRAL_AUTOVALIDACION, `confianza ${a.confianza}`);
-    assert.deepEqual(aceptarPorOcr({ ...sinEstado.c, alertas: ['una alerta'] }).alertas, []);
+  it('ocrAlcanza exige que el propio contraste diga «coincide»: con todo lo demás en orden, un «revisar» no alcanza', () => {
+    const r = evaluarPuro(voucher());
+    assert.equal(r.alcanza, true);
+    assert.equal(ocrAlcanza({ ...r.c, veredicto: 'revisar' }, r.ocr, ESPERADO.periodo), false);
+    assert.deepEqual(aceptarPorOcr({ ...r.c, alertas: ['una alerta'] }).alertas, []);
   });
 
   it('el mensaje del MISMO mes del recibo no estorba (la alerta de periodo es sólo si nombra otro mes)', () => {

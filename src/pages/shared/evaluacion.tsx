@@ -28,6 +28,8 @@ export interface EvaluacionCompleta {
     mensaje?: string | null;
   } | null;
   proveedor: string | null;
+  /** `'ocr-solo'`: el OCR lo leyó y TODO calzó, así que no se llamó a la IA (puede validar, siempre con el check del tesorero). */
+  modelo?: string | null;
   error: string | null;
 }
 
@@ -135,7 +137,9 @@ export function EvaluacionPanel({ evaluacion: ev, montoEsperado, moneda, validad
       )}
 
       {!evaluando && ev?.estado === 'completada' && ev.resumen && <p className="mt-3 text-sm">{ev.resumen}</p>}
-      {!evaluando && ev?.estado === 'completada' && ev.proveedor === 'ocr' && <p className="mt-2 text-xs text-muted">Esta lectura la hizo el OCR propio porque la IA no respondió: es menos fiable y nunca valida sola.</p>}
+      {!evaluando && ev?.estado === 'completada' && ev.proveedor === 'ocr' && (ev.modelo === 'ocr-solo'
+        ? <p className="mt-2 text-xs text-muted">Lo leyó el OCR propio y todo coincidió (monto, destino, fecha y operación), así que no hizo falta la IA. Igual se valida sólo con el check del tesorero.</p>
+        : <p className="mt-2 text-xs text-muted">Esta lectura la hizo el OCR propio porque la IA no respondió: es menos fiable y nunca valida sola.</p>)}
 
       {errorReevaluar && <div className="mt-3"><Alert tone="bad">{errorReevaluar}</Alert></div>}
 
