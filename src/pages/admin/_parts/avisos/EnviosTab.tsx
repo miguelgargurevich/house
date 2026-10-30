@@ -143,7 +143,7 @@ export function EnviosTab() {
           <SelectoresUbicacion torre={torre} onTorre={setTorre} oculto={esJunta} />
         </Toolbar>
         <DataTable
-          caption="Envíos de correo y WhatsApp"
+          caption="Notificaciones por correo y WhatsApp"
           columns={columns}
           rows={list.items}
           rowKey={a => a.id}

@@ -106,7 +106,7 @@ export function AvisarVecinosModal({ reciboId, titulo, onClose }: Props) {
           {resultado && (
             <Alert tone="ok">
               <p>Quedaron en cola {resultado.encolados} {resultado.encolados === 1 ? 'vecino' : 'vecinos'}. Se envían en unos minutos.</p>
-              <Link to={`${location.pathname.startsWith('/junta') ? '/junta' : '/admin'}/avisos?tipo=recibo_emitido`} className="mt-1 inline-block font-medium underline">Ver en Comunicados › Envíos</Link>
+              <Link to={`${location.pathname.startsWith('/junta') ? '/junta' : '/admin'}/avisos?tipo=recibo_emitido`} className="mt-1 inline-block font-medium underline">Ver en Comunicados › Notificaciones</Link>
             </Alert>
           )}
         </section>

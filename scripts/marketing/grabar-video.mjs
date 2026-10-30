@@ -124,7 +124,7 @@ const ESCENAS = {
       await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 28 });
     } },
     { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
-      await tocar(p, p.getByRole('tab', { name: /envíos/i })); await asentar(p);
+      await tocar(p, p.getByRole('tab', { name: /notificaciones/i })); await asentar(p);
       // «Canales» carga después del resto: se espera a que aparezca para quitarla (ver `asentar`).
       await p.getByRole('heading', { name: 'Canales', exact: true }).waitFor({ timeout: 4000 }).catch(() => {}); await asentar(p);
       await desplazar(p, 200);

@@ -200,7 +200,7 @@ describe('comunicados: lo que ve el residente', () => {
   });
 });
 
-describe('comunicados: una página con dos pestañas («Comunicados» y «Envíos»)', () => {
+describe('comunicados: una página con dos pestañas («Comunicados» y «Notificaciones»)', () => {
   const pagina = f(`${COM}PaginaComunicados.tsx`);
   const tab = f(`${COM}ComunicadosTab.tsx`);
   const envios = f(`${AVISOS}EnviosTab.tsx`);
@@ -222,12 +222,12 @@ describe('comunicados: una página con dos pestañas («Comunicados» y «Envío
 
   it('las dos pestañas enlazan su panel (mismo idBase), con los nombres pedidos y la descripción que explica las dos cosas', () => {
     assert.equal((pagina.match(/idBase="comunicados-pestanas"/g) ?? []).length, 3, 'una barra y dos paneles');
-    assert.match(pagina, /items=\{\[\{ id: 'comunicados', label: 'Comunicados' \}, \{ id: 'envios', label: 'Envíos' \}\]\}/);
+    assert.match(pagina, /items=\{\[\{ id: 'comunicados', label: 'Comunicados' \}, \{ id: 'envios', label: 'Notificaciones' \}\]\}/);
     assert.match(pagina, /<PageHeader title="Comunicados" description="Escribe anuncios para los vecinos y revisa qué se les envió por correo y WhatsApp\." \/>/);
   });
 
   it('cada comunicado dice cuántos envíos salieron y cuántos fallaron, y enlaza a sus envíos (y el celular lo ve en su línea)', () => {
-    assert.match(tab, /key: 'envios', header: 'Envíos', hideBelow: 'md'/);
+    assert.match(tab, /key: 'envios', header: 'Notificaciones', hideBelow: 'md'/);
     assert.match(tab, /\{textoEnvios\(c\.envios\)\}/);
     assert.match(tab, /\{!!c\.envios\?\.total && <Link to=\{enviosDeComunicado\(base, c\.id\)\}[^>]*>Ver envíos<\/Link>\}/);
     assert.match(tab, /const base = baseDe\(useLocation\(\)\.pathname\)/);
@@ -240,7 +240,7 @@ describe('comunicados: una página con dos pestañas («Comunicados» y «Envío
     assert.equal(enviosDeComunicado('/junta', 7), '/junta/avisos?comunicado=7');
   });
 
-  it('la pestaña Envíos filtra por el comunicado de la URL (?comunicado=) en la lista y en las cifras, y se puede quitar', () => {
+  it('la pestaña Notificaciones filtra por el comunicado de la URL (?comunicado=) en la lista y en las cifras, y se puede quitar', () => {
     assert.match(envios, /const comunicadoId = params\.get\('comunicado'\) \?\? ''/);
     assert.match(envios, /useList<Envio>\('\/api\/notificaciones', \{ params: \{ estado: filtro, tipo: tipo \|\| undefined, comunicado_id: comunicadoId \|\| undefined,/);
     assert.match(envios, /\/api\/notificaciones\/resumen\?\$\{query\(\{ tipo: tipo \|\| undefined, comunicado_id: comunicadoId \|\| undefined, complejo_id: complejo \|\| undefined, estructura_id: torre \|\| undefined \}\)\}/);
@@ -248,15 +248,15 @@ describe('comunicados: una página con dos pestañas («Comunicados» y «Envío
     assert.match(envios, /<Button size="sm" variant="secondary" onClick=\{\(\) => setParams\(\{\}\)\}>Ver todos los envíos<\/Button>/);
   });
 
-  it('la pestaña Envíos tiene el filtro por tipo, con los tipos que acepta la API y en castellano', () => {
+  it('la pestaña Notificaciones tiene el filtro por tipo, con los tipos que acepta la API y en castellano', () => {
     assert.match(envios, /<FiltroSelect label="Filtrar por tipo" value=\{tipo\} onChange=\{setTipo\}>/);
     assert.match(envios, /\{Object\.entries\(TIPO\)\.map\(\(\[clave, nombre\]\) => <option key=\{clave\} value=\{clave\}>\{nombre\}<\/option>\)\}/);
     assert.match(envios, /tipo: tipo \|\| undefined/);
   });
 
-  it('el asistente conoce la nueva pantalla: /admin/comunicados con su pestaña «Envíos», y ya no nombra /admin/avisos', () => {
+  it('el asistente conoce la nueva pantalla: /admin/comunicados con su pestaña «Notificaciones», y ya no nombra /admin/avisos', () => {
     const prompt = f('src/config/ai-system-prompt.txt');
-    assert.match(prompt, /\[Comunicados\]\(\/admin\/comunicados\) \(su pestaña «Envíos»/);
+    assert.match(prompt, /\[Comunicados\]\(\/admin\/comunicados\) \(su pestaña «Notificaciones»/);
     assert.doesNotMatch(prompt, /\(\/admin\/avisos\)/);
   });
 });

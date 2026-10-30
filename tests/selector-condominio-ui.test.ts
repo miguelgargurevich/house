@@ -139,7 +139,7 @@ describe('las pantallas usan el condominio de la barra y se quitaron su filtro p
     pasan(`${ADMIN}Morosidad.tsx`, /useTorreElegida/, /complejo_id: complejo \|\| undefined/, /\$\{complejo \? `&complejo_id=\$\{complejo\}` : ''\}/);
   });
 
-  it('Medios de pago, Juntas, Unidades, Mantenimiento, Comunicados y Envíos, Proveedores y Personas', () => {
+  it('Medios de pago, Juntas, Unidades, Mantenimiento, Comunicados y Notificaciones, Proveedores y Personas', () => {
     pasan(`${ADMIN}MediosPago.tsx`, /complejo_id: complejo \|\| undefined/, /const complejo = elegido \|\| \(complejos\.length === 1/);
     pasan(`${ADMIN}Juntas.tsx`, /\/api\/juntas\$\{complejo \? `\?complejo_id=\$\{complejo\}` : ''\}/);
     pasan(`${PARTS}unidades/ListaDeUnidades.tsx`, /const complejo = complejoId \? String\(complejoId\) : elegido/, /complejo_id: complejo \|\| undefined/);

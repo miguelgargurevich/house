@@ -60,7 +60,7 @@ export function ComunicadosTab() {
     { key: 'alcance', header: 'Para', hideBelow: 'sm', cell: c => (
       <span className="block"><span className="block truncate">{alcanceLabel(c)}</span>{complejos.length > 1 && <span className="block truncate text-xs text-muted">{c.complejo?.nombre}</span>}</span>
     ) },
-    { key: 'envios', header: 'Envíos', hideBelow: 'md', cell: c => (
+    { key: 'envios', header: 'Notificaciones', hideBelow: 'md', cell: c => (
       <span className="block">
         <span className="block">{textoEnvios(c.envios)}</span>
         {!!c.envios?.total && <Link to={enviosDeComunicado(base, c.id)} className="text-xs font-medium text-brand hover:underline">Ver envíos</Link>}

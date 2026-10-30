@@ -26,7 +26,7 @@ export function PaginaComunicados({ pestana }: { pestana: PestanaComunicados }) 
           onChange={cambiar}
           idBase="comunicados-pestanas"
           label="Comunicados y envíos"
-          items={[{ id: 'comunicados', label: 'Comunicados' }, { id: 'envios', label: 'Envíos' }]}
+          items={[{ id: 'comunicados', label: 'Comunicados' }, { id: 'envios', label: 'Notificaciones' }]}
         />
       </div>
       <TabPanel idBase="comunicados-pestanas" id="comunicados" value={pestana}><ComunicadosTab /></TabPanel>

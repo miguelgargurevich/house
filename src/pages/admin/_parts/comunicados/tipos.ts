@@ -51,7 +51,7 @@ export function textoEnvios(e: Envios | undefined): string {
 /** `/junta` o `/admin`, según la ruta actual: la misma página se monta bajo las dos. */
 export const baseDe = (pathname: string) => (pathname.startsWith('/junta/') ? '/junta' : '/admin');
 
-/** La pestaña «Envíos» filtrada por un comunicado. */
+/** La pestaña «Notificaciones» filtrada por un comunicado. */
 export const enviosDeComunicado = (base: string, id: number) => `${base}/avisos?comunicado=${id}`;
 
 /** Lo que dice el aviso tras publicar: cuántos correos/WhatsApp quedaron en cola, o por qué ninguno. */

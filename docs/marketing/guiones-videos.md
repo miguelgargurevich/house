@@ -19,7 +19,7 @@ cada escena cuenta UNA cosa. El cierre de todos: «House. Tu condominio, en orde
 | 3 | Celular del vecino · Mis recibos → detalle del mantenimiento | Cada vecino ve exactamente qué debe, por qué, y hasta cuándo. |
 | 4 | Vecino · Pagar mantenimiento → subir comprobante | Paga y sube su comprobante desde el celular, sin llamar a nadie. |
 | 5 | Administradora/Junta · Pagos por validar | La administración o la junta lo valida con un clic. |
-| 6 | Comunicados › Envíos: recordatorios por WhatsApp y correo | Los recordatorios salen solos por WhatsApp y correo. |
+| 6 | Comunicados › Notificaciones: recordatorios por WhatsApp y correo | Los recordatorios salen solos por WhatsApp y correo. |
 | 7 | Morosidad / Resumen con el avance del cobro | Y tú ves, en una sola pantalla, quién está al día y quién no. |
 | 8 | Logo + cierre | House. Tu condominio, en orden. |
 
@@ -33,7 +33,7 @@ cada escena cuenta UNA cosa. El cierre de todos: «House. Tu condominio, en orde
 | 4 | Medios de pago → tarjeta del block con su junta y su cuenta | Cada block tiene su junta y la cuenta donde pagan sus vecinos, siempre al día. |
 | 5 | Morosidad → detalle de los recibos vencidos de un departamento | La morosidad, ordenada: quién debe, cuánto, desde cuándo, y el detalle de cada recibo. |
 | 6 | Comunicados → nuevo comunicado (se escribe el título) | ¿Un corte de agua? Escribe un comunicado y llega a todos tus vecinos. |
-| 7 | Comunicados › Envíos | Y aquí ves qué salió por WhatsApp y por correo, y qué hay que reintentar. |
+| 7 | Comunicados › Notificaciones | Y aquí ves qué salió por WhatsApp y por correo, y qué hay que reintentar. |
 | 8 | Juntas directivas → Nueva gestión | Cuando cambia la junta, registras la nueva gestión y los permisos pasan solos. |
 | 9 | Cierres del mes → Block 1, octubre | Al cerrar el mes, cada tesorero registra lo que paga, y tú ves el estado de todos los blocks. |
 | 10 | Periodo → Consolidado del block | Y el consolidado del block sale listo para imprimir junto con el recibo de cada vecino, sin armar el Excel a mano. |
