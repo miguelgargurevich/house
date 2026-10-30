@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Manual sin versiones viejas; privacidad, plan Gratis y benchmark en curso (Claude Code, Opus 5.5) — push: no
+
+- **Hecho:** `docs/manual/README.md` anota que la primera versión y la intermedia del manual se borraron de My Workspace (queda sólo la v2, `cmvv9urmi000bf5xdkb42hpwt`). Commit `695167c`, sin subir.
+- **En curso (delegado):** política de privacidad, términos y casilla de aceptación en el registro (Ley 29733) → worktree `.claude/worktrees/privacidad`, rama `feat/privacidad`, Haiku. Textos en `docs/legal/`.
+- **Próximo:** paquete del plan Gratis (1 condominio gratis por administradora, prueba de Pro de 30 días, mensajes con conteos de vouchers, topes mensuales de asistente y WhatsApp). Va DESPUÉS de privacidad: los dos tocan `registro.ts`, `ConfiguracionComercial` y el formulario del superadmin.
+- **Decisiones:** benchmark de competidores publicado en My Workspace (`cmvvj7wbq000sf5xdj0jvwtmo`). Posible marca «Torre · Administración de condominios»: dominios `torrecondominios.com` y `torre.homes` comprados; NO renombrar hasta que Miguel confirme INDECOPI (`torre.pe` es de PLATEAT S.A.C., «Building Management»).
+- **Gotchas:** el pitch no puede prometer «morosidad cero», «sin mover un dedo» ni que el voucher emite recibos; la junta confirma cada pago.
+
+---
+
 ## 2026-10-30 — Claude Code (Haiku 5.5, delegado) — Manual (2) y videos al día (rama `docs/manual-videos`, sin push)
 
 - Herramientas: Bash, Playwright (local), ffmpeg, `scp` al VPS y `mcp__myworkspace__web_crear`.
