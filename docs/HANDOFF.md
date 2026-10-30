@@ -4,6 +4,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Opus 5.5) — Informe de pruebas y mapa de flujos por rol
+
+- Informe «¿Qué flujos de House están probados y cuáles faltan?» (My Workspace, recurso `cmvv0axgo0000f5xdrnpi038x`, `doc_html`) y checklist Excel (`cmvv0bokp0001f5xdpcxbooa8`): 66 flujos por rol (administradora 23, junta del block 8, Junta central 6, propietario 12, inquilino 3, personal 3, superadmin 5, transversales 6). 42 con pruebas automáticas, 6 además probados de punta a punta en el navegador y 18 que hay que probar a mano (correo/WhatsApp reales, vouchers reales para OCR/IA, cámara, papel, app de escritorio, modo oscuro).
+- Suite completa en `70630dc`: 2.718/2.718. Recorrido de pantallas (`scripts/pruebas/recorrido-pantallas.mjs`): 124 pantallas con 13 cuentas, 0 observaciones (sólo el 401 esperado de `/api/auth/me` en las públicas).
+- Próximos pasos: Miguel prueba a mano los 18 flujos con el checklist (en producción, con una cuenta de prueba suya); decidir si se corre `npm run medir:ocr` contra producción.
+
 ## 2026-10-30 — Claude Code (Opus 5.5) — Voucher ampliable, pie fijo de los modales y «Ver mi voucher»
 
 - `src/ui/Modal.tsx`: el diálogo ya no se desplaza entero (tope `100dvh` + `overflow-hidden`; sólo el cuerpo con `min-h-0 flex-1`): en la app de escritorio (WebKit) el pie quedaba a media altura con un hueco debajo. Pie con `flex-wrap`. Además sólo reacciona a SU close: React propaga el close por el árbol y cerrar un modal anidado (foto del contómetro) cerraba los dos.
