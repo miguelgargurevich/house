@@ -70,6 +70,22 @@ describe('TelefonoInput: lo que se ve', () => {
   it('una pista se ve como texto de ayuda', () => {
     assert.match(pintar({ hint: 'Opcional. Ejemplo: 987 654 321.' }), /Opcional\. Ejemplo: 987 654 321\./);
   });
+
+  it('el selector de país tiene ancho fijo (no se estira dentro de una grilla) y el número ocupa el resto, con mínimo para bajar de línea', () => {
+    const html = pintar();
+    assert.match(html, /<span class="relative w-28 shrink-0">/);
+    assert.match(html, /<div class="flex flex-wrap gap-2">/);
+    assert.match(html, /<input[^>]*class="[^"]*\bflex-1\b[^"]*"/);
+    assert.match(html, /<input[^>]*class="[^"]*min-w-\[10rem\][^"]*"/);
+    const s = fuente('src/ui/TelefonoInput.tsx');
+    assert.doesNotMatch(s, /w-\[9\.5rem\]|sm:w-52|w-32 shrink-0/, 'el selector ya no lleva los anchos viejos');
+  });
+
+  it('cerrado, el selector muestra bandera y prefijo (no el nombre largo) y eso no lo lee el lector de pantalla', () => {
+    const html = pintar({ value: '+56 9 6123 4567' });
+    assert.match(html, /<span aria-hidden="true"[^>]*>🇨🇱 \+56<\/span>/);
+    assert.match(fuente('src/ui/TelefonoInput.tsx'), /!text-transparent/, 'el texto nativo del selector queda invisible; lo pinta la superposición');
+  });
 });
 
 describe('lógica del campo (la que llama el componente): escribir, pegar y elegir país', () => {

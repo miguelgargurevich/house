@@ -13,6 +13,13 @@ const opcion = (p: PaisTelefono) => (
   <option key={p.codigo} value={p.codigo}>{`${p.bandera} ${p.nombre} ${p.prefijo}`}</option>
 );
 
+const TODOS = [...PAISES.prioritarios, ...PAISES.resto];
+/** Lo que se ve con el selector cerrado: bandera y prefijo. La lista desplegada sigue trayendo el nombre del país. */
+const cerrado = (codigo: CountryCode) => {
+  const p = TODOS.find(x => x.codigo === codigo);
+  return p ? `${p.bandera} ${p.prefijo}` : '';
+};
+
 interface TelefonoInputProps extends Pick<InputHTMLAttributes<HTMLInputElement>, 'name' | 'disabled' | 'autoComplete' | 'required'> {
   label: string;
   /** Lo que guarda el formulario: `+51 987 654 321`. Un valor sin «+» (dato viejo) se lee como Perú. */
@@ -88,18 +95,19 @@ export const TelefonoInput = forwardRef<HTMLInputElement, TelefonoInputProps>(fu
   return (
     <Field label={label} error={mensaje} hint={hint} className={className}>
       {p => (
-        <div className="flex gap-2">
-          <span className="relative w-[9.5rem] shrink-0 sm:w-52">
+        <div className="flex flex-wrap gap-2">
+          <span className="relative w-28 shrink-0">
             <select
               aria-label="País del teléfono"
               value={pais}
               onChange={alElegirPais}
               disabled={disabled}
-              className={cx(control, 'h-10 appearance-none pl-3 pr-8')}
+              className={cx(control, 'h-10 appearance-none pl-3 pr-8 !text-transparent')}
             >
               <optgroup label="Más usados">{PAISES.prioritarios.map(opcion)}</optgroup>
               <optgroup label="Otros países">{PAISES.resto.map(opcion)}</optgroup>
             </select>
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-ink">{cerrado(pais)}</span>
             <ChevronDownIcon aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
           </span>
           <input
@@ -114,7 +122,7 @@ export const TelefonoInput = forwardRef<HTMLInputElement, TelefonoInputProps>(fu
             value={texto}
             onChange={alEscribir}
             onBlur={alSalir}
-            className={cx(control, 'h-10 min-w-0 flex-1')}
+            className={cx(control, 'h-10 min-w-[10rem] flex-1')}
           />
         </div>
       )}
