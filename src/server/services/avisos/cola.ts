@@ -8,6 +8,7 @@ import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, 
 import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
 import { dineroTexto, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
+import { correoSinBuzon } from '../invitaciones';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
 export const MAX_INTENTOS = 3;
@@ -110,6 +111,23 @@ async function chatVinculado(usuarioId: number): Promise<string | null> {
 }
 
 /**
+ * Por qué canales le llega un aviso a la persona: correo si lo acepta y tiene uno real (un `.invalid` no tiene buzón; no es canal),
+ * WhatsApp si lo acepta y tiene celular o un número vinculado, y Telegram sólo para el resultado de un voucher. Lo usan el envío y la vista previa.
+ */
+async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }): Promise<(Canal | 'telegram')[]> {
+  const canales: (Canal | 'telegram')[] = [];
+  if (u.aviso_email && u.email && !correoSinBuzon(u.email)) canales.push('email');
+  // Quien vinculó su WhatsApp (verificado) llega a ese número: ahí recibe el resultado del voucher que mandó por el bot aunque no haya activado
+  // los avisos por WhatsApp; el resto de avisos sigue respetando su preferencia.
+  const vinculado = await numeroVinculado(u.id);
+  const resultadoDePago = tipo === 'pago_validado' || tipo === 'pago_rechazado';
+  if ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago)) canales.push('whatsapp');
+  // Telegram: sólo el resultado del voucher, y sólo a quien vinculó su chat (no hay «preferencia» de Telegram: vincular es aceptarlo).
+  if (resultadoDePago && (await chatVinculado(u.id))) canales.push('telegram');
+  return canales;
+}
+
+/**
  * Encola un aviso para un usuario, respetando sus preferencias (`aviso_email`, `aviso_whatsapp`) y que tenga
  * correo / celular. Es idempotente: el mismo (usuario, canal, tipo, referencia) nunca se crea dos veces.
  *
@@ -128,15 +146,7 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   const ahora = opts.ahora ?? new Date();
   const u = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true, nombre: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
   if (!u) return 0;
-  const canales: (Canal | 'telegram')[] = [];
-  if (u.aviso_email && u.email) canales.push('email');
-  // Quien vinculó su WhatsApp (verificado) llega a ese número: ahí recibe el resultado del voucher que mandó por el bot aunque no haya activado
-  // los avisos por WhatsApp; el resto de avisos sigue respetando su preferencia.
-  const vinculado = await numeroVinculado(u.id);
-  const resultadoDePago = tipo === 'pago_validado' || tipo === 'pago_rechazado';
-  if ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago)) canales.push('whatsapp');
-  // Telegram: sólo el resultado del voucher, y sólo a quien vinculó su chat (no hay «preferencia» de Telegram: vincular es aceptarlo).
-  if (resultadoDePago && (await chatVinculado(u.id))) canales.push('telegram');
+  const canales = await canalesDe(tipo, u);
   // `opts.canales` acota (un comunicado puede ir sólo por correo o sólo por WhatsApp); nunca agrega un canal que la persona no aceptó.
   if (opts.canales) for (let i = canales.length - 1; i >= 0; i--) if (!(opts.canales as readonly string[]).includes(canales[i]!)) canales.splice(i, 1);
   if (!canales.length) return 0;
@@ -150,17 +160,83 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   return r.count;
 }
 
-/** Al emitir un recibo: un aviso por usuario (propietario o inquilino de una unidad con cargo en ese recibo). */
-export async function encolarReciboEmitido(reciboId: number, opts: { ahora?: Date } = {}): Promise<number> {
+/** Vecinos de un recibo: propietario o inquilino de cada unidad con cargo en él. */
+async function usuariosDelRecibo(reciboId: number): Promise<number[]> {
   const unidades = await prisma.unidad.findMany({
     where: { reciboConceptoUnidades: { some: { reciboConcepto: { recibo_id: reciboId } } } },
     select: { propietario_id: true, inquilino_id: true },
   });
   const usuarios = new Set<number>();
   for (const u of unidades) for (const id of [u.propietario_id, u.inquilino_id]) if (id != null) usuarios.add(id);
+  return [...usuarios];
+}
+
+/** Al emitir un recibo: un aviso por usuario (propietario o inquilino de una unidad con cargo en ese recibo). */
+export async function encolarReciboEmitido(reciboId: number, opts: { ahora?: Date } = {}): Promise<number> {
   let creadas = 0;
-  for (const id of usuarios) creadas += await encolarAviso('recibo_emitido', id, { entidad: 'recibo', id: reciboId }, opts);
+  for (const id of await usuariosDelRecibo(reciboId)) creadas += await encolarAviso('recibo_emitido', id, { entidad: 'recibo', id: reciboId }, opts);
   return creadas;
+}
+
+/**
+ * Lo que el aviso «ya está tu recibo» le toca a cada vecino AHORA. `crear`: canales que aún no tiene; `reintentar`: los que fallaron u se
+ * omitieron (esos sí se pueden volver a mandar). Lo que ya está `pendiente` o `enviada` no se toca: así nunca hay dos avisos iguales.
+ */
+export interface PlanAvisoRecibo {
+  vecinos: number;
+  /** Vecinos a quienes llegaría por correo en este envío (nuevo o reintento). */
+  por_correo: number;
+  /** Vecinos a quienes llegaría por WhatsApp en este envío (nuevo o reintento). */
+  por_whatsapp: number;
+  /** Vecinos a quienes se les encolaría algo en este envío. */
+  por_avisar: number;
+  /** Vecinos con algún canal activo cuyo aviso ya está enviado o en cola: no se les vuelve a mandar. */
+  ya_avisados: number;
+  /** Vecinos sin ningún canal activo: sin correo real ni WhatsApp, o con los avisos desactivados. */
+  sin_canal: number;
+  personas: { usuario_id: number; crear: Canal[]; reintentar: Canal[] }[];
+}
+
+/** Calcula el plan de `avisarReciboEmitido` sin escribir nada: la vista previa usa lo mismo que el envío. */
+export async function planAvisoRecibo(reciboId: number): Promise<PlanAvisoRecibo> {
+  const ids = await usuariosDelRecibo(reciboId);
+  const usuarios = await prisma.usuario.findMany({ where: { id: { in: ids } }, select: { id: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
+  const filas = await prisma.notificacion.findMany({ where: { tipo: 'recibo_emitido', ref_entidad: 'recibo', ref_id: reciboId }, select: { usuario_id: true, canal: true, estado: true } });
+  const estadoDe = new Map(filas.map((f) => [`${f.usuario_id}:${f.canal}`, f.estado]));
+  const plan: PlanAvisoRecibo = { vecinos: usuarios.length, por_correo: 0, por_whatsapp: 0, por_avisar: 0, ya_avisados: 0, sin_canal: 0, personas: [] };
+  for (const u of usuarios) {
+    // `telegram` nunca sale para un recibo emitido (sólo para resultados de voucher), así que se descarta aquí.
+    const canales = (await canalesDe('recibo_emitido', u)).filter((c): c is Canal => c !== 'telegram');
+    if (!canales.length) { plan.sin_canal++; continue; }
+    const crear = canales.filter((c) => !estadoDe.has(`${u.id}:${c}`));
+    const reintentar = canales.filter((c) => estadoDe.get(`${u.id}:${c}`) === 'error' || estadoDe.get(`${u.id}:${c}`) === 'omitida');
+    const envio = [...crear, ...reintentar];
+    if (!envio.length) { plan.ya_avisados++; continue; }
+    plan.personas.push({ usuario_id: u.id, crear, reintentar });
+    plan.por_avisar++;
+    if (envio.includes('email')) plan.por_correo++;
+    if (envio.includes('whatsapp')) plan.por_whatsapp++;
+  }
+  return plan;
+}
+
+/**
+ * Avisa a los vecinos que el recibo ya está: encola lo que a cada uno le falta (sin duplicar) y vuelve a poner en cola los que fallaron u
+ * se omitieron. Nunca envía en línea: lo hace `procesarCola`. Devuelve cuántos vecinos quedaron encolados, cuántos ya lo tenían y cuántos no tienen canal.
+ */
+export async function avisarReciboEmitido(reciboId: number, opts: { ahora?: Date } = {}): Promise<{ encolados: number; ya_avisados: number; sin_canal: number }> {
+  const ahora = opts.ahora ?? new Date();
+  const plan = await planAvisoRecibo(reciboId);
+  for (const p of plan.personas) {
+    if (p.reintentar.length) {
+      await prisma.notificacion.updateMany({
+        where: { usuario_id: p.usuario_id, tipo: 'recibo_emitido', ref_entidad: 'recibo', ref_id: reciboId, canal: { in: p.reintentar }, estado: { in: ['error', 'omitida'] } },
+        data: { estado: 'pendiente', intentos: 0, error: null, programada_para: ahora },
+      });
+    }
+    if (p.crear.length) await encolarAviso('recibo_emitido', p.usuario_id, { entidad: 'recibo', id: reciboId }, { ahora, canales: p.crear });
+  }
+  return { encolados: plan.por_avisar, ya_avisados: plan.ya_avisados, sin_canal: plan.sin_canal };
 }
 
 /** Días antes del vencimiento en que sale el recordatorio `por_vencer` (el otro es `vence_hoy`, el día mismo). */

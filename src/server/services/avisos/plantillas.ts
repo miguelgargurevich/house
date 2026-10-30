@@ -46,6 +46,22 @@ export function fechaTexto(f: Date): string {
   return `${dd}/${mm}/${f.getUTCFullYear()}`;
 }
 
+/** `Date` (00:00 UTC) → día y mes en español, sin año: `2 de noviembre`. */
+export function diaYMes(f: Date): string {
+  return new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(f);
+}
+
+/** Dónde se ve y se paga el mantenimiento: «Mis recibos» del propietario (el inquilino, al entrar, cae en su inicio con el mismo menú). */
+export const ENLACE_MIS_RECIBOS = `${ENLACE_APP}/propietario/cargos`;
+
+/**
+ * Texto para el grupo de WhatsApp del block (o del condominio): lo lee todo el grupo, así que va SIN montos ni nombres de vecinos.
+ * Dice qué ya está, cuándo vence y dónde pagarlo.
+ */
+export function mensajeGrupoRecibo(d: { periodo: string; ubicacion: string; vencimiento: Date }): string {
+  return `Ya está el mantenimiento de ${d.periodo} del ${d.ubicacion}. Vence el ${diaYMes(d.vencimiento)}. Míralo y págalo con tu voucher en House: ${ENLACE_MIS_RECIBOS}`;
+}
+
 /** Instante → `dd/mm/aaaa` según el día en la zona del condominio (un pago a las 21:00 en Lima ya es el día siguiente en UTC). */
 export function fechaTextoEn(f: Date, zona: string): string {
   return fechaTexto(hoyEn(zona, f));

@@ -15,7 +15,7 @@ import { scopeComplejos, scopeConceptos, scopeRecibos, scopeRecibosEscritura, sc
 import { bloquearPeriodo, recibosDelPeriodo } from '../services/reciboUnico';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
-import { encolarReciboEmitido, procesarPronto } from '../services/avisos';
+import { avisarReciboEmitido, encolarReciboEmitido, mensajeGrupoRecibo, planAvisoRecibo, procesarPronto } from '../services/avisos';
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { agregarMora, esConceptoMora, informeDeMora, montoDeMoraAplicable, type InformeMora, type UnidadConMora } from '../services/mora';
@@ -347,6 +347,49 @@ router.get('/:id/blocks', requireRole('admin'), async (req, res) => {
   await reciboAccesible(req, id);
   const blocks = await resumenPorBlock(id, hoyEn(await zonaDeRecibo(id)));
   res.json({ agrupado: agruparPorBlock(blocks), moneda: await monedaDeRecibo(id), blocks });
+});
+
+// ---------- Avisar a los vecinos que ya está el recibo (administración, o la junta de su block) ----------
+/** Minutos entre dos envíos del mismo recibo. La marca es la propia auditoría (`avisar_vecinos`): no hace falta otra tabla. */
+const ESPERA_AVISO_MIN = 2;
+
+/** Segundos que faltan para poder volver a avisar del recibo (0 = ya se puede). */
+async function esperaAviso(reciboId: number, ahora = new Date()): Promise<number> {
+  const desde = new Date(ahora.getTime() - ESPERA_AVISO_MIN * 60_000);
+  const ultimo = await prisma.auditoria.findFirst({ where: { entidad: 'recibo', accion: 'avisar_vecinos', entidad_id: reciboId, created_at: { gt: desde } }, orderBy: { created_at: 'desc' }, select: { created_at: true } });
+  return ultimo ? Math.ceil((ultimo.created_at.getTime() + ESPERA_AVISO_MIN * 60_000 - ahora.getTime()) / 1000) : 0;
+}
+
+/** Vista previa: cuántos vecinos lo recibirían por correo y por WhatsApp, y cuántos no tienen canal. Sólo conteos: sin nombres ni contactos. */
+router.get('/:id/avisar', adminOJunta, async (req, res) => {
+  const id = parseId(req);
+  await reciboAccesible(req, id, true);
+  const plan = await planAvisoRecibo(id);
+  res.json({ vecinos: plan.vecinos, por_correo: plan.por_correo, por_whatsapp: plan.por_whatsapp, por_avisar: plan.por_avisar, ya_avisados: plan.ya_avisados, sin_canal: plan.sin_canal, espera_segundos: await esperaAviso(id) });
+});
+
+/** Encola «ya está tu recibo» a cada vecino que aún no lo tiene. Nunca duplica; un segundo envío dentro de 2 minutos es 409. */
+router.post('/:id/avisar', adminOJunta, async (req, res) => {
+  const id = parseId(req);
+  await reciboAccesible(req, id, true);
+  const espera = await esperaAviso(id);
+  if (espera > 0) throw conflict(`Ya avisaste a los vecinos de este recibo hace un momento. Vuelve a intentarlo en ${espera} s.`);
+  const { mes, anio } = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true } });
+  const r = await avisarReciboEmitido(id);
+  res.locals.accion = 'avisar_vecinos';
+  res.locals.entidad = 'recibo';
+  res.locals.entidadId = id;
+  res.locals.auditDetalle = { mes, anio, ...r };
+  res.json(r);
+});
+
+/** Texto listo para el grupo de WhatsApp del block: sin montos ni nombres de vecinos. */
+router.get('/:id/mensaje-grupo', adminOJunta, async (req, res) => {
+  const id = parseId(req);
+  await reciboAccesible(req, id, true);
+  const r = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true } }, estructura: { select: { id: true, nombre: true } } } });
+  const ubicacion = r.estructura ? (r.estructura.nombre ?? `Torre ${r.estructura.id}`) : `Condominio ${r.complejo?.nombre ?? ''}`.trim();
+  res.json({ texto: mensajeGrupoRecibo({ periodo: periodoTexto(r.mes, r.anio), ubicacion, vencimiento: r.fecha_vencimiento }) });
 });
 
 const mantQuery = listQuerySchema.extend({
