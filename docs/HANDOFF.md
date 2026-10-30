@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Guiones de los videos de marketing + despliegue del día
+
+- `docs/marketing/guiones-videos.md`: guiones de 4 videos (House en un minuto, administradora, junta, vecino), cada uno en escritorio 16:9 y celular 9:16; escena = lo que se ve + lo que dice la voz. Voz aprobada por Miguel: OpenVoice de My Workspace (`audio_generar`). Cómo regrabar al final del archivo.
+- Desplegado a producción (`2e63c75`, Coolify): todo lo del día. `migrate diff` contra prod antes de subir: sólo 5 tablas nuevas y 15 columnas opcionales; el contenedor arrancó con «database is now in sync».
+- Próximos pasos: grabar los videos (Playwright sobre el seed local + voz + ffmpeg) y el manual por roles (documentos-mw, `web_crear` diseño manual). En prod, Miguel asigna el destino de los 11 conceptos de VRANY y carga la cuenta de VRANY en «Cierres del mes».
+- Gotcha: el cierre de algunos worktrees (`delegar.sh limpiar`) no los quitó porque los cherry-picks con conflictos resueltos a mano no cuadran por contenido; ya están integrados en origin/main.
+
 ## 2026-10-29 — Claude Code (Sonnet 5.5) — Cierre de la Junta central (rama `feat/cierre-central`, sin push)
 
 - Pedido de Miguel: «¿podría la junta central tener un cierre parecido al del block? … también administra alquiler de estacionamientos»; decisión: el alquiler se paga APARTE a la cuenta de la Junta central (no va en el recibo del vecino).
