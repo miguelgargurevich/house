@@ -2,7 +2,10 @@ import type { Request, RequestHandler } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 export interface RateLimitOptions {
+  /** API general SIN sesión (tramos públicos y peticiones sin sesión válida): solicitudes por IP cada 15 min. */
   api?: number;
+  /** API general CON sesión válida: solicitudes por usuario (no por IP) cada 15 min. */
+  apiUsuario?: number;
   login?: number;
   /** Login: fallos por cuenta (correo), desde cualquier IP, antes del bloqueo de 15 min. */
   loginCuenta?: number;
@@ -28,6 +31,15 @@ export interface RateLimitOptions {
 
 const QUINCE_MIN = 15 * 60 * 1000;
 const UNA_HORA = 60 * 60 * 1000;
+
+/** Anónimo: por IP. Los tramos públicos son pocos y sin sesión, así que 300 cada 15 min sobran para una persona. */
+export const TOPE_API_ANONIMO = 300;
+/**
+ * Con sesión: por USUARIO. La app hace varias solicitudes por pantalla y los vecinos de un condominio suelen salir por la misma IP
+ * (wifi del edificio, NAT del operador): un tope por IP bloqueaba a gente legítima. 3000 cada 15 min (≈ 3,3 por segundo sostenidos)
+ * no molesta a nadie y sigue frenando a un cliente descontrolado o a un token robado que raspa la API.
+ */
+export const TOPE_API_USUARIO = 3000;
 
 function limiter(max: number, mensaje: string, keyGenerator: (req: Request) => string, extra: { soloFallos?: boolean; ventanaMs?: number } = {}): RequestHandler {
   return rateLimit({
@@ -102,11 +114,35 @@ export class BloqueoCuenta {
 
 export const MENSAJE_LOGIN_BLOQUEADO = 'Demasiados intentos de inicio de sesión, intenta de nuevo en 15 minutos';
 
+const MENSAJE_API = 'Demasiadas solicitudes, intenta de nuevo en unos minutos';
+
 const ip = (req: Request) => ipKeyGenerator(req.ip ?? '');
+
+/**
+ * Autentica y reparte el límite general: con sesión válida cuenta por USUARIO (`porUsuario`); si `autenticar` falla (sin sesión, vencida,
+ * CSRF) la petición es anónima: cuenta por IP en `anonimo` y se responde el error de `autenticar` (401 como siempre), salvo que ese cupo esté
+ * agotado (429). Así el cupo por IP sólo lo gasta lo anónimo.
+ */
+export function limitarSegunSesion(autenticar: RequestHandler, anonimo: RequestHandler, porUsuario: RequestHandler): RequestHandler {
+  return async (req, res, next) => {
+    try {
+      await new Promise<void>((listo, fallo) => {
+        Promise.resolve(autenticar(req, res, (e?: unknown) => (e ? fallo(e) : listo()))).catch(fallo);
+      });
+    } catch (e) {
+      anonimo(req, res, (limite?: unknown) => next(limite ?? e));
+      return;
+    }
+    porUsuario(req, res, next);
+  };
+}
 
 export function crearLimitadores(opts: RateLimitOptions = {}) {
   return {
-    api: limiter(opts.api ?? 300, 'Demasiadas solicitudes, intenta de nuevo en unos minutos', ip),
+    // Por IP: sólo lo anónimo (ver `limitarSegunSesion`); lo autenticado no gasta este cupo.
+    apiAnonimo: limiter(opts.api ?? TOPE_API_ANONIMO, MENSAJE_API, ip),
+    // Por usuario: se monta después de `authenticate`, la IP no cuenta.
+    apiUsuario: limiter(opts.apiUsuario ?? TOPE_API_USUARIO, MENSAJE_API, (req) => `u${req.user?.id ?? ip(req)}`),
     login: limiter(opts.login ?? 10, MENSAJE_LOGIN_BLOQUEADO, (req) => {
       const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase().slice(0, 160) : '';
       return `${ip(req)}|${email}`;

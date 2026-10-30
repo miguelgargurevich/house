@@ -42,6 +42,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Capturas con Playwright sobre Vite (`:5176`, backend en `:4000`): `/precios` a 1440 y 390 px, claro y oscuro; `scrollWidth - innerWidth = 0` en los cuatro casos, sin errores de página.
 - Próximos pasos: revisar con Miguel las capturas; decidir si Gratis también lleva «Ver mi total».
 - Gotcha: no se usó la skill `impeccable` (el diseño salió del pedido y de las páginas de referencia). El test de orden entre secciones fija la posición por texto de JSX; si se reordena en bloque, actualizar ese test.
+## 2026-10-30 — Claude Code (Sonnet 5.5) — Límite general de la API por usuario (rama `fix/limite-por-usuario`, sin push)
+
+- Pedido de Miguel: quitar el «Demasiadas solicitudes, intenta de nuevo en unos minutos» que bloqueaba hasta el login. Causa: `limiters.api` era UN tope de 300 / 15 min por IP que contaba TODA la API; los vecinos de un condominio comparten IP (wifi, NAT) y entre todos lo agotaban. Decisión (Opus + Miguel): no quitar la protección, repartirla.
+- **Ahora** (`src/server/middleware/rateLimit.ts`, `src/server/app.ts`): con sesión válida, **3000 / 15 min por usuario** (`TOPE_API_USUARIO`, `limiters.apiUsuario`, clave = id de usuario, la IP no cuenta); sin sesión, **300 / 15 min por IP** (`TOPE_API_ANONIMO`, `limiters.apiAnonimo`), que sólo cuenta lo anónimo: `/health`, `/auth/login`, `/auth/invitacion`, `/publico` (montado por ruta) y toda petición cuyo `authenticate` falla. `limitarSegunSesion(authenticate, anonimo, porUsuario)` sustituye a `api.use(authenticate)`: si autentica pasa por el cupo del usuario; si falla, cuenta como anónima y sigue dando 401 (429 con el cupo agotado). Los demás limitadores no se tocaron. Sin variables de entorno nuevas.
+- `RateLimitOptions`: `api` sigue siendo el tope ANÓNIMO por IP (así las ~30 suites que pasan `api: 100_000` siguen valiendo) y `apiUsuario` es el nuevo.
+- Tests: `tests/limite-por-usuario.test.ts` (10): 301 autenticadas de un usuario sin 429; dos usuarios en la misma IP no se bloquean; el que agota su cupo recibe 429 `{error}`; lo anónimo sigue limitado (y una cookie inválida cuenta como anónima); `/health` y `/publico` cuentan por IP; lo autenticado no gasta el cupo anónimo y agotar el anónimo no saca a quien tiene sesión; el login conserva su límite; topes por defecto. 8 mutaciones, todas en rojo.
+- Docs: `docs/SEGURIDAD.md` (viñeta «Límite general de la API» en Sesiones y fila 4 de la tabla) y `docs/API-CONTRATO.md`.
+- Gotcha: `/api/auth/me` sin sesión (la pantalla de login al abrir) gasta 1 del cupo anónimo por carga: no agota nada razonable, pero quien recargue el login 300 veces en 15 min desde una IP seguirá viendo el aviso. Estado en memoria del proceso: reiniciar el backend lo limpia.
+- Próximo paso: integrar a `main` con el OK de Miguel y revisar en producción que el login ya no muestra el aviso (no se probó contra producción).
 
 ## 2026-10-30 — Claude Code (Opus 5.5) — Voucher ampliable, pie fijo de los modales y «Ver mi voucher»
 

@@ -9,7 +9,7 @@ import { isProduction, parseCorsOrigins } from './config';
 import { auditoria } from './middleware/audit';
 import { authenticate } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error';
-import { crearLimitadores, type RateLimitOptions } from './middleware/rateLimit';
+import { crearLimitadores, limitarSegunSesion, type RateLimitOptions } from './middleware/rateLimit';
 import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
 import { auditoriaRouter } from './routes/auditoria';
@@ -96,12 +96,13 @@ export function createApp(opts: AppOptions = {}) {
   }
 
   const api = Router();
-  api.use(limiters.api);
+  // Límite general: lo anónimo cuenta por IP (aquí, en los tramos públicos, y abajo para toda petición sin sesión); lo autenticado, por usuario.
+  api.use(['/health', '/auth/login', '/auth/invitacion', '/publico'], limiters.apiAnonimo);
   api.get('/health', (_req, res) => { res.json({ ok: true }); }); // público: healthcheck del contenedor
   api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // tramo público: inicio de sesión
   api.use('/auth/invitacion', invitacionRouter(limiters.invitacion)); // tramo público: el enlace del correo de invitación
   api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion })); // tramo público: planes, registro y verificación del correo
-  api.use(authenticate);
+  api.use(limitarSegunSesion(authenticate, limiters.apiAnonimo, limiters.apiUsuario));
   api.use(auditoria);
   api.use('/auth', sesionRouter);
   api.use('/ai-chat', aiChatRouter(limiters.ai)); // el límite por usuario sólo cuenta los mensajes (POST), no las lecturas
