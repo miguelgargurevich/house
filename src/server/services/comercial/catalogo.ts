@@ -36,13 +36,13 @@ const MODULOS_SEED = [
 ] as const;
 
 export const PLANES_SEED = [
-  { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para empezar y para siempre, sin costo.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null,
+  { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para empezar y para siempre, sin costo.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: ['1 condominio', ...CARACTERISTICAS_GRATIS_ANTERIORES] },
-  { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null,
+  { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
-  { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null,
+  { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
-  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 4, unidades_maximas: null as number | null, unidades_minimas: null as number | null, caracteristicas: [] as string[] },
+  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 4, unidades_maximas: null as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
 ] as const;
 
 /** Moneda en la que está escrito `PlanComercial.precio_por_unidad`; las demás monedas llevan su precio en `PrecioPlanMoneda`. */

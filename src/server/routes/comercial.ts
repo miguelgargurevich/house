@@ -7,6 +7,7 @@ import { currentUser, requireRole } from '../middleware/auth';
 import { CODIGOS_MONEDA, CODIGOS_PAIS, decimalesDe, monedaEnPlural } from '../../lib/paises';
 import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
 import { puedeAgregarCondominio } from '../services/comercial/cupo';
+import { usoDelMes } from '../services/comercial/consumo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { cambiarImpuesto, reflejarTasaEnPeru } from '../services/comercial/impuestos';
 import { invalidarComercial } from '../services/comercial/modulos';
@@ -48,6 +49,10 @@ const planSchema = z.object({
   modulos_incluidos: z.array(capacidadEnum).max(CAPACIDADES.length).optional(),
   unidades_maximas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
   unidades_minimas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
+  /** Consultas al asistente por departamento que se cobra, al mes (0 a 1000; null = sin tope). */
+  asistente_por_unidad_mes: z.number().int().min(0, 'Mínimo 0').max(1000, 'Máximo 1000').nullable().optional(),
+  /** Mensajes de WhatsApp por departamento que se cobra, al mes (0 a 1000; null = sin tope). */
+  whatsapp_por_unidad_mes: z.number().int().min(0, 'Mínimo 0').max(1000, 'Máximo 1000').nullable().optional(),
   caracteristicas: z.array(texto(120)).max(12).optional(),
   igv_incluido: z.boolean().optional(),
   visible: z.boolean().optional(),
@@ -111,7 +116,18 @@ comercialRouter.get('/mi-plan', requireRole('admin'), async (req, res) => {
   const u = soloAdmin(req);
   const complejos = await prisma.complejoHabitacional.findMany({ where: scopeComplejos(u), select: { id: true } });
   const [condominios, pagar, catalogo, puede] = await Promise.all([vistas(complejos.map((c) => c.id)), datosParaPagar(), catalogoPublico(), puedeAgregarCondominio(empresaDe(u))]);
-  res.json({ condominios, pagar, catalogo, puede_agregar_condominio: puede });
+  // Cada condominio trae cuánto va del mes (topes y vouchers) para la pantalla y el Resumen.
+  const usos = await Promise.all(condominios.map((c) => usoDelMes(c.complejo_id)));
+  res.json({ condominios: condominios.map((c, i) => ({ ...c, uso: usos[i] })), pagar, catalogo, puede_agregar_condominio: puede });
+});
+
+/** @openapi
+ * /api/comercial/mi-plan/{complejoId}/uso:
+ *   get: { summary: "Lo que va del mes de un condominio de tu empresa: consultas al asistente y WhatsApp frente a su tope, y los vouchers validados a mano y con la IA", tags: [Comercial], responses: { 200: { description: "{ periodo, renueva, asistente, whatsapp, vouchers_a_mano, vouchers_ia }" }, 404: { description: "No es de tu empresa" } } } */
+comercialRouter.get('/mi-plan/:complejoId/uso', requireRole('admin'), async (req, res) => {
+  const { complejoId } = parse(complejoParams, req.params);
+  const { id } = await complejoPropio(req, complejoId);
+  res.json(await usoDelMes(id));
 });
 
 /** @openapi

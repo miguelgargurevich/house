@@ -4,6 +4,7 @@ import { ZONA_POR_DEFECTO } from '../../../lib/paises';
 import { diasEntre, hoyEn } from '../../lib/fechas';
 import { reciboSegunZona, relojDeCondominios } from '../../lib/zonas';
 import { enviarTelegram } from '../canales/telegram';
+import { MOTIVO_TOPE_WHATSAPP, reservarConsumo } from '../comercial/consumo';
 import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
@@ -364,6 +365,15 @@ async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number |
 export const MOTIVO_SIN_WHATSAPP = 'Plan sin WhatsApp';
 
 /**
+ * Un WhatsApp de aviso cuenta contra el tope mensual de su condominio. Pasado el tope no sale (su fila queda omitida con el motivo y el correo
+ * sigue por la suya). Sin condominio (avisos de la plataforma) no hay tope.
+ */
+async function enviarWhatsappDeAviso(deps: DepsAvisos, complejoId: number | null, instancia: string | null, celular: string | null, cuerpo: string): Promise<ResultadoEnvio> {
+  if (complejoId != null && !(await reservarConsumo(complejoId, 'whatsapp', deps.ahora())).permitido) return { resultado: 'omitida', motivo: MOTIVO_TOPE_WHATSAPP };
+  return enviarWhatsapp(deps, instancia, celular, cuerpo);
+}
+
+/**
  * Envía las `pendiente` con `programada_para <= ahora`. Cada una se «arrienda» antes de enviar (se corre su
  * `programada_para` unos minutos), así dos procesos no mandan el mismo aviso. Los fallos se reintentan con espera
  * creciente (`ESPERA_MIN`) hasta `MAX_INTENTOS`; después quedan en `error` con un motivo corto.
@@ -396,7 +406,7 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
         || ((n.tipo === 'pago_validado' || n.tipo === 'pago_rechazado') && (await moduloActivo(complejoId, 'asistente')));
       // La instancia es la de la administradora que emitió el recibo (no una global).
       r = permitido
-        ? await enviarWhatsapp(deps, await resolveInstance(n), (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, n.cuerpo)
+        ? await enviarWhatsappDeAviso(deps, complejoId, await resolveInstance(n), (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, n.cuerpo)
         : { resultado: 'omitida', motivo: MOTIVO_SIN_WHATSAPP };
     } else if (n.canal === 'telegram') {
       // El bot de Telegram es parte del módulo «Asistente con IA».

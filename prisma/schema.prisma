@@ -155,6 +155,7 @@ model ComplejoHabitacional {
   imagenRecibo  ImagenRecibo?
   suscripcion SuscripcionCondominio?
   pagosSuscripcion PagoSuscripcion[]
+  consumosMensuales ConsumoMensual[]
 }
 
 /// Quién administra un condominio y desde cuándo. Un solo contrato vigente (`fecha_fin` null) por condominio; `ComplejoHabitacional.empresa_id` es la empresa de ese contrato.
@@ -939,7 +940,23 @@ model PlanComercial {
   unidades_maximas  Int?
   /// Unidades mínimas que se cobran por condominio (Pro y Administradora = 20): total = max(unidades, mínimo) × precio. null = sin mínimo.
   unidades_minimas  Int?
+  /// Consultas al asistente de IA por departamento que se cobra, al mes (tope del condominio = esto × unidades cobradas). null = sin tope.
+  asistente_por_unidad_mes Int?
+  /// Mensajes de WhatsApp por departamento que se cobra, al mes (tope del condominio = esto × unidades cobradas). null = sin tope.
+  whatsapp_por_unidad_mes  Int?
   updated_at        DateTime @updatedAt
+}
+
+/// Consumo del mes de un condominio en un recurso con tope (asistente de IA, WhatsApp). `periodo` es AAAAMM en hora de Lima; una fila por (condominio, mes, recurso).
+model ConsumoMensual {
+  id          Int                  @id @default(autoincrement())
+  complejo_id Int
+  complejo    ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  periodo     String
+  recurso     String
+  cantidad    Int                  @default(0)
+
+  @@unique([complejo_id, periodo, recurso])
 }
 
 /// Suscripción de UN condominio. Sin fila = Gratis. Nunca se borran datos: vencida pasada la gracia sólo apaga los módulos.

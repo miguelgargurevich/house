@@ -1,4 +1,5 @@
 import { enviarWhatsapp, type ResultadoEnvio } from '../avisos/canales';
+import { MOTIVO_TOPE_WHATSAPP, reservarConsumo } from '../comercial/consumo';
 import { canalesDeps } from './deps';
 
 const TIEMPO_MAX_MS = 15_000;
@@ -98,9 +99,18 @@ export function partirMensaje(texto: string, max = MAX_MENSAJE): string[] {
   return partes.filter(Boolean);
 }
 
-/** Responde a un número por la instancia, en uno o más mensajes. Un fallo de envío no tumba el procesamiento. */
-export async function responder(instancia: string, numero: string, texto: string): Promise<ResultadoEnvio[]> {
+/**
+ * Responde a un número por la instancia, en uno o más mensajes. Un fallo de envío no tumba el procesamiento. Con `complejoId` (una respuesta del
+ * asistente) cada mensaje cuenta contra el tope de WhatsApp de ese condominio; sin él (códigos de vinculación) no cuenta ni se frena.
+ */
+export async function responder(instancia: string, numero: string, texto: string, opts: { complejoId?: number | null } = {}): Promise<ResultadoEnvio[]> {
   const salida: ResultadoEnvio[] = [];
-  for (const parte of partirMensaje(texto)) salida.push(await enviarWhatsapp(canalesDeps, instancia, numero, parte));
+  for (const parte of partirMensaje(texto)) {
+    if (opts.complejoId != null && !(await reservarConsumo(opts.complejoId, 'whatsapp', canalesDeps.ahora())).permitido) {
+      salida.push({ resultado: 'omitida', motivo: MOTIVO_TOPE_WHATSAPP });
+      continue;
+    }
+    salida.push(await enviarWhatsapp(canalesDeps, instancia, numero, parte));
+  }
   return salida;
 }

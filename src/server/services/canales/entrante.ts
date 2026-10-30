@@ -4,6 +4,7 @@ import { registrarAuditoria } from '../../middleware/audit';
 import { normalizarCelular } from '../avisos/celular';
 import { canalesDeps, enmascarar } from './deps';
 import { conversarPorCanal } from './conversar';
+import { complejoDelAsistente } from '../comercial/consumo';
 import { descargarMedio, responder } from './evolution';
 import { comandoDe } from './formato';
 import { cargarAuthUser, perteneceAEmpresa } from './identidad';
@@ -105,7 +106,7 @@ export async function reclamarMensaje(instancia: string, mensajeId: string): Pro
  */
 export async function atenderMensaje(t: Transporte, e: MensajeEntrante): Promise<void> {
   const MSGC = mensajes(t.canal);
-  const decir = (texto: string) => t.responder(texto).catch(() => undefined);
+  const decir = (texto: string, opts?: { complejoId?: number | null }) => t.responder(texto, opts).catch(() => undefined);
 
   // Límites por identificador y por empresa: pasado el tope se avisa UNA vez por ventana y se descarta el resto.
   // Con empresa conocida de antemano (WhatsApp) se mide aquí; en Telegram la empresa sale del vínculo y se mide al resolverlo.
@@ -167,7 +168,9 @@ export async function atenderMensaje(t: Transporte, e: MensajeEntrante): Promise
     if (respuestaVoucher != null) return void (await decir(respuestaVoucher));
 
     const r = await conversarPorCanal(user, texto, t.canal, { vinculoId: vinculo.id });
-    for (const m of r.mensajes) await decir(m);
+    // Las respuestas del asistente cuentan contra el tope de WhatsApp de su condominio (el mismo que se cargó al preguntar).
+    const condominio = await complejoDelAsistente(user).catch(() => null);
+    for (const m of r.mensajes) await decir(m, { complejoId: condominio });
   } catch (err) {
     // Sin el identificador ni el contenido: sólo el tipo de error y el identificador enmascarado.
     console.error(`[canales] falló un mensaje de ${enmascarar(t.identificador)}:`, err instanceof Error ? err.name : 'error');
@@ -181,7 +184,7 @@ export function procesarEntrante(instancia: string, empresaId: number, e: Entran
     canal: 'whatsapp',
     identificador: e.numero,
     empresaId,
-    responder: async (texto) => void (await responder(instancia, e.numero, texto)),
+    responder: async (texto, opts) => void (await responder(instancia, e.numero, texto, opts)),
     descargarMedio: async () => ({ base64: (await descargarMedio(instancia, e.mensajeId)).base64 }),
   }, e);
 }

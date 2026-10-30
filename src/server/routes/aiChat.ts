@@ -50,16 +50,20 @@ async function modelosElegibles() {
 }
 
 /** Valida el cuerpo: el mensaje con el error histórico (400) y los ajustes con zod (422). Un modelo fijo debe existir y estar activo. */
-async function leerEntrada(req: Request): Promise<{ mensaje: string; conversacionId?: string; ruta?: string; ajustes: AjustesAplicados }> {
+/** El condominio que la pantalla tiene elegido (la administradora con selector): sólo cuenta contra su tope y se valida contra su alcance al responder. */
+const complejoEntradaSchema = z.object({ complejo_id: z.number().int().positive().nullish() });
+
+async function leerEntrada(req: Request): Promise<{ mensaje: string; conversacionId?: string; ruta?: string; complejoId: number | null; ajustes: AjustesAplicados }> {
   const m = mensajeSchema.safeParse(req.body);
   if (!m.success) throw new HttpError(400, m.error.issues[0]?.message ?? 'Petición inválida.');
   const a = parse(ajustesSchema, req.body);
+  const { complejo_id } = parse(complejoEntradaSchema, req.body);
   const user = currentUser(req);
   const ajustes = aplicarAjustes(user.rol, a);
   if (ajustes.modeloFijo && !(await modelosElegibles()).some((x) => x.id === ajustes.modeloFijo)) {
     throw new HttpError(422, 'Datos inválidos: modelo: Ese modelo no está disponible', { modelo: 'Ese modelo no está disponible' });
   }
-  return { mensaje: m.data.message, conversacionId: a.conversacion_id, ruta: a.ruta, ajustes };
+  return { mensaje: m.data.message, conversacionId: a.conversacion_id, ruta: a.ruta, complejoId: complejo_id ?? null, ajustes };
 }
 
 /** Errores previos a responder (sin IA, conversación ajena, validación) con la forma que lee el panel. */
@@ -137,7 +141,7 @@ export function aiChatRouter(limitador: RequestHandler) {
     let prep: Preparado;
     try {
       const e = await leerEntrada(req);
-      prep = await prepararTurno(u, e.mensaje, e.ajustes, { conversacionId: e.conversacionId, ruta: e.ruta });
+      prep = await prepararTurno(u, e.mensaje, e.ajustes, { conversacionId: e.conversacionId, ruta: e.ruta, complejoId: e.complejoId });
     } catch (err) {
       return manejarPrevio(res, err);
     }
@@ -153,7 +157,7 @@ export function aiChatRouter(limitador: RequestHandler) {
     let prep: Preparado;
     try {
       const e = await leerEntrada(req);
-      prep = await prepararTurno(u, e.mensaje, e.ajustes, { conversacionId: e.conversacionId, ruta: e.ruta });
+      prep = await prepararTurno(u, e.mensaje, e.ajustes, { conversacionId: e.conversacionId, ruta: e.ruta, complejoId: e.complejoId });
     } catch (err) {
       return manejarPrevio(res, err);
     }

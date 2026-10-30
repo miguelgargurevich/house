@@ -24,6 +24,8 @@ export async function ajustarOfertaGratisPro(db: Cliente, opts: { seco?: boolean
     const data: Record<string, unknown> = {};
     if (fila.unidades_maximas !== seed.unidades_maximas) { cambios.push(`unidades_maximas ${fila.unidades_maximas ?? '—'} → ${seed.unidades_maximas ?? '—'}`); data.unidades_maximas = seed.unidades_maximas; }
     if (fila.unidades_minimas !== seed.unidades_minimas) { cambios.push(`unidades_minimas ${fila.unidades_minimas ?? '—'} → ${seed.unidades_minimas ?? '—'}`); data.unidades_minimas = seed.unidades_minimas; }
+    if (fila.asistente_por_unidad_mes !== seed.asistente_por_unidad_mes) { cambios.push(`asistente_por_unidad_mes ${fila.asistente_por_unidad_mes ?? '—'} → ${seed.asistente_por_unidad_mes ?? '—'}`); data.asistente_por_unidad_mes = seed.asistente_por_unidad_mes; }
+    if (fila.whatsapp_por_unidad_mes !== seed.whatsapp_por_unidad_mes) { cambios.push(`whatsapp_por_unidad_mes ${fila.whatsapp_por_unidad_mes ?? '—'} → ${seed.whatsapp_por_unidad_mes ?? '—'}`); data.whatsapp_por_unidad_mes = seed.whatsapp_por_unidad_mes; }
     // Gratis no trae nada; el resto trae todas las capacidades (se conserva el orden de las que ya tenía y se agregan las que faltan).
     const quiere = seed.modulos_incluidos.length ? [...fila.modulos_incluidos.filter((m) => (CAPACIDADES as readonly string[]).includes(m)), ...CAPACIDADES.filter((c) => !fila.modulos_incluidos.includes(c))] : [];
     if (!igual(fila.modulos_incluidos, quiere)) { cambios.push(`modulos_incluidos → ${quiere.join(', ') || '(ninguno)'}`); data.modulos_incluidos = quiere; }

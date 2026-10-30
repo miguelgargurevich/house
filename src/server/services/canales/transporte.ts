@@ -33,6 +33,7 @@ export interface Transporte {
   /** Número (WhatsApp) o `chat.id` (Telegram): la clave del vínculo. */
   identificador: string;
   empresaId: number | null;
-  responder(texto: string): Promise<void>;
+  /** `complejoId`: la respuesta es del asistente de ese condominio (cuenta contra su tope de WhatsApp). Sin él, no cuenta ni se frena (códigos de vinculación). */
+  responder(texto: string, opts?: { complejoId?: number | null }): Promise<void>;
   descargarMedio(medio: MedioEntrante): Promise<MedioBajado>;
 }
