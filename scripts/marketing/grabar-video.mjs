@@ -19,6 +19,7 @@ const SALIDA = join(BASE, formato);
 const CUENTAS = {
   admin: ['ana.lopez@gestionurbana.com', 'admin1234'],
   propietario: ['javier.castro@prop.com', 'prop1234'],
+  tesorero: ['patricia.alarcon.9@prueba.house', 'prop1234'], // tesorera del Block 1 en el seed
 };
 
 const FORMATOS = {
@@ -81,6 +82,9 @@ const asentar = async (page) => {
   await pausa(350);
 };
 
+/** Los cierres abren en el mes anterior; el seed local sólo tiene recibo por block en octubre (el del Block 1). */
+const octubre = async (page) => { await page.getByLabel(/^mes$/i).first().selectOption('10').catch(() => {}); await asentar(page); };
+
 // ---------- Escenas de cada video (texto en docs/marketing/guiones-videos.md) ----------
 const ESCENAS = {
   v1: [
@@ -91,6 +95,44 @@ const ESCENAS = {
     { rol: 'admin', url: '/admin/pagos', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 200); } },
     { rol: 'admin', url: '/admin/recibos', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /avisar a los vecinos/i })); await asentar(p); } },
     { rol: 'admin', url: '/admin/dashboard', accion: async (p) => { await pausa(600); await desplazar(p, 420, 2200); } },
+    { rol: null, url: null, cierre: true },
+  ],
+  v2: [
+    { rol: 'admin', url: '/admin/dashboard', accion: async (p) => { await pausa(800); await desplazar(p, 300, 2000); } },
+    { rol: 'admin', url: '/admin/recibos', accion: async (p) => { await pausa(500); await desplazar(p, 240); } },
+    { rol: 'admin', url: '/admin/pagos', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 260, 2000); } },
+    { rol: 'admin', url: '/admin/medios-pago', accion: async (p) => { await pausa(500); await desplazar(p, 320, 2000); } },
+    { rol: 'admin', url: '/admin/morosidad', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 200); } },
+    { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
+      await tocar(p, p.getByRole('button', { name: /nuevo comunicado/i })); await asentar(p);
+      await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 55 });
+    } },
+    { rol: 'admin', url: '/admin/comunicados', accion: async (p) => { await tocar(p, p.getByRole('tab', { name: /envíos/i })); await asentar(p); await desplazar(p, 200); } },
+    { rol: 'admin', url: '/admin/juntas', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /nueva gestión/i })); await asentar(p); } },
+    { rol: 'admin', url: '/admin/cierres', accion: async (p) => { await octubre(p); await tocar(p, p.getByText('Block 1').first()); await asentar(p); await desplazar(p, 320, 2200); } },
+    { rol: 'admin', url: '/admin/recibos', accion: async (p) => {
+      await tocar(p, p.locator('tbody tr')); await asentar(p);
+      await tocar(p, p.getByRole('tab', { name: /consolidado del block/i })); await asentar(p); await desplazar(p, 280, 2000);
+    } },
+    { rol: null, url: null, cierre: true },
+  ],
+  v3: [
+    { rol: 'tesorero', url: '/junta/mi-junta', accion: async (p) => { await pausa(500); await desplazar(p, 220); } },
+    { rol: 'tesorero', url: '/junta/pagos', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 240); } },
+    { rol: 'tesorero', url: '/junta/medios-pago', accion: async (p) => { await pausa(500); await desplazar(p, 220); } },
+    { rol: 'tesorero', url: '/junta/agua', accion: async (p) => { await pausa(500); await desplazar(p, 260); } },
+    { rol: 'tesorero', url: '/junta/cierre', accion: async (p) => { await octubre(p); await desplazar(p, 320, 2200); } },
+    { rol: 'tesorero', url: '/junta/comunicados', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /nuevo comunicado/i })); await asentar(p); } },
+    { rol: null, url: null, cierre: true },
+  ],
+  v4: [
+    { rol: 'propietario', url: '/propietario/inicio', accion: async (p) => { await pausa(500); await desplazar(p, 200); } },
+    { rol: 'propietario', url: '/propietario/cargos', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /ver detalle|ver recibo|detalle/i })); await asentar(p); await desplazar(p, 220); } },
+    { rol: 'propietario', url: '/propietario/cargos', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /pagar mantenimiento/i })); await asentar(p); await desplazar(p, 260); } },
+    { rol: 'propietario', url: '/propietario/pagos', accion: async (p) => { await tocar(p, p.getByRole('tab', { name: /por concepto/i })); await asentar(p); await desplazar(p, 220); } },
+    { rol: 'propietario', url: '/propietario/junta', accion: async (p) => { await pausa(500); await desplazar(p, 260); } },
+    { rol: 'propietario', url: '/propietario/proveedores', accion: async (p) => { await pausa(500); await desplazar(p, 200); } },
+    { rol: 'propietario', url: '/propietario/comunicados', accion: async (p) => { await pausa(500); await desplazar(p, 220); } },
     { rol: null, url: null, cierre: true },
   ],
 };
@@ -113,14 +155,25 @@ async function grabar() {
   mkdirSync(SALIDA, { recursive: true });
   const browser = await chromium.launch();
   const recortes = {};
-  // Una sola sesión por rol (el login tiene límite de intentos): se guarda y cada escena la reutiliza.
+  // Una sola sesión por rol (el login tiene límite de intentos): se guarda en .claude/videos/sesiones/ y la reutilizan todas las escenas
+  // y las corridas siguientes mientras siga válida.
   const sesiones = {};
+  const dirSesiones = join(process.cwd(), '.claude/videos/sesiones');
+  mkdirSync(dirSesiones, { recursive: true });
   for (const rol of new Set(escenas.map((e) => e.rol).filter(Boolean))) {
+    const archivo = join(dirSesiones, `${rol}.json`);
+    if (existsSync(archivo)) {
+      const c = await browser.newContext({ storageState: archivo });
+      const ok = (await c.request.get(`${APP}/api/auth/me`)).ok();
+      await c.close();
+      if (ok) { sesiones[rol] = archivo; continue; }
+    }
     const c = await browser.newContext();
     const [email, password] = CUENTAS[rol];
     const r = await c.request.post(`${APP}/api/auth/login`, { data: { email, password } });
     if (!r.ok()) throw new Error(`login ${rol}: ${r.status()}`);
-    sesiones[rol] = await c.storageState();
+    await c.storageState({ path: archivo });
+    sesiones[rol] = archivo;
     await c.close();
   }
   try {

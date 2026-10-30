@@ -23,50 +23,55 @@ cada escena cuenta UNA cosa. El cierre de todos: «House. Tu condominio, en orde
 | 7 | Morosidad / Resumen con el avance del cobro | Y tú ves, en una sola pantalla, quién está al día y quién no. |
 | 8 | Logo + cierre | House. Tu condominio, en orden. |
 
-## 2. Para la administradora (≈ 90 s)
+## 2. Para la administradora (≈ 70 s)
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Resumen de la administradora | Este es tu día a día en House: todo el condominio en una pantalla. |
-| 2 | Recibos → periodo agrupado por block, avance de cobro | Emite el mantenimiento del mes y míralo por block, con cuánto ya se cobró. |
-| 3 | Pagos → un pago con su comprobante | Cada pago llega con su comprobante; lo revisas y lo validas. |
+| 1 | Resumen de la administradora | Este es tu día a día en House: todo el condominio en una sola pantalla. |
+| 2 | Recibos por periodo, con el avance del cobro | Emite el mantenimiento del mes y míralo por block, con cuánto ya se cobró. |
+| 3 | Pagos → revisar un pago con su voucher | Cada pago llega con su voucher: la inteligencia artificial lo revisa y el tesorero confirma que llegó a la cuenta. |
 | 4 | Medios de pago → tarjeta del block con su junta y su cuenta | Cada block tiene su junta y la cuenta donde pagan sus vecinos, siempre al día. |
-| 5 | Morosidad | La morosidad, ordenada: quién debe, cuánto y desde cuándo. |
-| 6 | Comunicados → nuevo comunicado | ¿Un corte de agua? Escribe un comunicado y llega a todos. |
-| 7 | Comunicados › Envíos | Y aquí ves qué salió por WhatsApp y correo, y qué hay que reintentar. |
-| 8 | Juntas directivas → nueva gestión | Cuando cambia la junta, registras la nueva gestión y los permisos pasan solos. |
-| 9 | Asistente abierto respondiendo | Y si tienes una duda, el asistente te responde con los datos de tu condominio. |
-| 10 | Cierre | House. Tu condominio, en orden. |
+| 5 | Morosidad → detalle de los recibos vencidos de un departamento | La morosidad, ordenada: quién debe, cuánto, desde cuándo, y el detalle de cada recibo. |
+| 6 | Comunicados → nuevo comunicado (se escribe el título) | ¿Un corte de agua? Escribe un comunicado y llega a todos tus vecinos. |
+| 7 | Comunicados › Envíos | Y aquí ves qué salió por WhatsApp y por correo, y qué hay que reintentar. |
+| 8 | Juntas directivas → Nueva gestión | Cuando cambia la junta, registras la nueva gestión y los permisos pasan solos. |
+| 9 | Cierres del mes → Block 1, octubre | Al cerrar el mes, cada tesorero registra lo que paga, y tú ves el estado de todos los blocks. |
+| 10 | Periodo → Consolidado del block | Y el consolidado del block sale listo para imprimir junto con el recibo de cada vecino, sin armar el Excel a mano. |
+| 11 | Cierre | House. Tu condominio, en orden. |
 
-## 3. Para la junta directiva (≈ 60 s)
+## 3. Para la junta directiva (≈ 45 s; tesorera del Block 1)
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Mi junta (presidente) | Si eres de la junta de tu block, House te da tu propio espacio. |
-| 2 | Pagos por validar | Validas los pagos de tus vecinos con su comprobante a la vista. |
-| 3 | Medios de pago de la junta | Mantienes al día la cuenta donde pagan. |
+| 1 | Mi junta | Si eres de la junta de tu block, House te da tu propio espacio. |
+| 2 | Pagos → un pago con su voucher | Ves cada pago de tus vecinos con su voucher, y como tesorero confirmas que el dinero llegó a la cuenta. |
+| 3 | Medios de pago de la junta | Mantienes al día la cuenta donde pagan tus vecinos. |
 | 4 | Lecturas de agua | Cargas las lecturas de agua del block. |
-| 5 | Comunicados de la junta | Y avisas a tus vecinos con un comunicado. |
-| 6 | Cierre | House. Tu condominio, en orden. |
+| 5 | Cierre del mes (octubre) | Al cerrar el mes, registras lo que va a la administración, a la Junta central y a los servicios. |
+| 6 | Comunicados → nuevo comunicado | Y avisas a tus vecinos con un comunicado. |
+| 7 | Cierre | House. Tu condominio, en orden. |
 
-## 4. Para el vecino (≈ 60 s, primero celular)
+## 4. Para el vecino (≈ 40 s, primero celular)
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Inicio del propietario en el celular | Tu condominio, en tu celular. |
+| 1 | Inicio del propietario | Tu condominio, en tu celular. |
 | 2 | Mis recibos → detalle por concepto | Mira tu mantenimiento del mes, concepto por concepto. |
-| 3 | Pagar mantenimiento → comprobante | Paga y sube tu comprobante en un minuto. |
-| 4 | Mi historial → Por concepto / Acumulado | Mira cómo evolucionan tus pagos mes a mes. |
-| 5 | Mi junta | Conoce a la junta de tu block y escríbele cuando lo necesites. |
-| 6 | Comunicados | Y entérate de todo lo que pasa en tu edificio. |
-| 7 | Cierre | House. Tu condominio, en orden. |
+| 3 | Pagar mantenimiento → voucher | Paga y sube tu voucher en un minuto. |
+| 4 | Mi historial → Por concepto | Mira cómo evolucionan tus pagos mes a mes. |
+| 5 | Mi junta | Conoce a la junta de tu block y a la Junta central. |
+| 6 | Proveedores | Encuentra a los proveedores de confianza de tu condominio. |
+| 7 | Comunicados | Y entérate de todo lo que pasa en tu edificio. |
+| 8 | Cierre | House. Tu condominio, en orden. |
 
 ---
 
 ## Cómo se arma (para regrabar)
 
 1. Datos: `npm run seed:libertadores` (sólo base local), backend con remitentes apagados, Vite en 5173.
-2. Grabación: Playwright (Chromium) con `recordVideo`, 1920×1080 y 390×844 (×2,77 → 1080×1920), una corrida por video y formato;
-   cursor visible, pausas al ritmo de la voz.
+   Para los cierres, el seed local necesita un recibo POR BLOCK y conceptos con destino: en la base local se separó el recibo de
+   octubre del Block 1 (recibo propio con sus cargos) y se asignó destino a los conceptos 22–29 (respaldo previo con `pg_dump`).
+2. Grabación: `node scripts/marketing/grabar-video.mjs <video> <escritorio|celular>` (Playwright; ventana 1600×900 o 540×960,
+   el montaje la agranda a 1920×1080 o 1080×1920); cursor visible, la duración de cada escena la manda su voz.
 3. Voz: un audio por escena con `audio_generar` (My Workspace); la duración de cada escena la manda su audio.
-4. Montaje: ffmpeg une escenas y audios; sin música por ahora.
+4. Montaje: `scripts/marketing/montar-video.sh <video> <formato>` (ffmpeg, H.264 + AAC); sin música por ahora.
