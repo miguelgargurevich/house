@@ -6,9 +6,8 @@ import { useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, StatusBadge, Tabs, Toolbar, dinero, dinerosPorMoneda, fechaCorta, sumaPorMoneda } from '../../ui';
 import type { Column } from '../../ui';
-import { VeredictoBadge } from '../shared/evaluacion';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
-import { esTesorero, insigniaConformidad } from './_parts/cobranza/conformidad';
+import { esTesorero, estadoRevision, insigniaConformidad } from './_parts/cobranza/conformidad';
 import { esJunta } from '../../auth/junta';
 import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
@@ -30,6 +29,20 @@ const TEXTOS: Record<Pestana, { stat: string; tone: 'ok' | 'warn' | 'bad'; vacio
 };
 
 type PagoFila = PagoRevisable;
+
+const COLOR_ESTADO = { ok: 'font-medium text-ok', warn: 'font-medium text-warn', neutral: 'text-muted' } as const;
+
+/** «Voucher ✓ · IA: coincide · Tesorero: pendiente»: lo que falta para que el pago se valide (solo si coinciden la IA y el tesorero, o a mano con el check). */
+function EstadoRevision({ pago }: { pago: PagoFila }) {
+  const e = estadoRevision(pago);
+  return (
+    <span className="block text-xs leading-5" aria-label="Estado de la revisión">
+      <span className={pago.comprobante ? COLOR_ESTADO.ok : COLOR_ESTADO.warn}>Voucher {e.voucher}</span>
+      <span className="text-muted"> · IA: </span><span className={COLOR_ESTADO[e.ia.tone]}>{e.ia.label}</span>
+      <span className="text-muted"> · Tesorero: </span><span className={COLOR_ESTADO[e.tesorero.tone]}>{e.tesorero.label}</span>
+    </span>
+  );
+}
 
 export default function Pagos() {
   const { user } = useAuth();
@@ -82,9 +95,10 @@ export default function Pagos() {
     { key: 'estado', header: 'Estado', cell: p => (
       <span className="flex flex-col items-start gap-1">
         <StatusBadge estado={p.estado_validacion} />
-        {p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}
-        {pestana === 'por_validar' && (p.comprobante ? <VeredictoBadge evaluacion={p.evaluacion} /> : <span className="text-xs text-muted">Sin comprobante</span>)}
-        {(() => { const c = insigniaConformidad(p); return c && <Badge tone={c.tone}>{c.label}</Badge>; })()}
+        {p.validado_por_ia && <Badge tone="brand">{p.conformidad ? 'Validado por IA + tesorero' : 'Validado por IA'}</Badge>}
+        {pestana === 'por_validar'
+          ? <EstadoRevision pago={p} />
+          : (() => { const c = insigniaConformidad(p); return c && <Badge tone={c.tone}>{c.label}</Badge>; })()}
         {p.aviso_multa && <Badge tone="warn">Multa por quitar</Badge>}
       </span>
     ) },

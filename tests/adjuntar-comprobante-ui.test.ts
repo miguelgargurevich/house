@@ -42,8 +42,8 @@ describe('detalle del pago: adjuntar el comprobante', () => {
 
   it('el texto depende del estado: ya validado → respaldo; por validar → la IA puede validar o queda en revisión', () => {
     assert.match(MODAL, /El pago ya estaba validado: el voucher queda como respaldo y la IA solo informa lo que leyó\./);
-    assert.match(MODAL, /La IA revisó el voucher y validó el pago automáticamente\./);
-    assert.match(MODAL, /si no, queda en revisión para que lo revises tú\./);
+    assert.match(MODAL, /La IA revisó el voucher y el pago quedó validado automáticamente\./);
+    assert.match(MODAL, /y el tesorero del block da su check, el pago se valida solo; si no, queda en revisión para que lo revises tú\./);
     // Un pago ya validado no se vuelve a «por validar» porque la IA lo lea: el estado de la vista sale del pago original.
     assert.match(MODAL, /const estadoPago = pago && pago\.estado_validacion === 'por_validar' && ia\.validadoPorIA \? 'validado' : pago\?\.estado_validacion;/);
   });

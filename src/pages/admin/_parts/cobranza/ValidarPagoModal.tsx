@@ -10,8 +10,8 @@ import { EvaluacionPanel, useEvaluacionCompleta } from '../../../shared/evaluaci
 import type { EvaluacionCompleta } from '../../../shared/evaluacion';
 import { fechaPorRevisar, textoFechaPago } from '../../../shared/mantenimiento/fechaPago';
 import type { FechaOrigen } from '../../../shared/mantenimiento/tipos';
-import { esTesorero, puedeValidar, textoConformidad, TEXTO_VALIDAR_SIN_CONFORMIDAD, vistaConformidad } from './conformidad';
-import type { ConformidadPago } from './conformidad';
+import { esTesorero, faltaCheckParaValidar, MOTIVO_FALTA_CHECK, puedeValidar, textoConformidad, textoEstadoRevision, TEXTO_VALIDAR_SIN_CHECK, vistaConformidad } from './conformidad';
+import type { ConformidadPago, ExencionConformidad } from './conformidad';
 import { metodoLabel } from './comun';
 import type { AvisoMulta } from './morosos';
 import { QuitarMultaModal } from './QuitarMultaModal';
@@ -45,6 +45,8 @@ export interface PagoRevisable {
   conformidad?: ConformidadPago | null;
   /** ¿El block tiene un tesorero que pueda darla? */
   tesorero_registrado?: boolean;
+  /** Por qué NO se exige el check del tesorero (nadie puede darlo); `null` = se exige. */
+  conformidad_exencion?: ExencionConformidad | null;
   /** «Según el voucher pagó a tiempo; tiene la multa de …»: la multa del recibo siguiente que la administración puede quitar; `null` si no hay. */
   aviso_multa?: AvisoMulta | null;
 }
@@ -52,8 +54,9 @@ export interface PagoRevisable {
 interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: () => void }
 
 /**
- * Vista del comprobante de un pago y, si está por validar: la administración lo valida o lo rechaza con motivo (y ve si el tesorero ya confirmó que el dinero
- * llegó a la cuenta; si no, se le avisa, sin bloquearla); la junta sólo lo revisa, y su tesorero da o quita la conformidad.
+ * Vista del comprobante de un pago y, si está por validar: la administración lo valida o lo rechaza con motivo; validar exige el check del tesorero («el dinero
+ * llegó a la cuenta»), salvo que nadie pueda darlo (block sin tesorero, o pago del propio tesorero: ahí se avisa y queda anotado); la junta sólo lo revisa,
+ * y su tesorero da o quita la conformidad.
  */
 export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const toast = useToast();
@@ -65,7 +68,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   // Conformidad: lo que respondió el servidor al darla o quitarla desde este diálogo (la fila de la lista es la de antes de abrirlo).
   const [conformidadLocal, setConformidadLocal] = useState<{ valor: ConformidadPago | null } | null>(null);
   const [cambiandoConformidad, setCambiandoConformidad] = useState(false);
-  const [confirmandoSinConformidad, setConfirmandoSinConformidad] = useState(false);
+  const [confirmandoSinCheck, setConfirmandoSinCheck] = useState(false);
   // «Quitar la multa» desde el aviso: abre el motivo; al quitarla el aviso desaparece sin esperar a que la lista se recargue.
   const [quitandoMulta, setQuitandoMulta] = useState(false);
   const [multaQuitada, setMultaQuitada] = useState(false);
@@ -80,7 +83,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
 
   const ia = useEvaluacionCompleta(pago?.id ?? null, pago?.evaluacion ?? null);
 
-  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinConformidad(false); setQuitandoMulta(false); setMultaQuitada(false); }, [pago?.id]);
+  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinCheck(false); setQuitandoMulta(false); setMultaQuitada(false); }, [pago?.id]);
 
   /** Sube el voucher y sigue la evaluación de la IA; el pago no cambia de estado aquí (sólo la IA o quien valida). */
   async function adjuntar(archivo: File) {
@@ -104,9 +107,11 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
     if (!pago) return;
     setCambiandoConformidad(true);
     try {
-      const r = await api<{ conformidad: ConformidadPago | null }>(`/api/pagos/${pago.id}/conformidad`, { method: dar ? 'PUT' : 'DELETE' });
+      const r = await api<{ conformidad: ConformidadPago | null; estado_validacion?: string }>(`/api/pagos/${pago.id}/conformidad`, { method: dar ? 'PUT' : 'DELETE' });
       setConformidadLocal({ valor: r.conformidad });
-      toast.ok(dar ? 'Conformidad registrada: la administración verá que el dinero llegó a la cuenta.' : 'Conformidad quitada.');
+      toast.ok(dar
+        ? r.estado_validacion === 'validado' ? 'Conformidad registrada: la IA ya leyó el voucher y el pago quedó validado.' : 'Conformidad registrada: la administración verá que el dinero llegó a la cuenta.'
+        : 'Conformidad quitada.');
       onRevisado();
     } catch (e) { toast.error(errorText(e)); }
     finally { setCambiandoConformidad(false); }
@@ -138,8 +143,11 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   // Un pago del mantenimiento se revisa por su TOTAL: el comprobante es uno solo y cubre todos los conceptos.
   const monto = pago ? pago.mantenimiento?.total ?? pago.monto : 0;
   const conformidad = conformidadLocal ? conformidadLocal.valor : pago?.conformidad;
-  const vistaConf = pago ? vistaConformidad({ estado_validacion: estadoPago ?? pago.estado_validacion, conformidad, tesorero_registrado: pago.tesorero_registrado }) : null;
-  const faltaConformidad = vistaConf !== null && vistaConf.tipo !== 'dada';
+  const datosConf = pago ? { estado_validacion: estadoPago ?? pago.estado_validacion, conformidad, tesorero_registrado: pago.tesorero_registrado, conformidad_exencion: pago.conformidad_exencion } : null;
+  const vistaConf = datosConf ? vistaConformidad(datosConf) : null;
+  // Con el check pendiente y exigido, Validar queda deshabilitado con su motivo; si nadie puede darlo, se avisa y se confirma al validar.
+  const bloqueadoPorCheck = datosConf !== null && faltaCheckParaValidar(datosConf);
+  const validaSinCheck = vistaConf !== null && (vistaConf.tipo === 'sin_tesorero' || vistaConf.tipo === 'pago_del_tesorero');
 
   return (
     <>
@@ -164,17 +172,18 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               <Button variant="secondary" onClick={() => { setRechazando(false); setErrorMotivo(undefined); }}>Volver</Button>
               <Button variant="danger" loading={enviando === 'rechazado'} disabled={enviando !== null} onClick={() => void revisar('rechazado')}>Confirmar rechazo</Button>
             </>
-          ) : confirmandoSinConformidad ? (
+          ) : confirmandoSinCheck ? (
             <>
-              <Button variant="secondary" onClick={() => setConfirmandoSinConformidad(false)}>Volver</Button>
-              <Button loading={enviando === 'validado'} disabled={enviando !== null} onClick={() => void revisar('validado')}>Validar de todos modos</Button>
+              <Button variant="secondary" onClick={() => setConfirmandoSinCheck(false)}>Volver</Button>
+              <Button loading={enviando === 'validado'} disabled={enviando !== null} onClick={() => void revisar('validado')}>Validar sin el check</Button>
             </>
           ) : (
             <>
               <Button variant="secondary" onClick={onClose}>Cerrar</Button>
               {sinVoucher && <p id="motivo-sin-voucher" className="mr-auto max-w-xs text-xs text-muted">{motivoSinVoucher}</p>}
+              {!sinVoucher && bloqueadoPorCheck && <p id="motivo-sin-check" className="mr-auto max-w-xs text-xs text-muted">{MOTIVO_FALTA_CHECK}</p>}
               <Button variant="danger" disabled={enviando !== null} onClick={() => setRechazando(true)}>Rechazar</Button>
-              <Button loading={enviando === 'validado'} disabled={enviando !== null || sinVoucher} aria-describedby={sinVoucher ? 'motivo-sin-voucher' : undefined} onClick={() => (faltaConformidad ? setConfirmandoSinConformidad(true) : void revisar('validado'))}>Validar pago</Button>
+              <Button loading={enviando === 'validado'} disabled={enviando !== null || sinVoucher || bloqueadoPorCheck} aria-describedby={sinVoucher ? 'motivo-sin-voucher' : bloqueadoPorCheck ? 'motivo-sin-check' : undefined} onClick={() => (validaSinCheck ? setConfirmandoSinCheck(true) : void revisar('validado'))}>Validar pago</Button>
             </>
           )
         ) : <Button variant="secondary" onClick={onClose}>Cerrar</Button>
@@ -203,10 +212,16 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
             </div>
           </div>
 
+          {porValidar && datosConf && (
+            <p aria-label="Estado de la revisión" className="text-sm font-medium">
+              {textoEstadoRevision({ ...datosConf, comprobante, evaluacion: ia.ev })}
+            </p>
+          )}
+
           {vistaConf && (
             <section aria-label="Conformidad del tesorero">
               <Alert tone={vistaConf.tipo === 'dada' ? 'ok' : 'warn'}>{textoConformidad(vistaConf, fechaCorta, tesorero)}</Alert>
-              {confirmandoSinConformidad && <div className="mt-3"><Alert tone="warn">{TEXTO_VALIDAR_SIN_CONFORMIDAD}</Alert></div>}
+              {confirmandoSinCheck && <div className="mt-3"><Alert tone="warn">{TEXTO_VALIDAR_SIN_CHECK}</Alert></div>}
             </section>
           )}
 
@@ -256,8 +271,8 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
                   {pago.estado_validacion === 'validado'
                     ? 'El pago ya estaba validado: el voucher queda como respaldo y la IA solo informa lo que leyó.'
                     : estadoPago === 'validado'
-                      ? 'La IA revisó el voucher y validó el pago automáticamente.'
-                      : 'La IA revisa el voucher. Si coincide con lo esperado, el pago se valida solo; si no, queda en revisión para que lo revises tú.'}
+                      ? 'La IA revisó el voucher y el pago quedó validado automáticamente.'
+                      : 'La IA revisa el voucher. Si coincide con lo esperado y el tesorero del block da su check, el pago se valida solo; si no, queda en revisión para que lo revises tú.'}
                 </Alert>
               </div>
             )}

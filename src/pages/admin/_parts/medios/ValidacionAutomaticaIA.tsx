@@ -29,8 +29,9 @@ export function ValidacionAutomaticaIA() {
       <CardHeader title="Validación automática con IA" description="La IA lee el comprobante que sube el vecino y lo compara con lo que debía pagar." />
       <CardBody className="space-y-4">
         <p className="text-sm text-muted">
-          Cuando está activada, si el comprobante coincide exactamente (monto, destino y fecha, sin archivos ni números de operación repetidos), el pago se valida solo y el vecino recibe su aviso.
-          <strong className="font-medium text-ink"> Nunca rechaza un pago por su cuenta</strong>: todo lo dudoso, ilegible o que no coincida queda para que una persona lo revise. Está apagada hasta que la actives, y puedes apagarla cuando quieras.
+          Cuando está activada, el pago se valida solo cuando se cumplen <strong className="font-medium text-ink">las dos cosas</strong>: la IA lee el comprobante y coincide exactamente (monto, destino y fecha, sin archivos ni números de operación repetidos) <strong className="font-medium text-ink">y el tesorero del block da su check</strong> de que el dinero llegó a la cuenta. Se valida en cuanto llega el segundo, sea la IA o el tesorero, y el vecino recibe su aviso.
+          Si el block no tiene tesorero, o el pago lo registró el propio tesorero (nadie puede darle el check), basta la IA.
+          <strong className="font-medium text-ink"> Nunca rechaza un pago por su cuenta</strong>: todo lo dudoso, ilegible o que no coincida queda para que una persona lo revise, y esa persona tampoco puede validar sin el check del tesorero (salvo en esos dos casos). Está apagada hasta que la actives, y puedes apagarla cuando quieras.
         </p>
         {list.error && <Alert tone="bad">No se pudo cargar la configuración: {list.error}</Alert>}
         {list.loading && list.items.length === 0 ? <Skeleton className="h-10 w-72" /> : (
@@ -38,9 +39,9 @@ export function ValidacionAutomaticaIA() {
             {list.items.map(c => (
               <li key={c.id}>
                 <Interruptor
-                  label="Validar automáticamente los pagos que coincidan exactamente"
+                  label="Validar automáticamente los pagos que coincidan exactamente y confirme el tesorero"
                   hint={list.items.length > 1 ? c.nombre : undefined}
-                  aria-label={`Validar automáticamente los pagos que coincidan exactamente: ${c.nombre}`}
+                  aria-label={`Validar automáticamente los pagos que coincidan exactamente y confirme el tesorero: ${c.nombre}`}
                   checked={c.validacion_automatica_ia}
                   disabled={busy}
                   onChange={e => (e.target.checked ? setEncender(c) : void cambiar(c, false))}
@@ -56,7 +57,7 @@ export function ValidacionAutomaticaIA() {
         onConfirm={async () => { if (encender) await cambiar(encender, true); }}
         loading={busy}
         title="Activar la validación automática"
-        message={`Los pagos de ${encender?.nombre ?? 'este condominio'} cuyo comprobante coincida exactamente se validarán solos y el recibo quedará pagado. Los demás seguirán en «Por validar» para que los revises. Para evaluar comprobantes necesitas una clave de Gemini u OpenAI en el Llavero.`}
+        message={`Los pagos de ${encender?.nombre ?? 'este condominio'} cuyo comprobante coincida exactamente y que el tesorero del block haya confirmado se validarán solos y el recibo quedará pagado (si el block no tiene tesorero, basta que coincida). Los demás seguirán en «Por validar» para que los revises. Para evaluar comprobantes necesitas una clave de Gemini u OpenAI en el Llavero.`}
         confirmLabel="Activar"
       />
     </Card>
