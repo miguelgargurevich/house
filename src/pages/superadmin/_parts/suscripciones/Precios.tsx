@@ -9,6 +9,7 @@ interface Plan { clave: string; nombre: string; descripcion: string | null; prec
 interface Config {
   igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean;
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
+  legal_razon_social: string | null; legal_ruc: string | null; legal_domicilio: string | null; legal_correo: string | null;
 }
 interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config; impuestos: ImpuestoPais[]; precios_moneda: PrecioMoneda[] }
 
@@ -123,7 +124,38 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
   );
 }
 
-/** Precios (base, sin IGV), planes, plazos y datos de pago: todo se edita aquí; nada vive en el código ni en variables de entorno. */
+/** Datos del responsable para la Política de privacidad y los Términos (Ley 29733). Un campo vacío se ve «por confirmar» en esas páginas. */
+function DatosLegales({ c, onGuardado }: { c: Config; onGuardado: () => void }) {
+  const toast = useToast();
+  const desde = (x: Config) => ({ legal_razon_social: x.legal_razon_social ?? '', legal_ruc: x.legal_ruc ?? '', legal_domicilio: x.legal_domicilio ?? '', legal_correo: x.legal_correo ?? '' });
+  const [f, setF] = useState(desde(c));
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setF(desde(c)); }, [c]);
+  const t = (k: keyof typeof f) => ({ value: f[k], onChange: (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value })) });
+  async function guardar() {
+    setBusy(true); setError(null);
+    try {
+      await api('/api/comercial/configuracion', { method: 'PUT', json: f });
+      toast.ok('Datos legales guardados');
+      onGuardado();
+    } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
+  return (
+    <div className="space-y-4">
+      {error && <Alert tone="bad">{error}</Alert>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input label="Razón social" maxLength={160} {...t('legal_razon_social')} />
+        <Input label="RUC" inputMode="numeric" maxLength={11} hint="11 dígitos." {...t('legal_ruc')} />
+        <Input label="Domicilio" maxLength={255} className="sm:col-span-2" {...t('legal_domicilio')} />
+        <Input label="Correo de privacidad y consultas" type="email" maxLength={160} {...t('legal_correo')} />
+      </div>
+      <Button loading={busy} onClick={() => void guardar()}>Guardar datos legales</Button>
+    </div>
+  );
+}
+
+/** Precios (base, sin IGV), planes, plazos, datos de pago y datos legales: todo se edita aquí; nada vive en el código ni en variables de entorno. */
 export function PreciosYPagos() {
   const { data, loading, error, reload } = useResource<Catalogo>('/api/comercial/catalogo');
   if (loading && !data) return <Skeleton className="h-64 w-full" />;
@@ -144,6 +176,10 @@ export function PreciosYPagos() {
       <Card>
         <CardHeader title="Plazos y datos de pago" />
         <CardBody><Configuracion c={data.configuracion} onGuardado={reload} /></CardBody>
+      </Card>
+      <Card>
+        <CardHeader title="Datos legales" description="Los ve el público en la Política de privacidad y los Términos. Un dato vacío se muestra «por confirmar»." />
+        <CardBody><DatosLegales c={data.configuracion} onGuardado={reload} /></CardBody>
       </Card>
     </div>
   );

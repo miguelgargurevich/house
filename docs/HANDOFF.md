@@ -4,6 +4,38 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Haiku 5.5, delegado) — Política de privacidad y Términos (rama `feat/privacidad`, sin push)
+
+- Pedido de Miguel: revisar si hace falta una política de privacidad (Ley 29733) y, con su «Sí, hazlo», construirla: páginas públicas, consentimiento en el registro y datos del responsable en la base.
+- Hecho:
+  - Textos autoritativos de Opus en `docs/legal/` (commit `d49968f`, sin cambios de sentido).
+  - Esquema: `ConfiguracionComercial.legal_razon_social|legal_ruc|legal_domicilio|legal_correo` y `Usuario.terminos_version|terminos_aceptados_at` (aditivo, nulos).
+  - `GET /api/publico/legal` sin sesión: sólo `razon_social, ruc, domicilio, correo, version`.
+  - Registro: `acepta_terminos: true` obligatorio (422 y nada se crea si no); la cuenta guarda versión y fecha en la misma transacción.
+  - `PUT /api/comercial/configuracion`: RUC de 11 dígitos, correo válido; vacío = null.
+  - Páginas `/privacidad` y `/terminos` con el texto literal de `docs/legal/`; «por confirmar» donde falta un dato.
+  - Casilla en el registro (botón deshabilitado hasta marcarla; enlaces en pestaña nueva); línea en Login, Perfil, invitación y pie de `Marco`.
+  - Superadmin: sección «Datos legales» en Precios.
+- Decisiones:
+  - `VERSION_LEGAL` está duplicada (`src/server/services/comercial/legal.ts` y `src/pages/publico/legal/version.ts`) y un test fija que sean iguales: `src/lib` no estaba en los permitidos del brief.
+  - Los pendientes (hosting, proveedor de correo, plazo de auditoría, aviso de precios, conservación) viven en UN bloque: `PENDIENTES` en `src/pages/publico/legal/textos.tsx`.
+  - `piezas.tsx` separa `Dato` y `POR_CONFIRMAR` para que los tests importen el texto sin cargar la API. `textos.tsx` y `piezas.tsx` llevan `@jsxRuntime automatic` porque `tests/tsconfig.json` compila JSX en modo clásico.
+- Verificado:
+  - Suite completa: 2800/2800 (base `house_test_privacidad`).
+  - `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build`: sin errores.
+  - Mutaciones: backend M1–M5 (registro, versión, endpoint, RUC, correo) y UI U1–U8 (botón, pie, texto, versión, rutas, RUC, «por confirmar», carga); todas en rojo; archivos restaurados con `cp` + `cmp`.
+  - Playwright (backend 4100, Vite 5174): `/privacidad`, `/terminos`, `/registro`, `/login`, `/precios` a 375 y 1440 px, claro y oscuro, sin desborde horizontal. Con datos, sólo quedan los 5 pendientes. Perfil y Precios como superadmin.
+- Próximos pasos:
+  - Miguel carga razón social, RUC, domicilio y correo en Precios (superadmin).
+  - Se completan los 5 pendientes en `textos.tsx`.
+  - Revisión legal del texto (dice «Borrador sujeto a revisión legal»).
+  - Push, con OK de Miguel.
+- Gotchas:
+  - `node_modules` del worktree estaba enlazado al checkout principal: se aisló antes del primer `db push` (enlaces por entrada, `.prisma` y `@prisma/client` copiados). El cliente del principal quedó con el mismo checksum.
+  - El proxy de Vite apunta fijo a `:4000`; para verificar se usó un config temporal (borrado) y el backend en `:4100` con `CORS_ORIGIN=http://localhost:5174`, porque el control de origen compara con el `Host`.
+  - El login da 429 tras varios intentos seguidos (límite en memoria del proceso): reiniciar el backend de prueba lo limpia.
+  - Hubo cortes de «Can't reach database server» en corridas completas (una vez en `zona-horaria`, otra en el dashboard de `selector-condominio`). Aislados, esos archivos pasan; la corrida final completa pasó entera.
+  - Pendiente de mejora: el formulario de pagos de Precios reenvía también los datos legales cargados; si alguien los cambia en otra pestaña, ese guardado puede pisarlos con el valor viejo.
 ## 2026-10-30 — Manual sin versiones viejas; privacidad, plan Gratis y benchmark en curso (Claude Code, Opus 5.5) — push: no
 
 - **Hecho:** `docs/manual/README.md` anota que la primera versión y la intermedia del manual se borraron de My Workspace (queda sólo la v2, `cmvv9urmi000bf5xdkb42hpwt`). Commit `695167c`, sin subir.

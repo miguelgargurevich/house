@@ -21,6 +21,7 @@ export default function Registro() {
   const [busy, setBusy] = useState(false);
   const [listo, setListo] = useState<string | null>(null);
   const [verClave, setVerClave] = useState(false);
+  const [acepta, setAcepta] = useState(false);
 
   if (user) return <Navigate to={HOME[user.rol]} replace />;
   const campo = (k: keyof Formulario) => ({ value: f[k], onChange: (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value })) });
@@ -33,7 +34,7 @@ export default function Registro() {
     setError(null);
     setBusy(true);
     try {
-      const r = await api<{ mensaje: string }>('/api/publico/registro', { method: 'POST', json: { ...f, email: f.email.trim(), unidades: Number(f.unidades), sitio_web: señuelo } });
+      const r = await api<{ mensaje: string }>('/api/publico/registro', { method: 'POST', json: { ...f, email: f.email.trim(), unidades: Number(f.unidades), acepta_terminos: acepta, sitio_web: señuelo } });
       setListo(r.mensaje);
     } catch (err) {
       setError(errorText(err));
@@ -102,7 +103,11 @@ export default function Registro() {
               <label>Sitio web<input type="text" tabIndex={-1} autoComplete="off" value={señuelo} onChange={e => setSeñuelo(e.target.value)} /></label>
             </div>
             <div className="space-y-4">
-              <Button type="submit" loading={busy} disabled={!completo} className="w-full">Crear cuenta gratis</Button>
+              <label className="flex items-start gap-2.5 text-sm">
+                <input type="checkbox" checked={acepta} onChange={e => setAcepta(e.target.checked)} required className="mt-0.5 h-4 w-4 shrink-0 accent-[oklch(var(--brand))]" />
+                <span>Acepto los <Link to="/terminos" target="_blank" rel="noopener noreferrer" className="font-medium text-brand underline">Términos y condiciones</Link> y la <Link to="/privacidad" target="_blank" rel="noopener noreferrer" className="font-medium text-brand underline">Política de privacidad</Link><span className="sr-only"> (se abren en otra pestaña)</span>.</span>
+              </label>
+              <Button type="submit" loading={busy} disabled={!completo || !acepta} className="w-full">Crear cuenta gratis</Button>
               <p className="text-center text-sm text-muted">¿Ya tienes cuenta? <Link to="/login" className="font-medium text-brand underline">Ingresa</Link></p>
             </div>
           </form>

@@ -93,6 +93,7 @@ export default function Invitacion() {
                   <Button type="submit" loading={busy} className="w-full" disabled={!claveLista(clave, repetida)}>Crear contraseña y entrar</Button>
                 </div>
                 <p className="mt-4 text-xs text-muted">No uses tu correo como contraseña. Este enlace sirve una sola vez.</p>
+                <p className="mt-2 text-xs text-muted">Al activar tu cuenta aceptas los <Link to="/terminos" className="font-medium text-brand underline">Términos</Link> y la <Link to="/privacidad" className="font-medium text-brand underline">Política de privacidad</Link>.</p>
               </form>
             )}
           </CardBody>

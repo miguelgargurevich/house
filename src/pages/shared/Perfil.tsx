@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { api, errorText } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
@@ -75,6 +76,7 @@ export default function Perfil() {
                 <Button type="submit" loading={datos.formState.isSubmitting} className="w-full sm:w-auto">Guardar cambios</Button>
               </div>
             </form>
+            <p className="mt-5 text-xs text-muted">Cómo tratamos tus datos: <Link to="/privacidad" className="font-medium text-brand underline">Política de privacidad</Link></p>
           </CardBody>
         </Card>
 

@@ -37,6 +37,11 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false }: { chi
       <main className={completo ? 'w-full flex-1' : cx('mx-auto w-full flex-1 px-4 py-8 sm:px-6 sm:py-12', ancho)}>{children}</main>
       <footer className={completo ? 'bg-surface2' : 'border-t border-line'}>
         <p className={cx('mx-auto w-full px-4 py-6 text-xs text-muted sm:px-6', ancho)}>House · Administración de condominios. {data ? `Precios en ${monedaDe(data.moneda)?.plural ?? data.moneda}${Number(data.impuesto.tasa) > 0 ? `, sin ${data.impuesto.nombre}` : ''}.` : 'Precios sin impuestos.'}</p>
+        <nav aria-label="Legal" className={cx('mx-auto flex w-full flex-wrap gap-x-2 px-4 pb-6 text-xs text-muted sm:px-6', ancho)}>
+          <Link to="/privacidad" className="underline-offset-2 hover:text-ink hover:underline">Privacidad</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/terminos" className="underline-offset-2 hover:text-ink hover:underline">Términos</Link>
+        </nav>
       </footer>
     </div>
   );

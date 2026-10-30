@@ -18,7 +18,7 @@ describe('Registro: dos pasos, con los mismos campos que antes', () => {
 
   it('se envían los mismos campos con el mismo payload, y el señuelo sigue yendo', () => {
     for (const k of ['nombre', 'email', 'password', 'empresa', 'condominio', 'unidades']) assert.match(registro, new RegExp(`campo\\('${k}'\\)`), k);
-    assert.match(registro, /'\/api\/publico\/registro', \{ method: 'POST', json: \{ \.\.\.f, email: f\.email\.trim\(\), unidades: Number\(f\.unidades\), sitio_web: señuelo \} \}/);
+    assert.match(registro, /'\/api\/publico\/registro', \{ method: 'POST', json: \{ \.\.\.f, email: f\.email\.trim\(\), unidades: Number\(f\.unidades\), acepta_terminos: acepta, sitio_web: señuelo \} \}/);
   });
 
   it('el señuelo sigue oculto a las personas y fuera del orden de tabulación', () => {

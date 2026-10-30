@@ -92,6 +92,7 @@ export default function Login() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted">¿Primera vez? <Link to="/registro" className="font-medium text-brand underline">Crea tu cuenta gratis</Link> · <Link to="/precios" className="font-medium text-brand underline">Ver precios</Link></p>
+          <p className="mt-4 text-center text-xs text-muted">Lee nuestros <Link to="/terminos" className="font-medium text-brand underline">Términos</Link> y nuestra <Link to="/privacidad" className="font-medium text-brand underline">Política de privacidad</Link>.</p>
 
           {import.meta.env.DEV && (
             <div className="mt-8 border-t border-line pt-5">
