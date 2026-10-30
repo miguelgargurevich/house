@@ -12,8 +12,8 @@ const OPERACION = [
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
   superadmin: ['/superadmin/dashboard', '/superadmin/empresas', '/superadmin/empresas/:id', '/superadmin/usuarios', '/superadmin/auditoria', '/superadmin/llavero', '/superadmin/integraciones', '/superadmin/suscripciones', ...OPERACION],
   admin: [...OPERACION, '/admin/mi-plan'],
-  propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos', '/propietario/junta', '/propietario/comunicados'],
-  inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos', '/inquilino/junta', '/inquilino/comunicados'],
+  propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos', '/propietario/junta', '/propietario/proveedores', '/propietario/comunicados'],
+  inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos', '/inquilino/junta', '/inquilino/proveedores', '/inquilino/comunicados'],
   mantenimiento: ['/mantenimiento/inicio', '/mantenimiento/tareas'],
   seguridad: ['/seguridad/inicio', '/seguridad/unidades'],
   limpieza: ['/limpieza/inicio', '/limpieza/tareas'],

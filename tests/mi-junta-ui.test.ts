@@ -19,13 +19,13 @@ const ruta = (rol: 'propietario' | 'inquilino') => `/${rol}/junta`;
 
 describe('«Mi junta» del residente: menú y rutas', () => {
   for (const rol of ['propietario', 'inquilino'] as const) {
-    it(`${rol}: «Mi junta» va entre «Mi historial» y «Comunicados» y la ruta está en la lista del rol`, () => {
+    it(`${rol}: «Mi junta» va entre «Mi historial» y «Proveedores» y la ruta está en la lista del rol`, () => {
       const items = navPara(usuario(rol)).flatMap((g) => g.items);
       const i = items.findIndex((x) => x.to === ruta(rol));
       assert.ok(i > 0, 'no hay ítem');
       assert.equal(items[i]!.label, 'Mi junta');
       assert.equal(items[i - 1]!.to, `/${rol}/pagos`);
-      assert.equal(items[i + 1]!.to, `/${rol}/comunicados`);
+      assert.equal(items[i + 1]!.to, `/${rol}/proveedores`);
       assert.ok(RUTAS_POR_ROL[rol].includes(ruta(rol)));
       assert.equal(rutaPermitida({ ...usuario(rol), id: 1, email: 'a@b.pe', empresa_id: null, estructura_id: null }, ruta(rol)), ruta(rol));
     });

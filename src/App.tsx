@@ -48,6 +48,7 @@ const PropietarioCargos = lazy(() => import('./pages/propietario/Cargos'));
 const PropietarioPagos = lazy(() => import('./pages/propietario/Pagos'));
 const PropietarioComunicados = lazy(() => import('./pages/propietario/Comunicados'));
 const ResidenteMiJunta = lazy(() => import('./pages/residente/MiJunta'));
+const ResidenteProveedores = lazy(() => import('./pages/residente/Proveedores'));
 const InquilinoInicio = lazy(() => import('./pages/inquilino/Inicio'));
 const InquilinoCargos = lazy(() => import('./pages/inquilino/Cargos'));
 const InquilinoPagos = lazy(() => import('./pages/inquilino/Pagos'));
@@ -137,6 +138,7 @@ export default function App() {
           <Route path="/propietario/cargos" element={<PropietarioCargos />} />
           <Route path="/propietario/pagos" element={<PropietarioPagos />} />
           <Route path="/propietario/junta" element={<ResidenteMiJunta />} />
+          <Route path="/propietario/proveedores" element={<ResidenteProveedores />} />
           <Route path="/propietario/comunicados" element={<PropietarioComunicados />} />
         </Route>
         <Route element={<RequireRole roles={['inquilino']} />}>
@@ -144,6 +146,7 @@ export default function App() {
           <Route path="/inquilino/cargos" element={<InquilinoCargos />} />
           <Route path="/inquilino/pagos" element={<InquilinoPagos />} />
           <Route path="/inquilino/junta" element={<ResidenteMiJunta />} />
+          <Route path="/inquilino/proveedores" element={<ResidenteProveedores />} />
           <Route path="/inquilino/comunicados" element={<InquilinoComunicados />} />
         </Route>
         <Route element={<RequireRole roles={['mantenimiento']} />}>

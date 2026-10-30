@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Sonnet 5.5) — Proveedores para los vecinos (rama `feat/proveedores-vecinos`, sin push)
+
+- Pedido de Miguel: «en la vista del propietario o inquilino falta la opción de ver los proveedores»; decisión: «Solo los marcados».
+- **API**: `Proveedor.visible_vecinos` (opcional, `false` por defecto; `base` de zod en `routes/proveedores.ts`, sirve a admin y a la junta). `GET /api/me/proveedores` (`routes/me.ts`): activos + marcados + que atienden el condominio de SUS unidades, agrupados por rubro, con lista blanca (`razon_social, contacto_nombre, telefono, email`); superadmin/otros roles → 403, residente sin unidades → vacío. Contrato en `docs/API-CONTRATO.md` (última sección).
+- **Front**: `/propietario/proveedores` y `/inquilino/proveedores` (después de «Mi junta»; `src/pages/residente/Proveedores.tsx` + `_parts/proveedores/`): tarjetas por rubro, Llamar / WhatsApp / Escribir (`enlaces.ts`, con `lib/telefono`), estado vacío «Tu administración aún no comparte proveedores». En `admin/Proveedores.tsx`: interruptor «Visible para los vecinos» y columna «Vecinos» con cambio rápido (la junta no lo cambia en los compartidos). Asistente: `ai-system-prompt.txt` conoce la pantalla.
+- **Tests**: `proveedores-vecinos.test.ts` (API, 19) y `proveedores-vecinos-ui.test.ts` (fuente, menú, rutas y enlaces, 15); `mi-junta-ui.test.ts` ajustado (ahora «Mi junta» va antes de «Proveedores»). Mutaciones en rojo: quitar `visible_vecinos` o `activo` del filtro, quitar el filtro de condominio, filtrar notas/RUC en la respuesta, quitar el 403 de rol, quitar el campo del zod y quitar el ítem del menú.
+- Decisiones: (1) la marca es por proveedor y vale para TODO el condominio (no por block): un proveedor se atiende por condominio. (2) Un proveedor marcado pero inactivo no se muestra (la lista de la administración lo avisa: «Marcado (inactivo)»). (3) WhatsApp usa `celularE164` (cualquier celular válido con código de país, no sólo peruano); un fijo no tiene botón de WhatsApp. (4) La auditoría es la general de `PUT` (guarda `visible_vecinos` del cuerpo); el interruptor de la lista manda sólo ese campo, así queda claro qué cambió. (5) Los datos `cuenta_*` del cierre del mes nunca se exponen a vecinos (la prueba busca sus valores en el texto de la respuesta).
+- Gotchas: `prisma generate` (con `node_modules` enlazado) regeneró el cliente COMPARTIDO: es aditivo y el schema del checkout principal sólo difiere en este campo (comparado con `diff`); las otras bases locales necesitan `db push` para tener `visible_vecinos`. La herramienta `proveedores` del asistente es sólo de administración/junta: no se cambió. No se probó en navegador (ver «no verificado» en el resumen del commit).
+- Próximos pasos: probar la pantalla en el navegador a 375 px y en modo oscuro con Los Libertadores; decidir si la marca debería poder ser por block; si Miguel quiere que el vecino vea también a qué condominio atiende cada proveedor (hoy no, con varios condominios se mezclan).
+
+---
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Resumen: «% cobrado por block»
 
 - Pedido de Miguel: un segundo gráfico al lado de «Emitido vs. cobrado»; eligió «% cobrado por block».

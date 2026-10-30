@@ -12,11 +12,11 @@ import { RUBROS, rubroLabel } from './_parts/personas/proveedores';
 import type { Proveedor, Rubro } from './_parts/personas/proveedores';
 
 interface Opt { id: number; nombre: string; empresa_id?: number | null }
-/** La junta recibe además `compartido`: atiende también a otros condominios y sólo la administración lo cambia. */
-type Fila = Proveedor & { compartido?: boolean };
+/** La junta recibe además `compartido`: atiende también a otros condominios y sólo la administración lo cambia. `visible_vecinos`: lo ven los vecinos en su menú «Proveedores». */
+type Fila = Proveedor & { compartido?: boolean; visible_vecinos?: boolean };
 interface Form {
   razon_social: string; rubro: Rubro; ruc: string; contacto_nombre: string; telefono: string; email: string; notas: string;
-  activo: boolean; empresa_id: string;
+  activo: boolean; visible_vecinos: boolean; empresa_id: string;
 }
 
 /**
@@ -36,7 +36,7 @@ export default function Proveedores() {
   const list = useList<Fila>('/api/proveedores', { params: { rubro: filtroRubro, activo: filtroEstado, complejo_id: filtroComplejo } });
   const complejos = useResource<Page<Opt>>(esJunta ? null : '/api/complejos?pageSize=100'); // la junta no lista condominios: sólo trabaja con el suyo
   const empresas = useResource<Page<Opt>>(esSuper ? '/api/empresas?pageSize=100' : null);
-  const [editando, setEditando] = useState<Proveedor | 'nuevo' | null>(null);
+  const [editando, setEditando] = useState<Fila | 'nuevo' | null>(null);
   const [borrar, setBorrar] = useState<Proveedor | null>(null);
   const [busy, setBusy] = useState(false);
   // Los condominios se marcan fuera del formulario: con un solo condominio, react-hook-form trata la casilla como un valor suelto, no como lista.
@@ -46,10 +46,10 @@ export default function Proveedores() {
   // El superadmin elige la empresa del proveedor: sus condominios deben ser de ella.
   const complejosElegibles = (complejos.data?.items ?? []).filter(c => !esSuper || (empresaElegida !== '' && String(c.empresa_id) === empresaElegida));
 
-  function abrir(p: Proveedor | 'nuevo') {
+  function abrir(p: Fila | 'nuevo') {
     reset(p === 'nuevo'
-      ? { razon_social: '', rubro: 'otros', ruc: '', contacto_nombre: '', telefono: '', email: '', notas: '', activo: true, empresa_id: '' }
-      : { razon_social: p.razon_social, rubro: p.rubro, ruc: p.ruc ?? '', contacto_nombre: p.contacto_nombre ?? '', telefono: p.telefono ?? '', email: p.email ?? '', notas: p.notas ?? '', activo: p.activo, empresa_id: String(p.empresa_id) });
+      ? { razon_social: '', rubro: 'otros', ruc: '', contacto_nombre: '', telefono: '', email: '', notas: '', activo: true, visible_vecinos: false, empresa_id: '' }
+      : { razon_social: p.razon_social, rubro: p.rubro, ruc: p.ruc ?? '', contacto_nombre: p.contacto_nombre ?? '', telefono: p.telefono ?? '', email: p.email ?? '', notas: p.notas ?? '', activo: p.activo, visible_vecinos: p.visible_vecinos ?? false, empresa_id: String(p.empresa_id) });
     // Un proveedor nuevo atiende, por defecto, al condominio elegido arriba (el superadmin primero elige la empresa).
     setAtiende(p === 'nuevo' ? (filtroComplejo && !esSuper ? [Number(filtroComplejo)] : []) : p.complejos.map(c => c.id));
     setEditando(p);
@@ -59,7 +59,7 @@ export default function Proveedores() {
     const nuevo = editando === 'nuevo';
     const body: Record<string, unknown> = {
       razon_social: v.razon_social, rubro: v.rubro, ruc: v.ruc, contacto_nombre: v.contacto_nombre, telefono: v.telefono, email: v.email, notas: v.notas,
-      activo: v.activo,
+      activo: v.activo, visible_vecinos: v.visible_vecinos,
       ...(esJunta ? {} : { complejo_ids: atiende }), // la API deja siempre los de la junta vinculados sólo a su condominio
     };
     if (nuevo && esSuper) body.empresa_id = Number(v.empresa_id);
@@ -67,6 +67,16 @@ export default function Proveedores() {
       await api(nuevo ? '/api/proveedores' : `/api/proveedores/${(editando as Proveedor).id}`, { method: nuevo ? 'POST' : 'PUT', json: body });
       toast.ok(nuevo ? 'Proveedor creado' : 'Cambios guardados');
       setEditando(null);
+      void list.reload();
+    } catch (e) { toast.error(errorText(e)); }
+  }
+
+  /** Prende o apaga «Visible para los vecinos» desde la lista: sólo manda ese campo (la auditoría deja claro qué cambió). */
+  async function cambiarVisible(p: Fila) {
+    const valor = !p.visible_vecinos;
+    try {
+      await api(`/api/proveedores/${p.id}`, { method: 'PUT', json: { visible_vecinos: valor } });
+      toast.ok(valor ? `«${p.razon_social}» ahora lo ven los vecinos` : `«${p.razon_social}» ya no lo ven los vecinos`);
       void list.reload();
     } catch (e) { toast.error(errorText(e)); }
   }
@@ -95,6 +105,17 @@ export default function Proveedores() {
         {p.complejos.length ? p.complejos.map(c => c.nombre).join(', ') : <span className="text-muted">Sin condominio asignado</span>}
         {esJunta && p.compartido && <span className="block text-xs text-muted">También atiende a otros condominios</span>}
       </span>
+    ) },
+    { key: 'vecinos', header: 'Vecinos', hideBelow: 'md', cell: p => (
+      esJunta && p.compartido ? (
+        <span title="Atiende a más de un condominio: sólo la administración puede cambiarlo">{p.visible_vecinos ? <Badge tone="ok">Lo ven</Badge> : <Badge>No lo ven</Badge>}</span>
+      ) : (
+        <button type="button" onClick={() => void cambiarVisible(p)} aria-pressed={!!p.visible_vecinos} aria-label={`Visible para los vecinos: ${p.razon_social}`}
+          title={p.visible_vecinos ? (p.activo ? 'Los vecinos lo ven. Clic para ocultarlo.' : 'Marcado, pero está inactivo: los vecinos no lo ven. Clic para ocultarlo.') : 'Los vecinos no lo ven. Clic para mostrarlo.'}
+          className="inline-flex min-h-10 items-center">
+          {p.visible_vecinos ? <Badge tone={p.activo ? 'ok' : 'warn'}>{p.activo ? 'Lo ven' : 'Marcado (inactivo)'}</Badge> : <Badge>No lo ven</Badge>}
+        </button>
+      )
     ) },
     { key: 'activo', header: 'Estado', hideBelow: 'sm', cell: p => (p.activo ? <Badge tone="ok">Activo</Badge> : <Badge>Inactivo</Badge>) },
     { key: 'acciones', header: '', align: 'right', cell: p => (
@@ -188,6 +209,7 @@ export default function Proveedores() {
           </fieldset>}
           <Textarea label="Notas (opcional)" className="sm:col-span-2" {...register('notas')} />
           <Interruptor label="Activo" hint="Un proveedor inactivo no se puede asignar a tareas nuevas." className="sm:col-span-2" {...register('activo')} />
+          <Interruptor label="Visible para los vecinos" hint="Los propietarios e inquilinos de los condominios que atiende verán su nombre, rubro, contacto, teléfono y correo en «Proveedores». Tus notas y el RUC no se muestran. Sólo se ve si está activo." className="sm:col-span-2" {...register('visible_vecinos')} />
         </form>
       </Modal>
 
