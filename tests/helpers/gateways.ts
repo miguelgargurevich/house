@@ -4,7 +4,7 @@ import { gatewayDeps } from '../../src/server/lib/gateways';
 import { crearGateway, agregarDominio } from '../../src/server/lib/gatewaysAdmin';
 
 export const IP_PUBLICA = '93.184.216.34';
-export const DOMINIO_DASHBOARDIA = 'api.dashboardia.gargurevich.dev';
+export const DOMINIO_DASHBOARDIA = 'api-dashboardia.gargurevich.dev';
 export const URL_DASHBOARDIA = `https://${DOMINIO_DASHBOARDIA}/v1`;
 
 const resolverOriginal = gatewayDeps.resolver;

@@ -9,8 +9,8 @@ import {
   proveedorDeFila, resolverDestino, urlDeOcr, validarEntradaOcr, validarUrlDestino,
 } from '../src/server/lib/gateways';
 
-const DOMINIOS = new Set(['api.dashboardia.gargurevich.dev', 'omniroute.gargurevich.dev']);
-const BASE = 'https://api.dashboardia.gargurevich.dev/v1';
+const DOMINIOS = new Set(['api-dashboardia.gargurevich.dev', 'omniroute.gargurevich.dev']);
+const BASE = 'https://api-dashboardia.gargurevich.dev/v1';
 
 function rechaza(fn: () => unknown, codigo: string, ctx: string) {
   assert.throws(fn, (e: unknown) => e instanceof GatewayError && e.codigo === codigo, `${ctx}: debía rechazarse con «${codigo}»`);
@@ -18,15 +18,15 @@ function rechaza(fn: () => unknown, codigo: string, ctx: string) {
 
 describe('validarUrlDestino: la URL base de un gateway', () => {
   it('acepta https, puerto 443 (o vacío) y host exacto de la lista; normaliza (minúsculas, sin barra final, sin 443)', () => {
-    assert.deepEqual(validarUrlDestino(BASE, DOMINIOS), { url: BASE, host: 'api.dashboardia.gargurevich.dev' });
-    assert.equal(validarUrlDestino('HTTPS://API.Dashboardia.Gargurevich.dev:443/v1/', DOMINIOS).url, BASE);
+    assert.deepEqual(validarUrlDestino(BASE, DOMINIOS), { url: BASE, host: 'api-dashboardia.gargurevich.dev' });
+    assert.equal(validarUrlDestino('HTTPS://API-Dashboardia.Gargurevich.dev:443/v1/', DOMINIOS).url, BASE);
     assert.equal(validarUrlDestino('https://omniroute.gargurevich.dev', DOMINIOS).url, 'https://omniroute.gargurevich.dev');
-    assert.equal(validarUrlDestino('https://api.dashboardia.gargurevich.dev./v1', DOMINIOS).host, 'api.dashboardia.gargurevich.dev', 'el punto final del FQDN');
+    assert.equal(validarUrlDestino('https://api-dashboardia.gargurevich.dev./v1', DOMINIOS).host, 'api-dashboardia.gargurevich.dev', 'el punto final del FQDN');
   });
 
   it('http (y cualquier otro esquema) → rechazado', () => {
-    rechaza(() => validarUrlDestino('http://api.dashboardia.gargurevich.dev/v1', DOMINIOS), 'https_obligatorio', 'http');
-    rechaza(() => validarUrlDestino('ftp://api.dashboardia.gargurevich.dev/v1', DOMINIOS), 'https_obligatorio', 'ftp');
+    rechaza(() => validarUrlDestino('http://api-dashboardia.gargurevich.dev/v1', DOMINIOS), 'https_obligatorio', 'http');
+    rechaza(() => validarUrlDestino('ftp://api-dashboardia.gargurevich.dev/v1', DOMINIOS), 'https_obligatorio', 'ftp');
     rechaza(() => validarUrlDestino('file:///etc/passwd', DOMINIOS), 'https_obligatorio', 'file');
   });
 
@@ -38,18 +38,18 @@ describe('validarUrlDestino: la URL base de un gateway', () => {
   });
 
   it('puerto distinto de 443 → rechazado', () => {
-    for (const p of [80, 8080, 8443, 5432, 22]) rechaza(() => validarUrlDestino(`https://api.dashboardia.gargurevich.dev:${p}/v1`, DOMINIOS), 'puerto', `puerto ${p}`);
+    for (const p of [80, 8080, 8443, 5432, 22]) rechaza(() => validarUrlDestino(`https://api-dashboardia.gargurevich.dev:${p}/v1`, DOMINIOS), 'puerto', `puerto ${p}`);
   });
 
   it('usuario o contraseña en la URL → rechazados (también el truco user@host)', () => {
-    rechaza(() => validarUrlDestino('https://usuario:clave@api.dashboardia.gargurevich.dev/v1', DOMINIOS), 'credenciales', 'user:pass');
-    rechaza(() => validarUrlDestino('https://usuario@api.dashboardia.gargurevich.dev/v1', DOMINIOS), 'credenciales', 'user');
-    rechaza(() => validarUrlDestino('https://api.dashboardia.gargurevich.dev@evil.example/v1', DOMINIOS), 'credenciales', 'host@evil');
+    rechaza(() => validarUrlDestino('https://usuario:clave@api-dashboardia.gargurevich.dev/v1', DOMINIOS), 'credenciales', 'user:pass');
+    rechaza(() => validarUrlDestino('https://usuario@api-dashboardia.gargurevich.dev/v1', DOMINIOS), 'credenciales', 'user');
+    rechaza(() => validarUrlDestino('https://api-dashboardia.gargurevich.dev@evil.example/v1', DOMINIOS), 'credenciales', 'host@evil');
   });
 
   it('dominio fuera de la lista → rechazado, con un mensaje que lo explica; el host debe ser EXACTO (ni subdominios ni sufijos)', () => {
     assert.throws(() => validarUrlDestino('https://otro.ejemplo.dev/v1', DOMINIOS), (x: unknown) => x instanceof GatewayError && x.codigo === 'dominio_no_permitido' && /otro\.ejemplo\.dev no está en la lista de dominios permitidos/.test(x.message));
-    for (const u of ['https://sub.api.dashboardia.gargurevich.dev/v1', 'https://gargurevich.dev/v1', 'https://api.dashboardia.gargurevich.dev.evil.com/v1', 'https://evilapi.dashboardia.gargurevich.dev/v1', 'https://api-dashboardia.gargurevich.dev/v1']) {
+    for (const u of ['https://sub.api-dashboardia.gargurevich.dev/v1', 'https://gargurevich.dev/v1', 'https://api-dashboardia.gargurevich.dev.evil.com/v1', 'https://evilapi-dashboardia.gargurevich.dev/v1', 'https://api.dashboardia.gargurevich.dev/v1']) {
       rechaza(() => validarUrlDestino(u, DOMINIOS), 'dominio_no_permitido', u);
     }
   });
@@ -62,8 +62,8 @@ describe('validarUrlDestino: la URL base de un gateway', () => {
   });
 
   it('basura → url_invalida', () => {
-    for (const u of ['', 'no es una url', '//api.dashboardia.gargurevich.dev', 'https://']) rechaza(() => validarUrlDestino(u, DOMINIOS), 'url_invalida', JSON.stringify(u));
-    rechaza(() => validarUrlDestino(`https://api.dashboardia.gargurevich.dev/${'a'.repeat(400)}`, DOMINIOS), 'url_invalida', 'demasiado larga');
+    for (const u of ['', 'no es una url', '//api-dashboardia.gargurevich.dev', 'https://']) rechaza(() => validarUrlDestino(u, DOMINIOS), 'url_invalida', JSON.stringify(u));
+    rechaza(() => validarUrlDestino(`https://api-dashboardia.gargurevich.dev/${'a'.repeat(400)}`, DOMINIOS), 'url_invalida', 'demasiado larga');
   });
 });
 
@@ -100,7 +100,7 @@ describe('resolverDestino: se resuelve en cada llamada y TODAS las direcciones d
 
   it('públicas → devuelve la IP a la que se conectará (prefiere IPv4)', async () => {
     dns('2606:4700:4700::1111', '93.184.216.34');
-    assert.deepEqual(await resolverDestino('api.dashboardia.gargurevich.dev'), { host: 'api.dashboardia.gargurevich.dev', ip: '93.184.216.34', family: 4 });
+    assert.deepEqual(await resolverDestino('api-dashboardia.gargurevich.dev'), { host: 'api-dashboardia.gargurevich.dev', ip: '93.184.216.34', family: 4 });
     dns('2606:4700:4700::1111');
     assert.deepEqual(await resolverDestino('h.ejemplo.dev'), { host: 'h.ejemplo.dev', ip: '2606:4700:4700::1111', family: 6 });
   });
@@ -108,7 +108,7 @@ describe('resolverDestino: se resuelve en cada llamada y TODAS las direcciones d
   for (const privada of ['10.1.2.3', '127.0.0.1', '169.254.169.254', '172.16.5.5', '192.168.1.10', '100.64.0.9', 'fd00::5', '::1', 'fe80::1']) {
     it(`un dominio permitido que resuelve a ${privada} → bloqueado (ip_privada)`, async () => {
       dns(privada);
-      await assert.rejects(resolverDestino('api.dashboardia.gargurevich.dev'), (e: unknown) => e instanceof GatewayError && e.codigo === 'ip_privada');
+      await assert.rejects(resolverDestino('api-dashboardia.gargurevich.dev'), (e: unknown) => e instanceof GatewayError && e.codigo === 'ip_privada');
     });
   }
 
@@ -220,7 +220,7 @@ describe('proveedorDeFila y gatewayUsable: una sola resolución de proveedor', (
     assert.equal(gatewayUsable({ ...gw, habilitado: false }, DOMINIOS), false);
     assert.equal(gatewayUsable(gw, new Set(['omniroute.gargurevich.dev'])), false, 'el dominio salió de la lista');
     assert.equal(gatewayUsable(gw, new Set()), false);
-    assert.equal(gatewayUsable({ ...gw, base_url: 'http://api.dashboardia.gargurevich.dev/v1' }, DOMINIOS), false, 'una URL guardada que ya no cumple');
+    assert.equal(gatewayUsable({ ...gw, base_url: 'http://api-dashboardia.gargurevich.dev/v1' }, DOMINIOS), false, 'una URL guardada que ya no cumple');
   });
 
   it('las etiquetas de gateway llevan su id para no chocar entre gateways', () => {

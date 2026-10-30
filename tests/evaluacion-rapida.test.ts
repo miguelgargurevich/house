@@ -452,7 +452,7 @@ describe('5. gateway Dashboard IA como respaldo', () => {
     const fila = await prisma.claveIntegracion.create({ data: { proveedor: 'gateway', gateway_id: g.id, etiqueta: `g${g.id}:principal`, api_key_enc: 'x', ultimos4: 'xxxx' }, include: { gateway: true } });
     const p = proveedorDeFila(fila)!;
     assert.equal(p.tipo, 'openai-compatible');
-    assert.equal(p.baseUrl, 'https://api.dashboardia.gargurevich.dev/v1');
+    assert.equal(p.baseUrl, 'https://api-dashboardia.gargurevich.dev/v1');
     assert.equal(p.vision, true);
     assert.equal(p.modeloVision, 'nvidia/nemotron-3.5-super-vl-120b-a12b');
     assert.equal(p.visionPdf, false);
@@ -474,7 +474,7 @@ describe('5. gateway Dashboard IA como respaldo', () => {
     const { ev } = await evaluado();
     assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('dashboardia')]);
     const l = llamadas[1]!;
-    assert.equal(l.url, 'https://api.dashboardia.gargurevich.dev/v1/chat/completions');
+    assert.equal(l.url, 'https://api-dashboardia.gargurevich.dev/v1/chat/completions');
     assert.equal(l.cuerpo.model, 'nvidia/nemotron-3.5-super-vl-120b-a12b');
     assert.equal(l.cuerpo.response_format, undefined, 'sin response_format: el gateway puede responder dentro de ```json');
     assert.equal(l.cuerpo.messages[1].content[1].type, 'image_url');
@@ -486,7 +486,7 @@ describe('5. gateway Dashboard IA como respaldo', () => {
 
   it('un dominio permitido que resuelve a una IP interna: el gateway NO recibe llamada y la evaluación sigue con la siguiente clave', async () => {
     await claves('gemini', 'dashboardia', 'openai');
-    dnsFalso({ 'api.dashboardia.gargurevich.dev': ['169.254.169.254'] });
+    dnsFalso({ 'api-dashboardia.gargurevich.dev': ['169.254.169.254'] });
     responder = (l) => (l.clave === claveDe('gemini') ? estado(503) : ok(lec()));
     const { ev } = await evaluado();
     assert.deepEqual(llamadas.map((l) => l.clave), [claveDe('gemini'), claveDe('openai')], 'el gateway no salió');

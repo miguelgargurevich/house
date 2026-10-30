@@ -52,6 +52,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Gotchas**: el OCR vuelve a leerse en cada ejecución (intento 1 y reintento 2 de la IA) — unos segundos extra, sin efectos laterales. `ocrAlcanza` depende de que los medios de pago activos tengan celular/cuenta/titular cargados: sin medios, nada alcanza y todo escala a la IA. Con `validacion_automatica_ia` encendida, un voucher que el OCR acepta y cuyo bloque no tiene tesorero (o el pago lo registró el tesorero) se valida SOLO, sin IA: es la misma regla de siempre, ahora con una lectura de reglas en vez de un modelo; mide antes de encender.
 - **Probado** (rama sin push): `tests/evaluacion-ocr-primero.test.ts` (matriz de `ocrAlcanza` + integración con IA y OCR falsos que cuentan sus llamadas), `tests/medir-ocr.test.ts`, y ajustes en `tests/evaluacion-rapida.test.ts` (dos pruebas que describían «IA primero»).
 
+## 2026-10-30 — Claude Code (Haiku 5.5) — Nombres de un nivel del Dashboard IA (rama `chore/nombres-1nivel`, sin push)
+
+- Pedido de Miguel: «si, súbelo y sigue con la E» (etapa 2c: código y docs a los nombres de un nivel). Ya verificado por Opus: `api-dashboardia.gargurevich.dev` responde `/health` 200; el de dos niveles sigue vivo.
+- **Qué se hizo**: default del Dashboard IA en `src/server/lib/gatewaysMigracion.ts` (`dominio` y `base_url`) → `api-dashboardia.gargurevich.dev`. Tests (`tests/gateways.test.ts`, `tests/gateways-llavero.test.ts`, `tests/gateways-ui.test.ts`, `tests/evaluacion-rapida.test.ts`, `tests/helpers/gateways.ts`) con el nombre nuevo. El caso «dominio fuera de la lista» usa ahora el nombre viejo, porque el nuevo ya está en el allowlist de los tests. `docs/SEGURIDAD.md` (2 líneas): nombre nuevo, con el viejo marcado como «sigue respondiendo».
+- **Sin cambios a propósito**: `docs/HANDOFF.md` (historia: las entradas viejas que citan el nombre quedan como están); no hay ninguna referencia a `api.myworkspace.*` en el repo.
+- **Decisiones**: la migración no reescribe el `base_url` de un gateway que ya existe (lo busca por nombre). El default nuevo sólo aplica a instalaciones nuevas y a un dominio que aún no esté en la lista. Los gateways que ya están en producción siguen con el nombre viejo hasta que se cambien a mano.
+- **Próximos pasos** (no de código): para pasar un gateway existente al nombre nuevo, agregar `api-dashboardia.gargurevich.dev` en Llavero › «Dominios permitidos» y cambiar la URL del gateway. Hasta entonces el viejo sigue funcionando.
+- **Gotchas**:
+  - `house_test` es compartida: otras sesiones corrían `node --test` ahí a la vez y provocaron deadlocks (`40P01`) y 401 falsos. Para probar, usar una base propia con «house_test» en el nombre (aquí `house_test_nombres1`, creada en `house-pg` y con `npx prisma db push --skip-generate`).
+  - `node_modules` del worktree es un enlace al checkout principal: no correr `prisma generate` ni `npm install` aquí.
+  - zsh no separa `$VAR` en listas: en scripts usar arrays de bash. macOS no tiene `timeout`.
+
 ---
 
 ## 2026-10-29 — Claude Code (Sonnet 5.5) — Cierre de la Junta central (rama `feat/cierre-central`, sin push)

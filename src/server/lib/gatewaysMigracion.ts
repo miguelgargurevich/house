@@ -6,8 +6,8 @@ import { PROVEEDOR_GATEWAY, etiquetaInterna } from './gateways';
 
 export const DASHBOARDIA = {
   nombre: 'Dashboard IA',
-  dominio: 'api.dashboardia.gargurevich.dev',
-  base_url: 'https://api.dashboardia.gargurevich.dev/v1',
+  dominio: 'api-dashboardia.gargurevich.dev',
+  base_url: 'https://api-dashboardia.gargurevich.dev/v1',
   modelo: 'nvidia/nemotron-3.5-super-vl-120b-a12b', // el gateway no publica qwen3-vl-flash en /models
   prioridad: 2, // la que tenía en el catálogo: respaldo de visión justo después de Gemini
 } as const;

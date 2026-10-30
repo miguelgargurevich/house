@@ -129,7 +129,7 @@ describe('acceso: sólo el superadmin', () => {
 
 describe('lista de dominios permitidos (en la base, auditada)', () => {
   it('agrega, normaliza, rechaza duplicados y basura, y quita; todo auditado', async () => {
-    const r = await dominio('  API.Dashboardia.Gargurevich.DEV ');
+    const r = await dominio('  API-Dashboardia.Gargurevich.DEV ');
     assert.equal(r.status, 201);
     assert.equal(r.body.dominio, DOMINIO_DASHBOARDIA);
     assert.equal((await dominio(DOMINIO_DASHBOARDIA)).status, 409);
@@ -364,7 +364,7 @@ describe('la barrera de FONDO es la red: se resuelve en CADA llamada', () => {
   it('un gateway cuya URL guardada ya no cumple (alterada en la base) falla cerrado', async () => {
     const { gateway } = await gatewayConClave();
     const e = await eslabonDeGateway();
-    for (const url of ['http://api.dashboardia.gargurevich.dev/v1', 'https://127.0.0.1/v1', 'https://api.dashboardia.gargurevich.dev:8443/v1', 'https://evil.example/v1']) {
+    for (const url of ['http://api-dashboardia.gargurevich.dev/v1', 'https://127.0.0.1/v1', 'https://api-dashboardia.gargurevich.dev:8443/v1', 'https://evil.example/v1']) {
       await prisma.gatewayIA.update({ where: { id: gateway.id }, data: { base_url: url } });
       llamadas = [];
       assert.equal((await consultaMinima(e, 'm')).tipo, 'fallo', url);
