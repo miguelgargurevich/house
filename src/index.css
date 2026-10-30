@@ -103,4 +103,9 @@
   #zona-imprimible thead { display: table-header-group; }
   #zona-imprimible tfoot { display: table-footer-group; }
   @page { size: A4 portrait; margin: 16mm; }
+  /* Consolidado del block: una hoja A4 HORIZONTAL con márgenes estrechos (la tabla tiene una columna por concepto). Al ser una página con nombre, en
+     «Imprimir recibos del block» el recibo sale en vertical y su consolidado, en la página siguiente, en horizontal; un cambio de nombre fuerza el salto. */
+  @page consolidado { size: A4 landscape; margin: 8mm; }
+  #zona-imprimible .hoja-consolidado { page: consolidado; }
+  #zona-imprimible .hoja-consolidado:not(:first-child), #zona-imprimible .hoja-recibo:not(:first-child) { break-before: page; }
 }

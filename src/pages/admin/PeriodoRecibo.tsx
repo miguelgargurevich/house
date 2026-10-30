@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeftIcon, MegaphoneIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, MegaphoneIcon, PrinterIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
 import { Button, Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, Toolbar, dinero, fechaCorta, tituloRecibo } from '../../ui';
 import { AguaRecibo } from './_parts/agua/AguaRecibo';
+import { ConsolidadoBlock } from './_parts/consolidado/ConsolidadoBlock';
+import { ImprimirRecibosBlock } from './_parts/consolidado/ImprimirRecibosBlock';
 import { AvisarVecinosModal } from './_parts/recibos/AvisarVecinosModal';
 import { BloquesPeriodo } from './_parts/mantenimientos/BloquesPeriodo';
 import type { BlockResumen } from './_parts/mantenimientos/BloquesPeriodo';
@@ -46,10 +48,11 @@ export default function PeriodoRecibo() {
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState('');
   const [block, setBlock] = useState('');
-  const [vista, setVista] = useState<'departamentos' | 'agua'>('departamentos');
+  const [vista, setVista] = useState<'departamentos' | 'consolidado' | 'agua'>('departamentos');
   const [viendo, setViendo] = useState<Mantenimiento | null>(null);
   const [recargar, setRecargar] = useState(0);
   const [avisando, setAvisando] = useState(false);
+  const [imprimiendo, setImprimiendo] = useState(false);
   const qFinal = useDebounced(q.trim());
 
   const p = periodoDb.data;
@@ -59,6 +62,8 @@ export default function PeriodoRecibo() {
   const filtrando = qFinal !== '' || estado !== '' || block !== '';
   const t = p?.totales;
   const pct = t && Number(t.monto) > 0 ? Math.round((Number(t.cobrado) / Number(t.monto)) * 1000) / 10 : 0;
+  // Un recibo que cobra a varios blocks (viejo, o sin torre) pide elegir UNO para el consolidado y los recibos del block.
+  const blocksElegibles = agrupado ? (bloques.data?.blocks ?? []).filter(b => b.estructura_id != null).map(b => ({ id: b.estructura_id as number, nombre: b.nombre })) : undefined;
   const morosos = bloques.data?.blocks.reduce((s, b) => s + b.morosos, 0);
 
   if (!Number.isInteger(reciboId) || reciboId <= 0) return <Card><ErrorState message="Periodo no válido" /></Card>;
@@ -73,7 +78,7 @@ export default function PeriodoRecibo() {
           <PageHeader
             title={titulo}
             description={p ? `${p.complejo?.nombre ?? ''} · emitido el ${fechaCorta(p.fecha_emision)} · vence el ${fechaCorta(p.fecha_vencimiento)}` : undefined}
-            actions={p ? <><StatusBadge estado={p.estado} /><Button variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} onClick={() => setAvisando(true)}>Avisar a los vecinos</Button></> : undefined}
+            actions={p ? <><StatusBadge estado={p.estado} /><Button variant="secondary" icon={<PrinterIcon className="h-4 w-4" />} onClick={() => setImprimiendo(true)}>Imprimir recibos del block</Button><Button variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} onClick={() => setAvisando(true)}>Avisar a los vecinos</Button></> : undefined}
           />
           <StatStrip
             stats={[
@@ -87,8 +92,12 @@ export default function PeriodoRecibo() {
       )}
 
       <div className="mb-4">
-        <Tabs value={vista} onChange={setVista} items={[{ id: 'departamentos', label: 'Departamentos' }, { id: 'agua', label: 'Agua y datos del recibo' }]} idBase="periodo-recibo" label="Secciones del periodo" />
+        <Tabs value={vista} onChange={setVista} items={[{ id: 'departamentos', label: 'Departamentos' }, { id: 'consolidado', label: 'Consolidado del block' }, { id: 'agua', label: 'Agua y datos del recibo' }]} idBase="periodo-recibo" label="Secciones del periodo" />
       </div>
+
+      <TabPanel idBase="periodo-recibo" id="consolidado" value={vista}>
+        <ConsolidadoBlock reciboId={reciboId} bloques={blocksElegibles} />
+      </TabPanel>
 
       <TabPanel idBase="periodo-recibo" id="agua" value={vista}>
         <AguaRecibo reciboId={reciboId} onCambio={() => void periodoDb.reload()} />
@@ -132,6 +141,7 @@ export default function PeriodoRecibo() {
       </TabPanel>
 
       {avisando && <AvisarVecinosModal reciboId={reciboId} titulo={titulo} onClose={() => setAvisando(false)} />}
+      {imprimiendo && <ImprimirRecibosBlock reciboId={reciboId} titulo={titulo} bloques={blocksElegibles} onClose={() => setImprimiendo(false)} />}
 
       {viendo && (
         <MantenimientoAdminModal
