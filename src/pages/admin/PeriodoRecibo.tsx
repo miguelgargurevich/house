@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, MegaphoneIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
-import { Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, Toolbar, dinero, fechaCorta, tituloRecibo } from '../../ui';
+import { Button, Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, Toolbar, dinero, fechaCorta, tituloRecibo } from '../../ui';
 import { AguaRecibo } from './_parts/agua/AguaRecibo';
+import { AvisarVecinosModal } from './_parts/recibos/AvisarVecinosModal';
 import { BloquesPeriodo } from './_parts/mantenimientos/BloquesPeriodo';
 import type { BlockResumen } from './_parts/mantenimientos/BloquesPeriodo';
 import { MantenimientoAdminModal } from './_parts/mantenimientos/MantenimientoAdminModal';
@@ -48,9 +49,11 @@ export default function PeriodoRecibo() {
   const [vista, setVista] = useState<'departamentos' | 'agua'>('departamentos');
   const [viendo, setViendo] = useState<Mantenimiento | null>(null);
   const [recargar, setRecargar] = useState(0);
+  const [avisando, setAvisando] = useState(false);
   const qFinal = useDebounced(q.trim());
 
   const p = periodoDb.data;
+  const titulo = p ? tituloRecibo(p.mes, p.anio, p.estructura ? p.estructura.nombre ?? `Torre ${p.estructura.id}` : null) : 'Periodo';
   const deTorre = Boolean(p?.estructura);
   const agrupado = !deTorre && (bloques.data?.agrupado ?? false);
   const filtrando = qFinal !== '' || estado !== '' || block !== '';
@@ -68,9 +71,9 @@ export default function PeriodoRecibo() {
       ) : (
         <>
           <PageHeader
-            title={p ? tituloRecibo(p.mes, p.anio, p.estructura ? p.estructura.nombre ?? `Torre ${p.estructura.id}` : null) : 'Periodo'}
+            title={titulo}
             description={p ? `${p.complejo?.nombre ?? ''} · emitido el ${fechaCorta(p.fecha_emision)} · vence el ${fechaCorta(p.fecha_vencimiento)}` : undefined}
-            actions={p ? <StatusBadge estado={p.estado} /> : undefined}
+            actions={p ? <><StatusBadge estado={p.estado} /><Button variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} onClick={() => setAvisando(true)}>Avisar a los vecinos</Button></> : undefined}
           />
           <StatStrip
             stats={[
@@ -127,6 +130,8 @@ export default function PeriodoRecibo() {
         </Card>
       )}
       </TabPanel>
+
+      {avisando && <AvisarVecinosModal reciboId={reciboId} titulo={titulo} onClose={() => setAvisando(false)} />}
 
       {viendo && (
         <MantenimientoAdminModal

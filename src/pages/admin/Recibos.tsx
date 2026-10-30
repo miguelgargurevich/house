@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusIcon, ReceiptPercentIcon, PaperClipIcon } from '@heroicons/react/24/outline';
+import { MegaphoneIcon, PlusIcon, ReceiptPercentIcon, PaperClipIcon } from '@heroicons/react/24/outline';
 import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList } from '../../api';
 import { Button, Card, DataTable, PageHeader, SearchBox, StatusBadge, Toolbar, fechaCorta, periodo } from '../../ui';
@@ -9,7 +9,8 @@ import { EmitirReciboModal } from './_parts/cobranza/EmitirReciboModal';
 import { SubirExcelModal } from './_parts/cobranza/SubirExcelModal';
 import { ProgresoCobro } from './_parts/cobranza/ProgresoCobro';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
-import type { ReciboFila } from './_parts/cobranza/comun';
+import { etiquetaRecibo, type ReciboFila } from './_parts/cobranza/comun';
+import { AvisarVecinosModal } from './_parts/recibos/AvisarVecinosModal';
 
 interface Props {
   /** Condominio fijo (ficha del condominio): sólo sus recibos y sin filtro de condominio. */
@@ -24,6 +25,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
   const [torre, setTorre] = useTorreElegida();
   const [emitiendo, setEmitiendo] = useState(false);
   const [subiendoExcel, setSubiendoExcel] = useState(false);
+  const [avisando, setAvisando] = useState<ReciboFila | null>(null);
   const navigate = useNavigate();
   const abrir = (r: ReciboFila) => navigate(`/admin/recibos/${r.id}`);
   const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: String(complejoId ?? complejo) || undefined, estructura_id: torre || undefined } });
@@ -42,6 +44,12 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
     { key: 'vencimiento', header: 'Vence', hideBelow: 'sm', cell: r => fechaCorta(r.fecha_vencimiento) },
     { key: 'avance', header: 'Cobrado', hideBelow: 'sm', cell: r => (r.totales ? <ProgresoCobro cobrado={r.totales.cobrado} total={r.totales.monto} moneda={r.moneda} /> : '—') },
     { key: 'estado', header: 'Estado', cell: r => <StatusBadge estado={r.estado} /> },
+    // El botón no abre el periodo: se detiene el clic de la fila.
+    { key: 'avisar', header: 'Avisos', cell: r => (
+      <Button size="sm" variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} onClick={e => { e.stopPropagation(); setAvisando(r); }}>
+        Avisar<span className="sr-only"> a los vecinos de {periodo(r.mes, r.anio)}</span>
+      </Button>
+    ) },
   ];
 
   return (
@@ -82,6 +90,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
 
       {emitiendo && <EmitirReciboModal onClose={() => setEmitiendo(false)} onSaved={() => void list.reload()} />}
       {subiendoExcel && <SubirExcelModal onClose={() => setSubiendoExcel(false)} onSaved={() => void list.reload()} />}
+      {avisando && <AvisarVecinosModal reciboId={avisando.id} titulo={etiquetaRecibo(avisando)} onClose={() => setAvisando(null)} />}
     </>
   );
 }
