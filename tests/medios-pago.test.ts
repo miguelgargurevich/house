@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
 import { cabecerasDeSesion, esperar, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
+import { pagarCargo } from './helpers/pagoResidente';
 import { hoyLima } from '../src/server/lib/fechas';
 
 let base: string;
@@ -466,7 +467,7 @@ describe('junta: pagos por validar de su ámbito', () => {
     const recibo = await prisma.recibo.create({ data: { empresa_id: d.empresaA.id, complejo_id: d.complejoA.id, mes: 1 + (n % 12), anio: 2025, fecha_emision: new Date(hoy - 60 * DIA), fecha_vencimiento: new Date(hoy - 30 * DIA), estado: 'emitido' } });
     const rc = await prisma.reciboConcepto.create({ data: { recibo_id: recibo.id, concepto_id: d.conceptoA.id, monto: 100, orden: 1 } });
     const cargo = await prisma.reciboConceptoUnidad.create({ data: { recibo_concepto_id: rc.id, unidad_id: unidadId, monto: 100, estado_pago: 'pendiente' } });
-    const r = await llama(propietarioToken, 'POST', `/api/me/cargos/${cargo.id}/pagos`, { metodo_pago: 'yape', referencia: 'OP-FALSA' });
+    const r = await pagarCargo(base, propietarioToken, cargo.id, { metodo_pago: 'yape', referencia: 'OP-FALSA' });
     assert.equal(r.status, 201, r.texto);
     return { pagoId: r.body.id, cargoId: cargo.id };
   }

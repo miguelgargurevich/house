@@ -11,7 +11,7 @@ import {
 import { avisarResultado } from '../src/server/services/validacionPago';
 import { esperarEvaluaciones } from '../src/server/services/evaluacion';
 import { guardar as guardarClaveLlavero, llaveroDeps } from '../src/server/services/llavero';
-import { pagarComoResidente } from './helpers/pagoResidente';
+import { pagarComoResidente, pagarCargo } from './helpers/pagoResidente';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
 const DIA = 86_400_000;
@@ -501,7 +501,7 @@ describe('comprobante y evaluación de la IA van contra el TOTAL del grupo', () 
 describe('compatibilidad: pagos sueltos por cargo', () => {
   it('el endpoint por cargo sigue funcionando y el pago suelto se ve como antes (sin grupo)', async () => {
     const m = await mantenimiento(d.unidadA1);
-    const r = await llamar(base, 'POST', `/api/me/cargos/${m.cargos[0].id}/pagos`, T.prop1, { metodo_pago: 'yape' });
+    const r = await pagarCargo(base, T.prop1, m.cargos[0].id, { metodo_pago: 'yape' });
     assert.equal(r.status, 201);
     const pago = await prisma.pago.findUniqueOrThrow({ where: { id: r.body.id } });
     assert.equal(pago.grupo, null);
@@ -528,7 +528,7 @@ describe('compatibilidad: pagos sueltos por cargo', () => {
     const m = await mantenimiento(d.unidadA1, { mes: 11 });
     const suelto = await mantenimiento(d.unidadA1, { mes: 12 });
     await pagarMant(T.prop1, m);
-    const rs = await llamar(base, 'POST', `/api/me/cargos/${suelto.cargos[0].id}/pagos`, T.prop1, { metodo_pago: 'plin' });
+    const rs = await pagarCargo(base, T.prop1, suelto.cargos[0].id, { metodo_pago: 'plin' });
     const lista = await llamar(base, 'GET', '/api/pagos?pageSize=100&estado_validacion=por_validar', T.adminA);
     assert.equal(lista.status, 200);
     const filas = lista.body.items.filter((p: any) => p.recibo?.id === m.reciboId || p.recibo?.id === suelto.reciboId); // eslint-disable-line @typescript-eslint/no-explicit-any

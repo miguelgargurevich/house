@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
 import { cabecerasDeSesion, darCortesia, esperar, iniciar, llamar, login, PASSWORD, prisma, vaciarBase } from './helpers/app';
+import { pagarCargo } from './helpers/pagoResidente';
 import { hoyLima } from '../src/server/lib/fechas';
 import { llaveroDeps } from '../src/server/services/llavero';
 
@@ -105,10 +106,9 @@ async function subir(actor: Actor, pagoId: number, bytes: Buffer, nombre: string
 
 /** El residente registra el pago por transferencia de su cargo y adjunta el comprobante. */
 async function pagarConComprobante(actor: Actor, cargoId: number, bytes: Buffer, referencia: string): Promise<number> {
-  const pago = await ok(llamar(base, 'POST', `/api/me/cargos/${cargoId}/pagos`, T[actor], { metodo_pago: 'transferencia', referencia }), 201);
+  // Pago y comprobante van en un solo pedido (el voucher es obligatorio): un archivo, un registro de subida.
+  const pago = await ok(pagarCargo(base, T[actor], cargoId, { metodo_pago: 'transferencia', referencia }, { bytes, tipo: 'image/jpeg', nombre: `${referencia}.jpg` }), 201);
   assert.equal(pago.estado_validacion, 'por_validar');
-  const sub = await subir(actor, pago.id, bytes, `${referencia}.jpg`);
-  assert.equal(sub.status, 201, JSON.stringify(sub.body));
   return pago.id;
 }
 
@@ -278,7 +278,7 @@ describe('flujo del dinero de un condominio', () => {
     ];
     for (const [actor, ruta] of ajeno) assert.equal((await get(actor, ruta)).status, 404, `${actor} → ${ruta}`);
     // No pueden pagar el cargo de otro ni colgarle un archivo a su pago.
-    assert.equal((await llamar(base, 'POST', `/api/me/cargos/${ids.cargoB}/pagos`, T.rosa, { metodo_pago: 'yape' })).status, 404);
+    assert.equal((await pagarCargo(base, T.rosa, ids.cargoB, { metodo_pago: 'yape' })).status, 404);
     assert.equal((await subir('rosa', ids.pagoJorge2, FOTO_ROSA, 'x.jpg')).status, 404);
     // Y las listas sólo traen lo propio.
     const codigos = async (actor: Actor) => (await ok(get(actor, '/api/me/cargos'))).items.map((c: { unidad: { codigo: string } }) => c.unidad.codigo);

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import { cabecerasDeSesion, esperar, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { pagarCargo, pagoSinVoucher } from './helpers/pagoResidente';
 import { hoyLima } from '../src/server/lib/fechas';
 import { detectarTipo, dispositionInline, sanearNombre } from '../src/server/services/comprobantes';
 
@@ -74,7 +75,14 @@ async function cargoNuevo(propietarioId: number, monto = 100, vencido = true, in
 
 /** El residente registra el pago de un cargo y devuelve su id. */
 async function pagar(token: string, cargoId: number): Promise<number> {
-  const r = await llamar(base, 'POST', `/api/me/cargos/${cargoId}/pagos`, token, { metodo_pago: 'yape', referencia: 'OP-FALSA-1' });
+  const r = await pagarCargo(base, token, cargoId, { metodo_pago: 'yape', referencia: 'OP-FALSA-1' });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  return r.body.id;
+}
+
+/** Un pago por validar SIN voucher (de los que ya hay en la base): hoy la API del residente exige el voucher. */
+async function pagarSinVoucher(token: string, cargoId: number): Promise<number> {
+  const r = await pagoSinVoucher(base, token, cargoId, { metodo_pago: 'yape', referencia: 'OP-FALSA-1' });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   return r.body.id;
 }
@@ -232,7 +240,7 @@ describe('acceso por rol y por empresa', () => {
   it('un admin sin empresa no opera (403) y un pago sin comprobante responde 404', async () => {
     assert.equal((await bajar(T.huerfano, pagoId)).status, 403);
     const { cargo } = await cargoNuevo(d.propietario1.id);
-    const sinArchivo = await pagar(T.prop1, cargo.id);
+    const sinArchivo = await pagarSinVoucher(T.prop1, cargo.id);
     assert.equal((await bajar(T.adminA, sinArchivo)).status, 404);
   });
 
@@ -463,7 +471,7 @@ describe('auditoría de comprobantes', () => {
   it('registra subir, ver, validar y rechazar con quién y qué pago, y NUNCA el contenido', async () => {
     const marca = 'CONTENIDO-SECRETO-DEL-VOUCHER';
     const { cargo } = await cargoNuevo(d.propietario1.id);
-    const id = await pagar(T.prop1, cargo.id);
+    const id = await pagarSinVoucher(T.prop1, cargo.id);
     const bytes = PDF(marca);
     assert.equal((await subir(T.prop1, id, bytes, 'application/pdf', 'voucher.pdf')).status, 201);
     assert.equal((await bajar(T.adminA, id)).status, 200);
@@ -491,7 +499,7 @@ describe('auditoría de comprobantes', () => {
 
   it('las subidas rechazadas (415/422) y las lecturas ajenas (404) no dejan rastro de éxito', async () => {
     const { cargo } = await cargoNuevo(d.propietario1.id);
-    const id = await pagar(T.prop1, cargo.id);
+    const id = await pagarSinVoucher(T.prop1, cargo.id);
     await subir(T.prop1, id, Buffer.from('no soy png'), 'image/png');
     await bajar(T.adminB, id);
     await new Promise((r) => setTimeout(r, 150));

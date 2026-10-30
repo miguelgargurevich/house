@@ -1,7 +1,8 @@
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { cabecerasDeSesion, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { cabecerasDeSesion, iniciar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { pagarCargo } from './helpers/pagoResidente';
 import { cambiarAdministradora } from '../src/server/lib/contratos';
 
 const JPG = (marca: string) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from(marca)]);
@@ -22,7 +23,7 @@ before(async () => {
   ({ base, cerrar } = await iniciar({ rateLimits: { api: 100_000, login: 100_000 } }));
   T = { adminA: await login(base, 'admin.a@test.pe'), adminB: await login(base, 'admin.b@test.pe'), prop1: await login(base, 'prop1@test.pe') };
   // El vecino de A paga y sube su comprobante; después el condominio pasa a la administradora B (la A sólo lo consulta).
-  const pago = await llamar(base, 'POST', `/api/me/cargos/${d.cargoVencidoA1.id}/pagos`, T.prop1, { metodo_pago: 'transferencia', referencia: 'OP-1' });
+  const pago = await pagarCargo(base, T.prop1, d.cargoVencidoA1.id, { metodo_pago: 'transferencia', referencia: 'OP-1' });
   assert.equal(pago.status, 201, pago.texto);
   pagoId = pago.body.id;
   assert.equal(await subir(T.prop1, pagoId, JPG('original')), 201);

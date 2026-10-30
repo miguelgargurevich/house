@@ -117,6 +117,10 @@ comprobantesRouter.patch('/:id/validacion', requireRole('admin', 'propietario'),
   const pago = res.locals.pago as PagoCargado;
   if (u.rol === 'propietario' && pago.usuario_id === u.id) throw forbidden('No puedes validar tu propio pago: pídeselo a la administración u otro miembro de la junta');
   const v = parseBody(validacionSchema, req);
+  // Sin voucher no se da por bueno un pago: quien valida lo comprueba contra el archivo. Rechazar sí se puede. Un pago ya revisado cae en el 409 de `cerrarPago`.
+  if (v.estado === 'validado' && pago.estado_validacion === 'por_validar' && !(await prisma.archivoComprobante.findUnique({ where: { pago_id: pago.id }, select: { id: true } }))) {
+    throw conflict('Este pago no tiene voucher: pídele al vecino que lo suba o recházalo');
+  }
   await cerrarPago({ pagoId: pago.id, cargoId: pago.recibo_concepto_unidad_id, fechaPago: pago.fecha_pago, estado: v.estado, motivo: v.estado === 'rechazado' ? v.motivo : undefined, validadorId: u.id });
   await avisarResultado(pago.id, v.estado, v.estado === 'rechazado' ? v.motivo : null);
   res.locals.accion = v.estado === 'validado' ? 'validar' : 'rechazar';

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
 import { cabecerasDeSesion, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
+import { pagoSinVoucher } from './helpers/pagoResidente';
 import { hoyLima } from '../src/server/lib/fechas';
 import { esperarEvaluaciones } from '../src/server/services/evaluacion';
 import { llaveroDeps } from '../src/server/services/llavero';
@@ -86,7 +87,7 @@ async function pagoDelAdmin(cargoId: number, monto: number): Promise<number> {
 
 /** El residente registra el pago de su cargo: nace POR VALIDAR. */
 async function pagoDelResidente(cargoId: number): Promise<number> {
-  const r = await llamar(base, 'POST', `/api/me/cargos/${cargoId}/pagos`, T.prop1, { metodo_pago: 'yape', referencia: `OP-AJ-${++contador}` });
+  const r = await pagoSinVoucher(base, T.prop1, cargoId, { metodo_pago: 'yape', referencia: `OP-AJ-${++contador}` });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   return r.body.id;
 }

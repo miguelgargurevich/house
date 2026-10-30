@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { cabecerasDeSesion, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { pagoSinVoucher } from './helpers/pagoResidente';
 import { limpiarTodo } from '../src/server/lib/cooldown';
 import { hoyLima } from '../src/server/lib/fechas';
 import { PROVEEDORES_IA, proveedorPorId } from '../src/server/lib/proveedoresIA';
@@ -73,7 +74,7 @@ async function subir(token: string, pagoId: number, bytes: Buffer) {
 /** Cargo + pago del residente + comprobante subido. NO espera a la IA. */
 async function pagoConComprobante(mes = 1) {
   const cargo = await cargoNuevo(d.propietario1.id, mes);
-  const r = await llamar(base, 'POST', `/api/me/cargos/${cargo.id}/pagos`, T.prop1, { metodo_pago: 'yape' });
+  const r = await pagoSinVoucher(base, T.prop1, cargo.id, { metodo_pago: 'yape' });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   const pagoId = r.body.id as number;
   assert.equal(await subir(T.prop1, pagoId, PNG()), 201);

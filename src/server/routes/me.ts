@@ -197,17 +197,29 @@ export function meRouter(limitePassword: RequestHandler) {
     res.send(historialXlsx(h, q.unidad_id));
   });
 
-  router.post('/cargos/:id/pagos', residente, async (req, res) => {
+  const pagoCargo = z.object({
+    metodo_pago: z.enum(METODOS_PAGO, { error: `metodo_pago debe ser: ${METODOS_PAGO.join(', ')}` }),
+    referencia: texto(120).nullish(),
+    observaciones: texto(500).nullish(),
+  });
+  /** El cargo se ubica ANTES de recibir el archivo: uno ajeno recibe 404 sin que se lea el cuerpo. */
+  const ubicarCargoPropio = async (req: Parameters<typeof currentUser>[0]) => {
+    const cargo = await prisma.reciboConceptoUnidad.findFirst({ where: { id: parseId(req), unidad: unidadesPropias(currentUser(req)) }, select: { id: true } });
+    if (!cargo) throw notFound('Cargo');
+    return cargo;
+  };
+
+  /**
+   * Pago suelto de un cargo: igual que el del mantenimiento, `multipart/form-data` con los campos y el voucher OBLIGATORIO en `voucher`
+   * (sin voucher, o con uno que no sirve, no se crea nada: quien valida lo comprueba contra ese archivo). Pago y comprobante van en la misma transacción.
+   */
+  router.post('/cargos/:id/pagos', residente, recibirVoucher('cargoPropio', ubicarCargoPropio), async (req, res) => {
     const u = currentUser(req);
     const id = parseId(req);
-    const body = parseBody(
-      z.object({
-        metodo_pago: z.enum(METODOS_PAGO, { error: `metodo_pago debe ser: ${METODOS_PAGO.join(', ')}` }),
-        referencia: texto(120).nullish(),
-        observaciones: texto(500).nullish(),
-      }),
-      req,
-    );
+    if (!ubicado(res, 'cargoPropio')) await ubicarCargoPropio(req);
+    const body = req.is('multipart/form-data') ? parse(pagoCargo, camposDeFormulario(req.body)) : parseBody(pagoCargo, req);
+    if (!req.file) throw invalid('Adjunta la foto o el PDF de tu voucher', { voucher: 'Obligatorio' });
+    const voucher = voucherVerificado(req.file, u.id);
     const pago = await prisma.$transaction(async (tx) => {
       const cargo = await tx.reciboConceptoUnidad.findFirst({ where: { id, unidad: unidadesPropias(u) } });
       if (!cargo) throw notFound('Cargo');
@@ -218,13 +230,21 @@ export function meRouter(limitePassword: RequestHandler) {
       });
       if (cerrado.count === 0) throw conflict(cargo.estado_pago === 'en_revision' ? 'Este cargo ya tiene un pago en revisión' : 'Este cargo ya fue pagado');
       // El administrador valida el pago; hasta entonces no cuenta como cobrado.
-      return tx.pago.create({
+      const creado = await tx.pago.create({
         data: { recibo_concepto_unidad_id: id, monto: cargo.monto, usuario_id: u.id, metodo_pago: body.metodo_pago, referencia: body.referencia, observaciones: body.observaciones, estado_validacion: 'por_validar' },
       });
+      const { subidoPorId, ...archivo } = voucher;
+      await tx.archivoComprobante.create({ data: { pago_id: creado.id, ...archivo, subido_por_id: subidoPorId }, select: { id: true } });
+      return creado;
     });
     const cargo = await prisma.reciboConceptoUnidad.findUniqueOrThrow({ where: { id }, include: includeCargo });
     res.locals.entidad = 'pago';
     res.locals.entidadId = pago.id;
+    res.locals.auditDetalle = { cargo_id: id, con_voucher: true };
+    // Mismo registro que al subir un comprobante (sólo metadatos), y la IA y el correo a la junta corren en segundo plano: no frenan la respuesta ni, si fallan, el pago.
+    await registrarAuditoria({ usuario_id: u.id, accion: 'subir_comprobante', entidad: 'pago', entidad_id: pago.id, detalle: { nombre: voucher.nombre, tipo_mime: voucher.tipo_mime, tamano: voucher.tamano, sha256: voucher.sha256 }, ip: ipDe(req) });
+    await iniciarEvaluacion(pago.id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
+    avisarVoucherEnSegundoPlano(pago.id);
     res.status(201).json({ ...pago, cargo: formatearCargo(cargo) });
   });
 

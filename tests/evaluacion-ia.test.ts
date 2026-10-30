@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
 import { cabecerasDeSesion, esperar, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
+import { pagoSinVoucher } from './helpers/pagoResidente';
 import { claveCooldown, estaEnfriando, limpiarTodo } from '../src/server/lib/cooldown';
 import { hoyLima } from '../src/server/lib/fechas';
 import { limpiarTexto, parsearLectura, PROMPT_SISTEMA, type Lectura } from '../src/server/lib/lecturaComprobante';
@@ -63,7 +64,7 @@ async function cargoNuevo(propietarioId: number, monto = 100, inquilinoId?: numb
 }
 
 const pagar = async (token: string, cargoId: number) => {
-  const r = await llamar(base, 'POST', `/api/me/cargos/${cargoId}/pagos`, token, { metodo_pago: 'yape' });
+  const r = await pagoSinVoucher(base, token, cargoId, { metodo_pago: 'yape' });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   return r.body.id as number;
 };

@@ -244,12 +244,3 @@ describe('alcance: la unidad se comprueba ANTES de recibir el archivo', () => {
     await sinRastro(m);
   });
 });
-
-describe('el pago por cargo (/api/me/cargos/:id/pagos) queda como estaba', () => {
-  it('JSON sin voucher sigue entrando como pago por validar', async () => {
-    const m = await mantenimiento(d.unidadA1);
-    const r = await llamar(base, 'POST', `/api/me/cargos/${m.cargos[0]!.id}/pagos`, T.prop1, { metodo_pago: 'yape', referencia: 'OP-9' });
-    assert.equal(r.status, 201, JSON.stringify(r.body));
-    assert.equal((await archivosDe(m)).length, 0);
-  });
-});

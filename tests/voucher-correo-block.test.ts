@@ -3,8 +3,8 @@
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
-import { cabecerasDeSesion, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
-import { pagarComoResidente, pngUnico, voucherPng } from './helpers/pagoResidente';
+import { cabecerasDeSesion, iniciar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { pagarComoResidente, pagoSinVoucher, pngUnico, voucherPng } from './helpers/pagoResidente';
 import { hoyLima } from '../src/server/lib/fechas';
 import { enviarCorreo } from '../src/server/services/avisos/canales';
 import { esperarAvisosVoucher, voucherBlockDeps } from '../src/server/services/avisos/voucherBlock';
@@ -235,14 +235,14 @@ describe('si Resend falla, el pago no se entera', () => {
 
 describe('«Adjuntar / Reemplazar comprobante» de un pago del vecino', () => {
   /** Un pago suelto (por cargo) del vecino, sin comprobante: la forma de tener uno al que adjuntar. */
-  async function pagoSinVoucher() {
-    const r = await llamar(base, 'POST', `/api/me/cargos/${d.cargoFuturoA1.id}/pagos`, T.prop1, { metodo_pago: 'plin', referencia: 'PL-9' });
+  async function pagoDelVecino() {
+    const r = await pagoSinVoucher(base, T.prop1, d.cargoFuturoA1.id, { metodo_pago: 'plin', referencia: 'PL-9' });
     assert.equal(r.status, 201, r.texto);
     return r.body.id as number;
   }
 
   it('adjuntar manda el voucher; reemplazar manda el NUEVO; el mismo archivo otra vez no se repite', async () => {
-    const pagoId = await pagoSinVoucher();
+    const pagoId = await pagoDelVecino();
     assert.equal(correos.length, 0, 'sin voucher no hay nada que mandar');
     const uno = pngUnico();
     assert.equal(await subir(T.prop1, pagoId, uno, 'uno.png'), 201);

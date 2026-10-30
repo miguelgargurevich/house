@@ -4,6 +4,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { cabecerasDeSesion, darCortesia, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { pagarCargo } from './helpers/pagoResidente';
 import { chatOk, instalarIA } from './helpers/ia';
 import { hoyLima } from '../src/server/lib/fechas';
 import { procesarCola } from '../src/server/services/avisos/cola';
@@ -57,7 +58,7 @@ async function cargoNuevo() {
 /** Pago del residente con comprobante subido (sin esperar a la IA). */
 async function pagoConVoucher() {
   const { cargo } = await cargoNuevo();
-  const p = await llamar(base, 'POST', `/api/me/cargos/${cargo.id}/pagos`, T.prop1, { metodo_pago: 'yape' });
+  const p = await pagarCargo(base, T.prop1, cargo.id, { metodo_pago: 'yape' });
   assert.equal(p.status, 201, p.texto);
   const r = await fetch(`${base}/api/pagos/${p.body.id}/comprobante`, { method: 'POST', headers: { 'content-type': 'image/png', ...cabecerasDeSesion(T.prop1) }, body: new Uint8Array(PNG()) });
   assert.equal(r.status, 201);

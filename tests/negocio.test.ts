@@ -2,6 +2,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { esperar, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { pagarCargo } from './helpers/pagoResidente';
 
 let base: string;
 let cerrar: () => Promise<void>;
@@ -60,7 +61,7 @@ describe('residentes: /api/me/*', () => {
     assert.equal((await llamar(base, 'GET', `/api/me/cargos/${d.cargoB1.id}`, T.prop1)).status, 404);
     assert.equal((await llamar(base, 'GET', `/api/me/cargos/${d.cargoVencidoA1.id}`, T.prop1)).status, 200);
     assert.equal((await llamar(base, 'GET', `/api/me/cargos/${d.cargoA2.id}`, T.inq1)).status, 404);
-    assert.equal((await llamar(base, 'POST', `/api/me/cargos/${d.cargoA2.id}/pagos`, T.prop1, { metodo_pago: 'yape' })).status, 404);
+    assert.equal((await pagarCargo(base, T.prop1, d.cargoA2.id, { metodo_pago: 'yape' })).status, 404);
     assert.equal((await prisma.reciboConceptoUnidad.findUnique({ where: { id: d.cargoA2.id } }))!.estado_pago, 'pendiente');
   });
 
@@ -76,7 +77,7 @@ describe('residentes: /api/me/*', () => {
 
   it('pagar un cargo: registra el Pago por el monto, deja el cargo en revisión (sin fecha de pago), y no se puede pagar dos veces', async () => {
     const id = d.cargoFuturoA1.id;
-    const r = await llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, T.prop1, { metodo_pago: 'yape', referencia: 'OP-123', observaciones: 'desde la app' });
+    const r = await pagarCargo(base, T.prop1, id, { metodo_pago: 'yape', referencia: 'OP-123', observaciones: 'desde la app' });
     assert.equal(r.status, 201);
     assert.equal(r.body.metodo_pago, 'yape');
     assert.equal(r.body.referencia, 'OP-123');
@@ -90,9 +91,9 @@ describe('residentes: /api/me/*', () => {
     assert.equal(cargo!.pagos[0].usuario_id, d.propietario1.id);
     assert.equal(String(cargo!.pagos[0].monto), '200');
 
-    const otra = await llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, T.prop1, { metodo_pago: 'efectivo' });
+    const otra = await pagarCargo(base, T.prop1, id, { metodo_pago: 'efectivo' });
     assert.equal(otra.status, 409);
-    const inquilino = await llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, T.inq1, { metodo_pago: 'plin' });
+    const inquilino = await pagarCargo(base, T.inq1, id, { metodo_pago: 'plin' });
     assert.equal(inquilino.status, 409);
     assert.equal(await prisma.pago.count({ where: { recibo_concepto_unidad_id: id } }), 1, 'sigue habiendo un solo pago');
 
@@ -105,7 +106,7 @@ describe('residentes: /api/me/*', () => {
 
   it('dos pagos simultáneos del mismo cargo: exactamente uno entra (cierre atómico)', async () => {
     const id = d.cargoVencidoA1.id;
-    const resultados = await Promise.all([T.prop1, T.inq1, T.prop1].map((t) => llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, t, { metodo_pago: 'transferencia' })));
+    const resultados = await Promise.all([T.prop1, T.inq1, T.prop1].map((t) => pagarCargo(base, t, id, { metodo_pago: 'transferencia' })));
     const estados = resultados.map((r) => r.status).sort();
     assert.deepEqual(estados, [201, 409, 409]);
     assert.equal(await prisma.pago.count({ where: { recibo_concepto_unidad_id: id } }), 1);
@@ -113,9 +114,9 @@ describe('residentes: /api/me/*', () => {
 
   it('valida el método de pago (422) y no acepta montos del cliente', async () => {
     const id = d.cargoA2.id;
-    assert.equal((await llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, T.prop2, { metodo_pago: 'bitcoin' })).status, 422);
-    assert.equal((await llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, T.prop2, {})).status, 422);
-    const ok = await llamar(base, 'POST', `/api/me/cargos/${id}/pagos`, T.prop2, { metodo_pago: 'tarjeta', monto: 0.01 });
+    assert.equal((await pagarCargo(base, T.prop2, id, { metodo_pago: 'bitcoin' })).status, 422);
+    assert.equal((await pagarCargo(base, T.prop2, id, {})).status, 422);
+    const ok = await pagarCargo(base, T.prop2, id, { metodo_pago: 'tarjeta', monto: 0.01 });
     assert.equal(ok.status, 201);
     assert.equal(ok.body.monto, '150', 'el monto sale del cargo, no del cuerpo');
   });
