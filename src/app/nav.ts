@@ -6,7 +6,7 @@ import {
   SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
-import type { Rol, Usuario } from '../auth/AuthContext';
+import type { CargoJunta, Rol, Usuario } from '../auth/AuthContext';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 export interface NavItem { to: string; label: string; icon: Icon }
@@ -152,3 +152,17 @@ export const ROL_LABEL: Record<Rol, string> = {
   limpieza: 'Limpieza',
   jardineria: 'Jardinería',
 };
+
+/** Cargos en masculino genérico, como los muestra la pantalla de Juntas. */
+const CARGO_LABEL: Record<CargoJunta, string> = { presidente: 'Presidente', tesorero: 'Tesorero', secretario: 'Secretario', vocal: 'Vocal' };
+
+/**
+ * Rótulo del rol con el cargo en la junta: «Propietario · Tesorero del Block 1» o «Propietario · Presidente de la Junta central».
+ * Sin cargo, el rol de siempre. Si el block no tiene nombre, el rótulo no lo menciona («Propietario · Tesorero»).
+ */
+export function rotuloRol(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'estructura_id' | 'estructura_nombre'>): string {
+  const rol = ROL_LABEL[user.rol];
+  if (!user.cargo_junta) return rol;
+  const lugar = user.estructura_id == null ? ' de la Junta central' : user.estructura_nombre ? ` del ${user.estructura_nombre}` : '';
+  return `${rol} · ${CARGO_LABEL[user.cargo_junta]}${lugar}`;
+}

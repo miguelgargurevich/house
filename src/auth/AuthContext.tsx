@@ -23,6 +23,8 @@ export interface Usuario {
   cargo_junta?: CargoJunta | null;
   /** Torre a la que pertenece el cargo; null = todo su condominio. */
   estructura_id?: number | null;
+  /** Nombre de esa torre, sólo para el rótulo («Tesorero del Block 1»); null si no tiene nombre o es la Junta central. */
+  estructura_nombre?: string | null;
 }
 
 interface AuthState {

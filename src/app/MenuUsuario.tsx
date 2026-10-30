@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { ArrowRightStartOnRectangleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import type { Usuario } from '../auth/AuthContext';
 import { Avatar, cx } from '../ui';
-import { PERFIL, ROL_LABEL } from './nav';
+import { PERFIL, rotuloRol } from './nav';
 
 const item = 'flex w-full items-center gap-3 rounded px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:bg-surface2 hover:text-ink focus-visible:bg-surface2 focus-visible:text-ink focus-visible:outline-none';
 
@@ -11,8 +11,9 @@ const item = 'flex w-full items-center gap-3 rounded px-3 py-2 text-sm font-medi
  * El usuario arriba a la derecha: avatar (con nombre y rol desde `sm`) que abre «Mi perfil» y «Cerrar sesión».
  * Se cierra al hacer clic fuera, con Escape (devuelve el foco al botón) o al cambiar de página. `onSalir` pide la confirmación.
  */
-export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 'email' | 'rol'>; onSalir: () => void }) {
+export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 'email' | 'rol' | 'cargo_junta' | 'estructura_id' | 'estructura_nombre'>; onSalir: () => void }) {
   const [abierto, setAbierto] = useState(false);
+  const rotulo = rotuloRol(user);
   const raiz = useRef<HTMLDivElement>(null);
   const boton = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -52,7 +53,7 @@ export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 
         <Avatar nombre={user.nombre} size="sm" />
         <span className="hidden min-w-0 max-w-[12rem] text-left leading-tight sm:block">
           <span className="block truncate text-sm font-medium">{user.nombre}</span>
-          <span className="block truncate text-xs text-muted">{ROL_LABEL[user.rol]}</span>
+          <span className="block truncate text-xs text-muted" title={rotulo}>{rotulo}</span>
         </span>
         <ChevronDownIcon className={cx('hidden h-4 w-4 text-muted transition-transform duration-150 sm:block', abierto && 'rotate-180')} aria-hidden="true" />
       </button>
@@ -68,7 +69,7 @@ export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 
           <div className="border-b border-line px-3 pb-2.5 pt-1.5">
             <p className="truncate text-sm font-medium">{user.nombre}</p>
             <p className="truncate text-xs text-muted">{user.email}</p>
-            <p className="truncate text-xs text-muted">{ROL_LABEL[user.rol]}</p>
+            <p className="truncate text-xs text-muted">{rotulo}</p>
           </div>
           <div className="pt-1.5">
             <NavLink to={PERFIL.to} role="menuitem" className={item}>

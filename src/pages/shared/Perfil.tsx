@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { api, errorText } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
-import { ROL_LABEL } from '../../app/nav';
+import { rotuloRol } from '../../app/nav';
 import SesionesActivas from './SesionesActivas';
 import { AvisosPerfil } from './_parts/AvisosPerfil';
 import { CanalesPerfil } from './_parts/CanalesPerfil';
@@ -58,7 +58,7 @@ export default function Perfil() {
                 items={[
                   { label: 'Nombre', value: user.nombre },
                   { label: 'Correo', value: <span className="break-all">{user.email}</span> },
-                  { label: 'Rol', value: ROL_LABEL[user.rol] },
+                  { label: 'Rol', value: rotuloRol(user) },
                   { label: 'Teléfono', value: user.telefono && <span className="num">{user.telefono}</span> },
                 ]}
               />

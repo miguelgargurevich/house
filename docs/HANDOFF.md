@@ -9,6 +9,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Informe «¿Qué flujos de House están probados y cuáles faltan?» (My Workspace, recurso `cmvv0axgo0000f5xdrnpi038x`, `doc_html`) y checklist Excel (`cmvv0bokp0001f5xdpcxbooa8`): 66 flujos por rol (administradora 23, junta del block 8, Junta central 6, propietario 12, inquilino 3, personal 3, superadmin 5, transversales 6). 42 con pruebas automáticas, 6 además probados de punta a punta en el navegador y 18 que hay que probar a mano (correo/WhatsApp reales, vouchers reales para OCR/IA, cámara, papel, app de escritorio, modo oscuro).
 - Suite completa en `70630dc`: 2.718/2.718. Recorrido de pantallas (`scripts/pruebas/recorrido-pantallas.mjs`): 124 pantallas con 13 cuentas, 0 observaciones (sólo el 401 esperado de `/api/auth/me` en las públicas).
 - Próximos pasos: Miguel prueba a mano los 18 flujos con el checklist (en producción, con una cuenta de prueba suya); decidir si se corre `npm run medir:ocr` contra producción.
+## 2026-10-30 — Claude Code (Haiku 5.5, delegado) — Cargo en la junta en el menú y en «Mi perfil» (rama `feat/cargo-en-menu`, sin push)
+
+- Pedido de Miguel: si el propietario tiene cargo en la junta, que salga en el menú de arriba a la derecha («Propietario · Tesorero del Block 1»).
+- `src/app/nav.ts`: `rotuloRol(user)` (una sola función). La usan el botón y el desplegable de `MenuUsuario.tsx` y «Rol» de `Perfil.tsx`. Sin cargo, el rol de siempre; sin nombre de block, no se menciona («Propietario · Tesorero»); `estructura_id` null = «de la Junta central».
+- API: `estructura_nombre` (sólo el nombre) en `POST /api/auth/login` y `GET /api/auth/me` (`src/server/routes/auth.ts`). Documentado en `docs/API-CONTRATO.md`. `AuthContext.tsx` lo tipa en `Usuario`.
+- Tests: `tests/cargo-menu.test.ts` (5, `rotuloRol`) y `tests/cargo-menu-api.test.ts` (8, login y `/me`). Mutaciones de cada rama y de cada campo del backend: 6 de 6 en rojo; archivos restaurados con `cp` + `cmp`.
+- Navegador (copia de desarrollo del worktree: backend :4100, Vite :5174; los de :4000/:5173 sirven el checkout principal y no se tocaron): Patricia (tesorera Block 1), Gustavo (tesorero central) y Javier (sin cargo) salen bien en botón, desplegable y «Mi perfil». A 375 px: sin scroll horizontal, el desplegable cabe.
+- Gotchas: `node_modules` del worktree es un enlace al checkout principal: no correr `npm install` ni `prisma generate` desde aquí (`prisma db push --skip-generate` sí). En el desplegable de 256 px los cargos de Junta central largos se cortan con `truncate`; el texto completo queda en el `title` del botón.
+- Suite completa (`TEST_DATABASE_URL=…/house_test_cargo_menu npm test`): 2731 pruebas, 2730 pasan, **1 falla**: `tests/seguridad.test.ts:30` fija con `deepEqual` la forma exacta del `user` del login y ahora trae `estructura_nombre: null`. Falta agregar esa línea a la aserción (fuera del alcance del brief). Por eso NO hay commits todavía.
+- Próximos pasos: agregar `estructura_nombre: null` en `tests/seguridad.test.ts:30`, reejecutar la suite en verde, commitear, revisar el rótulo con Miguel y, con su OK, integrar y subir (push lo hace la sesión principal).
 
 ## 2026-10-30 — Claude Code (Opus 5.5) — Voucher ampliable, pie fijo de los modales y «Ver mi voucher»
 

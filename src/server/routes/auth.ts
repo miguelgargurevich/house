@@ -63,7 +63,7 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
     const { email, password } = parseBody(loginSchema, req);
     // Bloqueo por cuenta (cualquier IP): responde igual que el límite por IP+correo, exista o no el correo.
     if (cuenta.bloqueada(email)) throw new HttpError(429, MENSAJE_LOGIN_BLOQUEADO);
-    const usuario = await prisma.usuario.findUnique({ where: { email }, omit: { password_hash: false } });
+    const usuario = await prisma.usuario.findUnique({ where: { email }, omit: { password_hash: false }, include: { estructura: { select: { nombre: true } } } });
     const valido = await bcrypt.compare(password, usuario?.password_hash ?? HASH_FALSO);
     if (!usuario || !usuario.password_hash || !valido || !usuario.rol) {
       cuenta.fallo(email);
@@ -73,7 +73,7 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
     // Cuenta del registro público sin confirmar: la contraseña era correcta (no se delata nada), pero no entra hasta abrir el enlace del correo.
     if (!usuario.correo_verificado) throw new HttpError(403, 'Confirma tu correo para entrar: te enviamos un enlace al registrarte.', undefined, 'CORREO_NO_VERIFICADO');
     cuenta.exito(email);
-    const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id };
+    const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id, estructura_nombre: usuario.estructura?.nombre ?? null };
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));
     ponerCookie(res, token);
     await registrarAuditoria({ usuario_id: user.id, accion: 'login', entidad: 'usuario', entidad_id: user.id, ip: ipDe(req) });
@@ -156,8 +156,10 @@ export const sesionRouter = Router();
  */
 sesionRouter.get('/me', async (req, res) => {
   const u = currentUser(req);
-  const usuario = await prisma.usuario.findUnique({ where: { id: u.id }, select: { ...usuarioPublico, telefono: true, aviso_email: true, aviso_whatsapp: true, empresa: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } } } });
-  res.json({ ...usuario, csrf: req.sesion?.csrf });
+  const cargado = await prisma.usuario.findUnique({ where: { id: u.id }, select: { ...usuarioPublico, telefono: true, aviso_email: true, aviso_whatsapp: true, empresa: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } }, estructura: { select: { nombre: true } } } });
+  // Del block sólo sale el nombre (para el rótulo del cargo), no el objeto de la torre.
+  const { estructura, ...usuario } = cargado ?? { estructura: null };
+  res.json({ ...usuario, estructura_nombre: estructura?.nombre ?? null, csrf: req.sesion?.csrf });
 });
 
 /**

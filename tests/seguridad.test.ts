@@ -27,7 +27,7 @@ describe('login', () => {
     const r = await llamar(base, 'POST', '/api/auth/login', null, { email: 'admin.a@test.pe', password: PASSWORD });
     assert.equal(r.status, 200);
     assert.deepEqual(Object.keys(r.body).sort(), ['csrf', 'user']);
-    assert.deepEqual(r.body.user, { id: d.adminA.id, nombre: 'Admin A', email: 'admin.a@test.pe', rol: 'admin', empresa_id: d.empresaA.id, complejo_id: null, cargo_junta: null, estructura_id: null });
+    assert.deepEqual(r.body.user, { id: d.adminA.id, nombre: 'Admin A', email: 'admin.a@test.pe', rol: 'admin', empresa_id: d.empresaA.id, complejo_id: null, cargo_junta: null, estructura_id: null, estructura_nombre: null });
     assert.ok(r.body.csrf.length >= 40);
     assert.match(r.headers.get('set-cookie') ?? '', /^house_sesion=[\w-]{43};.*HttpOnly/i);
     assert.ok(!/password|hash|\$2[aby]\$|token/i.test(r.texto));
