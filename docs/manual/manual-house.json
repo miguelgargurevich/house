@@ -61,7 +61,7 @@
    "titulo": "Crea tu cuenta",
    "etiqueta": "Sin cuenta",
    "parrafos": [
-    "Si administras un condominio y todavía no usas House, creas tu cuenta tú misma en [house.gargurevich.dev/registro](https://house.gargurevich.dev/registro). No tiene tarjeta: empiezas en el plan Gratis y pasas a Pro cuando lo necesites."
+    "Si administras un condominio y todavía no usas House, la creas tú en [house.gargurevich.dev/registro](https://house.gargurevich.dev/registro). No tiene tarjeta: empiezas en el plan Gratis y pasas a Pro cuando lo necesites."
    ],
    "numerada": [
     "Escribe tu nombre, tu correo, tu celular y una contraseña. La regla de la contraseña se va marcando mientras escribes.",
@@ -169,7 +169,7 @@
    ],
    "aviso": {
     "tipo": "aviso",
-    "texto": "Un pago **no se valida sin el check del tesorero del block**: él confirma que el dinero llegó a la cuenta. Si el block no tiene tesorero, o el pago lo registró el propio tesorero, basta con la revisión de la IA o de la administración."
+    "texto": "Un pago **no se valida sin el check del tesorero del block**: él confirma que el dinero llegó a la cuenta. Si el block no tiene tesorero, o el pago lo registró el propio tesorero, basta con la lectura automática del voucher (OCR o IA) o con la revisión de la administración."
    },
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-pago-detalle.jpg"
   },
@@ -186,7 +186,7 @@
    ],
    "aviso": {
     "tipo": "nota",
-    "texto": "La IA nunca rechaza un pago por su cuenta: lo dudoso queda para que una persona lo revise. Viene apagada; la activas o apagas con el interruptor."
+    "texto": "La validación automática nunca rechaza un pago por su cuenta: lo dudoso queda para que una persona lo revise. Viene apagada; la activas o apagas con el interruptor."
    },
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-medios.jpg"
   },

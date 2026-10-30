@@ -12,5 +12,6 @@ vuelve a publicar pasando su contenido a `web_crear` (crea un recurso NUEVO: ano
   comprobantes del seed son PNG de ~300 bytes, no se lee nada.
 - Versiones publicadas:
   - 30-oct-2026, recurso `cmvuwrn5z000yzt7dybudh1r1` (reemplazado).
-  - 30-oct-2026 (2), recurso `cmvv9nbz10004f5xdk0dejkks` (vigente): 36 secciones; agrega «Crea tu cuenta» y «Planes y precios»,
+  - 30-oct-2026 (2), recurso `cmvv9urmi000bf5xdkb42hpwt` (vigente): 36 secciones; agrega «Crea tu cuenta» y «Planes y precios»,
     «Notificaciones», la validación con OCR primero, «Ver mi voucher» y «Ampliar», y el cargo de la junta en el menú.
+- Nota: hubo una publicación intermedia el mismo día (`cmvv9nbz10004f5xdk0dejkks`) con «tú misma» y dos textos que nombraban sólo a la IA; la vigente es `cmvv9urmi000bf5xdkb42hpwt`.
