@@ -13,7 +13,8 @@
     "start": "tsx src/server.ts",
     "test": "node --import tsx --test --test-concurrency=1 \"tests/*.test.ts\"",
     "seed:libertadores": "tsx prisma/seed-libertadores.ts",
-    "junta-central:local": "tsx scripts/junta-central-local.ts"
+    "junta-central:local": "tsx scripts/junta-central-local.ts",
+    "medir:ocr": "tsx scripts/medir-ocr-vs-ia.ts"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",
