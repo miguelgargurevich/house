@@ -20,6 +20,8 @@ import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimie
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { agregarMora, esConceptoMora, informeDeMora, montoDeMoraAplicable, type InformeMora, type UnidadConMora } from '../services/mora';
 import { quitarMulta, vistaDeMora, type TorreAEvaluar } from '../services/revisionMora';
+import { armarConsolidado, armarImpresion } from '../services/consolidado';
+import { libroConsolidado, nombreArchivoConsolidado } from '../lib/excelConsolidado';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
@@ -369,6 +371,40 @@ router.get('/:id/blocks', requireRole('admin'), async (req, res) => {
   await reciboAccesible(req, id);
   const blocks = await resumenPorBlock(id, hoyEn(await zonaDeRecibo(id)));
   res.json({ agrupado: agruparPorBlock(blocks), moneda: await monedaDeRecibo(id), blocks });
+});
+
+// ---------- Consolidado del block (administración, o la junta de ese block) ----------
+// La tabla con todos los departamentos del block que la administradora imprime en la cara de atrás de cada recibo. Trae nombres, cargos y deudas de
+// TODOS los vecinos: sólo la administración y la junta de ese block (un residente es 403; otro tenant, o la junta de otro block, 404).
+const SIN_CACHE = { 'Cache-Control': 'private, no-store' };
+/** `?estructura_id=` acota a UN block (un recibo viejo que mezcla blocks, o el sin torre de un condominio con varios): va JUNTO al alcance, nunca en su lugar. */
+const consolidadoQuery = z.object({ estructura_id: idSchema.optional() });
+function alcanceConsolidado(req: Parameters<typeof currentUser>[0]) {
+  const { estructura_id } = parse(consolidadoQuery, req.query);
+  const unidades = unidadesDe(currentUser(req));
+  return { reciboWhere: recibosDe(currentUser(req)), unidadWhere: estructura_id !== undefined ? { AND: [unidades, { estructura_id }] } : unidades };
+}
+
+router.get('/:id/consolidado', adminOJunta, async (req, res) => {
+  const id = parseId(req);
+  res.set(SIN_CACHE).json(await armarConsolidado(id, alcanceConsolidado(req)));
+});
+
+/** El mismo consolidado como Excel, con el formato del que se sube (se puede volver a subir). */
+router.get('/:id/consolidado/excel', adminOJunta, async (req, res) => {
+  const id = parseId(req);
+  const c = await armarConsolidado(id, alcanceConsolidado(req));
+  await registrarAuditoria({ usuario_id: currentUser(req).id, accion: 'descargar_consolidado', entidad: 'recibo', entidad_id: id, detalle: { mes: c.mes, anio: c.anio, block: c.block, departamentos: c.filas.length }, ip: ipDe(req) });
+  res.set({ ...SIN_CACHE, 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${nombreArchivoConsolidado(c)}"` });
+  res.send(libroConsolidado(c));
+});
+
+/** Para «Imprimir recibos del block»: el recibo de cada departamento (sin su historial de pagos) y el consolidado que va a continuación. */
+router.get('/:id/consolidado/impresion', adminOJunta, async (req, res) => {
+  const id = parseId(req);
+  const r = await armarImpresion(id, alcanceConsolidado(req));
+  await registrarAuditoria({ usuario_id: currentUser(req).id, accion: 'imprimir_recibos_block', entidad: 'recibo', entidad_id: id, detalle: { mes: r.consolidado.mes, anio: r.consolidado.anio, block: r.consolidado.block, recibos: r.recibos.length }, ip: ipDe(req) });
+  res.set(SIN_CACHE).json(r);
 });
 
 // ---------- Avisar a los vecinos que ya está el recibo (administración, o la junta de su block) ----------

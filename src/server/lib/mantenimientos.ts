@@ -290,6 +290,24 @@ export async function deudaAcumulada(unidadId: number, anio: number, mes: number
   return dec(filas[0]?.deuda).toFixed(2);
 }
 
+/**
+ * `deudaAcumulada` de VARIAS unidades en una sola consulta (el consolidado del block la pide para todos los departamentos). Misma regla y mismas
+ * cuentas (`cteCargos`): una unidad sin periodos anteriores con saldo sale en «0.00»; un test compara ambas funciones.
+ */
+export async function deudasAcumuladas(unidadIds: number[], anio: number, mes: number): Promise<Map<number, string>> {
+  const mapa = new Map<number, string>(unidadIds.map((id) => [id, '0.00']));
+  if (unidadIds.length === 0) return mapa;
+  const filas = await prisma.$queryRaw<{ unidad_id: number; deuda: Prisma.Decimal | null }[]>`
+    WITH ${cteCargos({ unidadIds })}
+    SELECT m.unidad_id, COALESCE(SUM(m.saldo), 0) AS deuda
+    FROM mant m
+    JOIN "Recibo" r ON r.id = m.recibo_id
+    WHERE r.anio * 12 + r.mes < ${anio * 12 + mes}
+    GROUP BY m.unidad_id`;
+  for (const f of filas) mapa.set(f.unidad_id, dec(f.deuda).toFixed(2));
+  return mapa;
+}
+
 /** ¿Se agrupa por block? Sólo si el recibo toca más de un block (un solo block, o casas sin estructura, va directo a la lista). */
 export const agruparPorBlock = (filas: FilaBlock[]) => filas.length > 1;
 
