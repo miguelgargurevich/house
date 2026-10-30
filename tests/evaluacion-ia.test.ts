@@ -822,7 +822,7 @@ describe('validación automática', () => {
     assert.equal(c.estado_pago, 'pagado');
     const aud = await prisma.auditoria.findFirstOrThrow({ where: { accion: 'validar', entidad: 'pago', entidad_id: pagoId } });
     assert.equal(aud.usuario_id, null);
-    assert.deepEqual(aud.detalle, { por: 'ia', veredicto: 'coincide', confianza: 1 });
+    assert.deepEqual(aud.detalle, { por: 'ia', veredicto: 'coincide', confianza: 1, sin_conformidad: 'sin_tesorero' }, 'el condominio de la prueba no tiene tesorero: basta la IA');
     const avisos = await prisma.notificacion.findMany({ where: { tipo: 'pago_validado', ref_entidad: 'pago', ref_id: pagoId } });
     assert.deepEqual(avisos.map((a) => a.usuario_id).sort(), [d.propietario1.id, d.inquilino1.id].sort());
     const vista = await llamar(base, 'GET', '/api/me/pagos?pageSize=100', T.prop1); // la fecha del pago es la del voucher (sólo el día): ordena por detrás de los pagos con hora

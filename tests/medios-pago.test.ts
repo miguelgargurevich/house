@@ -492,6 +492,8 @@ describe('junta: pagos por validar de su ámbito', () => {
       assert.equal((await llama(T[quien], 'PATCH', `/api/pagos/${enBlock2.pagoId}/validacion`, { estado: 'rechazado', motivo: 'No coincide el monto' })).status, 403, quien);
     }
     assert.equal((await prisma.pago.findUniqueOrThrow({ where: { id: enBlock1.pagoId } })).estado_validacion, 'por_validar');
+    assert.equal((await llama(T.adminA, 'PATCH', `/api/pagos/${enBlock1.pagoId}/validacion`, { estado: 'validado' })).status, 409, 'sin el check del tesorero la administradora tampoco valida');
+    assert.equal((await llama(T.tesor1, 'PUT', `/api/pagos/${enBlock1.pagoId}/conformidad`)).status, 200);
     const ok = await llama(T.adminA, 'PATCH', `/api/pagos/${enBlock1.pagoId}/validacion`, { estado: 'validado' });
     assert.equal(ok.status, 200, ok.texto);
     assert.equal((await prisma.reciboConceptoUnidad.findUniqueOrThrow({ where: { id: enBlock1.cargoId } })).estado_pago, 'pagado');
@@ -528,6 +530,7 @@ describe('junta: pagos por validar de su ámbito', () => {
     const p = await pagoPorValidar(T.presiPropio, unidadPropia.id);
     assert.equal((await llama(T.presiPropio, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' })).status, 403);
     assert.equal((await llama(T.presi1, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' })).status, 403); // ni otro miembro de la junta
+    assert.equal((await llama(T.tesor1, 'PUT', `/api/pagos/${p.pagoId}/conformidad`)).status, 200); // el pago es del presidente: lo confirma el tesorero
     assert.equal((await llama(T.adminA, 'PATCH', `/api/pagos/${p.pagoId}/validacion`, { estado: 'validado' })).status, 200);
   });
 

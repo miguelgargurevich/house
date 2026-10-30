@@ -5,7 +5,6 @@
  */
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
-import { HttpError } from '../errors';
 import { cooldownDeps, estaEnfriando, parsearRetryAfter, registrarEstado, limpiar } from '../lib/cooldown';
 import { MONEDA_POR_DEFECTO, ZONA_POR_DEFECTO } from '../../lib/paises';
 import { hoyEn } from '../lib/fechas';
@@ -16,13 +15,13 @@ import { contrastar, type MedioParaContraste, MIN_OPERACION } from './contraste'
 import { ajustarPorOcr, lecturaOcrEnMoneda, leerConOcr, type LecturaOcr } from './ocrVoucher';
 import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } from './rotacion';
 import { aplicarFechaDelVoucher, decidirFechaEvaluada, type DecisionFecha } from './fechaVoucher';
-import { avisarResultado, cerrarPago } from './validacionPago';
+import { validarSiCumple } from './validacionAutomatica';
 import { exigirModulo, moduloActivo } from './comercial/modulos';
 
 /** Eslabones que se prueban como máximo por evaluación (con dos claves de Gemini caídas todavía llega al gateway de respaldo). */
 export const MAX_INTENTOS_IA = 4;
 /** Confianza mínima (calculada por código) para validar sola. */
-export const UMBRAL_AUTOVALIDACION = 0.9;
+export { UMBRAL_AUTOVALIDACION } from './validacionAutomatica';
 export const MARCA_REINTENTO = 'Reintento programado';
 /** Una evaluación «pendiente» más vieja que esto se da por abandonada (el proceso murió) y una persona puede retomarla a mano. */
 const ABANDONO_MS = 3 * 60_000;
@@ -440,12 +439,10 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
   const decision: DecisionFecha = origen.ocr
     ? { tipo: 'no_leida', motivo: 'La fecha se leyó con OCR (sin IA) y no se aplica sola' }
     : decidirFechaEvaluada(lectura, { hoy: evaluacionDeps.ahora(), zona, emision: recibo?.fecha_emision ?? hoyEn(zona, pago.created_at), veredicto: c.veredicto, periodo: recibo ? { mes: recibo.mes, anio: recibo.anio } : null });
-  const fecha = await aplicarFechaDelVoucher(pagoId, decision);
-  const duplicado = mismoArchivo != null || mismaOperacion != null;
-  // Una fecha leída pero no creíble (futura o muy antigua) deja el pago para que una persona lo revise: la IA no lo valida sola. El OCR nunca valida.
-  if (!origen.ocr && c.veredicto === 'coincide' && c.confianza >= UMBRAL_AUTOVALIDACION && !duplicado && decision.tipo !== 'invalida' && unidad?.complejo?.validacion_automatica_ia === true) {
-    await validarSola(pagoId, pago.recibo_concepto_unidad_id, fecha?.fecha_pago ?? pago.fecha_pago, sha, c.veredicto, c.confianza);
-  }
+  await aplicarFechaDelVoucher(pagoId, decision);
+  // Validación automática «IA + tesorero»: si el tesorero ya dio su conformidad (o nadie puede darla), se valida ahora; si no, la dispara la conformidad.
+  // Un duplicado ya sale como `no_coincide`, y una fecha leída pero no creíble (futura o muy antigua) deja el pago para una persona. El OCR nunca valida.
+  await validarSiCumple(pagoId, { fechaInvalida: decision.tipo === 'invalida' });
 }
 
 /**
@@ -499,18 +496,6 @@ export async function barrerEvaluaciones(): Promise<ResultadoBarrido> {
     Promise.all(huerfanas.map((h) => rastrear(() => retomarAbandonada(h.pago_id, h.intentos, limite)))),
   ]);
   return { reintentadas: r.filter(Boolean).length, abandonadas: a.filter(Boolean).length };
-}
-
-/** Valida con la misma actualización atómica de la validación manual. Nunca rechaza; si una persona ya lo revisó, no lo pisa. */
-async function validarSola(pagoId: number, cargoId: number | null, fechaPago: Date, sha256: string, veredicto: string, confianza: number): Promise<void> {
-  try {
-    await cerrarPago({ pagoId, cargoId, fechaPago, estado: 'validado', validadorId: null, porIA: true, comprobanteSha256: sha256 });
-  } catch (err) {
-    if (err instanceof HttpError && err.status === 409) return; // ya lo revisó una persona (o cambió el comprobante)
-    throw err;
-  }
-  await registrarAuditoria({ usuario_id: null, accion: 'validar', entidad: 'pago', entidad_id: pagoId, detalle: { por: 'ia', veredicto, confianza } });
-  await avisarResultado(pagoId, 'validado');
 }
 
 /** Auditoría de la evaluación: sólo metadatos; nunca el contenido de la imagen ni el texto del modelo. */

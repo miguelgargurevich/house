@@ -489,7 +489,7 @@ describe('auditoría de comprobantes', () => {
     const rechazo = await fila('rechazar', id);
     assert.deepEqual(rechazo.detalle, { estado: 'rechazado', motivo: 'Falta la fecha' });
     assert.equal(rechazo.usuario_id, d.adminA.id);
-    assert.deepEqual((await fila('validar', idOtro)).detalle, { estado: 'validado' });
+    assert.deepEqual((await fila('validar', idOtro)).detalle, { estado: 'validado', sin_conformidad: 'sin_tesorero' }, 'el condominio de la prueba no tiene tesorero: la administradora valida sola y la auditoría lo anota');
 
     const todas = await prisma.auditoria.findMany({ where: { entidad: 'pago', entidad_id: id } });
     const serializado = JSON.stringify(todas);

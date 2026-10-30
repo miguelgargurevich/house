@@ -1,5 +1,5 @@
-// El voucher es obligatorio para que un pago de residente llegue a «validado»: quien valida (la administradora; la junta ya no valida, el tesorero da la
-// conformidad: ver conformidad-tesorero.test.ts) lo comprueba contra el archivo. Sin voucher: validar → 409 (rechazar sí se puede); el pago suelto del residente exige el voucher igual que el del
+// El voucher es obligatorio para que un pago de residente llegue a «validado»: quien valida (la administradora, con el check del tesorero; la junta ya no valida:
+// ver conformidad-tesorero.test.ts) lo comprueba contra el archivo. Sin voucher: validar → 409 (rechazar sí se puede); el pago suelto del residente exige el voucher igual que el del
 // mantenimiento; lo que registra la administración sin voucher (efectivo) sigue naciendo validado. IA sin claves: nunca hay red.
 import './helpers/env';
 import assert from 'node:assert/strict';
@@ -35,6 +35,8 @@ after(async () => {
 });
 afterEach(async () => { await esperarEvaluaciones(); });
 
+/** El check del tesorero (sin tesorero que cubra el block, la administradora no puede validar: ver conformidad-tesorero.test.ts). */
+const confirmar = async (pagoId: number) => assert.equal((await llamar(base, 'PUT', `/api/pagos/${pagoId}/conformidad`, T.tesor)).status, 200);
 const DIA = 86_400_000;
 let n = 0;
 /** Un cargo nuevo (monto 100, pendiente) en una unidad propia de A-101 (prop1) o A-102 (prop2): cada prueba tiene el suyo. */
@@ -113,6 +115,7 @@ describe('validar un pago con voucher sigue funcionando', () => {
       const cargo = await cargoNuevo();
       const pago = await pagarCargo(base, T.prop1, cargo.id);
       assert.equal(pago.status, 201, pago.texto);
+      await confirmar(pago.body.id);
       const r = await validar(T[quien], pago.body.id);
       assert.equal(r.status, 200, r.texto);
       assert.equal(r.body.estado_validacion, 'validado');
@@ -131,6 +134,7 @@ describe('validar un pago con voucher sigue funcionando', () => {
     assert.equal(r.status, 201, r.texto);
     const grupo = await prisma.pago.findMany({ where: { reciboConceptoUnidad: { unidad_id: d.unidadA2.id, reciboConcepto: { recibo_id: recibo.id } } } });
     assert.equal(grupo.length, 2);
+    await confirmar(grupo.find((p) => !p.grupo_principal)!.id); // el check del tesorero también vive en el principal
     const v = await validar(T.adminA, grupo.find((p) => !p.grupo_principal)!.id); // por el pago NO principal: manda el voucher del grupo
     assert.equal(v.status, 200, v.texto);
     assert.ok((await prisma.pago.findMany({ where: { grupo: grupo[0]!.grupo } })).every((p) => p.estado_validacion === 'validado'));
@@ -143,6 +147,7 @@ describe('validar un pago con voucher sigue funcionando', () => {
     const sub = await fetch(`${base}/api/pagos/${pago.body.id}/comprobante`, { method: 'POST', headers: { 'content-type': 'image/png', ...cabecerasDeSesion(T.adminA) }, body: new Uint8Array(pngUnico()) });
     assert.equal(sub.status, 201);
     assert.equal(await archivos(pago.body.id), 1);
+    await confirmar(pago.body.id);
     assert.equal((await validar(T.adminA, pago.body.id)).status, 200);
     assert.equal((await cargoDb(cargo.id)).estado_pago, 'pagado');
   });

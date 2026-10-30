@@ -14,7 +14,11 @@ export interface Cierre {
   porIA?: boolean;
   /** Si se indica, sólo cierra mientras el comprobante siga siendo ese archivo (la IA evaluó ESE archivo). */
   comprobanteSha256?: string;
+  /** Sólo cierra si el tesorero ya dio su conformidad: la comprobación va en el mismo UPDATE, así que quitarla a la vez no deja pasar el cierre. */
+  exigirConformidad?: boolean;
 }
+
+export const MENSAJE_FALTA_CONFORMIDAD = 'Falta el check del tesorero del block';
 
 /**
  * Cierre atómico: sólo una revisión de un pago por validar logra pasar (409 si ya se revisó). Si el pago es de un mantenimiento
@@ -30,10 +34,19 @@ export async function cerrarPago(c: Cierre): Promise<void> {
       validado_por_ia: c.porIA === true,
     };
     const r = await tx.pago.updateMany({
-      where: { id: c.pagoId, estado_validacion: 'por_validar', ...(c.comprobanteSha256 ? { comprobante: { sha256: c.comprobanteSha256 } } : {}) },
+      where: {
+        id: c.pagoId,
+        estado_validacion: 'por_validar',
+        ...(c.exigirConformidad ? { conformidad_at: { not: null } } : {}),
+        ...(c.comprobanteSha256 ? { comprobante: { sha256: c.comprobanteSha256 } } : {}),
+      },
       data: datos,
     });
-    if (r.count === 0) throw conflict('Este pago ya fue revisado');
+    if (r.count === 0) {
+      // Por validar y sin conformidad: lo que falta es el check, no que alguien ya lo revisara.
+      if (c.exigirConformidad && (await tx.pago.count({ where: { id: c.pagoId, estado_validacion: 'por_validar', conformidad_at: null } })) > 0) throw conflict(MENSAJE_FALTA_CONFORMIDAD);
+      throw conflict('Este pago ya fue revisado');
+    }
     const cargos = new Set<number>(c.cargoId != null ? [c.cargoId] : []);
     const pago = await tx.pago.findUnique({ where: { id: c.pagoId }, select: { grupo: true } });
     if (pago?.grupo) {

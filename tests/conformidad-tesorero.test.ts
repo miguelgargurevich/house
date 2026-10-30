@@ -1,6 +1,6 @@
 // Conformidad del tesorero: «el dinero llegó a la cuenta». La da SÓLO el tesorero de la junta del block del pago (no el presidente, el secretario ni el vocal;
-// otro block → 404), mientras el pago siga por validar; quedan quién y cuándo y la administradora los ve. La administradora valida (con o sin conformidad: el aviso
-// no bloquea) y la junta ya no valida ni rechaza. IA sin claves: nunca hay red.
+// otro block → 404), mientras el pago siga por validar; quedan quién y cuándo y la administradora los ve. La administradora valida sólo CON la conformidad
+// (409 si falta), salvo que nadie pueda darla (el block no tiene tesorero, o el pago es del propio tesorero); la junta no valida ni rechaza. IA sin claves: nunca hay red.
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, afterEach, before, describe, it } from 'node:test';
@@ -283,7 +283,7 @@ describe('lo que ve la administradora', () => {
   });
 });
 
-describe('quién valida: sólo la administración (con o sin conformidad)', () => {
+describe('quién valida: sólo la administración', () => {
   it('la junta ya no valida ni rechaza: presidente y tesorero 403, el pago no cambia', async () => {
     const id = await pagoPorValidar(T.prop1);
     await dar(T.tesor1, id);
@@ -298,17 +298,6 @@ describe('quién valida: sólo la administración (con o sin conformidad)', () =
     assert.equal(await filasDe(id, 'rechazar'), 0);
   });
 
-  it('la administradora valida SIN conformidad (el aviso no bloquea) y el cargo queda pagado', async () => {
-    const id = await pagoPorValidar(T.prop1);
-    assert.equal((await pagoDb(id)).conformidad_at, null);
-    const r = await validar(T.adminA, id);
-    assert.equal(r.status, 200, r.texto);
-    assert.equal(r.body.estado_validacion, 'validado');
-    assert.equal(r.body.conformidad, null);
-    const cargo = await prisma.reciboConceptoUnidad.findFirstOrThrow({ where: { pagos: { some: { id } } } });
-    assert.equal(cargo.estado_pago, 'pagado');
-  });
-
   it('la administradora valida CON conformidad y la respuesta la trae; otra empresa no puede (404) ni la junta rechazar (403)', async () => {
     const id = await pagoPorValidar(T.prop1);
     await dar(T.tesor1, id);
@@ -316,7 +305,119 @@ describe('quién valida: sólo la administración (con o sin conformidad)', () =
     const r = await validar(T.adminA, id);
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.conformidad.por.nombre, 'Tesorero 1');
-    assert.equal((await validar(T.super, await pagoPorValidar(T.prop2, d.unidadA2))).status, 200, 'el superadmin sigue pudiendo');
+    const cargo = await prisma.reciboConceptoUnidad.findFirstOrThrow({ where: { pagos: { some: { id } } } });
+    assert.equal(cargo.estado_pago, 'pagado');
+    const id2 = await pagoPorValidar(T.prop2, d.unidadA2);
+    assert.equal((await validar(T.super, id2)).status, 409, 'el superadmin tampoco se salta el check');
+    await dar(T.tesor2, id2);
+    assert.equal((await validar(T.super, id2)).status, 200, 'con el check, el superadmin sigue pudiendo');
+  });
+});
+
+/** Sin el tesorero que cubre todo el condominio (`tesorTodo`), el block 4 queda sin tesorero. */
+async function sinTesorTodo<R>(fn: () => Promise<R>): Promise<R> {
+  await prisma.usuario.update({ where: { id: ids.tesorTodo }, data: { cargo_junta: 'vocal' } });
+  try { return await fn(); } finally { await prisma.usuario.update({ where: { id: ids.tesorTodo }, data: { cargo_junta: 'tesorero' } }); }
+}
+const unidadBlock4 = () => prisma.unidad.create({ data: { codigo: `B4-V${++n}`, tipo: 'Departamento', complejo_id: d.complejoA.id, empresa_id: d.empresaA.id, estructura_id: e4.id, propietario_id: d.propietario1.id, estado: 'activa' } });
+
+describe('validar exige el check del tesorero (IA + tesorero)', () => {
+  it('sin el check: 409 «Falta el check del tesorero del block»; el pago y el cargo no cambian; con el check, valida', async () => {
+    const id = await pagoPorValidar(T.prop1);
+    const r = await validar(T.adminA, id);
+    assert.equal(r.status, 409, r.texto);
+    assert.equal(r.body.error, 'Falta el check del tesorero del block');
+    const p = await pagoDb(id);
+    assert.equal(p.estado_validacion, 'por_validar');
+    assert.equal(p.validado_por_id, null);
+    assert.equal(await filasDe(id, 'validar'), 0);
+    const cargo = await prisma.reciboConceptoUnidad.findFirstOrThrow({ where: { pagos: { some: { id } } } });
+    assert.equal(cargo.estado_pago, 'en_revision');
+    await dar(T.tesor1, id);
+    const ok = await validar(T.adminA, id);
+    assert.equal(ok.status, 200, ok.texto);
+    assert.equal(ok.body.estado_validacion, 'validado');
+    assert.equal((await pagoDb(id)).validado_por_id, d.adminA.id);
+    const aud = await auditoria(id, 'validar');
+    assert.deepEqual(aud.detalle, { estado: 'validado' }, 'con el check no hay excepción que anotar');
+  });
+
+  it('si el tesorero quita su check, la administradora vuelve a recibir el 409', async () => {
+    const id = await pagoPorValidar(T.prop1);
+    await dar(T.tesor1, id);
+    await quitar(T.tesor1, id);
+    assert.equal((await validar(T.adminA, id)).status, 409);
+    assert.equal((await pagoDb(id)).estado_validacion, 'por_validar');
+  });
+
+  it('rechazar NO exige el check', async () => {
+    const id = await pagoPorValidar(T.prop1);
+    const r = await validar(T.adminA, id, { estado: 'rechazado', motivo: 'No veo el depósito' });
+    assert.equal(r.status, 200, r.texto);
+    assert.equal(r.body.estado_validacion, 'rechazado');
+  });
+
+  it('el block no tiene tesorero: la administradora valida sola, y la auditoría lo anota', async () => {
+    const unidad = await unidadBlock4();
+    await sinTesorTodo(async () => {
+      const id = await pagoPorValidar(T.prop1, unidad);
+      const lectura = await llama(T.adminA, 'GET', `/api/pagos/${id}`);
+      assert.equal(lectura.body.tesorero_registrado, false);
+      assert.equal(lectura.body.conformidad_exencion, 'sin_tesorero');
+      const r = await validar(T.adminA, id);
+      assert.equal(r.status, 200, r.texto);
+      assert.equal(r.body.estado_validacion, 'validado');
+      assert.deepEqual((await auditoria(id, 'validar')).detalle, { estado: 'validado', sin_conformidad: 'sin_tesorero' });
+    });
+  });
+
+  it('el pago lo registró el propio tesorero (único del block): nadie puede darle el check, la administradora valida sola y queda anotado', async () => {
+    const unidadPropia = await prisma.unidad.findFirstOrThrow({ where: { codigo: 'T3-1' } });
+    await sinTesorTodo(async () => {
+      const id = await pagoPorValidar(T.tesorPropio, unidadPropia);
+      assert.equal((await dar(T.tesorPropio, id)).status, 403, 'él no puede');
+      const lectura = await llama(T.adminA, 'GET', `/api/pagos/${id}`);
+      assert.equal(lectura.body.tesorero_registrado, true);
+      assert.equal(lectura.body.conformidad_exencion, 'pago_del_tesorero');
+      const r = await validar(T.adminA, id);
+      assert.equal(r.status, 200, r.texto);
+      assert.deepEqual((await auditoria(id, 'validar')).detalle, { estado: 'validado', sin_conformidad: 'pago_del_tesorero' });
+    });
+  });
+
+  it('el pago del propio tesorero SÍ exige el check si otro tesorero cubre el block (él sí puede darlo)', async () => {
+    const unidadPropia = await prisma.unidad.findFirstOrThrow({ where: { codigo: 'T3-1' } });
+    const id = await pagoPorValidar(T.tesorPropio, unidadPropia); // `tesorTodo` cubre todos los blocks
+    const lectura = await llama(T.adminA, 'GET', `/api/pagos/${id}`);
+    assert.equal(lectura.body.conformidad_exencion, null);
+    assert.equal((await validar(T.adminA, id)).status, 409);
+    assert.equal((await dar(T.tesorTodo, id)).status, 200);
+    assert.equal((await validar(T.adminA, id)).status, 200);
+  });
+
+  it('la lista trae `conformidad_exencion` null cuando el check se exige', async () => {
+    const id = await pagoPorValidar(T.prop1);
+    const lista = await llama(T.adminA, 'GET', '/api/pagos?estado_validacion=por_validar&pageSize=100');
+    assert.equal(lista.body.items.find((p: { id: number }) => p.id === id).conformidad_exencion, null);
+  });
+
+  it('el pago de un mantenimiento (grupo): el check del principal basta para validar todo el grupo; sin él, 409 y nada cambia', async () => {
+    n += 1;
+    const recibo = await prisma.recibo.create({ data: { empresa_id: d.empresaA.id, complejo_id: d.complejoA.id, mes: 4, anio: 1980 + n, fecha_emision: new Date(Date.now() - 40 * DIA), fecha_vencimiento: new Date(Date.now() + 20 * DIA), estado: 'emitido' } });
+    for (const [i, monto] of [30, 70].entries()) {
+      const concepto = await prisma.concepto.create({ data: { nombre: `Concepto V${n}-${i}`, empresa_id: d.empresaA.id, tipo_monto: 'fijo' } });
+      const rc = await prisma.reciboConcepto.create({ data: { recibo_id: recibo.id, concepto_id: concepto.id, monto, orden: i + 1 } });
+      await prisma.reciboConceptoUnidad.create({ data: { recibo_concepto_id: rc.id, unidad_id: d.unidadA1.id, monto, estado_pago: 'pendiente' } });
+    }
+    const pagado = await pagarComoResidente(base, T.prop1, recibo.id, d.unidadA1.id, { metodo_pago: 'yape', referencia: 'OP-GRUPO-V' });
+    assert.equal(pagado.status, 201, pagado.texto);
+    const pagos = await prisma.pago.findMany({ where: { grupo: pagado.body.grupo } });
+    const otro = pagos.find((p) => !p.grupo_principal)!;
+    assert.equal((await validar(T.adminA, otro.id)).status, 409);
+    assert.equal(await prisma.pago.count({ where: { grupo: pagado.body.grupo, estado_validacion: 'por_validar' } }), 2);
+    await dar(T.tesor1, otro.id);
+    assert.equal((await validar(T.adminA, otro.id)).status, 200);
+    assert.equal(await prisma.pago.count({ where: { grupo: pagado.body.grupo, estado_validacion: 'validado' } }), 2);
   });
 });
 

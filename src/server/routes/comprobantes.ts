@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
-import { conTesoreroRegistrado } from '../lib/conformidad';
+import { conTesoreroRegistrado, exencionDelPago } from '../lib/conformidad';
 import { esJunta, esTesorero } from '../lib/junta';
 import { scopePagos, scopePagosEscritura, scopePagosJunta } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
@@ -12,7 +12,8 @@ import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { estadoParaResidente, selectEvaluacion } from '../lib/evaluacionVista';
 import { avisarVoucherEnSegundoPlano } from '../services/avisos/voucherBlock';
 import { iniciarEvaluacion } from '../services/evaluacion';
-import { avisarResultado, cerrarPago } from '../services/validacionPago';
+import { validarSiCumple } from '../services/validacionAutomatica';
+import { avisarResultado, cerrarPago, MENSAJE_FALTA_CONFORMIDAD } from '../services/validacionPago';
 import { conAvisoMulta } from '../services/revisionMora';
 import { dispositionInline, detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
 import { parseBody, parseId, z } from '../validation';
@@ -122,14 +123,23 @@ comprobantesRouter.patch('/:id/validacion', requireRole('admin'), cargarPagoDeLa
   const pago = res.locals.pago as PagoCargado;
   const v = parseBody(validacionSchema, req);
   // Sin voucher no se da por bueno un pago: quien valida lo comprueba contra el archivo. Rechazar sí se puede. Un pago ya revisado cae en el 409 de `cerrarPago`.
-  // La conformidad del tesorero NO se exige: si falta, la pantalla avisa pero la administradora puede validar igual.
-  if (v.estado === 'validado' && pago.estado_validacion === 'por_validar' && !(await prisma.archivoComprobante.findUnique({ where: { pago_id: pago.id }, select: { id: true } }))) {
-    throw conflict('Este pago no tiene voucher: pídele al vecino que lo suba o recházalo');
+  // Validar exige el check del tesorero del block, salvo que nadie pueda darlo (el block no tiene tesorero o el pago lo registró él): ahí valida sola y queda en la auditoría.
+  let sinConformidad: Awaited<ReturnType<typeof exencionDelPago>> = null;
+  if (v.estado === 'validado' && pago.estado_validacion === 'por_validar') {
+    if (!(await prisma.archivoComprobante.findUnique({ where: { pago_id: pago.id }, select: { id: true } }))) {
+      throw conflict('Este pago no tiene voucher: pídele al vecino que lo suba o recházalo');
+    }
+    const conCheck = await prisma.pago.count({ where: { id: pago.id, conformidad_at: { not: null } } }) > 0;
+    sinConformidad = conCheck ? null : await exencionDelPago(pago.id);
+    if (!conCheck && sinConformidad === null) throw conflict(MENSAJE_FALTA_CONFORMIDAD);
   }
-  await cerrarPago({ pagoId: pago.id, cargoId: pago.recibo_concepto_unidad_id, fechaPago: pago.fecha_pago, estado: v.estado, motivo: v.estado === 'rechazado' ? v.motivo : undefined, validadorId: u.id });
+  await cerrarPago({
+    pagoId: pago.id, cargoId: pago.recibo_concepto_unidad_id, fechaPago: pago.fecha_pago, estado: v.estado, motivo: v.estado === 'rechazado' ? v.motivo : undefined, validadorId: u.id,
+    exigirConformidad: v.estado === 'validado' && sinConformidad === null && pago.estado_validacion === 'por_validar',
+  });
   await avisarResultado(pago.id, v.estado, v.estado === 'rechazado' ? v.motivo : null);
   res.locals.accion = v.estado === 'validado' ? 'validar' : 'rechazar';
-  res.locals.auditDetalle = v.estado === 'validado' ? { estado: v.estado } : { estado: v.estado, motivo: v.motivo };
+  res.locals.auditDetalle = v.estado === 'validado' ? { estado: v.estado, ...(sinConformidad ? { sin_conformidad: sinConformidad } : {}) } : { estado: v.estado, motivo: v.motivo };
   const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: pago.id }, include: includePago });
   res.json((await conAvisoMulta([formatearPago(actualizado, 'completa')]))[0]);
 });
@@ -153,7 +163,13 @@ async function cambiarConformidad(req: Parameters<RequestHandler>[0], res: Param
   if (cambio.count === 0 && actual.estado_validacion !== 'por_validar') throw conflict('Este pago ya fue revisado: la conformidad ya no se puede cambiar');
   res.locals.accion = dar ? 'dar_conformidad' : 'quitar_conformidad';
   res.locals.auditDetalle = { conformidad: dar, cambio: cambio.count > 0 };
-  res.json((await conTesoreroRegistrado([formatearPago(actual, 'completa')]))[0]);
+  // Si la IA ya había leído un voucher que coincide, la conformidad es lo que faltaba: el pago se valida solo (si el condominio lo tiene encendido).
+  // Un fallo aquí no deshace la conformidad ya dada: el pago queda por validar y la administradora lo cierra.
+  const validado = dar && actual.estado_validacion === 'por_validar'
+    ? await validarSiCumple(pago.id).catch((err) => { console.error('[conformidad] no se pudo validar solo', err instanceof Error ? err.name : 'error'); return false; })
+    : false;
+  const resultado = validado ? await prisma.pago.findUniqueOrThrow({ where: { id: pago.id }, include: includePago }) : actual;
+  res.json((await conTesoreroRegistrado([formatearPago(resultado, 'completa')]))[0]);
 }
 
 comprobantesRouter.put('/:id/conformidad', requireRole('propietario'), cargarPagoDeLaJunta, (req, res) => cambiarConformidad(req, res, true));
