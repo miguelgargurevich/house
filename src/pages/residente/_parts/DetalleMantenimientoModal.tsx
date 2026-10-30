@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { PrinterIcon } from '@heroicons/react/24/outline';
+import { PhotoIcon, PrinterIcon } from '@heroicons/react/24/outline';
 import { ErrorState, Alert, Button, DefinitionList, Modal, Skeleton, StatusBadge, dinero, fechaCorta } from '../../../ui';
 import { useResource } from '../../../api';
+import { ComprobanteVista } from '../../shared/ComprobanteVista';
 import { ConceptosTabla, HistorialPagos } from '../../shared/mantenimiento/Desglose';
 import { ConsumoAgua } from '../../shared/mantenimiento/ConsumoAgua';
 import { ReciboImprimible } from '../../shared/mantenimiento/ReciboImprimible';
@@ -16,18 +17,28 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
   const [imprimiendo, setImprimiendo] = useState(false);
   const d = mant && data && data.recibo_id === mant.recibo_id && data.unidad_id === mant.unidad_id ? data : null;
   const rechazo = d ? motivoRechazoMant(d.pagos, d.estado) : null;
+  // El voucher que se ve: el que el vecino eligió en la lista de pagos o, con «Ver mi voucher», el del último pago (el de en revisión primero).
+  const [voucherId, setVoucherId] = useState<number | null>(null);
+  const conVoucher = d ? d.pagos.filter(p => p.comprobante) : [];
+  const ultimo = conVoucher.find(p => p.estado_validacion === 'por_validar') ?? conVoucher[0] ?? null;
+  const voucher = d?.pagos.find(p => p.id === voucherId) ?? null;
+  const verVoucher = (id: number) => {
+    setVoucherId(id);
+    requestAnimationFrame(() => document.getElementById('voucher-mant')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+  };
 
   return (
     <>
       <Modal
         open={mant !== null && !imprimiendo}
-        onClose={() => { if (!imprimiendo) onClose(); /* al pasar al recibo, el diálogo se cierra solo: no es salir */ }}
+        onClose={() => { if (!imprimiendo) { setVoucherId(null); onClose(); } /* al pasar al recibo, el diálogo se cierra solo: no es salir */ }}
         size="lg"
         title={mant ? mant.titulo.split(' · ')[0]! : 'Mantenimiento'}
         description={mant ? `Departamento ${mant.unidad.codigo}${mant.unidad.estructura?.nombre ? ` · ${mant.unidad.estructura.nombre}` : ''}` : undefined}
         footer={
           <>
-            <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+            <Button variant="secondary" onClick={() => { setVoucherId(null); onClose(); }}>Cerrar</Button>
+            {ultimo && <Button variant="secondary" icon={<PhotoIcon className="h-4 w-4" />} onClick={() => verVoucher(ultimo.id)}>Ver mi voucher</Button>}
             <Button variant="secondary" icon={<PrinterIcon className="h-4 w-4" />} disabled={!d} onClick={() => setImprimiendo(true)}>Ver / imprimir recibo</Button>
             {d && sePuedePagar(d) && <Button onClick={() => { onClose(); onPagar(d); }}>Pagar mantenimiento</Button>}
           </>
@@ -87,8 +98,14 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
             )}
             <section aria-labelledby="pagos-mant">
               <h3 id="pagos-mant" className="mb-2 text-sm font-semibold">Pagos de este mantenimiento</h3>
-              <HistorialPagos pagos={d.pagos} moneda={d.moneda} />
+              <HistorialPagos pagos={d.pagos} moneda={d.moneda} onVer={p => { if (p.comprobante) verVoucher(p.id); }} />
             </section>
+            {voucher && (
+              <section id="voucher-mant" aria-labelledby="voucher-mant-titulo" className="scroll-mt-4">
+                <h3 id="voucher-mant-titulo" className="mb-2 text-sm font-semibold">Tu voucher del {fechaCorta(voucher.fecha_pago)}</h3>
+                <ComprobanteVista key={voucher.id} pagoId={voucher.id} descripcion={`Voucher de tu pago del ${fechaCorta(voucher.fecha_pago)}`} nombre={voucher.comprobante?.nombre} />
+              </section>
+            )}
           </div>
         )}
       </Modal>

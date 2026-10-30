@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Opus 5.5) — Voucher ampliable, pie fijo de los modales y «Ver mi voucher»
+
+- `src/ui/Modal.tsx`: el diálogo ya no se desplaza entero (tope `100dvh` + `overflow-hidden`; sólo el cuerpo con `min-h-0 flex-1`): en la app de escritorio (WebKit) el pie quedaba a media altura con un hueco debajo. Pie con `flex-wrap`. Además sólo reacciona a SU close: React propaga el close por el árbol y cerrar un modal anidado (foto del contómetro) cerraba los dos.
+- `src/pages/shared/VisorImagen.tsx` (nuevo): visor a pantalla completa con acercar/alejar/ajustar; `ComprobanteVista` lo abre con «Ampliar» (admin, junta y vecino).
+- Detalle del recibo del vecino: botón «Ver mi voucher» (el pago en revisión primero) y tocar un pago de la lista muestra su voucher.
+- Test: `tests/voucher-visor-ui.test.ts` (6). Verificado en navegador a 776 px y 390 px.
+- Gotcha: `house_test` estaba atrasada (faltaba `EmpresaAdministradora.cuenta_banco`): `DATABASE_URL=…/house_test npx prisma db push`. En la suite completa `medios-pago.test.ts` falló 15 veces y solo pasa 47/47: intermitente, por revisar.
+
 ## 2026-10-30 — Claude Code (Opus 5.5) — Videos 2–4 y manual de usuario por roles
 
 - Videos de marketing 2 (administradora), 3 (junta) y 4 (vecino), en escritorio y celular, sobre el seed local (`.claude/videos/`, no se commitean). Guiones al día en `docs/marketing/guiones-videos.md`.

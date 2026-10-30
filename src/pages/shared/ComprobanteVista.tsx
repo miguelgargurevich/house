@@ -1,15 +1,29 @@
-import { DocumentTextIcon } from '@heroicons/react/24/outline';
+import { useState } from 'react';
+import { DocumentTextIcon, MagnifyingGlassPlusIcon } from '@heroicons/react/24/outline';
 import { Alert, Skeleton } from '../../ui';
 import { useComprobante } from './comprobantes';
+import { VisorImagen } from './VisorImagen';
 
-/** Muestra el comprobante de un pago: la imagen en línea, o un enlace «Abrir» si es PDF. */
+/** Muestra el comprobante de un pago: la imagen en línea (con «Ampliar» para leerla a pantalla completa), o un enlace «Abrir» si es PDF. */
 export function ComprobanteVista({ pagoId, descripcion, nombre }: { pagoId: number; descripcion: string; nombre?: string }) {
   const c = useComprobante(pagoId);
+  const [ampliada, setAmpliada] = useState(false);
   if (c.loading) return <Skeleton className="h-48 w-full" />;
   if (c.error) return <Alert tone="warn">{c.error}</Alert>;
   if (!c.data) return null;
   if (c.data.tipo.startsWith('image/')) {
-    return <img src={c.data.url} alt={descripcion} className="max-h-80 w-full rounded border border-line bg-surface2 object-contain" />;
+    return (
+      <>
+        <button type="button" onClick={() => setAmpliada(true)} aria-label={`Ampliar: ${descripcion}`} className="group relative block w-full cursor-zoom-in rounded">
+          <img src={c.data.url} alt={descripcion} className="max-h-80 w-full rounded border border-line bg-surface2 object-contain" />
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded border border-line bg-surface/95 px-2 py-1 text-xs font-medium text-ink shadow-sm group-hover:bg-surface">
+            <MagnifyingGlassPlusIcon className="h-4 w-4" aria-hidden="true" />
+            Ampliar
+          </span>
+        </button>
+        <VisorImagen src={c.data.url} alt={descripcion} open={ampliada} onClose={() => setAmpliada(false)} />
+      </>
+    );
   }
   return (
     <div className="flex items-center justify-between gap-3 rounded border border-line bg-surface2 p-4">

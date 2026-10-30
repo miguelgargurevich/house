@@ -48,23 +48,26 @@ export function Modal({ open, onClose, title, description, children, footer, siz
   return (
     <dialog
       ref={ref}
-      onClose={onClose}
+      // React propaga el close por el árbol: sin el chequeo, cerrar un modal abierto dentro de otro (la foto del contómetro) cerraba los dos.
+      onClose={e => { if (e.target === e.currentTarget) onClose(); }}
       onClick={e => { if (e.target === ref.current) onClose(); }}
       aria-labelledby={`${id}-titulo`}
       aria-describedby={description ? `${id}-desc` : undefined}
-      className={`m-auto w-[calc(100%-2rem)] ${widths[size]} rounded-xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-transparent open:animate-[dialog-in_180ms_cubic-bezier(0.22,1,0.36,1)]`}
+      // El <dialog> nunca se desplaza: sólo el cuerpo. Con `vh` (o sin `overflow-hidden`) en WebKit el diálogo crecía más que la pantalla,
+      // se desplazaba entero y el pie quedaba a media altura con un hueco debajo. `dvh` es la altura visible real.
+      className={`m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-hidden ${widths[size]} rounded-xl border border-line bg-surface p-0 text-ink shadow-pop backdrop:bg-transparent open:animate-[dialog-in_180ms_cubic-bezier(0.22,1,0.36,1)]`}
     >
       {open && (
-        <div className="flex max-h-[85vh] flex-col">
-          <div className="flex items-start justify-between gap-4 px-6 pt-5">
+        <div className="flex max-h-[min(85dvh,calc(100dvh-2rem))] flex-col">
+          <div className="flex shrink-0 items-start justify-between gap-4 px-6 pt-5">
             <div>
               <h2 id={`${id}-titulo`} className="text-lg font-semibold">{title}</h2>
               {description && <p id={`${id}-desc`} className="mt-1 text-sm text-muted">{description}</p>}
             </div>
             <IconButton label="Cerrar" data-modal-cerrar="" onClick={onClose} className="-mr-2 -mt-1"><XMarkIcon className="h-5 w-5" /></IconButton>
           </div>
-          <div data-modal-cuerpo="" className="overflow-y-auto px-6 py-5">{children}</div>
-          {footer && <div data-modal-pie="" className="flex justify-end gap-2 border-t border-line px-6 py-4">{footer}</div>}
+          <div data-modal-cuerpo="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
+          {footer && <div data-modal-pie="" className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-4">{footer}</div>}
         </div>
       )}
     </dialog>
