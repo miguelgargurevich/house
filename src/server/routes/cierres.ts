@@ -1,4 +1,5 @@
 // Cierre del mes de cada block: lo facturado al block, lo cobrado a los vecinos y lo que la junta del block paga (aporte a la Junta central, agua y luz, proveedores).
+// La Junta central tiene su propio cierre (aportes de los blocks, alquiler de estacionamientos y otros ingresos, egresos; Fondo de ahorros de la Junta central).
 // El tesorero del block registra sus pagos con voucher; el tesorero central confirma lo que llegó a la Junta central; la administración lo ve todo. Ver docs/API-CONTRATO.md.
 import { Prisma } from '@prisma/client';
 import { Router, type Request } from 'express';
@@ -6,14 +7,16 @@ import { prisma } from '../db';
 import { conflict, forbidden, invalid, notFound } from '../errors';
 import { hoyEn } from '../lib/fechas';
 import { ambitoJunta } from '../lib/junta';
-import { empresaDe, scopeBlocksCierre, scopeComplejos, scopeEgresos } from '../lib/scope';
+import { empresaDe, scopeBlocksCierre, scopeComplejos, scopeEgresos, scopeMovimientosCentral } from '../lib/scope';
 import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
 import { zonaDeComplejo } from '../lib/zonas';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { dispositionInline } from '../services/comprobantes';
 import { calcularBlocks, cuentaDe, dinero, fondoAl, incluirEgresoCierre, mesDeBlock, registroDeEgreso, type CierreMes, type LineaCierre } from '../services/cierres/calculo';
+import { recibirVoucherCentral } from '../services/cierres/subida';
+import { CATEGORIAS, CATEGORIAS_EGRESO, CATEGORIAS_INGRESO, CATEGORIA_ETIQUETA, calcularCentral, esIngreso, incluirMovimiento, movimientoDe } from '../services/cierres/central';
 import { DESTINO_AYUDA, DESTINO_ETIQUETA, lineaSchemaRegex, llevaConformidad } from '../services/cierres/destinos';
-import { esAdministracion, esJuntaCentral, esTesoreroCentral, puedeDarConformidad, puedeRegistrar } from '../services/cierres/permisos';
+import { esAdministracion, esJuntaCentral, esTesoreroCentral, puedeDarConformidad, puedeRegistrar, puedeRegistrarCentral, puedeVerCentral } from '../services/cierres/permisos';
 import { idSchema, montoSchema, parse, parseBody, parseId, parseQuery, textoOpcional, z } from '../validation';
 
 export const cierresRouter = Router();
@@ -315,6 +318,123 @@ cierresRouter.delete('/lineas/:id/conformidad', async (req, res) => {
   if (!e.conformidad_at) return void res.json({ registro: registroDeEgreso(e) }); // idempotente
   const actual = await prisma.egresoBlock.update({ where: { id: e.id }, data: { conformidad_at: null, conformidad_por_id: null }, include: incluirEgresoCierre });
   res.json({ registro: registroDeEgreso(actual) });
+});
+
+// ---------- Cierre de la Junta central (ingresos y egresos de su cuenta, con voucher) ----------
+const NO_VE_CENTRAL = 'El cierre de la Junta central lo ven la Junta central y la administración';
+
+cierresRouter.get('/central', async (req, res) => {
+  const u = currentUser(req);
+  const q = parseQuery(periodoQuery, req);
+  const complejoId = await condominioDe(u, q.complejo_id);
+  if (!puedeVerCentral(u, complejoId)) throw forbidden(NO_VE_CENTRAL); // la junta de un block ve sólo su aporte
+  const { mes, anio } = await periodo(q, complejoId);
+  const cierre = await calcularCentral(complejoId, anio, mes);
+  res.json({
+    ...cierre,
+    moneda: await monedaDe(complejoId),
+    categorias: { ingreso: CATEGORIAS_INGRESO.map((value) => ({ value, label: CATEGORIA_ETIQUETA[value] })), egreso: CATEGORIAS_EGRESO.map((value) => ({ value, label: CATEGORIA_ETIQUETA[value] })) },
+    puede: { registrar: puedeRegistrarCentral(u, complejoId) },
+  });
+});
+
+const movimientoSchema = z.object({
+  categoria: z.enum(CATEGORIAS, { error: 'Categoría inválida' }),
+  mes: mesSchema,
+  anio: anioSchema,
+  monto: montoSchema,
+  fecha: z.string({ error: 'Fecha inválida' }).regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida (usa AAAA-MM-DD)').refine((s) => !Number.isNaN(new Date(`${s}T00:00:00Z`).getTime()), 'Fecha inválida'),
+  descripcion: textoOpcional(120),
+  pagador: textoOpcional(120),
+  estacionamiento: textoOpcional(60),
+  proveedor_id: idSchema.optional(),
+  documento: textoOpcional(40),
+  referencia: textoOpcional(80),
+  observaciones: textoOpcional(300),
+}).superRefine((v, ctx) => {
+  const falta = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+  if (v.categoria === 'alquiler_estacionamiento') {
+    if (!v.pagador) falta('pagador', 'Escribe quién paga el alquiler (vecino o externo)');
+    if (!v.estacionamiento) falta('estacionamiento', 'Escribe qué estacionamiento se alquila');
+  } else if (!v.descripcion) falta('descripcion', 'Escribe el detalle del movimiento');
+  if (v.proveedor_id !== undefined && v.categoria !== 'proveedor') falta('proveedor_id', 'Sólo se indica en los pagos a proveedores');
+});
+
+/** Quien llega a registrar en la Junta central: 404 si el condominio no es suyo (antes de recibir el archivo) y 403 si no es de quienes registran. */
+async function ubicarCentral(req: Request): Promise<{ complejoId: number }> {
+  const u = currentUser(req);
+  const q = parseQuery(z.object({ complejo_id: idSchema.optional() }), req);
+  const complejoId = await condominioDe(u, q.complejo_id);
+  if (!puedeRegistrarCentral(u, complejoId)) throw forbidden('Sólo el tesorero de la Junta central o la administración registran los movimientos de la Junta central');
+  return { complejoId };
+}
+
+cierresRouter.post('/central/movimientos', recibirVoucherCentral('central', ubicarCentral), async (req, res) => {
+  const u = currentUser(req);
+  const { complejoId } = ubicado<{ complejoId: number }>(res, 'central') ?? (await ubicarCentral(req));
+  const body = req.is('multipart/form-data') ? parse(movimientoSchema, camposDeFormulario(req.body)) : parseBody(movimientoSchema, req);
+  if (!req.file) throw invalid('Datos inválidos: voucher: adjunta el voucher (la boleta, la factura o el comprobante del pago)', { voucher: 'Obligatorio' });
+  const voucher = voucherVerificado(req.file, u.id);
+
+  const complejo = await prisma.complejoHabitacional.findUniqueOrThrow({ where: { id: complejoId }, select: { empresa_id: true } });
+  if (body.proveedor_id !== undefined && !(complejo.empresa_id != null && (await prisma.proveedor.findFirst({ where: { id: body.proveedor_id, empresa_id: complejo.empresa_id }, select: { id: true } })))) {
+    throw invalid('Datos inválidos: proveedor_id: no existe', { proveedor_id: 'No existe' });
+  }
+  const fecha = new Date(`${body.fecha}T00:00:00Z`);
+  if (fecha.getTime() > hoyEn(await zonaDeComplejo(complejoId)).getTime()) throw invalid('Datos inválidos: fecha: no puede ser futura', { fecha: 'No puede ser futura' });
+
+  const ingreso = esIngreso(body.categoria);
+  const creado = await prisma.$transaction(async (tx) => {
+    const m = await tx.movimientoCentral.create({
+      data: {
+        complejo_id: complejoId, tipo: ingreso ? 'ingreso' : 'egreso', categoria: body.categoria, mes: body.mes, anio: body.anio,
+        descripcion: body.descripcion ?? null, pagador: ingreso ? body.pagador ?? null : null, estacionamiento: body.categoria === 'alquiler_estacionamiento' ? body.estacionamiento ?? null : null,
+        proveedor_id: body.proveedor_id ?? null, documento: body.documento ?? null, monto: body.monto, fecha, referencia: body.referencia ?? null, observaciones: body.observaciones ?? null, registrado_por_id: u.id,
+      },
+    });
+    const { subidoPorId, ...archivo } = voucher;
+    await tx.archivoMovimientoCentral.create({ data: { movimiento_id: m.id, nombre: archivo.nombre, tipo_mime: archivo.tipo_mime, tamano: archivo.tamano, sha256: archivo.sha256, datos: archivo.datos, subido_por_id: subidoPorId } });
+    return tx.movimientoCentral.findUniqueOrThrow({ where: { id: m.id }, include: incluirMovimiento });
+  });
+  res.locals.entidad = 'cierre_central';
+  res.locals.entidadId = creado.id;
+  res.locals.accion = ingreso ? 'registrar_ingreso' : 'registrar_egreso';
+  res.locals.auditDetalle = { complejo_id: complejoId, categoria: body.categoria, mes: body.mes, anio: body.anio, monto: dinero(body.monto), sha256: voucher.sha256 }; // nunca el archivo
+  res.status(201).json({ movimiento: movimientoDe(creado) });
+});
+
+/** Un movimiento de la Junta central dentro del alcance de quien llama (la junta de un block → 403; de otro condominio u otra empresa → 404). */
+async function cargarMovimiento(u: AuthUser, id: number) {
+  const m = await prisma.movimientoCentral.findFirst({ where: { AND: [{ id }, scopeMovimientosCentral(u)] }, include: incluirMovimiento });
+  if (!m) throw notFound('Movimiento');
+  return m;
+}
+
+cierresRouter.get('/central/movimientos/:id/voucher', async (req, res) => {
+  const m = await cargarMovimiento(currentUser(req), parseId(req));
+  const a = await prisma.archivoMovimientoCentral.findUnique({ where: { movimiento_id: m.id } });
+  if (!a) throw notFound('Voucher');
+  res.set({
+    'Content-Type': a.tipo_mime,
+    'Content-Length': String(a.datos.length),
+    'Content-Disposition': dispositionInline(a.nombre),
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': 'sandbox',
+    'Cache-Control': 'private, no-store',
+  });
+  res.status(200).end(Buffer.from(a.datos));
+});
+
+cierresRouter.delete('/central/movimientos/:id', async (req, res) => {
+  const u = currentUser(req);
+  const m = await cargarMovimiento(u, parseId(req));
+  if (!puedeRegistrarCentral(u, m.complejo_id)) throw forbidden('Sólo el tesorero de la Junta central o la administración corrigen los movimientos de la Junta central');
+  await prisma.movimientoCentral.delete({ where: { id: m.id } });
+  res.locals.entidad = 'cierre_central';
+  res.locals.entidadId = m.id;
+  res.locals.accion = m.tipo === 'ingreso' ? 'quitar_ingreso' : 'quitar_egreso';
+  res.locals.auditDetalle = { complejo_id: m.complejo_id, categoria: m.categoria, mes: m.mes, anio: m.anio, monto: dinero(m.monto) };
+  res.status(204).end();
 });
 
 // ---------- Cuentas de destino (de la empresa administradora y de los proveedores): se muestran al tesorero al registrar el pago ----------

@@ -3,7 +3,7 @@ import { prisma } from '../../db';
 import { isProduction } from '../../config';
 import { depsReales, type DepsAvisos } from './canales';
 import { encolarRecordatorios, procesarCola } from './cola';
-import { encolarCierresPendientes } from './cierres';
+import { encolarAportesPendientes, encolarCierresPendientes } from './cierres';
 import { procesarVencimientos } from '../comercial/vencimientos';
 
 /** Clave del bloqueo asesor de Postgres: sólo una réplica trabaja a la vez. */
@@ -33,7 +33,9 @@ export async function ciclo(deps: DepsAvisos = depsReales()) {
       const vencimientos = await procesarVencimientos({ ahora: deps.ahora(), deps }).catch((err) => { console.error('[comercial] los vencimientos fallaron:', err instanceof Error ? err.message : 'error'); return null; });
       // Recordatorio del cierre del mes al tesorero del block: tampoco frena la cobranza si falla.
       const cierres = await encolarCierresPendientes(deps.ahora()).catch((err) => { console.error('[cierres] el recordatorio falló:', err instanceof Error ? err.message : 'error'); return 0; });
-      return { encoladas, ...(await procesarCola(deps)), vencimientos, cierres };
+      // Y al tesorero central, los blocks que aún no aportan a la Junta central.
+      const aportes = await encolarAportesPendientes(deps.ahora()).catch((err) => { console.error('[cierres] el aviso de aportes falló:', err instanceof Error ? err.message : 'error'); return 0; });
+      return { encoladas, ...(await procesarCola(deps)), vencimientos, cierres, aportes };
     },
     { timeout: 10 * 60_000, maxWait: 10_000 },
   );

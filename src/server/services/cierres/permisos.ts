@@ -32,4 +32,10 @@ export function puedeDarConformidad(u: AuthUser, destino: string, complejoId: nu
   return false;
 }
 
+/** Ve el cierre de la Junta central: la administración y la Junta central (presidente o tesorero sin block). La junta de un block, no. */
+export const puedeVerCentral = (u: AuthUser, complejoId: number): boolean => esAdministracion(u) || esJuntaCentral(u, complejoId);
+
+/** Registra los ingresos y egresos de la Junta central su TESORERO (central) o la administración. El presidente central lo ve. */
+export const puedeRegistrarCentral = (u: AuthUser, complejoId: number): boolean => esAdministracion(u) || esTesoreroCentral(u, complejoId);
+
 export { esAdministracion };

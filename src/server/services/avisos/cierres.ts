@@ -4,9 +4,13 @@ import { ZONA_POR_DEFECTO } from '../../../lib/paises';
 import { prisma } from '../../db';
 import { hoyEn } from '../../lib/fechas';
 import { calcularBlocks, mesDeBlock } from '../cierres/calculo';
+import { aportesPendientes } from '../cierres/pendientes';
 import { encolarAviso } from './cola';
 
 export const DIA_CIERRE = 5;
+
+/** Aviso a la Junta central (id = condominio): `cierre-central:<año>-<mes>` (no empieza con `cierre:`: no se confunde con el de un block). */
+export const refCierreCentral = (anio: number, mes: number) => `cierre-central:${anio}-${String(mes).padStart(2, '0')}` as const;
 
 export const refCierre = (anio: number, mes: number) => `cierre:${anio}-${String(mes).padStart(2, '0')}` as const;
 
@@ -36,6 +40,24 @@ export async function encolarCierresPendientes(ahora: Date): Promise<number> {
       const tesoreros = await prisma.usuario.findMany({ where: { rol: 'propietario', cargo_junta: 'tesorero', complejo_id: c.id, estructura_id: b.id }, select: { id: true } });
       for (const t of tesoreros) creadas += await encolarAviso('cierre_pendiente', t.id, { entidad: refCierre(anio, mes), id: b.id }, { ahora });
     }
+  }
+  return creadas;
+}
+
+/**
+ * Encola el aviso `cierre_pendiente` al TESORERO CENTRAL de cada condominio con blocks que aún no aportan a la Junta central en el MES ANTERIOR, desde el día 5 del mes
+ * (en la zona del condominio). Una sola vez por mes y condominio (mismo criterio que el de cada block). Devuelve cuántas notificaciones creó.
+ */
+export async function encolarAportesPendientes(ahora: Date): Promise<number> {
+  const complejos = await prisma.complejoHabitacional.findMany({ where: { recibos: { some: { estructura_id: { not: null } } } }, select: { id: true, zona_horaria: true } });
+  let creadas = 0;
+  for (const c of complejos) {
+    const hoy = hoyEn(c.zona_horaria ?? ZONA_POR_DEFECTO, ahora);
+    if (hoy.getUTCDate() < DIA_CIERRE) continue;
+    const { anio, mes } = mesAnterior(hoy);
+    if (!(await aportesPendientes(c.id, anio, mes))) continue;
+    const tesoreros = await prisma.usuario.findMany({ where: { rol: 'propietario', cargo_junta: 'tesorero', complejo_id: c.id, estructura_id: null }, select: { id: true } });
+    for (const t of tesoreros) creadas += await encolarAviso('cierre_pendiente', t.id, { entidad: refCierreCentral(anio, mes), id: c.id }, { ahora });
   }
   return creadas;
 }

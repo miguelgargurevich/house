@@ -75,6 +75,7 @@ model Usuario {
   pagosSuscripcionRegistrados PagoSuscripcion[] @relation("PagoSuscripcionRegistrador")
   egresosRegistrados EgresoBlock[] @relation("EgresoRegistrador")
   egresosConformes EgresoBlock[] @relation("EgresoConformidad")
+  movimientosCentral MovimientoCentral[]
   lecturasAguaRegistradas LecturaAgua[]
   imagenesReciboSubidas ImagenRecibo[]
 }
@@ -137,6 +138,7 @@ model ComplejoHabitacional {
   proveedores ProveedorComplejo[]
   comunicados Comunicado[]
   egresosBlock EgresoBlock[]
+  movimientosCentral MovimientoCentral[]
   /// Si está activa, un comprobante que la IA lee como «coincide» (confianza alta, sin duplicados) valida el pago solo. Nunca rechaza.
   validacion_automatica_ia Boolean @default(false)
   /// Mora (en la moneda del condominio) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
@@ -195,6 +197,7 @@ model Proveedor {
   tareas          TareaMantenimiento[]
   conceptos       Concepto[]
   egresosBlock    EgresoBlock[]
+  movimientosCentral MovimientoCentral[]
 
   @@index([empresa_id, rubro])
 }
@@ -1118,4 +1121,50 @@ model ArchivoEgresoBlock {
   subido_por_id Int?
   created_at    DateTime    @default(now())
   egreso        EgresoBlock @relation(fields: [egreso_id], references: [id], onDelete: Cascade)
+}
+
+/// Cierre de la Junta central: lo que entra y sale de su cuenta además de los aportes de los blocks (esos salen de `EgresoBlock` con destino `central` y conformidad del
+/// tesorero central). `tipo` = `ingreso` | `egreso`; `categoria` = `alquiler_estacionamiento` | `otro_ingreso` (ingresos) o `servicio` | `proveedor` | `otro_egreso`
+/// (egresos). `mes`/`anio` es el mes del cierre al que cuenta (en un alquiler, el periodo alquilado). `pagador` = quién paga (vecino o externo, texto libre) y
+/// `estacionamiento` sólo en el alquiler; `documento` = n.º de la boleta o la factura. El voucher es obligatorio (`ArchivoMovimientoCentral`).
+model MovimientoCentral {
+  id                Int                  @id @default(autoincrement())
+  complejo_id       Int
+  tipo              String
+  categoria         String
+  mes               Int
+  anio              Int
+  descripcion       String?
+  pagador           String?
+  estacionamiento   String?
+  proveedor_id      Int?
+  documento         String?
+  monto             Decimal
+  /// Fecha de calendario (00:00 UTC) del cobro o del pago.
+  fecha             DateTime             @db.Date
+  referencia        String?
+  observaciones     String?
+  registrado_por_id Int?
+  created_at        DateTime             @default(now())
+  updated_at        DateTime             @updatedAt
+  complejo          ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  proveedor         Proveedor?           @relation(fields: [proveedor_id], references: [id], onDelete: SetNull)
+  registrado_por    Usuario?             @relation(fields: [registrado_por_id], references: [id], onDelete: SetNull)
+  voucher           ArchivoMovimientoCentral?
+
+  @@index([complejo_id, anio, mes])
+}
+
+/// Voucher (imagen o PDF) de un movimiento de la Junta central. Sólo por su endpoint con alcance.
+model ArchivoMovimientoCentral {
+  id            Int               @id @default(autoincrement())
+  movimiento_id Int               @unique
+  nombre        String
+  tipo_mime     String
+  tamano        Int
+  sha256        String
+  datos         Bytes
+  subido_por_id Int?
+  created_at    DateTime          @default(now())
+  movimiento    MovimientoCentral @relation(fields: [movimiento_id], references: [id], onDelete: Cascade)
 }

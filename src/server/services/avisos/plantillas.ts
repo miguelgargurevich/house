@@ -30,6 +30,8 @@ export interface DatosAviso {
   texto?: string;
   /** Sólo `cierre_pendiente`: el block (`concepto` trae las líneas que faltan registrar). */
   bloque?: string;
+  /** Sólo `cierre_pendiente`, al tesorero central: el aviso es del cierre de la Junta central y `concepto` trae los blocks que aún no aportan. */
+  central?: boolean;
   /** Departamentos a los que se refiere (con su torre): cada torre tiene su propio recibo y el vecino puede tener unidades en más de una. */
   departamentos?: { codigo: string; torre: string | null; monto?: string }[];
 }
@@ -139,6 +141,12 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
         cuerpo: `${hola}\n\n${d.texto ?? ''}\n\nLo puedes ver también en ${ENLACE_APP}.\n\n${firma(d)}`,
       };
     case 'cierre_pendiente':
+      if (d.central) {
+        return {
+          asunto: `Faltan aportes de blocks a la Junta central de ${d.periodo}`,
+          cuerpo: `${hola}\n\nEstos blocks aún no registran su aporte a la Junta central de ${d.periodo}: ${d.concepto ?? 'revisa la lista'}. Entra a ${ENLACE_APP}, abre Junta › Cierre de la Junta central y revisa «Blocks que aún no aportan».\n\n${firma(d)}`,
+        };
+      }
       return {
         asunto: `Faltan pagos por registrar en el cierre de ${d.periodo}`,
         cuerpo: `${hola}\n\nEl cierre de ${d.periodo} del ${d.bloque ?? 'block'} aún tiene pagos sin registrar: ${d.concepto ?? 'revisa las líneas pendientes'}. Entra a ${ENLACE_APP}, abre Junta › Cierre del mes y registra cada pago con su voucher.\n\n${firma(d)}`,
