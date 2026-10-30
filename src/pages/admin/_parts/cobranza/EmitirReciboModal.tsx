@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -7,6 +8,7 @@ import { simboloDe } from '../../../../lib/paises';
 import { Alert, Button, EmptyState, ErrorState, IconButton, Input, Modal, Select, Skeleton, Textarea, dinero, useToast } from '../../../../ui';
 import { fechaAISO, hoyISO, nombreMes } from './comun';
 import type { Complejo, Concepto, Lista } from './comun';
+import { RevisarMorosos } from './RevisarMorosos';
 import { nombreTorre } from './torres';
 import { useTorres } from './useTorres';
 
@@ -27,6 +29,8 @@ const FILA_VACIA = { concepto_id: '', monto: '', es_recargo: false };
 
 export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
+  // Paso previo opcional: «Revisar morosos» muestra quién pagó tarde el mes anterior (con la fecha del voucher) antes de emitir.
+  const [revisando, setRevisando] = useState(false);
   const complejos = useResource<Lista<Complejo>>('/api/complejos?pageSize=100');
   const conceptos = useResource<Lista<Concepto>>('/api/conceptos?pageSize=100');
   const hoy = new Date();
@@ -84,22 +88,35 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
   }
 
   const listo = !cargando && !error && !sinDatos;
+  const mesElegido = useWatch({ control, name: 'mes' });
+  const anioElegido = useWatch({ control, name: 'anio' });
+  const puedeRevisar = listo && Boolean(complejoElegido) && Number(anioElegido) >= 2000 && Number(anioElegido) <= 2100;
 
   return (
     <Modal
       open
       onClose={onClose}
       size="lg"
-      title="Emitir recibo"
-      description="Define el periodo y los conceptos; cada unidad activa recibirá su cargo."
+      title={revisando ? 'Revisar morosos' : 'Emitir recibo'}
+      description={revisando ? 'Quién pagó tarde el recibo del mes anterior, según la fecha de su voucher. Es el mismo cálculo de la emisión.' : 'Define el periodo y los conceptos; cada unidad activa recibirá su cargo.'}
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button loading={isSubmitting} disabled={!listo} onClick={handleSubmit(emitir)}>Emitir recibo</Button>
-        </>
+        revisando ? (
+          <>
+            <Button variant="secondary" onClick={() => setRevisando(false)}>Volver</Button>
+            <Button loading={isSubmitting} disabled={!listo} onClick={handleSubmit(emitir)}>Emitir recibo</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+            <Button variant="secondary" disabled={!puedeRevisar} onClick={() => setRevisando(true)}>Revisar morosos</Button>
+            <Button loading={isSubmitting} disabled={!listo} onClick={handleSubmit(emitir)}>Emitir recibo</Button>
+          </>
+        )
       }
     >
-      {cargando ? (
+      {revisando ? (
+        <RevisarMorosos fuente={{ tipo: 'recibo', complejoId: complejoElegido, estructuraId: torreElegida, mes: mesElegido, anio: anioElegido }} moneda={moneda} />
+      ) : cargando ? (
         <div className="space-y-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /></div>
       ) : error ? (
         <ErrorState message={error} onRetry={() => { void complejos.reload(); void conceptos.reload(); }} />

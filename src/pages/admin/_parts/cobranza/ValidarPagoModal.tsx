@@ -13,6 +13,8 @@ import type { FechaOrigen } from '../../../shared/mantenimiento/tipos';
 import { esTesorero, puedeValidar, textoConformidad, TEXTO_VALIDAR_SIN_CONFORMIDAD, vistaConformidad } from './conformidad';
 import type { ConformidadPago } from './conformidad';
 import { metodoLabel } from './comun';
+import type { AvisoMulta } from './morosos';
+import { QuitarMultaModal } from './QuitarMultaModal';
 
 export interface PagoRevisable {
   id: number;
@@ -43,6 +45,8 @@ export interface PagoRevisable {
   conformidad?: ConformidadPago | null;
   /** ¿El block tiene un tesorero que pueda darla? */
   tesorero_registrado?: boolean;
+  /** «Según el voucher pagó a tiempo; tiene la multa de …»: la multa del recibo siguiente que la administración puede quitar; `null` si no hay. */
+  aviso_multa?: AvisoMulta | null;
 }
 
 interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: () => void }
@@ -62,6 +66,9 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const [conformidadLocal, setConformidadLocal] = useState<{ valor: ConformidadPago | null } | null>(null);
   const [cambiandoConformidad, setCambiandoConformidad] = useState(false);
   const [confirmandoSinConformidad, setConfirmandoSinConformidad] = useState(false);
+  // «Quitar la multa» desde el aviso: abre el motivo; al quitarla el aviso desaparece sin esperar a que la lista se recargue.
+  const [quitandoMulta, setQuitandoMulta] = useState(false);
+  const [multaQuitada, setMultaQuitada] = useState(false);
   const validador = puedeValidar(user);
   const tesorero = esTesorero(user);
   // Quien administra adjunta el voucher que falta; la junta y el residente no (sólo suben el suyo, en su pantalla).
@@ -73,7 +80,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
 
   const ia = useEvaluacionCompleta(pago?.id ?? null, pago?.evaluacion ?? null);
 
-  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinConformidad(false); }, [pago?.id]);
+  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinConformidad(false); setQuitandoMulta(false); setMultaQuitada(false); }, [pago?.id]);
 
   /** Sube el voucher y sigue la evaluación de la IA; el pago no cambia de estado aquí (sólo la IA o quien valida). */
   async function adjuntar(archivo: File) {
@@ -135,6 +142,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const faltaConformidad = vistaConf !== null && vistaConf.tipo !== 'dada';
 
   return (
+    <>
     <Modal
       open={pago !== null}
       onClose={onClose}
@@ -199,6 +207,17 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
             <section aria-label="Conformidad del tesorero">
               <Alert tone={vistaConf.tipo === 'dada' ? 'ok' : 'warn'}>{textoConformidad(vistaConf, fechaCorta, tesorero)}</Alert>
               {confirmandoSinConformidad && <div className="mt-3"><Alert tone="warn">{TEXTO_VALIDAR_SIN_CONFORMIDAD}</Alert></div>}
+            </section>
+          )}
+
+          {pago.aviso_multa && !multaQuitada && (
+            <section aria-label="Multa por quitar">
+              <Alert tone="warn">
+                <p>{pago.aviso_multa.texto} <span className="num">({dinero(pago.aviso_multa.monto, pago.moneda)})</span></p>
+                {validador
+                  ? <Button size="sm" variant="secondary" className="mt-2" onClick={() => setQuitandoMulta(true)}>Quitar la multa</Button>
+                  : <p className="mt-1 text-xs">La administración puede quitarla.</p>}
+              </Alert>
             </section>
           )}
 
@@ -272,5 +291,17 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
         </div>
       )}
     </Modal>
+    {quitandoMulta && pago?.aviso_multa && (
+      <QuitarMultaModal
+        reciboId={pago.aviso_multa.recibo_id}
+        unidadId={pago.aviso_multa.unidad_id}
+        codigo={pago.unidad?.codigo}
+        monto={pago.aviso_multa.monto}
+        moneda={pago.moneda}
+        onClose={() => setQuitandoMulta(false)}
+        onQuitada={() => { setMultaQuitada(true); onRevisado(); }}
+      />
+    )}
+    </>
   );
 }

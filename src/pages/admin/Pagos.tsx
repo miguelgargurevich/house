@@ -85,6 +85,7 @@ export default function Pagos() {
         {p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}
         {pestana === 'por_validar' && (p.comprobante ? <VeredictoBadge evaluacion={p.evaluacion} /> : <span className="text-xs text-muted">Sin comprobante</span>)}
         {(() => { const c = insigniaConformidad(p); return c && <Badge tone={c.tone}>{c.label}</Badge>; })()}
+        {p.aviso_multa && <Badge tone="warn">Multa por quitar</Badge>}
       </span>
     ) },
     { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },

@@ -4,6 +4,7 @@ import { useCondominio } from '../../../../app/condominio';
 import { api, errorText, useResource, type Page } from '../../../../api';
 import { Alert, Button, Card, Modal, useToast } from '../../../../ui';
 import type { Complejo } from './comun';
+import { RevisarMorosos } from './RevisarMorosos';
 import { resumenSubida, type ResultadoExcel } from './resumenExcel';
 
 interface FilaComplejo extends Complejo { id: number; nombre: string }
@@ -17,6 +18,8 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoExcel | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Paso previo opcional: ver quién pagó tarde el mes anterior (con la fecha del voucher) con lo que trae el Excel, sin crear nada.
+  const [revisando, setRevisando] = useState(false);
   const toast = useToast();
   const complejos = useResource<Page<FilaComplejo>>('/api/complejos?pageSize=100');
   const resumen = resultado && resumenSubida(resultado);
@@ -28,8 +31,8 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
     setResultado(null);
   };
 
-  const subir = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const subir = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!archivo || !complejoId) return;
     setCargando(true);
     setError(null);
@@ -50,7 +53,18 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
   };
 
   return (
-    <Modal open={abierto} onClose={() => { setAbierto(false); onClose(); }} title="Subir Excel de recibos">
+    <Modal open={abierto} onClose={() => { setAbierto(false); onClose(); }} title={revisando ? 'Revisar morosos del Excel' : 'Subir Excel de recibos'} size={revisando ? 'lg' : undefined}>
+      {revisando && archivo && complejoId ? (
+        <div className="space-y-4">
+          <RevisarMorosos fuente={{ tipo: 'excel', complejoId, archivo }} moneda={complejos.data?.items.find((c: FilaComplejo) => String(c.id) === complejoId)?.moneda} />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setRevisando(false)} disabled={cargando}>Volver</Button>
+            <Button loading={cargando} onClick={() => { setRevisando(false); void subir(); }}>
+              <PaperClipIcon className="h-4 w-4 mr-2" /> Subir Excel y crear recibos
+            </Button>
+          </div>
+        </div>
+      ) : (
       <form onSubmit={subir} className="grid gap-4 sm:grid-cols-2" noValidate>
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium mb-1">Condominio</label>
@@ -91,11 +105,13 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
         )}
         <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={() => { setAbierto(false); onClose(); }} disabled={cargando}>Cancelar</Button>
+          <Button variant="secondary" disabled={!archivo || !complejoId || cargando} onClick={() => setRevisando(true)}>Revisar morosos</Button>
           <Button type="submit" loading={cargando} disabled={!archivo || !complejoId}>
             <PaperClipIcon className="h-4 w-4 mr-2" /> Subir Excel y crear recibos
           </Button>
         </div>
       </form>
+      )}
     </Modal>
   );
 }

@@ -81,6 +81,8 @@ export interface PagoMantenimiento {
   registrado_por: { id: number; nombre: string } | null;
   comprobante: ComprobanteMeta | null;
   evaluacion: EvaluacionResidente | EvaluacionCompleta | null;
+  /** Sólo en la vista de la administración: «según el voucher pagó a tiempo; tiene la multa de …» (el residente no lo recibe). */
+  aviso_multa?: { texto: string; recibo_id: number; unidad_id: number; monto: string } | null;
 }
 
 /** Detalle del consumo de agua del departamento en el recibo (lo que el recibo impreso llama «lectura de contómetro»). */

@@ -2,12 +2,16 @@ import { useState } from 'react';
 import { PrinterIcon } from '@heroicons/react/24/outline';
 import { useForm } from 'react-hook-form';
 import { api, errorText, useResource } from '../../../../api';
+import { useAuth } from '../../../../auth/AuthContext';
 import { simboloDe } from '../../../../lib/paises';
 import { Alert, Button, DefinitionList, ErrorState, Input, Modal, Select, Skeleton, StatusBadge, dinero, fechaCorta, useToast } from '../../../../ui';
 import { ConceptosTabla, HistorialPagos } from '../../../shared/mantenimiento/Desglose';
 import { ReciboImprimible } from '../../../shared/mantenimiento/ReciboImprimible';
 import type { DetalleMantenimiento, PagoMantenimiento } from '../../../shared/mantenimiento/tipos';
 import { METODOS } from '../cobranza/comun';
+import { multaQuitable } from '../cobranza/morosos';
+import { puedeValidar } from '../cobranza/conformidad';
+import { QuitarMultaModal } from '../cobranza/QuitarMultaModal';
 import { ValidarPagoModal } from '../cobranza/ValidarPagoModal';
 import type { PagoRevisable } from '../cobranza/ValidarPagoModal';
 import { FormPagoMantenimiento } from './FormPagoMantenimiento';
@@ -43,6 +47,8 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
   const [registrando, setRegistrando] = useState(false);
   const [imprimiendo, setImprimiendo] = useState(false);
   const [pago, setPago] = useState<PagoRevisable | null>(null);
+  const [quitandoMulta, setQuitandoMulta] = useState(false);
+  const { user } = useAuth();
   const d = data && data.recibo_id === reciboId && data.unidad_id === unidadId ? data : null;
 
   function tras() { setRegistrando(false); void reload(); onCambio(); }
@@ -53,12 +59,14 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
       id: p.id, fecha_pago: p.fecha_pago, monto: p.monto, moneda: d.moneda, metodo_pago: p.metodo_pago, referencia: p.referencia, estado_validacion: p.estado_validacion,
       motivo_rechazo: p.motivo_rechazo, validado_at: null, comprobante: p.comprobante, unidad: { codigo: d.unidad.codigo }, concepto: { nombre: p.conceptos.join(', ') },
       usuario: p.registrado_por, evaluacion: p.evaluacion as PagoRevisable['evaluacion'], validado_por_ia: p.validado_por_ia,
-      conformidad: p.conformidad, tesorero_registrado: p.tesorero_registrado, // sólo los trae la vista de la administración
+      conformidad: p.conformidad, tesorero_registrado: p.tesorero_registrado, aviso_multa: p.aviso_multa, // sólo los trae la vista de la administración
       mantenimiento: p.suelto ? null : { titulo: d.titulo, total: p.monto, conceptos: p.conceptos.length },
     });
   }
 
   const puedeRegistrar = d !== null && Number(d.saldo) > 0 && d.estado !== 'en_revision';
+  // Quitar la multa es de la administración (no de la junta) y sólo mientras nadie la haya pagado ni tenga un pago en revisión.
+  const multa = d !== null && puedeValidar(user) ? multaQuitable(d.conceptos) : null;
 
   return (
     <>
@@ -114,6 +122,12 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
             <section aria-labelledby="conceptos-adm">
               <h3 id="conceptos-adm" className="mb-2 text-sm font-semibold">Detalle por concepto</h3>
               <ConceptosTabla conceptos={d.conceptos} total={d.total} moneda={d.moneda} />
+              {multa && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted">Tiene una multa de <span className="num">{dinero(multa.monto, d.moneda)}</span> sin pagar.</p>
+                  <Button size="sm" variant="secondary" onClick={() => setQuitandoMulta(true)}>Quitar la multa</Button>
+                </div>
+              )}
             </section>
             <section aria-labelledby="pagos-adm">
               <h3 id="pagos-adm" className="mb-2 text-sm font-semibold">Pagos de este mantenimiento</h3>
@@ -138,6 +152,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
         )}
       </Modal>
       <ValidarPagoModal pago={pago} onClose={() => setPago(null)} onRevisado={tras} />
+      {quitandoMulta && multa && d && <QuitarMultaModal reciboId={reciboId} unidadId={unidadId} codigo={d.unidad.codigo} monto={multa.monto} moneda={d.moneda} onClose={() => setQuitandoMulta(false)} onQuitada={tras} />}
       {imprimiendo && d && <ReciboImprimible detalle={d} onClose={() => setImprimiendo(false)} />}
     </>
   );

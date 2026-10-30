@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Sonnet 5.5) — Revisar morosos antes de emitir + «Quitar la multa»
+
+- Pedido de Miguel: «al calcular el recibo calcular los morosos revisando también la fecha del voucher que adjuntan» y poder regularizar un mes anterior («hablé con la administradora para que no me cobre mora y luego le adjunté el voucher»). Rama `feat/mora-revision` (sobre el `main` local `a2d20cb`), commits sin push.
+- **Un solo cálculo**: `evaluarMora` (`services/mora.ts`) ahora devuelve además `detalle` por unidad (a tiempo / tarde / sin deuda, pagos con fecha, origen y estado, marca «revisar»). La emisión sigue usando sólo `tarde`; la vista usa el detalle de la MISMA llamada (`services/revisionMora.ts`). No hay otra fórmula que pueda diferir.
+- API: `GET /api/recibos/vista-mora`, `POST /api/recibos/excel/vista-mora` (lee mes y torres del Excel, no crea nada), `POST /api/recibos/:id/mantenimientos/:unidadId/quitar-multa {motivo}` (admin; junta 403; borra la línea o, si sólo hay pagos rechazados, la deja en 0.00 con el motivo; 409 si está pagada/en revisión/con pagos o no existe), y `aviso_multa` en los pagos de la administración/junta (lista de pagos, validar, detalle del mantenimiento). Contrato completo en `docs/API-CONTRATO.md` (última sección).
+- Front: paso opcional «Revisar morosos» en «Emitir recibo» y «Subir Excel» (`RevisarMorosos.tsx`: tabla por torre, filtro «Sólo para revisar», «Corregir fecha» con el `PUT /api/pagos/:id` de siempre → `fecha_origen = manual`), botón «Quitar la multa» (`QuitarMultaModal.tsx`) en el detalle del mantenimiento y en el aviso del pago (ValidarPagoModal); insignia «Multa por quitar» en «Por validar».
+- Decisiones: (1) el aviso sólo se da si la fecha viene del voucher o fue corregida a mano (`fecha_origen` `voucher`/`manual`); una fecha declarada o no leída no prueba nada. (2) El aviso se calcula al leer (derivado, sin columna): «a tiempo» es el veredicto de `evaluarMora`. (3) La multa del Excel de la administradora (sin motivo automático) también se puede quitar y también dispara el aviso; la multa con el motivo de OTRO mes no. (4) La corrección de fecha manda el día al mediodía UTC. (5) Sin cambios en `prisma/schema.prisma`.
+- Gotchas: (a) la vista no sabe de la multa propia que ponga quien emite a mano (`multaPropia` del POST): sólo evalúa quién pagó tarde. (b) Otra sesión regeneró el cliente Prisma COMPARTIDO (node_modules enlazado) con campos que este esquema no tiene (`Concepto.destino`…): `house_test_mora` se alineó con `prisma db push --skip-generate --schema <copia del schema del cliente>` (aditivo); nunca `prisma generate` desde un worktree. (c) `null` como cuerpo JSON da 400 (body-parser estricto), no 422.
+- Próximos pasos: probar «Revisar morosos» en el navegador con los datos de Los Libertadores; decidir si «Revisar morosos» debe ser obligatorio cuando hay pagos por revisar.
+
 ## 2026-10-29 — Claude Code (Opus 5.5) — Morosidad: detalle del recibo moroso
 
 - Pedido de Miguel: «desde la pantalla de morosidad necesito ver el detalle del recibo que está moroso».
