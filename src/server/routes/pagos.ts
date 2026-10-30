@@ -7,6 +7,7 @@ import { formatoDinero } from '../../lib/paises';
 import { conTesoreroRegistrado } from '../lib/conformidad';
 import { esJunta } from '../lib/junta';
 import { conResumenDeGrupo, soloPrincipales } from '../services/mantenimiento';
+import { conAvisoMulta } from '../services/revisionMora';
 import { scopeCargosEscritura, scopePagos, scopePagosEscritura, scopePagosJunta, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
@@ -73,7 +74,8 @@ export const pagosRouter = crudRouter({
   include: includePago,
   // Una fila por pago del mantenimiento (el principal de cada grupo); los pagos sueltos antiguos salen como siempre.
   // los lee el admin o la junta: ven la evaluación completa y la conformidad del tesorero (`conformidad`, más `tesorero_registrado`: ¿el block tiene tesorero que pueda darla?)
-  format: async (items) => conTesoreroRegistrado(await conResumenDeGrupo(items.map((p) => formatearPago(p, 'completa')))),
+  // `aviso_multa`: «según el voucher pagó a tiempo; tiene la multa de …» (sólo para quien administra o la junta; el residente nunca lo ve).
+  format: async (items) => conAvisoMulta(await conTesoreroRegistrado(await conResumenDeGrupo(items.map((p) => formatearPago(p, 'completa'))))),
   filtros: {
     schema: z.object({ metodo_pago: z.enum(METODOS_PAGO).optional(), recibo_concepto_unidad_id: idSchema.optional(), estado_validacion: z.enum(ESTADOS_VALIDACION).optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional(), conformidad: z.enum(['con', 'sin'], { error: 'conformidad debe ser con o sin' }).optional() }),
     where: (f) => ({

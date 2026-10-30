@@ -13,6 +13,7 @@ import { estadoParaResidente, selectEvaluacion } from '../lib/evaluacionVista';
 import { avisarVoucherEnSegundoPlano } from '../services/avisos/voucherBlock';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { avisarResultado, cerrarPago } from '../services/validacionPago';
+import { conAvisoMulta } from '../services/revisionMora';
 import { dispositionInline, detectarTipo, MAX_COMPROBANTE, sanearNombre, TIPOS_COMPROBANTE, type TipoComprobante } from '../services/comprobantes';
 import { parseBody, parseId, z } from '../validation';
 
@@ -130,7 +131,7 @@ comprobantesRouter.patch('/:id/validacion', requireRole('admin'), cargarPagoDeLa
   res.locals.accion = v.estado === 'validado' ? 'validar' : 'rechazar';
   res.locals.auditDetalle = v.estado === 'validado' ? { estado: v.estado } : { estado: v.estado, motivo: v.motivo };
   const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: pago.id }, include: includePago });
-  res.json(formatearPago(actualizado, 'completa'));
+  res.json((await conAvisoMulta([formatearPago(actualizado, 'completa')]))[0]);
 });
 
 // ---------- Conformidad del tesorero («el dinero llegó a la cuenta») ----------

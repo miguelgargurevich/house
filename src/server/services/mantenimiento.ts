@@ -21,6 +21,7 @@ import { versionImagen } from './imagenes';
 import { correoEfectivo, selectCorreoBlock } from './juntas';
 import { camposDePago } from './mediosPago';
 import { esConceptoMora } from './mora';
+import { avisosDeMulta, type AvisoMulta } from './revisionMora';
 
 export interface DatosPago {
   metodo_pago: string;
@@ -184,6 +185,8 @@ export interface PagoDeMantenimiento {
   /** Sólo en la vista de la administración: la conformidad del tesorero y si el block tiene tesorero (`lib/conformidad.ts`). */
   conformidad?: { at: Date; por: { nombre: string } } | null;
   tesorero_registrado?: boolean;
+  /** Sólo en la vista de la administración: «según el voucher pagó a tiempo; tiene la multa de …» (ver `services/revisionMora.ts`). */
+  aviso_multa?: AvisoMulta | null;
 }
 
 /**
@@ -245,6 +248,10 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
   }
   for (const g of porGrupo.values()) pagos.push(dePago(g.principal ?? g.alguno, g.monto, g.conceptos, false));
   pagos.sort((a, b) => b.fecha_pago.getTime() - a.fecha_pago.getTime() || b.id - a.id);
+  if (o.vista === 'completa') {
+    const avisos = await avisosDeMulta(pagos.map((p) => ({ id: p.id, estado_validacion: p.estado_validacion, fecha_pago: p.fecha_pago, fecha_origen: p.fecha_origen, recibo_id: reciboId, unidad_id: unidadId })));
+    for (const p of pagos) p.aviso_multa = avisos.get(p.id) ?? null;
+  }
 
   // Los cargos en 0.00 no existen (no son deuda): si el recibo tiene concepto de mora y este departamento no tiene ese cargo, se imprime igual en 0.00.
   const conceptoMora = conceptosDb.find((c) => esConceptoMora(c.concepto?.nombre));

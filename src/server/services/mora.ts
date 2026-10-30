@@ -9,7 +9,7 @@
  * Es idempotente porque se calcula al CREAR el recibo: reemplazar el recibo desde Excel borra sus cargos y vuelve a calcular, nunca suma.
  */
 import { Prisma } from '@prisma/client';
-import { hoyEn } from '../lib/fechas';
+import { diaEn, hoyEn } from '../lib/fechas';
 import { ZONA_POR_DEFECTO } from '../../lib/paises';
 import { diaCalendario } from './fechaVoucher';
 import { periodoTexto } from '../lib/periodo';
@@ -38,6 +38,30 @@ export const esConceptoMora = (nombre: string | null | undefined): boolean => /\
 
 export interface UnidadConMora { id: number; codigo: string; torre: string | null }
 
+/** Fechas de voucher que una persona debe mirar antes de dar por buena la mora: la declarada, la que la IA no pudo leer o la inválida. */
+export const ORIGENES_A_REVISAR = ['declarada', 'no_leida', 'invalida'] as const;
+
+export interface PagoDeMora {
+  /** El pago principal de su grupo (o el pago suelto): con este id se corrige la fecha. */
+  id: number;
+  monto: string;
+  fecha_pago: Date;
+  /** `fecha_pago` como día del condominio («2026-10-01»): lo que se muestra y se corrige. */
+  dia: string;
+  fecha_origen: string;
+  estado_validacion: string;
+}
+
+export interface DetalleMoraUnidad {
+  estado: 'a_tiempo' | 'tarde' | 'sin_deuda';
+  /** Lo que la unidad debía en el recibo anterior. */
+  deuda: string;
+  /** Pagos que cuentan (validados y por validar), uno por grupo de mantenimiento. */
+  pagos: PagoDeMora[];
+  /** Hay algo que mirar: la fecha no viene del voucher (o no se pudo leer) o el pago sigue por validar. */
+  revisar: boolean;
+}
+
 export interface EvaluacionMora {
   /** El recibo del mes anterior de esa torre; `null` si no existe (primer recibo, o mes sin recibo). */
   anterior: { id: number; mes: number; anio: number; fecha_vencimiento: Date } | null;
@@ -45,6 +69,8 @@ export interface EvaluacionMora {
   aunNoVence: boolean;
   /** Unidades (de las pedidas) que pagaron tarde. */
   tarde: Set<number>;
+  /** Por qué cada unidad pedida salió a tiempo, tarde o sin deuda (la revisión previa a emitir lo muestra; la emisión usa sólo `tarde`). Vacío si no se evaluó a nadie. */
+  detalle: Map<number, DetalleMoraUnidad>;
 }
 
 /**
@@ -59,16 +85,19 @@ export async function evaluarMora(tx: Tx, o: { complejoId: number; estructuraId:
     select: { id: true, mes: true, anio: true, fecha_vencimiento: true },
     orderBy: { id: 'asc' },
   });
-  const vacio: EvaluacionMora = { anterior, aunNoVence: false, tarde: new Set() };
+  const vacio: EvaluacionMora = { anterior, aunNoVence: false, tarde: new Set(), detalle: new Map() };
   if (!anterior || o.unidadIds.length === 0) return vacio;
   const vence = diaCalendario(anterior.fecha_vencimiento).getTime(); // fecha sin hora: no se pasa por `hoyEn`
   const zona = (await tx.complejoHabitacional.findUnique({ where: { id: o.complejoId }, select: { zona_horaria: true } }))?.zona_horaria ?? ZONA_POR_DEFECTO;
   if (hoyEn(zona, moraDeps.ahora()).getTime() <= vence) return { ...vacio, aunNoVence: true };
   const cargos = await tx.reciboConceptoUnidad.findMany({
     where: { unidad_id: { in: o.unidadIds }, reciboConcepto: { recibo_id: anterior.id } },
-    select: { unidad_id: true, monto: true, estado_pago: true, fecha_pago: true, pagos: { where: { estado_validacion: { not: 'rechazado' } }, select: { monto: true, fecha_pago: true } } },
+    select: { unidad_id: true, monto: true, estado_pago: true, fecha_pago: true, pagos: { where: { estado_validacion: { not: 'rechazado' } }, select: { id: true, grupo: true, grupo_principal: true, monto: true, fecha_pago: true, fecha_origen: true, estado_validacion: true } } },
   });
   const tarde = new Set<number>();
+  const detalle = new Map<number, DetalleMoraUnidad>(o.unidadIds.map((id) => [id, { estado: 'sin_deuda', deuda: '0.00', pagos: [], revisar: false }]));
+  // Un pago del mantenimiento reparte un `Pago` por cargo con el mismo `grupo`: se muestra uno por grupo, con el id del principal (con el que se corrige la fecha).
+  const grupos = new Map<string, PagoDeMora>();
   for (const c of cargos) {
     if (c.unidad_id == null) continue;
     let cubierto: boolean;
@@ -79,8 +108,24 @@ export async function evaluarMora(tx: Tx, o: { complejoId: number; estructuraId:
       cubierto = aTiempo.gte(c.monto);
     }
     if (!cubierto) tarde.add(c.unidad_id);
+    const u = detalle.get(c.unidad_id)!;
+    u.deuda = new Prisma.Decimal(u.deuda).plus(c.monto).toFixed(2);
+    u.estado = tarde.has(c.unidad_id) ? 'tarde' : new Prisma.Decimal(u.deuda).gt(0) ? 'a_tiempo' : 'sin_deuda';
+    for (const p of c.pagos) {
+      const clave = p.grupo != null ? `${c.unidad_id}|${p.grupo}` : null;
+      const ya = clave ? grupos.get(clave) : undefined;
+      if (ya) {
+        ya.monto = new Prisma.Decimal(ya.monto).plus(p.monto).toFixed(2);
+        if (p.grupo_principal) ya.id = p.id;
+        continue;
+      }
+      const visto: PagoDeMora = { id: p.id, monto: new Prisma.Decimal(p.monto).toFixed(2), fecha_pago: p.fecha_pago, dia: diaEn(p.fecha_pago, zona), fecha_origen: p.fecha_origen, estado_validacion: p.estado_validacion };
+      if (clave) grupos.set(clave, visto);
+      u.pagos.push(visto);
+    }
   }
-  return { ...vacio, tarde };
+  for (const u of detalle.values()) u.revisar = u.pagos.some((p) => p.estado_validacion === 'por_validar' || (ORIGENES_A_REVISAR as readonly string[]).includes(p.fecha_origen));
+  return { ...vacio, tarde, detalle };
 }
 
 /** «pago fuera de fecha del recibo de octubre»: el motivo que ve el residente en su línea de mora. */

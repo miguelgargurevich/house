@@ -19,6 +19,7 @@ import { avisarReciboEmitido, encolarReciboEmitido, mensajeGrupoRecibo, planAvis
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { agregarMora, esConceptoMora, informeDeMora, montoDeMoraAplicable, type InformeMora, type UnidadConMora } from '../services/mora';
+import { quitarMulta, vistaDeMora, type TorreAEvaluar } from '../services/revisionMora';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
@@ -93,7 +94,7 @@ async function formatearRecibos<T extends { id: number; fecha_vencimiento: Date;
 }
 
 /** Un recibo por cada torre con unidades activas (y uno sin torre si quedan unidades sin torre); sin torres, uno solo. */
-interface RecibosAEmitir { estructuraId: number | null; torre: string | null; unidades: number[] }
+type RecibosAEmitir = TorreAEvaluar;
 
 async function planDeEmision(tx: Prisma.TransactionClient, complejoId: number, estructuraId: number | null | undefined): Promise<RecibosAEmitir[]> {
   const estructuras = await tx.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true }, orderBy: { id: 'asc' } });
@@ -299,6 +300,27 @@ router.get('/periodos', adminOJunta, async (req, res) => {
   res.json({ items: items.map((r) => ({ ...r, moneda: r.complejo?.moneda ?? MONEDA_POR_DEFECTO })), total: items.length, page: 1, pageSize: items.length });
 });
 
+const vistaMoraQuery = z.object({
+  complejo_id: idSchema,
+  estructura_id: idSchema.optional(),
+  mes: z.coerce.number().int().min(1).max(12),
+  anio: z.coerce.number().int().min(2000).max(2100),
+});
+
+/**
+ * Revisar morosos ANTES de emitir el recibo de `mes/anio`: por departamento del recibo anterior de cada torre, a tiempo / tarde / sin deuda, con los pagos, la
+ * fecha del voucher y su origen. Es el mismo cálculo (`evaluarMora`) que la emisión, sobre las mismas unidades: no puede diferir. Se declara antes de GET /:id.
+ */
+router.get('/vista-mora', requireRole('admin'), async (req, res) => {
+  const user = currentUser(req);
+  const q = parse(vistaMoraQuery, req.query);
+  const complejo = await prisma.complejoHabitacional.findFirst({ where: { AND: [{ id: q.complejo_id }, scopeComplejos(user)] }, select: { id: true, mora_monto: true } });
+  if (!complejo) throw notFound('Condominio');
+  const monto = await montoDeMoraAplicable(complejo.id, complejo.mora_monto);
+  const plan = await prisma.$transaction((tx) => planDeEmision(tx, complejo.id, q.estructura_id));
+  res.json(await vistaDeMora({ complejoId: complejo.id, mes: q.mes, anio: q.anio, monto, plan }));
+});
+
 // Detalle ampliado: conceptos y cargos por unidad (se declara antes del CRUD para tomar GET /:id).
 router.get('/:id', requireRole('admin'), async (req, res) => {
   const user = currentUser(req);
@@ -476,6 +498,26 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, voucherOpcional,
   res.status(201).json({ ...r, estado: voucher ? 'por_validar' : 'validado', con_voucher: voucher != null, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
 });
 
+const quitarMultaSchema = z.strictObject({ motivo: z.string({ error: 'El motivo es obligatorio' }).trim().min(5, 'Escribe un motivo de al menos 5 caracteres').max(300, 'Máximo 300 caracteres') });
+
+/**
+ * Quita la multa de un departamento en este recibo (la administradora acordó no cobrarla, o el voucher muestra que pagó a tiempo). Sólo la administración del
+ * condominio, no la junta. Con motivo obligatorio y auditada (quién, motivo, monto). 409 si la multa ya está pagada, en revisión o no existe.
+ */
+router.post('/:id/mantenimientos/:unidadId/quitar-multa', requireRole('admin'), async (req, res) => {
+  const u = currentUser(req);
+  const { id, unidadId } = parse(idsMant, req.params);
+  await ubicarParaCobrar(req, id, unidadId);
+  const { motivo } = parseBody(quitarMultaSchema, req);
+  const r = await quitarMulta({ reciboId: id, unidadId, motivo });
+  const { mes, anio } = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true } });
+  res.locals.accion = 'quitar_multa';
+  res.locals.entidad = 'recibo';
+  res.locals.entidadId = id;
+  res.locals.auditDetalle = { unidad_id: unidadId, codigo: r.codigo, monto: r.monto, motivo, mes, anio };
+  res.json({ monto_quitado: r.monto, motivo, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
+});
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const MAX_ADVERTENCIAS = 100;
@@ -490,18 +532,11 @@ const subirArchivo: RequestHandler = (req, res, next) => {
   });
 };
 
-// El rol se revisa ANTES de multer: un residente no debe hacer que el servidor reciba 10 MB.
-router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
-  const u = currentUser(req);
-  const complejoId = Number(req.body.complejo_id);
-  if (!complejoId) throw invalid('Datos inválidos: complejo_id es obligatorio', { complejo_id: 'Obligatorio' });
-  const complejo = await assertRef(prisma.complejoHabitacional, complejoId, scopeComplejos(u), 'complejo_id');
-  const empresa_id = complejo!.empresa_id as number | null;
-  if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
-
+/** Abre el Excel de recibos y lee su encabezado (mes, año, vencimiento) y dónde empiezan los datos; 422 con el mismo mensaje de siempre si no sirve. */
+function leerExcelDeRecibos(buffer: Buffer) {
   let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+    workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
   } catch {
     throw invalid('El archivo no es un Excel válido (.xlsx o .xls)', { archivo: 'Archivo inválido' });
   }
@@ -517,7 +552,19 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   }
   const { mes, anio, vencimiento } = leerCabecera(datos.slice(0, filaBlock));
   if (!mes || !anio) throw invalid('No se encontró el mes y año en el Excel', { archivo: 'Formato inválido' });
-  const fechaVencimiento = vencimiento ?? new Date(Date.UTC(anio, mes, 1));
+  return { datos, filaBlock, mes, anio, fechaVencimiento: vencimiento ?? new Date(Date.UTC(anio, mes, 1)) };
+}
+
+// El rol se revisa ANTES de multer: un residente no debe hacer que el servidor reciba 10 MB.
+router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
+  const u = currentUser(req);
+  const complejoId = Number(req.body.complejo_id);
+  if (!complejoId) throw invalid('Datos inválidos: complejo_id es obligatorio', { complejo_id: 'Obligatorio' });
+  const complejo = await assertRef(prisma.complejoHabitacional, complejoId, scopeComplejos(u), 'complejo_id');
+  const empresa_id = complejo!.empresa_id as number | null;
+  if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
+
+  const { datos, filaBlock, mes, anio, fechaVencimiento } = leerExcelDeRecibos(req.file.buffer);
 
   const { conceptos: columnasConcepto, primeraFilaDatos, columnaTotalMant, duplicados } = leerConceptos(datos, filaBlock);
   if (!columnasConcepto.length) throw invalid('No se encontraron conceptos en el encabezado', { archivo: 'Formato inválido' });
@@ -676,6 +723,49 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     mora,
     advertencias: advertencias.length > MAX_ADVERTENCIAS ? [...advertencias.slice(0, MAX_ADVERTENCIAS), `… y ${advertencias.length - MAX_ADVERTENCIAS} advertencias más`] : advertencias,
   });
+});
+
+/**
+ * Revisar morosos con el Excel ANTES de subirlo: lee el mes y las torres del archivo y devuelve la misma vista que `GET /vista-mora`, sobre las mismas
+ * unidades que el Excel crearía (las que encajan por torre y departamento) y con el mismo cálculo de la emisión. No crea ni cambia nada.
+ */
+router.post('/excel/vista-mora', requireRole('admin'), subirArchivo, async (req, res) => {
+  const u = currentUser(req);
+  const complejoId = Number(req.body.complejo_id);
+  if (!complejoId) throw invalid('Datos inválidos: complejo_id es obligatorio', { complejo_id: 'Obligatorio' });
+  const complejo = await prisma.complejoHabitacional.findFirst({ where: { AND: [{ id: complejoId }, scopeComplejos(u)] }, select: { id: true, mora_monto: true } });
+  if (!complejo) throw notFound('Condominio');
+  if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
+  const { datos, filaBlock, mes, anio } = leerExcelDeRecibos(req.file.buffer);
+  const { primeraFilaDatos } = leerConceptos(datos, filaBlock);
+  const estructuras = await prisma.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true } });
+  const unidades = await prisma.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, select: { id: true, codigo: true, estructura_id: true } });
+  // Mismo emparejamiento fila → torre → departamento que `POST /excel` (las filas que allí se saltan, aquí también).
+  const grupos = new Map<number | null, TorreAEvaluar>();
+  if (!estructuras.length) grupos.set(null, { estructuraId: null, torre: null, unidades: [] });
+  for (let i = primeraFilaDatos; i < datos.length; i++) {
+    const fila = datos[i]!;
+    const block = normalizarTexto(fila[0]);
+    const dep = normalizarTexto(fila[1]);
+    if (!block || !dep || block.toUpperCase() === 'TOTALES') continue;
+    let candidatas = unidades;
+    let estructuraId: number | null = null;
+    if (estructuras.length) {
+      const numero = numeroDeTorre(block);
+      if (numero == null) continue;
+      const { estructura } = buscarEstructura(estructuras, numero);
+      if (!estructura) continue;
+      estructuraId = estructura.id;
+      if (!grupos.has(estructuraId)) grupos.set(estructuraId, { estructuraId, torre: estructura.nombre, unidades: [] });
+      candidatas = unidades.filter((un) => un.estructura_id === estructura.id);
+    }
+    const coinciden = candidatas.filter((un) => codigoEncajaConDpto(un.codigo, dep));
+    if (coinciden.length !== 1) continue;
+    const g = grupos.get(estructuraId)!;
+    if (!g.unidades.includes(coinciden[0]!.id)) g.unidades.push(coinciden[0]!.id);
+  }
+  const monto = await montoDeMoraAplicable(complejo.id, complejo.mora_monto);
+  res.json(await vistaDeMora({ complejoId: complejo.id, mes, anio, monto, plan: [...grupos.values()].sort((a, b) => (a.estructuraId ?? 0) - (b.estructuraId ?? 0)) }));
 });
 
 router.use(crud);
