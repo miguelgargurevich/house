@@ -10,6 +10,8 @@ export interface EntradaSuscripcion {
   vigente_hasta: Date | null;
   solicitud_plan: string | null;
   solicitud_modulos: string[];
+  /** Prueba de Pro al registrarse: al vencer vuelve a Gratis al instante. Ausente o false = suscripción de pago normal. */
+  es_prueba?: boolean;
 }
 export interface PlanMinimo { clave: string; modulos_incluidos: string[]; /** Tope de unidades por condominio (null = sin tope). */ unidades_maximas?: number | null }
 export interface Plazos { dias_gracia: number; dias_aviso_vencimiento: number }
@@ -24,12 +26,30 @@ export interface EstadoEfectivo {
   en_gracia: boolean;
   /** Tenía módulos de pago y ya se apagaron por falta de pago. */
   apagada: boolean;
+  /** Prueba de Pro vigente (Pro completo mientras dura; al vencer, ya es Gratis). */
+  en_prueba: boolean;
 }
 
 const GRATIS: PlanMinimo = { clave: 'gratis', modulos_incluidos: [] };
 
-/** `sus` null = el condominio nunca tuvo suscripción: Gratis. */
+/** Fecha (00:00 UTC del día de Lima) en que termina una prueba de `dias` días que empieza hoy. */
+export const finDePrueba = (dias: number, ahora: Date): Date => new Date(hoyLima(ahora).getTime() + dias * 86_400_000);
+
+/**
+ * Estado que cuenta para las puertas y las pantallas. Una prueba de Pro vencida vuelve a Gratis AL INSTANTE: sin días de gracia, sin «vencida» y
+ * sin apagado (sólo deja de tener lo de Pro, igual que cualquier Gratis). Una prueba vigente es Pro completo con `en_prueba`.
+ */
 export function estadoEfectivo(sus: EntradaSuscripcion | null, planes: PlanMinimo[], plazos: Plazos, ahora: Date): EstadoEfectivo {
+  if (sus?.es_prueba && sus.vigente_hasta) {
+    const dias = diasEntre(hoyLima(ahora), sus.vigente_hasta);
+    if (dias < 0) return { plan_clave: 'gratis', estado: 'gratis', modulos: [], dias_para_vencer: dias, en_gracia: false, apagada: false, en_prueba: false };
+    return { ...estadoDeSuscripcion(sus, planes, plazos, ahora), en_prueba: true };
+  }
+  return { ...estadoDeSuscripcion(sus, planes, plazos, ahora), en_prueba: false };
+}
+
+/** La vigencia de una suscripción de pago (sin la prueba): Gratis, solicitada, activa, por vencer, vencida o apagada. */
+function estadoDeSuscripcion(sus: EntradaSuscripcion | null, planes: PlanMinimo[], plazos: Plazos, ahora: Date): Omit<EstadoEfectivo, 'en_prueba'> {
   if (!sus) return { plan_clave: 'gratis', estado: 'gratis', modulos: [], dias_para_vencer: null, en_gracia: false, apagada: false };
   const plan = planes.find((p) => p.clave === sus.plan_clave) ?? GRATIS;
   const comprados = [...new Set([...plan.modulos_incluidos, ...sus.modulos])];

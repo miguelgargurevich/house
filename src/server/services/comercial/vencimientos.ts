@@ -16,7 +16,12 @@ const MARCA = { por_vencer: 'aviso_por_vencer_para', vencida: 'aviso_vencida_par
 
 export interface ResultadoVencimientos { revisadas: number; estados: number; correos: number }
 
-async function cuerpoAviso(tipo: Aviso, complejoId: number, vigente: Date, diasGracia: number, ahora: Date): Promise<{ asunto: string; cuerpo: string }> {
+async function cuerpoAviso(tipo: Aviso, complejoId: number, vigente: Date, diasGracia: number, ahora: Date, prueba: boolean): Promise<{ asunto: string; cuerpo: string }> {
+  // La prueba de Pro sólo avisa que termina: después sigue en Gratis, sin cobro que pedir (no hay plan que pagar todavía).
+  if (prueba) {
+    const fin = fechaTexto(vigente);
+    return { asunto: `Tu prueba de Pro termina el ${fin}`, cuerpo: `Tu prueba de Pro termina el ${fin}: después sigues en Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Pro desde Mi plan.` };
+  }
   const [v] = await vistas([complejoId]);
   const pago = await datosParaPagar();
   // En la moneda del país del condominio y con su impuesto (IGV, IVA…); sin precio en esa moneda no hay monto que decir: se confirma por escrito.
@@ -48,11 +53,13 @@ export async function procesarVencimientos(opts: { ahora?: Date; deps?: DepsAvis
     if (ef.estado === 'por_vencer') toca.push('por_vencer');
     if (ef.estado === 'vencida') toca.push('vencida');
     if (ef.apagada) toca.push('apagada');
-    for (const tipo of toca) {
+    // Una prueba de Pro sólo tiene el aviso «por vencer»: al vencer ya es Gratis (sin «vencida» ni «apagada»).
+    const avisos = s.es_prueba ? toca.filter((t) => t === 'por_vencer') : toca;
+    for (const tipo of avisos) {
       const marca = s[MARCA[tipo]];
       if (marca && marca.getTime() === vigente.getTime()) continue; // ya se avisó de este periodo
       const admins = s.complejo.empresa_id != null ? await prisma.usuario.findMany({ where: { empresa_id: s.complejo.empresa_id, rol: 'admin', correo_verificado: true }, select: { email: true } }) : [];
-      const { asunto, cuerpo } = await cuerpoAviso(tipo, s.complejo_id, vigente, cfg.dias_gracia, ahora);
+      const { asunto, cuerpo } = await cuerpoAviso(tipo, s.complejo_id, vigente, cfg.dias_gracia, ahora, s.es_prueba);
       let fallo = false;
       for (const a of admins) {
         const e = await correoA(a.email, asunto, cuerpo, opts.deps);

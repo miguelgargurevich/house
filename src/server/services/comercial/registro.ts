@@ -9,6 +9,7 @@ import { HttpError } from '../../errors';
 import { abrirContrato } from '../../lib/contratos';
 import { registrarAuditoria } from '../../middleware/audit';
 import { comercialDeps } from './modulos';
+import { finDePrueba } from './estado';
 import { correoA, enlace, enmascarar, obtenerConfiguracion } from './configuracion';
 import { VERSION_LEGAL } from './legal';
 
@@ -63,7 +64,13 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
       const usuario = await tx.usuario.create({ data: { nombre: d.nombre, email: d.email, telefono: d.celular, rol: 'admin', password_hash, empresa_id: empresa.id, correo_verificado: false, terminos_version: VERSION_LEGAL, terminos_aceptados_at: comercialDeps.ahora() }, select: { id: true } });
       const complejo = await tx.complejoHabitacional.create({ data: { nombre: d.condominio, tipo: 'condominio', empresa_id: empresa.id } });
       await abrirContrato(tx, complejo.id, empresa.id);
-      await tx.suscripcionCondominio.create({ data: { complejo_id: complejo.id, plan_clave: 'gratis', estado: 'gratis', notas: `Registro público: ~${d.unidades} departamentos` } });
+      // Prueba de Pro (reverse trial): el condominio nace en Pro por `dias_prueba_pro` días; con 0 nace en Gratis, como antes.
+      const prueba = cfg.dias_prueba_pro > 0;
+      await tx.suscripcionCondominio.create({
+        data: prueba
+          ? { complejo_id: complejo.id, plan_clave: 'pro', estado: 'activa', es_prueba: true, vigente_hasta: finDePrueba(cfg.dias_prueba_pro, comercialDeps.ahora()), notas: `Registro público: ~${d.unidades} departamentos. Prueba de Pro de ${cfg.dias_prueba_pro} días.` }
+          : { complejo_id: complejo.id, plan_clave: 'gratis', estado: 'gratis', notas: `Registro público: ~${d.unidades} departamentos` },
+      });
       const token = await crearToken(tx, usuario.id);
       return { usuarioId: usuario.id, empresaId: empresa.id, complejoId: complejo.id, token };
     });
@@ -77,7 +84,8 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
   }
   await registrarAuditoria({ usuario_id: creado.usuarioId, accion: 'registro_publico', entidad: 'usuario', entidad_id: creado.usuarioId, detalle: { empresa_id: creado.empresaId, complejo_id: creado.complejoId, correo: enmascarar(d.email), unidades: d.unidades }, ip });
   await enviarVerificacion(d.email, d.nombre, creado.token).catch(() => undefined);
-  await avisarAlSuperadmin('Nuevo registro en House', `Se registró ${d.nombre} (${enmascarar(d.email)}, ${d.celular}).\nAdministradora o junta: ${d.empresa}\nCondominio: ${d.condominio} (~${d.unidades} departamentos)\nPlan: Gratis. Correo aún por verificar.`);
+  const plan = cfg.dias_prueba_pro > 0 ? `Pro de prueba (${cfg.dias_prueba_pro} días)` : 'Gratis';
+  await avisarAlSuperadmin('Nuevo registro en House', `Se registró ${d.nombre} (${enmascarar(d.email)}, ${d.celular}).\nAdministradora o junta: ${d.empresa}\nCondominio: ${d.condominio} (~${d.unidades} departamentos)\nPlan: ${plan}. Correo aún por verificar.`);
 }
 
 async function avisarCorreoExistente(email: string, u: { id: number; nombre: string; correo_verificado: boolean }): Promise<void> {

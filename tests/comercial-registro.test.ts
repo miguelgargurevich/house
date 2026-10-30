@@ -55,7 +55,9 @@ describe('registro público', () => {
     const complejo = await prisma.complejoHabitacional.findFirstOrThrow({ where: { empresa_id: empresa.id } });
     assert.equal(complejo.nombre, 'Condominio Los Pinos');
     const sus = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: complejo.id } });
-    assert.equal(sus.plan_clave, 'gratis');
+    // Con la prueba por defecto (30 días) nace en Pro de prueba; con 0 días nace en Gratis (tests/prueba-pro.test.ts).
+    assert.equal(sus.plan_clave, 'pro');
+    assert.equal(sus.es_prueba, true);
     assert.match(sus.notas ?? '', /48 departamentos/);
     assert.equal(await prisma.contratoAdministracion.count({ where: { complejo_id: complejo.id, empresa_id: empresa.id, fecha_fin: null } }), 1);
     const aCliente = enviados.find((c) => c.para === 'rosa@casa.pe')!;
@@ -104,7 +106,7 @@ describe('registro público', () => {
     // sembrar() crea 2 empresas y 2 condominios; el registro suma exactamente 1 de cada uno.
     assert.equal(await prisma.empresaAdministradora.count(), 3);
     assert.equal(await prisma.complejoHabitacional.count(), 3);
-    assert.equal(await prisma.suscripcionCondominio.count({ where: { plan_clave: 'gratis' } }), 1);
+    assert.equal(await prisma.suscripcionCondominio.count({ where: { plan_clave: 'pro', es_prueba: true } }), 1);
   });
 
   it('sin verificar el correo NO entra (aunque la contraseña sea correcta); con contraseña mala sigue siendo el 401 de siempre', async () => {

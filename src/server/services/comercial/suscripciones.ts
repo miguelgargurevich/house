@@ -34,6 +34,8 @@ export interface VistaSuscripcion {
   vigente_hasta: Date | null;
   dias_para_vencer: number | null;
   en_gracia: boolean;
+  /** Prueba de Pro vigente (`dias_para_vencer` son los días que le quedan); al vencer ya no aparece aquí, la vista pasa a Gratis. */
+  en_prueba: boolean;
   unidades_facturables: number;
   /** Unidades que se cobran: `max(unidades, mínimo del plan)`. */
   unidades_cobradas: number;
@@ -117,6 +119,7 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       vigente_hasta: s?.vigente_hasta ?? null,
       dias_para_vencer: ef.dias_para_vencer,
       en_gracia: ef.en_gracia,
+      en_prueba: ef.en_prueba,
       unidades_facturables: n,
       unidades_cobradas: cot.unidades_cobradas,
       unidades_maximas: planTope?.unidades_maximas ?? null,
@@ -202,6 +205,8 @@ export async function cambiarSuscripcion(complejoId: number, c: CambioSuscripcio
     ...(c.vigente_hasta !== undefined ? { vigente_hasta: c.vigente_hasta } : {}),
     ...(c.notas !== undefined ? { notas: c.notas } : {}),
     ...(resuelve ? { solicitud_plan: null, solicitud_modulos: [], solicitada_at: null } : {}),
+    // Un plan o una vigencia puesto a mano por el superadmin deja de ser una prueba (si no, vencería a Gratis sin aviso).
+    ...(c.plan_clave !== undefined || c.vigente_hasta !== undefined ? { es_prueba: false } : {}),
   };
   await prisma.suscripcionCondominio.upsert({
     where: { complejo_id: complejoId },
@@ -236,7 +241,8 @@ export async function registrarPago(complejoId: number, d: DatosPago, registrado
     if (plan === 'gratis' && !modulos.length) throw conflict('Este condominio está en Gratis y no tiene módulos: cambia su plan o sus módulos antes de registrar el pago');
     if (plan === 'cortesia' && !modulos.length && !(planFila?.modulos_incluidos.length ?? 0)) throw conflict('Un condominio en cortesía no paga');
     const vigente = s?.vigente_hasta && s.vigente_hasta > d.periodo_hasta ? s.vigente_hasta : d.periodo_hasta;
-    const datos = { plan_clave: plan, modulos, vigente_hasta: vigente, solicitud_plan: null, solicitud_modulos: [] as string[], solicitada_at: null, estado: 'activa' };
+    // Pagar convierte una prueba en un pago normal: la marca se apaga y el periodo pagado sigue igual.
+    const datos = { plan_clave: plan, modulos, vigente_hasta: vigente, solicitud_plan: null, solicitud_modulos: [] as string[], solicitada_at: null, estado: 'activa', es_prueba: false };
     await tx.suscripcionCondominio.upsert({ where: { complejo_id: complejoId }, create: { complejo_id: complejoId, ...datos }, update: datos });
     return tx.pagoSuscripcion.create({
       data: {

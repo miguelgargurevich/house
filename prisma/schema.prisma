@@ -952,6 +952,8 @@ model SuscripcionCondominio {
   modulos               String[]
   /// gratis | solicitada | activa | por_vencer | vencida. El estado que manda para apagar módulos se calcula con `vigente_hasta` (ver services/comercial/estado.ts).
   estado                String               @default("gratis")
+  /// Prueba de Pro al registrarse: al vencer vuelve a Gratis AL INSTANTE (sin gracia ni aviso de «vencida»). Pagar o cambiar el plan o la vigencia a mano la apaga.
+  es_prueba             Boolean              @default(false)
   vigente_hasta         DateTime?
   solicitud_plan        String?
   solicitud_modulos     String[]
@@ -1013,6 +1015,8 @@ model ConfiguracionComercial {
   /// Base de los enlaces de los correos (https://…). Nunca se toma de la cabecera Host de la petición.
   url_publica            String?
   registro_abierto       Boolean  @default(true)
+  /// Días de Pro de prueba que recibe cada condominio al registrarse (0 = sin prueba: nace en Gratis).
+  dias_prueba_pro        Int      @default(30)
   /// Cuándo se dejaron en «cortesía» los condominios que ya existían al estrenar la capa comercial (una sola vez; ver services/comercial/migracion.ts).
   migracion_cortesia_at  DateTime?
   pago_titular           String?

@@ -68,6 +68,8 @@ const configSchema = z.object({
   correo_superadmin: z.preprocess((v) => (v === '' ? null : v), z.email('Correo inválido').max(160).nullish()),
   url_publica: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(200).regex(/^https?:\/\/[^\s/]+[^\s]*$/i, 'Debe empezar con https://').nullish()),
   registro_abierto: z.boolean().optional(),
+  /** Días de Pro de prueba al registrarse (0 = sin prueba: el condominio nace en Gratis). */
+  dias_prueba_pro: z.number().int().min(0).max(90).optional(),
   pago_titular: textoOpcional(120),
   pago_banco: textoOpcional(80),
   pago_cuenta: textoOpcional(60),
