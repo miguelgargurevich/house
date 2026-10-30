@@ -1,0 +1,478 @@
+{
+ "titulo": "Cómo usar House, según tu rol",
+ "kicker": "Manual de usuario · versión del 30-oct-2026",
+ "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
+ "diseno": "manual",
+ "meta": [
+  "house.gargurevich.dev",
+  "Versión 30-oct-2026",
+  "Español · Perú"
+ ],
+ "descripcion": "Manual de House por roles (administradora, junta, propietario, inquilino, personal) con capturas de datos de prueba. Corte: 30-oct-2026.",
+ "secciones": [
+  {
+   "titulo": "House en una frase",
+   "etiqueta": "Para empezar",
+   "parrafos": [
+    "House ordena la cobranza del condominio: la administración emite el mantenimiento de cada mes, cada vecino lo ve en su celular y lo paga subiendo su voucher, y la junta de su block confirma que el dinero llegó a la cuenta.",
+    "Lo que ves al entrar depende de tu rol. Busca el tuyo en la tabla y salta a su parte del manual."
+   ],
+   "tabla": {
+    "columnas": [
+     "Tu rol",
+     "Qué haces en House",
+     "Tu parte del manual"
+    ],
+    "filas": [
+     [
+      "Administradora",
+      "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
+      "Secciones 04 a 15"
+     ],
+     [
+      "Junta directiva del block (presidente o tesorero)",
+      "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago, cargas el agua y cierras el mes del block",
+      "Secciones 16 a 21"
+     ],
+     [
+      "Propietario",
+      "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
+      "Secciones 22 a 28"
+     ],
+     [
+      "Inquilino",
+      "Lo mismo que el propietario, para el departamento que alquilas",
+      "Sección 29"
+     ],
+     [
+      "Personal (mantenimiento, limpieza, jardinería, seguridad)",
+      "Atiendes tus tareas o consultas las unidades",
+      "Secciones 30 y 31"
+     ]
+    ]
+   }
+  },
+  {
+   "titulo": "Cómo entrar por primera vez",
+   "etiqueta": "Todos",
+   "parrafos": [
+    "No creas tu cuenta tú: la crea tu administración y te llega un correo de invitación."
+   ],
+   "numerada": [
+    "Abre el correo de invitación de House y pulsa el enlace. Vale **7 días**.",
+    "Escribe tu contraseña dos veces y pulsa **Crear contraseña y entrar**.",
+    "Las próximas veces entra en [house.gargurevich.dev](https://house.gargurevich.dev) con tu correo y tu contraseña."
+   ],
+   "aviso": {
+    "tipo": "nota",
+    "texto": "Si el enlace venció o no te llegó el correo, pide a tu administración que use **Reenviar invitación** en la lista de residentes."
+   },
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/login.jpg"
+  },
+  {
+   "titulo": "Lo que tienen todas las pantallas",
+   "etiqueta": "Todos",
+   "bullets": [
+    "**Tu nombre, arriba a la derecha**: abre Mi perfil (nombre, celular y avisos, contraseña) y Cerrar sesión.",
+    "**La luna**: cambia entre modo claro y oscuro.",
+    "**El ícono de destellos**: abre el Asistente. Pregúntale «¿Cuánto debo?», «¿Cómo pago?» o dónde hacer algo.",
+    "**El selector de condominio**, arriba a la izquierda (sólo administradora): filtra todas las pantallas por condominio.",
+    "En el celular, el menú se abre con las tres rayas de arriba a la izquierda."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/perfil.jpg"
+  },
+  {
+   "titulo": "Resumen: el condominio en una pantalla",
+   "etiqueta": "Administradora",
+   "parrafos": [
+    "Al entrar ves lo cobrado este mes, lo que falta cobrar, las unidades morosas y las tareas abiertas. Debajo, dos gráficos: **Emitido vs. cobrado** de los últimos 6 meses y **% cobrado por block** del último mes, de mayor a menor (en rojo los que van por debajo del 50 %).",
+    "Con el filtro **Todos los blocks** miras uno solo."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-resumen.jpg"
+  },
+  {
+   "titulo": "Emitir el mantenimiento del mes",
+   "etiqueta": "Administradora · Recibos",
+   "parrafos": [
+    "Cada block tiene su propio recibo cada mes. La lista muestra el periodo, el block, el vencimiento, el avance del cobro y el estado."
+   ],
+   "numerada": [
+    "Entra a **Recibos**.",
+    "Pulsa **Emitir recibo** para armarlo con los conceptos, o **Subir Excel** si ya lo tienes en la plantilla del block.",
+    "Revisa el periodo, el vencimiento y los montos, y emítelo.",
+    "Abre el recibo para verlo por block y por departamento."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-recibos.jpg"
+  },
+  {
+   "titulo": "El recibo por dentro y el consolidado del block",
+   "etiqueta": "Administradora · Recibos",
+   "parrafos": [
+    "Al abrir un recibo ves lo emitido, lo cobrado, lo que falta (y cuánto está en revisión) y los departamentos morosos. Tiene tres pestañas: **Departamentos**, **Consolidado del block** y **Agua y datos del recibo**.",
+    "El **Consolidado del block** es la hoja que va detrás de cada recibo: una fila por departamento y una columna por concepto. Pulsa **Descargar Excel** o **Imprimir**; ya no hace falta armarlo a mano.",
+    "**Imprimir recibos del block** saca el recibo de cada vecino listo para repartir."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-consolidado.jpg"
+  },
+  {
+   "titulo": "Avisar a los vecinos",
+   "etiqueta": "Administradora · Recibos",
+   "parrafos": [
+    "Cuando el recibo está emitido, avisa a todos con un clic."
+   ],
+   "numerada": [
+    "En el recibo, pulsa **Avisar a los vecinos**.",
+    "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular).",
+    "Pulsa **Enviar aviso**.",
+    "Si el block tiene grupo de WhatsApp, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo allí. Ese mensaje no lleva montos ni nombres."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-avisar.jpg"
+  },
+  {
+   "titulo": "Pagos: cómo se valida cada uno",
+   "etiqueta": "Administradora · Pagos",
+   "parrafos": [
+    "Cada fila es el pago de un mantenimiento completo, siempre con su voucher. Las pestañas separan **Por validar**, **Validados** y **Rechazados**. En cada pago ves si tiene voucher, qué dijo la IA y si el tesorero ya confirmó.",
+    "Para revisar uno, pulsa **Revisar**: ves el voucher, el método y la referencia, y decides **Validar pago** o **Rechazar**. Con **Registrar pago** cargas los que recibes por fuera (transferencia, Yape, Plin, efectivo o tarjeta)."
+   ],
+   "aviso": {
+    "tipo": "aviso",
+    "texto": "Un pago **no se valida sin el check del tesorero del block**: él confirma que el dinero llegó a la cuenta. Si el block no tiene tesorero, o el pago lo registró el propio tesorero, basta con la revisión de la IA o de la administración."
+   },
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-pago-detalle.jpg"
+  },
+  {
+   "titulo": "Medios de pago y validación con IA",
+   "etiqueta": "Administradora · Medios de pago",
+   "parrafos": [
+    "Aquí está, por block, la cuenta bancaria o el Yape o Plin donde pagan los vecinos, con su junta al lado. Un block sin cuenta aparece como **Sin cuenta**: agrégala con **Agregar cuenta**.",
+    "Arriba está la **Validación automática con IA**. Cuando la activas, un pago se valida solo si se cumplen dos cosas:"
+   ],
+   "bullets": [
+    "la IA lee el voucher y coincide exactamente con lo que se debía (monto, destino y fecha, sin archivos ni números de operación repetidos);",
+    "el tesorero del block da su check."
+   ],
+   "aviso": {
+    "tipo": "nota",
+    "texto": "La IA nunca rechaza un pago por su cuenta: lo dudoso queda para que una persona lo revise. Viene apagada; la activas o apagas con el interruptor."
+   },
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-medios.jpg"
+  },
+  {
+   "titulo": "Morosidad",
+   "etiqueta": "Administradora",
+   "parrafos": [
+    "Las unidades con mantenimientos vencidos, de mayor a menor deuda, con los meses vencidos y los días de atraso. Arriba ves la deuda vencida total, cuántas unidades están morosas y el mayor atraso.",
+    "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. **Exportar CSV** baja la lista."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-morosidad-detalle.jpg"
+  },
+  {
+   "titulo": "Cierres del mes",
+   "etiqueta": "Administradora",
+   "parrafos": [
+    "Al cerrar el mes, cada junta de block registra lo que pagó: a la empresa administradora, a la Junta central, los servicios y los proveedores, cada pago con su voucher. Tú ves el estado de todos los blocks.",
+    "Elige el **mes** y el **año**. Las pestañas son: **Cierre por block**, **Pagos a la administradora**, **Aportes a la Junta central**, **Cierre de la Junta central** y **Cuentas de destino**.",
+    "En cada block ves los pagos registrados, lo facturado, el sobrante del mes y el fondo de ahorros. Pulsa el block para ver el detalle."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-cierres.jpg"
+  },
+  {
+   "titulo": "Conceptos y su destino",
+   "etiqueta": "Administradora",
+   "parrafos": [
+    "Los conceptos son lo que se cobra en cada recibo: agua, luz de áreas comunes, seguridad, limpieza, fondos y demás. Cada uno tiene un **destino al cerrar el mes**, y con eso el cierre sabe a quién le toca ese dinero."
+   ],
+   "tabla": {
+    "columnas": [
+     "Destino",
+     "A dónde va el dinero"
+    ],
+    "filas": [
+     [
+      "Empresa administradora",
+      "A la cuenta de la administradora"
+     ],
+     [
+      "Junta central",
+      "A la cuenta de la Junta central del condominio"
+     ],
+     [
+      "Pago de servicios (agua, luz)",
+      "Lo paga la junta del block a la empresa de servicios"
+     ],
+     [
+      "Fondo de ahorros del block",
+      "Se queda en el block"
+     ],
+     [
+      "Sin clasificar",
+      "Aún no tiene destino: asígnalo antes del cierre"
+     ]
+    ]
+   },
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-conceptos.jpg"
+  },
+  {
+   "titulo": "Comunicados",
+   "etiqueta": "Administradora",
+   "numerada": [
+    "Entra a **Comunicados** y pulsa **Nuevo comunicado**.",
+    "En **Para quién** elige todo el condominio o un block.",
+    "Escribe el título y el mensaje (hasta 4.000 caracteres).",
+    "Marca si además se envía **por correo** o **por WhatsApp**, y si queda **fijado arriba**.",
+    "Pulsa **Publicar**. En la pestaña **Envíos** ves qué salió, qué está pendiente y qué tuvo error."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-comunicado-nuevo.jpg"
+  },
+  {
+   "titulo": "Juntas directivas",
+   "etiqueta": "Administradora",
+   "parrafos": [
+    "Cada block tiene su junta: presidente, tesorero y secretario, más el correo de la junta y la cuenta donde pagan los vecinos.",
+    "Con **Editar** cambias los miembros de la gestión actual. Cuando entra una junta nueva, usa **Nueva gestión**: los permisos pasan solos a las nuevas personas y la anterior queda en el **Historial**."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-juntas.jpg"
+  },
+  {
+   "titulo": "Unidades, mantenimiento y proveedores",
+   "etiqueta": "Administradora",
+   "bullets": [
+    "**Unidades**: departamentos, casas, locales, estacionamientos y depósitos, cada uno con su block, propietario e inquilino.",
+    "**Mantenimiento**: las tareas de reparación y cuidado. Las asignas al personal y ves si están pendientes, en progreso o completadas.",
+    "**Proveedores**: ascensores, gasfitería, pintura y demás. Activa **Visible para los vecinos** en los que quieras compartir.",
+    "**Mi empresa** y **Mi plan**: los datos de tu empresa y el plan de cada condominio (Gratis con límite de departamentos, o Pro)."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-mantenimiento.jpg"
+  },
+  {
+   "titulo": "Mi junta",
+   "etiqueta": "Junta directiva",
+   "parrafos": [
+    "Si eres presidente o tesorero de tu block, además de tu menú de vecino ves el grupo **Junta**. En **Mi junta** están los miembros, el correo de la junta y la cuenta donde pagan tus vecinos.",
+    "Puedes editar el correo y la cuenta. Los miembros y las gestiones nuevas los registra la administración."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-mi-junta.jpg"
+  },
+  {
+   "titulo": "Confirmar que el pago llegó a la cuenta",
+   "etiqueta": "Junta directiva · Tesorero",
+   "parrafos": [
+    "Es lo más importante del tesorero: sin tu check, ningún pago de tu block se valida."
+   ],
+   "numerada": [
+    "Entra a **Pagos por validar**.",
+    "Pulsa **Revisar** en el pago.",
+    "Mira el voucher y busca el movimiento en la cuenta o el Yape de la junta.",
+    "Si el dinero llegó, pulsa **Confirmo que llegó a la cuenta**. Si no llegó, no lo confirmes y avisa a la administración."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-pagos.jpg"
+  },
+  {
+   "titulo": "Medios de pago de tu block",
+   "etiqueta": "Junta directiva",
+   "parrafos": [
+    "Aquí mantienes al día la cuenta, el Yape o el Plin donde pagan tus vecinos. Con **Agregar medio de pago** sumas uno (si tiene QR, súbelo) y con el interruptor lo activas o lo ocultas. Los vecinos lo ven en su recibo y en Mi junta."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-medios.jpg"
+  },
+  {
+   "titulo": "Lecturas de agua",
+   "etiqueta": "Junta directiva",
+   "numerada": [
+    "Entra a **Lecturas de agua** y elige el recibo del mes.",
+    "Si quieres, anota la **fecha de corte** y el **correo del block**: salen en el recibo impreso.",
+    "Escribe el **factor** (S/ por m³) y pulsa **Aplicar a todas las filas**.",
+    "Escribe la lectura actual de cada departamento, o pulsa **Descargar plantilla**, llénala y usa **Subir Excel o CSV**.",
+    "Pulsa **Guardar lecturas**."
+   ],
+   "aviso": {
+    "tipo": "nota",
+    "texto": "La lectura anterior sale sola de la del mes previo. Si el agua que cobra el recibo no cuadra con la lectura, la fila te avisa. Las lecturas no cambian ningún monto del recibo."
+   },
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-agua.jpg"
+  },
+  {
+   "titulo": "Cierre del mes del block",
+   "etiqueta": "Junta directiva · Tesorero",
+   "parrafos": [
+    "Lo que la junta paga al cerrar el mes, cada pago con su voucher. Se cierra hacia el **día 5 del mes siguiente**.",
+    "Arriba ves lo facturado a los vecinos, lo cobrado (validado) y lo pagado por la junta. Debajo, una línea por destino: pago a la empresa administradora, aporte a la Junta central, servicios y demás. Cada una dice qué se facturó y qué se cobró."
+   ],
+   "numerada": [
+    "Elige el mes y el año.",
+    "En cada línea, pulsa **Registrar pago** y sube el voucher de lo que pagaste.",
+    "Cuando todas las líneas estén pagadas, el cierre deja de decir **Pagos pendientes**."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-cierre.jpg"
+  },
+  {
+   "titulo": "Si eres de la Junta central",
+   "etiqueta": "Junta directiva · Junta central",
+   "parrafos": [
+    "La Junta central es la de todo el condominio. Además del menú de la junta tiene dos pantallas:"
+   ],
+   "bullets": [
+    "**Aportes de los blocks**: lo que cada block transfirió a la cuenta central al cerrar su mes. El tesorero central da su conformidad a cada aporte.",
+    "**Cierre de la Junta central**: lo que entra a la cuenta central (aportes confirmados, alquiler de estacionamientos y otros ingresos) y lo que sale (servicios, proveedores y otros egresos), cada movimiento con su voucher. Muestra el saldo del mes y el Fondo de ahorros de la Junta central."
+   ],
+   "aviso": {
+    "tipo": "nota",
+    "texto": "El alquiler de estacionamientos se paga aparte, a la cuenta de la Junta central: no va en el recibo del vecino. Desde el día 5, House le avisa al tesorero central si algún block aún no aporta."
+   }
+  },
+  {
+   "titulo": "Inicio: cuánto debes",
+   "etiqueta": "Propietario",
+   "parrafos": [
+    "Al entrar ves tu deuda total, tu próximo vencimiento, lo que pagaste este año, tus mantenimientos por pagar y los últimos comunicados. Si tienes algo vencido, un aviso rojo te lleva a ver cuál es."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-inicio.jpg"
+  },
+  {
+   "titulo": "Mis recibos",
+   "etiqueta": "Propietario",
+   "parrafos": [
+    "El mantenimiento de cada mes de tu departamento, separado en **Por pagar**, **Vencidos**, **En revisión** y **Pagados**.",
+    "Con **Ver detalle** ves el total, el número de recibo, el vencimiento, el saldo y cada concepto con su monto. **Ver / imprimir recibo** abre el recibo completo, con la cuenta donde pagar."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-detalle.jpg"
+  },
+  {
+   "titulo": "Pagar con tu voucher",
+   "etiqueta": "Propietario",
+   "parrafos": [
+    "Pagas el mantenimiento completo del mes con un solo pago. El voucher es obligatorio."
+   ],
+   "numerada": [
+    "Paga en la cuenta, Yape o Plin de tu junta (está en tu recibo y en Mi junta).",
+    "En **Mis recibos**, pulsa **Pagar mantenimiento**.",
+    "Sube la foto o el PDF del voucher (hasta 2 MB) o pulsa **Tomar foto con la cámara**.",
+    "Elige cómo pagaste y, si quieres, escribe el número de operación.",
+    "Pulsa **Enviar pago**. El recibo pasa a **En revisión** hasta que se valide."
+   ],
+   "aviso": {
+    "tipo": "ok",
+    "texto": "¿Dónde veo el voucher que subí? En **Mi historial**: al final está la lista de tus pagos. Pulsa el pago para ver su estado y el voucher. Mientras siga en revisión, puedes reemplazarlo ahí mismo."
+   },
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-pagar.jpg"
+  },
+  {
+   "titulo": "Mi historial",
+   "etiqueta": "Propietario",
+   "parrafos": [
+    "Cómo evolucionan tus pagos. Pestañas **Resumen**, **Por concepto** (elige un concepto y míralo mes a mes), **Acumulado** y **Agua**. Elige el periodo y, si quieres, pulsa **Descargar Excel**.",
+    "Al final están todos tus pagos: pulsa uno para ver su comprobante, su estado y el voucher, o para imprimirlo."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-historial.jpg"
+  },
+  {
+   "titulo": "Mi junta",
+   "etiqueta": "Propietario",
+   "parrafos": [
+    "Quiénes forman la junta de tu block y la Junta central, y **dónde pagas**: la cuenta, el Yape o el Plin con su QR, y el botón **Copiar** para el número."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-junta.jpg"
+  },
+  {
+   "titulo": "Proveedores",
+   "etiqueta": "Propietario",
+   "parrafos": [
+    "Los proveedores de confianza que tu administración comparte contigo, agrupados por rubro. Con **Llamar**, **WhatsApp** o **Escribir** los contactas directo. Si no ves ninguno, tu administración aún no comparte proveedores."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-proveedores.jpg"
+  },
+  {
+   "titulo": "Comunicados",
+   "etiqueta": "Propietario",
+   "parrafos": [
+    "Lo que la administración y la junta anuncian: cortes, reuniones, trabajos y avisos. Los fijados salen primero. Si activaste los avisos en Mi perfil, también te llegan por correo o WhatsApp."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-comunicados.jpg"
+  },
+  {
+   "titulo": "Si alquilas",
+   "etiqueta": "Inquilino",
+   "parrafos": [
+    "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores y Comunicados. Pagas y subes tu voucher igual que en la sección 24."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/inquilino-inicio.jpg"
+  },
+  {
+   "titulo": "Mantenimiento, limpieza y jardinería",
+   "etiqueta": "Personal",
+   "parrafos": [
+    "En **Mis tareas** están los trabajos que te asignó la administración, en **Pendientes**, **En progreso** y **Completadas**. Pulsa **Iniciar** cuando empiezas y **Completar** cuando terminas: la administración lo ve al momento."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/mantenimiento-tareas.jpg"
+  },
+  {
+   "titulo": "Seguridad",
+   "etiqueta": "Personal",
+   "parrafos": [
+    "En **Inicio** ves tu condominio asignado. En **Unidades** buscas por código y ves el propietario y el inquilino de cada una antes de autorizar una visita."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/seguridad-inicio.jpg"
+  },
+  {
+   "titulo": "Qué hacer si algo falla",
+   "etiqueta": "Ayuda",
+   "tabla": {
+    "columnas": [
+     "Lo que pasa",
+     "Qué significa",
+     "Qué haces"
+    ],
+    "filas": [
+     [
+      "«Este enlace ya no sirve» al crear tu contraseña",
+      "La invitación venció (7 días) o ya se usó",
+      "Pide a tu administración que te la reenvíe"
+     ],
+     [
+      "«Enviar pago» no se activa",
+      "Falta el voucher, o pesa más de 2 MB",
+      "Sube una foto o un PDF más liviano"
+     ],
+     [
+      "Mi pago sigue «En revisión»",
+      "Falta la validación o el check del tesorero",
+      "Espera; si pasan varios días, escribe a tu junta"
+     ],
+     [
+      "Mi pago salió «Rechazado»",
+      "El voucher no coincidía; el motivo sale en Mi historial",
+      "Vuelve a pagar desde Mis recibos con el voucher correcto"
+     ],
+     [
+      "«Demasiadas solicitudes» al entrar",
+      "Varios intentos fallidos seguidos",
+      "Espera unos minutos y vuelve a intentar"
+     ]
+    ]
+   }
+  },
+  {
+   "titulo": "Preguntas frecuentes",
+   "etiqueta": "Ayuda",
+   "bullets": [
+    "**¿Puedo pagar sólo un concepto?** No: se paga el mantenimiento completo del mes con un solo voucher.",
+    "**¿Quién valida mi pago?** La administración, o la IA si está activada, siempre con el check del tesorero de tu block.",
+    "**¿Cambió la junta?** La administración registra la nueva gestión y los permisos pasan solos.",
+    "**¿Puedo usar House en el celular?** Sí, todas las pantallas funcionan en el navegador del celular.",
+    "**¿Cómo cambio mi contraseña o mi celular?** En Mi perfil, desde tu nombre arriba a la derecha."
+   ]
+  },
+  {
+   "titulo": "A quién escribir",
+   "etiqueta": "Ayuda",
+   "parrafos": [
+    "Para dudas de tu recibo, tus pagos o tu cuenta: tu **administración**. Para confirmar si tu pago llegó: el **tesorero de tu block** (está en Mi junta). También puedes preguntarle al **Asistente**, con el ícono de destellos de arriba."
+   ],
+   "aviso": {
+    "tipo": "nota",
+    "texto": "Las capturas de este manual usan datos de prueba: ningún nombre, monto ni departamento es real."
+   }
+  }
+ ]
+}
