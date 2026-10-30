@@ -21,7 +21,7 @@ const ESTILO = `
 .lg-antes { opacity: 0; visibility: hidden; }
 .lg-barra { transform-origin: left center; }
 @keyframes lg-sube { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes lg-sello { from { opacity: 0; transform: rotate(-9deg) scale(1.35); } 60% { opacity: 1; } to { opacity: 1; transform: rotate(-2deg) scale(1); } }
+@keyframes lg-sello { from { opacity: 0; transform: rotate(-14deg) scale(1.5); } 60% { opacity: 1; } to { opacity: 0.9; transform: rotate(-8deg) scale(1); } }
 @keyframes lg-sale { from { opacity: 1; visibility: visible; } to { opacity: 0; visibility: hidden; } }
 @keyframes lg-entra { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @keyframes lg-barra { from { transform: scaleX(0.9674); } to { transform: none; } }
@@ -109,12 +109,17 @@ function Voucher() {
           <div key={k} className="flex justify-between gap-3"><dt className="text-muted">{k}</dt><dd className="num font-medium">{v}</dd></div>
         ))}
       </dl>
-      <div className="mt-4 flex justify-center">
-        <p className="lg-sello inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border-2 border-ok bg-ok-soft px-2 py-1.5 text-[0.6875rem] font-semibold text-ok" style={{ ...retardo(1350), transform: 'rotate(-2deg)' }}>
-          <ShieldCheckIcon className="h-4 w-4 shrink-0" />Voucher leído · Tesorero confirmó
+      <div className="mb-1 mt-5 flex justify-center">
+        {/* Sello de goma: borde punteado con un filete interior, en mayúsculas, inclinado y con la tinta un poco gastada. */}
+        <p className="lg-sello inline-flex items-center gap-2 whitespace-nowrap rounded-md border-2 border-dashed border-ok px-3 py-1.5 text-ok opacity-90 outline outline-1 outline-offset-[-5px] outline-ok/40" style={{ ...retardo(1350), transform: 'rotate(-8deg)' }}>
+          <ShieldCheckIcon className="h-5 w-5 shrink-0" />
+          <span className="flex flex-col leading-tight">
+            <span className="text-[0.75rem] font-bold uppercase tracking-[0.14em]">Voucher leído</span>
+            <span className="text-[0.625rem] font-semibold uppercase tracking-[0.1em]">Tesorero confirmó</span>
+          </span>
         </p>
       </div>
-      <p className="mt-2.5 text-center text-xs text-muted">La IA lee el monto y la operación; el tesorero confirma.</p>
+      <p className="mt-4 text-center text-xs text-muted">La IA lee el monto y la operación; el tesorero confirma.</p>
     </div>
   );
 }
