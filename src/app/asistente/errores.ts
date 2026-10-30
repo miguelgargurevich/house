@@ -17,6 +17,8 @@ export const MENSAJE_ERROR = {
 export function errorDeRespuesta(status: number, mensajeServidor?: string): ErrorChat {
   if (status === 401) return { causa: 'sesion', mensaje: MENSAJE_ERROR.sesion };
   if (status === 403 && /asistente activo/i.test(mensajeServidor ?? '')) return { causa: 'sin_modulo', mensaje: mensajeServidor! }; // módulo «Asistente con IA» apagado: no se reintenta
+  // Tope mensual del condominio: el servidor dice cuándo se renueva y, si es admin, dónde subirlo. Se muestra tal cual.
+  if (status === 429 && /usó las consultas al asistente/i.test(mensajeServidor ?? '')) return { causa: 'limite_uso', mensaje: mensajeServidor! };
   if (status === 429) return /saturad|cuota/i.test(mensajeServidor ?? '') ? { causa: 'saturado', mensaje: MENSAJE_ERROR.saturado } : { causa: 'limite_uso', mensaje: MENSAJE_ERROR.limite_uso };
   if (status === 504 || status === 408) return { causa: 'tiempo', mensaje: MENSAJE_ERROR.tiempo };
   if (status === 500 && /no está configurada/i.test(mensajeServidor ?? '')) return { causa: 'no_configurado', mensaje: MENSAJE_ERROR.no_configurado };

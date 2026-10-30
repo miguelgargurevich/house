@@ -5,7 +5,7 @@ import { MODULO_NOMBRE, type ModuloClave } from '../../../shared/_parts/comercia
 import { ImpuestosYPrecios, type ImpuestoPais, type PrecioMoneda } from './ImpuestosPais';
 
 interface Modulo { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; activo: boolean }
-interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean; unidades_maximas: number | null; unidades_minimas: number | null }
+interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean; unidades_maximas: number | null; unidades_minimas: number | null; asistente_por_unidad_mes: number | null; whatsapp_por_unidad_mes: number | null }
 interface Config {
   igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean; dias_prueba_pro: number;
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
@@ -47,12 +47,14 @@ function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: 
   const [modulos, setModulos] = useState(p.modulos_incluidos);
   const [maximo, setMaximo] = useState(p.unidades_maximas == null ? '' : String(p.unidades_maximas));
   const [minimo, setMinimo] = useState(p.unidades_minimas == null ? '' : String(p.unidades_minimas));
+  const [asistente, setAsistente] = useState(p.asistente_por_unidad_mes == null ? '' : String(p.asistente_por_unidad_mes));
+  const [whatsapp, setWhatsapp] = useState(p.whatsapp_por_unidad_mes == null ? '' : String(p.whatsapp_por_unidad_mes));
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setPrecio(p.precio_por_unidad); setVisible(p.visible); setCarac(p.caracteristicas.join('\n')); setModulos(p.modulos_incluidos); setMaximo(p.unidades_maximas == null ? '' : String(p.unidades_maximas)); setMinimo(p.unidades_minimas == null ? '' : String(p.unidades_minimas)); }, [p]);
+  useEffect(() => { setPrecio(p.precio_por_unidad); setVisible(p.visible); setCarac(p.caracteristicas.join('\n')); setModulos(p.modulos_incluidos); setMaximo(p.unidades_maximas == null ? '' : String(p.unidades_maximas)); setMinimo(p.unidades_minimas == null ? '' : String(p.unidades_minimas)); setAsistente(p.asistente_por_unidad_mes == null ? '' : String(p.asistente_por_unidad_mes)); setWhatsapp(p.whatsapp_por_unidad_mes == null ? '' : String(p.whatsapp_por_unidad_mes)); }, [p]);
   async function guardar() {
     setBusy(true);
     try {
-      await api(`/api/comercial/planes/${p.clave}`, { method: 'PUT', json: { precio_por_unidad: precio, visible, modulos_incluidos: modulos, unidades_maximas: maximo.trim() ? Number(maximo) : null, unidades_minimas: minimo.trim() ? Number(minimo) : null, caracteristicas: carac.split('\n').map(x => x.trim()).filter(Boolean) } });
+      await api(`/api/comercial/planes/${p.clave}`, { method: 'PUT', json: { precio_por_unidad: precio, visible, modulos_incluidos: modulos, unidades_maximas: maximo.trim() ? Number(maximo) : null, unidades_minimas: minimo.trim() ? Number(minimo) : null, asistente_por_unidad_mes: asistente.trim() ? Number(asistente) : null, whatsapp_por_unidad_mes: whatsapp.trim() ? Number(whatsapp) : null, caracteristicas: carac.split('\n').map(x => x.trim()).filter(Boolean) } });
       toast.ok(`Plan ${p.nombre} actualizado`);
       onGuardado();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
@@ -67,6 +69,8 @@ function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: 
       <div className="flex flex-wrap items-end gap-3">
         <Input label="Máximo de departamentos por condominio" type="number" min={1} inputMode="numeric" value={maximo} onChange={e => setMaximo(e.target.value)} hint="Vacío = sin tope." className="w-64" />
         <Input label="Mínimo de departamentos que se cobran" type="number" min={1} inputMode="numeric" value={minimo} onChange={e => setMinimo(e.target.value)} hint="Vacío = sin mínimo." className="w-64" />
+        <Input label="Consultas al asistente por departamento al mes" type="number" min={0} max={1000} inputMode="numeric" value={asistente} onChange={e => setAsistente(e.target.value)} hint="Vacío = sin tope. El tope del condominio es esto × departamentos que se cobran." className="w-64" />
+        <Input label="Mensajes de WhatsApp por departamento al mes" type="number" min={0} max={1000} inputMode="numeric" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} hint="Vacío = sin tope." className="w-64" />
       </div>
       <fieldset>
         <legend className="text-xs text-muted">Lo que trae (módulos, mora automática y reportes)</legend>

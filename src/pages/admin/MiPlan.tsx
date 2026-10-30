@@ -7,9 +7,22 @@ import { HistorialPagos } from './_parts/plan/HistorialPagos';
 import { ModalSolicitud } from './_parts/plan/ModalSolicitud';
 import { ESTADO_UI, MODULO_NOMBRE, nombreDePlan, type DatosPago, type ModuloClave, type VistaSuscripcion } from '../shared/_parts/comercial';
 import { diasDePrueba } from './_parts/plan/diasDePrueba';
+import { mensajeVouchers, textoTope, topeAlto, type UsoMes } from './_parts/plan/usoDelMes';
 
-/** La vista del servidor: la de siempre más si el condominio está en prueba de Pro. */
-type Vista = VistaSuscripcion & { en_prueba: boolean };
+/** La vista del servidor: la de siempre, más si el condominio está en prueba de Pro y lo que va del mes. */
+type Vista = VistaSuscripcion & { en_prueba: boolean; uso: UsoMes };
+
+/** Lo que va del mes: cada tope y los vouchers; avisa al pasar el 80 % de un tope, y lo que dicen los vouchers. */
+function UsoDelMes({ uso, plan, enPrueba }: { uso: UsoMes; plan: string; enPrueba: boolean }) {
+  const vouchers = mensajeVouchers(uso, plan, enPrueba);
+  return (
+    <div className="space-y-2">
+      <p className="text-sm"><span className="text-xs text-muted">Este mes: </span>{textoTope('asistente', uso.asistente)} · {textoTope('WhatsApp', uso.whatsapp)}</p>
+      {topeAlto(uso) && <Alert tone="warn">Vas por el 80 % del tope de este mes. Si se acaba, el asistente y los WhatsApp se detienen hasta el 1 de {uso.renueva}.</Alert>}
+      {vouchers && <p className="text-sm text-muted">{vouchers}</p>}
+    </div>
+  );
+}
 
 interface Respuesta {
   condominios: Vista[];
@@ -55,6 +68,7 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: Dato
       <CardBody className="space-y-4">
         {c.en_prueba && <Alert tone="info">Prueba de Pro · {diasDePrueba(c.dias_para_vencer)}. Después sigues en Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Pro.</Alert>}
         {a && <Alert tone={a.tone}>{a.texto}</Alert>}
+        <UsoDelMes uso={c.uso} plan={c.plan.clave} enPrueba={c.en_prueba} />
         {c.unidades_maximas != null && c.unidades_facturables >= c.unidades_maximas && (
           <Alert tone="warn">
             {c.unidades_facturables > c.unidades_maximas ? `Tienes ${c.unidades_facturables} departamentos y ${c.plan.nombre} llega hasta ${c.unidades_maximas}: no podrás agregar más, pero no se oculta ni se borra ninguno.` : `Llegaste al tope de ${c.unidades_maximas} departamentos de ${c.plan.nombre}.`} Pasa a Pro para seguir creciendo.

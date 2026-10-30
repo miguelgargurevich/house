@@ -18,7 +18,8 @@ interface DetalleApi {
 export type Fase = 'libre' | 'pensando' | 'escribiendo';
 
 /** Estado del panel: conversación, streaming, historial de conversaciones, opciones y ajustes por usuario. */
-export function useAsistente(usuarioId: number, ruta: string, activo: boolean) {
+/** `complejoId`: el condominio que la barra superior tiene elegido (null = todos): la consulta se carga a su tope mensual. */
+export function useAsistente(usuarioId: number, ruta: string, activo: boolean, complejoId: number | null = null) {
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
   const [conversacionId, setConversacionId] = useState<string | null>(null);
   const [fase, setFase] = useState<Fase>('libre');
@@ -68,7 +69,7 @@ export function useAsistente(usuarioId: number, ruta: string, activo: boolean) {
     setFase('pensando');
     const actualizar = (cambio: (m: MensajeChat) => MensajeChat) => setMensajes((ms) => ms.map((m) => (m.id === idResp ? cambio(m) : m)));
     try {
-      for await (const ev of enviarMensaje(deps, { message: mensaje, conversacion_id: conId ?? undefined, ruta, ...cuerpoDeAjustes(opts.auto ? { ...ajustes, modelo: 'auto' } : ajustes, opciones) }, ac.signal)) {
+      for await (const ev of enviarMensaje(deps, { message: mensaje, conversacion_id: conId ?? undefined, ruta, complejo_id: complejoId ?? undefined, ...cuerpoDeAjustes(opts.auto ? { ...ajustes, modelo: 'auto' } : ajustes, opciones) }, ac.signal)) {
         if (ev.tipo === 'meta') {
           setConversacionId(ev.conversacion_id);
           if (ev.mensaje_id) setMensajes((ms) => ms.map((m) => (m.id === idUsuario ? { ...m, idServidor: ev.mensaje_id } : m)));
@@ -85,7 +86,7 @@ export function useAsistente(usuarioId: number, ruta: string, activo: boolean) {
       if (control.current === ac) { control.current = null; setFase('libre'); }
       void cargarLista();
     }
-  }, [deps, ruta, ajustes, opciones, cargarLista]);
+  }, [deps, ruta, complejoId, ajustes, opciones, cargarLista]);
 
   const enviar = useCallback(() => {
     const t = texto.trim();

@@ -5,6 +5,7 @@ import { SparklesIcon } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import { useAuth } from '../auth/AuthContext';
 import { cx, useToast } from '../ui';
+import { useCondominio } from './condominio';
 import { exportarMarkdown, nombreArchivoDe, ultimoEnviado } from './asistente/acciones';
 import { AsaDeAncho } from './asistente/AsaDeAncho';
 import { CabeceraAsistente } from './asistente/CabeceraAsistente';
@@ -48,7 +49,8 @@ export function Assistant({ open, onClose, escritorio, barra }: { open: boolean;
   const { pathname } = useLocation();
   const visible = useAltoVisible(open && !escritorio);
   const { ancho, mover, confirmar, restablecer } = useAnchoPanel(user?.id ?? 0, barra);
-  const a = useAsistente(user?.id ?? 0, pathname, open);
+  // El condominio que la barra superior tiene elegido: el tope del asistente es el de ese condominio (null = todos: el del usuario).
+  const a = useAsistente(user?.id ?? 0, pathname, open, useCondominio().elegido);
   const [vista, setVista] = useState<'chat' | 'conversaciones'>('chat');
   const [arrastrando, setArrastrando] = useState(false);
 
