@@ -4,6 +4,31 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Haiku 5.5, delegado en worktree) — Plan Gratis: un condominio, prueba de Pro y topes de consumo (rama `feat/plan-gratis`, sin push)
+
+- **Herramientas:** Bash (git, npm test, prisma), Edit/Write, Playwright (`/opt/homebrew/lib/node_modules/playwright`) para la verificación visual.
+- **Hecho:**
+  - Gratis = 1 condominio por administradora: 409 en `POST /api/complejos`, `GET /api/comercial/puede-agregar-condominio`, motivo en Condominios y Mi plan. Commits `1832efd`, `601a7e1`.
+  - Prueba de Pro de 30 días al registrarse (`dias_prueba_pro`, `es_prueba`): vence a Gratis al instante, aviso propio, banda en Mi plan y Resumen. Commits `97d8ad5`, `3e6abf2`.
+  - Topes mensuales de asistente y WhatsApp por departamento (`services/comercial/consumo.ts`, `ConsumoMensual`, reserva atómica), vouchers a mano frente a IA por mes, `GET /api/comercial/mi-plan/:id/uso`. Sin commitear aún (ver próximos pasos).
+- **Verificado:** suite del backend en verde en cada parte de F1 y F2 (2831/2831 al cierre de F2). Subconjunto de F3 (asistente, bots, avisos, comercial): 654/654. Pruebas nuevas de F3: 24/24. 16 mutaciones del backend de F3 en rojo; 8 de F1 y 13 de F2 también. Playwright en 375 y 1440 px: sin desborde.
+- **Decisiones:**
+  - Una prueba vigente no cuenta como Gratis: la administradora puede crear un segundo condominio durante la prueba.
+  - Un plan o vigencia puestos a mano por el superadmin apagan la prueba.
+  - La consulta al asistente se carga al condominio que elige la barra (`complejo_id`); sin elegir, el del usuario o el de menor id con el asistente activo.
+- **Próximos pasos:**
+  - Terminar la suite completa de F3 y commitear en dos partes: backend, y pantalla más `docs/`.
+  - En producción: `npx tsx scripts/oferta-gratis-pro.ts --seco`, luego sin `--seco`.
+  - Decidir si la prueba cuenta como Gratis para el límite.
+  - Decidir cómo sube la administradora su tope: el aviso dice «Puedes subir el límite desde Mi plan», pero hoy sólo el superadmin edita topes.
+  - Push, con OK de Miguel.
+- **Gotchas:**
+  - `node_modules` de este worktree era un enlace al checkout principal; se aisló antes del primer `db push`. El cliente del principal conserva su checksum (`8367a88…`).
+  - Las pruebas de país/moneda y zona horaria creaban dos condominios seguidos como una administradora; el segundo lo crea ahora el superadmin.
+  - `migracionInicial` pone en cortesía, al arrancar, los condominios sin suscripción mientras `migracion_cortesia_at` esté vacío: cambió un condominio que yo había dejado en Gratis para verificar.
+  - Vite del checkout principal sirve fuentes desde `node_modules` enlazado: 403 en Figtree (artefacto del entorno).
+  - Hueco: la conexión de `entrante.ts` (respuesta del asistente con su condominio) no tiene prueba propia.
+
 ## 2026-10-30 — Claude Code (Haiku 5.5, delegado) — Política de privacidad y Términos (rama `feat/privacidad`, sin push)
 
 - Pedido de Miguel: revisar si hace falta una política de privacidad (Ley 29733) y, con su «Sí, hazlo», construirla: páginas públicas, consentimiento en el registro y datos del responsable en la base.

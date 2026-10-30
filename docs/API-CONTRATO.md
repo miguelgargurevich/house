@@ -531,3 +531,26 @@ Pedido de Miguel: «el excel que envían es otra vista de los propietarios que s
 
 Pantalla (`PeriodoRecibo.tsx`, sólo administración): pestaña **«Consolidado del block»** (tabla ancha con desplazamiento horizontal, «Imprimir», «Descargar Excel») y botón **«Imprimir recibos del block»** (un documento: por departamento su recibo en A4 vertical y, en la página siguiente, el consolidado en A4 horizontal con su fila resaltada, para imprimir a doble cara). En un recibo que cobra a varios blocks se elige el block (selector en la pestaña; obligatorio en el diálogo de impresión). El CSS de impresión (`index.css`) usa una página con nombre (`@page consolidado`, A4 horizontal, márgenes de 8 mm); la letra se ajusta a las filas (9 pt → 5.5 pt) para que hasta 60 departamentos entren en una hoja.
 
+
+## Gratis con un condominio, prueba de Pro y topes de consumo (30-oct-2026)
+
+### Un condominio en Gratis por administradora
+- `POST /api/complejos` (admin): si la empresa ya tiene un condominio que cuenta como Gratis (sin suscripción, plan `gratis`, o `apagada`), **409** `{ error: 'Gratis incluye un condominio. Para agregar otro, pasa a Pro o Administradora el que ya tienes.' }`; no crea nada. El superadmin no tiene este límite. Los condominios que ya existen no se tocan.
+- `GET /api/comercial/puede-agregar-condominio` (admin) → `{ puede, motivo, gratis: { id, nombre } | null }`. `GET /api/comercial/mi-plan` trae lo mismo en `puede_agregar_condominio`.
+- Gratis trae la viñeta «1 condominio». `scripts/oferta-gratis-pro.ts` la cambia sólo si la lista sigue como la de fábrica (lo editado a mano se respeta).
+
+### Prueba de Pro al registrarse
+- `ConfiguracionComercial.dias_prueba_pro` (Int, 30 por defecto; 0 = nace en Gratis). `PUT /api/comercial/configuracion` acepta `dias_prueba_pro` de 0 a 90 (422 fuera de rango; sólo superadmin).
+- `POST /api/publico/registro`: con días > 0, la suscripción nace `plan_clave: 'pro'`, `estado: 'activa'`, `es_prueba: true`, `vigente_hasta` = hoy (día de Lima) + días.
+- Al vencer, una prueba vuelve a Gratis **al instante**: sin días de gracia, sin «vencida» ni «apagada». Pagar (`POST /api/comercial/suscripciones/:id/pagos`) la apaga; también `PATCH /api/comercial/suscripciones/:id` con `plan_clave` o `vigente_hasta`.
+- Avisos: la prueba sólo tiene el de «por vencer», con su texto («Tu prueba de Pro termina el …»).
+- `VistaSuscripcion.en_prueba`: true mientras dura la prueba (`dias_para_vencer` son los días que faltan).
+
+### Topes mensuales y números del mes
+- `PlanComercial.asistente_por_unidad_mes` y `whatsapp_por_unidad_mes` (Int?, 0 a 1000; null = sin tope). Fábrica: Pro y Administradora, 5 y 6; Gratis y Cortesía, sin tope. `PUT /api/comercial/planes/:clave` los acepta.
+- Tope del condominio en el mes = valor × max(unidades del condominio, mínimo del plan). Contador `ConsumoMensual { complejo_id, periodo (AAAAMM, hora de Lima), recurso ('asistente' | 'whatsapp'), cantidad }`, único por condominio, mes y recurso. Se reserva antes de gastar, con un incremento atómico condicionado.
+- Asistente: `POST /api/ai-chat` y `POST /api/ai-chat/stream` aceptan `complejo_id` (opcional; el que elige la barra). Debe estar en el alcance de quien pregunta (si no, 404). Sin él: el del usuario, o el único con el asistente activo (con varios, el de menor id). Pasado el tope: **429** con `error` = «Este condominio usó las consultas al asistente de este mes. Se renuevan el 1 de <mes>.» (la administradora además ve «Puedes subir el límite desde Mi plan.»). No llama al modelo.
+- WhatsApp: cada mensaje de aviso de un condominio cuenta 1. Pasado el tope, la fila queda `omitida` con el motivo «Tope mensual de WhatsApp del condominio alcanzado» y el correo sigue por su fila. Las respuestas del asistente por WhatsApp cuentan; los códigos de vinculación no. Telegram no tiene tope.
+- `GET /api/comercial/mi-plan/:complejoId/uso` (admin; otra empresa → 404) → `{ periodo, renueva, asistente: { usadas, tope }, whatsapp: { usadas, tope }, vouchers_a_mano, vouchers_ia }`. `GET /api/comercial/mi-plan` trae `uso` en cada condominio.
+- Vouchers del mes (hora de Lima): pagos validados con comprobante. Un grupo cuenta una vez (su pago principal). `vouchers_a_mano` = `validado_por_ia: false`; `vouchers_ia` = `validado_por_ia: true`.
+- Esquema (aditivo): `PlanComercial.asistente_por_unidad_mes`, `PlanComercial.whatsapp_por_unidad_mes`, `ConsumoMensual` (nueva), `ConfiguracionComercial.dias_prueba_pro`, `SuscripcionCondominio.es_prueba`.
