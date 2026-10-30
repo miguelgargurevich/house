@@ -51,6 +51,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Docs: `docs/SEGURIDAD.md` (viñeta «Límite general de la API» en Sesiones y fila 4 de la tabla) y `docs/API-CONTRATO.md`.
 - Gotcha: `/api/auth/me` sin sesión (la pantalla de login al abrir) gasta 1 del cupo anónimo por carga: no agota nada razonable, pero quien recargue el login 300 veces en 15 min desde una IP seguirá viendo el aviso. Estado en memoria del proceso: reiniciar el backend lo limpia.
 - Próximo paso: integrar a `main` con el OK de Miguel y revisar en producción que el login ya no muestra el aviso (no se probó contra producción).
+## 2026-10-30 — Claude Code (Sonnet 5.5) — Panel derecho del login: una escena compuesta (rama `feat/login-panel`, sin push)
+
+- Pedido de Miguel: «mejora la sección derecha del login, la que tiene los paneles de muestra». Las 4 tarjetas sueltas pasan a UNA composición en `src/pages/_login/` (`PanelLogin.tsx` = titular, escena escalada y hechos; `Escena.tsx` = las 3 piezas y sus animaciones). `Login.tsx` sólo monta `<PanelLogin />`; el formulario no se tocó.
+- **Flujo en 3 tiempos**: (1) recibo del mes de B01-804 con 5 conceptos y chip «Por pagar»; (2) el voucher del vecino sube y cae el sello «Voucher leído · Tesorero confirmó» (el diferencial IA + tesorero); (3) el recibo pasa a «Pagado» y la cobranza del Block 1 sube de 89 % (32 de 36) a 92 % (33 de 36). El gráfico mensual y el aviso de WhatsApp salieron de la escena (WhatsApp queda en la fila de hechos).
+- **Hechos** bajo la escena (sin cifras, testimonios ni clientes): «Yape, Plin y transferencias», «Avisos por WhatsApp y correo», «Cierre del mes por block».
+- **Decisiones**: la escena tiene tamaño de diseño fijo (568×340 px) y `PanelLogin` la escala con `ResizeObserver` (0.55–1.5) al hueco entre la bajada y los hechos; el panel es `lg:sticky lg:h-screen` para que nunca estire la página ni choque con las cuentas de prueba de la izquierda. Keyframes en un `<style>` del componente (prefijo `lg-`), todos dentro de `@media (prefers-reduced-motion: no-preference)`: sin movimiento la escena ya está completa («Pagado», 92 %). Sin tocar `index.css`, `src/ui` ni `tailwind.config.js`.
+- **Corregí un dato**: la tarjeta vieja decía «29 de 32 al día» con 92 %, que no cuadra (29/32 = 91 %); ahora 33/36 = 92 %.
+- **Gotchas**: el plato translúcido detrás de las tarjetas cuenta en el cálculo de escala (`ESCENA_MARGEN`); si se agranda, súmalo ahí o se montará sobre la bajada a 720 px de alto. Bajo ~720 px de alto el texto de las tarjetas queda en ~9 px (decorativo, `aria-hidden`).
+- **Tests**: `tests/login-ui.test.ts` reescrito (8): 9 mutaciones en rojo. Verificado con capturas Playwright a 1280/1440/1920 (claro y oscuro) y 390 px.
+
+---
 
 ## 2026-10-30 — Claude Code (Opus 5.5) — Voucher ampliable, pie fijo de los modales y «Ver mi voucher»
 

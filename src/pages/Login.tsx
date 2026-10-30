@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { BellAlertIcon, CheckCircleIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { HOME, useAuth } from '../auth/AuthContext';
 import { Alert, Button, Input } from '../ui';
 import { api, ApiError, errorText } from '../api';
+import PanelLogin from './_login/PanelLogin';
 
 const DEMO = [
   ['Superadmin', 'miguel.gargurevich@admin.com', 'admin1234'],
@@ -107,98 +108,7 @@ export default function Login() {
         </div>
       </main>
 
-      {/* Escena del producto en vez de adorno: un recibo, un recordatorio y el avance del cobro, como se ven dentro de House. */}
-      <aside className="relative hidden overflow-hidden bg-escena text-on-escena lg:flex lg:flex-col lg:justify-center lg:px-14 lg:py-16 xl:px-20" aria-hidden="true">
-        <p className="max-w-md text-balance text-3xl font-semibold leading-tight tracking-tight xl:text-4xl">Cobra a tiempo y que cada vecino sepa qué debe.</p>
-        <p className="mt-3 max-w-md text-pretty text-base opacity-85">Recibos por concepto, pagos validados y recordatorios por WhatsApp, en un solo lugar.</p>
-
-        <div className="relative mt-12 h-[31rem] w-full max-w-xl">
-          <EscenaRecibo />
-          <EscenaAviso />
-          <EscenaGrafico />
-          <EscenaCobro />
-        </div>
-      </aside>
+      <PanelLogin />
     </div>
-  );
-}
-
-/** Entrada de la escena: un leve ascenso al cargar, escalonado, desde visible (nunca depende de la animación para verse); sin movimiento si el sistema lo pide. */
-const entra = 'motion-safe:animate-[sube-corto_700ms_cubic-bezier(0.22,1,0.36,1)_both]';
-
-/** El recibo del vecino: el mantenimiento del mes desglosado por concepto, ya pagado. Montos de ejemplo. */
-function EscenaRecibo() {
-  const conceptos: [string, string][] = [['Servicio de seguridad', '70.00'], ['Agua del departamento', '50.93'], ['Servicio de limpieza', '35.00'], ['Luz de áreas comunes', '16.10'], ['Contingencia del block', '10.00']];
-  return (
-    <div className={`absolute left-0 top-0 w-[19.5rem] rounded-xl bg-escena-tarjeta p-5 text-ink shadow-[0_24px_48px_-16px_oklch(0.2_0.05_180/0.45)] ${entra}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold">Mantenimiento de octubre</p>
-          <p className="text-xs text-muted">B01-804 · Block 1</p>
-        </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-ok-soft px-2 py-0.5 text-xs font-medium text-ok"><CheckCircleIcon className="h-3.5 w-3.5" />Pagado</span>
-      </div>
-      <ul className="mt-4 space-y-1.5 text-xs">
-        {conceptos.map(([c, m]) => (
-          <li key={c} className="flex justify-between gap-4"><span className="text-muted">{c}</span><span className="num">S/ {m}</span></li>
-        ))}
-      </ul>
-      <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3">
-        <span className="text-xs text-muted">Total</span>
-        <span className="num text-lg font-semibold">S/ 182.03</span>
-      </div>
-    </div>
-  );
-}
-
-/** El recordatorio que le llega al vecino antes del vencimiento. */
-function EscenaAviso() {
-  return (
-    <div className={`absolute right-0 top-10 w-60 rounded-xl bg-escena-tarjeta p-4 text-ink shadow-[0_18px_40px_-14px_oklch(0.2_0.05_180/0.4)] [animation-delay:180ms] ${entra}`}>
-      <div className="flex gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><BellAlertIcon className="h-5 w-5" /></span>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold">Recordatorio por WhatsApp</p>
-          <p className="mt-0.5 text-xs leading-snug text-muted">Tu mantenimiento de noviembre vence el 10. Págalo desde House en un minuto.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Lo que ve la administradora: cuánto del block ya pagó. */
-function EscenaCobro() {
-  return (
-    <div className={`absolute bottom-0 left-8 w-72 rounded-xl bg-escena-tarjeta p-4 text-ink shadow-[0_18px_40px_-14px_oklch(0.2_0.05_180/0.4)] [animation-delay:540ms] ${entra}`}>
-      <div className="flex items-baseline justify-between">
-        <p className="text-xs font-semibold">Cobranza de octubre · Block 1</p>
-        <p className="num text-sm font-semibold text-brand">92 %</p>
-      </div>
-      <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-surface2"><div className="h-full w-[92%] rounded-full bg-brand" /></div>
-      <p className="mt-2 text-xs text-muted"><span className="num">29</span> de <span className="num">32</span> departamentos al día</p>
-    </div>
-  );
-}
-
-/** Lo que mide la administradora mes a mes: qué parte del mantenimiento se cobró. Barras de ejemplo que terminan en el 92 % del mes. */
-function EscenaGrafico() {
-  const meses: [string, number][] = [['May', 81], ['Jun', 84], ['Jul', 83], ['Ago', 88], ['Set', 90], ['Oct', 92]];
-  return (
-    <figure className={`absolute right-0 top-[11.5rem] w-60 rounded-xl bg-escena-tarjeta p-4 text-ink shadow-[0_18px_40px_-14px_oklch(0.2_0.05_180/0.4)] [animation-delay:360ms] ${entra}`}>
-      <figcaption className="flex items-baseline justify-between">
-        <span className="text-xs font-semibold">Cobrado por mes</span>
-        <span className="text-xs text-ok">+11 pts</span>
-      </figcaption>
-      <div className="mt-3 flex h-24 items-end gap-2" role="img" aria-label="Porcentaje cobrado de mayo a octubre: de 81 % a 92 %">
-        {meses.map(([m, v], i) => (
-          <div key={m} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-            <span className="num text-[10px] text-muted">{v}</span>
-            {/* La escala empieza en 70 % para que la mejora se lea; la altura es relativa a ese piso. */}
-            <div className={`w-full rounded-t ${i === meses.length - 1 ? 'bg-brand' : 'bg-brand/30'}`} style={{ height: `${((v - 70) / 30) * 100}%` }} />
-            <span className="text-[10px] text-muted">{m}</span>
-          </div>
-        ))}
-      </div>
-    </figure>
   );
 }
