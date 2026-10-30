@@ -94,11 +94,11 @@ export default function Proveedores() {
 
   const columns: Column<Fila>[] = [
     { key: 'razon', header: 'Proveedor', cell: p => (
-      <div className="min-w-0"><p className="truncate font-medium">{p.razon_social}</p>{p.ruc && <p className="num truncate text-xs text-muted">RUC {p.ruc}</p>}</div>
+      <div className="min-w-0"><p className="font-medium">{p.razon_social}</p>{p.ruc && <p className="num text-xs text-muted">RUC {p.ruc}</p>}</div>
     ) },
     { key: 'rubro', header: 'Rubro', cell: p => <Badge tone="brand">{rubroLabel(p.rubro)}</Badge> },
     { key: 'contacto', header: 'Contacto', hideBelow: 'md', cell: p => (
-      <div className="min-w-0"><p className="truncate">{p.contacto_nombre ?? '—'}</p><p className="num truncate text-xs text-muted">{[p.telefono, p.email].filter(Boolean).join(' · ')}</p></div>
+      <div className="min-w-0"><p>{p.contacto_nombre ?? '—'}</p><p className="num text-xs text-muted">{[p.telefono, p.email].filter(Boolean).join(' · ')}</p></div>
     ) },
     { key: 'complejos', header: 'Atiende', hideBelow: 'lg', cell: p => (
       <span className="block">

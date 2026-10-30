@@ -23,7 +23,7 @@ const inicialDe = (f: FilaAgua): Borrador => f.lectura
 const completa = (b: Borrador) => Boolean(b.fa && b.la.trim() && b.fc && b.lc.trim() && b.fx.trim());
 const distinta = (a: Borrador, b: Borrador) => a.fa !== b.fa || a.la !== b.la || a.fc !== b.fc || a.lc !== b.lc || a.fx !== b.fx;
 
-const campo = 'h-8 w-full min-w-[5.5rem] rounded border border-line bg-surface px-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 aria-[invalid=true]:border-bad';
+const campo = 'h-8 w-full min-w-[4.5rem] rounded border border-line bg-surface px-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 aria-[invalid=true]:border-bad';
 
 const TAM_LOTE = 500;
 
@@ -156,7 +156,7 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
 
           {/* `relative`: el texto sr-only de las columnas es absoluto y, sin un ancestro posicionado, se escaparía del recorte y ensancharía la página. */}
           <div className="relative overflow-x-auto rounded border border-line">
-            <table className="w-full min-w-[58rem] text-sm">
+            <table className="w-full text-sm">
               <caption className="sr-only">Lecturas de agua por departamento</caption>
               <thead>
                 <tr className="border-b border-line bg-surface2 text-left text-xs text-muted">

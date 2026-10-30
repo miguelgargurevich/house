@@ -142,7 +142,8 @@ function ShellInterior() {
       <div className="px-4 pb-2 empty:hidden lg:hidden"><SelectorCondominio /></div>
       </div>
 
-      <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
+      {/* Hasta 1600 px el contenido ocupa el ancho de la ventana (antes 1152 px: en un monitor de 1920 quedaban tablas con scroll). */}
+      <main id="contenido" className="mx-auto w-full max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8">
         <Outlet />
       </main>
       </div>

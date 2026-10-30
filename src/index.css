@@ -95,6 +95,20 @@
 .sube { animation: sube 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .sube-corto { animation: sube-corto 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* Tablas (DataTable): columnas y relleno según el ANCHO DEL CONTENEDOR, no de la ventana. Con la barra lateral y el asistente abiertos
+   una tabla mide bastante menos que la ventana. Los umbrales son los de hideBelow: sm 480, md 640, lg 800, xl 960 px. Sin soporte de
+   @container todas las columnas quedan visibles y la tabla conserva su scroll horizontal de siempre. */
+@layer components {
+  .tabla-contenedor { container-type: inline-size; }
+  .tabla-celda { padding-inline: 0.75rem; overflow-wrap: anywhere; }
+  @container (min-width: 640px) { .tabla-celda { padding-inline: 1rem; } }
+  @container (min-width: 960px) { .tabla-celda { padding-inline: 1.25rem; } }
+  @container (max-width: 479px) { .col-desde-sm { display: none; } }
+  @container (max-width: 639px) { .col-desde-md { display: none; } }
+  @container (max-width: 799px) { .col-desde-lg { display: none; } }
+  @container (max-width: 959px) { .col-desde-xl { display: none; } }
+}
+
 @media print {
   html, body { background: #fff !important; }
   body > *:not(#zona-imprimible) { display: none !important; }

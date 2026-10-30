@@ -13,9 +13,9 @@ describe('vista móvil', () => {
     assert.match(s, /flex w-full gap-2 sm:w-auto/);
   });
 
-  it('las tablas usan menos margen en el celular y el normal desde sm', () => {
+  it('las tablas usan menos margen en el celular y el normal con contenedor de 640 px (clase compartida en cabecera, celdas, esqueleto y pie)', () => {
     const s = fuente('src/ui/DataTable.tsx');
-    assert.ok((s.match(/px-3[^']*sm:px-5/g) ?? []).length >= 4, 'cabecera, celdas, esqueleto y pie');
+    assert.ok((s.match(/tabla-celda/g) ?? []).length >= 4, 'cabecera, celdas, esqueleto y pie');
     assert.doesNotMatch(s, /'(whitespace-nowrap )?px-5 py-3/);
   });
 

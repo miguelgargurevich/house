@@ -62,6 +62,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Tests**: `tests/login-ui.test.ts` reescrito (8): 9 mutaciones en rojo. Verificado con capturas Playwright a 1280/1440/1920 (claro y oscuro) y 390 px.
 
 ---
+## 2026-10-30 — Claude Code (Haiku 5.5) — Tablas anchas: columnas según el contenedor (rama `feat/tablas-anchas`, sin push)
+
+- Pedido de Miguel: aprovechar el ancho de la ventana y evitar scroll horizontal o info escondida tras él.
+- **Shell** (`src/app/Shell.tsx`): `max-w-6xl` (1152 px) → `max-w-[1600px]`.
+- **DataTable** (`src/ui/DataTable.tsx`, `src/index.css`): `hideBelow` ya no usa breakpoints de la ventana sino del contenedor (`.tabla-contenedor` con `container-type: inline-size`; umbrales 480/640/800/960 px). Relleno de celda `.tabla-celda`: 12 px bajo 640 px de contenedor, 16 px desde 640 y 20 px desde 960. Sin soporte de `@container` todas las columnas quedan visibles.
+- **Por pantalla** (sin columnas nuevas ni datos quitados): `truncate` (nowrap) fuera de celdas que pueden partir (Comunicados, Mantenimientos, Conceptos, Residentes, Proveedores, Complejos); breakpoints de ventana dentro de celdas cambiados por máximos fijos (`sm:max-w-md`, `sm:truncate`, `sm:max-w-[16rem]`); «Administrado por» de Complejos pasa a `lg`; `min-w` de la barra de cobro 9 rem → 6 rem; tabla de agua sin `min-w-[58rem]` y campos numéricos con `min-w` 4.5 rem.
+- **Medido** con el Vite del worktree (5174), 1280 px, contenedor 958: Recibos, Residentes, Proveedores, Comunicados y Junta/Agua en 0 px escondidos. 1024 px (contenedor 702): Recibos y Mantenimientos en 0; Complejos, Conceptos, Proveedores, Comunicados, Residentes y Junta/Proveedores en 0. En 1440 y 1920 px la primera pasada dio 0 px escondidos; NO se volvió a medir tras los últimos cambios (el backend estaba en 429).
+- **Pendiente**: Junta/Agua a 1024 px sigue con +230 px (contenedor 660 px): diez campos de entrada necesitan unos 890 px. No se resuelve con columnas; hay que decidir si la captura se reordena (p. ej. fechas en una segunda fila) o se acepta el scroll en 1024.
+- Tests: `tests/tablas-anchos-ui.test.ts` (5) fija el mapeo, el relleno y el máximo del Shell; `tests/movil-ui.test.ts` ajustado a `tabla-celda`. Mutaciones de DataTable, umbral, Shell y relleno: las cuatro en rojo.
+- **Gotchas**: `AguaRecibo.tsx` es una tabla hecha a mano (no pasa por `DataTable`). `min-w` o `truncate` en una celda fuerza el ancho aunque la tabla encoja. El backend local da 429 (300 solicitudes por 15 min): la medición completa exige reiniciarlo, y ese reinicio mata el backend de otras sesiones; lo bloqueó el permiso automático.
+- Zsh expande `--include=*.tsx` sin comillas: usar `'--include=*.tsx'`. `timeout` no existe en esta Mac; `paste -sd` tampoco en macOS como se usa en Linux.
 
 ## 2026-10-30 — Claude Code (Opus 5.5) — Voucher ampliable, pie fijo de los modales y «Ver mi voucher»
 

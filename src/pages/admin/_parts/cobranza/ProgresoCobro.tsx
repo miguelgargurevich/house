@@ -6,7 +6,7 @@ export function ProgresoCobro({ cobrado, total, moneda }: { cobrado: number | st
   const t = Number(total) || 0;
   const pct = t > 0 ? Math.min(100, Math.round((c / t) * 100)) : 0;
   return (
-    <div className="min-w-36">
+    <div className="min-w-24">
       <div
         role="progressbar"
         aria-label="Avance de cobranza"

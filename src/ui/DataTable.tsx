@@ -11,6 +11,7 @@ export interface Column<T> {
   cell: (row: T) => ReactNode;
   align?: 'left' | 'right';
   className?: string;
+  /** Se oculta cuando el CONTENEDOR de la tabla es más angosto que el umbral (480/640/800/960 px), no según la ventana. */
   hideBelow?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
@@ -30,7 +31,7 @@ interface Props<T> {
   onRowClick?: (row: T) => void;
 }
 
-const hide = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell', xl: 'hidden xl:table-cell' };
+const desde = { sm: 'col-desde-sm', md: 'col-desde-md', lg: 'col-desde-lg', xl: 'col-desde-xl' };
 
 export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, page = 1, pageSize = 20, total, onPage, empty, caption, onRowClick }: Props<T>) {
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
@@ -40,14 +41,14 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
   const to = Math.min(page * pageSize, count);
 
   return (
-    <div>
+    <div className="tabla-contenedor">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead>
             <tr className="border-b border-line text-left text-xs font-medium uppercase tracking-wide text-muted">
               {columns.map(c => (
-                <th key={c.key} scope="col" className={cx('whitespace-nowrap px-3 py-3 font-medium sm:px-5', c.align === 'right' && 'text-right', c.hideBelow && hide[c.hideBelow])}>
+                <th key={c.key} scope="col" className={cx('tabla-celda py-3 align-bottom font-medium', c.align === 'right' && 'text-right', c.hideBelow && desde[c.hideBelow])}>
                   {c.header}
                 </th>
               ))}
@@ -58,7 +59,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
               ? Array.from({ length: Math.min(pageSize, 6) }).map((_, i) => (
                   <tr key={i}>
                     {columns.map(c => (
-                      <td key={c.key} className={cx('px-3 py-3.5 sm:px-5', c.hideBelow && hide[c.hideBelow])}><Skeleton className="h-4 w-full max-w-[10rem]" /></td>
+                      <td key={c.key} className={cx('tabla-celda py-3.5', c.hideBelow && desde[c.hideBelow])}><Skeleton className="h-4 w-full max-w-[10rem]" /></td>
                     ))}
                   </tr>
                 ))
@@ -78,7 +79,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
                     className={cx('transition-colors duration-150 hover:bg-surface2/70', onRowClick && 'cursor-pointer focus-visible:bg-surface2/70 focus-visible:-outline-offset-2')}
                   >
                     {columns.map(c => (
-                      <td key={c.key} className={cx('px-3 py-3.5 align-middle sm:px-5', c.align === 'right' && 'text-right', c.hideBelow && hide[c.hideBelow], c.className)}>
+                      <td key={c.key} className={cx('tabla-celda py-3.5 align-middle', c.align === 'right' && 'text-right', c.hideBelow && desde[c.hideBelow], c.className)}>
                         {c.cell(r)}
                       </td>
                     ))}
@@ -91,7 +92,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, error, onRetry, p
         <EmptyState title={empty?.title ?? 'Sin resultados'} description={empty?.description} action={empty?.action} icon={empty?.icon} />
       )}
       {onPage && count > 0 && (
-        <div className="flex items-center justify-between gap-4 border-t border-line px-3 py-3 text-sm text-muted sm:px-5">
+        <div className="tabla-celda flex items-center justify-between gap-4 border-t border-line py-3 text-sm text-muted">
           <span className="num">{from}–{to} de {count}</span>
           <div className="flex items-center gap-1">
             <IconButton label="Página anterior" disabled={page <= 1} onClick={() => onPage(page - 1)}><ChevronLeftIcon className="h-4 w-4" /></IconButton>

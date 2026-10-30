@@ -204,7 +204,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
   }
 
   const persona: Column<Fila> = { key: 'nombre', header: 'Nombre', cell: f => (
-    <div className="flex items-center gap-3"><Avatar nombre={f.nombre} size="sm" /><div className="min-w-0"><p className="truncate font-medium">{f.nombre}</p><p className="truncate text-xs text-muted">{f.email}</p>{f.invitacion_pendiente && <div className="mt-1"><Badge tone="warn">Invitación pendiente</Badge></div>}</div></div>
+    <div className="flex items-center gap-3"><Avatar nombre={f.nombre} size="sm" /><div className="min-w-0"><p className="font-medium">{f.nombre}</p><p className="text-xs text-muted">{f.email}</p>{f.invitacion_pendiente && <div className="mt-1"><Badge tone="warn">Invitación pendiente</Badge></div>}</div></div>
   ) };
   const rol: Column<Fila> = { key: 'rol', header: 'Rol', cell: f => (f.rol ? ROL_LABEL[f.rol] : '—') };
   const telefono: Column<Fila> = { key: 'telefono', header: 'Teléfono', hideBelow: 'lg', cell: f => <span className="num">{f.telefono ?? '—'}</span> };
@@ -219,7 +219,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
     ? [
       persona, rol,
       { key: 'depto', header: 'Departamento', cell: f => (
-        <div className="min-w-0"><p className="num truncate font-medium">{departamentos(f)}</p><p className="truncate text-xs text-muted">{ubicacion(f)}</p></div>
+        <div className="min-w-0"><p className="num font-medium">{departamentos(f)}</p><p className="text-xs text-muted">{ubicacion(f)}</p></div>
       ) },
       { key: 'estado', header: 'Estado', hideBelow: 'md', cell: f => (f.moroso ? <Badge tone="bad">Moroso</Badge> : <Badge tone="ok">Al día</Badge>) },
       { key: 'cargo', header: 'Cargo', hideBelow: 'md', cell: f => (f.cargo_junta ? cargoLabel(f.cargo_junta) : '—') },

@@ -35,7 +35,7 @@ export default function Mantenimientos() {
   const columns: Column<Tarea>[] = [
     { key: 'titulo', header: 'Tarea', cell: t => (
       <div className="min-w-0">
-        <p className="max-w-[18rem] truncate font-medium">{t.titulo}</p>
+        <p className="max-w-[18rem] font-medium">{t.titulo}</p>
         <p className="truncate text-xs text-muted md:hidden">{[t.unidad?.codigo, t.asignado?.nombre].filter(Boolean).join(' · ') || 'Sin unidad ni responsable'}</p>
       </div>
     ) },
@@ -44,7 +44,7 @@ export default function Mantenimientos() {
     { key: 'estado', header: 'Estado', cell: t => <StatusBadge estado={t.estado} /> },
     { key: 'creada', header: 'Creada', hideBelow: 'lg', cell: t => fechaCorta(t.fecha_creacion) },
     { key: 'acciones', header: '', align: 'right', cell: t => (
-      <div className="flex items-center justify-end gap-1">
+      <div className="flex flex-wrap items-center justify-end gap-1">
         {t.estado === 'pendiente' && (
           <Button variant="secondary" icon={<PlayIcon className="h-4 w-4" />} loading={cambiando === t.id} onClick={() => void cambiarEstado(t, 'en_progreso')}>Iniciar</Button>
         )}

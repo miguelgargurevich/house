@@ -75,7 +75,7 @@ export default function Conceptos() {
 
   const columns: Column<Fila>[] = [
     { key: 'nombre', header: 'Concepto', cell: f => (
-      <div className="min-w-0"><p className="break-words font-medium sm:truncate">{f.nombre}</p>{f.descripcion && <p className="break-words text-xs text-muted sm:hidden">{f.descripcion}</p>}</div>
+      <div className="min-w-0"><p className="font-medium">{f.nombre}</p>{f.descripcion && <p className="break-words text-xs text-muted sm:hidden">{f.descripcion}</p>}</div>
     ) },
     { key: 'descripcion', header: 'Descripción', hideBelow: 'sm', cell: f => f.descripcion ?? '—' },
     { key: 'tipo', header: 'Tipo de monto', hideBelow: 'md', cell: f => <Badge>{etiquetaMonto(f.tipo_monto)}</Badge> },

@@ -48,17 +48,17 @@ export function ComunicadosTab() {
 
   const columns: Column<Comunicado>[] = [
     { key: 'titulo', header: 'Comunicado', cell: c => (
-      <div className="min-w-0 max-w-[16rem] sm:max-w-md">
+      <div className="min-w-0 max-w-[18rem]">
         <p className="flex items-center gap-1.5 font-medium">
           {c.fijado && <MapPinIcon className="h-4 w-4 shrink-0 text-brand" aria-label="Fijado" />}
-          <span className="truncate">{c.titulo}</span>
+          <span>{c.titulo}</span>
         </p>
         <p className="truncate text-xs text-muted">{c.cuerpo.replace(/\s+/g, ' ')}</p>
         <p className="truncate text-xs text-muted sm:hidden">{alcanceLabel(c)} · {fechaCorta(c.created_at)} · {textoEnvios(c.envios)}</p>
       </div>
     ) },
     { key: 'alcance', header: 'Para', hideBelow: 'sm', cell: c => (
-      <span className="block"><span className="block truncate">{alcanceLabel(c)}</span>{complejos.length > 1 && <span className="block truncate text-xs text-muted">{c.complejo?.nombre}</span>}</span>
+      <span className="block"><span className="block">{alcanceLabel(c)}</span>{complejos.length > 1 && <span className="block text-xs text-muted">{c.complejo?.nombre}</span>}</span>
     ) },
     { key: 'envios', header: 'Notificaciones', hideBelow: 'md', cell: c => (
       <span className="block">
