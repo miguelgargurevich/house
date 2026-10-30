@@ -239,7 +239,7 @@ describe('comunicados: una página con dos pestañas («Comunicados» y «Envío
   it('la pestaña Envíos filtra por el comunicado de la URL (?comunicado=) en la lista y en las cifras, y se puede quitar', () => {
     assert.match(envios, /const comunicadoId = params\.get\('comunicado'\) \?\? ''/);
     assert.match(envios, /useList<Envio>\('\/api\/notificaciones', \{ params: \{ estado: filtro, tipo: tipo \|\| undefined, comunicado_id: comunicadoId \|\| undefined,/);
-    assert.match(envios, /\/api\/notificaciones\/resumen\?\$\{query\(\{ tipo: tipo \|\| undefined, comunicado_id: comunicadoId \|\| undefined \}\)\}/);
+    assert.match(envios, /\/api\/notificaciones\/resumen\?\$\{query\(\{ tipo: tipo \|\| undefined, comunicado_id: comunicadoId \|\| undefined, complejo_id: complejo \|\| undefined, estructura_id: torre \|\| undefined \}\)\}/);
     assert.match(envios, /useResource<Comunicado>\(comunicadoId \? `\/api\/comunicados\/\$\{comunicadoId\}` : null\)/);
     assert.match(envios, /<Button size="sm" variant="secondary" onClick=\{\(\) => setParams\(\{\}\)\}>Ver todos los envíos<\/Button>/);
   });

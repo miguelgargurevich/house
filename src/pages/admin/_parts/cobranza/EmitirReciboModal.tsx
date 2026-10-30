@@ -1,6 +1,7 @@
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useCondominio } from '../../../../app/condominio';
 import { api, errorText, useResource } from '../../../../api';
 import { simboloDe } from '../../../../lib/paises';
 import { Alert, Button, EmptyState, ErrorState, IconButton, Input, Modal, Select, Skeleton, Textarea, dinero, useToast } from '../../../../ui';
@@ -29,10 +30,12 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
   const complejos = useResource<Lista<Complejo>>('/api/complejos?pageSize=100');
   const conceptos = useResource<Lista<Concepto>>('/api/conceptos?pageSize=100');
   const hoy = new Date();
+  // Por defecto, el condominio elegido arriba; con «Todos los condominios» se pide elegirlo (un recibo es de UN condominio).
+  const { complejo: condominioElegido } = useCondominio();
 
   const { register, handleSubmit, control, getValues, setValue, formState: { errors, isSubmitting } } = useForm<Form>({
     defaultValues: {
-      complejo_id: '',
+      complejo_id: condominioElegido,
       estructura_id: '',
       mes: String(hoy.getMonth() + 1),
       anio: String(hoy.getFullYear()),
@@ -112,7 +115,7 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
         />
       ) : (
         <form onSubmit={handleSubmit(emitir)} className="grid gap-4 sm:grid-cols-2" noValidate>
-          <Select label="Condominio" className="sm:col-span-2" error={errors.complejo_id && 'Elige un condominio'} {...register('complejo_id', { required: true, onChange: () => setValue('estructura_id', '') })}>
+          <Select label="Condominio" className="sm:col-span-2" hint={condominioElegido ? undefined : 'Un recibo es de un solo condominio: elige para cuál lo emites.'} error={errors.complejo_id && 'Elige un condominio'} {...register('complejo_id', { required: true, onChange: () => setValue('estructura_id', '') })}>
             <option value="">Elige un condominio</option>
             {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </Select>

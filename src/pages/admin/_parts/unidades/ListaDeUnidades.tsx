@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCondominio, useTorreElegida } from '../../../../app/condominio';
 import { KeyIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource, type Page } from '../../../../api';
 import {
@@ -6,7 +7,6 @@ import {
 } from '../../../../ui';
 import type { Column } from '../../../../ui';
 import { FiltroSelect } from '../catalogo/FiltroSelect';
-import { useOpciones } from '../catalogo/opciones';
 import { ModalDeUnidad } from './ModalDeUnidad';
 import { ESTADOS_UNIDAD, nombreTorre, type FilaUnidad, type Torre } from './tipos';
 import { etiquetaTipoUnidad } from './tipoUnidad';
@@ -23,16 +23,17 @@ interface Props {
 /** Tabla de unidades con su filtro de torre. Se usa sola (pantalla Unidades) y dentro de la ficha del condominio. */
 export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditando }: Props) {
   const toast = useToast();
-  const [complejo, setComplejo] = useState(complejoId ? String(complejoId) : '');
-  const [torre, setTorre] = useState('');
+  // El condominio es el de la barra superior; en la ficha de un condominio, el suyo.
+  const { complejo: elegido, condominios, cargando } = useCondominio();
+  const complejo = complejoId ? String(complejoId) : elegido;
+  const [torre, setTorre] = useTorreElegida();
   const [estado, setEstado] = useState('');
   const list = useList<FilaUnidad>('/api/unidades', { params: { complejo_id: complejo || undefined, estructura_id: torre || undefined, estado: estado || undefined } });
-  const complejos = useOpciones(complejoId ? null : '/api/complejos');
   const torres = useResource<Page<Torre>>(complejo ? `/api/estructuras?complejo_id=${complejo}&pageSize=100` : null);
   const [borrar, setBorrar] = useState<FilaUnidad | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const filtrado = !!(list.q || torre || estado || (complejoId ? false : complejo));
+  const filtrado = !!(list.q || torre || estado);
 
   async function eliminar() {
     if (!borrar) return;
@@ -63,7 +64,7 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
     ) },
   ];
 
-  const sinComplejos = !complejoId && !complejos.loading && complejos.opciones.length === 0;
+  const sinComplejos = !complejoId && !cargando && condominios.length === 0;
 
   return (
     <>
@@ -77,16 +78,13 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por código" />
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            {!complejoId && (
-              <FiltroSelect label="Filtrar por condominio" value={complejo} onChange={v => { setComplejo(v); setTorre(''); }} className="sm:w-52">
-                <option value="">Todos los condominios</option>
-                {complejos.opciones.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            {/* Las torres son las del condominio elegido arriba: con «Todos los condominios» no se listan (se confundirían). */}
+            {complejo !== '' && (
+              <FiltroSelect label="Filtrar por torre" value={torre} onChange={setTorre} className="sm:w-44">
+                <option value="">Todas las torres</option>
+                {(torres.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
               </FiltroSelect>
             )}
-            <FiltroSelect label="Filtrar por torre" value={torre} onChange={setTorre} className="sm:w-44">
-              <option value="">Todas las torres</option>
-              {(torres.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
-            </FiltroSelect>
             <FiltroSelect label="Filtrar por estado" value={estado} onChange={setEstado} className="sm:w-40">
               <option value="">Todos los estados</option>
               {ESTADOS_UNIDAD.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}

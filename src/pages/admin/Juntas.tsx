@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
+import { useCondominio } from '../../app/condominio';
 import { useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Alert, Button, EmptyState, PageHeader, Skeleton } from '../../ui';
-import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
 import { HistorialModal } from './_parts/juntas/HistorialModal';
 import { JuntaCard } from './_parts/juntas/JuntaCard';
 import { JuntaFormModal } from './_parts/juntas/JuntaFormModal';
@@ -22,7 +22,7 @@ import type { Medio } from './_parts/medios/tipos';
 export default function Juntas() {
   const { user } = useAuth();
   const esJunta = user?.rol === 'propietario';
-  const [complejo, setComplejo] = useState('');
+  const { complejo } = useCondominio(); // el condominio es el de la barra superior (la junta no tiene selector: la API la acota a su block)
   const lista = useResource<ListaJuntas>(`/api/juntas${complejo ? `?complejo_id=${complejo}` : ''}`);
   const ambitos = useAmbitos();
   const [registrando, setRegistrando] = useState<EntradaJunta>(null);
@@ -34,8 +34,6 @@ export default function Juntas() {
   const puedeGestionar = lista.data?.puede_gestionar ?? false;
   const items = lista.data?.items ?? [];
   const palabra = palabraDe(items);
-  // Con un solo condominio no hay nada que elegir.
-  useEffect(() => { if (complejos.length === 1 && !complejo) setComplejo(String(complejos[0]!.id)); }, [complejos, complejo]);
   const complejoElegido = complejos.find(c => String(c.id) === complejo) ?? (complejos.length === 1 ? complejos[0]! : null);
   const hayJuntaDelCondominio = items.some(i => i.estructura === null && i.complejo.id === complejoElegido?.id);
   const recargar = () => void lista.reload();
@@ -52,14 +50,6 @@ export default function Juntas() {
           : undefined}
       />
       {lista.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar las juntas: {lista.error}</Alert></div>}
-      {complejos.length > 1 && (
-        <div className="mb-4 w-full sm:w-64">
-          <FiltroSelect label="Filtrar por condominio" value={complejo} onChange={setComplejo}>
-            <option value="">Todos los condominios</option>
-            {complejos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </FiltroSelect>
-        </div>
-      )}
       {lista.loading && !lista.data ? (
         <div className="grid gap-4 lg:grid-cols-2"><Skeleton className="h-64 w-full" /><Skeleton className="h-64 w-full" /></div>
       ) : items.length === 0 && !lista.error ? (

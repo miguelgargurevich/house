@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
+import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useResource } from '../../api';
 import { monedaEnPlural } from '../../lib/paises';
 import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto, nombreDelMes } from '../../ui';
@@ -56,8 +56,8 @@ const mesCorto = (m: string) => {
 const sinPagar = (e: Estados) => e.pendiente + e.parcial + e.vencido + e.en_revision;
 
 export default function Dashboard() {
-  const [complejo, setComplejo] = useState('');
-  const [torre, setTorre] = useState('');
+  const { complejo } = useCondominio();
+  const [torre, setTorre] = useTorreElegida();
   const filtros = new URLSearchParams();
   if (complejo) filtros.set('complejo_id', complejo);
   if (torre) filtros.set('estructura_id', torre);
@@ -70,14 +70,14 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader title="Resumen" description={`Cobranza, morosidad y operación de tus condominios. Cada ${palabra.una} tiene su propio recibo: ${palabra.mira}.`} />
-      <div className="mb-4 flex flex-wrap gap-3"><SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} /></div>
+      <SelectoresUbicacion torre={torre} onTorre={setTorre} envoltura="fila" />
       {error ? (
         <Card><ErrorState message={error} onRetry={reload} /></Card>
       ) : loading || !data ? (
         <div className="space-y-6"><Skeleton className="h-24 w-full" /><Skeleton className="h-80 w-full" /></div>
       ) : (
         <>
-          {variasMonedas && <div className="mb-4"><Alert>Tus condominios cobran en más de una moneda: las cifras van separadas por moneda y no se suman. Filtra por condominio para ver uno solo.</Alert></div>}
+          {variasMonedas && <div className="mb-4"><Alert>Tus condominios cobran en más de una moneda: las cifras van separadas por moneda y no se suman. Elige un condominio arriba para ver uno solo.</Alert></div>}
           <StatStrip
             stats={[
               ...bloques.flatMap(([moneda, b], i) => [

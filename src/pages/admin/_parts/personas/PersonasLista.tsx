@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { EnvelopeIcon, PencilSquareIcon, PlusIcon, TrashIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { useCondominio, useTorreElegida } from '../../../../app/condominio';
 import { api, errorText, useList, useResource } from '../../../../api';
 import type { Page } from '../../../../api';
 import type { CargoJunta, Rol } from '../../../../auth/AuthContext';
@@ -88,8 +89,10 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
   const t = TEXTOS[tipo];
   const [filtroRol, setFiltroRol] = useState('');
   const [filtroEmpresa, setFiltroEmpresa] = useState(empresaId ? String(empresaId) : '');
-  const [filtroComplejo, setFiltroComplejo] = useState(complejoId ? String(complejoId) : '');
-  const [filtroTorre, setFiltroTorre] = useState('');
+  // El condominio es el de la barra superior; en la ficha de un condominio, el suyo. El block depende de él.
+  const { complejo: condominioBarra } = useCondominio();
+  const filtroComplejo = complejoId ? String(complejoId) : condominioBarra;
+  const [filtroTorre, setFiltroTorre] = useTorreElegida();
   const [filtroEstado, setFiltroEstado] = useState('');
   const list = useList<Fila>('/api/usuarios', {
     params: {
@@ -127,7 +130,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
 
   function abrir(f: Fila | 'nuevo') {
     reset(f === 'nuevo'
-      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: empresaId ? String(empresaId) : '', complejo_id: complejoId ? String(complejoId) : '', unidad: '', unidad_id: '' }
+      ? { nombre: '', email: '', telefono: '', rol: roles[0]!, password: '', empresa_id: empresaId ? String(empresaId) : '', complejo_id: complejoId ? String(complejoId) : esSuper ? '' : condominioBarra, unidad: '', unidad_id: '' }
       : { nombre: f.nombre, email: f.email, telefono: f.telefono ?? '', rol: (f.rol ?? roles[0]!) as Rol, password: '', empresa_id: f.empresa?.id ? String(f.empresa.id) : '', complejo_id: f.complejo_id ? String(f.complejo_id) : '', unidad: f.unidades?.[0]?.codigo ?? '', unidad_id: f.unidades?.[0]?.id ? String(f.unidades[0].id) : '' });
     setClavePropia(false);
     setEditando(f);
@@ -246,18 +249,15 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por nombre o correo" />
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
-            {tipo !== 'superadmin' && !complejoId && (
-              <Select label="Filtrar por condominio" className="sm:w-52" value={filtroComplejo} onChange={e => { setFiltroComplejo(e.target.value); setFiltroTorre(''); }} disabled={complejos.loading} hint={complejos.error ? 'No se pudieron cargar los condominios.' : undefined}>
-                <option value="">Todos los condominios</option>
-                {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </Select>
-            )}
             {esResidente && (
               <>
-                <Select label="Filtrar por torre" className="sm:w-40" value={filtroTorre} onChange={e => setFiltroTorre(e.target.value)} disabled={!filtroComplejo || torresFiltro.loading}>
-                  <option value="">Todas las torres</option>
-                  {(torresFiltro.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
-                </Select>
+                {/* Las torres son las del condominio elegido arriba: con «Todos los condominios» no se listan (se confundirían). */}
+                {filtroComplejo !== '' && (
+                  <Select label="Filtrar por torre" className="sm:w-40" value={filtroTorre} onChange={e => setFiltroTorre(e.target.value)} disabled={torresFiltro.loading}>
+                    <option value="">Todas las torres</option>
+                    {(torresFiltro.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
+                  </Select>
+                )}
                 <Select label="Filtrar por estado" className="sm:w-40" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
                   <option value="">Todos</option>
                   <option value="moroso">Morosos</option>
@@ -293,7 +293,7 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
           onPage={list.setPage}
           empty={{
             title: `No hay ${t.titulo.toLowerCase()}`,
-            description: list.q || filtroRol || filtroEmpresa || filtroComplejo || filtroTorre || filtroEstado ? 'Prueba con otra búsqueda o quita los filtros.' : t.vacio,
+            description: list.q || filtroRol || filtroEmpresa || filtroTorre || filtroEstado ? 'Prueba con otra búsqueda o quita los filtros.' : t.vacio,
             icon: <UsersIcon />,
           }}
         />

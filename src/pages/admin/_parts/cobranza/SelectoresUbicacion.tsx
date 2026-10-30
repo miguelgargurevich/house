@@ -1,47 +1,37 @@
-import { useResource } from '../../../../api';
-import { Select } from '../../../../ui';
-import type { Complejo, Lista } from './comun';
+import { useCondominio } from '../../../../app/condominio';
+import { Select, Toolbar } from '../../../../ui';
 import { etiquetaTorre, hayVariosCondominios, palabraDeTorres } from './torres';
 import { useTorres } from './useTorres';
 
 interface Props {
-  /** Condominio elegido ('' = todos). */
-  complejo: string;
   torre: string;
-  onComplejo: (v: string) => void;
   onTorre: (v: string) => void;
-  /** Condominio fijo (ficha del condominio): sin selector de condominio y las torres son las suyas. */
+  /** Condominio fijo (ficha del condominio): las torres son las suyas y no se mira el condominio de la barra superior. */
   complejoFijo?: number;
-  /** La junta no lista condominios ni torres (sólo ve la suya): no se piden ni se muestran. */
+  /** La junta no lista torres (sólo ve la suya): no se piden ni se muestran. */
   oculto?: boolean;
+  /** Si no hay nada que mostrar no deja ni la barra ni el hueco: `toolbar` = barra de la tarjeta; `fila` = fila suelta sobre la página. */
+  envoltura?: 'toolbar' | 'fila';
 }
 
 /**
- * Filtros «Condominio» y «Torre» de las listas de cobranza. Cada torre tiene su recibo, su junta y sus cuentas: se filtra por ella.
- * Las torres son las del condominio elegido (o, sin elegir, las de todos; con más de un condominio se rotulan «Block 1 · Condominio»).
- * El selector de condominio sólo aparece si hay más de uno; el de torre, sólo si hay torres.
+ * Filtro de torre (block) de las listas de cobranza. El condominio ya no se elige aquí sino arriba, en la barra (`SelectorCondominio`): las
+ * torres son las del condominio elegido. Con «Todos los condominios» (y más de uno) el filtro se oculta: «Block 1» de un condominio y de
+ * otro se confundirían. Cada torre tiene su recibo, su junta y sus cuentas: se filtra por ella. Sólo aparece si hay torres.
  */
-export function SelectoresUbicacion({ complejo, torre, onComplejo, onTorre, complejoFijo, oculto = false }: Props) {
-  const complejos = useResource<Lista<Complejo>>(complejoFijo || oculto ? null : '/api/complejos?pageSize=100');
-  const torres = useTorres(complejoFijo ?? (complejo || null), !oculto);
-  const opcionesComplejo = complejos.data?.items ?? [];
-  const opcionesTorre = torres.data?.items ?? [];
-  const varios = hayVariosCondominios(opcionesTorre);
-  const palabra = palabraDeTorres(opcionesTorre);
-  return (
-    <>
-      {!complejoFijo && opcionesComplejo.length > 1 && (
-        <Select label="Condominio" className="w-full sm:w-56 [&_label]:sr-only" value={complejo} onChange={e => { onComplejo(e.target.value); onTorre(''); }}>
-          <option value="">Todos los condominios</option>
-          {opcionesComplejo.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-        </Select>
-      )}
-      {opcionesTorre.length > 0 && (
-        <Select label={palabra.titulo} className="w-full sm:w-56 [&_label]:sr-only" value={torre} onChange={e => onTorre(e.target.value)}>
-          <option value="">{palabra.todas}</option>
-          {opcionesTorre.map(t => <option key={t.id} value={t.id}>{etiquetaTorre(t, varios)}</option>)}
-        </Select>
-      )}
-    </>
+export function SelectoresUbicacion({ torre, onTorre, complejoFijo, oculto = false, envoltura }: Props) {
+  const { complejo: elegido, varios } = useCondominio();
+  const complejo = complejoFijo ? String(complejoFijo) : elegido;
+  const sinCondominio = !complejo && varios;
+  const torres = useTorres(complejo || null, !oculto && !sinCondominio);
+  const opciones = oculto || sinCondominio ? [] : torres.data?.items ?? [];
+  if (opciones.length === 0) return null;
+  const palabra = palabraDeTorres(opciones);
+  const select = (
+    <Select label={palabra.titulo} className="w-full sm:w-56 [&_label]:sr-only" value={torre} onChange={e => onTorre(e.target.value)}>
+      <option value="">{palabra.todas}</option>
+      {opciones.map(t => <option key={t.id} value={t.id}>{etiquetaTorre(t, hayVariosCondominios(opciones))}</option>)}
+    </Select>
   );
+  return envoltura === 'toolbar' ? <Toolbar>{select}</Toolbar> : envoltura === 'fila' ? <div className="mb-4 flex flex-wrap gap-3">{select}</div> : select;
 }

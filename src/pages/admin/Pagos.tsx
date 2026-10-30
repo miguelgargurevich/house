@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BanknotesIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip, StatusBadge, Tabs, Toolbar, dinero, dinerosPorMoneda, fechaCorta, sumaPorMoneda } from '../../ui';
@@ -36,8 +37,8 @@ export default function Pagos() {
   const puedeRegistrar = user?.rol !== 'propietario' || junta;
   const [pestana, setPestana] = useState<Pestana>('por_validar');
   const [metodo, setMetodo] = useState('');
-  const [complejo, setComplejo] = useState('');
-  const [torre, setTorre] = useState('');
+  const { complejo } = useCondominio();
+  const [torre, setTorre] = useTorreElegida();
   const [revisando, setRevisando] = useState<PagoFila | null>(null);
   const [registrando, setRegistrando] = useState(false);
   const list = useList<PagoFila>('/api/pagos', {
@@ -52,7 +53,7 @@ export default function Pagos() {
   const cargandoStats = list.loading && list.items.length === 0;
   // Cada torre cobra a su cuenta: la suma de la página puede juntar varias; se dice, y filtrar por torre las separa.
   const torresEnPagina = new Set(list.items.map(p => p.unidad?.estructura?.id ?? 0)).size;
-  const filtrando = Boolean(metodo || complejo || torre);
+  const filtrando = Boolean(metodo || torre);
 
   // Una fila por PAGO DEL MANTENIMIENTO (no por concepto): cabe a 1280 px sin scroll; lo secundario se oculta según el ancho.
   const monto = (p: PagoFila) => p.mantenimiento?.total ?? p.monto;
@@ -109,7 +110,7 @@ export default function Pagos() {
       </div>
       <Card>
         <Toolbar>
-          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} oculto={junta} />
+          <SelectoresUbicacion torre={torre} onTorre={setTorre} oculto={junta} />
           <Select label="Método de pago" className="w-full sm:w-52 [&_label]:sr-only" value={metodo} onChange={e => setMetodo(e.target.value)}>
             <option value="">Todos los métodos</option>
             {METODOS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}

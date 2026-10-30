@@ -1,8 +1,8 @@
 import { ArrowDownTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
-import { useState } from 'react';
+import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList, useResource } from '../../api';
 import { simboloDe } from '../../lib/paises';
-import { Badge, Button, Card, DataTable, PageHeader, Skeleton, StatStrip, Toolbar, dinero, fechaCorta, sumaPorMoneda } from '../../ui';
+import { Badge, Button, Card, DataTable, PageHeader, Skeleton, StatStrip, dinero, fechaCorta, sumaPorMoneda } from '../../ui';
 import type { Column } from '../../ui';
 import { descargarCSV } from './_parts/cobranza/csv';
 import { hoyISO } from './_parts/cobranza/comun';
@@ -28,8 +28,8 @@ const texto = (r: Ref): string => (typeof r === 'string' ? r : r?.codigo ?? r?.n
 const claveFila = (m: Moroso): string => (typeof m.unidad === 'object' && m.unidad?.id ? String(m.unidad.id) : `${texto(m.unidad)}|${texto(m.propietario)}`);
 
 export default function Morosidad() {
-  const [complejo, setComplejo] = useState('');
-  const [torre, setTorre] = useState('');
+  const { complejo } = useCondominio();
+  const [torre, setTorre] = useTorreElegida();
   // Las torres son las del condominio elegido (con varios condominios, «Block 1» se repite: el selector las rotula con su condominio).
   const params = { complejo_id: complejo || undefined, estructura_id: torre || undefined };
   const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100, params });
@@ -97,9 +97,7 @@ export default function Morosidad() {
         ]}
       />
       <Card>
-        <Toolbar>
-          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} />
-        </Toolbar>
+        <SelectoresUbicacion torre={torre} onTorre={setTorre} envoltura="toolbar" />
         <DataTable
           caption={`Unidades morosas al ${fechaCorta(new Date())}`}
           columns={columns}

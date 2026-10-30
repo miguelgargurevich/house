@@ -10,6 +10,8 @@ import { Assistant } from './Assistant';
 import { useEscritorio, usePanelAbierto } from './asistente/useDock';
 import { Pista } from './Pista';
 import { useBarra } from './useBarra';
+import { CondominioProvider } from './CondominioProvider';
+import { SelectorCondominio } from './SelectorCondominio';
 
 function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
   return (
@@ -26,7 +28,13 @@ function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
 const link = 'flex items-center gap-3 rounded px-3 py-2 text-sm font-medium transition-colors duration-150';
 const linkRiel = '!justify-center !gap-0 !px-0';
 
+/** El condominio elegido arriba lo comparten todas las pantallas: el estado vive fuera, con la sesión (`key`) para no heredar el de otro usuario. */
 export function Shell() {
+  const { user } = useAuth();
+  return <CondominioProvider key={user?.id ?? 0}><ShellInterior /></CondominioProvider>;
+}
+
+function ShellInterior() {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
   const nav = useNavigate();
@@ -114,11 +122,14 @@ export function Shell() {
       )}
 
       <div className="min-w-0 flex-1" inert={chat.abierto && !escritorio}>
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-line bg-bg/85 px-4 backdrop-blur lg:px-8">
+      <div className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur">
+      <header className="flex h-14 items-center justify-between gap-2 px-4 lg:px-8">
         <div className="flex items-center gap-2 lg:hidden">
           <IconButton label="Abrir menú" onClick={() => setMenu(true)}><Bars3Icon className="h-5 w-5" /></IconButton>
           <Logo />
         </div>
+        {/* En escritorio el condominio va a la izquierda de la barra; en el celular no cabe junto al resto y baja a su propia fila. */}
+        <div className="hidden min-w-0 lg:block"><SelectorCondominio /></div>
         <div className="ml-auto flex items-center gap-1">
           <IconButton label={dark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle}>
             {dark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
@@ -128,6 +139,8 @@ export function Shell() {
           <MenuUsuario user={user} onSalir={() => setConfirmarSalida(true)} />
         </div>
       </header>
+      <div className="px-4 pb-2 empty:hidden lg:hidden"><SelectorCondominio /></div>
+      </div>
 
       <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
         <Outlet />

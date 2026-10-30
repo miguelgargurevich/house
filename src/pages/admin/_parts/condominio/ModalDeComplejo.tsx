@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { useCondominio } from '../../../../app/condominio';
 import { api, errorText } from '../../../../api';
 import { ZONA_POR_DEFECTO, monedaDelPais, simboloDe } from '../../../../lib/paises';
 import { Button, Input, Modal, Select, TelefonoInput, Textarea, useToast } from '../../../../ui';
@@ -41,6 +42,7 @@ interface Form { nombre: string; tipo: string; direccion: string; descripcion: s
 /** Alta/edición de un condominio. La administradora se elige al crear; después se cambia con «Cambiar de administradora». */
 export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { complejo: FilaComplejo | 'nuevo' | null; esSuper: boolean; onClose: () => void; onGuardado: () => void }) {
   const toast = useToast();
+  const { recargar: recargarSelector } = useCondominio(); // el condominio nuevo (o con otro nombre) aparece en el selector de la barra
   const nuevo = complejo === 'nuevo';
   const empresas = useOpciones(esSuper && nuevo ? '/api/empresas' : null);
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<Form>();
@@ -67,6 +69,7 @@ export function ModalDeComplejo({ complejo, esSuper, onClose, onGuardado }: { co
     try {
       await api(nuevo ? '/api/complejos' : `/api/complejos/${(complejo as FilaComplejo).id}`, { method: nuevo ? 'POST' : 'PUT', json: body });
       toast.ok(nuevo ? 'Condominio creado' : 'Cambios guardados');
+      recargarSelector();
       onGuardado();
       onClose();
     } catch (e) { toast.error(errorText(e)); }

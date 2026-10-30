@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
+import { useCondominio } from '../../../../app/condominio';
 import { ApiError, api, errorText, useResource, type Page } from '../../../../api';
 import { Alert, Button, Input, Modal, Select, Textarea, useToast } from '../../../../ui';
 import { useOpciones } from '../catalogo/opciones';
@@ -26,6 +27,7 @@ export function ModalDeUnidad({ unidad, complejoId, complejoNombre, onClose, onG
   const tipoElegido = watch('tipo');
   const complejoElegido = watch('complejo_id');
   const torreElegida = watch('estructura_id');
+  const { complejo: condominioElegido } = useCondominio(); // una unidad nueva nace en el condominio elegido arriba
   const complejos = useOpciones(complejoId ? null : '/api/complejos');
   const propietarios = useOpciones('/api/usuarios?rol=propietario');
   const inquilinos = useOpciones('/api/usuarios?rol=inquilino');
@@ -36,14 +38,14 @@ export function ModalDeUnidad({ unidad, complejoId, complejoNombre, onClose, onG
     if (!unidad) return;
     setLimite(null);
     reset(esNuevo
-      ? { codigo: '', tipo: 'departamento', complejo_id: complejoId ? String(complejoId) : '', estructura_id: '', piso_id: '', descripcion: '', estado: 'activa', propietario_id: '', inquilino_id: '' }
+      ? { codigo: '', tipo: 'departamento', complejo_id: complejoId ? String(complejoId) : condominioElegido, estructura_id: '', piso_id: '', descripcion: '', estado: 'activa', propietario_id: '', inquilino_id: '' }
       : {
           codigo: unidad.codigo, tipo: normalizarTipoUnidad(unidad.tipo), complejo_id: unidad.complejo_id ? String(unidad.complejo_id) : '',
           estructura_id: unidad.estructura_id ? String(unidad.estructura_id) : '', piso_id: unidad.piso_id ? String(unidad.piso_id) : '',
           descripcion: unidad.descripcion ?? '', estado: unidad.estado ?? 'activa',
           propietario_id: unidad.propietario_id ? String(unidad.propietario_id) : '', inquilino_id: unidad.inquilino_id ? String(unidad.inquilino_id) : '',
         });
-  }, [unidad, esNuevo, complejoId, reset]);
+  }, [unidad, esNuevo, complejoId, condominioElegido, reset]);
 
   async function guardar(v: FormUnidad) {
     const body = {

@@ -1,4 +1,5 @@
 import { useForm } from 'react-hook-form';
+import { useCondominio } from '../../../../app/condominio';
 import { api, errorText, useResource } from '../../../../api';
 import { Button, ErrorState, Input, Modal, Select, Skeleton, Textarea, useToast } from '../../../../ui';
 import type { Lista } from './comun';
@@ -19,7 +20,9 @@ interface Form { titulo: string; descripcion: string; unidad_id: string; asignad
 
 export function TareaModal({ tarea, onClose, onSaved }: { tarea: Tarea | null; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
-  const unidades = useResource<Lista<UnidadOpcion>>('/api/unidades?pageSize=100');
+  // Las unidades que se ofrecen son las del condominio elegido arriba (o todas con «Todos los condominios»).
+  const { complejo } = useCondominio();
+  const unidades = useResource<Lista<UnidadOpcion>>(`/api/unidades?pageSize=100${complejo ? `&complejo_id=${complejo}` : ''}`);
   const personal = useResource<Lista<Personal>>('/api/usuarios?rol=mantenimiento&pageSize=100');
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({
     defaultValues: {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusIcon, ReceiptPercentIcon, PaperClipIcon } from '@heroicons/react/24/outline';
+import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList } from '../../api';
 import { Button, Card, DataTable, PageHeader, SearchBox, StatusBadge, Toolbar, fechaCorta, periodo } from '../../ui';
 import type { Column } from '../../ui';
@@ -19,14 +20,14 @@ interface Props {
 
 /** Lista de recibos. Se usa sola (pantalla Recibos) y dentro de la ficha del condominio. */
 export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
-  const [complejo, setComplejo] = useState('');
-  const [torre, setTorre] = useState('');
+  const { complejo } = useCondominio();
+  const [torre, setTorre] = useTorreElegida();
   const [emitiendo, setEmitiendo] = useState(false);
   const [subiendoExcel, setSubiendoExcel] = useState(false);
   const navigate = useNavigate();
   const abrir = (r: ReciboFila) => navigate(`/admin/recibos/${r.id}`);
-  const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: String(complejoId ?? (complejo || '')) || undefined, estructura_id: torre || undefined } });
-  const filtrando = Boolean(list.q || complejo || torre);
+  const list = useList<ReciboFila>('/api/recibos', { params: { complejo_id: String(complejoId ?? complejo) || undefined, estructura_id: torre || undefined } });
+  const filtrando = Boolean(list.q || torre);
 
   const columns: Column<ReciboFila>[] = [
     { key: 'periodo', header: 'Periodo', cell: r => (
@@ -55,7 +56,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
       <Card>
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por descripción" />
-          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} complejoFijo={complejoId} />
+          <SelectoresUbicacion torre={torre} onTorre={setTorre} complejoFijo={complejoId} />
         </Toolbar>
         <DataTable
           caption="Recibos emitidos"

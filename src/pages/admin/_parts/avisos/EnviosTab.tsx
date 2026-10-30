@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowPathIcon, BellIcon } from '@heroicons/react/24/outline';
+import { useCondominio, useTorreElegida } from '../../../../app/condominio';
 import { api, errorText, useList, useResource } from '../../../../api';
 import { useAuth } from '../../../../auth/AuthContext';
 import { Badge, Button, Card, DataTable, SearchBox, Skeleton, StatStrip, Tabs, Toolbar, periodo, useToast } from '../../../../ui';
@@ -68,11 +69,11 @@ export function EnviosTab() {
   const [filtro, setFiltro] = useState<Filtro>('');
   const [tipo, setTipo] = useState('');
   const [reenviando, setReenviando] = useState<number | null>(null);
-  const [complejo, setComplejo] = useState('');
-  const [torre, setTorre] = useState('');
+  const { complejo } = useCondominio();
+  const [torre, setTorre] = useTorreElegida();
   const list = useList<Envio>('/api/notificaciones', { params: { estado: filtro, tipo: tipo || undefined, comunicado_id: comunicadoId || undefined, complejo_id: complejo || undefined, estructura_id: torre || undefined } });
-  // Las cifras siguen al tipo y al comunicado, para que cuadren con la lista.
-  const resumen = useResource<Record<Estado, number>>(`/api/notificaciones/resumen?${query({ tipo: tipo || undefined, comunicado_id: comunicadoId || undefined })}`);
+  // Las cifras siguen a los mismos filtros que la lista (tipo, comunicado, condominio y torre), para que cuadren.
+  const resumen = useResource<Record<Estado, number>>(`/api/notificaciones/resumen?${query({ tipo: tipo || undefined, comunicado_id: comunicadoId || undefined, complejo_id: complejo || undefined, estructura_id: torre || undefined })}`);
   const comunicado = useResource<Comunicado>(comunicadoId ? `/api/comunicados/${comunicadoId}` : null);
   const cifra = (e: Estado) => (resumen.loading && !resumen.data ? <Skeleton className="h-7 w-10" /> : resumen.data?.[e] ?? 0);
 
@@ -137,7 +138,7 @@ export function EnviosTab() {
             <option value="">Todos los tipos</option>
             {Object.entries(TIPO).map(([clave, nombre]) => <option key={clave} value={clave}>{nombre}</option>)}
           </FiltroSelect>
-          <SelectoresUbicacion complejo={complejo} torre={torre} onComplejo={setComplejo} onTorre={setTorre} oculto={esJunta} />
+          <SelectoresUbicacion torre={torre} onTorre={setTorre} oculto={esJunta} />
         </Toolbar>
         <DataTable
           caption="Envíos de correo y WhatsApp"

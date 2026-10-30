@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon, DocumentTextIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useCondominio } from '../../app/condominio';
 import { api, errorText, useResource } from '../../api';
 import { ZONA_POR_DEFECTO, monedaDe, paisDe } from '../../lib/paises';
 import { etiquetaZona } from './_parts/condominio/SelectorPaisMoneda';
@@ -36,6 +37,7 @@ export default function CondominioDetalle() {
   const esSuper = user?.rol === 'superadmin';
   const toast = useToast();
   const navegar = useNavigate();
+  const { recargar: recargarSelector } = useCondominio();
   const [params, setParams] = useSearchParams();
   const vista: Vista = esVista(params.get('vista')) ? (params.get('vista') as Vista) : 'datos';
   const [editando, setEditando] = useState<FilaComplejo | 'nuevo' | null>(null);
@@ -57,6 +59,7 @@ export default function CondominioDetalle() {
     try {
       await api(`/api/complejos/${borrar.id}`, { method: 'DELETE' });
       toast.ok('Condominio eliminado');
+      recargarSelector();
       setBorrar(null);
       navegar('/admin/complejos');
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }

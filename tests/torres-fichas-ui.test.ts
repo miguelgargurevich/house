@@ -219,7 +219,7 @@ describe('unidades: la torre de punta a punta', () => {
     const iFiltro = lista.indexOf('label="Filtrar por torre"');
     const iTorres = lista.indexOf('/api/estructuras?complejo_id=');
     assert.ok(iTorres > -1 && iTorres < iFiltro, 'las torres se piden con el condominio');
-    assert.ok(lista.includes('const [complejo, setComplejo] = useState(complejoId ? String(complejoId) : \'\')'), 'el condominio puede venir fijo');
+    assert.ok(lista.includes('const complejo = complejoId ? String(complejoId) : elegido'), 'el condominio viene fijo (ficha) o de la barra superior');
   });
 
   it('el modal manda estructura_id y piso_id', () => {

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArchiveBoxIcon, MegaphoneIcon, PencilSquareIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { MapPinIcon } from '@heroicons/react/24/solid';
+import { useCondominio, useTorreElegida } from '../../../../app/condominio';
 import { api, errorText, useList } from '../../../../api';
 import { Alert, Badge, Button, Card, ConfirmDialog, DataTable, IconButton, SearchBox, Skeleton, Tabs, Toolbar, fechaCorta, useToast } from '../../../../ui';
 import type { Column } from '../../../../ui';
@@ -20,15 +21,15 @@ export function ComunicadosTab() {
   const base = baseDe(useLocation().pathname);
   const ambitos = useAmbitosComunicados();
   const [pestana, setPestana] = useState<Pestana>('publicados');
-  const [complejo, setComplejo] = useState('');
-  const [torre, setTorre] = useState('');
+  const { complejo: elegido } = useCondominio();
+  const [torre, setTorre] = useTorreElegida();
   const [editando, setEditando] = useState<Comunicado | 'nuevo' | null>(null);
   const [archivar, setArchivar] = useState<Comunicado | null>(null);
   const [busy, setBusy] = useState(false);
 
   const complejos = useMemo(() => ambitos.data?.complejos ?? [], [ambitos.data]);
-  // Con un solo condominio no hay nada que elegir: se usa ese.
-  useEffect(() => { if (complejos.length === 1 && !complejo) setComplejo(String(complejos[0]!.id)); }, [complejos, complejo]);
+  // El condominio es el de la barra superior; la junta (sin selector) y quien tiene uno solo trabajan con ese.
+  const complejo = elegido || (complejos.length === 1 ? String(complejos[0]!.id) : '');
   const torres = complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
   const palabra = palabraEstructura(ambitos.data);
 
@@ -94,12 +95,6 @@ export function ComunicadosTab() {
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por título o mensaje" />
           {ambitos.loading ? <Skeleton className="h-9 w-full sm:w-48" /> : (
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              {complejos.length > 1 && (
-                <FiltroSelect label="Filtrar por condominio" value={complejo} onChange={v => { setComplejo(v); setTorre(''); }}>
-                  <option value="">Todos los condominios</option>
-                  {complejos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </FiltroSelect>
-              )}
               {!ambitos.data?.fijo && torres.length > 0 && (
                 <FiltroSelect label={`Filtrar por ${palabra.una}`} value={torre} onChange={setTorre}>
                   <option value="">{palabra.todas[0]!.toUpperCase() + palabra.todas.slice(1)}</option>
@@ -124,7 +119,7 @@ export function ComunicadosTab() {
           onPage={list.setPage}
           empty={{
             title: hayFiltros ? 'No hay comunicados con estos filtros' : pestana === 'archivados' ? 'No hay comunicados archivados' : 'Aún no hay comunicados',
-            description: hayFiltros ? 'Prueba con otra búsqueda, condominio o ' + palabra.una + '.' : pestana === 'archivados' ? 'Los que archives dejan de verse para los vecinos y quedan guardados aquí.' : 'Publica el primero para avisar a tus vecinos: un corte de agua, una asamblea, un trabajo en el edificio.',
+            description: hayFiltros ? 'Prueba con otra búsqueda, otro condominio (arriba) o ' + palabra.una + '.' : pestana === 'archivados' ? 'Los que archives dejan de verse para los vecinos y quedan guardados aquí.' : 'Publica el primero para avisar a tus vecinos: un corte de agua, una asamblea, un trabajo en el edificio.',
             icon: <MegaphoneIcon />,
             action: puedePublicar && !hayFiltros && pestana === 'publicados' ? <Button onClick={() => setEditando('nuevo')}>Nuevo comunicado</Button> : undefined,
           }}

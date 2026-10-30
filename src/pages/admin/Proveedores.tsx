@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { PencilSquareIcon, PlusIcon, TrashIcon, TruckIcon } from '@heroicons/react/24/outline';
+import { useCondominio } from '../../app/condominio';
 import { api, errorText, useList, useResource } from '../../api';
 import type { Page } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
@@ -30,7 +31,8 @@ export default function Proveedores() {
   const esJunta = user?.rol === 'propietario';
   const [filtroRubro, setFiltroRubro] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
-  const [filtroComplejo, setFiltroComplejo] = useState('');
+  // El condominio es el de la barra superior (la junta no tiene selector: sólo ve los de su condominio).
+  const { complejo: filtroComplejo } = useCondominio();
   const list = useList<Fila>('/api/proveedores', { params: { rubro: filtroRubro, activo: filtroEstado, complejo_id: filtroComplejo } });
   const complejos = useResource<Page<Opt>>(esJunta ? null : '/api/complejos?pageSize=100'); // la junta no lista condominios: sólo trabaja con el suyo
   const empresas = useResource<Page<Opt>>(esSuper ? '/api/empresas?pageSize=100' : null);
@@ -48,7 +50,8 @@ export default function Proveedores() {
     reset(p === 'nuevo'
       ? { razon_social: '', rubro: 'otros', ruc: '', contacto_nombre: '', telefono: '', email: '', notas: '', activo: true, empresa_id: '' }
       : { razon_social: p.razon_social, rubro: p.rubro, ruc: p.ruc ?? '', contacto_nombre: p.contacto_nombre ?? '', telefono: p.telefono ?? '', email: p.email ?? '', notas: p.notas ?? '', activo: p.activo, empresa_id: String(p.empresa_id) });
-    setAtiende(p === 'nuevo' ? [] : p.complejos.map(c => c.id));
+    // Un proveedor nuevo atiende, por defecto, al condominio elegido arriba (el superadmin primero elige la empresa).
+    setAtiende(p === 'nuevo' ? (filtroComplejo && !esSuper ? [Number(filtroComplejo)] : []) : p.complejos.map(c => c.id));
     setEditando(p);
   }
 
@@ -119,12 +122,6 @@ export default function Proveedores() {
               <option value="">Todos los rubros</option>
               {RUBROS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </Select>
-            {!esJunta && (
-              <Select label="Filtrar por condominio" className="sm:w-52" value={filtroComplejo} onChange={e => setFiltroComplejo(e.target.value)} disabled={complejos.loading}>
-                <option value="">Todos los condominios</option>
-                {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-              </Select>
-            )}
             <Select label="Filtrar por estado" className="sm:w-40" value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
               <option value="">Todos</option>
               <option value="true">Activos</option>

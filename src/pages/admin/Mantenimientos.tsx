@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckIcon, PencilSquareIcon, PlayIcon, PlusIcon, WrenchScrewdriverIcon } from '@heroicons/react/24/outline';
+import { useCondominio } from '../../app/condominio';
 import { api, errorText, useList } from '../../api';
 import { Button, Card, DataTable, IconButton, PageHeader, SearchBox, StatusBadge, Tabs, Toolbar, fechaCorta, useToast } from '../../ui';
 import type { Column } from '../../ui';
@@ -19,7 +20,8 @@ export default function Mantenimientos() {
   const [filtro, setFiltro] = useState<Filtro>('');
   const [editando, setEditando] = useState<Tarea | 'nueva' | null>(null);
   const [cambiando, setCambiando] = useState<number | null>(null);
-  const list = useList<Tarea>('/api/tareas', { params: { estado: filtro || undefined } });
+  const { complejo } = useCondominio();
+  const list = useList<Tarea>('/api/tareas', { params: { estado: filtro || undefined, complejo_id: complejo || undefined } });
 
   async function cambiarEstado(t: Tarea, estado: 'en_progreso' | 'completada') {
     setCambiando(t.id);

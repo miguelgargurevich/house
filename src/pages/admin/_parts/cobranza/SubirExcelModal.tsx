@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PaperClipIcon } from '@heroicons/react/24/outline';
+import { useCondominio } from '../../../../app/condominio';
 import { api, errorText, useResource, type Page } from '../../../../api';
 import { Alert, Button, Card, Modal, useToast } from '../../../../ui';
 import type { Complejo } from './comun';
@@ -10,7 +11,9 @@ interface FilaComplejo extends Complejo { id: number; nombre: string }
 export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [abierto, setAbierto] = useState(true);
   const [archivo, setArchivo] = useState<File | null>(null);
-  const [complejoId, setComplejoId] = useState('');
+  // Por defecto, el condominio elegido arriba; con «Todos los condominios» se pide elegirlo (un Excel es de UN condominio).
+  const { complejo } = useCondominio();
+  const [complejoId, setComplejoId] = useState(complejo);
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoExcel | null>(null);
   const [error, setError] = useState<string | null>(null);

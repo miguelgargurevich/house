@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PlusIcon, QrCodeIcon } from '@heroicons/react/24/outline';
+import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { api, errorText, useList, useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Alert, Button, Card, ConfirmDialog, EmptyState, ErrorState, PageHeader, Skeleton, Toolbar, useToast } from '../../ui';
@@ -21,8 +22,8 @@ export default function MediosPago() {
   const toast = useToast();
   const esJunta = user?.rol === 'propietario';
   const ambitos = useAmbitos();
-  const [complejo, setComplejo] = useState('');
-  const [torre, setTorre] = useState('');
+  const { complejo: elegido } = useCondominio();
+  const [torre, setTorre] = useTorreElegida();
   const [editando, setEditando] = useState<Medio | 'nuevo' | null>(null);
   /** Block (o «Todo el condominio») del medio nuevo: el de la tarjeta donde se tocó «Agregar cuenta», o los filtros. */
   const [inicial, setInicial] = useState<{ complejo_id: string; estructura_id: string }>({ complejo_id: '', estructura_id: '' });
@@ -30,8 +31,8 @@ export default function MediosPago() {
   const [busy, setBusy] = useState(false);
 
   const complejos = useMemo(() => ambitos.data?.complejos ?? [], [ambitos.data]);
-  // Con un solo condominio no hay nada que elegir: se usa ese.
-  useEffect(() => { if (complejos.length === 1 && !complejo) setComplejo(String(complejos[0]!.id)); }, [complejos, complejo]);
+  // El condominio es el de la barra superior; la junta (sin selector) y quien tiene uno solo trabajan con ese.
+  const complejo = elegido || (complejos.length === 1 ? String(complejos[0]!.id) : '');
   const torres = complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
   const palabra = palabraEstructura(ambitos.data);
 
@@ -73,25 +74,16 @@ export default function MediosPago() {
       />
       {!esJunta && <ValidacionAutomaticaIA />}
       {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y las torres: {ambitos.error}</Alert></div>}
-      {(ambitos.loading || complejos.length > 1 || !ambitos.data?.fijo) && (
+      {/* Los blocks son los del condominio elegido arriba: con «Todos los condominios» no se listan (se confundirían). */}
+      {(ambitos.loading || (!ambitos.data?.fijo && complejo !== '')) && (
       <Card className="mb-4">
         <Toolbar>
           {ambitos.loading ? <Skeleton className="h-9 w-full sm:w-48" /> : (
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-              {complejos.length > 1 && (
-                <FiltroSelect label="Filtrar por condominio" value={complejo} onChange={v => { setComplejo(v); setTorre(''); }}>
-                  <option value="">Todos los condominios</option>
-                  {complejos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                </FiltroSelect>
-              )}
-              {!ambitos.data?.fijo && (
-                <FiltroSelect label={`Filtrar por ${palabra.una}`} value={torre} onChange={setTorre}>
-                  <option value="">{palabra.todas[0]!.toUpperCase() + palabra.todas.slice(1)}</option>
-                  <option value="ninguna">Junta central (todo el condominio)</option>
-                  {torres.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
-                </FiltroSelect>
-              )}
-            </div>
+            <FiltroSelect label={`Filtrar por ${palabra.una}`} value={torre} onChange={setTorre}>
+              <option value="">{palabra.todas[0]!.toUpperCase() + palabra.todas.slice(1)}</option>
+              <option value="ninguna">Junta central (todo el condominio)</option>
+              {torres.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
+            </FiltroSelect>
           )}
         </Toolbar>
       </Card>
@@ -105,13 +97,13 @@ export default function MediosPago() {
           <EmptyState
             icon={<QrCodeIcon />}
             title={hayFiltros ? 'No hay medios de pago con estos filtros' : 'Aún no hay medios de pago'}
-            description={hayFiltros ? `Prueba con otro condominio o ${palabra.una}.` : 'Agrega la cuenta o el Yape de la junta para que los vecinos sepan cómo pagar.'}
+            description={hayFiltros ? `Prueba con otro condominio (arriba) o con otro ${palabra.una}.` : 'Agrega la cuenta o el Yape de la junta para que los vecinos sepan cómo pagar.'}
             action={puedeAgregar && !hayFiltros ? <Button onClick={() => nuevo({ complejo_id: complejo, estructura_id: torre })}>Agregar medio de pago</Button> : undefined}
           />
         </Card>
       ) : (
         <>
-          {list.total > list.items.length && <div className="mb-4"><Alert tone="warn">Se muestran {list.items.length} de {list.total} medios de pago: filtra por condominio o {palabra.una} para ver el resto.</Alert></div>}
+          {list.total > list.items.length && <div className="mb-4"><Alert tone="warn">Se muestran {list.items.length} de {list.total} medios de pago: elige un condominio (arriba) o filtra por {palabra.una} para ver el resto.</Alert></div>}
           <div className="grid gap-4 lg:grid-cols-2">
             {grupos.map(g => (
               <CuentasBlock

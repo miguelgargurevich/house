@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCondominio } from '../../../../app/condominio';
 import { useList, useResource } from '../../../../api';
 import { Alert, Button, EmptyState, ErrorState, Input, Modal, Select, Skeleton, StatusBadge, dinero, fechaCorta } from '../../../../ui';
 import type { Mantenimiento } from '../../../shared/mantenimiento/tipos';
@@ -51,7 +52,9 @@ function ListaPorPagar({ reciboId, q, elegido, onElegir }: ListaProps) {
 /** Registrar el pago de un mantenimiento: elige el periodo, busca el departamento y registra cómo pagó (el monto es el saldo completo). */
 export function RegistrarPagoModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   // Los periodos que alcanza quien registra: la administración por empresa, la junta los de su torre (cada torre tiene su recibo).
-  const recibos = useResource<Lista<ReciboFila>>('/api/recibos/periodos');
+  // Con un condominio elegido arriba sólo se ofrecen sus periodos.
+  const { complejo } = useCondominio();
+  const recibos = useResource<Lista<ReciboFila>>(`/api/recibos/periodos${complejo ? `?complejo_id=${complejo}` : ''}`);
   const [reciboId, setReciboId] = useState('');
   const [q, setQ] = useState('');
   const [elegido, setElegido] = useState<Mantenimiento | null>(null);
