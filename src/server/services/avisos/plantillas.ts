@@ -52,7 +52,8 @@ export function diaYMes(f: Date): string {
 }
 
 /** Dónde se ve y se paga el mantenimiento: «Mis recibos» del propietario (el inquilino, al entrar, cae en su inicio con el mismo menú). */
-export const ENLACE_MIS_RECIBOS = `${ENLACE_APP}/propietario/cargos`;
+/** Al inicio de House: tras entrar, cada vecino (propietario o inquilino) cae en SU inicio, con el mantenimiento por pagar. */
+export const ENLACE_MIS_RECIBOS = ENLACE_APP;
 
 /**
  * Texto para el grupo de WhatsApp del block (o del condominio): lo lee todo el grupo, así que va SIN montos ni nombres de vecinos.

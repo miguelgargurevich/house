@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { api, errorText, useResource } from '../../../../api';
 import { Alert, Button, Modal, Skeleton, Textarea, useToast } from '../../../../ui';
 
@@ -33,6 +33,7 @@ interface Props {
  * grupo de WhatsApp del block, que no lleva montos ni nombres.
  */
 export function AvisarVecinosModal({ reciboId, titulo, onClose }: Props) {
+  const location = useLocation();
   const toast = useToast();
   const vista = useResource<Vista>(`/api/recibos/${reciboId}/avisar`);
   const grupo = useResource<{ texto: string }>(`/api/recibos/${reciboId}/mensaje-grupo`);
@@ -105,7 +106,7 @@ export function AvisarVecinosModal({ reciboId, titulo, onClose }: Props) {
           {resultado && (
             <Alert tone="ok">
               <p>Quedaron en cola {resultado.encolados} {resultado.encolados === 1 ? 'vecino' : 'vecinos'}. Se envían en unos minutos.</p>
-              <Link to="/admin/avisos" className="mt-1 inline-block font-medium underline">Ver en Comunicados › Envíos</Link>
+              <Link to={`${location.pathname.startsWith('/junta') ? '/junta' : '/admin'}/avisos?tipo=recibo_emitido`} className="mt-1 inline-block font-medium underline">Ver en Comunicados › Envíos</Link>
             </Alert>
           )}
         </section>

@@ -26,7 +26,7 @@ describe('AvisarVecinosModal: vista previa, envío y mensaje para el grupo', () 
   });
 
   it('después de enviar muestra el resultado con enlace a Comunicados › Envíos', () => {
-    assert.match(MODAL, /<Link to="\/admin\/avisos"[^>]*>Ver en Comunicados › Envíos<\/Link>/);
+    assert.match(MODAL, /<Link to=\{`\$\{location\.pathname\.startsWith\('\/junta'\) \? '\/junta' : '\/admin'\}\/avisos\?tipo=recibo_emitido`\}[^>]*>Ver en Comunicados › Envíos<\/Link>/);
     assert.match(MODAL, /toast\.ok\(`Quedaron en cola/);
   });
 

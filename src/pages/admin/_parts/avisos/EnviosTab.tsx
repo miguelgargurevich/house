@@ -67,7 +67,8 @@ export function EnviosTab() {
   const [params, setParams] = useSearchParams();
   const comunicadoId = params.get('comunicado') ?? '';
   const [filtro, setFiltro] = useState<Filtro>('');
-  const [tipo, setTipo] = useState('');
+  // `?tipo=` (p. ej. desde «Avisar a los vecinos» de un recibo) abre la pestaña ya filtrada por ese tipo de envío.
+  const [tipo, setTipo] = useState(() => params.get('tipo') ?? '');
   const [reenviando, setReenviando] = useState<number | null>(null);
   const { complejo } = useCondominio();
   const [torre, setTorre] = useTorreElegida();
