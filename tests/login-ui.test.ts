@@ -28,4 +28,9 @@ describe('login', () => {
     assert.match(login, /aria-label=\{verClave \? 'Ocultar contraseña' : 'Mostrar contraseña'\}/);
     assert.match(login, /aria-pressed=\{verClave\}/);
   });
+
+  it('las cuentas de prueba incluyen al tesorero del block y al tesorero central (con la clave del seed)', () => {
+    assert.match(login, /\['Tesorero', 'patricia\.alarcon\.9@prueba\.house', 'prop1234'\]/);
+    assert.match(login, /\['Tesorero central', 'gustavo\.cruz\.4@prueba\.house', 'prop1234'\]/);
+  });
 });

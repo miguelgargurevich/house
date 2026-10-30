@@ -14,6 +14,8 @@ const DEMO = [
   ['Mantenimiento', 'maria.fernandez@gestionurbana.com', 'mtto1234'],
   ['Seguridad', 'pedro.sanchez@gestionurbana.com', 'seg1234'],
   ['Limpieza', 'limpieza@prueba.house', 'pers1234'],
+  ['Tesorero', 'patricia.alarcon.9@prueba.house', 'prop1234'],
+  ['Tesorero central', 'gustavo.cruz.4@prueba.house', 'prop1234'],
 ] as const;
 
 export default function Login() {
