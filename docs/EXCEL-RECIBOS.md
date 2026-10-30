@@ -77,6 +77,22 @@ Errores: 403 si no eres admin (el rol se revisa antes de recibir el archivo); 42
 - Se lee con `xlsx` (SheetJS) 0.20.3, desde el CDN de SheetJS (la 0.18.5 de npm tiene avisos de seguridad altos).
 - El archivo se procesa en memoria; no se guarda en disco.
 
+## Consolidado del block (descarga)
+
+`GET /api/recibos/:id/consolidado/excel` baja el recibo de un block con ESTE mismo formato (la hoja se llama «Consolidado»); contrato y permisos en `docs/API-CONTRATO.md`. Distribución, copiada del Excel real de la administradora:
+
+| Celda | Contenido |
+|------|-----------|
+| A1 | `<condominio> · <block>` (se ignora al subirlo) |
+| B2:C2 · D2:última | `EMPRESA` (en mayúsculas) · `MANTENIMIENTO DE OCTUBRE 2026` |
+| D4 · E4:F4 · G4:H4 · I4 | `MES` · `Octubre` · `VENCIMIENTO:` · `02 DE NOVIEMBRE DE 2026` |
+| A6:A7 · B6:B7 · C6:C7 · D6:última | `BLOCK` · `Dpto.` · `Apellidos y Nombres` · `Conceptos por cobrar` |
+| fila 7, desde D | un concepto por columna (en el orden del recibo) y al final `TOTAL MANT`, `DEUDA ACUMULADA`, `TOTAL` |
+| fila 8 en adelante | una fila por departamento: `B.1` (el block como lo escribe la administradora), `101` (número), el propietario, un monto por concepto (formato `0.00`) y los tres totales |
+| última fila | `TOTALES` (A:C unidas) con la suma de cada columna |
+
+El lector de arriba lo entiende sin cambios (hay una prueba de ida y vuelta: se descarga, se sube a `POST /api/recibos/excel` y el recibo queda con los mismos cargos y sin advertencias; el importador sólo cambia de lugar lo que ya había). Diferencias con el original: márgenes estrechos pero SIN orientación horizontal ni «ajustar a una página» (la versión de SheetJS que usamos no escribe la configuración de página; para imprimir usa el botón «Imprimir» de la pantalla), sin colores ni encabezados girados, y el nombre del propietario sale como está registrado en House (no se reordena a «apellidos y nombres»).
+
 ## Excel de lecturas de agua (aparte del Excel de cargos)
 
 El Excel de cargos de arriba **no trae lecturas**: sólo el monto de «AGUA DPTO.». Las lecturas del contómetro se cargan aparte, por recibo de torre, a mano o con este archivo; salen en el «detalle del consumo de agua» del recibo impreso y del residente. **No cambian ningún cargo ni monto.**
