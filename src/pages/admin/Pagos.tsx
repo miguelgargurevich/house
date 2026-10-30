@@ -8,6 +8,7 @@ import { Badge, Button, Card, DataTable, PageHeader, Select, Skeleton, StatStrip
 import type { Column } from '../../ui';
 import { VeredictoBadge } from '../shared/evaluacion';
 import { METODOS, metodoLabel } from './_parts/cobranza/comun';
+import { esTesorero, insigniaConformidad } from './_parts/cobranza/conformidad';
 import { esJunta } from '../../auth/junta';
 import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
@@ -37,13 +38,15 @@ export default function Pagos() {
   const puedeRegistrar = user?.rol !== 'propietario' || junta;
   const [pestana, setPestana] = useState<Pestana>('por_validar');
   const [metodo, setMetodo] = useState('');
+  const [conformidad, setConformidad] = useState<'' | 'con' | 'sin'>('');
+  const tesorero = esTesorero(user);
   const { complejo } = useCondominio();
   const [torre, setTorre] = useTorreElegida();
   const [revisando, setRevisando] = useState<PagoFila | null>(null);
   const [registrando, setRegistrando] = useState(false);
   const list = useList<PagoFila>('/api/pagos', {
     // Los más antiguos primero en «Por validar»: es una cola de trabajo.
-    params: { estado_validacion: pestana, metodo_pago: metodo || undefined, complejo_id: complejo || undefined, estructura_id: torre || undefined, orden: pestana === 'por_validar' ? 'fecha_pago:asc' : undefined },
+    params: { estado_validacion: pestana, metodo_pago: metodo || undefined, conformidad: conformidad || undefined, complejo_id: complejo || undefined, estructura_id: torre || undefined, orden: pestana === 'por_validar' ? 'fecha_pago:asc' : undefined },
   });
   const textos = TEXTOS[pestana];
 
@@ -53,7 +56,7 @@ export default function Pagos() {
   const cargandoStats = list.loading && list.items.length === 0;
   // Cada torre cobra a su cuenta: la suma de la página puede juntar varias; se dice, y filtrar por torre las separa.
   const torresEnPagina = new Set(list.items.map(p => p.unidad?.estructura?.id ?? 0)).size;
-  const filtrando = Boolean(metodo || torre);
+  const filtrando = Boolean(metodo || torre || conformidad);
 
   // Una fila por PAGO DEL MANTENIMIENTO (no por concepto): cabe a 1280 px sin scroll; lo secundario se oculta según el ancho.
   const monto = (p: PagoFila) => p.mantenimiento?.total ?? p.monto;
@@ -81,6 +84,7 @@ export default function Pagos() {
         <StatusBadge estado={p.estado_validacion} />
         {p.validado_por_ia && <Badge tone="brand">Validado por IA</Badge>}
         {pestana === 'por_validar' && (p.comprobante ? <VeredictoBadge evaluacion={p.evaluacion} /> : <span className="text-xs text-muted">Sin comprobante</span>)}
+        {(() => { const c = insigniaConformidad(p); return c && <Badge tone={c.tone}>{c.label}</Badge>; })()}
       </span>
     ) },
     { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },
@@ -90,7 +94,7 @@ export default function Pagos() {
     <>
       <PageHeader
         title="Pagos"
-        description={junta ? 'Revisa los comprobantes de los vecinos de tu torre: valida el pago si el dinero llegó a la cuenta o al Yape de la junta, o recházalo indicando el motivo. También puedes registrar aquí los pagos que recibas directamente.' : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
+        description={junta ? (tesorero ? 'Revisa los comprobantes de los vecinos de tu torre y confirma que el dinero llegó a la cuenta o al Yape de la junta: la administración verá tu conformidad y valida el pago. También puedes registrar aquí los pagos que recibas directamente.' : 'Revisa los comprobantes de los vecinos de tu torre. El tesorero confirma que el dinero llegó a la cuenta o al Yape de la junta y la administración valida el pago. También puedes registrar aquí los pagos que recibas directamente.') : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
         actions={puedeRegistrar ? (
           <>
             {/* La junta carga las lecturas de agua de su torre desde aquí (el menú de la junta no tiene esa entrada). */}
@@ -114,6 +118,11 @@ export default function Pagos() {
           <Select label="Método de pago" className="w-full sm:w-52 [&_label]:sr-only" value={metodo} onChange={e => setMetodo(e.target.value)}>
             <option value="">Todos los métodos</option>
             {METODOS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </Select>
+          <Select label="Conformidad del tesorero" className="w-full sm:w-56 [&_label]:sr-only" value={conformidad} onChange={e => setConformidad(e.target.value as '' | 'con' | 'sin')}>
+            <option value="">Con o sin conformidad</option>
+            <option value="con">Con conformidad</option>
+            <option value="sin">Sin conformidad</option>
           </Select>
         </Toolbar>
         <DataTable

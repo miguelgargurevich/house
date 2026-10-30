@@ -10,6 +10,8 @@ import { EvaluacionPanel, useEvaluacionCompleta } from '../../../shared/evaluaci
 import type { EvaluacionCompleta } from '../../../shared/evaluacion';
 import { fechaPorRevisar, textoFechaPago } from '../../../shared/mantenimiento/fechaPago';
 import type { FechaOrigen } from '../../../shared/mantenimiento/tipos';
+import { esTesorero, puedeValidar, textoConformidad, TEXTO_VALIDAR_SIN_CONFORMIDAD, vistaConformidad } from './conformidad';
+import type { ConformidadPago } from './conformidad';
 import { metodoLabel } from './comun';
 
 export interface PagoRevisable {
@@ -37,11 +39,18 @@ export interface PagoRevisable {
   /** Sólo la traen los pagos que ve quien valida (admin y junta). */
   evaluacion?: EvaluacionCompleta | null;
   validado_por_ia?: boolean;
+  /** Conformidad del tesorero: la traen los pagos que ve quien valida; `null` = aún no la da. */
+  conformidad?: ConformidadPago | null;
+  /** ¿El block tiene un tesorero que pueda darla? */
+  tesorero_registrado?: boolean;
 }
 
 interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: () => void }
 
-/** Vista del comprobante de un pago y, si está por validar, los botones para validarlo o rechazarlo con motivo. */
+/**
+ * Vista del comprobante de un pago y, si está por validar: la administración lo valida o lo rechaza con motivo (y ve si el tesorero ya confirmó que el dinero
+ * llegó a la cuenta; si no, se le avisa, sin bloquearla); la junta sólo lo revisa, y su tesorero da o quita la conformidad.
+ */
 export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const toast = useToast();
   const { user } = useAuth();
@@ -49,6 +58,12 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const [motivo, setMotivo] = useState('');
   const [errorMotivo, setErrorMotivo] = useState<string | undefined>();
   const [enviando, setEnviando] = useState<'validado' | 'rechazado' | null>(null);
+  // Conformidad: lo que respondió el servidor al darla o quitarla desde este diálogo (la fila de la lista es la de antes de abrirlo).
+  const [conformidadLocal, setConformidadLocal] = useState<{ valor: ConformidadPago | null } | null>(null);
+  const [cambiandoConformidad, setCambiandoConformidad] = useState(false);
+  const [confirmandoSinConformidad, setConfirmandoSinConformidad] = useState(false);
+  const validador = puedeValidar(user);
+  const tesorero = esTesorero(user);
   // Quien administra adjunta el voucher que falta; la junta y el residente no (sólo suben el suyo, en su pantalla).
   const puedeAdjuntar = user?.rol === 'admin' || user?.rol === 'superadmin';
   const archivoRef = useRef<HTMLInputElement>(null);
@@ -58,7 +73,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
 
   const ia = useEvaluacionCompleta(pago?.id ?? null, pago?.evaluacion ?? null);
 
-  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); }, [pago?.id]);
+  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinConformidad(false); }, [pago?.id]);
 
   /** Sube el voucher y sigue la evaluación de la IA; el pago no cambia de estado aquí (sólo la IA o quien valida). */
   async function adjuntar(archivo: File) {
@@ -75,6 +90,19 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
       setSubiendo(false);
       if (archivoRef.current) archivoRef.current.value = '';
     }
+  }
+
+  /** El tesorero da o quita su conformidad; el diálogo sigue abierto y la lista se refresca. */
+  async function cambiarConformidad(dar: boolean) {
+    if (!pago) return;
+    setCambiandoConformidad(true);
+    try {
+      const r = await api<{ conformidad: ConformidadPago | null }>(`/api/pagos/${pago.id}/conformidad`, { method: dar ? 'PUT' : 'DELETE' });
+      setConformidadLocal({ valor: r.conformidad });
+      toast.ok(dar ? 'Conformidad registrada: la administración verá que el dinero llegó a la cuenta.' : 'Conformidad quitada.');
+      onRevisado();
+    } catch (e) { toast.error(errorText(e)); }
+    finally { setCambiandoConformidad(false); }
   }
 
   async function revisar(estado: 'validado' | 'rechazado') {
@@ -102,6 +130,9 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const motivoSinVoucher = puedeAdjuntar ? 'Sin voucher no se puede validar: adjunta el comprobante o rechaza el pago.' : 'Sin voucher no se puede validar: pídele al vecino que lo suba o rechaza el pago.';
   // Un pago del mantenimiento se revisa por su TOTAL: el comprobante es uno solo y cubre todos los conceptos.
   const monto = pago ? pago.mantenimiento?.total ?? pago.monto : 0;
+  const conformidad = conformidadLocal ? conformidadLocal.valor : pago?.conformidad;
+  const vistaConf = pago ? vistaConformidad({ estado_validacion: estadoPago ?? pago.estado_validacion, conformidad, tesorero_registrado: pago.tesorero_registrado }) : null;
+  const faltaConformidad = vistaConf !== null && vistaConf.tipo !== 'dada';
 
   return (
     <Modal
@@ -112,17 +143,30 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
       size="lg"
       footer={
         porValidar ? (
-          rechazando ? (
+          !validador ? (
+            <>
+              <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+              <p className="mr-auto max-w-xs text-xs text-muted">{tesorero ? 'La administración valida el pago: tú confirmas que el dinero llegó a la cuenta.' : 'La administración valida el pago.'}</p>
+              {tesorero && (conformidad
+                ? <Button variant="secondary" loading={cambiandoConformidad} disabled={cambiandoConformidad} onClick={() => void cambiarConformidad(false)}>Quitar mi conformidad</Button>
+                : <Button loading={cambiandoConformidad} disabled={cambiandoConformidad} onClick={() => void cambiarConformidad(true)}>Confirmo que llegó a la cuenta</Button>)}
+            </>
+          ) : rechazando ? (
             <>
               <Button variant="secondary" onClick={() => { setRechazando(false); setErrorMotivo(undefined); }}>Volver</Button>
               <Button variant="danger" loading={enviando === 'rechazado'} disabled={enviando !== null} onClick={() => void revisar('rechazado')}>Confirmar rechazo</Button>
+            </>
+          ) : confirmandoSinConformidad ? (
+            <>
+              <Button variant="secondary" onClick={() => setConfirmandoSinConformidad(false)}>Volver</Button>
+              <Button loading={enviando === 'validado'} disabled={enviando !== null} onClick={() => void revisar('validado')}>Validar de todos modos</Button>
             </>
           ) : (
             <>
               <Button variant="secondary" onClick={onClose}>Cerrar</Button>
               {sinVoucher && <p id="motivo-sin-voucher" className="mr-auto max-w-xs text-xs text-muted">{motivoSinVoucher}</p>}
               <Button variant="danger" disabled={enviando !== null} onClick={() => setRechazando(true)}>Rechazar</Button>
-              <Button loading={enviando === 'validado'} disabled={enviando !== null || sinVoucher} aria-describedby={sinVoucher ? 'motivo-sin-voucher' : undefined} onClick={() => void revisar('validado')}>Validar pago</Button>
+              <Button loading={enviando === 'validado'} disabled={enviando !== null || sinVoucher} aria-describedby={sinVoucher ? 'motivo-sin-voucher' : undefined} onClick={() => (faltaConformidad ? setConfirmandoSinConformidad(true) : void revisar('validado'))}>Validar pago</Button>
             </>
           )
         ) : <Button variant="secondary" onClick={onClose}>Cerrar</Button>
@@ -150,6 +194,13 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               />
             </div>
           </div>
+
+          {vistaConf && (
+            <section aria-label="Conformidad del tesorero">
+              <Alert tone={vistaConf.tipo === 'dada' ? 'ok' : 'warn'}>{textoConformidad(vistaConf, fechaCorta, tesorero)}</Alert>
+              {confirmandoSinConformidad && <div className="mt-3"><Alert tone="warn">{TEXTO_VALIDAR_SIN_CONFORMIDAD}</Alert></div>}
+            </section>
+          )}
 
           {fechaPorRevisar(pago.fecha_origen) && (
             <Alert tone="warn">
