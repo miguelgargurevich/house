@@ -32,6 +32,18 @@ async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
   return { ...d, ...suelta, ...cierre(d.estado) };
 }
 
+/**
+ * Tareas de un condominio: las de una unidad suya y, si no son de una unidad, las de su personal o sus proveedores. Es un filtro MÁS: la
+ * lista sigue acotada por `scopeTareas` (un `complejo_id` ajeno no devuelve nada).
+ */
+const deCondominio = (complejoId: number) => ({
+  OR: [
+    { unidad: { complejo_id: complejoId } },
+    { unidad_id: null, asignado: { complejo_id: complejoId } },
+    { unidad_id: null, proveedor: { complejos: { some: { complejo_id: complejoId } } } },
+  ],
+});
+
 const include = {
   unidad: { select: { id: true, codigo: true } },
   asignado: { select: { id: true, nombre: true, rol: true } },
@@ -64,12 +76,13 @@ router.use(
     defaultOrder: { fecha_creacion: 'desc' },
     include,
     filtros: {
-      schema: z.object({ estado: estadoSchema.optional(), asignado_id: idSchema.optional(), proveedor_id: idSchema.optional(), unidad_id: idSchema.optional() }),
+      schema: z.object({ estado: estadoSchema.optional(), asignado_id: idSchema.optional(), proveedor_id: idSchema.optional(), unidad_id: idSchema.optional(), complejo_id: idSchema.optional() }),
       where: (f) => ({
         ...(f.estado ? { estado: f.estado } : {}),
         ...(f.asignado_id !== undefined ? { asignado_id: f.asignado_id } : {}),
         ...(f.proveedor_id !== undefined ? { proveedor_id: f.proveedor_id } : {}),
         ...(f.unidad_id !== undefined ? { unidad_id: f.unidad_id } : {}),
+        ...(f.complejo_id !== undefined ? { AND: [deCondominio(f.complejo_id as number)] } : {}),
       }),
     },
     createSchema: base,

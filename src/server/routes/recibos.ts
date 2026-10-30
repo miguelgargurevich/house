@@ -284,7 +284,10 @@ router.post('/', requireRole('admin'), async (req, res) => {
  * los últimos 24 MESES (no 24 recibos) y de cada mes todos sus recibos, para que N torres no se coman los meses.
  */
 router.get('/periodos', adminOJunta, async (req, res) => {
-  const where = esAdmin(currentUser(req)) ? scopeRecibosEscritura(currentUser(req)) : recibosDe(currentUser(req)); // los periodos donde SE PUEDE cobrar
+  const { complejo_id } = parse(z.object({ complejo_id: idSchema.optional() }), req.query);
+  const alcance = esAdmin(currentUser(req)) ? scopeRecibosEscritura(currentUser(req)) : recibosDe(currentUser(req)); // los periodos donde SE PUEDE cobrar
+  // `complejo_id` (el condominio elegido arriba) sólo ACOTA: va junto al alcance, nunca en su lugar (uno ajeno no devuelve nada).
+  const where: Prisma.ReciboWhereInput = complejo_id !== undefined ? { AND: [alcance, { complejo_id }] } : alcance;
   const meses = await prisma.recibo.findMany({ where, distinct: ['anio', 'mes'], orderBy: [{ anio: 'desc' }, { mes: 'desc' }], take: 24, select: { anio: true, mes: true } });
   const items = meses.length
     ? await prisma.recibo.findMany({

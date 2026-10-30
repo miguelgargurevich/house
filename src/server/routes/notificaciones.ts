@@ -46,6 +46,12 @@ async function conContexto<T extends FilaAviso>(items: T[]): Promise<(T & { cont
   }));
 }
 
+/** Torre y condominio son de las unidades de quien recibe el aviso (propietario o inquilino). Lo comparten la lista y las cifras: así cuadran. */
+const filtroUbicacion = (f: { estructura_id?: number; complejo_id?: number }): Prisma.NotificacionWhereInput => {
+  const unidad = { ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}), ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}) };
+  return Object.keys(unidad).length ? { usuario: { OR: [{ unidades: { some: unidad } }, { unidadesInquilino: { some: unidad } }] } } : {};
+};
+
 const lista = crudRouter({
   entidad: 'notificacion',
   delegate: prisma.notificacion,
@@ -63,13 +69,11 @@ const lista = crudRouter({
   filtros: {
     schema: z.object({ estado: z.enum(ESTADOS).optional(), canal: z.enum(CANALES).optional(), tipo: z.enum(TIPOS).optional(), comunicado_id: idSchema.optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional() }),
     where: (f) => {
-      // Torre y condominio son de las unidades de quien recibe el aviso (propietario o inquilino).
-      const unidad = { ...(f.estructura_id !== undefined ? { estructura_id: f.estructura_id } : {}), ...(f.complejo_id !== undefined ? { complejo_id: f.complejo_id } : {}) };
       return {
         ...(f.estado ? { estado: f.estado } : {}),
         ...(f.canal ? { canal: f.canal } : {}),
         ...filtroEnvios(f),
-        ...(Object.keys(unidad).length ? { usuario: { OR: [{ unidades: { some: unidad } }, { unidadesInquilino: { some: unidad } }] } } : {}),
+        ...filtroUbicacion(f),
       };
     },
   },
@@ -100,10 +104,10 @@ router.get('/canales', async (req, res) => {
   res.json({ ...estado, sin_modulo_whatsapp: !(await moduloActivoPara(currentUser(req), 'whatsapp_avisos')) });
 });
 
-/** Conteo por estado dentro del alcance del usuario (para la franja de cifras). Acepta el mismo tipo y comunicado que la lista, para que cuadren. */
+/** Conteo por estado dentro del alcance del usuario (para la franja de cifras). Acepta los mismos filtros que la lista (tipo, comunicado, condominio y torre), para que cuadren. */
 router.get('/resumen', async (req, res) => {
-  const f = parse(z.object({ tipo: z.enum(TIPOS).optional(), comunicado_id: idSchema.optional() }), req.query);
-  const filas = await prisma.notificacion.groupBy({ by: ['estado'], where: { AND: [scopeNotificaciones(currentUser(req)), filtroEnvios(f)] }, _count: { _all: true } });
+  const f = parse(z.object({ tipo: z.enum(TIPOS).optional(), comunicado_id: idSchema.optional(), estructura_id: idSchema.optional(), complejo_id: idSchema.optional() }), req.query);
+  const filas = await prisma.notificacion.groupBy({ by: ['estado'], where: { AND: [scopeNotificaciones(currentUser(req)), filtroEnvios(f), filtroUbicacion(f)] }, _count: { _all: true } });
   const out: Record<string, number> = { pendiente: 0, enviada: 0, error: 0, omitida: 0 };
   for (const f of filas) out[f.estado] = f._count._all;
   res.json(out);

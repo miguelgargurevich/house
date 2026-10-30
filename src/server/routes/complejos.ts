@@ -172,6 +172,21 @@ router.delete('/:id/cabecera', requireRole('admin'), async (req, res) => {
   res.status(204).end();
 });
 
+/**
+ * Condominios del alcance de quien llama, en su forma más ligera, para el selector de la barra superior (sin paginar: `pageSize` máximo
+ * es 100 y un superadmin puede tener más). Siempre acotado por `scopeComplejos`: la administradora ve los suyos; el superadmin, todos,
+ * con su empresa para agruparlos. Va antes de `crud` para que `/selector` no se lea como un `/:id`.
+ */
+router.get('/selector', requireRole('admin'), async (req, res) => {
+  const items = await prisma.complejoHabitacional.findMany({
+    where: scopeComplejos(currentUser(req)),
+    select: { id: true, nombre: true, empresa: { select: { id: true, nombre: true } } },
+    orderBy: [{ empresa: { nombre: 'asc' } }, { nombre: 'asc' }, { id: 'asc' }],
+    take: 500,
+  });
+  res.json({ items, total: items.length });
+});
+
 router.use(crud);
 
 export { router as complejosRouter };
