@@ -51,9 +51,9 @@ const CURSOR = `
 const LIMPIEZA = `
   addEventListener('DOMContentLoaded', () => {
     const limpiar = () => {
-      for (const h of document.querySelectorAll('h2')) if (h.textContent?.trim() === 'Canales') h.closest('[class*="rounded"]')?.remove();
+      for (const el of document.querySelectorAll('p,div,span')) if (el.children.length === 0 && /Si un canal no está configurado/.test(el.textContent ?? '')) el.closest('[class*="rounded"]')?.remove();
       const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-      for (let n; (n = w.nextNode());) if (/Miguel Gargurevich|miguel@prueba/.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/Miguel Gargurevich/g, 'Martín Gallardo Ríos').replace(/miguel@prueba\\.house/g, 'martin@prueba.house');
+      for (let n; (n = w.nextNode());) if (/Miguel Gargurevich|miguel@prueba/.test(n.nodeValue ?? '')) n.nodeValue = n.nodeValue.replace(/Miguel Gargurevich/g, 'Martín Gallardo Ríos').replace(/miguel@prueba\\.house/g, 'martin@prueba.house');
     };
     new MutationObserver(limpiar).observe(document.body, { childList: true, subtree: true, characterData: true });
   });`;
@@ -90,7 +90,7 @@ const asentar = async (page) => {
   await page.evaluate(() => {
     for (const p of document.querySelectorAll('p')) if (/Cuentas de prueba/i.test(p.textContent ?? '')) p.parentElement?.remove();
     // En local los envíos están apagados: la tarjeta «Canales» diría «No configurado» y nombraría las variables. No va en un video.
-    for (const h of document.querySelectorAll('h2, h3')) if (h.textContent?.trim() === 'Canales') h.closest('section, [class*="rounded"]')?.remove();
+    for (const el of document.querySelectorAll('p,div,span')) if (el.children.length === 0 && /Si un canal no está configurado/.test(el.textContent ?? '')) el.closest('[class*="rounded"]')?.remove();
     // El seed pone a Miguel (persona real) de presidente del Block 1: en un video público sale un nombre de prueba.
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let n; (n = w.nextNode());) n.nodeValue = n.nodeValue.replace(/Miguel Gargurevich/g, 'Martín Gallardo Ríos').replace(/miguel@prueba\.house/g, 'martin@prueba.house');
@@ -126,7 +126,7 @@ const ESCENAS = {
     { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
       await tocar(p, p.getByRole('tab', { name: /notificaciones/i })); await asentar(p);
       // «Canales» carga después del resto: se espera a que aparezca para quitarla (ver `asentar`).
-      await p.getByRole('heading', { name: 'Canales', exact: true }).waitFor({ timeout: 4000 }).catch(() => {}); await asentar(p);
+      await p.getByText('Si un canal no está configurado').first().waitFor({ timeout: 4000 }).catch(() => {}); await asentar(p);
       await desplazar(p, 200);
     } },
     { rol: 'admin', url: '/admin/juntas', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /nueva gestión/i })); await asentar(p); } },

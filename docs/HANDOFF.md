@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Haiku 5.5, delegado) — Manual (2) y videos al día (rama `docs/manual-videos`, sin push)
+
+- Herramientas: Bash, Playwright (local), ffmpeg, `scp` al VPS y `mcp__myworkspace__web_crear`.
+- Capturas (`scripts/marketing/capturas-manual.mjs`, seed local): 41 tomadas. Nuevas: `registro`, `precios`, `admin-notificaciones`, `vecino-ver-voucher`; `vecino-ampliar` no se publica (los comprobantes del seed son PNG de ~300 bytes). Subidas al VPS las 31 que cita el manual (sobrescribe; no se borró nada).
+- Manual: `docs/manual/manual-house.json` con 36 secciones (nuevas «Crea tu cuenta» y «Planes y precios»; «Notificaciones»; validación con OCR primero y IA sólo si hace falta; «Ver mi voucher» y «Ampliar»; cargo de la junta en el menú). Publicado como recurso `cmvv9nbz10004f5xdk0dejkks`, que **reemplaza** a `cmvuwrn5z000yzt7dybudh1r1`. Enlace: https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793382519122-co-mo-usar-house-segu-n-tu-rol.html. Verificado a 390 px con Playwright: 31/31 imágenes con `naturalWidth > 0`, desborde 0.
+- Videos (`grabar-video.mjs` + `montar-video.sh`): v1, v2 y v3 regrabados en escritorio y celular. Duraciones: v1 33.7 s, v2 58.8 s, v3 29.9 s (celular ±0.1 s). Rutas en `/Users/miguelfernandezgargurevich/Projectos/house/.claude/videos/<v>/house-<v>-<formato>.mp4`. Revisado a fotograma completo: v2 Notificaciones sin «Canales» y v3 con el cargo en el menú. Los celulares sólo en hoja de cuadros.
+- Gotchas:
+  - Los scripts de «Canales» buscaban `h2`/`h3` y no existía ese nodo: la tarjeta salía igual. Ahora se busca por el texto de su descripción, con un `MutationObserver` que no reasigna texto sin cambio (sin `characterData`: se colgaba en bucle).
+  - Docker Desktop estaba apagado y `house-pg` caído: se levantó sólo `house-pg`. Vite (:5173) no corría: se lanzó `npm run dev` desde el checkout principal.
+  - `node_modules` del worktree es un enlace al checkout principal; no se corrió ningún `npm install`.
+- Próximos pasos: mirar a tamaño completo los celulares (no hecho) y, con OK de Miguel, push. Si se cambia el manual, publicar de nuevo con `web_crear` y reemplazar el recurso anterior.
+
 ## 2026-10-30 — Claude Code (Opus 5.5) — Informe de pruebas y mapa de flujos por rol
 
 - Informe «¿Qué flujos de House están probados y cuáles faltan?» (My Workspace, recurso `cmvv0axgo0000f5xdrnpi038x`, `doc_html`) y checklist Excel (`cmvv0bokp0001f5xdpcxbooa8`): 66 flujos por rol (administradora 23, junta del block 8, Junta central 6, propietario 12, inquilino 3, personal 3, superadmin 5, transversales 6). 42 con pruebas automáticas, 6 además probados de punta a punta en el navegador y 18 que hay que probar a mano (correo/WhatsApp reales, vouchers reales para OCR/IA, cámara, papel, app de escritorio, modo oscuro).

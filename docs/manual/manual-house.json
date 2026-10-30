@@ -1,6 +1,6 @@
 {
  "titulo": "Cómo usar House, según tu rol",
- "kicker": "Manual de usuario · versión del 30-oct-2026",
+ "kicker": "Manual de usuario · versión del 30-oct-2026 (2)",
  "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
  "diseno": "manual",
  "meta": [
@@ -27,30 +27,62 @@
      [
       "Administradora",
       "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-      "Secciones 04 a 15"
+      "Secciones 06 a 17"
      ],
      [
       "Junta directiva del block (presidente o tesorero)",
       "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago, cargas el agua y cierras el mes del block",
-      "Secciones 16 a 21"
+      "Secciones 18 a 23"
      ],
      [
       "Propietario",
       "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-      "Secciones 22 a 28"
+      "Secciones 24 a 30"
      ],
      [
       "Inquilino",
       "Lo mismo que el propietario, para el departamento que alquilas",
-      "Sección 29"
+      "Sección 31"
      ],
      [
       "Personal (mantenimiento, limpieza, jardinería, seguridad)",
       "Atiendes tus tareas o consultas las unidades",
-      "Secciones 30 y 31"
+      "Secciones 32 y 33"
+     ],
+     [
+      "Todavía no tienes cuenta",
+      "Creas tu cuenta gratis o revisas los planes y precios",
+      "Secciones 02 y 03"
      ]
     ]
    }
+  },
+  {
+   "titulo": "Crea tu cuenta",
+   "etiqueta": "Sin cuenta",
+   "parrafos": [
+    "Si administras un condominio y todavía no usas House, creas tu cuenta tú misma en [house.gargurevich.dev/registro](https://house.gargurevich.dev/registro). No tiene tarjeta: empiezas en el plan Gratis y pasas a Pro cuando lo necesites."
+   ],
+   "numerada": [
+    "Escribe tu nombre, tu correo, tu celular y una contraseña. La regla de la contraseña se va marcando mientras escribes.",
+    "En **Tu condominio** escribe el nombre de tu administradora o junta, el del condominio y el número aproximado de departamentos.",
+    "Pulsa **Crear cuenta gratis**.",
+    "Abre el correo de confirmación y pulsa el enlace. Recién entonces puedes entrar con tu correo y tu contraseña."
+   ],
+   "aviso": {
+    "tipo": "nota",
+    "texto": "Si el correo de confirmación no llega en unos minutos, revisa la carpeta de spam. Si tu administración ya te invitó, usa el enlace de esa invitación en lugar de crear otra cuenta."
+   },
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/registro.jpg"
+  },
+  {
+   "titulo": "Planes y precios",
+   "etiqueta": "Sin cuenta",
+   "parrafos": [
+    "House tiene tres planes. **Gratis** es para un condominio de hasta 20 departamentos. **Pro** cobra por departamento, con un mínimo de departamentos cobrados por condominio, y trae todos los módulos. **Administradora** es para quien lleva varios condominios en una sola cuenta, con descuento por volumen.",
+    "Los precios de tu país, con su impuesto si corresponde, están en [house.gargurevich.dev/precios](https://house.gargurevich.dev/precios). Ahí mismo está la calculadora: pones tu número de departamentos y ves cuánto pagarías."
+   ],
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/precios.jpg"
   },
   {
    "titulo": "Cómo entrar por primera vez",
@@ -73,7 +105,7 @@
    "titulo": "Lo que tienen todas las pantallas",
    "etiqueta": "Todos",
    "bullets": [
-    "**Tu nombre, arriba a la derecha**: abre Mi perfil (nombre, celular y avisos, contraseña) y Cerrar sesión.",
+    "**Tu nombre y tu rol, arriba a la derecha**: si tienes un cargo en la junta, sale junto a tu rol («Propietario · Tesorero del Block 1»). Desde ahí abres Mi perfil (nombre, celular y avisos, contraseña) y Cerrar sesión.",
     "**La luna**: cambia entre modo claro y oscuro.",
     "**El ícono de destellos**: abre el Asistente. Pregúntale «¿Cuánto debo?», «¿Cómo pago?» o dónde hacer algo.",
     "**El selector de condominio**, arriba a la izquierda (sólo administradora): filtra todas las pantallas por condominio.",
@@ -132,7 +164,7 @@
    "titulo": "Pagos: cómo se valida cada uno",
    "etiqueta": "Administradora · Pagos",
    "parrafos": [
-    "Cada fila es el pago de un mantenimiento completo, siempre con su voucher. Las pestañas separan **Por validar**, **Validados** y **Rechazados**. En cada pago ves si tiene voucher, qué dijo la IA y si el tesorero ya confirmó.",
+    "Cada fila es el pago de un mantenimiento completo, siempre con su voucher. Las pestañas separan **Por validar**, **Validados** y **Rechazados**. En cada pago ves si tiene voucher, qué leyó del voucher (el OCR o la IA) y si el tesorero ya confirmó.",
     "Para revisar uno, pulsa **Revisar**: ves el voucher, el método y la referencia, y decides **Validar pago** o **Rechazar**. Con **Registrar pago** cargas los que recibes por fuera (transferencia, Yape, Plin, efectivo o tarjeta)."
    ],
    "aviso": {
@@ -146,10 +178,10 @@
    "etiqueta": "Administradora · Medios de pago",
    "parrafos": [
     "Aquí está, por block, la cuenta bancaria o el Yape o Plin donde pagan los vecinos, con su junta al lado. Un block sin cuenta aparece como **Sin cuenta**: agrégala con **Agregar cuenta**.",
-    "Arriba está la **Validación automática con IA**. Cuando la activas, un pago se valida solo si se cumplen dos cosas:"
+    "Arriba está la **Validación automática con IA**. Primero lee el voucher el **OCR** de House; la **IA** entra sólo si el OCR no alcanza a leerlo bien. Un pago se valida solo si se cumplen dos cosas:"
    ],
    "bullets": [
-    "la IA lee el voucher y coincide exactamente con lo que se debía (monto, destino y fecha, sin archivos ni números de operación repetidos);",
+    "el voucher coincide exactamente con lo que se debía: monto, destino y fecha, sin números de operación repetidos ni alertas;",
     "el tesorero del block da su check."
    ],
    "aviso": {
@@ -221,7 +253,7 @@
     "En **Para quién** elige todo el condominio o un block.",
     "Escribe el título y el mensaje (hasta 4.000 caracteres).",
     "Marca si además se envía **por correo** o **por WhatsApp**, y si queda **fijado arriba**.",
-    "Pulsa **Publicar**. En la pestaña **Envíos** ves qué salió, qué está pendiente y qué tuvo error."
+    "Pulsa **Publicar**. En la pestaña **Notificaciones** ves qué salió por correo y por WhatsApp, qué está pendiente y qué tuvo error."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-comunicado-nuevo.jpg"
   },
@@ -353,7 +385,7 @@
    ],
    "aviso": {
     "tipo": "ok",
-    "texto": "¿Dónde veo el voucher que subí? En **Mi historial**: al final está la lista de tus pagos. Pulsa el pago para ver su estado y el voucher. Mientras siga en revisión, puedes reemplazarlo ahí mismo."
+    "texto": "¿Dónde veo el voucher que subí? En **Mis recibos**, pulsa **Ver detalle** y luego **Ver mi voucher**: lo ves ahí mismo, también mientras está en revisión. Pulsa **Ampliar** para verlo a pantalla completa. Mientras siga en revisión, también puedes reemplazarlo desde **Mi historial**."
    },
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-pagar.jpg"
   },
@@ -362,7 +394,7 @@
    "etiqueta": "Propietario",
    "parrafos": [
     "Cómo evolucionan tus pagos. Pestañas **Resumen**, **Por concepto** (elige un concepto y míralo mes a mes), **Acumulado** y **Agua**. Elige el periodo y, si quieres, pulsa **Descargar Excel**.",
-    "Al final están todos tus pagos: pulsa uno para ver su comprobante, su estado y el voucher, o para imprimirlo."
+    "Al final están todos tus pagos: pulsa uno para ver su comprobante, su estado y el voucher, o para imprimirlo. Con **Ampliar** sobre el voucher lo ves a pantalla completa."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-historial.jpg"
   },
@@ -394,7 +426,7 @@
    "titulo": "Si alquilas",
    "etiqueta": "Inquilino",
    "parrafos": [
-    "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores y Comunicados. Pagas y subes tu voucher igual que en la sección 24."
+    "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores y Comunicados. Pagas y subes tu voucher igual que en la sección 26."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/inquilino-inicio.jpg"
   },
@@ -457,7 +489,7 @@
    "etiqueta": "Ayuda",
    "bullets": [
     "**¿Puedo pagar sólo un concepto?** No: se paga el mantenimiento completo del mes con un solo voucher.",
-    "**¿Quién valida mi pago?** La administración, o la IA si está activada, siempre con el check del tesorero de tu block.",
+    "**¿Quién valida mi pago?** La administración, o la validación automática si está activada (el OCR de House lee el voucher y la IA sólo si hace falta), siempre con el check del tesorero de tu block.",
     "**¿Cambió la junta?** La administración registra la nueva gestión y los permisos pasan solos.",
     "**¿Puedo usar House en el celular?** Sí, todas las pantallas funcionan en el navegador del celular.",
     "**¿Cómo cambio mi contraseña o mi celular?** En Mi perfil, desde tu nombre arriba a la derecha."
