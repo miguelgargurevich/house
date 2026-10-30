@@ -10,6 +10,7 @@ import { abrirContrato } from '../../lib/contratos';
 import { registrarAuditoria } from '../../middleware/audit';
 import { comercialDeps } from './modulos';
 import { correoA, enlace, enmascarar, obtenerConfiguracion } from './configuracion';
+import { VERSION_LEGAL } from './legal';
 
 export const HORAS_ENLACE = 24;
 export const MENSAJE_ENLACE_INVALIDO = 'El enlace no es válido o ya venció. Pide uno nuevo desde el inicio de sesión.';
@@ -59,7 +60,7 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
   try {
     creado = await prisma.$transaction(async (tx) => {
       const empresa = await tx.empresaAdministradora.create({ data: { nombre: d.empresa, email: d.email, telefono: d.celular } });
-      const usuario = await tx.usuario.create({ data: { nombre: d.nombre, email: d.email, telefono: d.celular, rol: 'admin', password_hash, empresa_id: empresa.id, correo_verificado: false }, select: { id: true } });
+      const usuario = await tx.usuario.create({ data: { nombre: d.nombre, email: d.email, telefono: d.celular, rol: 'admin', password_hash, empresa_id: empresa.id, correo_verificado: false, terminos_version: VERSION_LEGAL, terminos_aceptados_at: comercialDeps.ahora() }, select: { id: true } });
       const complejo = await tx.complejoHabitacional.create({ data: { nombre: d.condominio, tipo: 'condominio', empresa_id: empresa.id } });
       await abrirContrato(tx, complejo.id, empresa.id);
       await tx.suscripcionCondominio.create({ data: { complejo_id: complejo.id, plan_clave: 'gratis', estado: 'gratis', notas: `Registro público: ~${d.unidades} departamentos` } });

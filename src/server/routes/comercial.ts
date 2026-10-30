@@ -58,6 +58,8 @@ const monedaEnum = z.string().transform((v) => v.trim().toUpperCase()).pipe(z.en
 const impuestoParams = z.object({ pais: paisEnum });
 const precioMonedaParams = z.object({ clave: z.string().min(1).max(40), moneda: monedaEnum });
 const impuestoSchema = z.object({ nombre: texto(20).optional(), tasa: tasaSchema.optional(), moneda: monedaEnum.optional(), activo: z.boolean().optional() });
+/** Texto opcional que, si viene vacío o sólo con espacios, se guarda como null (no como ""). */
+const textoLegal = (max: number) => z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(max, `Máximo ${max} caracteres`).nullish());
 const configSchema = z.object({
   igv_tasa: tasaSchema.optional(),
   dias_gracia: z.number().int().min(0).max(90).optional(),
@@ -71,6 +73,11 @@ const configSchema = z.object({
   pago_cci: textoOpcional(60),
   pago_yape: textoOpcional(60),
   pago_instrucciones: textoOpcional(500),
+  // Datos legales (Ley 29733): los ve el público en /privacidad y /terminos; vacío (o sólo espacios) = null = «por confirmar».
+  legal_razon_social: textoLegal(160),
+  legal_ruc: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().regex(/^\d{11}$/, 'El RUC tiene 11 dígitos').nullish()),
+  legal_domicilio: textoLegal(255),
+  legal_correo: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.email('Correo inválido').max(160).nullish()),
 });
 const listaSchema = listQuerySchema.extend({ estado: z.enum(ESTADOS_SUSCRIPCION).optional(), empresa_id: idSchema.optional() });
 

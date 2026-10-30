@@ -3,6 +3,8 @@ import { CODIGOS_PAIS } from '../../lib/paises';
 import { ipDe } from '../middleware/audit';
 import { MENSAJE_REGISTRO, registrarCuenta, reenviarVerificacion, verificarCorreo } from '../services/comercial/registro';
 import { catalogoPublico, cotizacionPublica } from '../services/comercial/suscripciones';
+import { obtenerConfiguracion } from '../services/comercial/configuracion';
+import { datosLegales } from '../services/comercial/legal';
 import { contrasenaIgualACorreo, emailSchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, passwordSchema, telefonoObligatorio, texto, z } from '../validation';
 
 export interface LimitadoresPublicos { registroIp: RequestHandler; registroCorreo: RequestHandler; verificacion: RequestHandler }
@@ -15,6 +17,8 @@ const registroSchema = z.object({
   empresa: texto(160),
   condominio: texto(160),
   unidades: z.coerce.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mínimo 1').max(5000, 'Máximo 5000'),
+  /** Ley 29733: el consentimiento a los Términos y la Política es obligatorio. La versión la graba el servidor (`VERSION_LEGAL`). */
+  acepta_terminos: z.literal(true, { error: 'Debes aceptar los términos y la política de privacidad' }),
   /** Señuelo antiabuso: un campo que ninguna persona ve ni llena. Si llega con algo, se responde igual y no se crea nada. */
   sitio_web: z.string().max(200).optional(),
 }).superRefine((d, ctx) => {
@@ -44,6 +48,14 @@ export function publicoRouter(l: LimitadoresPublicos) {
   });
 
   /** @openapi
+   * /api/publico/legal:
+   *   get: { summary: "Datos del responsable y versión de los Términos y la Política de privacidad (Ley 29733). Sólo estos campos; nada más de la configuración", tags: [Público], responses: { 200: { description: "{ razon_social, ruc, domicilio, correo, version }; un dato sin cargar es null (la página dice «por confirmar»)" } } } */
+  r.get('/legal', async (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(datosLegales(await obtenerConfiguracion()));
+  });
+
+  /** @openapi
    * /api/publico/cotizar:
    *   get: { summary: "Total al mes y al año (sin impuesto; aparte el impuesto y el total con impuesto del mes) para N departamentos y un plan, en la moneda del país de `?pais=` (Perú por defecto); Pro y Administradora cobran un mínimo de unidades. Ya no hay módulos sueltos", tags: [Público], responses: { 200: { description: "{ pais, moneda, impuesto_nombre, consultar, unidades, unidades_cobradas, minimo_aplicado, total_mes, total_anio, igv_mes, total_con_igv_mes }; sin precio del plan en esa moneda los totales son null y `consultar` true" } } } */
   r.get('/cotizar', async (req, res) => {
@@ -53,7 +65,7 @@ export function publicoRouter(l: LimitadoresPublicos) {
 
   /** @openapi
    * /api/publico/registro:
-   *   post: { summary: "Crea empresa + administrador + condominio (Gratis); exige verificar el correo", tags: [Público], responses: { 202: { description: "Misma respuesta exista o no el correo" }, 422: { description: "Campos inválidos" }, 429: { description: "Demasiados intentos" } } } */
+   *   post: { summary: "Crea empresa + administrador + condominio (Gratis); exige verificar el correo y aceptar los Términos (`acepta_terminos: true`)", tags: [Público], responses: { 202: { description: "Misma respuesta exista o no el correo" }, 422: { description: "Campos inválidos (también si no se aceptan los términos)" }, 429: { description: "Demasiados intentos" } } } */
   r.post('/registro', l.registroIp, l.registroCorreo, async (req, res) => {
     const d = parseBody(registroSchema, req);
     // Señuelo lleno = robot: mismo 202, sin crear nada.

@@ -69,6 +69,9 @@ model Usuario {
   canalPendientes   CanalPendiente[]
   /// false sólo en cuentas creadas por el registro público hasta que abren el enlace del correo. Las cuentas existentes y las que crea el superadmin quedan en true.
   correo_verificado Boolean                @default(true)
+  /// Versión de los Términos y la Política de privacidad que aceptó al registrarse, y cuándo. Nulos en las cuentas anteriores y en las que crea el superadmin.
+  terminos_version      String?
+  terminos_aceptados_at DateTime?
   tokensVerificacion TokenVerificacionCorreo[]
   invitaciones      TokenInvitacion[]      @relation("InvitacionDeUsuario")
   invitacionesHechas TokenInvitacion[]     @relation("InvitacionCreadaPor")
@@ -1018,6 +1021,11 @@ model ConfiguracionComercial {
   pago_cci               String?
   pago_yape              String?
   pago_instrucciones     String?
+  /// Datos del responsable de House para la Política de privacidad y los Términos (Ley 29733). Nulos = «por confirmar» en esas páginas.
+  legal_razon_social     String?
+  legal_ruc              String?
+  legal_domicilio        String?
+  legal_correo           String?
   updated_at             DateTime @updatedAt
 }
 

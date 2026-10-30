@@ -23,7 +23,7 @@ const depsOriginal = comercialCorreo.deps;
 
 const tokenDe = (c: Correo) => /token=([\w-]+)/.exec(c.cuerpo)?.[1] ?? '';
 const registro = (over: Record<string, unknown> = {}) => ({
-  nombre: 'Rosa Quispe', email: 'rosa@casa.pe', celular: '987 654 321', password: 'Cl4ve-segura-2026', empresa: 'Junta Los Pinos', condominio: 'Condominio Los Pinos', unidades: 48, ...over,
+  nombre: 'Rosa Quispe', email: 'rosa@casa.pe', celular: '987 654 321', password: 'Cl4ve-segura-2026', empresa: 'Junta Los Pinos', condominio: 'Condominio Los Pinos', unidades: 48, acepta_terminos: true, ...over,
 });
 
 let base: string;
