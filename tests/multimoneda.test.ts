@@ -65,7 +65,8 @@ describe('condominios: país y moneda', () => {
   it('con país elegido propone su moneda; la moneda explícita manda sobre la del país', async () => {
     const mx = await llamar(base, 'POST', '/api/complejos', T.adminA, { nombre: 'Nuevo Mexico', tipo: 'Edificio', pais: 'MX' });
     assert.deepEqual([mx.body.pais, mx.body.moneda], ['MX', 'MXN']);
-    const usd = await llamar(base, 'POST', '/api/complejos', T.adminA, { nombre: 'Nuevo Lima USD', tipo: 'Edificio', pais: 'PE', moneda: 'USD' });
+    // Gratis incluye un condominio por administradora: el segundo lo crea el superadmin (sin ese límite); lo que se prueba es la moneda.
+    const usd = await llamar(base, 'POST', '/api/complejos', T.super, { nombre: 'Nuevo Lima USD', tipo: 'Edificio', pais: 'PE', moneda: 'USD', empresa_id: d.empresaA.id });
     assert.deepEqual([usd.body.pais, usd.body.moneda], ['PE', 'USD']);
   });
 

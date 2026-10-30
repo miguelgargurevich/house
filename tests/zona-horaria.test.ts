@@ -62,10 +62,11 @@ describe('condominios: zona horaria', () => {
   it('sin zona, nace con la de su país (y con la del país de su empresa si no se dice país)', async () => {
     const mx = await llamar(base, 'POST', '/api/complejos', T.adminA, { nombre: 'Nuevo Mexico', tipo: 'Edificio', pais: 'MX' });
     assert.deepEqual([mx.body.pais, mx.body.moneda, mx.body.zona_horaria], ['MX', 'MXN', 'America/Mexico_City']);
-    const es = await llamar(base, 'POST', '/api/complejos', T.adminA, { nombre: 'Nuevo Madrid', tipo: 'Edificio', pais: 'ES' });
+    // Gratis incluye un condominio por administradora: los siguientes los crea el superadmin (sin ese límite); lo que se prueba es la zona.
+    const es = await llamar(base, 'POST', '/api/complejos', T.super, { nombre: 'Nuevo Madrid', tipo: 'Edificio', pais: 'ES', empresa_id: d.empresaA.id });
     assert.equal(es.body.zona_horaria, 'Europe/Madrid');
     await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { pais: 'CL' } });
-    const cl = await llamar(base, 'POST', '/api/complejos', T.adminA, { nombre: 'Nuevo Santiago', tipo: 'Edificio' });
+    const cl = await llamar(base, 'POST', '/api/complejos', T.super, { nombre: 'Nuevo Santiago', tipo: 'Edificio', empresa_id: d.empresaA.id });
     assert.deepEqual([cl.body.pais, cl.body.zona_horaria], ['CL', 'America/Santiago']);
   });
 

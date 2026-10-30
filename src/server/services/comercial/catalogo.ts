@@ -25,6 +25,9 @@ export const MEDIOS_PAGO_SUSCRIPCION = ['transferencia', 'yape', 'plin', 'efecti
 export const ESTADOS_SUSCRIPCION = ['gratis', 'solicitada', 'activa', 'por_vencer', 'vencida'] as const;
 export type EstadoSuscripcion = (typeof ESTADOS_SUSCRIPCION)[number];
 
+/** Viñetas de Gratis tal como salieron con la oferta anterior: el script de la oferta sólo las cambia si siguen así (lo editado a mano se respeta). */
+export const CARACTERISTICAS_GRATIS_ANTERIORES = ['Recibos por torre', 'Cobranza y morosidad', 'Importación del Excel', 'Medios de pago del condominio', 'Portal del vecino', 'Vouchers validados a mano', 'Avisos por correo'] as const;
+
 /** Valores de partida (precios BASE en soles, sin IGV). El seed sólo CREA lo que falta: nunca pisa lo que el superadmin editó. */
 const MODULOS_SEED = [
   { clave: 'ia_vouchers', nombre: 'IA que lee y valida vouchers', descripcion: 'Lee cada comprobante, lo contrasta con el recibo y valida solo los que coinciden.', precio_por_unidad: '1.00', orden: 1 },
@@ -34,7 +37,7 @@ const MODULOS_SEED = [
 
 export const PLANES_SEED = [
   { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para empezar y para siempre, sin costo.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null,
-    caracteristicas: ['Recibos por torre', 'Cobranza y morosidad', 'Importación del Excel', 'Medios de pago del condominio', 'Portal del vecino', 'Vouchers validados a mano', 'Avisos por correo'] },
+    caracteristicas: ['1 condominio', ...CARACTERISTICAS_GRATIS_ANTERIORES] },
   { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null,
     caracteristicas: ['Todo lo de Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
   { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null,

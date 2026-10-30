@@ -5,6 +5,7 @@ import { invalid, notFound } from '../errors';
 import { abrirContrato, cambiarAdministradora } from '../lib/contratos';
 import { empresaDe, scopeComplejos } from '../lib/scope';
 import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda, zonaInicial, zonaSchema } from '../lib/paisMoneda';
+import { exigirPuedeAgregarCondominio } from '../services/comercial/cupo';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
 import { emailSchema, fechaSchema, idSchema, parseBody, parseId, telefonoSchema, texto, textoOpcional, z } from '../validation';
@@ -74,8 +75,11 @@ const crud = crudRouter({
   updateSchema: base.partial(),
   prepareCreate: async (d, u) => {
     let r = d;
-    if (u.rol === 'admin') r = { ...d, empresa_id: empresaDe(u) };
-    else {
+    if (u.rol === 'admin') {
+      // Gratis incluye un condominio: con uno ya en Gratis, otro sólo si pasa a Pro o Administradora el que tiene (409, no crea nada). El superadmin no tiene este límite.
+      await exigirPuedeAgregarCondominio(empresaDe(u));
+      r = { ...d, empresa_id: empresaDe(u) };
+    } else {
       if (d.empresa_id == null) throw invalid('Datos inválidos: empresa_id: es obligatorio', { empresa_id: 'Obligatorio' });
       await assertRef(prisma.empresaAdministradora, d.empresa_id as number, {}, 'empresa_id');
     }

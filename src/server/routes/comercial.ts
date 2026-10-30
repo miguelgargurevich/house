@@ -2,10 +2,11 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { Prisma } from '@prisma/client';
 import { forbidden, invalid, notFound } from '../errors';
-import { scopeComplejos } from '../lib/scope';
+import { empresaDe, scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { CODIGOS_MONEDA, CODIGOS_PAIS, decimalesDe, monedaEnPlural } from '../../lib/paises';
 import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
+import { puedeAgregarCondominio } from '../services/comercial/cupo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { cambiarImpuesto, reflejarTasaEnPeru } from '../services/comercial/impuestos';
 import { invalidarComercial } from '../services/comercial/modulos';
@@ -103,12 +104,19 @@ const complejoPropio = async (req: Parameters<typeof currentUser>[0], id: number
 
 /** @openapi
  * /api/comercial/mi-plan:
- *   get: { summary: "Plan, módulos, monto y vigencia de cada condominio de tu empresa + cómo pagar", tags: [Comercial], security: [{ cookieAuth: [] }], responses: { 200: { description: "{ condominios, pagar, catalogo }" } } } */
+ *   get: { summary: "Plan, módulos, monto y vigencia de cada condominio de tu empresa + cómo pagar + si puedes agregar otro condominio", tags: [Comercial], security: [{ cookieAuth: [] }], responses: { 200: { description: "{ condominios, pagar, catalogo, puede_agregar_condominio }" } } } */
 comercialRouter.get('/mi-plan', requireRole('admin'), async (req, res) => {
   const u = soloAdmin(req);
   const complejos = await prisma.complejoHabitacional.findMany({ where: scopeComplejos(u), select: { id: true } });
-  const [condominios, pagar, catalogo] = await Promise.all([vistas(complejos.map((c) => c.id)), datosParaPagar(), catalogoPublico()]);
-  res.json({ condominios, pagar, catalogo });
+  const [condominios, pagar, catalogo, puede] = await Promise.all([vistas(complejos.map((c) => c.id)), datosParaPagar(), catalogoPublico(), puedeAgregarCondominio(empresaDe(u))]);
+  res.json({ condominios, pagar, catalogo, puede_agregar_condominio: puede });
+});
+
+/** @openapi
+ * /api/comercial/puede-agregar-condominio:
+ *   get: { summary: "¿Puedes crear otro condominio? Gratis incluye uno: con uno ya en Gratis, no (y el motivo para mostrarlo)", tags: [Comercial], responses: { 200: { description: "{ puede, motivo, gratis }" } } } */
+comercialRouter.get('/puede-agregar-condominio', requireRole('admin'), async (req, res) => {
+  res.json(await puedeAgregarCondominio(empresaDe(soloAdmin(req))));
 });
 
 /** @openapi

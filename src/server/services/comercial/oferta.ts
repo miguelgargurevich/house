@@ -2,7 +2,7 @@
 // (tope de Gratis, mínimo de Pro y Administradora, capacidades de cada plan y textos). Idempotente: correrlo dos veces deja lo mismo.
 // Precios y estado de las suscripciones no se tocan (Los Libertadores sigue en cortesía).
 import type { PrismaClient } from '@prisma/client';
-import { CAPACIDADES, PLANES_SEED, sembrarCatalogoComercial } from './catalogo';
+import { CAPACIDADES, CARACTERISTICAS_GRATIS_ANTERIORES, PLANES_SEED, sembrarCatalogoComercial } from './catalogo';
 import { invalidarComercial } from './modulos';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -28,7 +28,9 @@ export async function ajustarOfertaGratisPro(db: Cliente, opts: { seco?: boolean
     const quiere = seed.modulos_incluidos.length ? [...fila.modulos_incluidos.filter((m) => (CAPACIDADES as readonly string[]).includes(m)), ...CAPACIDADES.filter((c) => !fila.modulos_incluidos.includes(c))] : [];
     if (!igual(fila.modulos_incluidos, quiere)) { cambios.push(`modulos_incluidos → ${quiere.join(', ') || '(ninguno)'}`); data.modulos_incluidos = quiere; }
     if (fila.descripcion !== seed.descripcion) { cambios.push('descripcion'); data.descripcion = seed.descripcion; }
-    if (!igual(fila.caracteristicas, seed.caracteristicas)) { cambios.push('caracteristicas'); data.caracteristicas = [...seed.caracteristicas]; }
+    // Las viñetas de Gratis sólo se cambian si siguen como salieron con la oferta anterior: lo que el superadmin escribió a mano se respeta.
+    const caracteristicasDeFabrica = seed.clave !== 'gratis' || igual(fila.caracteristicas, CARACTERISTICAS_GRATIS_ANTERIORES);
+    if (!igual(fila.caracteristicas, seed.caracteristicas) && caracteristicasDeFabrica) { cambios.push('caracteristicas'); data.caracteristicas = [...seed.caracteristicas]; }
     if (cambios.length) {
       informe.push({ clave: seed.clave, cambios });
       if (!opts.seco) await db.planComercial.update({ where: { clave: seed.clave }, data });
