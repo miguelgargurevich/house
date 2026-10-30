@@ -6,15 +6,21 @@ import { ComoPagar } from './_parts/plan/ComoPagar';
 import { HistorialPagos } from './_parts/plan/HistorialPagos';
 import { ModalSolicitud } from './_parts/plan/ModalSolicitud';
 import { ESTADO_UI, MODULO_NOMBRE, nombreDePlan, type DatosPago, type ModuloClave, type VistaSuscripcion } from '../shared/_parts/comercial';
+import { diasDePrueba } from './_parts/plan/diasDePrueba';
+
+/** La vista del servidor: la de siempre más si el condominio está en prueba de Pro. */
+type Vista = VistaSuscripcion & { en_prueba: boolean };
 
 interface Respuesta {
-  condominios: VistaSuscripcion[];
+  condominios: Vista[];
   pagar: DatosPago;
   /** Gratis incluye un condominio: con uno ya en Gratis, `motivo` dice por qué no se agrega otro. */
   puede_agregar_condominio: { puede: boolean; motivo: string | null };
 }
 
-function aviso(c: VistaSuscripcion): { tone: 'warn' | 'bad'; texto: string } | null {
+function aviso(c: Vista): { tone: 'warn' | 'bad'; texto: string } | null {
+  // La prueba de Pro tiene su propia banda: no se avisa de «vence» ni de «venció».
+  if (c.en_prueba) return null;
   if (c.estado === 'por_vencer') return { tone: 'warn', texto: `Tu plan vence ${c.dias_para_vencer === 0 ? 'hoy' : `en ${c.dias_para_vencer} ${c.dias_para_vencer === 1 ? 'día' : 'días'}`}. Renueva para no perder lo de Pro.` };
   if (c.estado === 'vencida') return c.en_gracia
     ? { tone: 'warn', texto: 'Tu plan venció y estás en días de gracia: lo de Pro sigue activo por ahora.' }
@@ -22,11 +28,11 @@ function aviso(c: VistaSuscripcion): { tone: 'warn' | 'bad'; texto: string } | n
   return null;
 }
 
-function Condominio({ c, pagar, onSolicitar, onCambio }: { c: VistaSuscripcion; pagar: DatosPago; onSolicitar: () => void; onCambio: () => void }) {
+function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: DatosPago; onSolicitar: () => void; onCambio: () => void }) {
   const toast = useToast();
   const [pagos, setPagos] = useState(false);
   const [cancelando, setCancelando] = useState(false);
-  const est = ESTADO_UI[c.estado];
+  const est = c.en_prueba ? { label: 'Prueba de Pro', tone: 'brand' as const } : ESTADO_UI[c.estado];
   const a = aviso(c);
   const cobro = c.solicitud ? c.solicitud.cotizacion : c.cotizacion;
   const consultar = c.solicitud ? c.solicitud.consultar : c.precio_consultar;
@@ -47,6 +53,7 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: VistaSuscripcion; 
         action={<Badge tone={est.tone}>{est.label}</Badge>}
       />
       <CardBody className="space-y-4">
+        {c.en_prueba && <Alert tone="info">Prueba de Pro · {diasDePrueba(c.dias_para_vencer)}. Después sigues en Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Pro.</Alert>}
         {a && <Alert tone={a.tone}>{a.texto}</Alert>}
         {c.unidades_maximas != null && c.unidades_facturables >= c.unidades_maximas && (
           <Alert tone="warn">

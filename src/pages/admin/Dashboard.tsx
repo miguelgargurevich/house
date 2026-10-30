@@ -5,6 +5,7 @@ import { useResource } from '../../api';
 import { monedaEnPlural } from '../../lib/paises';
 import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto, nombreDelMes, periodo } from '../../ui';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
+import { BandaPlan } from './_parts/plan/BandaPlan';
 
 /** Mantenimientos (un departamento en un mes) por estado. Suman todos los mantenimientos del alcance. */
 interface Estados { pagado: number; pendiente: number; parcial: number; vencido: number; en_revision: number }
@@ -70,6 +71,7 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader title="Resumen" description={`Cobranza, morosidad y operación de tus condominios. Cada ${palabra.una} tiene su propio recibo: ${palabra.mira}.`} />
+      <BandaPlan />
       <SelectoresUbicacion torre={torre} onTorre={setTorre} envoltura="fila" />
       {error ? (
         <Card><ErrorState message={error} onRetry={reload} /></Card>

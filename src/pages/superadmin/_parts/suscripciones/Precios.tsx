@@ -7,7 +7,7 @@ import { ImpuestosYPrecios, type ImpuestoPais, type PrecioMoneda } from './Impue
 interface Modulo { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; activo: boolean }
 interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean; unidades_maximas: number | null; unidades_minimas: number | null }
 interface Config {
-  igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean;
+  igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean; dias_prueba_pro: number;
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
   legal_razon_social: string | null; legal_ruc: string | null; legal_domicilio: string | null; legal_correo: string | null;
 }
@@ -84,15 +84,15 @@ function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: 
 
 function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void }) {
   const toast = useToast();
-  const [f, setF] = useState({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento) });
+  const [f, setF] = useState({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento), dias_prueba_pro: String(c.dias_prueba_pro) });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setF({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento) }); }, [c]);
+  useEffect(() => { setF({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento), dias_prueba_pro: String(c.dias_prueba_pro) }); }, [c]);
   const t = (k: keyof Config) => ({ value: (f[k] as string | null) ?? '', onChange: (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value })) });
   async function guardar() {
     setBusy(true); setError(null);
     try {
-      await api('/api/comercial/configuracion', { method: 'PUT', json: { ...f, dias_gracia: Number(f.dias_gracia), dias_aviso_vencimiento: Number(f.dias_aviso_vencimiento) } });
+      await api('/api/comercial/configuracion', { method: 'PUT', json: { ...f, dias_gracia: Number(f.dias_gracia), dias_aviso_vencimiento: Number(f.dias_aviso_vencimiento), dias_prueba_pro: Number(f.dias_prueba_pro) } });
       toast.ok('Configuración guardada');
       onGuardado();
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
@@ -100,10 +100,11 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
   return (
     <div className="space-y-4">
       {error && <Alert tone="bad">{error}</Alert>}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Input label="Tasa de IGV de Perú" inputMode="decimal" hint="0.18 = 18 %. Es la de Perú en «Impuestos y moneda por país»." {...t('igv_tasa')} />
         <Input label="Días de gracia" type="number" min={0} max={90} {...t('dias_gracia')} />
         <Input label="Avisar de vencimiento (días antes)" type="number" min={1} max={60} {...t('dias_aviso_vencimiento')} />
+        <Input label="Días de prueba de Pro al registrarse" type="number" min={0} max={90} hint="0 = sin prueba: el condominio nace en Gratis." {...t('dias_prueba_pro')} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Correo para avisos (registros y solicitudes)" type="email" {...t('correo_superadmin')} />
