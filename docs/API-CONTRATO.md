@@ -457,3 +457,22 @@ Tipo de aviso `cierre_pendiente` (correo/WhatsApp según el canal del tesorero):
 
 ### Esquema (aditivo)
 Tablas `EgresoBlock` (única por block, año, mes y línea) y `ArchivoEgresoBlock` (el voucher); campos opcionales `Concepto.destino/proveedor_id`, `EmpresaAdministradora.cuenta_*`, `Proveedor.cuenta_*`. Pantallas: `/admin/cierres` («Cierres del mes», en Cobranza), `/junta/cierre` («Cierre del mes») y `/junta/aportes` («Aportes de los blocks», sólo Junta central). Siguiente paso: movimientos manuales de caja (sin ellos el Fondo de ahorros sólo suma ahorro y sobrante) y egresos propios de la Junta central.
+
+## Proveedores para los vecinos (29-oct-2026)
+
+Pedido de Miguel: «en la vista del propietario o inquilino falta la opción de ver los proveedores». Decisión: «Solo los marcados».
+
+### Marca — `Proveedor.visible_vecinos` (opcional, `false` por defecto)
+- `POST|PUT|PATCH /api/proveedores` aceptan `visible_vecinos: boolean` (otro valor → 422). Vale para la administración (de su empresa; otra empresa → 404) y para la junta (presidente/tesorero) en los proveedores que atienden sólo a su condominio; en uno compartido con otro condominio la junta recibe 403. Las listas y el detalle de `/api/proveedores` lo traen.
+- La marca queda en la auditoría (`detalle.visible_vecinos`): el cambio rápido de la lista manda sólo ese campo.
+
+### Lectura — `GET /api/me/proveedores` (propietario e inquilino; cualquier otro rol, incluido superadmin → 403; sin sesión → 401)
+- Proveedores **activos** con `visible_vecinos = true` que atienden algún condominio de las unidades del residente (`propietario_id` o `inquilino_id`; `ProveedorComplejo`). Un residente sin unidades recibe `{ items: [] }`.
+- `{ items: [{ rubro, proveedores: [{ razon_social, contacto_nombre|null, telefono|null, email|null }] }] }`: grupos en el orden del catálogo de rubros (sólo los que tienen proveedores), proveedores por razón social.
+- **Nunca**: notas, RUC, datos de la cuenta de pago (`cuenta_*`), tareas, id del proveedor, empresa ni condominios (lista blanca en el `select`). El vecino sigue sin acceso a `/api/proveedores` (403).
+
+### Esquema (aditivo)
+- `Proveedor.visible_vecinos Boolean @default(false)`.
+
+### Front
+- `/propietario/proveedores` y `/inquilino/proveedores` (después de «Mi junta»): tarjetas por rubro con «Llamar» (`tel:`), «WhatsApp» (`https://wa.me/<E.164>`, sólo con celular válido) y «Escribir» (`mailto:`). En Proveedores de la administración y de la junta: interruptor «Visible para los vecinos» en el formulario y columna «Vecinos» con cambio rápido.

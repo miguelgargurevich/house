@@ -17,6 +17,8 @@ const base = z.object({
   email: z.preprocess((v) => (v === '' ? null : v), emailSchema.nullish()),
   notas: textoOpcional(1000),
   activo: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
+  /** Si los vecinos de sus condominios lo ven en «Proveedores» (`GET /api/me/proveedores`). Apagado por defecto. */
+  visible_vecinos: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
   /** Condominios que atiende (de la empresa del proveedor). */
   complejo_ids: z.array(idSchema, { error: 'complejo_ids debe ser una lista de ids' }).max(100).optional(),
   /** Sólo el superadmin elige la empresa; el admin registra para la suya. */

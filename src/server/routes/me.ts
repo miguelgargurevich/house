@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { Router, type RequestHandler } from 'express';
-import { BCRYPT_COST } from '../config';
+import { BCRYPT_COST, RUBROS_PROVEEDOR } from '../config';
 import { prisma } from '../db';
 import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
@@ -138,6 +138,34 @@ export function meRouter(limitePassword: RequestHandler) {
     if (u.rol !== 'propietario' && u.rol !== 'inquilino') throw forbidden(); // `requireRole` deja pasar al superadmin: aquí no hay unidades propias
     const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), orderBy: [{ codigo: 'asc' }, { id: 'asc' }], select: { codigo: true, complejo_id: true, estructura_id: true } });
     res.json({ items: await juntasDelResidente(unidades) });
+  });
+
+  /**
+   * @openapi
+   * /api/me/proveedores:
+   *   get:
+   *     summary: Proveedores que la administración comparte con los vecinos
+   *     tags: [Proveedores]
+   *     description: Los proveedores ACTIVOS, marcados «Visible para los vecinos», que atienden algún condominio de las unidades del residente (propietario o inquilino), agrupados por rubro. De cada uno sólo razón social, contacto, teléfono y correo; nunca notas, RUC, cuenta de pago, tareas ni ids.
+   *     responses:
+   *       200: { description: "`{ items: [{ rubro, proveedores: [{ razon_social, contacto_nombre, telefono, email }] }] }`" }
+   *       403: { description: Rol distinto de propietario o inquilino }
+   */
+  router.get('/proveedores', residente, async (req, res) => {
+    const u = currentUser(req);
+    if (u.rol !== 'propietario' && u.rol !== 'inquilino') throw forbidden(); // `requireRole` deja pasar al superadmin: aquí no hay unidades propias
+    const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), select: { complejo_id: true } });
+    const complejoIds = [...new Set(unidades.flatMap((x) => (x.complejo_id == null ? [] : [x.complejo_id])))];
+    const proveedores = await prisma.proveedor.findMany({
+      where: { activo: true, visible_vecinos: true, complejos: { some: { complejo_id: { in: complejoIds } } } },
+      orderBy: [{ razon_social: 'asc' }, { id: 'asc' }],
+      select: { razon_social: true, rubro: true, contacto_nombre: true, telefono: true, email: true }, // lista blanca: lo demás de la ficha es interno
+    });
+    const items = RUBROS_PROVEEDOR.map((rubro) => ({
+      rubro,
+      proveedores: proveedores.filter((p) => p.rubro === rubro).map((p) => ({ razon_social: p.razon_social, contacto_nombre: p.contacto_nombre, telefono: p.telefono, email: p.email })),
+    })).filter((g) => g.proveedores.length > 0);
+    res.json({ items });
   });
 
   const cargosQuery = listQuerySchema.extend({ estado: z.enum(['pendiente', 'pagado', 'vencido', 'en_revision']).optional() });

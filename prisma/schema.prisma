@@ -185,6 +185,8 @@ model Proveedor {
   cuenta_numero   String?
   cuenta_cci      String?
   cuenta_titular  String?
+  /// Si los vecinos (propietarios e inquilinos) de sus condominios ven este proveedor en «Proveedores». Apagado por defecto: lo decide la administración o la junta.
+  visible_vecinos Boolean                @default(false)
   activo          Boolean                @default(true)
   created_at      DateTime               @default(now())
   updated_at      DateTime               @updatedAt
