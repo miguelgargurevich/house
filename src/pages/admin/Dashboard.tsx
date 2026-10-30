@@ -3,7 +3,7 @@ import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useResource } from '../../api';
 import { monedaEnPlural } from '../../lib/paises';
-import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto, nombreDelMes } from '../../ui';
+import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto, nombreDelMes, periodo } from '../../ui';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 
 /** Mantenimientos (un departamento en un mes) por estado. Suman todos los mantenimientos del alcance. */
@@ -28,7 +28,7 @@ interface Resumen extends Partial<DineroPanel> {
   /** Cómo llama el condominio a sus edificios: «block» si todos son blocks, si no «torre». */
   palabra_estructura: 'block' | 'torre';
   /** Cada torre tiene su propio recibo: lo emitido, cobrado y por cobrar de cada una. */
-  por_torre?: { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; moneda: string; emitido: string; cobrado: string; por_cobrar: string; morosos: number }[];
+  por_torre?: { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; moneda: string; emitido: string; cobrado: string; por_cobrar: string; morosos: number; mes?: { anio: number; mes: number } | null; emitido_mes?: string; cobrado_mes?: string }[];
 }
 
 /** Los textos del panel según cómo se llama el edificio en el condominio. */
@@ -104,6 +104,7 @@ export default function Dashboard() {
                 </CardBody>
               </Card>
             ))}
+            {(data.por_torre?.length ?? 0) > 1 && <CobradoPorTorre torres={data.por_torre!} palabra={palabra.una} />}
             {(data.por_torre?.length ?? 0) > 1 && (
               <Card style={{ gridColumn: '1 / -1' }}>
                 <CardHeader title={`Por ${palabra.una}`} description={`Emitido, cobrado y por cobrar de cada ${palabra.una} (todos los recibos).`} />
@@ -149,5 +150,34 @@ export default function Dashboard() {
         </>
       )}
     </>
+  );
+}
+
+/** «% cobrado de <mes> por block»: del último periodo emitido, qué parte de lo facturado a cada torre ya está pagado; de mayor a menor. */
+function CobradoPorTorre({ torres, palabra }: { torres: NonNullable<Resumen['por_torre']>; palabra: string }) {
+  const filas = torres
+    .filter(t => Number(t.emitido_mes ?? 0) > 0)
+    .map(t => ({ ...t, pct: Math.round((Number(t.cobrado_mes) / Number(t.emitido_mes)) * 1000) / 10 }))
+    .sort((a, b) => b.pct - a.pct || a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
+  const mes = torres.find(t => t.mes)?.mes;
+  if (!filas.length || !mes) return null;
+  const tono = (pct: number) => (pct >= 90 ? 'bg-ok' : pct >= 70 ? 'bg-brand' : pct >= 50 ? 'bg-warn' : 'bg-bad');
+  return (
+    <Card>
+      <CardHeader title={`% cobrado por ${palabra}`} description={`${periodo(mes.mes, mes.anio)}: qué parte de lo emitido a cada ${palabra} ya está pagado.`} />
+      <CardBody>
+        <ul className="space-y-2.5" aria-label={`Porcentaje cobrado de ${periodo(mes.mes, mes.anio).toLowerCase()} por ${palabra}`}>
+          {filas.map(t => (
+            <li key={t.estructura_id ?? t.nombre} className="grid grid-cols-[minmax(4.5rem,auto)_1fr_3.25rem] items-center gap-3 text-sm">
+              <span className="truncate font-medium" title={t.complejo ? `${t.nombre} · ${t.complejo.nombre}` : t.nombre}>{t.nombre}</span>
+              <span className="h-2.5 overflow-hidden rounded-full bg-surface2" title={`${dinero(t.cobrado_mes ?? 0, t.moneda)} de ${dinero(t.emitido_mes ?? 0, t.moneda)}`}>
+                <span className={`block h-full rounded-full ${tono(t.pct)}`} style={{ width: `${Math.min(100, t.pct)}%` }} />
+              </span>
+              <span className="num text-right font-medium">{t.pct.toLocaleString('es-PE', { maximumFractionDigits: 1 })} %</span>
+            </li>
+          ))}
+        </ul>
+      </CardBody>
+    </Card>
   );
 }

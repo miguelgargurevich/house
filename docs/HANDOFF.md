@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Resumen: «% cobrado por block»
+
+- Pedido de Miguel: un segundo gráfico al lado de «Emitido vs. cobrado»; eligió «% cobrado por block».
+- `GET /api/dashboard/resumen`: cada fila de `por_torre` trae `mes {anio, mes}` (el ÚLTIMO periodo con recibo en el alcance), `emitido_mes` y `cobrado_mes` (cargos pagados de ese periodo).
+- `Dashboard.tsx`: `CobradoPorTorre` — barras horizontales de mayor a menor (verde ≥ 90 %, brand ≥ 70 %, ámbar ≥ 50 %, rojo < 50 %), con el monto en el `title`; sólo con más de un block.
+- Test: `torre-visible.test.ts` (emitido del mes = suma de cargos del periodo; cobrado ≤ emitido). Verificado en local (octubre: Block 1 68,5 % … Block 14 34,6 %).
+
 ## 2026-10-29 — Claude Code (Sonnet 5.5) — Revisar morosos antes de emitir + «Quitar la multa»
 
 - Pedido de Miguel: «al calcular el recibo calcular los morosos revisando también la fecha del voucher que adjuntan» y poder regularizar un mes anterior («hablé con la administradora para que no me cobre mora y luego le adjunté el voucher»). Rama `feat/mora-revision` (sobre el `main` local `a2d20cb`), commits sin push.

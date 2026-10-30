@@ -129,30 +129,38 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
 
 /** Emitido, cobrado, por cobrar y morosos por torre (el dinero de cada torre se mira aparte: tiene su recibo, su junta y sus cuentas). */
 async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, palabra: 'block' | 'torre', reloj: Reloj) {
-  const [todo, cobrado, abierto, vencidos] = await Promise.all([
+  // El último periodo con recibo en el alcance: para «% cobrado del mes» por torre (lo emitido de ESE mes y cuánto de eso ya está pagado).
+  const ultimo = await prisma.reciboConceptoUnidad.findFirst({ where: cargos, orderBy: [{ reciboConcepto: { recibo: { anio: 'desc' } } }, { reciboConcepto: { recibo: { mes: 'desc' } } }], select: { reciboConcepto: { select: { recibo: { select: { anio: true, mes: true } } } } } });
+  const periodo = ultimo?.reciboConcepto?.recibo ?? null;
+  const delPeriodo: Prisma.ReciboConceptoUnidadWhereInput = periodo ? { AND: [cargos, { reciboConcepto: { recibo: { anio: periodo.anio, mes: periodo.mes } } }] } : { id: -1 };
+  const [todo, cobrado, abierto, vencidos, emitidoMes, cobradoMes] = await Promise.all([
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: cargos, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('pagado', reloj)] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, noPagado] }, _sum: { monto: true } }),
     prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [cargos, filtroEstadoCargo('vencido', reloj)] } }),
+    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: delPeriodo, _sum: { monto: true } }),
+    prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [delPeriodo, filtroEstadoCargo('pagado', reloj)] }, _sum: { monto: true } }),
   ]);
   const ids = [...new Set(todo.map((x) => x.unidad_id).filter((x): x is number => x != null))];
   if (!ids.length) return [];
   const unidades = await prisma.unidad.findMany({ where: { id: { in: ids } }, select: { id: true, complejo: { select: { moneda: true } }, estructura: { select: { id: true, nombre: true, complejo: { select: { id: true, nombre: true, moneda: true } } } } } });
   const torreDe = new Map(unidades.map((x) => [x.id, { estructura: x.estructura, moneda: x.estructura?.complejo?.moneda ?? x.complejo?.moneda ?? MONEDA_POR_DEFECTO }]));
-  const filas = new Map<string, { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; moneda: string; emitido: Prisma.Decimal; cobrado: Prisma.Decimal; por_cobrar: Prisma.Decimal; morosos: number }>();
+  const filas = new Map<string, { estructura_id: number | null; nombre: string; complejo: { id: number; nombre: string } | null; moneda: string; emitido: Prisma.Decimal; cobrado: Prisma.Decimal; por_cobrar: Prisma.Decimal; morosos: number; emitido_mes: Prisma.Decimal; cobrado_mes: Prisma.Decimal }>();
   // Las unidades sin torre se juntan en una fila «Sin torre», pero una por moneda: nunca se suman montos de monedas distintas.
   const fila = (unidadId: number) => {
     const { estructura: t, moneda } = torreDe.get(unidadId) ?? { estructura: null, moneda: MONEDA_POR_DEFECTO };
     const clave = t ? String(t.id) : `sin:${moneda}`;
-    return filas.get(clave) ?? filas.set(clave, { estructura_id: t?.id ?? null, nombre: t?.nombre ?? `Sin ${palabra}`, complejo: t?.complejo ? { id: t.complejo.id, nombre: t.complejo.nombre } : null, moneda, emitido: new Prisma.Decimal(0), cobrado: new Prisma.Decimal(0), por_cobrar: new Prisma.Decimal(0), morosos: 0 }).get(clave)!;
+    return filas.get(clave) ?? filas.set(clave, { estructura_id: t?.id ?? null, nombre: t?.nombre ?? `Sin ${palabra}`, complejo: t?.complejo ? { id: t.complejo.id, nombre: t.complejo.nombre } : null, moneda, emitido: new Prisma.Decimal(0), cobrado: new Prisma.Decimal(0), por_cobrar: new Prisma.Decimal(0), morosos: 0, emitido_mes: new Prisma.Decimal(0), cobrado_mes: new Prisma.Decimal(0) }).get(clave)!;
   };
   for (const x of todo) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.emitido = f.emitido.plus(x._sum.monto ?? 0); }
   for (const x of cobrado) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.cobrado = f.cobrado.plus(x._sum.monto ?? 0); }
   for (const x of abierto) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.por_cobrar = f.por_cobrar.plus(x._sum.monto ?? 0); }
   for (const x of vencidos) if (x.unidad_id != null) fila(x.unidad_id).morosos++;
+  for (const x of emitidoMes) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.emitido_mes = f.emitido_mes.plus(x._sum.monto ?? 0); }
+  for (const x of cobradoMes) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.cobrado_mes = f.cobrado_mes.plus(x._sum.monto ?? 0); }
   return [...filas.values()]
     .sort((a, b) => (a.complejo?.nombre ?? '').localeCompare(b.complejo?.nombre ?? '', 'es') || a.nombre.localeCompare(b.nombre, 'es', { numeric: true }))
-    .map((f) => ({ estructura_id: f.estructura_id, nombre: f.nombre, complejo: f.complejo, moneda: f.moneda, emitido: decimalAString(f.emitido), cobrado: decimalAString(f.cobrado), por_cobrar: decimalAString(f.por_cobrar), morosos: f.morosos }));
+    .map((f) => ({ estructura_id: f.estructura_id, nombre: f.nombre, complejo: f.complejo, moneda: f.moneda, emitido: decimalAString(f.emitido), cobrado: decimalAString(f.cobrado), por_cobrar: decimalAString(f.por_cobrar), morosos: f.morosos, mes: periodo, emitido_mes: decimalAString(f.emitido_mes), cobrado_mes: decimalAString(f.cobrado_mes) }));
 }
 
 async function resumenResidente(u: AuthUser) {

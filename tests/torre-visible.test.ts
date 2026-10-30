@@ -113,7 +113,20 @@ describe('API: panel, morosidad y residente', () => {
     const b2 = r.body.por_torre.find((x: { estructura_id: number }) => x.estructura_id === d.block2.id);
     assert.equal(b2.nombre, 'Block 2');
     assert.equal(b2.complejo.nombre, 'Complejo A');
-    assert.deepEqual(Object.keys(b2).sort(), ['cobrado', 'complejo', 'emitido', 'estructura_id', 'moneda', 'morosos', 'nombre', 'por_cobrar']);
+    assert.deepEqual(Object.keys(b2).sort(), ['cobrado', 'cobrado_mes', 'complejo', 'emitido', 'emitido_mes', 'estructura_id', 'mes', 'moneda', 'morosos', 'nombre', 'por_cobrar']);
+  });
+
+  it('«% cobrado por block»: cada torre trae lo emitido y lo cobrado del ÚLTIMO periodo, que cuadran con sus cargos', async () => {
+    const r = await llamar(base, 'GET', '/api/dashboard/resumen', T.adminA);
+    const ultimo = await prisma.recibo.findFirst({ where: { empresa_id: d.empresaA.id }, orderBy: [{ anio: 'desc' }, { mes: 'desc' }], select: { anio: true, mes: true } });
+    for (const t of r.body.por_torre as { estructura_id: number | null; mes: { anio: number; mes: number }; emitido_mes: string; cobrado_mes: string }[]) {
+      assert.deepEqual(t.mes, ultimo, 'el mismo periodo para todas las torres');
+      if (t.estructura_id == null) continue;
+      const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { unidad: { estructura_id: t.estructura_id }, reciboConcepto: { recibo: { empresa_id: d.empresaA.id, anio: ultimo!.anio, mes: ultimo!.mes } } }, select: { monto: true } });
+      const emitido = cargos.reduce((s, c) => s + Number(c.monto), 0);
+      assert.equal(Number(t.emitido_mes).toFixed(2), emitido.toFixed(2));
+      assert.ok(Number(t.cobrado_mes) <= Number(t.emitido_mes) + 0.001, 'nunca se cobra más de lo emitido del mes');
+    }
   });
 
   it('el panel se filtra por torre (cifras sólo de esa torre) y por condominio', async () => {
