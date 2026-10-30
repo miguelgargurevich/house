@@ -3,7 +3,7 @@ import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon, MegaphoneIcon, UserGroupIcon,
+  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { Rol, Usuario } from '../auth/AuthContext';
@@ -21,6 +21,7 @@ const cobranza: NavItem[] = [
   { to: '/admin/pagos', label: 'Pagos', icon: BanknotesIcon },
   { to: '/admin/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
   { to: '/admin/morosidad', label: 'Morosidad', icon: ExclamationTriangleIcon },
+  { to: '/admin/cierres', label: 'Cierres del mes', icon: CalendarDaysIcon },
 ];
 
 /** Operación: el día a día del condominio. */
@@ -116,15 +117,22 @@ const JUNTA: NavGroup = {
     { to: '/junta/mi-junta', label: 'Mi junta', icon: UserGroupIcon },
     { to: '/junta/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
     { to: '/junta/pagos', label: 'Pagos por validar', icon: BanknotesIcon },
+    { to: '/junta/cierre', label: 'Cierre del mes', icon: CalendarDaysIcon },
     { to: '/junta/agua', label: 'Lecturas de agua', icon: BeakerIcon },
     { to: '/junta/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
     { to: '/junta/proveedores', label: 'Proveedores', icon: TruckIcon },
   ],
 };
 
+/** Sólo la Junta central (presidente o tesorero sin block): lo que cada block transfirió a su cuenta al cerrar el mes. */
+const APORTES: NavItem = { to: '/junta/aportes', label: 'Aportes de los blocks', icon: ArchiveBoxArrowDownIcon };
+
 /** La navegación depende del rol y, para propietarios, del cargo en la junta. */
-export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id'>): NavGroup[] {
-  return esJunta(user) ? [...NAV[user.rol], JUNTA] : NAV[user.rol];
+export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id'> & { estructura_id?: number | null }): NavGroup[] {
+  if (!esJunta(user)) return NAV[user.rol];
+  // La Junta central (sin block) ve además lo que cada block le transfirió.
+  const central = user.estructura_id == null;
+  return [...NAV[user.rol], central ? { ...JUNTA, items: [...JUNTA.items, APORTES] } : JUNTA];
 }
 
 export const PERFIL: NavItem = { to: '/perfil', label: 'Mi perfil', icon: UserCircleIcon };

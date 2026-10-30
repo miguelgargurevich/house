@@ -69,11 +69,15 @@ describe('comunicados: menú y rutas', () => {
     }
   });
 
-  it('el grupo Junta (presidente y tesorero): Mi junta, Medios de pago, Pagos por validar, Lecturas de agua, Comunicados, Proveedores; sin «Avisos»; secretario y vocal no lo tienen', () => {
+  it('el grupo Junta (presidente y tesorero): Mi junta, Medios de pago, Pagos por validar, Cierre del mes, Lecturas de agua, Comunicados, Proveedores; sin «Avisos»; secretario y vocal no lo tienen', () => {
     for (const cargo of ['presidente', 'tesorero'] as const) {
-      const junta = navPara(usuario('propietario', cargo)).find((g) => g.label === 'Junta')!;
-      assert.deepEqual(junta.items.map((i) => i.label), ['Mi junta', 'Medios de pago', 'Pagos por validar', 'Lecturas de agua', 'Comunicados', 'Proveedores']);
-      assert.deepEqual(junta.items.map((i) => i.to), ['/junta/mi-junta', '/junta/medios-pago', '/junta/pagos', '/junta/agua', '/junta/comunicados', '/junta/proveedores']);
+      const junta = navPara({ ...usuario('propietario', cargo), estructura_id: 5 }).find((g) => g.label === 'Junta')!;
+      assert.deepEqual(junta.items.map((i) => i.label), ['Mi junta', 'Medios de pago', 'Pagos por validar', 'Cierre del mes', 'Lecturas de agua', 'Comunicados', 'Proveedores']);
+      assert.deepEqual(junta.items.map((i) => i.to), ['/junta/mi-junta', '/junta/medios-pago', '/junta/pagos', '/junta/cierre', '/junta/agua', '/junta/comunicados', '/junta/proveedores']);
+      // La Junta central (sin block) ve además lo que cada block le transfirió.
+      const central = navPara({ ...usuario('propietario', cargo), estructura_id: null }).find((g) => g.label === 'Junta')!;
+      assert.deepEqual(central.items.map((i) => i.to), [...junta.items.map((i) => i.to), '/junta/aportes']);
+      assert.equal(central.items.at(-1)!.label, 'Aportes de los blocks');
     }
     for (const cargo of ['secretario', 'vocal', null] as const) {
       assert.ok(!navPara(usuario('propietario', cargo)).some((g) => g.label === 'Junta'), String(cargo));

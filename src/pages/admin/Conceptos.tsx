@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { PencilSquareIcon, PlusIcon, TagIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList } from '../../api';
 import {
@@ -8,31 +8,43 @@ import {
 import type { Column } from '../../ui';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { TIPOS_MONTO } from './_parts/catalogo/opciones';
+import { DESTINOS, etiquetaDestino } from './_parts/cierres/vista';
 
-interface Fila { id: number; nombre: string; descripcion: string | null; tipo_monto: string | null; activo: boolean }
-interface Form { nombre: string; descripcion: string; tipo_monto: string; activo: boolean }
+interface Fila {
+  id: number; nombre: string; descripcion: string | null; tipo_monto: string | null; activo: boolean;
+  /** Adónde va lo cobrado con este concepto al cerrar el mes (null = sin clasificar) y, sin destino, lo que sugiere el nombre (nunca se guarda solo). */
+  destino: string | null; destino_sugerido: string | null; proveedor_id: number | null; proveedor: { id: number; razon_social: string } | null;
+}
+interface Form { nombre: string; descripcion: string; tipo_monto: string; activo: boolean; destino: string; proveedor_id: string }
 
 const etiquetaMonto = (v: string | null) => TIPOS_MONTO.find(t => t.value === (v ?? 'fijo'))?.label ?? v ?? '—';
 
 export default function Conceptos() {
   const toast = useToast();
   const list = useList<Fila>('/api/conceptos');
+  const proveedores = useList<{ id: number; razon_social: string }>('/api/proveedores', { pageSize: 100 });
   const [editando, setEditando] = useState<Fila | 'nuevo' | null>(null);
   const [borrar, setBorrar] = useState<Fila | null>(null);
   const [busy, setBusy] = useState(false);
   const [cambiando, setCambiando] = useState<number | null>(null);
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>();
+  const { register, handleSubmit, reset, setValue, control, formState: { errors, isSubmitting } } = useForm<Form>();
+  const destino = useWatch({ control, name: 'destino' });
+  const nombre = useWatch({ control, name: 'nombre' });
+  const sugerido = editando && editando !== 'nuevo' ? editando.destino_sugerido : null;
 
   function abrir(f: Fila | 'nuevo') {
     reset(f === 'nuevo'
-      ? { nombre: '', descripcion: '', tipo_monto: 'fijo', activo: true }
-      : { nombre: f.nombre, descripcion: f.descripcion ?? '', tipo_monto: f.tipo_monto ?? 'fijo', activo: f.activo });
+      ? { nombre: '', descripcion: '', tipo_monto: 'fijo', activo: true, destino: '', proveedor_id: '' }
+      : { nombre: f.nombre, descripcion: f.descripcion ?? '', tipo_monto: f.tipo_monto ?? 'fijo', activo: f.activo, destino: f.destino ?? '', proveedor_id: f.proveedor_id ? String(f.proveedor_id) : '' });
     setEditando(f);
   }
 
   async function guardar(v: Form) {
     const nuevo = editando === 'nuevo';
-    const body = { nombre: v.nombre.trim(), descripcion: v.descripcion.trim() || null, tipo_monto: v.tipo_monto, activo: v.activo };
+    const body = {
+      nombre: v.nombre.trim(), descripcion: v.descripcion.trim() || null, tipo_monto: v.tipo_monto, activo: v.activo,
+      destino: v.destino || null, proveedor_id: v.destino === 'proveedor' && v.proveedor_id ? Number(v.proveedor_id) : null,
+    };
     try {
       await api(nuevo ? '/api/conceptos' : `/api/conceptos/${(editando as Fila).id}`, { method: nuevo ? 'POST' : 'PUT', json: body });
       toast.ok(nuevo ? 'Concepto creado' : 'Cambios guardados');
@@ -67,6 +79,9 @@ export default function Conceptos() {
     ) },
     { key: 'descripcion', header: 'Descripción', hideBelow: 'sm', cell: f => f.descripcion ?? '—' },
     { key: 'tipo', header: 'Tipo de monto', hideBelow: 'md', cell: f => <Badge>{etiquetaMonto(f.tipo_monto)}</Badge> },
+    { key: 'destino', header: 'Destino al cerrar el mes', cell: f => f.destino
+      ? <span className="break-words text-sm">{etiquetaDestino(f.destino)}{f.proveedor ? ` · ${f.proveedor.razon_social}` : ''}</span>
+      : <span className="break-words text-sm text-warn">Sin clasificar{f.destino_sugerido ? <span className="block text-xs text-muted">Sugerido: {etiquetaDestino(f.destino_sugerido)}</span> : null}</span> },
     { key: 'activo', header: 'Activo', cell: f => (
       <Interruptor
         label={f.activo ? 'Activo' : 'Inactivo'}
@@ -132,6 +147,28 @@ export default function Conceptos() {
             {TIPOS_MONTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </Select>
           <Textarea label="Descripción" {...register('descripcion')} />
+          <div className="grid gap-2">
+            <Select
+              label="Destino al cerrar el mes"
+              hint={DESTINOS.find(d => d.value === destino)?.ayuda ?? 'Sin clasificar: este concepto no entra al cierre del mes de los blocks hasta que elijas adónde va.'}
+              {...register('destino')}
+            >
+              <option value="">Sin clasificar</option>
+              {DESTINOS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </Select>
+            {sugerido && !destino && (
+              <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                Por el nombre parece «{etiquetaDestino(sugerido)}».
+                <Button size="sm" variant="secondary" onClick={() => setValue('destino', sugerido)}>Usar esta sugerencia</Button>
+              </p>
+            )}
+            {destino === 'proveedor' && (
+              <Select label="Proveedor" hint={`Quien presta «${nombre?.trim() || 'este servicio'}»: el tesorero ve su cuenta al pagarle.`} {...register('proveedor_id')}>
+                <option value="">Sin proveedor</option>
+                {proveedores.items.map(p => <option key={p.id} value={p.id}>{p.razon_social}</option>)}
+              </Select>
+            )}
+          </div>
           <Interruptor label="Concepto activo" hint="Los conceptos inactivos no se ofrecen al emitir recibos." {...register('activo')} />
         </form>
       </Modal>

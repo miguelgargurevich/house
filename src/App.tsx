@@ -28,6 +28,8 @@ const AdminRecibos = lazy(() => import('./pages/admin/Recibos'));
 const AdminPeriodoRecibo = lazy(() => import('./pages/admin/PeriodoRecibo'));
 const AdminPagos = lazy(() => import('./pages/admin/Pagos'));
 const JuntaAgua = lazy(() => import('./pages/junta/Agua'));
+const AdminCierres = lazy(() => import('./pages/admin/Cierres'));
+const AdminCierresAportes = lazy(() => import('./pages/admin/CierresAportes'));
 const AdminMorosidad = lazy(() => import('./pages/admin/Morosidad'));
 const AdminMantenimientos = lazy(() => import('./pages/admin/Mantenimientos'));
 const AdminConceptos = lazy(() => import('./pages/admin/Conceptos'));
@@ -104,6 +106,7 @@ export default function App() {
           <Route path="/admin/morosidad" element={<AdminMorosidad />} />
           <Route path="/admin/mantenimientos" element={<AdminMantenimientos />} />
           <Route path="/admin/conceptos" element={<AdminConceptos />} />
+          <Route path="/admin/cierres" element={<AdminCierres />} />
           <Route path="/admin/residentes" element={<AdminResidentes />} />
           <Route path="/admin/personal" element={<AdminPersonal />} />
           <Route path="/admin/proveedores" element={<AdminProveedores />} />
@@ -121,6 +124,8 @@ export default function App() {
           <Route path="/junta/mi-junta" element={<AdminJuntas />} />
           <Route path="/junta/medios-pago" element={<AdminMediosPago />} />
           <Route path="/junta/pagos" element={<AdminPagos />} />
+          <Route path="/junta/cierre" element={<AdminCierres />} />
+          <Route path="/junta/aportes" element={<AdminCierresAportes />} />
           <Route path="/junta/agua" element={<JuntaAgua />} />
           <Route path="/junta/comunicados" element={<AdminComunicados />} />
           <Route path="/junta/proveedores" element={<AdminProveedores />} />
