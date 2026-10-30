@@ -97,6 +97,9 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const estadoPago = pago && pago.estado_validacion === 'por_validar' && ia.validadoPorIA ? 'validado' : pago?.estado_validacion;
   const porValidar = estadoPago === 'por_validar';
   const comprobante = pago?.comprobante ?? subido;
+  // Sin voucher no se valida (el servidor responde 409): se puede rechazar, o quien administra adjunta el archivo que falta.
+  const sinVoucher = pago !== null && !comprobante;
+  const motivoSinVoucher = puedeAdjuntar ? 'Sin voucher no se puede validar: adjunta el comprobante o rechaza el pago.' : 'Sin voucher no se puede validar: pídele al vecino que lo suba o rechaza el pago.';
   // Un pago del mantenimiento se revisa por su TOTAL: el comprobante es uno solo y cubre todos los conceptos.
   const monto = pago ? pago.mantenimiento?.total ?? pago.monto : 0;
 
@@ -117,8 +120,9 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
           ) : (
             <>
               <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+              {sinVoucher && <p id="motivo-sin-voucher" className="mr-auto max-w-xs text-xs text-muted">{motivoSinVoucher}</p>}
               <Button variant="danger" disabled={enviando !== null} onClick={() => setRechazando(true)}>Rechazar</Button>
-              <Button loading={enviando === 'validado'} disabled={enviando !== null} onClick={() => void revisar('validado')}>Validar pago</Button>
+              <Button loading={enviando === 'validado'} disabled={enviando !== null || sinVoucher} aria-describedby={sinVoucher ? 'motivo-sin-voucher' : undefined} onClick={() => void revisar('validado')}>Validar pago</Button>
             </>
           )
         ) : <Button variant="secondary" onClick={onClose}>Cerrar</Button>
