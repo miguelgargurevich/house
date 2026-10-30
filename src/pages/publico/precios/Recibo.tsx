@@ -31,12 +31,13 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
   const paso = (d: number) => set({ unidades: String(Math.min(MAX, Math.max(1, (Math.trunc(Number(unidades)) || 0) + d))) });
 
   return (
-    <section id="recibo" data-ui aria-labelledby="recibo-titulo" className="scroll-mt-6 overflow-hidden rounded-xl bg-surface">
+    <section id="recibo" data-ui aria-labelledby="recibo-titulo" className="scroll-mt-6 overflow-hidden rounded-xl bg-surface lg:grid lg:grid-cols-2">
+      <header className="p-5 pb-0 sm:p-7 sm:pb-0 lg:col-span-2">
+        <h2 id="recibo-titulo" className="text-2xl font-semibold tracking-tight sm:text-3xl">Calcula cuánto pagarías</h2>
+        <p className="mt-1 text-base text-muted">Lo que pagas por condominio. {conImpuesto ? `Precios sin ${nombreImp}.` : 'Sin impuesto adicional.'}</p>
+      </header>
+
       <div className="space-y-6 p-5 sm:p-7">
-        <header>
-          <h2 id="recibo-titulo" className="text-2xl font-semibold tracking-tight sm:text-3xl">Calcula tu recibo</h2>
-          <p className="mt-1 text-base text-muted">Lo que pagas por condominio. {conImpuesto ? `Precios sin ${nombreImp}.` : 'Sin impuesto adicional.'}</p>
-        </header>
 
         <div>
           <label htmlFor="deptos" className="text-sm font-medium">Departamentos del condominio</label>
@@ -89,7 +90,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
         </div>
       </div>
 
-      <div className="bg-brand p-5 text-on-brand sm:p-7" aria-live="polite" aria-atomic="true">
+      <div className="bg-brand p-5 text-on-brand sm:p-7 lg:flex lg:flex-col lg:justify-center" aria-live="polite" aria-atomic="true">
         {total.error ? <p className="text-base">No se pudo calcular. Revisa tu conexión e inténtalo de nuevo.</p> : plan?.consultar ? (
           <>
             <p className="text-sm font-medium opacity-90">{plan.nombre} · {n} {n === 1 ? 'departamento' : 'departamentos'}</p>

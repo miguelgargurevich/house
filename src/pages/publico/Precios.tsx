@@ -20,7 +20,7 @@ const sube = (n: number) => ({ animationDelay: `${n * 80}ms` });
 
 /**
  * Página de precios pública. Todo precio sale de `/api/publico/planes` y `/api/publico/cotizar`: ninguno vive en este archivo.
- * En escritorio el recibo (la calculadora) queda a la vista mientras se leen los planes y los módulos.
+ * Primero la oferta (el hero corto, las tarjetas de nivel y lo que trae Pro); la calculadora va al final, como una sección propia.
  */
 export default function Precios() {
   const { data: cat, loading, error } = useCatalogo();
@@ -34,38 +34,30 @@ export default function Precios() {
 
   return (
     <Marco completo ancho="max-w-6xl">
-      <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-10 sm:px-6 sm:pb-24 sm:pt-16">
-        <div className="grid gap-y-16 lg:grid-cols-12 lg:gap-x-14 lg:gap-y-28">
-          <header className="lg:col-span-7">
-            <h1 style={sube(0)} className="sube text-[1.8rem] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">Cobra el mantenimiento sin Excel ni WhatsApp sueltos</h1>
-            <p style={sube(1)} className="sube mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">House emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis y, cuando necesites todo, pasas a Pro.</p>
-            {cat && cat.paises.length > 1 && <SelectorPais cat={cat} className="sube mt-6" />}
-            <ul style={sube(2)} className="sube mt-6 flex flex-wrap gap-x-5 gap-y-2 text-base font-medium">
-              {hechos.map(h => <li key={h} className="inline-flex items-center gap-1.5"><CheckIcon className="h-5 w-5 text-brand" aria-hidden="true" />{h}</li>)}
-            </ul>
-            <div style={sube(3)} className="sube mt-8 flex flex-wrap items-center gap-3">
-              {abierto
-                ? <Link to="/registro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>Crear cuenta gratis</Link>
-                : cat && <Link to="/login" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>Ingresar</Link>}
-              <a href="#recibo" className={`${boton} bg-surface2 text-ink hover:bg-brand-soft`}>Calcula tu recibo</a>
-            </div>
-            {cat && !abierto && <p className="mt-4 text-base text-muted">El registro de cuentas nuevas está cerrado por ahora.</p>}
-          </header>
-          {loading && <div className="space-y-4 lg:col-span-7" aria-hidden="true"><Skeleton className="h-72 w-full" /><Skeleton className="h-48 w-full" /></div>}
-          {error && <div className="lg:col-span-7"><Alert tone="bad">No pudimos cargar los precios. Recarga la página en un momento.</Alert></div>}
-          {cat && (
-            <>
-              {/* El recibo ocupa la columna derecha de las tres filas (cabecera, planes, módulos) y se queda a la vista; en el celular va justo tras la cabecera. */}
-              <div className="lg:col-span-5 lg:col-start-8 lg:row-span-3 lg:row-start-1">
-                <div className="lg:sticky lg:top-6 lg:max-h-[calc(100svh-3rem)] lg:overflow-y-auto lg:rounded-xl">
-                  <Recibo cat={cat} eleccion={eleccion} onCambio={setEleccion} />
-                </div>
-              </div>
-              <div className="lg:col-span-7"><Planes cat={cat} onCalcular={clave => setEleccion(e => ({ ...e, plan: clave }))} /></div>
-              <div className="lg:col-span-7"><Modulos cat={cat} onCalcular={clave => setEleccion(e => ({ ...e, plan: clave }))} /></div>
-            </>
-          )}
-        </div>
+      <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-20">
+        <header className="mx-auto max-w-3xl text-center">
+          <h1 style={sube(0)} className="sube text-[1.8rem] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">Cobra el mantenimiento sin Excel ni WhatsApp sueltos</h1>
+          <p style={sube(1)} className="sube mx-auto mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">House emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis y, cuando necesites todo, pasas a Pro.</p>
+          {cat && cat.paises.length > 1 && <SelectorPais cat={cat} className="sube mx-auto mt-6 max-w-xs text-left" />}
+          <ul style={sube(2)} className="sube mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-base font-medium">
+            {hechos.map(h => <li key={h} className="inline-flex items-center gap-1.5"><CheckIcon className="h-5 w-5 text-brand" aria-hidden="true" />{h}</li>)}
+          </ul>
+          <div style={sube(3)} className="sube mt-8 flex flex-wrap items-center justify-center gap-3">
+            {abierto
+              ? <Link to="/registro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>Crear cuenta gratis</Link>
+              : cat && <Link to="/login" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>Ingresar</Link>}
+          </div>
+          {cat && !abierto && <p className="mt-4 text-base text-muted">El registro de cuentas nuevas está cerrado por ahora.</p>}
+        </header>
+        {loading && <div className="mx-auto mt-16 max-w-6xl" aria-hidden="true"><Skeleton className="h-96 w-full" /></div>}
+        {error && <div className="mx-auto mt-16 max-w-xl"><Alert tone="bad">No pudimos cargar los precios. Recarga la página en un momento.</Alert></div>}
+        {cat && (
+          <div className="mt-16 space-y-24 sm:mt-24">
+            <Planes cat={cat} onCalcular={clave => setEleccion(e => ({ ...e, plan: clave }))} />
+            <div className="mx-auto w-full max-w-5xl"><Modulos cat={cat} onCalcular={clave => setEleccion(e => ({ ...e, plan: clave }))} /></div>
+            <div className="mx-auto w-full max-w-4xl"><Recibo cat={cat} eleccion={eleccion} onCambio={setEleccion} /></div>
+          </div>
+        )}
       </div>
       {cat && <Comparativa cat={cat} />}
       {cat && <Preguntas cat={cat} />}

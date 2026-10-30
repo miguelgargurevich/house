@@ -1,18 +1,19 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckIcon } from '@heroicons/react/24/outline';
-import { dinero } from '../../../ui';
+import { cx, dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo, Plan } from '../catalogo';
 
-const boton = 'inline-flex h-12 items-center justify-center whitespace-nowrap rounded px-6 text-base font-semibold transition-colors duration-150 active:scale-[0.98]';
+const boton = 'inline-flex h-12 w-full items-center justify-center whitespace-nowrap rounded px-6 text-base font-semibold transition-colors duration-150 active:scale-[0.98]';
 
 /** Lo que trae un plan, tal como lo publica el catálogo. */
-function Lista({ plan, className, icono = '' }: { plan: Plan; className?: string; icono?: string }) {
+function Lista({ plan }: { plan: Plan }) {
   return (
-    <ul className={className}>
+    <ul className="space-y-2.5">
       {plan.caracteristicas.map(c => (
         <li key={c} className="flex items-start gap-2.5 text-base leading-snug">
-          <CheckIcon className={`mt-0.5 h-5 w-5 shrink-0 ${icono}`} aria-hidden="true" />
+          <CheckIcon className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
           <span>{c}</span>
         </li>
       ))}
@@ -23,22 +24,23 @@ function Lista({ plan, className, icono = '' }: { plan: Plan; className?: string
 /** «+ IGV» / «+ IVA»: el impuesto del país elegido; sin impuesto (tasa 0) no se menciona. */
 const masImpuesto = (cat: Catalogo) => (Number(cat.impuesto.tasa) > 0 ? ` + ${cat.impuesto.nombre}` : '');
 
+/** El precio grande y, debajo, su unidad (por departamento al mes, con el impuesto que diga el país). */
 function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boolean }) {
   // Un plan de pago sin precio en la moneda del país no se muestra con cifra: «Consúltanos».
   if (plan.precio_por_unidad === null) {
     return (
-      <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className={`font-semibold tracking-tight ${grande ? 'text-5xl sm:text-6xl' : 'text-4xl'}`}>Consúltanos</span>
-        <span className="text-base">el precio para tu país</span>
-      </p>
+      <div>
+        <p className={`font-semibold tracking-tight ${grande ? 'text-5xl sm:text-6xl' : 'text-4xl sm:text-5xl'}`}>Consúltanos</p>
+        <p className="mt-2 text-base text-muted">el precio para tu país</p>
+      </div>
     );
   }
   const gratis = Number(plan.precio_por_unidad) === 0;
   return (
-    <p className="flex flex-wrap items-baseline gap-x-2">
-      <span className={`num font-semibold tracking-tight ${grande ? 'text-6xl sm:text-7xl' : 'text-5xl'}`}>{dinero(plan.precio_por_unidad, cat.moneda)}</span>
-      <span className="text-base">{gratis ? 'para siempre' : `por departamento al mes${masImpuesto(cat)}`}</span>
-    </p>
+    <div>
+      <p className={`num font-semibold leading-none tracking-tight ${grande ? 'text-6xl sm:text-7xl' : 'text-5xl'}`}>{dinero(plan.precio_por_unidad, cat.moneda)}</p>
+      <p className="mt-2 text-base text-muted">{gratis ? 'para siempre' : `por departamento al mes${masImpuesto(cat)}`}</p>
+    </div>
   );
 }
 
@@ -57,8 +59,26 @@ function Accion({ abierto, texto, className }: { abierto: boolean; texto: string
 }
 
 /**
- * Tres planes con peso distinto: Pro es un campo de color entero (el que más conviene a una junta o administradora); Gratis y
- * Administradora, dos paneles claros debajo. Nombres, precios y contenido salen del catálogo.
+ * Una tarjeta por nivel: nombre, para quién es, precio, tope o mínimo, lo que trae y su botón (abajo, alineado con las demás).
+ * La destacada lleva borde de marca y la etiqueta «Más elegido». Todo sale del catálogo.
+ */
+function Nivel({ plan, cat, destacado = false, retraso = 0, pie }: { plan: Plan; cat: Catalogo; destacado?: boolean; retraso?: number; pie: ReactNode }) {
+  return (
+    <Aparece como="article" retraso={retraso} className={cx('relative flex flex-col rounded-xl bg-surface p-6 sm:p-7', destacado ? 'border-2 border-brand' : 'border border-line')}>
+      {destacado && <span className="absolute -top-3 left-6 rounded-full bg-brand px-3 py-1 text-sm font-semibold text-on-brand">Más elegido</span>}
+      <h3 className="text-2xl font-semibold">{plan.nombre}</h3>
+      {plan.descripcion && <p className="mt-1 text-base text-muted">{plan.descripcion}</p>}
+      <div className="mt-6"><Precio plan={plan} cat={cat} grande={destacado} /></div>
+      <Tope plan={plan} cat={cat} className="mt-3" />
+      <div className="mt-6 border-t border-line pt-6"><Lista plan={plan} /></div>
+      <div className="mt-auto flex flex-col gap-3 pt-8">{pie}</div>
+    </Aparece>
+  );
+}
+
+/**
+ * Las tarjetas de nivel: Gratis, Pro (la recomendada, en medio y con borde de marca) y Administradora. Fila en escritorio y
+ * apiladas en el celular. Nombres, precios y contenido salen del catálogo; «Ver mi total» lleva a la calculadora con ese plan.
  */
 export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave: string) => void }) {
   const gratis = cat.planes.find(p => p.clave === 'gratis');
@@ -70,48 +90,24 @@ export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave:
   );
   return (
     <section aria-labelledby="planes-titulo" className="scroll-mt-6">
-      <h2 id="planes-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Gratis con límite, o Pro con todo</h2>
-      <div className="mt-8 space-y-3">
-        {pro && (
-          <Aparece como="article" className="rounded-xl bg-brand p-6 text-on-brand sm:p-9">
-            <h3 className="text-2xl font-semibold sm:text-3xl">{pro.nombre}</h3>
-            {pro.descripcion && <p className="mt-1 text-lg">{pro.descripcion}</p>}
-            <div className="mt-8"><Precio plan={pro} cat={cat} grande /></div>
-            <Tope plan={pro} cat={cat} className="mt-3" />
-            <Lista plan={pro} className="mt-8 grid gap-x-8 gap-y-3 sm:grid-cols-2" />
-            <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Accion abierto={abierto} texto="Empezar con Pro" className={`${boton} bg-on-brand text-brand hover:opacity-90`} />
-              {calcular('pro', `${boton} px-3 text-on-brand underline underline-offset-4 hover:opacity-80`)}
-            </div>
-            <p className="mt-4 text-sm opacity-90">Creas tu cuenta en Gratis y pides Pro desde «Mi plan»; se activa al confirmar tu pago.</p>
-          </Aparece>
+      <h2 id="planes-titulo" className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Gratis con límite, o Pro con todo</h2>
+      <div className="mt-10 grid items-stretch gap-5 lg:grid-cols-3 lg:gap-6">
+        {gratis && (
+          <Nivel plan={gratis} cat={cat} retraso={0} pie={
+            <Accion abierto={abierto} texto="Crear cuenta gratis" className={`${boton} bg-surface2 text-ink hover:bg-brand-soft`} />
+          } />
         )}
-        <div className="grid gap-3 md:grid-cols-2">
-          {gratis && (
-            <Aparece como="article" retraso={80} className="flex flex-col rounded-xl bg-surface p-6 sm:p-7">
-              <h3 className="text-2xl font-semibold">{gratis.nombre}</h3>
-              {gratis.descripcion && <p className="mt-1 text-base text-muted">{gratis.descripcion}</p>}
-              <div className="mt-6"><Precio plan={gratis} cat={cat} /></div>
-              <Tope plan={gratis} cat={cat} className="mt-2" />
-              <Lista plan={gratis} icono="text-brand" className="mt-6 space-y-2.5" />
-              <div className="mt-auto flex flex-wrap items-center gap-3 pt-8">
-                <Accion abierto={abierto} texto="Crear cuenta gratis" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`} />
-              </div>
-            </Aparece>
-          )}
-          {adm && (
-            <Aparece como="article" retraso={80} className="flex flex-col rounded-xl bg-surface p-6 sm:p-7">
-              <h3 className="text-2xl font-semibold">{adm.nombre}</h3>
-              {adm.descripcion && <p className="mt-1 text-base text-muted">{adm.descripcion}</p>}
-              <div className="mt-6"><Precio plan={adm} cat={cat} /></div>
-              <Tope plan={adm} cat={cat} className="mt-2" />
-              <Lista plan={adm} icono="text-brand" className="mt-6 space-y-2.5" />
-              <div className="mt-auto flex flex-wrap items-center gap-3 pt-8">
-                {calcular('administradora', `${boton} bg-brand-soft text-brand hover:bg-surface2`)}
-              </div>
-            </Aparece>
-          )}
-        </div>
+        {pro && (
+          <Nivel plan={pro} cat={cat} destacado retraso={80} pie={<>
+            <Accion abierto={abierto} texto="Empezar con Pro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`} />
+            {calcular('pro', 'inline-flex h-11 items-center justify-center text-base font-medium text-brand underline underline-offset-4 hover:text-brand-hover')}
+          </>} />
+        )}
+        {adm && (
+          <Nivel plan={adm} cat={cat} retraso={160} pie={
+            calcular('administradora', `${boton} bg-surface2 text-ink hover:bg-brand-soft`)
+          } />
+        )}
       </div>
     </section>
   );

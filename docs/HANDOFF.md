@@ -30,6 +30,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Decisiones**: el selector cerrado muestra sólo bandera y prefijo con una superposición `aria-hidden` y `!text-transparent` en el `<select>`: así cabe en 7 rem sin perder los nombres en la lista. El lector de pantalla sigue leyendo la opción elegida.
 - **Gotchas**: `GET /api/publico/catalogo` devolvió 429 durante un rato (límite local de 300 peticiones por 15 min, `Retry-After`); el Registro se pinta igual sin el catálogo (no aparece «Crear cuenta» en la cabecera). No se reinició el backend.
 - **Verificado**: `npx vite --port 5175` desde el worktree; Playwright con capturas de `/registro` a 1440 y 390 px, en claro y oscuro (sin desborde: `scrollWidth === innerWidth`) y del modal «Nuevo proveedor» como admin a 1440 y 390 px. Suite `tests/*-ui.test.ts`: 543 de 543. `npx tsc -b` y `npm run build`, en verde. No se corrió la suite de backend (no se tocó backend).
+## 2026-10-30 — Claude Haiku 5.5 (Claude Code, worktree `precios-ui`) — Página de precios como oferta: tarjetas de nivel y calculadora al final
+
+- Pedido de Miguel: la oferta es lo principal; la calculadora va abajo, sin sticky, y se quita «Calcula tu recibo» del hero. Inspiración: páginas de precios de Linear, Notion, Stripe y Vercel (fila de tarjetas, la recomendada destacada).
+- Orden nuevo de `/precios`: hero centrado y corto → tarjetas de nivel (`precios/Planes.tsx`) → «Lo que trae Pro» (`precios/Modulos.tsx`) → calculadora «Calcula cuánto pagarías» (`precios/Recibo.tsx`, sin sticky; en escritorio formulario y total lado a lado) → comparativa, preguntas y cierre como antes.
+- Tarjetas: una por plan de `cat` (Gratis, Pro, Administradora). Nombre, «para quién» (`descripcion` del catálogo), precio grande con su unidad («por departamento al mes» + impuesto según el país), tope o mínimo, lista con checks y botón abajo alineado. Pro va en medio, con borde de marca y «Más elegido». En escritorio es una fila de tres; en celular se apilan.
+- Botones: Gratis «Crear cuenta gratis»; Pro «Empezar con Pro» y, debajo, «Ver mi total»; Administradora «Ver mi total» (lleva a la calculadora con ese plan). Con el registro cerrado, «Ingresar».
+- Decisión: el orden de «Lo que trae Pro» entre las tarjetas y la calculadora es mía (el pedido no lo fijaba): la calculadora queda al final, como sección propia.
+- Tests: `tests/precios-ui.test.ts` (6 pruebas nuevas). `tests/precios-publico.test.ts` y el resto siguen igual (sólo cambió el texto del encabezado de la calculadora).
+- Verificado: `node --import tsx --test "tests/*-ui.test.ts"` → 536 pruebas, 0 fallos; `precios-publico`, `comercial-ui`, `oferta-ui`, `movil-ui` y `multimoneda-ui` juntos (con `TEST_DATABASE_URL` a `house_test_precios`) → 68 pruebas, 0 fallos (antes de añadir `precios-ui`); `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde. Mutaciones (texto del hero, sticky en la calculadora, quitar «Más elegido», fila desde md): cada una deja 1 fallo en `precios-ui`; originales restaurados con `cp` + `cmp`.
+- Capturas con Playwright sobre Vite (`:5176`, backend en `:4000`): `/precios` a 1440 y 390 px, claro y oscuro; `scrollWidth - innerWidth = 0` en los cuatro casos, sin errores de página.
+- Próximos pasos: revisar con Miguel las capturas; decidir si Gratis también lleva «Ver mi total».
+- Gotcha: no se usó la skill `impeccable` (el diseño salió del pedido y de las páginas de referencia). El test de orden entre secciones fija la posición por texto de JSX; si se reordena en bloque, actualizar ese test.
 
 ## 2026-10-30 — Claude Code (Opus 5.5) — Voucher ampliable, pie fijo de los modales y «Ver mi voucher»
 
