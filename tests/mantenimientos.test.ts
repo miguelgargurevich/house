@@ -650,6 +650,19 @@ describe('administración: periodo agrupado por block y recibos de departamento'
     assert.equal((await llamar(base, 'GET', '/api/reportes/morosidad?estructura_id=abc', T.adminA)).status, 422);
   });
 
+  it('morosidad: cada unidad trae sus mantenimientos vencidos (uno por recibo) para abrir su detalle, y la deuda cuadra', async () => {
+    const r = await llamar(base, 'GET', '/api/reportes/morosidad?pageSize=100&q=BL-', T.adminA);
+    for (const x of r.body.items) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      assert.ok(Array.isArray(x.recibos) && x.recibos.length > 0, `${x.unidad.codigo} sin recibos`);
+      for (const m of x.recibos) assert.ok(Number.isInteger(m.recibo_id) && m.mes >= 1 && m.mes <= 12 && m.dias_atraso >= 0);
+      const suma = x.recibos.reduce((s: number, m: { deuda: string }) => s + Number(m.deuda), 0);
+      assert.equal(suma.toFixed(2), Number(x.deuda_total).toFixed(2), `${x.unidad.codigo}: la deuda por recibo suma el total`);
+      // El recibo de cada fila abre el detalle de ESE departamento (mismo alcance que la lista).
+      const det = await llamar(base, 'GET', `/api/recibos/${x.recibos[0].recibo_id}/mantenimientos/${x.unidad.id}`, T.adminA);
+      assert.equal(det.status, 200, `${x.unidad.codigo}: el detalle abre`);
+    }
+  });
+
   it('los blocks salen en orden natural (Block 2 antes que Block 10) y las unidades sin block al final', async () => {
     const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Orden natural', tipo: 'condominio', empresa_id: d.empresaA.id } });
     const recibo = await prisma.recibo.create({ data: { empresa_id: d.empresaA.id, complejo_id: c.id, mes: 3, anio: 2026, fecha_emision: new Date(HOY - 60 * DIA), fecha_vencimiento: new Date(HOY + 5 * DIA), estado: 'emitido' } });

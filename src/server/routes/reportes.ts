@@ -31,17 +31,25 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
     where: {
       AND: [scopeCargos(u), filtroEstadoCargo('vencido', reloj), { unidad_id: { not: null } }, ...(conReportes !== null ? [{ unidad: { complejo_id: { in: conReportes } } }] : []), q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' } } } : {}, q.estructura_id !== undefined ? { unidad: { estructura_id: q.estructura_id } } : {}, q.complejo_id !== undefined ? { unidad: { complejo_id: q.complejo_id } } : {}],
     },
-    select: { unidad_id: true, monto: true, reciboConcepto: { select: { recibo: { select: { fecha_vencimiento: true, complejo: { select: { zona_horaria: true } } } } } } },
+    select: { unidad_id: true, monto: true, reciboConcepto: { select: { recibo: { select: { id: true, mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { zona_horaria: true } } } } } } },
   });
 
-  const porUnidad = new Map<number, { deuda: Prisma.Decimal; cargos: number; maxDias: number }>();
+  // Por unidad, además del total, sus mantenimientos vencidos (uno por recibo): la pantalla abre el detalle de cada uno.
+  const porUnidad = new Map<number, { deuda: Prisma.Decimal; cargos: number; maxDias: number; recibos: Map<number, { mes: number; anio: number; deuda: Prisma.Decimal; dias: number }> }>();
   for (const c of cargos) {
     const venc = c.reciboConcepto?.recibo?.fecha_vencimiento;
     const hoy = reloj.hoy(c.reciboConcepto?.recibo?.complejo?.zona_horaria);
-    const acc = porUnidad.get(c.unidad_id!) ?? { deuda: new Prisma.Decimal(0), cargos: 0, maxDias: 0 };
+    const acc = porUnidad.get(c.unidad_id!) ?? { deuda: new Prisma.Decimal(0), cargos: 0, maxDias: 0, recibos: new Map() };
     acc.deuda = acc.deuda.plus(c.monto);
     acc.cargos += 1;
-    if (venc) acc.maxDias = Math.max(acc.maxDias, diasEntre(venc, hoy));
+    const dias = venc ? diasEntre(venc, hoy) : 0;
+    if (venc) acc.maxDias = Math.max(acc.maxDias, dias);
+    const r = c.reciboConcepto?.recibo;
+    if (r) {
+      const m = acc.recibos.get(r.id) ?? { mes: r.mes, anio: r.anio, deuda: new Prisma.Decimal(0), dias };
+      m.deuda = m.deuda.plus(c.monto);
+      acc.recibos.set(r.id, m);
+    }
     porUnidad.set(c.unidad_id!, acc);
   }
 
@@ -51,7 +59,8 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
   });
   const filas = unidades.map((un) => {
     const a = porUnidad.get(un.id)!;
-    return { unidad: { id: un.id, codigo: un.codigo }, complejo: un.complejo, moneda: un.complejo?.moneda ?? MONEDA_POR_DEFECTO, estructura: un.estructura, propietario: un.propietario, deuda_total: decimalAString(a.deuda), cargos_vencidos: a.cargos, dias_max_atraso: a.maxDias };
+    return { unidad: { id: un.id, codigo: un.codigo }, complejo: un.complejo, moneda: un.complejo?.moneda ?? MONEDA_POR_DEFECTO, estructura: un.estructura, propietario: un.propietario, deuda_total: decimalAString(a.deuda), cargos_vencidos: a.cargos, dias_max_atraso: a.maxDias,
+      recibos: [...a.recibos.entries()].map(([id, m]) => ({ recibo_id: id, mes: m.mes, anio: m.anio, deuda: decimalAString(m.deuda), dias_atraso: m.dias })).sort((x, y) => x.anio - y.anio || x.mes - y.mes) };
   });
 
   const signo = dir === 'asc' ? 1 : -1;

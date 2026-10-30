@@ -1,13 +1,15 @@
-import { ArrowDownTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { useState } from 'react';
+import { ArrowDownTrayIcon, CheckCircleIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList, useResource } from '../../api';
 import { simboloDe } from '../../lib/paises';
-import { Badge, Button, Card, DataTable, PageHeader, Skeleton, StatStrip, dinero, fechaCorta, sumaPorMoneda } from '../../ui';
+import { Badge, Button, Card, DataTable, Modal, PageHeader, Skeleton, StatStrip, dinero, fechaCorta, periodo, sumaPorMoneda } from '../../ui';
 import type { Column } from '../../ui';
 import { descargarCSV } from './_parts/cobranza/csv';
 import { hoyISO } from './_parts/cobranza/comun';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { AvisoModulo } from '../shared/_parts/AvisoModulo';
+import { MantenimientoAdminModal } from './_parts/mantenimientos/MantenimientoAdminModal';
 
 type Ref = { id?: number; codigo?: string; nombre?: string } | string | null | undefined;
 
@@ -21,7 +23,11 @@ interface Moroso {
   deuda_total: number | string;
   cargos_vencidos: number;
   dias_max_atraso: number;
+  /** Sus mantenimientos vencidos, uno por recibo, del más antiguo al más nuevo: cada uno abre su detalle. */
+  recibos?: { recibo_id: number; mes: number; anio: number; deuda: string; dias_atraso: number }[];
 }
+
+const idUnidad = (m: Moroso): number | null => (typeof m.unidad === 'object' && m.unidad?.id ? m.unidad.id : null);
 
 // El contrato no fija si `unidad`/`propietario` llegan como objeto o como texto: se aceptan ambos.
 const texto = (r: Ref): string => (typeof r === 'string' ? r : r?.codigo ?? r?.nombre ?? '');
@@ -29,6 +35,15 @@ const claveFila = (m: Moroso): string => (typeof m.unidad === 'object' && m.unid
 
 export default function Morosidad() {
   const { complejo } = useCondominio();
+  // Clic en una unidad: con un solo mes vencido abre su detalle; con varios, primero la lista de meses.
+  const [elegida, setElegida] = useState<Moroso | null>(null);
+  const [detalle, setDetalle] = useState<{ reciboId: number; unidadId: number } | null>(null);
+  function abrir(m: Moroso) {
+    const unidadId = idUnidad(m);
+    if (unidadId == null || !m.recibos?.length) return;
+    if (m.recibos.length === 1) setDetalle({ reciboId: m.recibos[0]!.recibo_id, unidadId });
+    else setElegida(m);
+  }
   const [torre, setTorre] = useTorreElegida();
   // Las torres son las del condominio elegido (con varios condominios, «Block 1» se repite: el selector las rotula con su condominio).
   const params = { complejo_id: complejo || undefined, estructura_id: torre || undefined };
@@ -64,8 +79,9 @@ export default function Morosidad() {
     { key: 'torre', header: 'Torre', hideBelow: 'sm', cell: m => m.estructura?.nombre ?? '—' },
     { key: 'propietario', header: 'Propietario', hideBelow: 'sm', cell: m => texto(m.propietario) || '—' },
     { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{dinero(m.deuda_total, m.moneda)}</span> },
-    { key: 'cargos', header: 'Cargos vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.cargos_vencidos}</span> },
+    { key: 'meses', header: 'Meses vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.recibos?.length ?? '—'}</span> },
     { key: 'atraso', header: 'Atraso', cell: m => <Badge tone={m.dias_max_atraso >= 30 ? 'bad' : 'warn'}>{m.dias_max_atraso} {m.dias_max_atraso === 1 ? 'día' : 'días'}</Badge> },
+    { key: 'ver', header: '', align: 'right', cell: () => <ChevronRightIcon className="ml-auto h-4 w-4 text-muted" aria-hidden="true" /> },
   ];
 
   // Los reportes son del plan Pro: sin él el servidor responde 403 (MODULO_NO_ACTIVO) y se muestra el aviso con el enlace a Mi plan, no un error.
@@ -110,9 +126,32 @@ export default function Morosidad() {
           pageSize={list.pageSize}
           total={list.total}
           onPage={list.setPage}
+          onRowClick={abrir}
           empty={{ title: 'Sin morosidad', description: 'Todas las unidades están al día con sus cargos.', icon: <CheckCircleIcon className="text-ok" /> }}
         />
       </Card>
+
+      <Modal open={elegida !== null} onClose={() => setElegida(null)} title={`Meses vencidos de ${elegida ? texto(elegida.unidad) : ''}`} description="Elige el mantenimiento para ver su detalle, registrar el pago o revisar el voucher.">
+        {elegida && (
+          <ul className="divide-y divide-line">
+            {elegida.recibos?.map(r => (
+              <li key={r.recibo_id}>
+                <button
+                  type="button"
+                  onClick={() => { const unidadId = idUnidad(elegida); setElegida(null); if (unidadId != null) setDetalle({ reciboId: r.recibo_id, unidadId }); }}
+                  className="flex w-full items-center gap-3 rounded px-2 py-3 text-left text-sm transition-colors duration-150 hover:bg-surface2"
+                >
+                  <span className="flex-1 font-medium">Mantenimiento de {periodo(r.mes, r.anio).toLowerCase()}</span>
+                  <span className="num">{dinero(r.deuda, elegida.moneda)}</span>
+                  <Badge tone={r.dias_atraso >= 30 ? 'bad' : 'warn'}>{r.dias_atraso} {r.dias_atraso === 1 ? 'día' : 'días'}</Badge>
+                  <ChevronRightIcon className="h-4 w-4 text-muted" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
+      {detalle && <MantenimientoAdminModal reciboId={detalle.reciboId} unidadId={detalle.unidadId} onClose={() => setDetalle(null)} onCambio={() => { void list.reload(); void cifras.reload(); }} />}
     </>
   );
 }

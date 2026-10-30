@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-29 — Claude Code (Opus 5.5) — Morosidad: detalle del recibo moroso
+
+- Pedido de Miguel: «desde la pantalla de morosidad necesito ver el detalle del recibo que está moroso».
+- `GET /api/reportes/morosidad`: cada fila trae `recibos: [{ recibo_id, mes, anio, deuda, dias_atraso }]` (sus mantenimientos vencidos, uno por recibo, del más antiguo al más nuevo). Mismo alcance y filtros de siempre.
+- `Morosidad.tsx`: clic en la fila → con un mes vencido abre `MantenimientoAdminModal` (detalle, pagar, voucher); con varios, primero un diálogo con los meses. La columna «Cargos vencidos» (contaba conceptos: confundía) pasa a «Meses vencidos».
+- Tests: `mantenimientos.test.ts` (la deuda por recibo suma el total y el detalle abre) y `morosidad-ui.test.ts`. Verificado en local como superadmin (B04-804, 11 meses).
+- Gotcha: la sesión de la conformidad del tesorero regeneró el cliente Prisma COMPARTIDO (node_modules enlazado) con `Pago.conformidad_*`; las bases locales `house` y `house_test_bot` necesitaron `db push` con ese schema (aditivo) para no dar «column does not exist».
+
 ## 2026-10-29 — Claude Code (Sonnet 5.5) — Voucher obligatorio para validar un pago
 
 - Pedido de Miguel: «si soy administradora en donde veo los recibos pendientes que suben como voucher de pago … valida que siempre suba un voucher de pago … el tesorero también tiene que verificar que los recibos estén subidos igual que la administradora». Rama `fix/voucher-obligatorio` (sobre el `main` local `b6ba324`), commits sin push.
