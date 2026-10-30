@@ -53,13 +53,13 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
 
   function tras() { setRegistrando(false); void reload(); onCambio(); }
 
-  function abrirPago(p: PagoMantenimiento & Pick<PagoRevisable, 'conformidad' | 'tesorero_registrado'>) {
+  function abrirPago(p: PagoMantenimiento & Pick<PagoRevisable, 'conformidad' | 'tesorero_registrado' | 'conformidad_exencion'>) {
     if (!d) return;
     setPago({
       id: p.id, fecha_pago: p.fecha_pago, monto: p.monto, moneda: d.moneda, metodo_pago: p.metodo_pago, referencia: p.referencia, estado_validacion: p.estado_validacion,
       motivo_rechazo: p.motivo_rechazo, validado_at: null, comprobante: p.comprobante, unidad: { codigo: d.unidad.codigo }, concepto: { nombre: p.conceptos.join(', ') },
       usuario: p.registrado_por, evaluacion: p.evaluacion as PagoRevisable['evaluacion'], validado_por_ia: p.validado_por_ia,
-      conformidad: p.conformidad, tesorero_registrado: p.tesorero_registrado, aviso_multa: p.aviso_multa, // sólo los trae la vista de la administración
+      conformidad: p.conformidad, tesorero_registrado: p.tesorero_registrado, conformidad_exencion: p.conformidad_exencion, aviso_multa: p.aviso_multa, // sólo los trae la vista de la administración
       mantenimiento: p.suelto ? null : { titulo: d.titulo, total: p.monto, conceptos: p.conceptos.length },
     });
   }

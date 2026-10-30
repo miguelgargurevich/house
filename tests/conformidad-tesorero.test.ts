@@ -214,6 +214,17 @@ describe('sólo mientras el pago está por validar', () => {
 });
 
 describe('lo que ve la administradora', () => {
+  it('el detalle del mantenimiento trae `conformidad_exencion` por pago: null si hace falta el check (Validar queda deshabilitado ahí también)', async () => {
+    const id = await pagoPorValidar(T.prop1);
+    const pago = await prisma.pago.findUniqueOrThrow({ where: { id }, select: { reciboConceptoUnidad: { select: { unidad_id: true, reciboConcepto: { select: { recibo_id: true } } } } } });
+    const r = await llama(T.adminA, 'GET', `/api/recibos/${pago.reciboConceptoUnidad!.reciboConcepto!.recibo_id}/mantenimientos/${pago.reciboConceptoUnidad!.unidad_id}`);
+    assert.equal(r.status, 200, r.texto);
+    const enDetalle = r.body.pagos.find((x: { id: number }) => x.id === id);
+    assert.ok(enDetalle, 'el pago sale en el detalle');
+    assert.equal(enDetalle.conformidad_exencion, null, 'el block tiene tesorero y el pago no es suyo: hace falta el check');
+    assert.equal(enDetalle.tesorero_registrado, true);
+  });
+
   it('el pago trae `conformidad` (null mientras falte; luego quién y cuándo) en el detalle y en la lista, y `tesorero_registrado`', async () => {
     const id = await pagoPorValidar(T.prop1);
     const sin = await llama(T.adminA, 'GET', `/api/pagos/${id}`);

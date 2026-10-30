@@ -185,6 +185,8 @@ export interface PagoDeMantenimiento {
   /** Sólo en la vista de la administración: la conformidad del tesorero y si el block tiene tesorero (`lib/conformidad.ts`). */
   conformidad?: { at: Date; por: { nombre: string } } | null;
   tesorero_registrado?: boolean;
+  /** Por qué este pago no necesita el check del tesorero (nadie puede darlo), o null si lo necesita. Sólo en la vista de la administración. */
+  conformidad_exencion?: 'sin_tesorero' | 'pago_del_tesorero' | null;
   /** Sólo en la vista de la administración: «según el voucher pagó a tiempo; tiene la multa de …» (ver `services/revisionMora.ts`). */
   aviso_multa?: AvisoMulta | null;
 }
@@ -248,6 +250,12 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
   }
   for (const g of porGrupo.values()) pagos.push(dePago(g.principal ?? g.alguno, g.monto, g.conceptos, false));
   pagos.sort((a, b) => b.fecha_pago.getTime() - a.fecha_pago.getTime() || b.id - a.id);
+  // La excepción al check del tesorero depende de quién registró CADA pago (el propio tesorero no puede confirmarse): una sola consulta para todos.
+  if (o.vista === 'completa' && pagos.length) {
+    const ubicacion = { complejo: unidad.complejo_id != null ? { id: unidad.complejo_id } : null, estructura: unidad.estructura };
+    const conExencion = await conTesoreroRegistrado(pagos.map((pg) => ({ unidad: ubicacion, usuario: pg.registrado_por })));
+    pagos.forEach((pg, i) => { pg.conformidad_exencion = conExencion[i]!.conformidad_exencion; });
+  }
   if (o.vista === 'completa') {
     const avisos = await avisosDeMulta(pagos.map((p) => ({ id: p.id, estado_validacion: p.estado_validacion, fecha_pago: p.fecha_pago, fecha_origen: p.fecha_origen, recibo_id: reciboId, unidad_id: unidadId })));
     for (const p of pagos) p.aviso_multa = avisos.get(p.id) ?? null;
