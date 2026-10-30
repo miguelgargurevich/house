@@ -3,7 +3,7 @@ import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon,
+  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { Rol, Usuario } from '../auth/AuthContext';
@@ -129,12 +129,15 @@ const JUNTA: NavGroup = {
 /** Sólo la Junta central (presidente o tesorero sin block): lo que cada block transfirió a su cuenta al cerrar el mes. */
 const APORTES: NavItem = { to: '/junta/aportes', label: 'Aportes de los blocks', icon: ArchiveBoxArrowDownIcon };
 
+/** Sólo la Junta central: lo que entra y sale de su cuenta (aportes de los blocks, alquiler de estacionamientos, servicios y proveedores) y su Fondo de ahorros. */
+const CIERRE_CENTRAL: NavItem = { to: '/junta/cierre-central', label: 'Cierre de la Junta central', icon: BuildingLibraryIcon };
+
 /** La navegación depende del rol y, para propietarios, del cargo en la junta. */
 export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id'> & { estructura_id?: number | null }): NavGroup[] {
   if (!esJunta(user)) return NAV[user.rol];
   // La Junta central (sin block) ve además lo que cada block le transfirió.
   const central = user.estructura_id == null;
-  return [...NAV[user.rol], central ? { ...JUNTA, items: [...JUNTA.items, APORTES] } : JUNTA];
+  return [...NAV[user.rol], central ? { ...JUNTA, items: [...JUNTA.items, APORTES, CIERRE_CENTRAL] } : JUNTA];
 }
 
 export const PERFIL: NavItem = { to: '/perfil', label: 'Mi perfil', icon: UserCircleIcon };

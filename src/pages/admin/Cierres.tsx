@@ -4,6 +4,7 @@ import { useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { useCondominio } from '../../app/condominio';
 import { Alert, Badge, Button, EmptyState, ErrorState, PageHeader, Select, Skeleton, TabPanel, Tabs, dinero, nombreDelMes } from '../../ui';
+import { CierreCentral } from './_parts/cierres/CierreCentral';
 import { CuentasDestino } from './_parts/cierres/CuentasDestino';
 import { DetalleCierre } from './_parts/cierres/DetalleCierre';
 import { PeriodoSelect } from './_parts/cierres/PeriodoSelect';
@@ -11,11 +12,12 @@ import { TablaAportes } from './_parts/cierres/TablaAportes';
 import type { TablaBlocks } from './_parts/cierres/tipos';
 import { ESTADO_CIERRE, periodoPorDefecto } from './_parts/cierres/vista';
 
-type Pestana = 'blocks' | 'administradora' | 'central' | 'cuentas';
+type Pestana = 'blocks' | 'administradora' | 'central' | 'junta_central' | 'cuentas';
 const PESTANAS: { id: Pestana; label: string }[] = [
   { id: 'blocks', label: 'Cierre por block' },
   { id: 'administradora', label: 'Pagos a la administradora' },
   { id: 'central', label: 'Aportes a la Junta central' },
+  { id: 'junta_central', label: 'Cierre de la Junta central' },
   { id: 'cuentas', label: 'Cuentas de destino' },
 ];
 
@@ -107,6 +109,7 @@ export default function Cierres() {
           <TabPanel idBase="cierres" id="blocks" value={pestana} className="mt-5"><ListaBlocks complejoId={complejoId} mes={periodo.mes} anio={periodo.anio} esAdmin /></TabPanel>
           <TabPanel idBase="cierres" id="administradora" value={pestana} className="mt-5"><TablaAportes complejoId={complejoId} mes={periodo.mes} anio={periodo.anio} destino="administradora" /></TabPanel>
           <TabPanel idBase="cierres" id="central" value={pestana} className="mt-5"><TablaAportes complejoId={complejoId} mes={periodo.mes} anio={periodo.anio} destino="central" /></TabPanel>
+          <TabPanel idBase="cierres" id="junta_central" value={pestana} className="mt-5"><CierreCentral complejoId={complejoId} mes={periodo.mes} anio={periodo.anio} /></TabPanel>
           <TabPanel idBase="cierres" id="cuentas" value={pestana} className="mt-5"><CuentasDestino complejoId={complejoId} /></TabPanel>
         </>
       ) : <ListaBlocks complejoId={null} mes={periodo.mes} anio={periodo.anio} esAdmin={false} />)}

@@ -1,7 +1,7 @@
 // Qué se dice y cuándo se ofrece cada acción en el cierre del mes: lógica pura (se prueba en tests/cierres-ui.test.ts), sin React.
 import { MESES } from '../../../../ui/format';
 import type { Tone } from '../../../../ui/Badge';
-import type { CuentaDestino, Destino, EstadoCierre, LineaCierre, RegistroLinea } from './tipos';
+import type { CategoriaCentral, CuentaDestino, Destino, EstadoCentral, EstadoCierre, LineaCierre, MovimientoCentral, RegistroLinea } from './tipos';
 
 export const ESTADO_CIERRE: Record<EstadoCierre, { tone: Tone; label: string }> = {
   sin_recibo: { tone: 'neutral', label: 'Sin recibo' },
@@ -61,3 +61,62 @@ export const puedeRegistrarLinea = (puede: boolean, l: Pick<LineaCierre, 'regist
 
 /** ¿Se ofrece «Quitar pago»? Quien puede registrar, mientras no tenga conformidad (con ella ya no se corrige). */
 export const puedeQuitarPago = (puede: boolean, l: Pick<LineaCierre, 'registro'>): boolean => puede && !!l.registro && !l.registro.conformidad;
+
+// ---------- Cierre de la Junta central ----------
+export const ESTADO_CENTRAL: Record<EstadoCentral, { tone: Tone; label: string }> = {
+  sin_blocks: { tone: 'neutral', label: 'Sin aportes este mes' },
+  faltan_aportes: { tone: 'warn', label: 'Faltan aportes de blocks' },
+  falta_conformidad: { tone: 'info', label: 'Falta conformidad' },
+  al_dia: { tone: 'ok', label: 'Al día' },
+};
+
+export const ESTADO_APORTE = {
+  sin_registrar: { tone: 'warn', label: 'Aún no aporta' },
+  sin_conformidad: { tone: 'info', label: 'Por confirmar' },
+  conforme: { tone: 'ok', label: 'Confirmado' },
+} as const;
+
+/** Qué se pide al registrar cada categoría (los mismos que exige el servidor): quién paga y el estacionamiento en el alquiler; el detalle en todo lo demás; el proveedor y el n.º de documento en egresos. */
+export const CATEGORIAS_CENTRAL: { value: CategoriaCentral; tipo: 'ingreso' | 'egreso'; label: string; ayuda: string }[] = [
+  { value: 'alquiler_estacionamiento', tipo: 'ingreso', label: 'Alquiler de estacionamiento', ayuda: 'Se paga aparte, a la cuenta de la Junta central (no va en el recibo del vecino). Anota quién paga, qué estacionamiento y el periodo.' },
+  { value: 'otro_ingreso', tipo: 'ingreso', label: 'Otro ingreso', ayuda: 'Cualquier otro ingreso de la Junta central: describe de qué es.' },
+  { value: 'servicio', tipo: 'egreso', label: 'Pago de servicios (agua, luz)', ayuda: 'Pago de la boleta de un servicio del condominio: adjunta el voucher y anota el n.º de la boleta.' },
+  { value: 'proveedor', tipo: 'egreso', label: 'Proveedor de áreas comunes', ayuda: 'Pago de la factura de un proveedor (jardinería, ascensor, cisterna…): adjunta el voucher y anota el n.º de la factura.' },
+  { value: 'otro_egreso', tipo: 'egreso', label: 'Otro egreso', ayuda: 'Cualquier otro pago de la Junta central: describe de qué es.' },
+];
+
+export interface CamposCategoria { pagador: boolean; estacionamiento: boolean; proveedor: boolean; documento: boolean; descripcion: boolean }
+
+export function camposDeCategoria(c: CategoriaCentral): CamposCategoria {
+  return {
+    pagador: c === 'alquiler_estacionamiento' || c === 'otro_ingreso',
+    estacionamiento: c === 'alquiler_estacionamiento',
+    proveedor: c === 'proveedor',
+    documento: c === 'servicio' || c === 'proveedor',
+    descripcion: c !== 'alquiler_estacionamiento',
+  };
+}
+
+/** Lo que falta para poder registrar, antes de enviar (el servidor lo vuelve a exigir): el mensaje por campo. */
+export function erroresDeMovimiento(f: { categoria: CategoriaCentral; monto: string; fecha: string; descripcion: string; pagador: string; estacionamiento: string; tieneVoucher: boolean }): Record<string, string> {
+  const e: Record<string, string> = {};
+  const campos = camposDeCategoria(f.categoria);
+  if (!/^\d+(\.\d{1,2})?$/.test(f.monto.trim()) || Number(f.monto) <= 0) e.monto = 'Escribe un monto mayor que cero, con hasta 2 decimales.';
+  if (!f.fecha) e.fecha = 'Elige la fecha.';
+  if (campos.descripcion && !f.descripcion.trim()) e.descripcion = 'Escribe el detalle.';
+  if (f.categoria === 'alquiler_estacionamiento' && !f.pagador.trim()) e.pagador = 'Escribe quién paga (vecino o externo).';
+  if (campos.estacionamiento && !f.estacionamiento.trim()) e.estacionamiento = 'Escribe qué estacionamiento se alquila.';
+  if (!f.tieneVoucher) e.voucher = 'Adjunta el voucher.';
+  return e;
+}
+
+/** Título de un movimiento en la lista: el alquiler dice qué estacionamiento y quién; lo demás, su detalle (y el proveedor). */
+export function tituloMovimiento(m: Pick<MovimientoCentral, 'categoria' | 'estacionamiento' | 'pagador' | 'descripcion' | 'proveedor'>): string {
+  if (m.categoria === 'alquiler_estacionamiento') return [m.estacionamiento, m.pagador].filter(Boolean).join(' · ') || 'Alquiler de estacionamiento';
+  return [m.descripcion, m.proveedor?.razon_social].filter(Boolean).join(' · ') || 'Movimiento';
+}
+
+/** «Fecha 2 oct. 2026 · Doc. F001-9 · Op. TRF-1 · registrado por Rosa». */
+export function detalleMovimiento(m: Pick<MovimientoCentral, 'documento' | 'referencia' | 'registrado_por' | 'tipo'>, fecha: string): string {
+  return [`${m.tipo === 'ingreso' ? 'Cobrado' : 'Pagado'} el ${fecha}`, m.documento ? `Doc. ${m.documento}` : null, m.referencia ? `Op. ${m.referencia}` : null, m.registrado_por ? `registrado por ${m.registrado_por.nombre}` : null].filter(Boolean).join(' · ');
+}

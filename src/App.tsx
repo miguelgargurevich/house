@@ -29,6 +29,7 @@ const AdminPeriodoRecibo = lazy(() => import('./pages/admin/PeriodoRecibo'));
 const AdminPagos = lazy(() => import('./pages/admin/Pagos'));
 const JuntaAgua = lazy(() => import('./pages/junta/Agua'));
 const AdminCierres = lazy(() => import('./pages/admin/Cierres'));
+const AdminCierresCentral = lazy(() => import('./pages/admin/CierresCentral'));
 const AdminCierresAportes = lazy(() => import('./pages/admin/CierresAportes'));
 const AdminMorosidad = lazy(() => import('./pages/admin/Morosidad'));
 const AdminMantenimientos = lazy(() => import('./pages/admin/Mantenimientos'));
@@ -127,6 +128,7 @@ export default function App() {
           <Route path="/junta/pagos" element={<AdminPagos />} />
           <Route path="/junta/cierre" element={<AdminCierres />} />
           <Route path="/junta/aportes" element={<AdminCierresAportes />} />
+          <Route path="/junta/cierre-central" element={<AdminCierresCentral />} />
           <Route path="/junta/agua" element={<JuntaAgua />} />
           <Route path="/junta/comunicados" element={<AdminComunicados />} />
           <Route path="/junta/proveedores" element={<AdminProveedores />} />

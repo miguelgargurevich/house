@@ -74,10 +74,10 @@ describe('comunicados: menú y rutas', () => {
       const junta = navPara({ ...usuario('propietario', cargo), estructura_id: 5 }).find((g) => g.label === 'Junta')!;
       assert.deepEqual(junta.items.map((i) => i.label), ['Mi junta', 'Medios de pago', 'Pagos por validar', 'Cierre del mes', 'Lecturas de agua', 'Comunicados', 'Proveedores']);
       assert.deepEqual(junta.items.map((i) => i.to), ['/junta/mi-junta', '/junta/medios-pago', '/junta/pagos', '/junta/cierre', '/junta/agua', '/junta/comunicados', '/junta/proveedores']);
-      // La Junta central (sin block) ve además lo que cada block le transfirió.
+      // La Junta central (sin block) ve además lo que cada block le transfirió y su propio cierre del mes.
       const central = navPara({ ...usuario('propietario', cargo), estructura_id: null }).find((g) => g.label === 'Junta')!;
-      assert.deepEqual(central.items.map((i) => i.to), [...junta.items.map((i) => i.to), '/junta/aportes']);
-      assert.equal(central.items.at(-1)!.label, 'Aportes de los blocks');
+      assert.deepEqual(central.items.map((i) => i.to), [...junta.items.map((i) => i.to), '/junta/aportes', '/junta/cierre-central']);
+      assert.deepEqual(central.items.slice(-2).map((i) => i.label), ['Aportes de los blocks', 'Cierre de la Junta central']);
     }
     for (const cargo of ['secretario', 'vocal', null] as const) {
       assert.ok(!navPara(usuario('propietario', cargo)).some((g) => g.label === 'Junta'), String(cargo));

@@ -105,3 +105,56 @@ export interface CuentasEmpresa {
   administradora: CuentaDestino & { empresa: string };
   proveedores: (CuentaDestino & { id: number; razon_social: string })[];
 }
+
+// ---------- Cierre de la Junta central (`GET /api/cierres/central`) ----------
+export type EstadoCentral = 'sin_blocks' | 'faltan_aportes' | 'falta_conformidad' | 'al_dia';
+export type CategoriaCentral = 'alquiler_estacionamiento' | 'otro_ingreso' | 'servicio' | 'proveedor' | 'otro_egreso';
+
+export interface MovimientoCentral {
+  id: number;
+  tipo: 'ingreso' | 'egreso';
+  categoria: CategoriaCentral;
+  categoria_etiqueta: string;
+  mes: number;
+  anio: number;
+  descripcion: string | null;
+  pagador: string | null;
+  estacionamiento: string | null;
+  proveedor: { id: number; razon_social: string } | null;
+  documento: string | null;
+  monto: string;
+  fecha: string;
+  referencia: string | null;
+  observaciones: string | null;
+  registrado_por: Persona | null;
+  created_at: string;
+  voucher: { nombre: string; tipo_mime: string; tamano: number } | null;
+}
+
+export interface AporteBlock {
+  estructura: { id: number; nombre: string | null };
+  facturado: string;
+  registro: RegistroLinea | null;
+  estado: 'sin_registrar' | 'sin_conformidad' | 'conforme';
+}
+
+export interface CierreCentral {
+  complejo_id: number;
+  moneda: string;
+  mes: number;
+  anio: number;
+  estado: EstadoCentral;
+  ingresos: {
+    aportes: { confirmados: string; fondo_contingencia: string; por_confirmar: string; blocks: AporteBlock[] };
+    otros: { total: string; movimientos: MovimientoCentral[] };
+    total: string;
+  };
+  egresos: { total: string; movimientos: MovimientoCentral[] };
+  saldo_mes: string;
+  fondo_ahorros: string;
+  fondo_contingencia_mes: string;
+  fondo_contingencia: string;
+  blocks_sin_aportar: { id: number; nombre: string | null; facturado: string }[];
+  categorias: { ingreso: { value: CategoriaCentral; label: string }[]; egreso: { value: CategoriaCentral; label: string }[] };
+  puede: { registrar: boolean };
+}

@@ -51,7 +51,7 @@ export function TablaAportes({ complejoId, mes, anio, destino }: Props) {
       {destino === 'central' && (
         <p className="text-sm text-muted">
           Caja de la Junta central: <span className="num font-medium text-ink">{dinero(d.caja_central.recibido, d.moneda)}</span> ya confirmados
-          {Number(d.caja_central.por_confirmar) > 0 && <> · <span className="num">{dinero(d.caja_central.por_confirmar, d.moneda)}</span> por confirmar</>} (todos los meses; sus propios egresos aún no se registran).
+          {Number(d.caja_central.por_confirmar) > 0 && <> · <span className="num">{dinero(d.caja_central.por_confirmar, d.moneda)}</span> por confirmar</>} (todos los meses). Sus ingresos y egresos propios están en «Cierre de la Junta central».
         </p>
       )}
       {!d.puede.conformidad && d.aportes.length > 0 && <Alert tone="info">Aquí ves lo que llegó a {quien}. La conformidad la da {destino === 'central' ? 'el tesorero central' : 'la administración'}.</Alert>}
