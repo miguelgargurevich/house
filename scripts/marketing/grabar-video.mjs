@@ -47,6 +47,17 @@ const CURSOR = `
     addEventListener('mouseup', () => { c.style.transform = 'scale(1)'; }, true);
   });`;
 
+/** Antes de pintar: quita la tarjeta «Canales» (en local dice «No configurado») y cambia el nombre de Miguel, persona real, por uno de prueba. */
+const LIMPIEZA = `
+  addEventListener('DOMContentLoaded', () => {
+    const limpiar = () => {
+      for (const h of document.querySelectorAll('h2')) if (h.textContent?.trim() === 'Canales') h.closest('[class*="rounded"]')?.remove();
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n; (n = w.nextNode());) if (/Miguel Gargurevich|miguel@prueba/.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(/Miguel Gargurevich/g, 'Martín Gallardo Ríos').replace(/miguel@prueba\\.house/g, 'martin@prueba.house');
+    };
+    new MutationObserver(limpiar).observe(document.body, { childList: true, subtree: true, characterData: true });
+  });`;
+
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 let raton = { x: 200, y: 200 };
 async function ir(page, x, y, ms = 650) {
@@ -78,6 +89,11 @@ const asentar = async (page) => {
   // El recuadro «Cuentas de prueba (solo desarrollo)» del login sólo existe en local: no sale en un video de marketing.
   await page.evaluate(() => {
     for (const p of document.querySelectorAll('p')) if (/Cuentas de prueba/i.test(p.textContent ?? '')) p.parentElement?.remove();
+    // En local los envíos están apagados: la tarjeta «Canales» diría «No configurado» y nombraría las variables. No va en un video.
+    for (const h of document.querySelectorAll('h2, h3')) if (h.textContent?.trim() === 'Canales') h.closest('section, [class*="rounded"]')?.remove();
+    // El seed pone a Miguel (persona real) de presidente del Block 1: en un video público sale un nombre de prueba.
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) n.nodeValue = n.nodeValue.replace(/Miguel Gargurevich/g, 'Martín Gallardo Ríos').replace(/miguel@prueba\.house/g, 'martin@prueba.house');
   }).catch(() => {});
   await pausa(350);
 };
@@ -105,9 +121,14 @@ const ESCENAS = {
     { rol: 'admin', url: '/admin/morosidad', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 200); } },
     { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
       await tocar(p, p.getByRole('button', { name: /nuevo comunicado/i })); await asentar(p);
-      await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 55 });
+      await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 28 });
     } },
-    { rol: 'admin', url: '/admin/comunicados', accion: async (p) => { await tocar(p, p.getByRole('tab', { name: /envíos/i })); await asentar(p); await desplazar(p, 200); } },
+    { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
+      await tocar(p, p.getByRole('tab', { name: /envíos/i })); await asentar(p);
+      // «Canales» carga después del resto: se espera a que aparezca para quitarla (ver `asentar`).
+      await p.getByRole('heading', { name: 'Canales', exact: true }).waitFor({ timeout: 4000 }).catch(() => {}); await asentar(p);
+      await desplazar(p, 200);
+    } },
     { rol: 'admin', url: '/admin/juntas', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /nueva gestión/i })); await asentar(p); } },
     { rol: 'admin', url: '/admin/cierres', accion: async (p) => { await octubre(p); await tocar(p, p.getByText('Block 1').first()); await asentar(p); await desplazar(p, 320, 2200); } },
     { rol: 'admin', url: '/admin/recibos', accion: async (p) => {
@@ -183,6 +204,7 @@ async function grabar() {
       const tmp = join(SALIDA, `tmp-${n}`);
       const ctx = await browser.newContext({ viewport: f.viewport, deviceScaleFactor: f.deviceScaleFactor, isMobile: f.isMobile, hasTouch: f.hasTouch, colorScheme: 'light', locale: 'es-PE', recordVideo: { dir: tmp, size: f.video }, storageState: e.rol ? sesiones[e.rol] : undefined });
       await ctx.addInitScript(CURSOR);
+      await ctx.addInitScript(LIMPIEZA);
       const page = await ctx.newPage();
       const abierta = Date.now();
       raton = { x: f.viewport.width * 0.55, y: f.viewport.height * 0.45 };

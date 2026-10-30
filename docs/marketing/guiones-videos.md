@@ -2,7 +2,7 @@
 
 Versión del 29-oct-2026. Cuatro videos, cada uno en **escritorio (16:9, 1920×1080)** y **celular (9:16, 1080×1920)**.
 Pantallas reales de House en local con el seed de Los Libertadores (datos de prueba, ningún dato real). Narración con la voz
-OpenVoice de My Workspace (aprobada por Miguel el 29-oct). Cada escena: lo que se ve → lo que dice la voz. Duración objetivo ≈ 60 s
+femenina «Dora» de My Workspace (Kokoro `ef_dora`, elegida por Miguel el 30-oct; antes OpenVoice). Cada escena: lo que se ve → lo que dice la voz. Duración objetivo ≈ 60 s
 (≈ 140 palabras); la del rol administradora ≈ 90 s.
 
 Reglas: tuteo, frases cortas, sin cifras inventadas (sólo las que se ven en pantalla), sin nombres de clientes reales,
@@ -73,5 +73,5 @@ cada escena cuenta UNA cosa. El cierre de todos: «House. Tu condominio, en orde
    octubre del Block 1 (recibo propio con sus cargos) y se asignó destino a los conceptos 22–29 (respaldo previo con `pg_dump`).
 2. Grabación: `node scripts/marketing/grabar-video.mjs <video> <escritorio|celular>` (Playwright; ventana 1600×900 o 540×960,
    el montaje la agranda a 1920×1080 o 1080×1920); cursor visible, la duración de cada escena la manda su voz.
-3. Voz: un audio por escena con `audio_generar` (My Workspace); la duración de cada escena la manda su audio.
+3. Voz: un audio por escena con `audio_generar` (My Workspace, `voice: "ef_dora"`); la duración de cada escena la manda su audio.
 4. Montaje: `scripts/marketing/montar-video.sh <video> <formato>` (ffmpeg, H.264 + AAC); sin música por ahora.
