@@ -83,6 +83,8 @@ model Usuario {
   imagenesReciboSubidas ImagenRecibo[]
   reservas          Reserva[]              @relation("ReservaUsuario")
   reservasResueltas Reserva[]              @relation("ReservaResolutor")
+  extractosSubidos  ExtractoBancario[]     @relation("ExtractoSubidoPor")
+  movimientosVinculados MovimientoBancario[] @relation("MovimientoVinculadoPor")
 }
 
 model EmpresaAdministradora {
@@ -133,6 +135,8 @@ model ComplejoHabitacional {
   /// Zona horaria IANA del condominio («America/Lima»): el «hoy» de sus vencimientos, mora, avisos programados y resumen es el de esa zona (con horario de verano donde lo hay).
   zona_horaria String                @default("America/Lima")
   empresa     EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
+  extractosBancarios    ExtractoBancario[]
+  movimientosBancarios  MovimientoBancario[]
   estructuras Estructura[]
   recibos     Recibo[]
   unidades    Unidad[]
@@ -388,6 +392,8 @@ model Pago {
   fecha_origen              String                @default("declarada")
   /// La fecha que declaró quien registró el pago, guardada al aplicar la del voucher (para restaurarla si un voucher posterior no se lee).
   fecha_declarada           DateTime?
+  /// Abono del banco con el que se concilió este pago (el principal del grupo). Ver `services/conciliacion`.
+  movimientoBancario        MovimientoBancario?
 
   @@index([estado_validacion])
   @@index([grupo])
@@ -614,6 +620,9 @@ model MedioPago {
   estructura        Estructura?           @relation(fields: [estructura_id], references: [id], onDelete: Cascade)
   creado_por        Usuario?              @relation(fields: [creado_por_id], references: [id], onDelete: SetNull)
   junta             JuntaDirectiva?       @relation(fields: [junta_id], references: [id], onDelete: SetNull)
+  extractos         ExtractoBancario[]
+  movimientos       MovimientoBancario[]
+  conciliacion      ConfiguracionConciliacion?
 
   @@index([complejo_id, estructura_id])
   @@index([junta_id])
@@ -1274,4 +1283,78 @@ model Reserva {
   @@index([area_id, estado, inicio])
   @@index([unidad_id])
   @@index([usuario_id, inicio])
+}
+
+// ---------- Conciliación bancaria ----------
+/// Un extracto subido de una cuenta (`MedioPago` tipo banco). No guarda el archivo: sólo lo que se leyó (los abonos) y los totales de esa subida.
+model ExtractoBancario {
+  id              Int                  @id @default(autoincrement())
+  complejo_id     Int
+  medio_pago_id   Int
+  archivo_nombre  String
+  /// Primer y último día de los abonos leídos (null si no hubo ninguno).
+  fecha_desde     DateTime?
+  fecha_hasta     DateTime?
+  /// Abonos que traía el archivo, cuántos eran nuevos y cuántos ya estaban de un extracto anterior (no se duplican).
+  filas_leidas    Int                  @default(0)
+  filas_nuevas    Int                  @default(0)
+  filas_repetidas Int                  @default(0)
+  /// Suma de los abonos NUEVOS de esta subida.
+  total_abonos    Decimal              @default(0)
+  subido_por_id   Int?
+  created_at      DateTime             @default(now())
+  complejo        ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  medioPago       MedioPago            @relation(fields: [medio_pago_id], references: [id], onDelete: Cascade)
+  subido_por      Usuario?             @relation("ExtractoSubidoPor", fields: [subido_por_id], references: [id], onDelete: SetNull)
+  movimientos     MovimientoBancario[]
+
+  @@index([complejo_id, medio_pago_id])
+}
+
+/// Un abono del banco. Estados: conciliado | por_revisar | sin_pago | ignorado. `huella` evita duplicar al re-subir un extracto que se solapa.
+model MovimientoBancario {
+  id               Int                  @id @default(autoincrement())
+  extracto_id      Int
+  complejo_id      Int
+  medio_pago_id    Int
+  fecha            DateTime
+  descripcion      String
+  monto            Decimal
+  numero_operacion String?
+  huella           String
+  estado           String               @default("sin_pago")
+  /// El pago con el que se concilió (el principal del grupo cuando aplica). Un pago sólo se concilia con un abono.
+  pago_id          Int?                 @unique
+  /// automatico | manual (null si no está vinculado).
+  vinculo          String?
+  vinculado_por_id Int?
+  vinculado_at     DateTime?
+  /// Motivo cuando se marcó «ignorar» (intereses, transferencia interna…).
+  motivo_ignorar   String?
+  /// Pagos candidatos (principales) cuando hay varios, de mejor a peor; vacío en los demás estados.
+  candidatos       Int[]
+  /// true = la administración ya decidió sobre este abono (vinculó, desvinculó o ignoró a mano): el cruce automático no lo vuelve a tocar.
+  manual           Boolean              @default(false)
+  created_at       DateTime             @default(now())
+  extracto         ExtractoBancario     @relation(fields: [extracto_id], references: [id], onDelete: Cascade)
+  complejo         ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  medioPago        MedioPago            @relation(fields: [medio_pago_id], references: [id], onDelete: Cascade)
+  pago             Pago?                @relation(fields: [pago_id], references: [id], onDelete: SetNull)
+  vinculado_por    Usuario?             @relation("MovimientoVinculadoPor", fields: [vinculado_por_id], references: [id], onDelete: SetNull)
+
+  @@unique([medio_pago_id, huella])
+  @@index([complejo_id, medio_pago_id, estado])
+  @@index([extracto_id])
+}
+
+/// Ajustes de conciliación de una cuenta: el mapeo de columnas que el administrador eligió (se reutiliza en la siguiente subida) y la ventana de días del cruce.
+model ConfiguracionConciliacion {
+  id            Int       @id @default(autoincrement())
+  medio_pago_id Int       @unique
+  /// {fecha, descripcion, abono, cargo, operacion}: índice de columna (0 = primera) de cada dato; null = el extracto no lo trae.
+  columnas      Json?
+  /// Días de diferencia que se toleran entre la fecha del pago y la del abono.
+  ventana_dias  Int       @default(3)
+  updated_at    DateTime  @updatedAt
+  medioPago     MedioPago @relation(fields: [medio_pago_id], references: [id], onDelete: Cascade)
 }

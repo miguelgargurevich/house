@@ -39,6 +39,7 @@ import { notificacionesRouter } from './routes/notificaciones';
 import { pagosRouter } from './routes/pagos';
 import { publicoRouter } from './routes/publico';
 import { comercialRouter } from './routes/comercial';
+import { conciliacionRouter } from './routes/conciliacion';
 import { pisosRouter } from './routes/pisos';
 import { proveedoresRouter } from './routes/proveedores';
 import { reciboConceptosRouter } from './routes/reciboConceptos';
@@ -124,6 +125,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/comunicados', comunicadosRouter);
   api.use('/dashboard', dashboardRouter);
   api.use('/reportes', reportesRouter);
+  api.use('/conciliacion', conciliacionRouter);
   api.use('/usuarios', usuariosRouter);
   api.use('/empresas', empresasRouter);
   api.use('/complejos', complejosRouter);

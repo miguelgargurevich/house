@@ -53,7 +53,7 @@ export async function estadoDeComplejo(complejoId: number): Promise<EstadoEfecti
   return valor;
 }
 
-/** ¿Este condominio tiene la capacidad activa (un módulo, la mora automática o los reportes)? Sin condominio (null) no hay a quién cobrarle: no. */
+/** ¿Este condominio tiene la capacidad activa (un módulo, la mora automática, los reportes o la conciliación)? Sin condominio (null) no hay a quién cobrarle: no. */
 export async function moduloActivo(complejoId: number | null | undefined, clave: CapacidadClave): Promise<boolean> {
   if (complejoId == null) return false;
   return (await estadoDeComplejo(complejoId)).modulos.includes(clave);
@@ -65,6 +65,7 @@ export const NOMBRES_MODULO: Record<CapacidadClave, string> = {
   asistente: 'Asistente con IA',
   mora_automatica: 'Mora automática',
   reportes: 'Reportes y exportes',
+  conciliacion: 'Conciliación bancaria',
 };
 
 /** 403 con `code: 'MODULO_NO_ACTIVO'` y la capacidad: la pantalla muestra el aviso «Disponible en el plan Pro» con el enlace a Mi plan. */

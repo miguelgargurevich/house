@@ -5,7 +5,7 @@ import type { AuthUser } from '../middleware/auth';
 import { esJunta } from './junta';
 
 const OPERACION = [
-  '/admin/dashboard', '/admin/complejos', '/admin/condominios/:id', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad', '/admin/cierres',
+  '/admin/dashboard', '/admin/complejos', '/admin/condominios/:id', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/conciliacion', '/admin/morosidad', '/admin/cierres',
   '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/comunicados', '/admin/areas-comunes', '/admin/juntas', '/admin/medios-pago', '/admin/whatsapp',
 ] as const;
 

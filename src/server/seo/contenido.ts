@@ -12,6 +12,7 @@ export const FUNCIONES: { nombre: string; texto: string; plan?: string }[] = [
   { nombre: 'Cobranza y morosidad', texto: 'Seguimiento de lo cobrado y de lo vencido, con los medios de pago del condominio a la vista del vecino y el cierre del mes.' },
   { nombre: 'Vouchers de pago', texto: 'El vecino sube el voucher de su pago y la administración lo valida a mano. Con IA, Torre lee el comprobante, lo contrasta con el recibo y valida solo los que coinciden.', plan: 'La validación con IA es de Torre Pro' },
   { nombre: 'Avisos', texto: 'Recibos y recordatorios de pago por correo y, además, por WhatsApp.', plan: 'WhatsApp es de Torre Pro' },
+  { nombre: 'Conciliación bancaria', texto: 'La administración sube el extracto de la cuenta del condominio (Excel o CSV) y Torre cruza cada abono con los pagos registrados: marca los conciliados, avisa de los abonos sin voucher y de los vouchers sin abono en el banco.', plan: 'De Torre Pro' },
   { nombre: 'Mora automática y reportes', texto: 'Cálculo automático de la mora y reportes con exportes.', plan: 'De Torre Pro' },
   { nombre: 'Asistente con IA', texto: 'Responde dudas de recibos y pagos en la web y por los bots de WhatsApp y Telegram.', plan: 'De Torre Pro' },
   { nombre: 'Portal del vecino', texto: 'Propietarios e inquilinos ven sus recibos, su historial de pagos, los comunicados, su junta y los proveedores del edificio.' },
@@ -27,7 +28,7 @@ export const LIMITES = [
   'No hay pagos en línea ni pasarela de pagos: los vecinos pagan por los medios que indica su condominio (transferencia, Yape…), suben el voucher y la administración lo valida.',
   'No hay app nativa para celular: Torre se usa desde el navegador, en celular o computadora.',
   'No hay votaciones ni asambleas en línea.',
-  'No hay conciliación bancaria automática.',
+  'No hay conexión directa con el banco: la conciliación bancaria se hace subiendo el extracto de la cuenta (Excel o CSV), no se lee sola del banco.',
 ];
 
 /** Fecha (AAAA-MM-DD) del contenido fijo de las páginas que no dependen de la base: es el `lastmod` de `/` y `/registro` en el sitemap. Súbela cuando cambie ese texto. */

@@ -158,6 +158,23 @@ export function scopeMediosPago(u: AuthUser): Prisma.MedioPagoWhereInput {
   return filtroAmbito(a);
 }
 
+/**
+ * Conciliación bancaria: sólo la administración. admin = las cuentas (medios de pago de tipo banco) de los condominios de su empresa; superadmin = todas.
+ * La junta y cualquier otro rol → 403. Otra empresa → no entra (404).
+ */
+export function scopeCuentasConciliacion(u: AuthUser): Prisma.MedioPagoWhereInput {
+  if (esGlobal(u)) return { tipo: 'banco' };
+  if (u.rol === 'admin') return { tipo: 'banco', complejo: { empresa_id: empresaDe(u) } };
+  throw forbidden();
+}
+
+/** Abonos del banco (y sus extractos) de los condominios de la empresa del administrador; superadmin = todos. */
+export function scopeMovimientosBancarios(u: AuthUser): Prisma.MovimientoBancarioWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return { complejo: { empresa_id: empresaDe(u) } };
+  throw forbidden();
+}
+
 /** Juntas directivas: admin = condominios de su empresa; junta (presidente/tesorero) = su ámbito. Cualquier otro rol → 403. */
 export function scopeJuntas(u: AuthUser): Prisma.JuntaDirectivaWhereInput {
   if (esGlobal(u)) return {};

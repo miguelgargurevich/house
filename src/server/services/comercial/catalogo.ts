@@ -7,10 +7,10 @@ export type ModuloClave = (typeof MODULOS)[number];
 export const esModulo = (c: string): c is ModuloClave => (MODULOS as readonly string[]).includes(c);
 
 /**
- * Capacidades que trae un plan: los tres módulos (que ya no se venden sueltos, son «lo que trae Pro») más la mora automática y los reportes y
- * exportes. `PlanComercial.modulos_incluidos` guarda estas claves; Gratis no trae ninguna.
+ * Capacidades que trae un plan: los tres módulos (que ya no se venden sueltos, son «lo que trae Pro») más la mora automática, los reportes y
+ * exportes y la conciliación bancaria. `PlanComercial.modulos_incluidos` guarda estas claves; Gratis no trae ninguna.
  */
-export const CAPACIDADES = [...MODULOS, 'mora_automatica', 'reportes'] as const;
+export const CAPACIDADES = [...MODULOS, 'mora_automatica', 'reportes', 'conciliacion'] as const;
 export type CapacidadClave = (typeof CAPACIDADES)[number];
 export const esCapacidad = (c: string): c is CapacidadClave => (CAPACIDADES as readonly string[]).includes(c);
 
@@ -50,7 +50,7 @@ export const PLANES_SEED = [
   { clave: 'basico', nombre: 'Torre Básico', descripcion: 'Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.', precio_por_unidad: '1.50', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: ['Todo lo de Torre Gratis, sin plazo', 'Sin tope de departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },
   { clave: 'pro', nombre: 'Torre Pro', descripcion: 'Todo Torre, sin tope de departamentos.', precio_por_unidad: '3.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
-    caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
+    caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes', 'Conciliación bancaria'] },
   { clave: 'administradora', nombre: 'Torre Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Torre Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
   { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 5, unidades_maximas: null as number | null, unidades_minimas: null as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },

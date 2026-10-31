@@ -411,6 +411,15 @@ describe('llms.txt y llms-full.txt', () => {
     assert.match(r.texto, /No hay pagos en línea/);
   });
 
+  it('dice la verdad sobre la conciliación bancaria: es de Torre Pro y se hace con el extracto, no leyendo el banco', async () => {
+    for (const ruta of ['/llms-full.txt']) {
+      const t = (await pedir(ruta)).texto;
+      assert.match(t, /- \*\*Conciliación bancaria\*\*: .*extracto.* \(De Torre Pro\.\)/, ruta);
+      assert.doesNotMatch(t, /No hay conciliación bancaria automática/, ruta);
+      assert.match(t, /No hay conexión directa con el banco/, ruta);
+    }
+  });
+
   it('nada falso: sin «House», sin «para siempre», sin promesas que no existen', async () => {
     for (const ruta of ['/llms.txt', '/llms-full.txt']) {
       const t = (await pedir(ruta)).texto;

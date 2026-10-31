@@ -1,6 +1,6 @@
 /**
  * Oferta «Gratis con límite o Pro con todo»: deja en la base los valores nuevos de los planes (Gratis hasta 20 departamentos; Pro y
- * Administradora con mínimo de 20 departamentos cobrados; Pro, Administradora y Cortesía con los tres módulos + mora automática + reportes;
+ * Administradora con mínimo de 20 departamentos cobrados; Pro, Administradora y Cortesía con los tres módulos + mora automática + reportes + conciliación bancaria (y la viñeta «Conciliación bancaria» de Pro);
  * textos de la página de precios). No pone ni quita tramos de precio (Pro y Administradora cobran parejo; el superadmin pone un tramo en
  * Suscripciones › Precios si lo quiere). No toca precios ni suscripciones: los condominios en cortesía (Los Libertadores) siguen igual.
  * Idempotente: correrlo otra vez no cambia nada. Los precios y los topes se editan después en Suscripciones › Precios.
