@@ -74,7 +74,7 @@
         "tipo": "nota",
         "texto": "Si el correo de confirmación no llega en unos minutos, revisa la carpeta de spam. Si tu administración ya te invitó, usa el enlace de esa invitación en lugar de crear otra cuenta."
       },
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/registro.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/registro.jpg"
     },
     {
       "titulo": "Planes y precios",
@@ -83,7 +83,7 @@
         "Torre tiene cuatro planes. **Torre Gratis** es para empezar: un condominio de hasta 20 departamentos, durante 3 meses. Después eliges **Torre Básico**, **Torre Pro** o **Torre Administradora**. Si no eliges ninguno, el condominio queda en solo lectura (ver «Mi condominio está en solo lectura»).",
         "Los precios van en soles y sin IGV: en Perú se suma el 18 %. Ahí mismo, en [torrecondominios.com/precios](https://torrecondominios.com/precios), está la calculadora: pones tu número de departamentos y ves cuánto pagarías, con el mínimo que aplique."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/precios.jpg",
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/precios.jpg",
       "tabla": {
         "columnas": [
           "Plan",
@@ -138,7 +138,7 @@
         "tipo": "nota",
         "texto": "Si el enlace venció o no te llegó el correo, pide a tu administración que use **Reenviar invitación** en la lista de residentes."
       },
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/login.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/login.jpg"
     },
     {
       "titulo": "Lo que tienen todas las pantallas",
@@ -151,7 +151,7 @@
         "En el celular, el menú se abre con las tres rayas de arriba a la izquierda.",
         "**La banda de solo lectura**: si el condominio ya terminó su periodo gratis, aparece arriba con el botón **Ir a Mi plan** (ver «Mi condominio está en solo lectura»)."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/perfil.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/perfil.jpg"
     },
     {
       "titulo": "Resumen: el condominio en una pantalla",
@@ -161,7 +161,7 @@
         "Con el filtro **Todos los blocks** miras uno solo.",
         "Si el condominio está en su periodo gratis, el Resumen y Mi plan dicen cuántos días le quedan: «Te quedan N días gratis»."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-resumen.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-resumen.jpg"
     },
     {
       "titulo": "Emitir el mantenimiento del mes",
@@ -175,7 +175,7 @@
         "Revisa el periodo, el vencimiento y los montos, y emítelo.",
         "Abre el recibo para verlo por block y por departamento."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-recibos.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-recibos.jpg"
     },
     {
       "titulo": "El recibo por dentro y el consolidado del block",
@@ -185,7 +185,7 @@
         "El **Consolidado del block** es la hoja que va detrás de cada recibo: una fila por departamento y una columna por concepto. Pulsa **Descargar Excel** o **Imprimir**; ya no hace falta armarlo a mano.",
         "**Imprimir recibos del block** saca el recibo de cada vecino listo para repartir."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-consolidado.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-consolidado.jpg"
     },
     {
       "titulo": "Avisar a los vecinos",
@@ -199,7 +199,7 @@
         "Pulsa **Enviar aviso**.",
         "Si el block tiene grupo de WhatsApp, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo allí. Ese mensaje no lleva montos ni nombres."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-avisar.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg"
     },
     {
       "titulo": "Pagos: cómo se valida cada uno",
@@ -212,7 +212,7 @@
         "tipo": "aviso",
         "texto": "Un pago **no se valida sin el check del tesorero del block**: él confirma que el dinero llegó a la cuenta. Si el block no tiene tesorero, o el pago lo registró el propio tesorero, basta con la lectura automática del voucher (OCR o IA) o con la revisión de la administración."
       },
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-pago-detalle.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-pago-detalle.jpg"
     },
     {
       "titulo": "Medios de pago y validación con IA",
@@ -229,7 +229,7 @@
         "tipo": "nota",
         "texto": "La validación automática nunca rechaza un pago por su cuenta: lo dudoso queda para que una persona lo revise. Viene apagada; la activas o apagas con el interruptor."
       },
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-medios.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-medios.jpg"
     },
     {
       "titulo": "Morosidad",
@@ -238,7 +238,7 @@
         "Las unidades con mantenimientos vencidos, de mayor a menor deuda, con los meses vencidos y los días de atraso. Arriba ves la deuda vencida total, cuántas unidades están morosas y el mayor atraso.",
         "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. **Exportar CSV** baja la lista."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-morosidad-detalle.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-morosidad-detalle.jpg"
     },
     {
       "titulo": "Cierres del mes",
@@ -248,7 +248,7 @@
         "Elige el **mes** y el **año**. Las pestañas son: **Cierre por block**, **Pagos a la administradora**, **Aportes a la Junta central**, **Cierre de la Junta central** y **Cuentas de destino**.",
         "En cada block ves los pagos registrados, lo facturado, el sobrante del mes y el fondo de ahorros. Pulsa el block para ver el detalle."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-cierres.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-cierres.jpg"
     },
     {
       "titulo": "Conceptos y su destino",
@@ -284,7 +284,7 @@
           ]
         ]
       },
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-conceptos.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-conceptos.jpg"
     },
     {
       "titulo": "Comunicados",
@@ -296,7 +296,7 @@
         "Marca si además se envía **por correo** o **por WhatsApp**, y si queda **fijado arriba**.",
         "Pulsa **Publicar**. En la pestaña **Notificaciones** ves qué salió por correo y por WhatsApp, qué está pendiente y qué tuvo error."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-comunicado-nuevo.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-nuevo.jpg"
     },
     {
       "titulo": "Juntas directivas",
@@ -305,7 +305,7 @@
         "Cada block tiene su junta: presidente, tesorero y secretario, más el correo de la junta y la cuenta donde pagan los vecinos.",
         "Con **Editar** cambias los miembros de la gestión actual. Cuando entra una junta nueva, usa **Nueva gestión**: los permisos pasan solos a las nuevas personas y la anterior queda en el **Historial**."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-juntas.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-juntas.jpg"
     },
     {
       "titulo": "Unidades, mantenimiento y proveedores",
@@ -316,7 +316,7 @@
         "**Proveedores**: ascensores, gasfitería, pintura y demás. Activa **Visible para los vecinos** en los que quieras compartir.",
         "**Mi empresa** y **Mi plan** están en **Cuenta**, en el menú: los datos de tu empresa y el plan de cada condominio (ver «Mi plan: lo que pagas y lo que usas»)."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-mantenimiento.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-mantenimiento.jpg"
     },
     {
       "titulo": "Mi plan: lo que pagas y lo que usas",
@@ -341,7 +341,7 @@
         "Si eres presidente o tesorero de tu block, además de tu menú de vecino ves el grupo **Junta**. En **Mi junta** están los miembros, el correo de la junta y la cuenta donde pagan tus vecinos.",
         "Puedes editar el correo y la cuenta. Los miembros y las gestiones nuevas los registra la administración."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-mi-junta.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-mi-junta.jpg"
     },
     {
       "titulo": "Confirmar que el pago llegó a la cuenta",
@@ -355,7 +355,7 @@
         "Mira el voucher y busca el movimiento en la cuenta o el Yape de la junta.",
         "Si el dinero llegó, pulsa **Confirmo que llegó a la cuenta**. Si no llegó, no lo confirmes y avisa a la administración."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-pagos.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-pagos.jpg"
     },
     {
       "titulo": "Medios de pago de tu block",
@@ -363,7 +363,7 @@
       "parrafos": [
         "Aquí mantienes al día la cuenta, el Yape o el Plin donde pagan tus vecinos. Con **Agregar medio de pago** sumas uno (si tiene QR, súbelo) y con el interruptor lo activas o lo ocultas. Los vecinos lo ven en su recibo y en Mi junta."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-medios.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-medios.jpg"
     },
     {
       "titulo": "Lecturas de agua",
@@ -379,7 +379,7 @@
         "tipo": "nota",
         "texto": "La lectura anterior sale sola de la del mes previo. Si el agua que cobra el recibo no cuadra con la lectura, la fila te avisa. Las lecturas no cambian ningún monto del recibo."
       },
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-agua.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-agua.jpg"
     },
     {
       "titulo": "Cierre del mes del block",
@@ -393,7 +393,7 @@
         "En cada línea, pulsa **Registrar pago** y sube el voucher de lo que pagaste.",
         "Cuando todas las líneas estén pagadas, el cierre deja de decir **Pagos pendientes**."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/junta-cierre.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-cierre.jpg"
     },
     {
       "titulo": "Si eres de la Junta central",
@@ -416,7 +416,7 @@
       "parrafos": [
         "Al entrar ves tu deuda total, tu próximo vencimiento, lo que pagaste este año, tus mantenimientos por pagar y los últimos comunicados. Si tienes algo vencido, un aviso rojo te lleva a ver cuál es."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-inicio.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-inicio.jpg"
     },
     {
       "titulo": "Mis recibos",
@@ -425,7 +425,7 @@
         "El mantenimiento de cada mes de tu departamento, separado en **Por pagar**, **Vencidos**, **En revisión** y **Pagados**.",
         "Con **Ver detalle** ves el total, el número de recibo, el vencimiento, el saldo y cada concepto con su monto. **Ver / imprimir recibo** abre el recibo completo, con la cuenta donde pagar."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-detalle.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-detalle.jpg"
     },
     {
       "titulo": "Pagar con tu voucher",
@@ -444,7 +444,7 @@
         "tipo": "ok",
         "texto": "¿Dónde veo el voucher que subí? En **Mis recibos**, pulsa **Ver detalle** y luego **Ver mi voucher**: lo ves ahí mismo, también mientras está en revisión. Pulsa **Ampliar** para verlo a pantalla completa. Mientras siga en revisión, también puedes reemplazarlo desde **Mi historial**."
       },
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-pagar.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-pagar.jpg"
     },
     {
       "titulo": "Mi historial",
@@ -453,7 +453,7 @@
         "Cómo evolucionan tus pagos. Pestañas **Resumen**, **Por concepto** (elige un concepto y míralo mes a mes), **Acumulado** y **Agua**. Elige el periodo y, si quieres, pulsa **Descargar Excel**.",
         "Al final están todos tus pagos: pulsa uno para ver su comprobante, su estado y el voucher, o para imprimirlo. Con **Ampliar** sobre el voucher lo ves a pantalla completa."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-historial.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-historial.jpg"
     },
     {
       "titulo": "Mi junta",
@@ -461,7 +461,7 @@
       "parrafos": [
         "Quiénes forman la junta de tu block y la Junta central, y **dónde pagas**: la cuenta, el Yape o el Plin con su QR, y el botón **Copiar** para el número."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-junta.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-junta.jpg"
     },
     {
       "titulo": "Proveedores",
@@ -469,7 +469,7 @@
       "parrafos": [
         "Los proveedores de confianza que tu administración comparte contigo, agrupados por rubro. Con **Llamar**, **WhatsApp** o **Escribir** los contactas directo. Si no ves ninguno, tu administración aún no comparte proveedores."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-proveedores.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-proveedores.jpg"
     },
     {
       "titulo": "Comunicados",
@@ -477,7 +477,7 @@
       "parrafos": [
         "Lo que la administración y la junta anuncian: cortes, reuniones, trabajos y avisos. Los fijados salen primero. Si activaste los avisos en Mi perfil, también te llegan por correo o WhatsApp."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/vecino-comunicados.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-comunicados.jpg"
     },
     {
       "titulo": "Si alquilas",
@@ -485,7 +485,7 @@
       "parrafos": [
         "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores y Comunicados. Pagas y subes tu voucher igual que en la sección 27."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/inquilino-inicio.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/inquilino-inicio.jpg"
     },
     {
       "titulo": "Mantenimiento, limpieza y jardinería",
@@ -493,7 +493,7 @@
       "parrafos": [
         "En **Mis tareas** están los trabajos que te asignó la administración, en **Pendientes**, **En progreso** y **Completadas**. Pulsa **Iniciar** cuando empiezas y **Completar** cuando terminas: la administración lo ve al momento."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/mantenimiento-tareas.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/mantenimiento-tareas.jpg"
     },
     {
       "titulo": "Seguridad",
@@ -501,7 +501,7 @@
       "parrafos": [
         "En **Inicio** ves tu condominio asignado. En **Unidades** buscas por código y ves el propietario y el inquilino de cada una antes de autorizar una visita."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/seguridad-inicio.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/seguridad-inicio.jpg"
     },
     {
       "titulo": "Mi condominio está en solo lectura",
