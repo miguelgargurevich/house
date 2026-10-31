@@ -13,6 +13,8 @@ export function SelectorPais({ cat, className = '' }: { cat: Catalogo; className
   const actual = cat.paises.find(p => p.codigo === cat.pais);
   const moneda = monedaDe(cat.moneda);
   const conImpuesto = Number(cat.impuesto.tasa) > 0;
+  // Los países que no son Perú pagan en dólares: el precio en soles al tipo de cambio del día (lo calcula el servidor).
+  const aTipoDeCambio = cat.moneda === 'USD';
   return (
     <div className={className}>
       <label htmlFor={id} className="text-sm font-medium">Precios para</label>
@@ -26,7 +28,7 @@ export function SelectorPais({ cat, className = '' }: { cat: Catalogo; className
         <ChevronDownIcon aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
       </span>
       <p id={`${id}-msg`} aria-live="polite" className="mt-1.5 text-sm text-muted">
-        {actual ? `${actual.nombre}: ` : ''}se cobra en {moneda?.plural ?? cat.moneda}{conImpuesto ? `, más ${cat.impuesto.nombre}` : ', sin impuesto adicional'}.
+        {actual ? `${actual.nombre}: ` : ''}se cobra en {moneda?.plural ?? cat.moneda}{aTipoDeCambio ? ` (${moneda?.simbolo ?? cat.moneda}) al tipo de cambio del día` : ''}{conImpuesto ? `, más ${cat.impuesto.nombre}` : ', sin impuesto adicional'}.
       </p>
     </div>
   );

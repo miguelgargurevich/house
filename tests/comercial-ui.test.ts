@@ -7,6 +7,8 @@ import { esMotivoSinModulo, mensajeSinResultado } from '../src/pages/shared/espe
 import { ESTADO_UI, MODULO_NOMBRE, aFechaInput, nombreDePlan } from '../src/pages/shared/_parts/comercial';
 import { MOTIVO_SIN_MODULO } from '../src/server/services/evaluacion';
 import { MENSAJE_SIN_ASISTENTE } from '../src/server/services/comercial/modulos';
+import { TC_MAX, TC_MIN, cuando, textoDelOrigen, textoDelValor, tipoCambioEscritoValido, tipoCambioParaApi } from '../src/pages/superadmin/_parts/suscripciones/tipoCambioTexto';
+import { TIPO_CAMBIO_MAX, TIPO_CAMBIO_MIN, tipoCambioValido } from '../src/server/services/comercial/tipoCambio';
 
 const fuente = (ruta: string) => readFileSync(ruta, 'utf8');
 
@@ -106,5 +108,56 @@ describe('estructura de las pantallas', () => {
     const p = fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx');
     assert.match(p, /<ImpuestosYPrecios /);
     assert.match(p, /impuestos: ImpuestoPais\[\]/);
+  });
+});
+
+describe('Superadmin › Precios: tarjeta «Tipo de cambio» y precios en dólares al tipo de cambio', () => {
+  const auto = { tipo_cambio_usd: '3.7512', tipo_cambio_manual: false, tipo_cambio_at: '2026-10-31T15:00:00.000Z', tipo_cambio_fuente: 'open.er-api.com' };
+  const manual = { tipo_cambio_usd: '3.9000', tipo_cambio_manual: true, tipo_cambio_at: '2026-10-31T15:00:00.000Z', tipo_cambio_fuente: 'manual' };
+  const vacio = { tipo_cambio_usd: null, tipo_cambio_manual: false, tipo_cambio_at: null, tipo_cambio_fuente: null };
+
+  it('muestra el valor, la fecha (hora de Lima) y si es automático o manual', () => {
+    assert.equal(textoDelValor(auto), '1 US$ = S/ 3.7512');
+    assert.equal(textoDelValor(manual), '1 US$ = S/ 3.9000');
+    assert.equal(textoDelValor(vacio), 'Sin tipo de cambio');
+    assert.match(cuando('2026-10-31T15:00:00.000Z'), /31/);
+    assert.match(cuando('2026-10-31T15:00:00.000Z'), /10:00/, '15:00 UTC = 10:00 en Lima');
+    assert.equal(cuando(null), '—');
+    assert.match(textoDelOrigen(auto), /Leído de open\.er-api\.com el .* Se actualiza solo cada 24 horas/);
+    assert.match(textoDelOrigen(manual), /Fijado a mano el .* La lectura diaria no lo pisa/);
+    assert.match(textoDelOrigen(vacio), /Todavía no se leyó/);
+  });
+
+  it('valida lo escrito con el mismo rango que el servidor (2 a 6, punto o coma) y lo manda con punto', () => {
+    assert.deepEqual([TC_MIN, TC_MAX], [TIPO_CAMBIO_MIN, TIPO_CAMBIO_MAX], 'el rango de la pantalla es el del servidor');
+    for (const ok of ['2', '6', '3.75', '3,75', ' 3.8 ', '3.123456']) { assert.equal(tipoCambioEscritoValido(ok), true, ok); assert.notEqual(tipoCambioValido(tipoCambioParaApi(ok)), null, `el servidor también acepta ${ok}`); }
+    for (const mal of ['', 'abc', '1.99', '6.01', '37', '-3', '3.1234567', '3..8']) assert.equal(tipoCambioEscritoValido(mal), false, mal);
+    assert.equal(tipoCambioParaApi(' 3,75 '), '3.75');
+  });
+
+  it('la tarjeta fija a mano y vuelve a automático contra PUT /api/comercial/tipo-cambio; está en Precios con los datos de la configuración', () => {
+    const t = fuente('src/pages/superadmin/_parts/suscripciones/TipoCambio.tsx');
+    assert.match(t, /Tipo de cambio/);
+    assert.match(t, /api\('\/api\/comercial\/tipo-cambio', \{ method: 'PUT', json \}\)/);
+    assert.match(t, /onClick=\{\(\) => void enviar\(\{ automatico: true \}, 'auto'\)\}/, 'el botón de automático manda automatico: true');
+    assert.match(t, /onClick=\{\(\) => void enviar\(\{ tipo_cambio: tipoCambioParaApi\(valor\) \}, 'fijar'\)\}/, 'el de fijar manda el valor escrito');
+    assert.match(t, /Fijar a mano/);
+    assert.match(t, /Volver a automático/);
+    assert.match(t, /Actualizar ahora/);
+    assert.match(t, /'Manual' : 'Automático'/);
+    const p = fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx');
+    assert.match(p, /<TipoCambio c=\{data\.configuracion\} onGuardado=\{reload\} \/>/);
+    assert.match(p, /tipo_cambio_usd: string \| null; tipo_cambio_manual: boolean/);
+  });
+
+  it('en «Precios por moneda» el dólar sale «al tipo de cambio», sin campos para editarlo; las otras monedas siguen editables', () => {
+    const f = fuente('src/pages/superadmin/_parts/suscripciones/ImpuestosPais.tsx');
+    assert.match(f, /m === 'USD'\s*\? <PreciosEnDolares /);
+    assert.match(f, /: <ul className="divide-y divide-line">\{deCobro\.map\(p => <FilaPrecio /);
+    const usd = f.slice(f.indexOf('function PreciosEnDolares'), f.indexOf('function PreciosEnDolares') + 1800).split('\n/**')[0];
+    assert.doesNotMatch(usd, /<Input|<Button|api\(/, 'el dólar no se edita');
+    assert.match(usd, /Al tipo de cambio/);
+    assert.match(usd, /Consúltanos/);
+    assert.match(fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx'), /preciosUsd=\{data\.precios_usd\} tipoCambio=\{data\.configuracion\.tipo_cambio_usd\}/);
   });
 });

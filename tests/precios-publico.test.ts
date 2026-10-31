@@ -135,6 +135,16 @@ const catChile = (): Catalogo => {
   };
 };
 
+/** Argentina: dólares al tipo de cambio (precios ya convertidos por el servidor) e IVA 21 %. */
+const catArgentina = (): Catalogo => {
+  const base = cat(true);
+  return {
+    ...base, pais: 'AR', moneda: 'USD', impuesto: { nombre: 'IVA', tasa: '0.21' },
+    paises: [...base.paises, { codigo: 'AR', nombre: 'Argentina', bandera: '🇦🇷', moneda: 'USD', impuesto: { nombre: 'IVA', tasa: '0.21' } }],
+    planes: base.planes.map(p => (p.clave === 'pro' ? { ...p, precio_por_unidad: '0.79', total_minimo_mes: '15.80' } : p.clave === 'administradora' ? { ...p, precio_por_unidad: '0.66', total_minimo_mes: '13.20' } : p)),
+  };
+};
+
 describe('/precios por país: moneda, precios e impuesto del país elegido', () => {
   it('Perú: «S/ 7.77 por departamento al mes + IGV», como siempre', () => {
     const html = enRuta(createElement(Planes, { cat: cat(true), onCalcular: sinCalcular }));
@@ -151,6 +161,30 @@ describe('/precios por país: moneda, precios e impuesto del país elegido', () 
     assert.match(html, /Consúltanos/, 'Administradora no tiene precio en pesos');
     assert.doesNotMatch(html, /S\/|IGV|5\.55/);
     assert.match(html, /\$\u00a00/, 'Gratis es $ 0 para siempre');
+  });
+
+  it('Argentina (dólares al tipo de cambio): «US$ 0.79 por departamento al mes + IVA», Gratis en US$ 0 y «Consúltanos» donde falta el tipo de cambio; sin «S/» ni pesos', () => {
+    const html = enRuta(createElement(Planes, { cat: catArgentina(), onCalcular: sinCalcular }));
+    assert.match(html, /US\$\u00a00\.79/);
+    assert.match(html, /por departamento al mes \+ IVA/);
+    assert.match(html, /Desde US\$\s15\.80 al mes \+ IVA/);
+    assert.doesNotMatch(html, /S\/|IGV|Consúltanos/);
+    const sinTc = enRuta(createElement(Planes, { cat: { ...catArgentina(), planes: catArgentina().planes.map(p => (p.clave === 'gratis' ? p : { ...p, precio_por_unidad: null, consultar: true, total_minimo_mes: null })) }, onCalcular: sinCalcular }));
+    assert.match(sinTc, /Consúltanos/, 'sin tipo de cambio el servidor manda precio null');
+    assert.doesNotMatch(sinTc, /US\$\u00a00\.79/);
+  });
+
+  it('la nota bajo el selector: Argentina «se cobra en dólares (US$) al tipo de cambio del día, más IVA»; Perú en soles sin «tipo de cambio»', async () => {
+    const { SelectorPais } = await import('../src/pages/publico/precios/SelectorPais');
+    const ar = enRuta(createElement(SelectorPais, { cat: catArgentina() }));
+    assert.match(ar, /Argentina: se cobra en dólares \(US\$\) al tipo de cambio del día, más IVA\./);
+    assert.match(ar, /<option value="AR" selected="">🇦🇷 Argentina<\/option>/);
+    const pe = enRuta(createElement(SelectorPais, { cat: cat(true) }));
+    assert.match(pe, /Perú: se cobra en soles, más IGV\./);
+    assert.doesNotMatch(pe, /tipo de cambio/);
+    const cl = enRuta(createElement(SelectorPais, { cat: catChile() }));
+    assert.match(cl, /se cobra en pesos chilenos, más IVA/);
+    assert.doesNotMatch(cl, /tipo de cambio/, 'sólo el dólar se cobra «al tipo de cambio»');
   });
 
   it('la comparativa y las preguntas hablan con el impuesto del país (IVA) y no con un «IGV» fijo', () => {

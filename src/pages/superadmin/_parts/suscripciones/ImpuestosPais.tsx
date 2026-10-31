@@ -5,6 +5,8 @@ import { MONEDAS, decimalesDe, monedaDe, paisDe } from '../../../../lib/paises';
 
 export interface ImpuestoPais { pais: string; nombre: string; tasa: string; moneda: string; activo: boolean }
 export interface PrecioMoneda { plan_clave: string; moneda: string; precio_por_unidad: string; tramo_precio_por_unidad?: string | null }
+/** Lo que se cobra en dólares (precio en soles ÷ tipo de cambio, ya redondeado); lo calcula el servidor. */
+export interface PrecioUsd { plan_clave: string; moneda: string; precio_por_unidad: string; tramo_precio_por_unidad: string | null }
 interface PlanPrecio { clave: string; nombre: string; precio_por_unidad: string; tramo_desde?: number | null }
 
 /** La API guarda la tasa en fracción (0.19); aquí se edita en porcentaje (19). Se redondea a 2 decimales para no arrastrar 7.000000000000001. */
@@ -79,10 +81,36 @@ function FilaPrecio({ plan, moneda, fila, onGuardado }: { plan: PlanPrecio; mone
 }
 
 /**
+ * El precio en dólares NO se edita: es el precio en soles del plan ÷ el tipo de cambio (tarjeta «Tipo de cambio»), a 2 decimales; manda sobre cualquier
+ * fila de precio en USD. Aquí sólo se muestra tal como se cobra.
+ */
+function PreciosEnDolares({ planes, precios, tipoCambio }: { planes: PlanPrecio[]; precios: PrecioUsd[]; tipoCambio: string | null }) {
+  return (
+    <>
+      <p className="mt-1 text-sm text-muted" data-testid="usd-al-tipo-de-cambio">
+        {tipoCambio ? `Al tipo de cambio (1 US$ = S/ ${Number(tipoCambio).toFixed(4)}): precio en soles ÷ tipo de cambio. No se edita aquí; cambia el precio en soles o el tipo de cambio.` : 'Sin tipo de cambio: en estos países se muestra «Consúltanos» y no se puede contratar. Fíjalo o léelo en «Tipo de cambio».'}
+      </p>
+      <ul className="divide-y divide-line">
+        {planes.map(p => {
+          const fila = precios.find(x => x.plan_clave === p.clave);
+          return (
+            <li key={p.clave} className="flex flex-wrap items-center gap-3 py-2.5">
+              <p className="min-w-[10rem] flex-1 text-sm font-medium">{p.nombre}</p>
+              <p className="num text-sm">{fila ? `${dinero(fila.precio_por_unidad, 'USD')} por depto al mes + impuesto${fila.tramo_precio_por_unidad && p.tramo_desde != null ? `; desde el departamento ${p.tramo_desde}, ${dinero(fila.tramo_precio_por_unidad, 'USD')}` : ''}` : 'Consúltanos'}</p>
+              <Badge tone="neutral">Al tipo de cambio</Badge>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+/**
  * «Impuestos y moneda por país» (el impuesto —IGV, IVA…— y la moneda con que se cobra la suscripción en cada país, y si el país está abierto) y, debajo,
  * el precio de cada plan de pago en cada moneda que se cobra. Todo se edita aquí: nada vive en el código.
  */
-export function ImpuestosYPrecios({ impuestos, precios, planes, onGuardado }: { impuestos: ImpuestoPais[]; precios: PrecioMoneda[]; planes: PlanPrecio[]; onGuardado: () => void }) {
+export function ImpuestosYPrecios({ impuestos, precios, preciosUsd, tipoCambio, planes, onGuardado }: { impuestos: ImpuestoPais[]; precios: PrecioMoneda[]; preciosUsd: PrecioUsd[]; tipoCambio: string | null; planes: PlanPrecio[]; onGuardado: () => void }) {
   // Monedas en que se cobra hoy (de los países abiertos), sin soles: su precio es el del plan.
   const monedas = useMemo(() => [...new Set(impuestos.filter(i => i.activo).map(i => i.moneda))].filter(m => m !== 'PEN').sort(), [impuestos]);
   // Los planes que cobran: Gratis y cortesía no llevan precio por moneda.
@@ -91,17 +119,19 @@ export function ImpuestosYPrecios({ impuestos, precios, planes, onGuardado }: { 
   return (
     <>
       <Card>
-        <CardHeader title="Impuestos y moneda por país" description="El impuesto que se suma a la suscripción (IGV, IVA…) y la moneda en que se cobra, según el país del condominio. Un país cerrado no se ofrece en la página de precios ni se puede contratar. Lo que ya se pagó no cambia al editar la tasa." />
+        <CardHeader title="Impuestos y moneda por país" description="El impuesto que se suma a la suscripción (IGV, IVA…) y la moneda en que se cobra, según el país del condominio: Perú en soles y todos los demás en dólares (US$) al tipo de cambio. Un país cerrado no se ofrece en la página de precios ni se puede contratar. Lo que ya se pagó no cambia al editar la tasa." />
         <CardBody><ul className="divide-y divide-line">{impuestos.map(f => <FilaImpuesto key={f.pais} f={f} onGuardado={onGuardado} />)}</ul></CardBody>
       </Card>
       <Card>
-        <CardHeader title="Precios por moneda" description="Precio BASE por departamento al mes de cada plan en cada moneda que se cobra (sin impuesto). Un plan sin precio en la moneda de un país no se puede contratar ahí: se muestra «Consúltanos». En soles, el precio es el del plan (arriba)." />
+        <CardHeader title="Precios por moneda" description="Precio BASE por departamento al mes de cada plan en cada moneda que se cobra (sin impuesto). Un plan sin precio en la moneda de un país no se puede contratar ahí: se muestra «Consúltanos». En soles, el precio es el del plan (arriba); en dólares, ese precio ÷ el tipo de cambio (no se edita)." />
         <CardBody className="space-y-5">
           {!monedas.length && <p className="text-sm text-muted">Todos los países abiertos cobran en soles.</p>}
           {monedas.map(m => (
             <section key={m} aria-label={`Precios en ${monedaDe(m)?.nombre ?? m}`}>
               <h3 className="text-sm font-semibold">{m} · {monedaDe(m)?.nombre ?? m} <span className="font-normal text-muted">({paisesDe(m)})</span></h3>
-              <ul className="divide-y divide-line">{deCobro.map(p => <FilaPrecio key={`${p.clave}-${m}`} plan={p} moneda={m} fila={precios.find(x => x.plan_clave === p.clave && x.moneda === m)} onGuardado={onGuardado} />)}</ul>
+              {m === 'USD'
+                ? <PreciosEnDolares planes={deCobro} precios={preciosUsd} tipoCambio={tipoCambio} />
+                : <ul className="divide-y divide-line">{deCobro.map(p => <FilaPrecio key={`${p.clave}-${m}`} plan={p} moneda={m} fila={precios.find(x => x.plan_clave === p.clave && x.moneda === m)} onGuardado={onGuardado} />)}</ul>}
             </section>
           ))}
         </CardBody>

@@ -13,7 +13,9 @@ interface Caso { nombre: string; moneda: string; impuesto: string; tasa: string;
 const PEN_SIN: Caso = { nombre: 'PEN sin tramo', moneda: 'PEN', impuesto: 'IGV', tasa: '0.18', decimales: 2, precio: '3.00', minimo: 20, tramo_desde: null, tramo_precio: null };
 const PEN_TRAMO: Caso = { ...PEN_SIN, nombre: 'PEN con tramo', tramo_desde: 61, tramo_precio: '2.00' };
 const CLP_TRAMO: Caso = { nombre: 'CLP con tramo', moneda: 'CLP', impuesto: 'IVA', tasa: '0.19', decimales: 0, precio: '1900', minimo: 20, tramo_desde: 61, tramo_precio: '1500' };
-const CASOS = [PEN_SIN, PEN_TRAMO, CLP_TRAMO];
+// Argentina (dólares al tipo de cambio 3,8): los precios son los que da `solesADolares` (3,00 → 0,79; tramo 2,00 → 0,53), con IVA 21 %.
+const USD_TRAMO: Caso = { nombre: 'USD con tramo (al tipo de cambio)', moneda: 'USD', impuesto: 'IVA', tasa: '0.21', decimales: 2, precio: '0.79', minimo: 20, tramo_desde: 61, tramo_precio: '0.53' };
+const CASOS = [PEN_SIN, PEN_TRAMO, CLP_TRAMO, USD_TRAMO];
 const UNIDADES = [1, 15, 20, 21, 60, 61, 100, 250];
 
 /** La cotización del servidor para un condominio de `unidades` departamentos (la misma llamada que hace `cotizacionPublica`). */

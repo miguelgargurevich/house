@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { api, errorText, useResource } from '../../../../api';
 import { Alert, Button, Card, CardBody, CardHeader, ErrorState, Input, Skeleton, Textarea, soles, useToast } from '../../../../ui';
 import { MODULO_NOMBRE, type ModuloClave } from '../../../shared/_parts/comercial';
-import { ImpuestosYPrecios, type ImpuestoPais, type PrecioMoneda } from './ImpuestosPais';
+import { ImpuestosYPrecios, type ImpuestoPais, type PrecioMoneda, type PrecioUsd } from './ImpuestosPais';
+import { TipoCambio } from './TipoCambio';
 
 interface Modulo { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; activo: boolean }
 interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean; unidades_maximas: number | null; unidades_minimas: number | null; tramo_desde: number | null; tramo_precio: string | null; asistente_por_unidad_mes: number | null; whatsapp_por_unidad_mes: number | null }
@@ -11,8 +12,9 @@ interface Config {
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
   legal_razon_social: string | null; legal_ruc: string | null; legal_domicilio: string | null; legal_correo: string | null;
   google_site_verification: string | null; bing_site_verification: string | null;
+  tipo_cambio_usd: string | null; tipo_cambio_manual: boolean; tipo_cambio_at: string | null; tipo_cambio_fuente: string | null;
 }
-interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config; impuestos: ImpuestoPais[]; precios_moneda: PrecioMoneda[] }
+interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config; impuestos: ImpuestoPais[]; precios_moneda: PrecioMoneda[]; precios_usd: PrecioUsd[] }
 
 /** Precio base → lo que ve el público (base × (1 + tasa)). Sólo para mostrar junto al campo; el servidor es quien lo aplica de verdad. */
 const conIgv = (base: string, tasa: string): string => {
@@ -212,7 +214,8 @@ export function PreciosYPagos() {
         <CardHeader title="Planes" description="Precio BASE en soles por departamento al mes (el público lo ve sin impuesto y el impuesto se suma al pagar). Las otras monedas se fijan en «Precios por moneda». Torre Gratis y cortesía no cobran; Torre Pro y Torre Administradora cobran como mínimo los departamentos que indiques. Un plan oculto no sale en la página de precios." />
         <CardBody><ul className="divide-y divide-line">{data.planes.map(p => <FilaPlan key={p.clave} p={p} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
       </Card>
-      <ImpuestosYPrecios impuestos={data.impuestos} precios={data.precios_moneda} planes={data.planes} onGuardado={reload} />
+      <TipoCambio c={data.configuracion} onGuardado={reload} />
+      <ImpuestosYPrecios impuestos={data.impuestos} precios={data.precios_moneda} preciosUsd={data.precios_usd} tipoCambio={data.configuracion.tipo_cambio_usd} planes={data.planes} onGuardado={reload} />
       <Card>
         <CardHeader title="Plazos y datos de pago" />
         <CardBody><Configuracion c={data.configuracion} onGuardado={reload} /></CardBody>
