@@ -1,7 +1,7 @@
 import { CheckIcon, MinusIcon } from '@heroicons/react/24/outline';
 import { dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
-import type { Catalogo } from '../catalogo';
+import type { Catalogo, Plan } from '../catalogo';
 import { duracionGratis } from '../plazoGratis';
 
 const Si = () => <span className="inline-flex justify-center text-ok"><CheckIcon className="h-5 w-5" aria-hidden="true" /><span className="sr-only">Incluido</span></span>;
@@ -9,6 +9,9 @@ const No = () => <span className="inline-flex justify-center text-muted"><MinusI
 
 /** Departamentos por condominio: lo que dice el catálogo (tope en Gratis y Básico, sin tope en Pro). */
 const topeTexto = (max: number | null | undefined) => (max != null ? `Hasta ${max}` : 'Sin tope');
+
+/** «Torre Básico cobra como mínimo 20 departamentos por condominio (desde S/ 20.00 al mes).» — mínimo, total y tope, del catálogo. */
+const minimoTexto = (p: Plan, cat: Catalogo) => `${p.nombre} cobra como mínimo ${p.unidades_minimas} departamentos por condominio${p.total_minimo_mes ? ` (desde ${dinero(p.total_minimo_mes, cat.moneda)} al mes)` : ''}${p.unidades_maximas != null ? ` y llega hasta ${p.unidades_maximas}` : ''}.`;
 
 /** La viñeta «1 condominio» de Gratis: con ✓ en todas las columnas parecía que los planes de pago también traían uno solo. */
 const UN_CONDOMINIO = /^\s*(1|un|uno)\s+condominio\b/i;
@@ -62,7 +65,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
             </table>
           </div>
         </div>
-        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}. Cada condominio tiene su propio plan: {gratis?.nombre ?? 'Torre Gratis'} es uno por cuenta y con un plan de pago sumas los que quieras.{basico?.unidades_minimas != null && basico.unidades_maximas != null && ` ${basico.nombre} cobra como mínimo ${basico.unidades_minimas} departamentos y llega hasta ${basico.unidades_maximas}.`}{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Torre Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `, a ${dinero(adm.precio_por_unidad, cat.moneda)}`}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
+        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}. Cada condominio tiene su propio plan: {gratis?.nombre ?? 'Torre Gratis'} es uno por cuenta y con un plan de pago sumas los que quieras.{basico?.unidades_minimas != null && ` ${minimoTexto(basico, cat)}`}{pro?.unidades_minimas != null && ` ${minimoTexto(pro, cat)}`}{adm && ` ${adm.nombre} trae todo lo de Torre Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `, a ${dinero(adm.precio_por_unidad, cat.moneda)}`}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
       </Aparece>
     </section>
   );

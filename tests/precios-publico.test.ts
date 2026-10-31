@@ -64,6 +64,12 @@ describe('página pública de precios', () => {
     assert.doesNotMatch(html, /<th[^>]*>1 condominio<\/th>/, 'la viñeta «1 condominio» no va como fila con ✓');
     assert.match(html, /<th[^>]*>Condominios por cuenta<\/th><td[^>]*>1<\/td><td[^>]*>Los que quieras<\/td><\/tr>/, 'sin Básico en este catálogo: Gratis y Pro');
     assert.match(html, /Cada condominio tiene su propio plan/);
+    // La nota da el mínimo de cada plan de pago con su total, también el de Básico sin tope (antes sólo salía si Básico tenía tope).
+    const c = cat(true);
+    c.planes.splice(1, 0, { clave: 'basico', nombre: 'Básico', descripcion: 'Sin IA.', precio_por_unidad: '1.11', consultar: false, modulos_incluidos: [], caracteristicas: ['Todo lo de Gratis, sin plazo'], unidades_maximas: null, unidades_minimas: 19, total_minimo_mes: '21.09' });
+    const nota = enRuta(createElement(Comparativa, { cat: c }));
+    assert.match(nota, /Básico cobra como mínimo 19 departamentos por condominio \(desde S\/\s*21\.09 al mes\)\./);
+    assert.match(nota, /Pro cobra como mínimo 17 departamentos por condominio \(desde S\/\s*132\.09 al mes\)\./);
     const fila = (nombre: string) => new RegExp(`<tr[^>]*><th[^>]*>${nombre}</th>(.*?)</tr>`).exec(html)?.[1] ?? '';
     const marcas = (celdas: string) => [...celdas.matchAll(/<span class="sr-only">(Incluido|No incluido)<\/span>/g)].map(m => m[1]);
     for (const nombre of ['IA que lee y valida vouchers', 'Asistente con IA', 'Mora automática', 'Reportes y exportes']) {

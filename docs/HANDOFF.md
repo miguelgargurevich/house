@@ -6,7 +6,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ## 2026-10-31 — /precios: «Condominios por cuenta» en la comparativa (Claude Code, Opus 5.5) — push: no
 
-- Pedido de Miguel: la fila «1 condominio» con ✓ en Gratis, Básico y Pro confundía (parecía que los planes de pago también traían uno solo). `Comparativa.tsx` saca esa viñeta de las filas con ✓ y agrega la fila «Condominios por cuenta»: Gratis «1», Básico y Pro «Los que quieras». La nota de abajo dice «Cada condominio tiene su propio plan…». Test en `precios-publico` (2 mutaciones en rojo). Suite 3018/3018.
+- Pedido de Miguel: la fila «1 condominio» con ✓ en Gratis, Básico y Pro confundía (parecía que los planes de pago también traían uno solo). `Comparativa.tsx` saca esa viñeta de las filas con ✓ y agrega la fila «Condominios por cuenta»: Gratis «1», Básico y Pro «Los que quieras». La nota de abajo dice «Cada condominio tiene su propio plan…». La nota también da el mínimo de Torre Básico (antes sólo salía si Básico tenía tope) y el total mínimo de Básico y Pro («desde S/ 20.00 / S/ 50.00 al mes»), del catálogo (`minimoTexto`). Test en `precios-publico` (2 mutaciones en rojo). Suite 3018/3018.
 - Gotcha: `house_test` tenía el esquema atrasado (faltaba `asistente_por_unidad_mes`) → 2029 tests cancelados; se arregló con `prisma db push` contra esa base.
 
 ---
