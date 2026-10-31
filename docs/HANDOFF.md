@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Precios nuevos, candado de Pro y benchmark (Claude Code, Opus 5.5 + Haiku) — push: sí
+
+- Pedido de Miguel: «con los propuestos .. y haces el benckmark de precios otra vez». Básico S/ 1,50 · Pro S/ 3,50 · Administradora S/ 3,00 por dpto (mínimo 20: S/ 30 · 70 · 60). Seed y pruebas (Haiku, `precios-nuevos`); en producción se cambió `PlanComercial.precio_por_unidad` por SQL (no había suscripciones de pago: sólo la cortesía).
+- Candado (Haiku, `candado-ia`): validar un voucher en Gratis/Básico muestra «¿Quieres que la IA valide este voucher?» con «Pasar a Torre Pro». La junta no conoce el plan: sólo lo ve tras la marca del servidor (pendiente: exponer `ia_vouchers` en la lista de pagos de la junta).
+- Benchmark (recurso `cmvvj7wbq000sf5xdj0jvwtmo`, mismo enlace) con los precios nuevos, competencia revisada el 31-oct y tabla por tamaño. Hallazgo: Pro cuesta más que OPE desde 35 dptos (280 vs 139 con 80); decisión de Miguel: escalones en Pro.
+- Manual: precios nuevos en `manual-house.json` y captura `precios.jpg`.
+
+---
+
 ## 2026-10-31 — Precios nuevos aprobados por Miguel: Básico 1.50, Pro 3.50, Administradora 3.00 (Claude Code, Haiku 5.5) — push: no
 
 - **Qué se hizo:** en `PLANES_SEED` (`src/server/services/comercial/catalogo.ts`) se cambiaron sólo los tres `precio_por_unidad` (basico 1.50, pro 3.50, administradora 3.00; gratis sigue en 0) y el comentario de Básico. El mínimo de 20 no cambia; la lógica de cobro (`calculo.ts`) tampoco. El system prompt de IA no lleva cifras de planes, no se tocó.

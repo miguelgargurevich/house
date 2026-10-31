@@ -100,19 +100,19 @@
           ],
           [
             "Torre Básico",
-            "S/ 1,00 por departamento al mes, mínimo S/ 20",
+            "S/ 1,50 por departamento al mes, mínimo S/ 30",
             "Sin tope (se cobran mínimo 20)",
             "Lo mismo que Gratis, sin plazo."
           ],
           [
             "Torre Pro",
-            "S/ 2,50 por departamento al mes, mínimo 20 departamentos (S/ 50)",
+            "S/ 3,50 por departamento al mes, mínimo 20 departamentos (S/ 70)",
             "Sin tope",
             "Todo Torre: IA que lee y valida vouchers, avisos por WhatsApp, asistente, mora automática y reportes."
           ],
           [
             "Torre Administradora",
-            "S/ 2,00 por departamento al mes, mínimo 20 por condominio",
+            "S/ 3,00 por departamento al mes, mínimo 20 por condominio",
             "Sin tope",
             "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen."
           ]
@@ -517,7 +517,7 @@
       ],
       "numerada": [
         "Entra a **Mi plan** (en **Cuenta**, en el menú) o pulsa **Ir a Mi plan** en la banda.",
-        "Elige **Básico** (desde S/ 20 al mes), **Pro** o **Administradora** y pide el plan del condominio.",
+        "Elige **Básico** (desde S/ 30 al mes), **Pro** o **Administradora** y pide el plan del condominio.",
         "Paga por transferencia, Yape o Plin con la referencia que te muestra Mi plan.",
         "Cuando confirmamos tu pago, el plan se activa y el condominio vuelve a registrar de inmediato."
       ],
