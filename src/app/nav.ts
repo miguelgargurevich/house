@@ -3,7 +3,7 @@ import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon,
+  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon, ArrowsRightLeftIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { CargoJunta, Rol, Usuario } from '../auth/AuthContext';
@@ -19,6 +19,7 @@ const condominios: NavItem = { to: '/admin/complejos', label: 'Condominios', ico
 const cobranza: NavItem[] = [
   { to: '/admin/recibos', label: 'Recibos', icon: ReceiptPercentIcon },
   { to: '/admin/pagos', label: 'Pagos', icon: BanknotesIcon },
+  { to: '/admin/conciliacion', label: 'Conciliación', icon: ArrowsRightLeftIcon },
   { to: '/admin/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
   { to: '/admin/morosidad', label: 'Morosidad', icon: ExclamationTriangleIcon },
   { to: '/admin/cierres', label: 'Cierres del mes', icon: CalendarDaysIcon },

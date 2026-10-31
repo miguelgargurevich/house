@@ -1,14 +1,15 @@
 // Tipos y textos de la capa comercial (planes, módulos por condominio). Los PRECIOS nunca van aquí: salen siempre de la API.
 import type { Tone } from '../../../ui';
 
-/** Lo que trae un plan de pago (Pro): los tres módulos, la mora automática y los reportes. Ya no se venden sueltos. */
-export type ModuloClave = 'ia_vouchers' | 'whatsapp_avisos' | 'asistente' | 'mora_automatica' | 'reportes';
+/** Lo que trae un plan de pago (Pro): los tres módulos, la mora automática, los reportes y la conciliación bancaria. Ya no se venden sueltos. */
+export type ModuloClave = 'ia_vouchers' | 'whatsapp_avisos' | 'asistente' | 'mora_automatica' | 'reportes' | 'conciliacion';
 export const MODULO_NOMBRE: Record<ModuloClave, string> = {
   ia_vouchers: 'IA que lee y valida vouchers',
   whatsapp_avisos: 'Avisos por WhatsApp',
   asistente: 'Asistente con IA',
   mora_automatica: 'Mora automática',
   reportes: 'Reportes y exportes',
+  conciliacion: 'Conciliación bancaria',
 };
 
 export type EstadoSuscripcion = 'gratis' | 'solicitada' | 'activa' | 'por_vencer' | 'vencida';

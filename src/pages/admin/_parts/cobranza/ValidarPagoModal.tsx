@@ -15,6 +15,7 @@ import type { ConformidadPago, ExencionConformidad } from './conformidad';
 import { metodoLabel } from './comun';
 import type { AvisoMulta } from './morosos';
 import { QuitarMultaModal } from './QuitarMultaModal';
+import { textoMarca, useMarcasConciliacion } from '../conciliacion/marcas';
 
 export interface PagoRevisable {
   id: number;
@@ -144,6 +145,8 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const motivoSinVoucher = puedeAdjuntar ? 'Sin voucher no se puede validar: adjunta el comprobante o rechaza el pago.' : 'Sin voucher no se puede validar: pídele al vecino que lo suba o rechaza el pago.';
   // Un pago del mantenimiento se revisa por su TOTAL: el comprobante es uno solo y cubre todos los conceptos.
   const monto = pago ? pago.mantenimiento?.total ?? pago.monto : 0;
+  // «Conciliado con el banco»: sólo información (no cambia cómo se valida ni la conformidad del tesorero).
+  const marcaBanco = useMarcasConciliacion(pago ? [pago.id] : [])[pago?.id ?? 0];
   const conformidad = conformidadLocal ? conformidadLocal.valor : pago?.conformidad;
   const datosConf = pago ? { estado_validacion: estadoPago ?? pago.estado_validacion, conformidad, tesorero_registrado: pago.tesorero_registrado, conformidad_exencion: pago.conformidad_exencion } : null;
   const vistaConf = datosConf ? vistaConformidad(datosConf) : null;
@@ -206,6 +209,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
                   { label: 'Pagó', value: pago.usuario?.nombre },
                   { label: pago.fecha_origen === 'voucher' ? 'Fecha del voucher' : 'Fecha del pago', value: <>{fechaCorta(pago.fecha_pago)}<span className="ml-2 text-xs text-muted">{textoFechaPago(pago.fecha_origen)}</span></> },
                   { label: 'Método', value: metodoLabel(pago.metodo_pago) },
+                  ...(marcaBanco ? [{ label: 'Banco', value: <span className="font-medium text-ok">{textoMarca(marcaBanco, fechaCorta)}</span> }] : []),
                   { label: 'Referencia', value: pago.referencia && <span className="num">{pago.referencia}</span> },
                   ...(pago.observaciones ? [{ label: 'Observaciones', value: pago.observaciones }] : []),
                   ...(pago.validado_at ? [{ label: pago.estado_validacion === 'rechazado' ? 'Rechazado el' : 'Validado el', value: `${fechaCorta(pago.validado_at)}${pago.validado_por ? ` · ${pago.validado_por.nombre}` : ''}` }] : []),

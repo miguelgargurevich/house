@@ -42,7 +42,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
     <section aria-labelledby="comparativa-titulo" className="bg-surface2">
       <Aparece className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
         <h2 id="comparativa-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Qué trae cada plan</h2>
-        <p className="mt-3 max-w-xl text-lg">Torre Básico y Torre Pro traen todo lo de Torre Gratis, sin plazo. Lo demás —IA, WhatsApp, asistente, mora automática y reportes— es de Torre Pro.</p>
+        <p className="mt-3 max-w-xl text-lg">Torre Básico y Torre Pro traen todo lo de Torre Gratis, sin plazo. Lo demás —IA, WhatsApp, asistente, mora automática, reportes y conciliación bancaria— es de Torre Pro.</p>
         <div className="mt-8 overflow-hidden rounded-xl bg-surface">
           <div className="relative overflow-x-auto">
             <table className="w-full text-base sm:min-w-[30rem]">

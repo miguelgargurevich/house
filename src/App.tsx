@@ -36,6 +36,7 @@ const AdminCierres = lazy(() => import('./pages/admin/Cierres'));
 const AdminCierresCentral = lazy(() => import('./pages/admin/CierresCentral'));
 const AdminCierresAportes = lazy(() => import('./pages/admin/CierresAportes'));
 const AdminMorosidad = lazy(() => import('./pages/admin/Morosidad'));
+const AdminConciliacion = lazy(() => import('./pages/admin/Conciliacion'));
 const AdminMantenimientos = lazy(() => import('./pages/admin/Mantenimientos'));
 const AdminConceptos = lazy(() => import('./pages/admin/Conceptos'));
 const AdminResidentes = lazy(() => import('./pages/admin/Residentes'));
@@ -119,6 +120,7 @@ export default function App() {
           <Route path="/admin/recibos/:id" element={<AdminPeriodoRecibo />} />
           <Route path="/admin/pagos" element={<AdminPagos />} />
           <Route path="/admin/morosidad" element={<AdminMorosidad />} />
+          <Route path="/admin/conciliacion" element={<AdminConciliacion />} />
           <Route path="/admin/mantenimientos" element={<AdminMantenimientos />} />
           <Route path="/admin/conceptos" element={<AdminConceptos />} />
           <Route path="/admin/cierres" element={<AdminCierres />} />

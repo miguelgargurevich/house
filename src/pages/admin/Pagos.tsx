@@ -10,6 +10,7 @@ import { METODOS, metodoLabel } from './_parts/cobranza/comun';
 import { esTesorero, estadoRevision, insigniaConformidad } from './_parts/cobranza/conformidad';
 import { esJunta } from '../../auth/junta';
 import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
+import { textoMarca, useMarcasConciliacion } from './_parts/conciliacion/marcas';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { ValidarPagoModal } from './_parts/cobranza/ValidarPagoModal';
 import type { PagoRevisable } from './_parts/cobranza/ValidarPagoModal';
@@ -63,6 +64,8 @@ export default function Pagos() {
     params: { estado_validacion: pestana, metodo_pago: metodo || undefined, conformidad: conformidad || undefined, complejo_id: complejo || undefined, estructura_id: torre || undefined, orden: pestana === 'por_validar' ? 'fecha_pago:asc' : undefined },
   });
   const textos = TEXTOS[pestana];
+  // «Conciliado con el banco»: sólo información de la administración (con la conciliación del plan Pro); no cambia cómo se valida.
+  const marcas = useMarcasConciliacion(list.items.map(p => p.id));
 
   // La suma de la página va POR MONEDA: dos condominios de monedas distintas nunca se suman.
   const montosPagina = list.items.map(p => ({ monto: p.mantenimiento?.total ?? p.monto, moneda: p.moneda }));
@@ -101,6 +104,7 @@ export default function Pagos() {
           ? <EstadoRevision pago={p} />
           : (() => { const c = insigniaConformidad(p); return c && <Badge tone={c.tone}>{c.label}</Badge>; })()}
         {p.aviso_multa && <Badge tone="warn">Multa por quitar</Badge>}
+        {marcas[p.id] && <Badge tone="ok">{textoMarca(marcas[p.id]!, fechaCorta)}</Badge>}
       </span>
     ) },
     { key: 'acciones', header: '', align: 'right', cell: p => <Button size="sm" variant={p.estado_validacion === 'por_validar' ? 'primary' : 'secondary'} onClick={() => setRevisando(p)}>{p.estado_validacion === 'por_validar' ? 'Revisar' : 'Ver'}</Button> },
