@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Pro S/ 3,00, Administradora S/ 2,50, mínimo como precio base y tema en el menú (Claude Code, Opus 5.5 + Haiku) — push: sí
+
+- Miguel: «siento que torre pro es muy caro» → Pro S/ 3,00 y Administradora S/ 2,50 (Básico sigue en S/ 1,50). Seed y pruebas (Haiku, `precios-pro-3`); producción por SQL en `PlanComercial` (sin suscripciones de pago).
+- Miguel: «eso de mínimo 20 departamentos no me gusta… edificios de 15» → mismo cobro, otra frase: tarjetas «Desde S/ 60 al mes + IGV, incluye hasta 20 departamentos; desde el 21, S/ 3.00 cada uno», nota de la comparativa, calculadora y FAQ «¿Y si mi edificio tiene pocos departamentos?».
+- Tema claro/oscuro: del botón de la barra al menú del usuario (`MenuUsuario.tsx`).
+- Benchmark (mismo enlace) y manual v5 (mismo enlace) al día. La rama `feat/tramos-pro` quedó con los precios viejos (3,50): si se retoma, rebasarla.
+
+---
+
 ## 2026-10-31 — Precios nuevos: Torre Pro S/ 3,00 y Torre Administradora S/ 2,50 (Claude Code, Haiku 5.5) — push: no
 
 - **Pedido de Miguel:** «y si torre pro son 3 soles y torre administradora 2.50 .. siento que torre pro es muy caro» → «Sí, aplícalos». Por departamento al mes, sin IGV. Mínimo 20 sin cambios: Pro 60,00 (con IGV 70,80) y Administradora 50,00 (con IGV 59,00). Básico sigue en 1,50 y Gratis en 0.
