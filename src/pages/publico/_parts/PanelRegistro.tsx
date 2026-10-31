@@ -13,7 +13,7 @@ const BENEFICIOS = [
 export function PanelRegistro() {
   return (
     <aside aria-labelledby="panel-registro-titulo" className="rounded-2xl bg-escena p-6 text-on-escena sm:p-10 lg:sticky lg:top-6">
-      <p id="panel-registro-titulo" className="text-2xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl">Torre Gratis por 3 meses, hasta 20 departamentos.</p>
+      <p id="panel-registro-titulo" className="text-2xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl">Torre Gratis por 3 meses, sin tope de departamentos.</p>
       <p className="mt-3 text-sm opacity-85">Sin tarjeta. Al terminar los 3 meses, tus datos siguen aquí y eliges Torre Básico o Torre Pro desde Mi plan.</p>
       <ul className="mt-6 space-y-2.5 text-sm">
         {BENEFICIOS.map(b => (

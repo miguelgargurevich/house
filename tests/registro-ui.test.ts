@@ -3,7 +3,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { UNIDADES_GRATIS_MAX } from '../src/server/services/comercial/catalogo';
 
 const fuente = (ruta: string) => readFileSync(ruta, 'utf8');
 const registro = fuente('src/pages/publico/Registro.tsx');
@@ -58,7 +57,7 @@ describe('Registro: el panel de marca junto al formulario', () => {
   });
 
   it('el panel dice el mismo tope de departamentos del plan Gratis que el servidor', () => {
-    assert.match(panel, new RegExp(`hasta ${UNIDADES_GRATIS_MAX} departamentos`));
+    assert.match(panel, /Torre Gratis por 3 meses, sin tope de departamentos\./);
   });
 
   it('las tarjetas de ejemplo son decorativas para el lector de pantalla; la lista de beneficios sí se lee', () => {

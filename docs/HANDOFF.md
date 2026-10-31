@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Torre Gratis sin tope de departamentos (Claude Code, Opus 5.5) — push: sí
+
+- **Pedido de Miguel:** que un condominio de 3 o 5 torres pueda probar Torre completo; el límite de Gratis es el plazo de 3 meses, no los departamentos. `PLANES_SEED` gratis: `unidades_maximas: null`, «Torre Gratis por 3 meses, sin tope de departamentos.»; se quitó `UNIDADES_GRATIS_MAX`. Textos: Portada, panel del registro, hechos de /precios, términos (`textos.tsx` y `docs/legal/terminos.md`) y prompt del asistente. Sigue «un condominio gratis por administradora» y la solo lectura al vencer.
+- Incluye el arreglo de los checks de /precios en celular (`5e86f65`).
+- Pruebas ajustadas: `oferta-gratis-pro`, `comercial-registro`, `plan-basico`, `registro-ui`. Suite 2988/2988. El mecanismo de tope (`exigirCupoDeUnidades`, `LIMITE_UNIDADES`) sigue vivo para cualquier plan al que el superadmin le ponga un tope.
+- Producción: correr `scripts/oferta-gratis-pro.ts` tras el deploy (quita el 20 de la fila y cambia la descripción). Manual v3 y benchmark actualizados en sus mismos enlaces.
+
+---
+
 ## 2026-10-30 — Checks de /precios en celular (Claude Code, Opus 5.5) — push: no
 
 - **Qué:** en la lista de «hechos» bajo el selector de país (`src/pages/publico/Precios.tsx`), con el texto en dos líneas el check quedaba suelto a la izquierda. Ahora `items-start`, `text-left`, check `shrink-0` y el texto en su `<span>`. Visto a 375 px en oscuro; `precios-*` 22/22. Commit `5e86f65`, sin subir.

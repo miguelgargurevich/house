@@ -51,9 +51,9 @@ describe('el catálogo trae Básico', () => {
     assert.deepEqual(PLANES_SEED.map((p) => [p.clave, p.orden]), [['gratis', 1], ['basico', 2], ['pro', 3], ['administradora', 4], ['cortesia', 5]]);
   });
 
-  it('Gratis ya no dice «para siempre»: «Gratis por 3 meses, hasta 20 departamentos»', async () => {
+  it('Gratis ya no dice «para siempre»: «Gratis por 3 meses, sin tope de departamentos»', async () => {
     const g = (await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'gratis');
-    assert.equal(g.descripcion, 'Torre Gratis por 3 meses, hasta 20 departamentos.');
+    assert.equal(g.descripcion, 'Torre Gratis por 3 meses, sin tope de departamentos.');
     assert.doesNotMatch(JSON.stringify(PLANES_SEED), /siempre/);
   });
 
@@ -73,7 +73,7 @@ describe('el catálogo trae Básico', () => {
     await prisma.planComercial.delete({ where: { clave: 'basico' } });
     const primera = await ajustarOfertaGratisPro(prisma);
     assert.ok(primera.some((c) => c.clave === 'gratis' && c.cambios.includes('descripcion')), JSON.stringify(primera));
-    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).descripcion, 'Torre Gratis por 3 meses, hasta 20 departamentos.');
+    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).descripcion, 'Torre Gratis por 3 meses, sin tope de departamentos.');
     assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } })).unidades_maximas, null);
     assert.deepEqual(await ajustarOfertaGratisPro(prisma), [], 'la segunda corrida no cambia nada');
   });

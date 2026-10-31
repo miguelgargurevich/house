@@ -80,7 +80,7 @@
       "titulo": "Planes y precios",
       "etiqueta": "Sin cuenta",
       "parrafos": [
-        "Torre tiene cuatro planes. **Torre Gratis** es para empezar: un condominio de hasta 20 departamentos, durante 3 meses. Después eliges **Torre Básico**, **Torre Pro** o **Torre Administradora**. Si no eliges ninguno, el condominio queda en solo lectura (ver «Mi condominio está en solo lectura»).",
+        "Torre tiene cuatro planes. **Torre Gratis** es para empezar: un condominio, con todos sus departamentos, durante 3 meses. Después eliges **Torre Básico**, **Torre Pro** o **Torre Administradora**. Si no eliges ninguno, el condominio queda en solo lectura (ver «Mi condominio está en solo lectura»).",
         "Los precios van en soles y sin IGV: en Perú se suma el 18 %. Ahí mismo, en [torrecondominios.com/precios](https://torrecondominios.com/precios), está la calculadora: pones tu número de departamentos y ves cuánto pagarías, con el mínimo que aplique."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/precios.jpg",
@@ -95,7 +95,7 @@
           [
             "Torre Gratis",
             "S/ 0 por 3 meses",
-            "Hasta 20 por condominio",
+            "Sin tope",
             "1 condominio. Recibos, cobranza y morosidad, Excel, medios de pago, portal del vecino, vouchers validados a mano y avisos por correo. Sin IA, WhatsApp ni asistente."
           ],
           [

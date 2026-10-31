@@ -11,7 +11,7 @@ Torre es un servicio en línea de {razon_social} (RUC {ruc}) para administrar ed
 - La administradora o la junta decide a quién invita y con qué rol, y responde por los usuarios que crea.
 
 ## 3. Planes y pagos
-- El plan **Torre Gratis** no tiene costo, dura 3 meses desde que se crea el condominio en Torre, llega hasta 20 departamentos y tiene los demás límites publicados en [Precios](/precios).
+- El plan **Torre Gratis** no tiene costo, dura 3 meses desde que se crea el condominio en Torre, no tiene tope de departamentos y tiene los demás límites publicados en [Precios](/precios).
 - Al terminar el plazo de Torre Gratis, el condominio queda en **solo lectura**: se puede ver todo, pero no registrar recibos, pagos, comunicados ni otros movimientos nuevos hasta que pase a un plan de pago (Torre Básico, Torre Pro o Torre Administradora). No se borra ningún dato: al pasar a un plan de pago, todo vuelve a estar disponible.
 - Los planes de pago se cobran por departamento y por mes, según la tarifa vigente publicada. Si el pago vence y no se renueva, el condominio vuelve a las funciones de Torre Gratis y, si su plazo de Torre Gratis ya terminó, queda en solo lectura; sus datos se conservan.
 - Podemos cambiar precios y planes avisando con al menos {dias_aviso_precios} días de anticipación; el cambio rige desde el siguiente período.

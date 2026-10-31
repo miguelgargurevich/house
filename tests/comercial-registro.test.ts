@@ -256,7 +256,7 @@ describe('endpoint público de planes', () => {
     assert.deepEqual(r.body.modulos.map((m: { clave: string }) => m.clave), ['ia_vouchers', 'whatsapp_avisos', 'asistente']);
     for (const m of r.body.modulos) assert.ok(!('precio_por_unidad' in m), 'un módulo ya no tiene precio público');
     const topes = Object.fromEntries(r.body.planes.map((p: { clave: string; unidades_maximas: number | null; unidades_minimas: number | null }) => [p.clave, [p.unidades_maximas, p.unidades_minimas]]));
-    assert.deepEqual(topes, { gratis: [20, null], basico: [null, 20], pro: [null, 20], administradora: [null, 20] }, 'Gratis hasta 20; Básico sin tope, mínimo 20; Pro y Administradora cobran mínimo 20');
+    assert.deepEqual(topes, { gratis: [null, null], basico: [null, 20], pro: [null, 20], administradora: [null, 20] }, 'Gratis sin tope; Básico sin tope, mínimo 20; Pro y Administradora cobran mínimo 20');
     const pro = r.body.planes.find((p: { clave: string }) => p.clave === 'pro');
     assert.deepEqual([...pro.modulos_incluidos].sort(), ['asistente', 'ia_vouchers', 'mora_automatica', 'reportes', 'whatsapp_avisos']);
     assert.deepEqual(r.body.planes.find((p: { clave: string }) => p.clave === 'gratis').modulos_incluidos, []);

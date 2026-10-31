@@ -14,8 +14,7 @@ export const CAPACIDADES = [...MODULOS, 'mora_automatica', 'reportes'] as const;
 export type CapacidadClave = (typeof CAPACIDADES)[number];
 export const esCapacidad = (c: string): c is CapacidadClave => (CAPACIDADES as readonly string[]).includes(c);
 
-/** Gratis llega hasta este número de unidades por condominio; Torre Pro y Torre Administradora cobran como mínimo este número. */
-export const UNIDADES_GRATIS_MAX = 20;
+/** Torre Gratis no tiene tope de departamentos desde el 30-oct (Miguel: que un condominio de varias torres lo pruebe completo); el plazo de 3 meses es el límite. */
 export const UNIDADES_PRO_MIN = 20;
 /** Básico (S/ 1 por departamento) cobra como mínimo 20 y no tiene tope de departamentos (Miguel, 30-oct: no perder los edificios grandes que no quieren Pro). */
 export const UNIDADES_BASICO_MIN = 20;
@@ -42,7 +41,7 @@ const MODULOS_SEED = [
 ] as const;
 
 export const PLANES_SEED = [
-  { clave: 'gratis', nombre: 'Torre Gratis', descripcion: 'Torre Gratis por 3 meses, hasta 20 departamentos.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
+  { clave: 'gratis', nombre: 'Torre Gratis', descripcion: 'Torre Gratis por 3 meses, sin tope de departamentos.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: null as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: [...CARACTERISTICAS_GRATIS] },
   { clave: 'basico', nombre: 'Torre Básico', descripcion: 'Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.', precio_por_unidad: '1.00', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: ['Todo lo de Torre Gratis, sin plazo', 'Sin tope de departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },

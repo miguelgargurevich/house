@@ -111,10 +111,10 @@ describe('API pública: cotizar y planes sin módulos sueltos', () => {
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro&modulos=asistente')).body.total_mes, '250.00');
   });
 
-  it('/api/publico/planes: Gratis con tope 20 y sin capacidades; Pro y Administradora con mínimo 20 y todo; módulos sin precio', async () => {
+  it('/api/publico/planes: Gratis sin tope y sin capacidades; Pro y Administradora con mínimo 20 y todo; módulos sin precio', async () => {
     const r = await llamar(base, 'GET', '/api/publico/planes');
     const por = (c: string) => r.body.planes.find((p: { clave: string }) => p.clave === c);
-    assert.deepEqual([por('gratis').unidades_maximas, por('gratis').unidades_minimas, por('gratis').modulos_incluidos], [20, null, []]);
+    assert.deepEqual([por('gratis').unidades_maximas, por('gratis').unidades_minimas, por('gratis').modulos_incluidos], [null, null, []]);
     for (const c of ['pro', 'administradora']) {
       assert.deepEqual([por(c).unidades_maximas, por(c).unidades_minimas], [null, 20]);
       assert.deepEqual([...por(c).modulos_incluidos].sort(), [...CAPACIDADES].sort());
@@ -125,13 +125,13 @@ describe('API pública: cotizar y planes sin módulos sueltos', () => {
 });
 
 describe('Mi plan y Suscripciones: unidades cobradas y topes', () => {
-  it('Pro con 2 deptos: se cobra el mínimo (59.00) y la vista lo dice; Gratis muestra su tope', async () => {
+  it('Pro con 2 deptos: se cobra el mínimo (59.00) y la vista lo dice; Gratis no tiene tope', async () => {
     await fijarPlan('pro', { dias: 40 });
     const pro2 = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0];
     assert.deepEqual({ cobradas: pro2.unidades_cobradas, reales: pro2.unidades_facturables, min: pro2.unidades_minimas, max: pro2.unidades_maximas, mes: pro2.cotizacion.total_mes }, { cobradas: 20, reales: 2, min: 20, max: null, mes: '59.00' });
     await fijarPlan('gratis');
     const g = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0];
-    assert.deepEqual({ max: g.unidades_maximas, min: g.unidades_minimas, mes: g.cotizacion.total_mes }, { max: 20, min: null, mes: '0.00' });
+    assert.deepEqual({ max: g.unidades_maximas, min: g.unidades_minimas, mes: g.cotizacion.total_mes }, { max: null, min: null, mes: '0.00' });
     assert.deepEqual(g.modulos_activos, []);
   });
 
@@ -406,7 +406,7 @@ describe('tope de 20 departamentos en Gratis', () => {
 
 describe('script de la oferta: deja una base existente con los valores nuevos', () => {
   const comoProduccionHoy = async () => {
-    await prisma.planComercial.update({ where: { clave: 'gratis' }, data: { nombre: 'Gratis', unidades_maximas: null, descripcion: 'Para siempre, sin límite de departamentos.', caracteristicas: ['Recibos por torre'] } });
+    await prisma.planComercial.update({ where: { clave: 'gratis' }, data: { nombre: 'Gratis', unidades_maximas: 20, descripcion: 'Para siempre, sin límite de departamentos.', caracteristicas: ['Recibos por torre'] } });
     await prisma.planComercial.update({ where: { clave: 'pro' }, data: { nombre: 'Pro', unidades_minimas: null, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
     await prisma.planComercial.update({ where: { clave: 'administradora' }, data: { nombre: 'Administradora', unidades_minimas: null, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
     await prisma.planComercial.update({ where: { clave: 'cortesia' }, data: { modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
@@ -420,12 +420,12 @@ describe('script de la oferta: deja una base existente con los valores nuevos', 
 
     const seco = await ajustarOfertaGratisPro(prisma, { seco: true });
     assert.deepEqual(seco.map((c) => c.clave).sort(), ['administradora', 'cortesia', 'gratis', 'pro']);
-    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).unidades_maximas, null, 'el seco no escribe');
+    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).unidades_maximas, 20, 'el seco no escribe');
 
     const real = await ajustarOfertaGratisPro(prisma);
     assert.equal(real.length, 4);
     const g = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } });
-    assert.deepEqual([g.unidades_maximas, g.unidades_minimas, g.modulos_incluidos], [20, null, []]);
+    assert.deepEqual([g.unidades_maximas, g.unidades_minimas, g.modulos_incluidos], [null, null, []]);
     assert.equal(g.nombre, 'Torre Gratis');
     for (const c of ['pro', 'administradora']) {
       const p = await prisma.planComercial.findUniqueOrThrow({ where: { clave: c } });
