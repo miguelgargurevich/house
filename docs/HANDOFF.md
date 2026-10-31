@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Registro de `scripts/e2e/resultados/` (Claude Code, Haiku 5.5) — push: no
+
+- **Qué se hizo:** se registra la carpeta `scripts/e2e/resultados/` (sin seguimiento en git). La genera `scripts/e2e/flujos-comercial.mjs`: `comercial.json` guarda el historial de las 6 invocaciones de esta sesión (2 corridas completas, cada una en 2 tandas, más 2 intentos fallidos mientras corregía). La entrada de abajo describe el resultado.
+- **Próximos pasos:** agregar `scripts/e2e/resultados/` a `.gitignore` (fuera de «Permitidos» en esa tarea; decide el orquestador). Miguel decide el push.
+- **Gotchas:** el JSON no es fuente de verdad del estado de la app; cada corrida usa datos nuevos (sufijo por corrida), así que el historial no se pisa entre corridas. Corregir `.gitignore` antes de commitear la carpeta por accidente.
+
+---
+
 ## 2026-10-31 — E2E de los flujos comerciales en el navegador (Claude Code, Haiku 5.5) — push: no
 
 - **Qué se hizo:** `scripts/e2e/flujos-comercial.mjs` (nuevo). Playwright contra el backend aislado (`levantar.sh 4101 house_e2e_comercial`), con clics y formularios reales; la API sólo prepara datos y fabrica el token del correo. Flujos: `publico` (escritorio y celular), `registro` (dos pasos + correo), `plan` (prueba de Pro → solicitud → pago del superadmin → Pro activo), `solo-lectura` (plazo vencido → 409 en pantalla), `un-condominio`, `superadmin`. Sin cambios en `src/`, `prisma/` ni `tests/`.
