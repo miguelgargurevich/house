@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Conciliación bancaria y junta única en producción (Claude Code, Opus 5.5 + Sonnet/Haiku) — push: sí
+
+- Desplegado ed1cb12; `scripts/oferta-gratis-pro.ts` corrido en producción: capacidad `conciliacion` en Pro, Administradora y Cortesía y viñeta «Conciliación bancaria» en Pro. Precios sin cambio (parejos), sólo Perú abierto (`ImpuestoPais.activo`, dato).
+- Conciliación: probada por Opus con un extracto sintético tipo BCP (13 filas): 11 conciliados, 1 abono sin voucher, 1 voucher sin abono, el cargo fuera. Pendiente de decidir con Miguel: que un abono conciliado alimente la conformidad del tesorero; la junta conciliando.
+- Junta única: Opus corrigió además Pagos y Medios de pago de la junta (Haiku no los había cubierto). Los Libertadores sin cambios.
+- Pendiente: pago con tarjeta (Culqi) — Miguel abre la cuenta de comercio; brief listo para lanzar. Datos de pago de Torre y correo de superadmin vacíos en producción (los carga Miguel). Datos legales «por confirmar» en términos/privacidad.
+
+---
+
 ## 2026-10-31 — Conciliación bancaria (Torre Pro) (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel: «cierra todo el circuito: el vecino paga, la IA valida y Torre confirma que la plata llegó a la cuenta». Rama `feat/conciliacion` (worktree), base de pruebas `house_test_conc`.
