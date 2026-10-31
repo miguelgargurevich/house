@@ -52,6 +52,17 @@ export function precioEnMoneda(plan: { clave: string; precio_por_unidad: Prisma.
   return precios.find((p) => p.plan_clave === plan.clave && p.moneda === moneda)?.precio_por_unidad ?? null;
 }
 
+/**
+ * Tramo del plan en una moneda: desde qué departamento rige y su precio base (mismas convenciones que `precioEnMoneda`). `null` = precio único. En soles
+ * es el del plan (`tramo_desde` + `tramo_precio`); en otra moneda hace falta `tramo_precio_por_unidad` de esa moneda (nunca se convierte desde soles). Un plan
+ * gratuito no tiene tramo.
+ */
+export function tramoEnMoneda(plan: { clave: string; precio_por_unidad: Prisma.Decimal; tramo_desde: number | null; tramo_precio: Prisma.Decimal | null }, moneda: string, precios: PrecioPlanMoneda[]): { desde: number; precio: Prisma.Decimal } | null {
+  if (plan.precio_por_unidad.lte(0) || plan.tramo_desde == null) return null;
+  const precio = moneda === MONEDA_BASE_PRECIOS ? plan.tramo_precio : precios.find((p) => p.plan_clave === plan.clave && p.moneda === moneda)?.tramo_precio_por_unidad ?? null;
+  return precio == null ? null : { desde: plan.tramo_desde, precio };
+}
+
 /** ¿Se puede pedir este plan de pago en ese país? El país tiene que estar abierto y el plan tener precio en su moneda. */
 export const planContratable = (ctx: ContextoCobro, plan: { clave: string; precio_por_unidad: Prisma.Decimal }, precios: PrecioPlanMoneda[]): boolean =>
   ctx.activo && precioEnMoneda(plan, ctx.moneda, precios) !== null;

@@ -944,6 +944,10 @@ model PlanComercial {
   unidades_maximas  Int?
   /// Unidades mínimas que se cobran por condominio (Pro y Administradora = 20): total = max(unidades, mínimo) × precio. null = sin mínimo.
   unidades_minimas  Int?
+  /// Precio por tramos: número de departamento desde el que rige `tramo_precio` (41 = los primeros 40 al precio normal). null = precio único. Va junto con `tramo_precio`.
+  tramo_desde       Int?
+  /// Precio por departamento desde el número `tramo_desde` (misma convención de IGV que `precio_por_unidad`). null = precio único.
+  tramo_precio      Decimal?
   /// Consultas al asistente de IA por departamento que se cobra, al mes (tope del condominio = esto × unidades cobradas). null = sin tope.
   asistente_por_unidad_mes Int?
   /// Mensajes de WhatsApp por departamento que se cobra, al mes (tope del condominio = esto × unidades cobradas). null = sin tope.
@@ -1085,6 +1089,8 @@ model PrecioPlanMoneda {
   plan_clave        String
   moneda            String
   precio_por_unidad Decimal
+  /// Precio por departamento desde el número `PlanComercial.tramo_desde` en esta moneda. null = en esta moneda el plan se cobra con precio único (no se convierte).
+  tramo_precio_por_unidad Decimal?
   updated_at        DateTime @updatedAt
 
   @@id([plan_clave, moneda])

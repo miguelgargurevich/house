@@ -8,14 +8,16 @@ import { MONEDA_BASE_PRECIOS, esModulo, type EstadoSuscripcion } from './catalog
 import { cotizar, desglosarMonto, precioSinIgv, type Cotizacion, type PrecioPlan } from './calculo';
 import { correoA, obtenerConfiguracion } from './configuracion';
 import { estadoEfectivo, primerDiaSoloLectura, type EntradaSuscripcion } from './estado';
-import { cargarReferencias, contextoDe, contextoPublico, planContratable, precioEnMoneda, type ContextoCobro } from './impuestos';
+import { cargarReferencias, contextoDe, contextoPublico, planContratable, precioEnMoneda, tramoEnMoneda, type ContextoCobro } from './impuestos';
 import { comercialDeps, invalidarComercial } from './modulos';
 
-type FilaPlan = { clave: string; precio_por_unidad: Prisma.Decimal; igv_incluido: boolean; modulos_incluidos: string[]; unidades_minimas: number | null };
+type FilaPlan = { clave: string; precio_por_unidad: Prisma.Decimal; igv_incluido: boolean; modulos_incluidos: string[]; unidades_minimas: number | null; tramo_desde: number | null; tramo_precio: Prisma.Decimal | null };
+type Tramo = { desde: number; precio: Prisma.Decimal } | null;
 
-/** La fila del plan en la forma que usa `cotizar` (precio EN LA MONEDA DEL COBRO, módulos que trae y mínimo de unidades cobradas). */
-const precioDePlan = (p: FilaPlan, precio: Prisma.Decimal = p.precio_por_unidad): PrecioPlan => ({
+/** La fila del plan en la forma que usa `cotizar` (precio y tramo EN LA MONEDA DEL COBRO, módulos que trae y mínimo de unidades cobradas). */
+const precioDePlan = (p: FilaPlan, precio: Prisma.Decimal = p.precio_por_unidad, tramo: Tramo = null): PrecioPlan => ({
   clave: p.clave, precio_por_unidad: precio, igv_incluido: p.igv_incluido, modulos_incluidos: p.modulos_incluidos, unidades_minimas: p.unidades_minimas,
+  tramo_desde: tramo?.desde ?? null, tramo_precio: tramo?.precio ?? null,
 });
 
 /** Los datos de impuesto de un contexto, en la forma que viaja a las pantallas. */
@@ -104,7 +106,7 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
     /** El plan cotizado en la moneda del condominio; sin precio ahí queda sin cotizar y `consultar` en true. */
     const cotizarPlan = (p: typeof plan, modulosSueltos: string[]) => {
       const precioMoneda = p ? precioEnMoneda(p, ctx.moneda, ref.precios) : null;
-      const cot = cotizar({ unidades: n, plan: p && precioMoneda !== null ? precioDePlan(p, precioMoneda) : null, modulosSueltos, catalogo: preciosModulos, tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
+      const cot = cotizar({ unidades: n, plan: p && precioMoneda !== null ? precioDePlan(p, precioMoneda, tramoEnMoneda(p, ctx.moneda, ref.precios)) : null, modulosSueltos, catalogo: preciosModulos, tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
       return { cot, consultar: p != null && precioMoneda === null };
     };
     // Vencido y apagado se comporta como Gratis también para el tope de unidades.
@@ -137,7 +139,7 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       solo_lectura: ef.solo_lectura,
       solo_lectura_desde: ef.gratis_hasta ? primerDiaSoloLectura(ef.gratis_hasta) : null,
       dias_gratis_restantes: ef.gratis_hasta && !ef.solo_lectura && (ef.plan_clave === 'gratis' || ef.apagada || ef.en_prueba) ? diasEntre(hoyLima(ahora), ef.gratis_hasta) : null,
-      basico_desde: basico && precioBasico !== null && basicoCabe ? formatoDinero(cotizar({ unidades: 0, plan: precioDePlan(basico, precioBasico), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base, ctx.moneda, ' ', true) : null,
+      basico_desde: basico && precioBasico !== null && basicoCabe ? formatoDinero(cotizar({ unidades: 0, plan: precioDePlan(basico, precioBasico, tramoEnMoneda(basico, ctx.moneda, ref.precios)), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base, ctx.moneda, ' ', true) : null,
       unidades_facturables: n,
       unidades_cobradas: cot.unidades_cobradas,
       unidades_maximas: planTope?.unidades_maximas ?? null,
@@ -311,11 +313,14 @@ export async function catalogoPublico(pais?: string | null) {
     igv_incluido: false,
     planes: planes.map((p) => {
       const precio = precioEnMoneda(p, ctx.moneda, ref.precios);
+      // Con precio y tramo en la moneda del país: desde qué departamento rige el segundo precio y cuánto es (sin impuesto, como `precio_por_unidad`). Sin tramo en esa moneda: precio único.
+      const tramo = precio === null ? null : tramoEnMoneda(p, ctx.moneda, ref.precios);
       return {
         clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precio === null ? null : precioSinIgv(precio, ctx.tasa, p.igv_incluido, dm).toFixed(dm), consultar: precio === null,
+        tramo_desde: tramo?.desde ?? null, tramo_precio: tramo ? precioSinIgv(tramo.precio, ctx.tasa, p.igv_incluido, dm).toFixed(dm) : null,
         modulos_incluidos: p.modulos_incluidos, caracteristicas: p.caracteristicas, unidades_maximas: p.unidades_maximas, unidades_minimas: p.unidades_minimas,
         // Lo menos que paga un condominio con este plan (el mínimo de unidades × el precio, sin impuesto), calculado aquí para que la página no haga cuentas.
-        total_minimo_mes: p.unidades_minimas && precio !== null ? cotizar({ unidades: 0, plan: precioDePlan(p, precio), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base : null,
+        total_minimo_mes: p.unidades_minimas && precio !== null ? cotizar({ unidades: 0, plan: precioDePlan(p, precio, tramo), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base : null,
       };
     }),
     // Los módulos ya no se venden sueltos: se muestran como «lo que trae Pro» (sin precio).
@@ -337,8 +342,14 @@ export async function cotizacionPublica(unidades: number, planClave: string | nu
   if (planClave && !plan) throw new HttpError(422, 'Datos inválidos: plan: no existe', { plan: 'Plan inexistente' });
   const ctx = contextoPublico(pais, ref);
   const precio = plan ? precioEnMoneda(plan, ctx.moneda, ref.precios) : null;
-  const c = cotizar({ unidades, plan: plan && precio !== null ? precioDePlan(plan, precio) : null, modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
-  const comun = { pais: ctx.pais, moneda: ctx.moneda, impuesto_nombre: ctx.impuesto_nombre, unidades: c.unidades, unidades_cobradas: c.unidades_cobradas, minimo_aplicado: c.minimo_aplicado, igv_incluido: false };
+  const tramo = plan && precio !== null ? tramoEnMoneda(plan, ctx.moneda, ref.precios) : null;
+  const c = cotizar({ unidades, plan: plan && precio !== null ? precioDePlan(plan, precio, tramo) : null, modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
+  const dm = decimalesDe(ctx.moneda);
+  const comun = {
+    pais: ctx.pais, moneda: ctx.moneda, impuesto_nombre: ctx.impuesto_nombre, unidades: c.unidades, unidades_cobradas: c.unidades_cobradas, minimo_aplicado: c.minimo_aplicado, igv_incluido: false,
+    // Precio por tramos del plan en esta moneda (sin impuesto) y cuántos departamentos caen en él con estas unidades; sin tramo: null y 0.
+    tramo_desde: tramo?.desde ?? null, tramo_precio: plan && tramo ? precioSinIgv(tramo.precio, ctx.tasa, plan.igv_incluido, dm).toFixed(dm) : null, unidades_tramo: c.unidades_tramo,
+  };
   if (plan && precio === null) return { ...comun, consultar: true, total_mes: null, total_anio: null, igv_mes: null, total_con_igv_mes: null };
   return { ...comun, consultar: false, total_mes: c.base, total_anio: new Prisma.Decimal(c.base).times(12).toFixed(decimalesDe(ctx.moneda)), igv_mes: c.igv, total_con_igv_mes: c.total_mes };
 }

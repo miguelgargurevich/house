@@ -21,7 +21,11 @@ export function precioSinIgv(precio: Valor, tasa: Valor, igvIncluido = false, de
   return igvIncluido ? redondear(new D(precio).div(new D(1).plus(tasa)), decimales) : redondear(precio, decimales);
 }
 
-export interface PrecioPlan { clave: string; precio_por_unidad: Valor; igv_incluido: boolean; modulos_incluidos: string[]; /** Se cobra como mínimo este número de unidades por condominio. */ unidades_minimas?: number | null }
+export interface PrecioPlan { clave: string; precio_por_unidad: Valor; igv_incluido: boolean; modulos_incluidos: string[]; /** Se cobra como mínimo este número de unidades por condominio. */ unidades_minimas?: number | null;
+  /** Precio por tramos: desde este número de departamento (61 = los primeros 60 al precio normal) cada departamento cuesta `tramo_precio`. Sin uno de los dos, precio único. */
+  tramo_desde?: number | null;
+  /** Precio por departamento desde `tramo_desde` (con la misma convención de impuesto que `precio_por_unidad`, y en la misma moneda). */
+  tramo_precio?: Valor | null }
 export interface PrecioModulo { clave: string; precio_por_unidad: Valor }
 
 export interface LineaCotizacion { concepto: string; clave: string; unidades: number; precio_unidad_base: string; base: string }
@@ -35,6 +39,8 @@ export interface Cotizacion {
   unidades_cobradas: number;
   /** El condominio tiene menos unidades que el mínimo del plan, así que se cobra el mínimo. */
   minimo_aplicado: boolean;
+  /** Departamentos cobrados al precio del tramo (del número `tramo_desde` en adelante); 0 si el plan no tiene tramo o no se alcanza. */
+  unidades_tramo: number;
   base: string;
   /** El impuesto (IGV, IVA…) en dinero. */
   igv: string;
@@ -47,7 +53,8 @@ export interface Cotizacion {
 }
 
 /**
- * Cuánto cuesta un condominio al mes: max(`unidades`, mínimo del plan) × precio del plan, más `unidades` × el precio de cada módulo suelto que el
+ * Cuánto cuesta un condominio al mes: max(`unidades`, mínimo del plan) × precio del plan (con tramo: los primeros `tramo_desde - 1` a `precio_por_unidad` y
+ * del `tramo_desde` en adelante a `tramo_precio`, en dos líneas), más `unidades` × el precio de cada módulo suelto que el
  * plan no trae (sólo suscripciones antiguas: los módulos ya no se venden sueltos; el mínimo es del plan, no de esos módulos).
  * Se suma la BASE exacta de todas las líneas y sólo al final se aplica el impuesto (no se suman precios ya redondeados). `moneda` fija los decimales
  * con que se redondea (soles por defecto); `plan.precio_por_unidad` ya viene en esa moneda.
@@ -60,6 +67,7 @@ export function cotizar(p: { unidades: number; plan: PrecioPlan | null; modulosS
   const lineas: LineaCotizacion[] = [];
   let baseExacta = new D(0);
   let cobradas = unidades;
+  let unidadesTramo = 0;
   const sumar = (concepto: string, clave: string, baseUnidad: Dec, n = unidades) => {
     const base = baseUnidad.times(n);
     baseExacta = baseExacta.plus(base);
@@ -69,7 +77,14 @@ export function cotizar(p: { unidades: number; plan: PrecioPlan | null; modulosS
     const unidadBase = p.plan.igv_incluido ? dec(p.plan.precio_por_unidad).div(new D(1).plus(tasa)) : dec(p.plan.precio_por_unidad);
     const minimo = Math.max(0, Math.trunc(p.plan.unidades_minimas ?? 0));
     cobradas = Math.max(unidades, minimo);
-    sumar(`Plan ${p.plan.clave}`, p.plan.clave, unidadBase, cobradas);
+    const desde = p.plan.tramo_desde != null && p.plan.tramo_precio != null ? Math.trunc(p.plan.tramo_desde) : null;
+    if (desde != null && desde >= 2 && cobradas >= desde) {
+      const tramoBase = p.plan.igv_incluido ? dec(p.plan.tramo_precio).div(new D(1).plus(tasa)) : dec(p.plan.tramo_precio);
+      const normales = desde - 1;
+      unidadesTramo = cobradas - normales;
+      sumar(`Plan ${p.plan.clave}: departamentos 1 a ${normales}`, p.plan.clave, unidadBase, normales);
+      sumar(`Plan ${p.plan.clave}: desde el departamento ${desde}`, p.plan.clave, tramoBase, unidadesTramo);
+    } else sumar(`Plan ${p.plan.clave}`, p.plan.clave, unidadBase, cobradas);
   }
   const incluidos = new Set(p.plan?.modulos_incluidos ?? []);
   for (const clave of new Set(p.modulosSueltos)) {
@@ -80,7 +95,7 @@ export function cotizar(p: { unidades: number; plan: PrecioPlan | null; modulosS
   const total = redondear(baseExacta.times(new D(1).plus(tasa)), dm);
   const igv = redondear(baseExacta.times(tasa), dm);
   const base = total.minus(igv);
-  return { moneda, impuesto_nombre: p.impuestoNombre ?? 'IGV', unidades, unidades_cobradas: cobradas, minimo_aplicado: cobradas > unidades, base: base.toFixed(dm), igv: igv.toFixed(dm), total_mes: total.toFixed(dm), total_anio: total.times(12).toFixed(dm), igv_tasa: tasa.toString(), lineas };
+  return { moneda, impuesto_nombre: p.impuestoNombre ?? 'IGV', unidades, unidades_cobradas: cobradas, minimo_aplicado: cobradas > unidades, unidades_tramo: unidadesTramo, base: base.toFixed(dm), igv: igv.toFixed(dm), total_mes: total.toFixed(dm), total_anio: total.times(12).toFixed(dm), igv_tasa: tasa.toString(), lineas };
 }
 
 /** Parte un monto pagado (con impuesto) en base + impuesto con la tasa vigente, a los decimales de su moneda. */

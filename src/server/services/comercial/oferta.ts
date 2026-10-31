@@ -1,7 +1,7 @@
 // La oferta «Gratis con límite o Pro con todo»: pone en una base YA existente los valores que una base nueva recibe de `PLANES_SEED`
 // (tope de Gratis, mínimo de Torre Pro y Torre Administradora, capacidades de cada plan y textos). Idempotente: correrlo dos veces deja lo mismo.
 // Precios y estado de las suscripciones no se tocan (Los Libertadores sigue en cortesía).
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { CAPACIDADES, CARACTERISTICAS_GRATIS_ANTERIORES, PLANES_SEED, sembrarCatalogoComercial } from './catalogo';
 import { invalidarComercial } from './modulos';
 
@@ -29,6 +29,12 @@ export async function ajustarOfertaGratisPro(db: Cliente, opts: { seco?: boolean
     if (fila.unidades_minimas !== seed.unidades_minimas) { cambios.push(`unidades_minimas ${fila.unidades_minimas ?? '—'} → ${seed.unidades_minimas ?? '—'}`); data.unidades_minimas = seed.unidades_minimas; }
     if (fila.asistente_por_unidad_mes !== seed.asistente_por_unidad_mes) { cambios.push(`asistente_por_unidad_mes ${fila.asistente_por_unidad_mes ?? '—'} → ${seed.asistente_por_unidad_mes ?? '—'}`); data.asistente_por_unidad_mes = seed.asistente_por_unidad_mes; }
     if (fila.whatsapp_por_unidad_mes !== seed.whatsapp_por_unidad_mes) { cambios.push(`whatsapp_por_unidad_mes ${fila.whatsapp_por_unidad_mes ?? '—'} → ${seed.whatsapp_por_unidad_mes ?? '—'}`); data.whatsapp_por_unidad_mes = seed.whatsapp_por_unidad_mes; }
+    // El tramo sólo se pone si la fila no tiene NINGUNO de los dos campos (null y null): lo que el superadmin editó —un tramo propio— no se pisa.
+    if (fila.tramo_desde == null && fila.tramo_precio == null && seed.tramo_desde != null && seed.tramo_precio != null) {
+      cambios.push(`tramo: desde el departamento ${seed.tramo_desde} a ${seed.tramo_precio}`);
+      data.tramo_desde = seed.tramo_desde;
+      data.tramo_precio = new Prisma.Decimal(seed.tramo_precio);
+    }
     // Gratis no trae nada; el resto trae todas las capacidades (se conserva el orden de las que ya tenía y se agregan las que faltan).
     const quiere = seed.modulos_incluidos.length ? [...fila.modulos_incluidos.filter((m) => (CAPACIDADES as readonly string[]).includes(m)), ...CAPACIDADES.filter((c) => !fila.modulos_incluidos.includes(c))] : [];
     if (!igual(fila.modulos_incluidos, quiere)) { cambios.push(`modulos_incluidos → ${quiere.join(', ') || '(ninguno)'}`); data.modulos_incluidos = quiere; }

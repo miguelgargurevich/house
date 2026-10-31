@@ -42,6 +42,21 @@ const pagoSchema = z.object({
   notas: textoOpcional(500),
 });
 
+/**
+ * Revisa el tramo de un plan con los valores que quedarán (los del body sobre los guardados): los dos campos o ninguno, `tramo_desde` mayor que el mínimo
+ * de departamentos del plan y `tramo_precio` menor que el precio por departamento. 422 con el campo que falla.
+ */
+function validarTramo(q: { precio_por_unidad: string | Prisma.Decimal; unidades_minimas: number | null; tramo_desde: number | null; tramo_precio: string | Prisma.Decimal | null }): void {
+  const { tramo_desde: desde, tramo_precio: tp } = q;
+  if (desde == null && tp == null) return;
+  if (desde == null || tp == null) {
+    const campo = desde == null ? 'tramo_desde' : 'tramo_precio';
+    throw invalid(`Datos inválidos: ${campo}: el tramo lleva «desde el departamento» y «precio desde ahí», los dos o ninguno`, { [campo]: 'Completa los dos campos del tramo o déjalos vacíos' });
+  }
+  if (q.unidades_minimas != null && desde <= q.unidades_minimas) throw invalid(`Datos inválidos: tramo_desde: debe ser mayor que el mínimo de departamentos del plan (${q.unidades_minimas})`, { tramo_desde: `Debe ser mayor que ${q.unidades_minimas}` });
+  if (!new Prisma.Decimal(tp).lt(new Prisma.Decimal(q.precio_por_unidad))) throw invalid('Datos inválidos: tramo_precio: debe ser menor que el precio por departamento del plan', { tramo_precio: 'Debe ser menor que el precio por departamento' });
+}
+
 const moduloSchema = z.object({ nombre: texto(80).optional(), descripcion: textoOpcional(300), precio_por_unidad: precio.optional(), activo: z.boolean().optional() });
 const planSchema = z.object({
   nombre: texto(80).optional(),
@@ -50,6 +65,10 @@ const planSchema = z.object({
   modulos_incluidos: z.array(capacidadEnum).max(CAPACIDADES.length).optional(),
   unidades_maximas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
   unidades_minimas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
+  /** Precio por tramos: desde qué número de departamento rige `tramo_precio` (61 = los primeros 60 al precio normal). Van juntos; null en los dos = precio único. */
+  tramo_desde: z.number().int().min(2, 'Desde el departamento 2 como mínimo').max(100_000).nullable().optional(),
+  /** Precio base por departamento desde `tramo_desde` (mismo IGV que `precio_por_unidad`); menor que ese precio. */
+  tramo_precio: precio.nullable().optional(),
   /** Consultas al asistente por departamento que se cobra, al mes (0 a 1000; null = sin tope). */
   asistente_por_unidad_mes: z.number().int().min(0, 'Mínimo 0').max(1000, 'Máximo 1000').nullable().optional(),
   /** Mensajes de WhatsApp por departamento que se cobra, al mes (0 a 1000; null = sin tope). */
@@ -295,18 +314,36 @@ comercialRouter.put('/impuestos/:pais', superadmin, async (req, res) => {
  *   delete: { summary: "Quita el precio de un plan en una moneda (vuelve a «Consúltanos»); el de soles no se quita", tags: [Comercial], responses: { 204: { description: "Quitado" } } } */
 comercialRouter.put('/planes/:clave/precios/:moneda', superadmin, async (req, res) => {
   const { clave, moneda } = parse(precioMonedaParams, req.params);
-  const { precio_por_unidad } = parseBody(z.object({ precio_por_unidad: precio }), req);
-  if (decimalesDe(moneda) === 0 && /\./.test(precio_por_unidad)) throw invalid(`Datos inválidos: precio_por_unidad: en ${monedaEnPlural(moneda)} el precio no lleva decimales`, { precio_por_unidad: 'Sin decimales en esta moneda' });
-  if (!(await prisma.planComercial.findUnique({ where: { clave }, select: { clave: true } }))) throw notFound('Plan');
+  const { precio_por_unidad, tramo_precio_por_unidad } = parseBody(z.object({ precio_por_unidad: precio, tramo_precio_por_unidad: precio.nullable().optional() }), req);
+  const sinDecimales = decimalesDe(moneda) === 0;
+  if (sinDecimales && /\./.test(precio_por_unidad)) throw invalid(`Datos inválidos: precio_por_unidad: en ${monedaEnPlural(moneda)} el precio no lleva decimales`, { precio_por_unidad: 'Sin decimales en esta moneda' });
+  if (sinDecimales && tramo_precio_por_unidad != null && /\./.test(tramo_precio_por_unidad)) throw invalid(`Datos inválidos: tramo_precio_por_unidad: en ${monedaEnPlural(moneda)} el precio no lleva decimales`, { tramo_precio_por_unidad: 'Sin decimales en esta moneda' });
+  const plan = await prisma.planComercial.findUnique({ where: { clave }, select: { clave: true, tramo_desde: true, tramo_precio: true } });
+  if (!plan) throw notFound('Plan');
   const dato = new Prisma.Decimal(precio_por_unidad);
-  // El precio en soles es el del plan mismo (lo que ya existía); las demás monedas viven en PrecioPlanMoneda.
-  if (moneda === MONEDA_BASE_PRECIOS) await prisma.planComercial.update({ where: { clave }, data: { precio_por_unidad: dato } });
-  else await prisma.precioPlanMoneda.upsert({ where: { plan_clave_moneda: { plan_clave: clave, moneda } }, create: { plan_clave: clave, moneda, precio_por_unidad: dato }, update: { precio_por_unidad: dato } });
+  let tramoGuardado: string | null = null;
+  if (moneda === MONEDA_BASE_PRECIOS) {
+    // El precio en soles es el del plan mismo (lo que ya existía): su tramo se edita en el plan, y el precio nuevo tiene que seguir por encima del tramo.
+    if (tramo_precio_por_unidad !== undefined) throw invalid('Datos inválidos: tramo_precio_por_unidad: en soles el tramo es el del plan (tramo_desde y tramo_precio)', { tramo_precio_por_unidad: 'En soles se edita en el plan' });
+    if (plan.tramo_precio != null && !plan.tramo_precio.lt(dato)) throw invalid('Datos inválidos: precio_por_unidad: debe ser mayor que el precio del tramo del plan', { precio_por_unidad: 'Debe ser mayor que el precio del tramo' });
+    await prisma.planComercial.update({ where: { clave }, data: { precio_por_unidad: dato } });
+  } else {
+    const fila = await prisma.precioPlanMoneda.findUnique({ where: { plan_clave_moneda: { plan_clave: clave, moneda } }, select: { tramo_precio_por_unidad: true } });
+    // Sin `tramo_precio_por_unidad` en el body se conserva el que ya tenía esa moneda; `null` lo quita (en esa moneda el plan se cobra con precio único).
+    const tramo = tramo_precio_por_unidad !== undefined ? tramo_precio_por_unidad : fila?.tramo_precio_por_unidad ?? null;
+    if (tramo != null) {
+      if (plan.tramo_desde == null) throw invalid('Datos inválidos: tramo_precio_por_unidad: el plan no tiene tramo (fija primero «desde el departamento» en el plan)', { tramo_precio_por_unidad: 'El plan no tiene tramo' });
+      if (!new Prisma.Decimal(tramo).lt(dato)) throw invalid('Datos inválidos: tramo_precio_por_unidad: debe ser menor que el precio por departamento', { tramo_precio_por_unidad: 'Debe ser menor que el precio por departamento' });
+    }
+    const tramoDato = tramo == null ? null : new Prisma.Decimal(tramo);
+    tramoGuardado = tramoDato?.toString() ?? null;
+    await prisma.precioPlanMoneda.upsert({ where: { plan_clave_moneda: { plan_clave: clave, moneda } }, create: { plan_clave: clave, moneda, precio_por_unidad: dato, tramo_precio_por_unidad: tramoDato }, update: { precio_por_unidad: dato, tramo_precio_por_unidad: tramoDato } });
+  }
   invalidarComercial();
   res.locals.entidad = 'precio_plan_moneda';
   res.locals.accion = 'editar';
-  res.locals.auditDetalle = { plan: clave, moneda, precio_por_unidad };
-  res.json({ plan_clave: clave, moneda, precio_por_unidad });
+  res.locals.auditDetalle = { plan: clave, moneda, precio_por_unidad, ...(tramo_precio_por_unidad !== undefined ? { tramo_precio_por_unidad } : {}) };
+  res.json({ plan_clave: clave, moneda, precio_por_unidad, tramo_precio_por_unidad: tramoGuardado });
 });
 
 comercialRouter.delete('/planes/:clave/precios/:moneda', superadmin, async (req, res) => {
@@ -337,12 +374,20 @@ comercialRouter.put('/modulos/:clave', superadmin, async (req, res) => {
 comercialRouter.put('/planes/:clave', superadmin, async (req, res) => {
   const { clave } = parse(claveParams, req.params);
   const body = parseBody(planSchema, req);
-  if (!(await prisma.planComercial.findUnique({ where: { clave }, select: { clave: true } }))) throw notFound('Plan');
+  const actual = await prisma.planComercial.findUnique({ where: { clave }, select: { precio_por_unidad: true, unidades_minimas: true, tramo_desde: true, tramo_precio: true } });
+  if (!actual) throw notFound('Plan');
+  // Se valida con lo que quedará guardado: editar sólo el precio o el mínimo también tiene que dejar el tramo coherente.
+  validarTramo({
+    precio_por_unidad: body.precio_por_unidad ?? actual.precio_por_unidad,
+    unidades_minimas: body.unidades_minimas !== undefined ? body.unidades_minimas : actual.unidades_minimas,
+    tramo_desde: body.tramo_desde !== undefined ? body.tramo_desde : actual.tramo_desde,
+    tramo_precio: body.tramo_precio !== undefined ? body.tramo_precio : actual.tramo_precio,
+  });
   const p = await prisma.planComercial.update({ where: { clave }, data: definidos(body) });
   invalidarComercial();
   res.locals.entidad = 'plan_comercial';
   res.locals.accion = 'editar';
-  res.locals.auditDetalle = { plan: clave, ...(body.precio_por_unidad !== undefined ? { precio_por_unidad: body.precio_por_unidad } : {}), ...(body.modulos_incluidos ? { modulos_incluidos: body.modulos_incluidos } : {}), ...(body.unidades_maximas !== undefined ? { unidades_maximas: body.unidades_maximas } : {}), ...(body.unidades_minimas !== undefined ? { unidades_minimas: body.unidades_minimas } : {}), ...(body.visible !== undefined ? { visible: body.visible } : {}) };
+  res.locals.auditDetalle = { plan: clave, ...(body.precio_por_unidad !== undefined ? { precio_por_unidad: body.precio_por_unidad } : {}), ...(body.modulos_incluidos ? { modulos_incluidos: body.modulos_incluidos } : {}), ...(body.unidades_maximas !== undefined ? { unidades_maximas: body.unidades_maximas } : {}), ...(body.unidades_minimas !== undefined ? { unidades_minimas: body.unidades_minimas } : {}), ...(body.tramo_desde !== undefined ? { tramo_desde: body.tramo_desde } : {}), ...(body.tramo_precio !== undefined ? { tramo_precio: body.tramo_precio } : {}), ...(body.visible !== undefined ? { visible: body.visible } : {}) };
   res.json(p);
 });
 
