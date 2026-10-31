@@ -4,6 +4,20 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Reservas de áreas comunes, MVP de punta a punta (Claude Code, Sonnet 5.5) — push: no
+
+- **Pedido de Miguel:** «Sí, esos dos (reservas de áreas comunes: la tienen los 8 competidores del benchmark…)». Rama `feat/reservas`, worktree `.claude/worktrees/reservas`, base `house_test_reservas`.
+- **Qué se hizo:** modelos `AreaComun` y `Reserva` (al final de `schema.prisma`, más relaciones inversas mínimas en Complejo/Unidad/Usuario); servicio `services/reservas.ts` (reglas, conversión día+hora de pared → UTC con la zona del condominio, cruce en transacción con `FOR UPDATE` sobre el área); rutas `/api/areas-comunes` y `/api/reservas` (`routes/areasComunes.ts`, `routes/reservas.ts`, montadas en `app.ts`); `scopeAreasComunes`/`scopeReservas`/`scopeUnidadesReserva` en `lib/scope.ts`; pantallas admin `/admin/areas-comunes` (pestañas Reservas y Áreas) y residente `/propietario/reservas` + `/inquilino/reservas`; menú, `App.tsx` y rutas del asistente; contrato en `docs/API-CONTRATO.md`. Pruebas: `tests/reservas.test.ts` (API) y `tests/reservas-ui.test.ts`.
+- **Decisiones:** la API recibe `dia` + `hora_inicio`/`hora_fin` de pared (no instantes): el cliente no necesita lógica de zona. Función base: sin candado de módulo. Reservas pendientes ocupan el horario. El residente sólo ve SUS reservas (otros vecinos no ven quién reservó; `mia` en la disponibilidad). Solo lectura: toda mutación (incluida cancelar y editar áreas) da 409 `SOLO_LECTURA`.
+- **Archivos fuera de «Permitidos»:** el brief decía `src/app/asistente/rutasApp.ts`; el real es `src/server/lib/rutasApp.ts` (convención del repo) y es el que se editó. No se tocó `src/app/condominio.ts` (el selector de la barra no rige aquí): la página admin tiene su propio selector de condominio.
+- **Fuera de alcance (no hecho):** cobro de la reserva en el recibo, avisos por correo/WhatsApp, junta aprobando, áreas/reservas en `prisma/seed.ts` y en el seed de Los Libertadores.
+- **Gotchas:** desactivar un área o cambiar su horario NO toca reservas ya creadas. Un `unidad`/`area` ajena es 404 pero «tu unidad de otro condominio» es 422. `vaciarBase` no lista las tablas nuevas: las vacía el `CASCADE` desde `ComplejoHabitacional`/`Unidad`.
+- **Próximos pasos:** Miguel decide el push; en producción hace falta `prisma db push` (aditivo); verificar a 390 px en el navegador con datos (no hecho: sólo pruebas de fuente); sembrar áreas de ejemplo en los seeds para las demos.
+- **Pruebas:** `reservas.test.ts` 38/38 (API) y `reservas-ui.test.ts` 24/24; tipos (`tsc -b`, `tsc -p tests/tsconfig.json`), `npm run build` y eslint de lo nuevo limpios. Suite completa 3092 pruebas: en tres corridas, 0 / 2 / 1 fallos, TODOS timeouts de ~5 s de pruebas ajenas (`impuesto-pais`, `registro-dos-pasos`, `empresa-personal`) con la Mac a carga ≈ 9; cada una pasa sola. Mutaciones (todas en rojo, restauradas con `cp`+`cmp`): sin chequeo de cruce → 4 fallan; sin filtro por empresa → 5; cancelar la de otro (scope del residente abierto) → 2; ignorar la zona horaria → 3; y en la UI, «hoy» con UTC en vez de la zona del área → 1.
+- **Cambio fuera de «Permitidos»:** `tests/torres-fichas-ui.test.ts` fija la lista exacta del grupo Operación; se agregó «Áreas comunes» tras «Comunicados». En el menú de los vecinos «Reservas» va DESPUÉS de «Comunicados» para no romper el orden pactado de «Proveedores».
+
+---
+
 ## 2026-10-31 — Precios nuevos, candado de Pro y benchmark (Claude Code, Opus 5.5 + Haiku) — push: sí
 
 - Pedido de Miguel: «con los propuestos .. y haces el benckmark de precios otra vez». Básico S/ 1,50 · Pro S/ 3,50 · Administradora S/ 3,00 por dpto (mínimo 20: S/ 30 · 70 · 60). Seed y pruebas (Haiku, `precios-nuevos`); en producción se cambió `PlanComercial.precio_por_unidad` por SQL (no había suscripciones de pago: sólo la cortesía).
