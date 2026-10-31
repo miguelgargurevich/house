@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — E2E de todos los flujos (Claude Code, Opus 5.5) — push: no — EN CURSO
+
+- Pedido de Miguel: «corre pruebas e2e de todos los flujos si falta alguno lo creas».
+- `scripts/e2e/levantar.sh [puerto] [base]`: copia la base local `house` (semilla) a `house_e2e…`, abre el registro y levanta el backend con `dist/` SIN correo ni WhatsApp. No toca `house` ni producción.
+- `scripts/pruebas/recorrido-pantallas.mjs`: el rol Público ahora también recorre `/`, `/privacidad` y `/terminos`.
+- Delegado a Haiku: `flujos-comercial.mjs` (público, registro en dos pasos, Mi plan, solo lectura, un condominio, superadmin; backend 4101) y `flujos-operacion.mjs` (cobro, voucher, validar, rechazo, efectivo, comunicado, invitación, junta, personal, perfil; backend 4102).
+- Gotcha: los tokens de correo e invitación se guardan como sha256; las E2E fabrican el suyo por SQL en la base `house_e2e…`.
+
+---
+
 ## 2026-10-31 — /precios: «Sin tope de departamentos» con su propio check (Claude Code, Opus 5.5) — push: sí
 
 - Registro de cuentas nuevas ABIERTO en producción (`registro_abierto = true`) por pedido de Miguel el 31-oct.

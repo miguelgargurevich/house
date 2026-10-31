@@ -72,3 +72,4 @@ docker-compose*
 .claude/
 scripts/e2e/capturas/
 scripts/e2e/resultado.json
+scripts/e2e/resultados/

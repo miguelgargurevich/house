@@ -22,7 +22,7 @@ const ROLES = [
   ['Limpieza', 'limpieza@prueba.house', 'pers1234', ['/limpieza/inicio','/limpieza/tareas'], true],
   ['Jardinería', 'jardineria@prueba.house', 'pers1234', ['/jardineria/inicio','/jardineria/tareas'], true],
   ['Seguridad', 'pedro.sanchez@gestionurbana.com', 'seg1234', ['/seguridad/inicio','/seguridad/unidades','/perfil'], true],
-  ['Público', null, null, ['/login','/precios','/registro'], true],
+  ['Público', null, null, ['/','/login','/precios','/registro','/privacidad','/terminos'], true],
 ];
 const b = await chromium.launch(); const filas = [];
 for (const [rol, email, pw, rutas, movil] of ROLES) {
