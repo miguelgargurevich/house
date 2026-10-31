@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Tramos en Pro y Administradora desde el departamento 61 (Claude Code, Opus 5.5 + Sonnet) — push: no
+
+- Decisión de Miguel: «Desde el 61 a S/ 2». Pro: hasta el 60 a S/ 3,00 y desde el 61 a S/ 2,00; Administradora: S/ 2,50 y desde el 61 S/ 1,70 (Sonnet, `feat/tramos-pro-61`, reemplaza a `feat/tramos-pro`). Pro 80 = S/ 220, 150 = S/ 360; Administradora 150 = S/ 303 (verificado con `/api/publico/cotizar`).
+- Integrado sobre el SEO: el texto del tramo vive en `src/lib/seo/textos.ts` (`textoTope` usa `despuesDelPrecioBase` de `precios/tramo.ts`), así el HTML para buscadores también lo trae. La FAQ «¿Y si mi edificio tiene pocos departamentos?» menciona el tramo de Pro.
+- Producción: el deploy hace `db push` (campos `tramo_desde`/`tramo_precio`, aditivos y null); DESPUÉS correr `docker exec <contenedor> npx tsx scripts/oferta-gratis-pro.ts --seco` y sin `--seco` (pone los tramos sólo si están en null).
+- Suite 3202/3202.
+
+---
+
 ## 2026-10-31 — Precio por tramos: desde el departamento 61 a S/ 2,00 (Pro) y S/ 1,70 (Administradora) (Claude Code, Sonnet 5.5) — push: no
 
 - **Pedido de Miguel:** «Desde el 61 a S/ 2». Decisión (31-oct): Torre Pro hasta el 60 a S/ 3,00 y desde el 61 a S/ 2,00; Torre Administradora hasta el 60 a S/ 2,50 y desde el 61 a S/ 1,70. Básico y Gratis sin tramo. Rama `feat/tramos-pro-61` (sobre origin/main a868562), base `house_test_tramos61`. Reemplaza a `feat/tramos-pro` (precios viejos, tramo desde el 41): no integrar las dos.
