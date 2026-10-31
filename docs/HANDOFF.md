@@ -4,6 +4,21 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — E2E de operación: diez flujos en el navegador (Claude Code, Haiku 5.5) — push: no
+
+- **Pedido de Miguel:** «corre pruebas e2e de todos los flujos si falta alguno lo creas». Worktree `e2e-operacion` (rama `test/e2e-operacion`). Script nuevo `scripts/e2e/flujos-operacion.mjs`; no se tocó `src/`, `prisma/`, `tests/`, `levantar.sh` ni `package.json`.
+- **Flujos (10), en el navegador con clics reales:** `cobro`, `pago-voucher` (celular), `validar`, `rechazo`, `efectivo`, `comunicado` (celular), `invitacion` (celular), `junta`, `personal`, `perfil` (celular). La base sólo se lee para elegir unidades con cargo pendiente y para fabricar el token de invitación (no hay correo).
+- **Resultado:** corrida completa sobre base recién copiada 35/35; segunda corrida sin recopiar 35/35; tercera 35/35. Sin desborde horizontal, errores de consola ni 5xx. Una mutación a propósito (texto esperado de `junta` cambiado) hizo fallar el paso con código 1; se restauró con `cp` y `cmp`.
+- **Regla vigente que el brief no tenía:** sólo admin y superadmin validan o rechazan (`PATCH /api/pagos/:id/validacion`, API-CONTRATO). La tesorera del block confirma que llegó el dinero («IA + tesorero»). Por eso `validar` pide primero la confirmación de la tesorera, y `rechazo` comprueba que la tesorera **no** ve «Rechazar» y lo hace la administradora. Si Miguel quiere que la tesorera rechace, es decisión de producto.
+- **Decisiones:** `pago-voucher` paga javier.castro (B03-502) si aún tiene cargo pendiente; si no, otro propietario pendiente del Block 3. Los demás flujos eligen su unidad por SQL (sólo lectura) con cargo pendiente, así que dos corridas no se pisan. `cobro` abre e imprime el recibo de octubre (ya viene emitido) y sube el Excel de Block 1 para noviembre; si noviembre ya existe, lo omite.
+- **Gotchas:**
+  1. Límite de inicio de sesión: 10 intentos por IP y correo cada 15 min (`rateLimit.ts`). Si sale «Demasiados intentos», reinicia con `bash ~/Projectos/house/scripts/e2e/levantar.sh 4102 house_e2e_operacion --sin-copiar` (no recopia la base). Dentro de una corrida cada cuenta entra una vez.
+  2. Un voucher crea una fila de `Pago` por cada concepto del recibo (7–10); la lista muestra sólo la principal.
+  3. La lista de pagos va de a 20 y por fecha: el script pasa de página con «Página siguiente» o filtra por block.
+  4. En celular la lista de pagos son tarjetas (`li`), y hay además una `tr` oculta con el mismo código: el buscador sólo mira lo visible.
+  5. `scripts/e2e/resultados/` no está en `.gitignore` (sólo `capturas/` y `resultado.json`): no comitear `operacion.json`.
+  6. Playwright global: `/opt/homebrew/lib/node_modules/playwright`.
+- **Próximos pasos:** Miguel decide el push. Pendiente, fuera de «Permitidos»: añadir `scripts/e2e/resultados/` al `.gitignore`. Correr con `bash ~/Projectos/house/scripts/e2e/levantar.sh 4102 house_e2e_operacion` y luego `node scripts/e2e/flujos-operacion.mjs` (o una lista: `cobro,pago-voucher,validar`).
 ## 2026-10-31 — Registro de `scripts/e2e/resultados/` (Claude Code, Haiku 5.5) — push: no
 
 - **Qué se hizo:** se registra la carpeta `scripts/e2e/resultados/` (sin seguimiento en git). La genera `scripts/e2e/flujos-comercial.mjs`: `comercial.json` guarda el historial de las 6 invocaciones de esta sesión (2 corridas completas, cada una en 2 tandas, más 2 intentos fallidos mientras corregía). La entrada de abajo describe el resultado.
