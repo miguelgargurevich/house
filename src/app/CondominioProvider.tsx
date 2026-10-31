@@ -35,9 +35,11 @@ export function CondominioProvider({ children }: { children: ReactNode }) {
     condominio: condominios.find(c => c.id === elegido) ?? null,
     complejo: aplica && elegido !== null ? String(elegido) : '',
     varios: condominios.length > 1,
+    listo: activo && cargado && !lista.error,
+    sinCondominios: activo && cargado && !lista.error && condominios.length === 0,
     elegir,
     recargar: lista.reload,
-  }), [activo, aplica, condominios, lista.loading, lista.error, lista.reload, elegido, elegir]);
+  }), [activo, aplica, cargado, condominios, lista.loading, lista.error, lista.reload, elegido, elegir]);
 
   return <CondominioCtx.Provider value={valor}>{children}</CondominioCtx.Provider>;
 }

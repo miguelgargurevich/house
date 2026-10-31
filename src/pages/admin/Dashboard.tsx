@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useResource } from '../../api';
@@ -6,6 +6,7 @@ import { monedaEnPlural } from '../../lib/paises';
 import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto, nombreDelMes, periodo } from '../../ui';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { BandaPlan } from './_parts/plan/BandaPlan';
+import { BienvenidaListo } from './_parts/BienvenidaListo';
 
 /** Mantenimientos (un departamento en un mes) por estado. Suman todos los mantenimientos del alcance. */
 interface Estados { pagado: number; pendiente: number; parcial: number; vencido: number; en_revision: number }
@@ -58,6 +59,8 @@ const sinPagar = (e: Estados) => e.pendiente + e.parcial + e.vencido + e.en_revi
 
 export default function Dashboard() {
   const { complejo } = useCondominio();
+  // Paso 3 del registro: recién creado el condominio, `Bienvenida` llega aquí con su nombre en el estado de la navegación.
+  const nuevo = (useLocation().state as { bienvenida?: unknown } | null)?.bienvenida;
   const [torre, setTorre] = useTorreElegida();
   const filtros = new URLSearchParams();
   if (complejo) filtros.set('complejo_id', complejo);
@@ -70,6 +73,7 @@ export default function Dashboard() {
 
   return (
     <>
+      {typeof nuevo === 'string' && nuevo !== '' && <BienvenidaListo condominio={nuevo} />}
       <PageHeader title="Resumen" description={`Cobranza, morosidad y operación de tus condominios. Cada ${palabra.una} tiene su propio recibo: ${palabra.mira}.`} />
       <BandaPlan />
       <SelectoresUbicacion torre={torre} onTorre={setTorre} envoltura="fila" />

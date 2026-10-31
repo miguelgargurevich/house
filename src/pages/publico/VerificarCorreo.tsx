@@ -30,7 +30,7 @@ export default function VerificarCorreo() {
             <>
               <CheckCircleIcon className="mx-auto h-12 w-12 text-ok" aria-hidden="true" />
               <h1 className="mt-3 text-xl font-semibold">¡Correo confirmado!</h1>
-              <p className="mt-2 text-sm text-muted">Tu cuenta ya está activa. Entra con tu correo y tu contraseña.</p>
+              <p className="mt-2 text-sm text-muted">Tu cuenta ya está activa. Entra con tu correo y tu contraseña; el paso 2 de 2 es crear tu condominio.</p>
               <Link to="/login" className="mt-6 inline-block rounded bg-brand px-5 py-2.5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">Iniciar sesión</Link>
             </>
           )}

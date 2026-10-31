@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Registro en dos pasos: primero la cuenta, después el condominio (Claude Code, Sonnet 5.5) — push: no
+
+- **Pedido de Miguel:** «mejores el onboarding, primero es la cuenta del super admin (usuario) que se crea luego viene lo del condominio». Rama `feat/registro-en-dos-pasos`.
+- **Paso 1** (`/registro`, `POST /api/publico/registro`): sólo nombre, correo, celular, contraseña + Términos. Crea empresa (nombre PROVISIONAL = el de la persona) + admin sin condominio ni suscripción; mismas defensas (señuelo, límites, respuesta idéntica, P2002). Los campos viejos (`empresa`, `condominio`, `unidades`) se **ignoran** (202, sin 422: una pantalla en caché no se rompe). Indicador «1 Cuenta · 2 Condominio · 3 Listo», «Paso 1 de 2: tu cuenta» en pantalla y panel; el correo y «Correo confirmado» avisan del paso 2.
+- **Paso 2** (`/admin/bienvenida`, `POST /api/comercial/primer-condominio`, sólo `admin` de su empresa): `empresa`, `condominio`, `unidades` (zod). Una transacción con la fila de la empresa bloqueada (`FOR UPDATE`, dos envíos a la vez → 201 + 409): renombra la empresa, crea condominio + contrato + suscripción con la regla de siempre, movida a `crearCondominioInicial` (`services/comercial/primerCondominio.ts`; `registrarCuenta` ya no la tiene). 409 si la empresa ya tiene condominios. Audita `primer_condominio` y avisa «Nuevo condominio en Torre». Al terminar → Resumen con la tarjeta «¡Listo!» (siguientes pasos: recibos, medios de pago, juntas).
+- **Resto de la app:** guarda `RequireCondominio` (`src/app/`): un `admin` sin condominios cae en la bienvenida desde cualquier pantalla de administración, con menú de una sola entrada; superadmin y demás roles intactos. La API ya respondía vacía para una admin sin condominios (Resumen, selector, Mi plan, listas): ahora lo fija una prueba. `/admin/bienvenida` se agregó a `rutasApp.ts` (el asistente exige las rutas de App.tsx).
+- **Pruebas:** nuevas `registro-dos-pasos` (API) y `registro-dos-pasos-ui`; ajustadas `comercial-registro`, `legal-registro`, `prueba-pro`, `gratis-plazo`, `registro-ui`. Helper `tests/helpers/registro.ts` (paso 1 + correo verificado + login + paso 2). 16 mutaciones, todas en rojo.
+- **Decisión / fuera de «Permitidos»:** hubo que tocar `src/App.tsx` (registrar la ruta y envolver las de admin con la guarda); no hay otra forma de cablear una ruta.
+- **Gotchas:** (1) el backend NO sirve `dist/` si el repo está bajo una carpeta oculta (`.claude/worktrees/…`): `send` rechaza dotfiles → 404; para verlo en un worktree usa Vite + proxy. (2) Con proxy de Vite el `Origin` no coincide con el `Host` del backend: define `CORS_ORIGIN` para probar mutaciones. (3) Una admin de producción sin condominios (si la hubiera) ahora cae en la bienvenida y el 409 impide crear un segundo por esa vía (para más está Condominios).
+- **Próximo:** Miguel decide el push; en producción el registro sigue CERRADO (`registro_abierto=false`). No hay cambios de esquema ni de datos.
 ## 2026-10-30 — Precio destacado, sello «Voucher confirmado» y recarga tras un despliegue (Claude Code, Opus 5.5) — push: sí
 
 - `/precios`: el precio de la tarjeta destacada (`grande`) bajaba a `lg:text-5xl` (con 4 columnas se salía de la tarjeta); medido a 1440/1024/800/375 px.

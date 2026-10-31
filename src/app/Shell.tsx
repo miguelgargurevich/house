@@ -4,6 +4,7 @@ import { Bars3Icon, ChevronDoubleLeftIcon, MoonIcon, SparklesIcon, SunIcon, XMar
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmDialog, IconButton, cx } from '../ui';
 import { navPara } from './nav';
+import { useCondominio } from './condominio';
 import { MenuUsuario } from './MenuUsuario';
 import { useTheme } from './theme';
 import { Assistant } from './Assistant';
@@ -46,6 +47,7 @@ function ShellInterior() {
   const escritorio = useEscritorio();
   const chat = usePanelAbierto(user?.id ?? 0, escritorio);
   const barra = useBarra(escritorio);
+  const { sinCondominios } = useCondominio();
 
   useEffect(() => { setMenu(false); }, [loc.pathname]);
   if (!user) return null;
@@ -74,7 +76,7 @@ function ShellInterior() {
         ) : <Logo />}
       </div>
       <nav aria-label="Principal" className={cx('flex-1 overflow-y-auto py-3', riel ? 'space-y-3 px-2' : 'space-y-5 px-3')}>
-        {navPara(user).map((g, i) => (
+        {navPara(user, { sinCondominios }).map((g, i) => (
           <div key={i} className={cx(riel && i > 0 && 'border-t border-line pt-3')}>
             {!riel && g.label && <p className="mb-1.5 px-3 text-xs font-medium uppercase tracking-wide text-muted">{g.label}</p>}
             <ul className="space-y-0.5">

@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import type { FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { CheckIcon, EnvelopeIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { api, errorText } from '../../api';
 import { HOME, useAuth } from '../../auth/AuthContext';
 import { Alert, Button, Card, CardBody, cx, Input, TelefonoInput } from '../../ui';
 import { Marco } from './Marco';
+import { IndicadorPasos } from './_parts/IndicadorPasos';
 import { PanelRegistro } from './_parts/PanelRegistro';
 import { reglasClave } from './_parts/clave';
 
-interface Formulario { nombre: string; email: string; celular: string; password: string; empresa: string; condominio: string; unidades: string }
-const VACIO: Formulario = { nombre: '', email: '', celular: '', password: '', empresa: '', condominio: '', unidades: '' };
+interface Formulario { nombre: string; email: string; celular: string; password: string }
+const VACIO: Formulario = { nombre: '', email: '', celular: '', password: '' };
 
-/** Registro público: crea tu cuenta y tu primer condominio en el plan Gratis. Hay que confirmar el correo antes de entrar. */
+/** Registro público, paso 1 de 2: sólo tu cuenta. Hay que confirmar el correo antes de entrar; el condominio se crea después, al ingresar (paso 2, `/admin/bienvenida`). */
 export default function Registro() {
   const { user } = useAuth();
   const [f, setF] = useState<Formulario>(VACIO);
@@ -34,7 +35,7 @@ export default function Registro() {
     setError(null);
     setBusy(true);
     try {
-      const r = await api<{ mensaje: string }>('/api/publico/registro', { method: 'POST', json: { ...f, email: f.email.trim(), unidades: Number(f.unidades), acepta_terminos: acepta, sitio_web: señuelo } });
+      const r = await api<{ mensaje: string }>('/api/publico/registro', { method: 'POST', json: { ...f, email: f.email.trim(), acepta_terminos: acepta, sitio_web: señuelo } });
       setListo(r.mensaje);
     } catch (err) {
       setError(errorText(err));
@@ -49,6 +50,7 @@ export default function Registro() {
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand"><EnvelopeIcon className="h-6 w-6" aria-hidden="true" /></span>
             <h1 className="mt-4 text-xl font-semibold">Revisa tu correo</h1>
             <p className="mt-2 text-sm text-muted" role="status">{listo}</p>
+            <p className="mt-2 text-sm text-muted">Paso 1 de 2 listo. Cuando confirmes tu correo, entra y crea tu condominio.</p>
             <p className="mt-6 text-sm"><Link to="/login" className="font-medium text-brand underline">Ir a iniciar sesión</Link></p>
           </CardBody>
         </Card>
@@ -60,12 +62,15 @@ export default function Registro() {
     <Marco>
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start lg:gap-14">
         <div>
-          <h1 className="text-2xl font-semibold sm:text-3xl">Crea tu cuenta gratis</h1>
-          <p className="mt-1 text-sm text-muted">Sin tarjeta: empiezas en el plan Torre Gratis, que dura 3 meses, y después pasas a Torre Básico o Torre Pro. Te enviaremos un enlace para confirmar tu correo.</p>
+          <IndicadorPasos actual={1} />
+          <h1 className="mt-6 text-2xl font-semibold sm:text-3xl">Crea tu cuenta gratis</h1>
+          <p className="mt-1 text-sm font-medium">Paso 1 de 2: tu cuenta</p>
+          <p className="mt-1 text-sm text-muted">Sin tarjeta: empiezas en el plan Torre Gratis, que dura 3 meses, y después pasas a Torre Básico o Torre Pro. Te enviaremos un enlace para confirmar tu correo; tu condominio lo creas después, al entrar.</p>
           <form onSubmit={enviar} className="mt-8 space-y-8" noValidate>
             {error && <Alert tone="bad">{error}</Alert>}
 
-            <Paso n={1} titulo="Tú">
+            <fieldset className="min-w-0 space-y-4">
+              <legend className="sr-only">Tus datos</legend>
               <Input label="Tu nombre" autoComplete="name" maxLength={120} required {...campo('nombre')} />
               <Input label="Correo electrónico" type="email" autoComplete="email" maxLength={160} required {...campo('email')} />
               <TelefonoInput label="Celular" value={f.celular} onChange={celular => setF(x => ({ ...x, celular }))} required />
@@ -88,15 +93,7 @@ export default function Registro() {
                   </li>
                 ))}
               </ul>
-            </Paso>
-
-            <Paso n={2} titulo="Tu condominio">
-              <Input label="Nombre de tu administradora o junta" maxLength={160} required {...campo('empresa')} />
-              <div className="grid gap-4 sm:grid-cols-[1fr_10.5rem]">
-                <Input label="Nombre del condominio" maxLength={160} required {...campo('condominio')} />
-                <Input label="N.º de departamentos" type="number" inputMode="numeric" min={1} max={5000} required hint="Aproximado" {...campo('unidades')} />
-              </div>
-            </Paso>
+            </fieldset>
 
             {/* Señuelo antiabuso: ninguna persona lo ve ni lo llena; un robot sí. */}
             <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
@@ -116,20 +113,5 @@ export default function Registro() {
         <PanelRegistro />
       </div>
     </Marco>
-  );
-}
-
-/** Un paso del formulario: un `fieldset` con su título corto (el lector de pantalla lo anuncia como grupo). */
-function Paso({ n, titulo, children }: { n: number; titulo: string; children: ReactNode }) {
-  return (
-    <fieldset className="min-w-0 space-y-4">
-      <legend>
-        <span className="flex items-center gap-2.5 text-sm font-semibold">
-          <span className="num flex h-6 w-6 items-center justify-center rounded-full bg-brand-soft text-xs text-brand" aria-hidden="true">{n}</span>
-          {titulo}
-        </span>
-      </legend>
-      {children}
-    </fieldset>
   );
 }

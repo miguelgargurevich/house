@@ -133,7 +133,11 @@ const APORTES: NavItem = { to: '/junta/aportes', label: 'Aportes de los blocks',
 const CIERRE_CENTRAL: NavItem = { to: '/junta/cierre-central', label: 'Cierre de la Junta central', icon: BuildingLibraryIcon };
 
 /** La navegación depende del rol y, para propietarios, del cargo en la junta. */
-export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id'> & { estructura_id?: number | null }): NavGroup[] {
+/** Lo único que ve una administradora que todavía no creó su condominio (paso 2 del registro): su bienvenida. El menú completo llega con el primer condominio. */
+export const NAV_SIN_CONDOMINIO: NavGroup[] = [{ items: [{ to: '/admin/bienvenida', label: 'Bienvenida', icon: HomeIcon }] }];
+
+export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id'> & { estructura_id?: number | null }, opts: { sinCondominios?: boolean } = {}): NavGroup[] {
+  if (user.rol === 'admin' && opts.sinCondominios) return NAV_SIN_CONDOMINIO;
   if (!esJunta(user)) return NAV[user.rol];
   // La Junta central (sin block) ve además lo que cada block le transfirió.
   const central = user.estructura_id == null;

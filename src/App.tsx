@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, HOME, useAuth } from './auth/AuthContext';
 import { RequireAuth, RequireJunta, RequireRole } from './auth/guards';
 import { Shell } from './app/Shell';
+import { RequireCondominio } from './app/RequireCondominio';
 import { ToastProvider, Skeleton } from './ui';
 import Login from './pages/Login';
 import Portada from './pages/publico/Portada';
@@ -21,6 +22,7 @@ const VerificarCorreo = lazy(() => import('./pages/publico/VerificarCorreo'));
 const Invitacion = lazy(() => import('./pages/publico/Invitacion'));
 const Privacidad = lazy(() => import('./pages/publico/Privacidad'));
 const Terminos = lazy(() => import('./pages/publico/Terminos'));
+const AdminBienvenida = lazy(() => import('./pages/admin/Bienvenida'));
 const AdminMiPlan = lazy(() => import('./pages/admin/MiPlan'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AdminComplejos = lazy(() => import('./pages/admin/Complejos'));
@@ -101,7 +103,12 @@ export default function App() {
           <Route path="/superadmin/integraciones" element={<SuperadminIntegraciones />} />
           <Route path="/superadmin/suscripciones" element={<SuperadminSuscripciones />} />
         </Route>
+        {/* Paso 2 del registro: la administradora sin condominios (`RequireCondominio` la manda aquí desde cualquier pantalla de la administración). */}
+        <Route element={<RequireRole roles={['admin']} />}>
+          <Route path="/admin/bienvenida" element={<AdminBienvenida />} />
+        </Route>
         <Route element={<RequireRole roles={['superadmin','admin']} />}>
+        <Route element={<RequireCondominio />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/complejos" element={<AdminComplejos />} />
           <Route path="/admin/condominios/:id" element={<AdminCondominioDetalle />} />
@@ -123,8 +130,11 @@ export default function App() {
           <Route path="/admin/juntas" element={<AdminJuntas />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsappSync />} />
         </Route>
+        </Route>
         <Route element={<RequireRole roles={['admin']} />}>
-          <Route path="/admin/mi-plan" element={<AdminMiPlan />} />
+          <Route element={<RequireCondominio />}>
+            <Route path="/admin/mi-plan" element={<AdminMiPlan />} />
+          </Route>
         </Route>
         <Route element={<RequireJunta />}>
           <Route path="/junta/mi-junta" element={<AdminJuntas />} />

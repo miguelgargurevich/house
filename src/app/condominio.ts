@@ -59,11 +59,18 @@ export interface Estado {
   complejo: string;
   /** ¿Hay más de un condominio? (con uno solo no hay nada que elegir). */
   varios: boolean;
+  /** La lista de condominios ya llegó del servidor (sin error). */
+  listo: boolean;
+  /**
+   * La lista llegó y está vacía: una administradora que todavía no creó su condominio (paso 2 del registro). El superadmin también puede verlo vacío
+   * (plataforma sin condominios), por eso quien decide a qué pantalla va es la guarda `RequireCondominio`, que sólo actúa con el rol `admin`.
+   */
+  sinCondominios: boolean;
   elegir: (id: number | null) => void;
-  recargar: () => void;
+  recargar: () => void | Promise<void>;
 }
 
-export const SIN_SELECTOR: Estado = { activo: false, aplica: false, condominios: [], cargando: false, error: null, elegido: null, condominio: null, complejo: '', varios: false, elegir: () => undefined, recargar: () => undefined };
+export const SIN_SELECTOR: Estado = { activo: false, aplica: false, condominios: [], cargando: false, error: null, elegido: null, condominio: null, complejo: '', varios: false, listo: false, sinCondominios: false, elegir: () => undefined, recargar: () => undefined };
 
 export const CondominioCtx = createContext<Estado>(SIN_SELECTOR);
 

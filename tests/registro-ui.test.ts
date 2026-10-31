@@ -1,5 +1,6 @@
-// Registro público: la presentación (dos pasos, celular en su fila, panel de marca junto al formulario) y lo que NO cambia
-// (los campos que se envían, el señuelo antiabuso y las reglas de la contraseña). Estructura fijada con la fuente, como el resto de *-ui.
+// Registro público, paso 1 de 2 (sólo la cuenta; el condominio se pide en `/admin/bienvenida`, ver `registro-dos-pasos-ui.test.ts`): la presentación
+// (indicador de pasos, celular en su fila, panel de marca junto al formulario) y lo que NO cambia (el señuelo antiabuso y las reglas de la contraseña).
+// Estructura fijada con la fuente, como el resto de *-ui.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
@@ -8,16 +9,26 @@ const fuente = (ruta: string) => readFileSync(ruta, 'utf8');
 const registro = fuente('src/pages/publico/Registro.tsx');
 const panel = fuente('src/pages/publico/_parts/PanelRegistro.tsx');
 
-describe('Registro: dos pasos, con los mismos campos que antes', () => {
-  it('«Tú» y «Tu condominio» son grupos (fieldset + legend) con su número', () => {
-    assert.match(registro, /<Paso n=\{1\} titulo="Tú">/);
-    assert.match(registro, /<Paso n=\{2\} titulo="Tu condominio">/);
-    assert.match(registro, /<fieldset className="min-w-0 space-y-4">\s*<legend>/);
+describe('Registro: paso 1 de 2, sólo la cuenta', () => {
+  it('dice «Paso 1 de 2: tu cuenta», que el condominio se crea después, y muestra el indicador de pasos en el paso 1', () => {
+    assert.match(registro, /Paso 1 de 2: tu cuenta/);
+    assert.match(registro, /tu condominio lo creas después, al entrar/);
+    assert.match(registro, /<IndicadorPasos actual=\{1\} \/>/);
   });
 
-  it('se envían los mismos campos con el mismo payload, y el señuelo sigue yendo', () => {
-    for (const k of ['nombre', 'email', 'password', 'empresa', 'condominio', 'unidades']) assert.match(registro, new RegExp(`campo\\('${k}'\\)`), k);
-    assert.match(registro, /'\/api\/publico\/registro', \{ method: 'POST', json: \{ \.\.\.f, email: f\.email\.trim\(\), unidades: Number\(f\.unidades\), acepta_terminos: acepta, sitio_web: señuelo \} \}/);
+  it('ya no pide nada del condominio: ni administradora o junta, ni nombre del condominio, ni departamentos', () => {
+    for (const k of ['empresa', 'condominio', 'unidades']) assert.doesNotMatch(registro, new RegExp(`campo\\('${k}'\\)`), k);
+    assert.doesNotMatch(registro, /Tu condominio<|Nombre de tu administradora|N\.º de departamentos|unidades/);
+    assert.match(registro, /interface Formulario \{ nombre: string; email: string; celular: string; password: string \}/);
+  });
+
+  it('se envían sólo los datos de la cuenta, con los Términos y el señuelo', () => {
+    for (const k of ['nombre', 'email', 'password']) assert.match(registro, new RegExp(`campo\\('${k}'\\)`), k);
+    assert.match(registro, /'\/api\/publico\/registro', \{ method: 'POST', json: \{ \.\.\.f, email: f\.email\.trim\(\), acepta_terminos: acepta, sitio_web: señuelo \} \}/);
+  });
+
+  it('«Revisa tu correo» recuerda que falta el paso 2 (crear el condominio al entrar)', () => {
+    assert.match(registro, /Paso 1 de 2 listo\. Cuando confirmes tu correo, entra y crea tu condominio\./);
   });
 
   it('el señuelo sigue oculto a las personas y fuera del orden de tabulación', () => {
@@ -58,6 +69,10 @@ describe('Registro: el panel de marca junto al formulario', () => {
 
   it('el panel dice el mismo tope de departamentos del plan Gratis que el servidor', () => {
     assert.match(panel, /Torre Gratis por 3 meses, sin tope de departamentos\./);
+  });
+
+  it('el panel también dice «Paso 1 de 2: tu cuenta» y que el condominio se crea después de confirmar el correo', () => {
+    assert.match(panel, /Paso 1 de 2: tu cuenta\. Tu condominio lo creas después de confirmar tu correo\./);
   });
 
   it('las tarjetas de ejemplo son decorativas para el lector de pantalla; la lista de beneficios sí se lee', () => {
