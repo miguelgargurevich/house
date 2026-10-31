@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Precios nuevos aprobados por Miguel: Básico 1.50, Pro 3.50, Administradora 3.00 (Claude Code, Haiku 5.5) — push: no
+
+- **Qué se hizo:** en `PLANES_SEED` (`src/server/services/comercial/catalogo.ts`) se cambiaron sólo los tres `precio_por_unidad` (basico 1.50, pro 3.50, administradora 3.00; gratis sigue en 0) y el comentario de Básico. El mínimo de 20 no cambia; la lógica de cobro (`calculo.ts`) tampoco. El system prompt de IA no lleva cifras de planes, no se tocó.
+- **Pruebas:** 21 fallaron con el precio nuevo (montos viejos escritos). Se recalcularon a mano en 10 archivos (`plan-basico`, `solo-lectura`, `gratis-plazo`, `comercial-modelo`, `comercial-registro`, `impuesto-pais`, `comercial-api`, `oferta-gratis-pro`, más los ejemplos de Pro/Administradora en fixtures puros). Ninguna aserción se debilitó ni se cambió lógica. Suite completa **3018/3018** (cuarta corrida); la tercera tuvo 1 fallo intermitente en `empresa-personal` («conteo de unidades y de blocks», 5 s, TypeError) que no reaparece y pasa solo.
+- **Mutación:** con Pro en 2.50 en el seed, `comercial-registro` falla 1 de 21; se restauró con `cp` y `cmp`.
+- **Gotcha de cascada:** en `oferta-gratis-pro`, la prueba del superadmin que cambia el tope de Gratis aborta antes de restaurarlo; por eso fallos de «tope de 20» aparecían como 201 en vez de 403. Arreglar el precio en esa prueba los resuelve. La prueba no usa `try/finally` para restaurar: frágil.
+- **Pendiente (fuera de «Permitidos»):** el benchmark de precios que pidió Miguel en la misma petición no se hizo en esta sesión. Los textos de ejemplo `S/ 20` de `src/app/soloLectura.ts`, `src/pages/publico/precios/Comparativa.tsx` y `src/server/services/comercial/plazoGratis.ts` son sólo comentarios; se pueden actualizar en una tarea aparte.
+- **Próximos pasos:** Miguel decide el push y el benchmark.
+- **Gotchas:** `npm test` en macOS no tiene `timeout` (usar background). `house_test_precios_nuevos` es la base de pruebas de esta sesión.
 ## 2026-10-31 — Candado de la IA de vouchers en la validación (Claude Code, Haiku 5.5) — push: no
 
 - **Pedido de Miguel:** en Torre Básico (y Gratis), al validar un voucher a mano, un candado que venda Torre Pro: «¿Quieres que la IA valide este voucher? Pásate a Torre Pro». Rama `feat/candado-ia`, worktree `.claude/worktrees/candado-ia`.

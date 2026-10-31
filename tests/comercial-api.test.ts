@@ -58,7 +58,7 @@ beforeEach(async () => {
   await prisma.suscripcionCondominio.deleteMany();
   await prisma.configuracionComercial.update({ where: { id: 1 }, data: { correo_superadmin: 'miguel@house.test', pago_titular: 'Miguel G.', pago_banco: 'BCP', pago_cuenta: '191-0000000-0-00', pago_cci: '002-191-000000000000-00', pago_yape: '999 888 777', dias_gracia: 7, dias_aviso_vencimiento: 5, igv_tasa: '0.18' } });
   await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '0.50' } });
-  await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '2.50' } });
+  await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.50' } });
   await prisma.impuestoPais.update({ where: { pais: 'PE' }, data: { tasa: '0.18', nombre: 'IGV', moneda: 'PEN', activo: true } }); // el IGV de Perú vive aquí; `igv_tasa` es su respaldo
   await fijar(d.complejoA.id, { plan_clave: 'gratis' });
   await fijar(d.complejoB.id, { plan_clave: 'gratis' });
@@ -111,7 +111,7 @@ describe('Mi plan: cada empresa ve y cambia sólo lo suyo (otro tenant → 404)'
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.estado, 'solicitada');
     assert.equal(r.body.solicitud.plan, 'pro');
-    assert.equal(r.body.solicitud.cotizacion.total_mes, '59.00', '2 deptos pero Pro cobra mínimo 20: 20 × 2,50 = 50,00 + IGV 9,00');
+    assert.equal(r.body.solicitud.cotizacion.total_mes, '82.60', '2 deptos pero Pro cobra mínimo 20: 20 × 3,50 = 70,00 + IGV 12,60');
     assert.equal(r.body.solicitud.cotizacion.unidades_cobradas, 20);
     assert.equal(r.body.solicitud.cotizacion.minimo_aplicado, true);
     assert.equal(r.body.plan.clave, 'gratis', 'el plan no cambia hasta que se paga');
@@ -267,7 +267,7 @@ describe('superadmin: lista, cambios y pagos', () => {
 
   it('editar precios y módulos: se reflejan en Mi plan y en la página pública al instante; el precio se valida; queda auditado', async () => {
     await fijar(d.complejoA.id, { plan_clave: 'pro', vigente_hasta: new Date(HOY + 30 * DIA) });
-    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '59.00', 'mínimo de 20 deptos: 20 × 2,50 = 50,00 + IGV 9,00');
+    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '82.60', 'mínimo de 20 deptos: 20 × 3,50 = 70,00 + IGV 12,60');
     const r = await llamar(base, 'PUT', '/api/comercial/planes/pro', T.super, { precio_por_unidad: '3.00' });
     assert.equal(r.status, 200, r.texto);
     assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '70.80', '20 (mínimo) × 3,00 = 60,00 + 10,80');
@@ -298,9 +298,10 @@ describe('superadmin: lista, cambios y pagos', () => {
 
   it('cambiar el IGV: el precio público (sin IGV) no cambia y el total con IGV sigue la tasa vigente (sin 18 % fijo en el código)', async () => {
     await llamar(base, 'PUT', '/api/comercial/configuracion', T.super, { igv_tasa: '0.10' });
-    assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '2.50');
+    assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '3.50');
+    // 100 × 3.50 = 350.00 sin IGV; IGV 10 % = 35.00; con IGV 385.00
     const c = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body;
-    assert.deepEqual([c.total_mes, c.igv_mes, c.total_con_igv_mes], ['250.00', '25.00', '275.00']);
+    assert.deepEqual([c.total_mes, c.igv_mes, c.total_con_igv_mes], ['350.00', '35.00', '385.00']);
   });
 });
 
@@ -317,7 +318,7 @@ describe('vencimientos en el planificador', () => {
     assert.equal(r1.correos, 1);
     const c = aAdmin()[0];
     assert.match(c.asunto, /vence el/);
-    assert.match(c.cuerpo, /S\/ 59\.00 al mes \(IGV incluido\)/);
+    assert.match(c.cuerpo, /S\/ 82\.60 al mes \(IGV incluido\)/); // 20 × 3.50 = 70.00 + IGV 12.60
     assert.match(c.cuerpo, /Yape: 999 888 777/);
     assert.match(c.cuerpo, /HOUSE-\d+-\d{6}/);
     const r2 = await procesarVencimientos({ ahora: ahoraEn(0), deps: depsFalsas(() => ahoraEn(0)) });

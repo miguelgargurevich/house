@@ -24,8 +24,8 @@ let d: Datos;
 let T: Record<'super' | 'adminA' | 'adminB' | 'prop1', string>;
 
 const catalogo = [{ clave: 'ia_vouchers', precio_por_unidad: '1.00' }, { clave: 'whatsapp_avisos', precio_por_unidad: '1.00' }, { clave: 'asistente', precio_por_unidad: '0.50' }];
-const pro: PrecioPlan = { clave: 'pro', precio_por_unidad: '2.50', igv_incluido: false, modulos_incluidos: [...CAPACIDADES], unidades_minimas: 20 };
-const administradora: PrecioPlan = { clave: 'administradora', precio_por_unidad: '2.00', igv_incluido: false, modulos_incluidos: [...CAPACIDADES], unidades_minimas: 20 };
+const pro: PrecioPlan = { clave: 'pro', precio_por_unidad: '3.50', igv_incluido: false, modulos_incluidos: [...CAPACIDADES], unidades_minimas: 20 };
+const administradora: PrecioPlan = { clave: 'administradora', precio_por_unidad: '3.00', igv_incluido: false, modulos_incluidos: [...CAPACIDADES], unidades_minimas: 20 };
 const total = (unidades: number, plan: PrecioPlan | null, sueltos: string[] = []) => cotizar({ unidades, plan, modulosSueltos: sueltos, catalogo, tasa: TASA });
 
 /** Plan del condominio A: relativo a hoy (días; negativo = ya venció). */
@@ -59,24 +59,28 @@ beforeEach(async () => {
 });
 
 describe('cálculo con el mínimo de 20 departamentos', () => {
-  it('Pro: 10 deptos = 59.00 (se cobra el mínimo), 20 = 59.00, 21 = 61.95, 100 = 295.00', () => {
+  it('Pro: 10 deptos = 82.60 (se cobra el mínimo), 20 = 82.60, 21 = 86.73, 100 = 413.00', () => {
+    // 20 × 3.50 = 70.00 sin IGV; + IGV 18 % = 82.60; al año 82.60 × 12 = 991.20
     const c10 = total(10, pro);
-    assert.deepEqual({ total: c10.total_mes, cobradas: c10.unidades_cobradas, minimo: c10.minimo_aplicado, unidades: c10.unidades }, { total: '59.00', cobradas: 20, minimo: true, unidades: 10 });
-    assert.equal(c10.base, '50.00');
-    assert.equal(c10.igv, '9.00');
-    assert.equal(c10.total_anio, '708.00');
-    assert.equal(total(20, pro).total_mes, '59.00');
+    assert.deepEqual({ total: c10.total_mes, cobradas: c10.unidades_cobradas, minimo: c10.minimo_aplicado, unidades: c10.unidades }, { total: '82.60', cobradas: 20, minimo: true, unidades: 10 });
+    assert.equal(c10.base, '70.00');
+    assert.equal(c10.igv, '12.60');
+    assert.equal(c10.total_anio, '991.20');
+    assert.equal(total(20, pro).total_mes, '82.60');
     assert.equal(total(20, pro).minimo_aplicado, false, 'justo en el mínimo: no se aplica nada extra');
-    assert.equal(total(21, pro).total_mes, '61.95');
-    assert.equal(total(100, pro).total_mes, '295.00');
-    assert.equal(total(0, pro).total_mes, '59.00', 'un condominio sin unidades igual paga el mínimo del plan de pago');
+    // 21 × 3.50 = 73.50; + IGV 13.23 = 86.73
+    assert.equal(total(21, pro).total_mes, '86.73');
+    // 100 × 3.50 = 350.00; + IGV 63.00 = 413.00
+    assert.equal(total(100, pro).total_mes, '413.00');
+    assert.equal(total(0, pro).total_mes, '82.60', 'un condominio sin unidades igual paga el mínimo del plan de pago');
   });
 
-  it('Administradora: 10 deptos = 47.20 (mínimo 20 × 2,00 + IGV), por condominio', () => {
-    assert.equal(total(10, administradora).total_mes, '47.20');
-    assert.equal(total(100, administradora).total_mes, '236.00');
+  it('Administradora: 10 deptos = 70.80 (mínimo 20 × 3,00 + IGV), por condominio', () => {
+    // 20 × 3.00 = 60.00; + IGV 10.80 = 70.80. 100 × 3.00 = 300.00; + IGV 54.00 = 354.00
+    assert.equal(total(10, administradora).total_mes, '70.80');
+    assert.equal(total(100, administradora).total_mes, '354.00');
     // «Por condominio»: dos condominios de 10 deptos pagan el mínimo CADA uno (no 20 en total).
-    assert.equal((Number(total(10, administradora).total_mes) * 2).toFixed(2), '94.40');
+    assert.equal((Number(total(10, administradora).total_mes) * 2).toFixed(2), '141.60');
   });
 
   it('Gratis no cobra nada, tenga las unidades que tenga; sin mínimo', () => {
@@ -88,7 +92,7 @@ describe('cálculo con el mínimo de 20 departamentos', () => {
     const gratis = { clave: 'gratis', precio_por_unidad: '0.00', igv_incluido: false, modulos_incluidos: [] as string[], unidades_minimas: null };
     assert.equal(total(20, gratis, ['whatsapp_avisos']).total_mes, '23.60', 'el ejemplo de Miguel: 20 deptos + WhatsApp = S/ 23.60');
     assert.equal(total(10, gratis, ['whatsapp_avisos']).total_mes, '11.80');
-    assert.equal(total(10, pro, ['whatsapp_avisos']).total_mes, '59.00', 'Pro ya trae WhatsApp: no se cobra dos veces');
+    assert.equal(total(10, pro, ['whatsapp_avisos']).total_mes, '82.60', 'Pro ya trae WhatsApp: no se cobra dos veces');
   });
 
   it('un plan con IGV incluido también respeta el mínimo', () => {
@@ -100,15 +104,15 @@ describe('cálculo con el mínimo de 20 departamentos', () => {
 describe('API pública: cotizar y planes sin módulos sueltos', () => {
   it('cotizar aplica el mínimo y dice cuántas unidades se cobran', async () => {
     const a = await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=pro');
-    assert.deepEqual(a.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 10, unidades_cobradas: 20, minimo_aplicado: true, total_mes: '50.00', total_anio: '600.00', igv_mes: '9.00', total_con_igv_mes: '59.00', igv_incluido: false }, 'precio público sin IGV; aparte el total con IGV');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body.total_mes, '250.00');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=administradora')).body.total_mes, '40.00');
+    assert.deepEqual(a.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 10, unidades_cobradas: 20, minimo_aplicado: true, total_mes: '70.00', total_anio: '840.00', igv_mes: '12.60', total_con_igv_mes: '82.60', igv_incluido: false }, 'precio público sin IGV (20 × 3,50 = 70,00); aparte el total con IGV');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body.total_mes, '350.00');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=administradora')).body.total_mes, '60.00'); // 20 × 3.00 sin IGV
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=15&plan=gratis')).body.total_mes, '0.00');
   });
 
   it('cotizar ignora los módulos sueltos: Gratis + WhatsApp ya no cuesta nada aparte, y no se pueden sumar a Pro', async () => {
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=20&plan=gratis&modulos=whatsapp_avisos,ia_vouchers')).body.total_mes, '0.00');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro&modulos=asistente')).body.total_mes, '250.00');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro&modulos=asistente')).body.total_mes, '350.00');
   });
 
   it('/api/publico/planes: Gratis sin tope y sin capacidades; Pro y Administradora con mínimo 20 y todo; módulos sin precio', async () => {
@@ -125,10 +129,10 @@ describe('API pública: cotizar y planes sin módulos sueltos', () => {
 });
 
 describe('Mi plan y Suscripciones: unidades cobradas y topes', () => {
-  it('Pro con 2 deptos: se cobra el mínimo (59.00) y la vista lo dice; Gratis no tiene tope', async () => {
+  it('Pro con 2 deptos: se cobra el mínimo (82.60) y la vista lo dice; Gratis no tiene tope', async () => {
     await fijarPlan('pro', { dias: 40 });
     const pro2 = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0];
-    assert.deepEqual({ cobradas: pro2.unidades_cobradas, reales: pro2.unidades_facturables, min: pro2.unidades_minimas, max: pro2.unidades_maximas, mes: pro2.cotizacion.total_mes }, { cobradas: 20, reales: 2, min: 20, max: null, mes: '59.00' });
+    assert.deepEqual({ cobradas: pro2.unidades_cobradas, reales: pro2.unidades_facturables, min: pro2.unidades_minimas, max: pro2.unidades_maximas, mes: pro2.cotizacion.total_mes }, { cobradas: 20, reales: 2, min: 20, max: null, mes: '82.60' });
     await fijarPlan('gratis');
     const g = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0];
     assert.deepEqual({ max: g.unidades_maximas, min: g.unidades_minimas, mes: g.cotizacion.total_mes }, { max: null, min: null, mes: '0.00' });
@@ -145,7 +149,7 @@ describe('Mi plan y Suscripciones: unidades cobradas y topes', () => {
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.unidades_minimas, 30);
     await fijarPlan('pro', { dias: 40 });
-    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '88.50', '30 × 2,50 = 75,00 + IGV 13,50');
+    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '123.90', '30 × 3,50 = 105,00 + IGV 18,90');
     try {
       assert.equal((await llamar(base, 'PUT', '/api/comercial/planes/gratis', T.super, { unidades_maximas: 5 })).status, 200);
       await fijarPlan('gratis');
@@ -222,7 +226,7 @@ describe('puertas por capacidad: Gratis sin IA, WhatsApp, asistente, mora ni rep
   it('un pago del plan solicitado también deja atrás los módulos sueltos viejos', async () => {
     await fijarPlan('gratis', { modulos: ['whatsapp_avisos'] });
     assert.equal((await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, { plan: 'pro' })).status, 200);
-    const pago = await llamar(base, 'POST', `/api/comercial/suscripciones/${d.complejoA.id}/pagos`, T.super, { monto: '59.00', fecha_pago: '2026-10-28', medio: 'yape', operacion: 'OP-ofer', periodo_desde: '2026-10-28', periodo_hasta: '2026-11-28' });
+    const pago = await llamar(base, 'POST', `/api/comercial/suscripciones/${d.complejoA.id}/pagos`, T.super, { monto: '82.60', fecha_pago: '2026-10-28', medio: 'yape', operacion: 'OP-ofer', periodo_desde: '2026-10-28', periodo_hasta: '2026-11-28' });
     assert.equal(pago.status, 201, pago.texto);
     const s = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: d.complejoA.id } });
     assert.deepEqual([s.plan_clave, s.modulos], ['pro', []]);
@@ -447,7 +451,7 @@ describe('script de la oferta: deja una base existente con los valores nuevos', 
     const p = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'pro' } });
     assert.equal(p.precio_por_unidad.toFixed(2), '3.10');
     assert.equal(p.visible, false);
-    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '2.50', visible: true } });
+    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.50', visible: true } });
   });
 
   it('con la oferta aplicada, Libertadores (cortesía) sigue con todas las capacidades', async () => {

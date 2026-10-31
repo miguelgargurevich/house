@@ -269,7 +269,7 @@ describe('endpoint público de planes', () => {
     assert.deepEqual([...pro.modulos_incluidos].sort(), ['asistente', 'ia_vouchers', 'mora_automatica', 'reportes', 'whatsapp_avisos']);
     assert.deepEqual(r.body.planes.find((p: { clave: string }) => p.clave === 'gratis').modulos_incluidos, []);
     const planes = Object.fromEntries(r.body.planes.map((p: { clave: string; precio_por_unidad: string }) => [p.clave, p.precio_por_unidad]));
-    assert.deepEqual(planes, { gratis: '0.00', basico: '1.00', pro: '2.50', administradora: '2.00' }, 'cortesía no es visible');
+    assert.deepEqual(planes, { gratis: '0.00', basico: '1.50', pro: '3.50', administradora: '3.00' }, 'cortesía no es visible');
     for (const prohibido of ['999888777', '191-1234567', '00219100123456701234', 'secreto@house.test', 'Miguel G.', 'igv_tasa', 'pago_', 'correo_superadmin', 'precio_base']) {
       assert.ok(!r.texto.includes(prohibido), `no debe exponer ${prohibido}`);
     }
@@ -279,12 +279,13 @@ describe('endpoint público de planes', () => {
     await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.00' } });
     const r = await llamar(base, 'GET', '/api/publico/planes');
     assert.equal(r.body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '3.00');
-    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '2.50' } });
+    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.50' } });
   });
 
-  it('cotizar: 448 deptos en Pro = 1.120,00 + IGV al mes (1.321,60 con IGV) y 13.440,00 + IGV al año; sin módulos sueltos; plan inexistente 422', async () => {
+  it('cotizar: 448 deptos en Pro = 1.568,00 + IGV al mes (1.850,24 con IGV) y 18.816,00 + IGV al año; sin módulos sueltos; plan inexistente 422', async () => {
+    // 448 × 3.50 = 1568.00; IGV 18 % = 282.24; con IGV 1850.24; anual 1568 × 12 = 18816.00
     const pro = await llamar(base, 'GET', '/api/publico/cotizar?unidades=448&plan=pro');
-    assert.deepEqual(pro.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 448, unidades_cobradas: 448, minimo_aplicado: false, total_mes: '1120.00', total_anio: '13440.00', igv_mes: '201.60', total_con_igv_mes: '1321.60', igv_incluido: false });
+    assert.deepEqual(pro.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 448, unidades_cobradas: 448, minimo_aplicado: false, total_mes: '1568.00', total_anio: '18816.00', igv_mes: '282.24', total_con_igv_mes: '1850.24', igv_incluido: false });
     const mod = await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&modulos=ia_vouchers,asistente');
     assert.equal(mod.body.total_mes, '0.00', 'los módulos sueltos ya no se cotizan: sin plan, nada que cobrar');
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=cortesia')).status, 422, 'cortesía no se cotiza al público');

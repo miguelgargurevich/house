@@ -48,7 +48,7 @@ beforeEach(async () => {
   await prisma.auditoria.deleteMany();
   await prisma.complejoHabitacional.updateMany({ data: { pais: 'PE', moneda: 'PEN' } });
   await prisma.configuracionComercial.update({ where: { id: 1 }, data: { igv_tasa: '0.18', dias_gracia: 7, dias_aviso_vencimiento: 5, correo_superadmin: null } });
-  await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '2.50' } });
+  await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.50' } });
   await prisma.impuestoPais.deleteMany();
   await sembrarCatalogoComercial(prisma);
   invalidarComercial();
@@ -87,9 +87,9 @@ describe('tabla ImpuestoPais: se siembra desde el catálogo y nunca pisa lo edit
 });
 
 describe('cotizar con el impuesto y la moneda del país', () => {
-  it('Perú: IGV 18 % en soles, los mismos números de siempre (448 deptos × 2,50 = 1120,00 + 201,60 = 1321,60)', () => {
-    const c = cotizar({ unidades: 448, plan: { ...pro, precio_por_unidad: '2.50' }, modulosSueltos: [], catalogo: [], tasa: '0.18', moneda: 'PEN', impuestoNombre: 'IGV' });
-    assert.deepEqual([c.base, c.igv, c.total_mes, c.total_anio, c.moneda, c.impuesto_nombre], ['1120.00', '201.60', '1321.60', '15859.20', 'PEN', 'IGV']);
+  it('Perú: IGV 18 % en soles (448 deptos × 3,50 = 1568,00 + 282,24 = 1850,24; al año 1850,24 × 12 = 22202,88)', () => {
+    const c = cotizar({ unidades: 448, plan: { ...pro, precio_por_unidad: '3.50' }, modulosSueltos: [], catalogo: [], tasa: '0.18', moneda: 'PEN', impuestoNombre: 'IGV' });
+    assert.deepEqual([c.base, c.igv, c.total_mes, c.total_anio, c.moneda, c.impuesto_nombre], ['1568.00', '282.24', '1850.24', '22202.88', 'PEN', 'IGV']);
   });
 
   it('Chile: IVA 19 % en pesos SIN decimales (100 deptos × $ 1.900 = 190.000 + 36.100 = 226.100)', () => {
@@ -125,7 +125,7 @@ describe('Mi plan y la solicitud usan el impuesto y la moneda del país del cond
     assert.equal(a.precio_consultar, false);
     assert.deepEqual(a.planes_disponibles, ['pro'], 'Administradora no tiene precio en pesos: no se puede pedir');
     const b = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminB)).body.condominios[0];
-    assert.deepEqual([b.pais, b.moneda, b.impuesto.nombre, b.cotizacion.total_mes], ['PE', 'PEN', 'IGV', '59.00'], 'Perú: lo de siempre (20 × 2,50 = 50,00 + 9,00)');
+    assert.deepEqual([b.pais, b.moneda, b.impuesto.nombre, b.cotizacion.total_mes], ['PE', 'PEN', 'IGV', '82.60'], 'Perú: 20 × 3,50 = 70,00 + IGV 12,60');
     assert.deepEqual(b.planes_disponibles, ['basico', 'pro', 'administradora']);
   });
 
@@ -215,7 +215,7 @@ describe('API pública por país', () => {
   it('sin `?pais=` es Perú: soles, IGV y los precios de siempre', async () => {
     const c = await planes();
     assert.deepEqual([c.pais, c.moneda, c.impuesto], ['PE', 'PEN', { nombre: 'IGV', tasa: '0.18' }]);
-    assert.deepEqual([porClave(c, 'pro').precio_por_unidad, porClave(c, 'administradora').precio_por_unidad, porClave(c, 'gratis').precio_por_unidad], ['2.50', '2.00', '0.00']);
+    assert.deepEqual([porClave(c, 'pro').precio_por_unidad, porClave(c, 'administradora').precio_por_unidad, porClave(c, 'gratis').precio_por_unidad], ['3.50', '3.00', '0.00']);
     assert.equal(porClave(c, 'pro').consultar, false);
   });
 
@@ -252,7 +252,7 @@ describe('API pública por país', () => {
     const sin = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=administradora&pais=CL')).body;
     assert.deepEqual([sin.consultar, sin.total_mes, sin.total_anio, sin.igv_mes, sin.total_con_igv_mes, sin.moneda], [true, null, null, null, null, 'CLP']);
     const pe = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body;
-    assert.deepEqual([pe.total_mes, pe.igv_mes, pe.total_con_igv_mes, pe.moneda, pe.impuesto_nombre], ['250.00', '45.00', '295.00', 'PEN', 'IGV'], 'Perú: igual que antes');
+    assert.deepEqual([pe.total_mes, pe.igv_mes, pe.total_con_igv_mes, pe.moneda, pe.impuesto_nombre], ['350.00', '63.00', '413.00', 'PEN', 'IGV'], 'Perú: 100 × 3,50 = 350,00 + IGV 63,00');
   });
 
   it('la API pública no expone tasas internas ni datos de pago', async () => {
@@ -289,7 +289,8 @@ describe('el superadmin edita impuestos y precios por moneda (auditado); nadie m
     await llamar(base, 'PUT', '/api/comercial/impuestos/PE', T.super, { tasa: '0.12' });
     assert.equal((await prisma.configuracionComercial.findUniqueOrThrow({ where: { id: 1 } })).igv_tasa.toString(), '0.12');
     const c = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body;
-    assert.deepEqual([c.igv_mes, c.total_con_igv_mes], ['30.00', '280.00']);
+    // 100 × 3.50 = 350.00; IGV 12 % = 42.00; con IGV 392.00
+    assert.deepEqual([c.igv_mes, c.total_con_igv_mes], ['42.00', '392.00']);
   });
 
   it('datos inválidos → 422: tasa fuera de 0–1, moneda o país que no existen, nombre vacío; un país válido pero sin fila no pasa de 404', async () => {

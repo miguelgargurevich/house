@@ -216,7 +216,7 @@ describe('solo lectura: lo que sigue permitido', () => {
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.condominios.length, 1);
     const c = r.body.condominios[0];
-    assert.deepEqual([c.complejo_id, c.solo_lectura, iso(Date.parse(c.gratis_hasta)), iso(Date.parse(c.solo_lectura_desde)), c.dias_gratis_restantes, c.basico_desde], [d.complejoA.id, true, iso(HOY() - DIA), iso(HOY()), null, 'S/ 20']);
+    assert.deepEqual([c.complejo_id, c.solo_lectura, iso(Date.parse(c.gratis_hasta)), iso(Date.parse(c.solo_lectura_desde)), c.dias_gratis_restantes, c.basico_desde], [d.complejoA.id, true, iso(HOY() - DIA), iso(HOY()), null, 'S/ 30']);
     assert.deepEqual((await api(T.super, 'GET', '/api/comercial/estado-operativo')).body, { condominios: [] });
     const b = (await api(T.adminB, 'GET', '/api/comercial/estado-operativo')).body.condominios[0];
     assert.deepEqual([b.complejo_id, b.solo_lectura], [d.complejoB.id, false], 'la cortesía de B nunca');
@@ -227,7 +227,7 @@ describe('solo lectura: lo que sigue permitido', () => {
     await prisma.unidad.createMany({ data: extra }); // 2 + 49 = 51
     try {
       const c = (await api(T.adminA, 'GET', '/api/comercial/estado-operativo')).body.condominios[0];
-      assert.equal(c.basico_desde, 'S/ 20');
+      assert.equal(c.basico_desde, 'S/ 30'); // 20 × 1.50
     } finally {
       await prisma.unidad.deleteMany({ where: { codigo: { startsWith: 'X-' } } });
     }
@@ -258,7 +258,7 @@ describe('solo lectura: el superadmin, otro tenant y el pago de un plan', () => 
   });
 
   it('pagar un plan de pago levanta el bloqueo al instante (Pro y Básico); y si luego vence pasada la gracia, vuelve a solo lectura', async () => {
-    const pago = (plan: string, over: Record<string, unknown> = {}) => ({ monto: plan === 'basico' ? '23.60' : '59.00', fecha_pago: iso(HOY()), medio: 'transferencia', operacion: `OP-${plan}-${Math.random()}`, periodo_desde: iso(HOY()), periodo_hasta: iso(HOY() + 30 * DIA), ...over });
+    const pago = (plan: string, over: Record<string, unknown> = {}) => ({ monto: plan === 'basico' ? '35.40' : '82.60', fecha_pago: iso(HOY()), medio: 'transferencia', operacion: `OP-${plan}-${Math.random()}`, periodo_desde: iso(HOY()), periodo_hasta: iso(HOY() + 30 * DIA), ...over });
     const comunicado = () => api(T.adminA, 'POST', '/api/comunicados', { complejo_id: d.complejoA.id, titulo: 'Tras el pago', cuerpo: 'Texto del comunicado tras el pago.' });
     for (const plan of ['pro', 'basico']) {
       await enSoloLectura();

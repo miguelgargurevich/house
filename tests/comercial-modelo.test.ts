@@ -11,7 +11,7 @@ import { comercialDeps, estadoDeComplejo, invalidarComercial, moduloActivo } fro
 
 const TASA = '0.18';
 const catalogo = [{ clave: 'ia_vouchers', precio_por_unidad: '1.00' }, { clave: 'whatsapp_avisos', precio_por_unidad: '1.00' }, { clave: 'asistente', precio_por_unidad: '0.50' }];
-const pro = { clave: 'pro', precio_por_unidad: '2.50', igv_incluido: false, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] };
+const pro = { clave: 'pro', precio_por_unidad: '3.50', igv_incluido: false, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] };
 const PLANES = [{ clave: 'gratis', modulos_incluidos: [] }, { clave: 'pro', modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] }, { clave: 'cortesia', modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] }];
 const PLAZOS = { dias_gracia: 7, dias_aviso_vencimiento: 5 };
 // 2026-10-27 12:00 en Lima = 17:00 UTC; «hoy en Lima» es el 27.
@@ -32,12 +32,13 @@ describe('precios con IGV', () => {
 });
 
 describe('cotización: el IGV se aplica una sola vez sobre la base', () => {
-  it('Pro con 448 departamentos: base 1120,00 + IGV 201,60 = 1321,60 (no 448 × 2,95 sumado y redondeado)', () => {
+  it('Pro con 448 departamentos: base 1568,00 + IGV 282,24 = 1850,24 (no 448 × 3,50 con IGV sumado y redondeado)', () => {
+    // 448 × 3.50 = 1568.00; IGV 18 % = 282.24; × 12 = 22202.88
     const c = cotizar({ unidades: 448, plan: pro, modulosSueltos: [], catalogo, tasa: TASA });
-    assert.equal(c.base, '1120.00');
-    assert.equal(c.igv, '201.60');
-    assert.equal(c.total_mes, '1321.60');
-    assert.equal(c.total_anio, '15859.20');
+    assert.equal(c.base, '1568.00');
+    assert.equal(c.igv, '282.24');
+    assert.equal(c.total_mes, '1850.24');
+    assert.equal(c.total_anio, '22202.88');
   });
   it('módulos sueltos: los 3 módulos en 33 departamentos = base 82,50 + IGV 14,85 = 97,35', () => {
     const c = cotizar({ unidades: 33, plan: null, modulosSueltos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'], catalogo, tasa: TASA });
@@ -57,7 +58,7 @@ describe('cotización: el IGV se aplica una sola vez sobre la base', () => {
   });
   it('los módulos que el plan ya trae no se cobran dos veces', () => {
     const c = cotizar({ unidades: 100, plan: pro, modulosSueltos: ['ia_vouchers'], catalogo, tasa: TASA });
-    assert.equal(c.base, '250.00');
+    assert.equal(c.base, '350.00'); // 100 × 3.50
     assert.equal(c.lineas.length, 1);
   });
   it('Gratis sin módulos cuesta cero; 0 departamentos cuesta cero', () => {
@@ -65,15 +66,16 @@ describe('cotización: el IGV se aplica una sola vez sobre la base', () => {
     assert.equal(cotizar({ unidades: 0, plan: pro, modulosSueltos: [], catalogo, tasa: TASA }).total_mes, '0.00');
   });
   it('plan con IGV incluido: el total es el precio publicado × unidades', () => {
-    const c = cotizar({ unidades: 100, plan: { ...pro, precio_por_unidad: '2.95', igv_incluido: true }, modulosSueltos: [], catalogo, tasa: TASA });
-    assert.equal(c.total_mes, '295.00');
-    assert.equal(c.base, '250.00');
+    // 4.13 = 3.50 con IGV publicado; 100 × 4.13 = 413.00; base = 413.00 / 1.18 = 350.00
+    const c = cotizar({ unidades: 100, plan: { ...pro, precio_por_unidad: '4.13', igv_incluido: true }, modulosSueltos: [], catalogo, tasa: TASA });
+    assert.equal(c.total_mes, '413.00');
+    assert.equal(c.base, '350.00');
   });
   it('desglose de un pago: base + IGV = monto exacto', () => {
-    const d = desglosarMonto('1321.60', TASA);
-    assert.equal(d.base.toFixed(2), '1120.00');
-    assert.equal(d.igv.toFixed(2), '201.60');
-    assert.equal(d.base.plus(d.igv).toFixed(2), '1321.60');
+    const d = desglosarMonto('1850.24', TASA);
+    assert.equal(d.base.toFixed(2), '1568.00');
+    assert.equal(d.igv.toFixed(2), '282.24');
+    assert.equal(d.base.plus(d.igv).toFixed(2), '1850.24');
     const e = desglosarMonto('100.00', TASA);
     assert.equal(e.base.plus(e.igv).toFixed(2), '100.00');
   });
@@ -165,7 +167,7 @@ describe('seed del catálogo y migración a cortesía', () => {
   it('el seed deja los precios base y es idempotente: no pisa lo que el superadmin editó', async () => {
     const precios = async () => Object.fromEntries((await prisma.moduloComercial.findMany()).map((m) => [m.clave, m.precio_por_unidad.toFixed(2)]));
     assert.deepEqual(await precios(), { ia_vouchers: '1.00', whatsapp_avisos: '1.00', asistente: '0.50' });
-    assert.deepEqual((await prisma.planComercial.findMany({ orderBy: { orden: 'asc' } })).map((p) => [p.clave, p.precio_por_unidad.toFixed(2), p.visible]), [['gratis', '0.00', true], ['basico', '1.00', true], ['pro', '2.50', true], ['administradora', '2.00', true], ['cortesia', '0.00', false]]);
+    assert.deepEqual((await prisma.planComercial.findMany({ orderBy: { orden: 'asc' } })).map((p) => [p.clave, p.precio_por_unidad.toFixed(2), p.visible]), [['gratis', '0.00', true], ['basico', '1.50', true], ['pro', '3.50', true], ['administradora', '3.00', true], ['cortesia', '0.00', false]]);
     assert.equal((await prisma.configuracionComercial.findUniqueOrThrow({ where: { id: 1 } })).igv_tasa.toString(), '0.18');
     await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '0.75' } });
     await sembrarCatalogoComercial(prisma);
