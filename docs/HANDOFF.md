@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — E2E de los flujos comerciales en el navegador (Claude Code, Haiku 5.5) — push: no
+
+- **Qué se hizo:** `scripts/e2e/flujos-comercial.mjs` (nuevo). Playwright contra el backend aislado (`levantar.sh 4101 house_e2e_comercial`), con clics y formularios reales; la API sólo prepara datos y fabrica el token del correo. Flujos: `publico` (escritorio y celular), `registro` (dos pasos + correo), `plan` (prueba de Pro → solicitud → pago del superadmin → Pro activo), `solo-lectura` (plazo vencido → 409 en pantalla), `un-condominio`, `superadmin`. Sin cambios en `src/`, `prisma/` ni `tests/`.
+- **Resultado:** dos corridas completas, cada una en dos tandas: `publico,registro,plan` 23/23 y `solo-lectura,un-condominio,superadmin` 15/15. Historial en `scripts/e2e/resultados/comercial.json` (sin seguimiento en git).
+- **Límite de registros:** `registroIp` deja 5 registros por hora y por IP, y `registroCorreo` 3 por hora y por correo; no se configuran por entorno. Una corrida completa hace 6 registros, así que se hace en tandas, reiniciando el backend con `levantar.sh 4101 house_e2e_comercial --sin-copiar` entre ellas. (El brief hablaba de 300 cada 15 min: eso es `apiAnonimo`.)
+- **Hallazgo (la app, sin tocar):** `estadoDeComplejo` guarda el estado de cada condominio 30 s (`services/comercial/modulos.ts`, `ttlMs`). Reproducido: un comunicado publicado con el formulario abierto antes del vencimiento entra (201) durante esos 30 s. La ventana es corta y el plazo vence a medianoche (Lima), pero conviene decidir si se acepta o si el cambio de vigencia o de plan invalida la caché.
+- **Decisión de prueba:** tras vencer el plazo por SQL, el paso espera 31 s antes de publicar. Sondear `estado-operativo` no sirve de señal: lee el estado fresco mientras la escritura usa la caché.
+- **Gotchas:** (1) una cuenta nueva nace en prueba de Pro dentro del plazo gratis, no en Torre Gratis; la pantalla dice «Te quedan N días gratis (la prueba de Torre Pro va dentro de ese plazo)». (2) Las mutaciones hechas con `page.request` exigen `X-CSRF-Token` (viene en `{user, csrf}` del login) y `Origin`. (3) Con un solo condominio el formulario de comunicado no muestra el selector. (4) Los errores del formulario de comunicado salen como aviso (toast), fuera del diálogo. (5) Calculadora: Pro con 20 departamentos son S/ 50; Básico, S/ 20.
+- **Pruebas:** `npm test` no corre porque no se tocó código. Mutación: en el paso de planes, `Torre Básico` → `Torre Básico Plus` → fallan los dos pasos (salida 1); se restauró y se verificó con `cmp`.
+- **Próximos pasos:** Miguel decide el push. Pendiente: decidir la caché de 30 s; agregar `scripts/e2e/resultados/` a `.gitignore`; si se quieren corridas completas de una sola vez, un límite de registros configurable para el backend de pruebas (decisión del orquestador).
+- **Sin probar:** envío de correo y WhatsApp (apagados en el lanzador); móvil en los flujos de registro, plan, solo lectura, un condominio y superadmin (sólo `publico` corre en celular).
 ## 2026-10-31 — E2E de todos los flujos (Claude Code, Opus 5.5) — push: no — EN CURSO
 
 - Pedido de Miguel: «corre pruebas e2e de todos los flujos si falta alguno lo creas».
