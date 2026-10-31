@@ -41,7 +41,8 @@ export default function Precios() {
           <p style={sube(1)} className="sube mx-auto mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">Torre emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis por 3 meses y después eliges Torre Básico o, cuando necesites todo, Torre Pro.</p>
           {cat && cat.paises.length > 1 && <SelectorPais cat={cat} className="sube mx-auto mt-6 max-w-xs text-left" />}
           <ul style={sube(2)} className="sube mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-base font-medium">
-            {hechos.map(h => <li key={h} className="inline-flex items-center gap-1.5"><CheckIcon className="h-5 w-5 text-brand" aria-hidden="true" />{h}</li>)}
+            {/* Con el texto en dos líneas (celular), el check queda pegado al texto y arriba, no suelto a la izquierda. */}
+            {hechos.map(h => <li key={h} className="inline-flex max-w-full items-start gap-1.5 text-left"><CheckIcon className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" /><span>{h}</span></li>)}
           </ul>
           <div style={sube(3)} className="sube mt-8 flex flex-wrap items-center justify-center gap-3">
             {abierto
