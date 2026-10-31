@@ -4,6 +4,19 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Pro y Administradora parejos de partida; calculadora sin total anual y con desglose (Claude Code, Haiku 5.5, delegado por Opus) — push: no
+
+- Pedido de Miguel: quitar por ahora el escalonado de precios (queda parejo) y cambiar el panel de la calculadora. Rama `feat/calculadora-parejo` (worktree).
+- Seed y oferta sin tramo: `PLANES_SEED` de Pro y Administradora con `tramo_desde/tramo_precio` en null; se quitó `TRAMO_DESDE_SEED`; `ajustarOfertaGratisPro` ya no pone tramos (ni los pone ni los quita). El soporte de tramos (cálculo, Superadmin › Precios, textos) se queda.
+- Calculadora (`Recibo.tsx`): sin «al año». Grande: «S/ X al mes + IGV» (sin «+ …» si la tasa es 0) y «Con IGV: …». Desglose en `<dl>`: precio base o tramos y «Promedio por departamento». El desglose sólo se muestra si suma exactamente el total del servidor. Lógica en `precios/tramo.ts` (`desglosar`, `etiquetaDeFila`, `notaDelMinimo`), en enteros de la unidad mínima.
+- Pruebas: `tests/recibo-desglose.test.ts` compara las sumas contra `cotizar` con 1, 15, 20, 21, 60, 61, 100 y 250 departamentos (PEN con y sin tramo, CLP con tramo). Mutaciones en rojo: anual de vuelta, promedio quitado, tramo mal cortado, tramo de Pro vuelto al seed.
+- Decisiones: el servidor no devuelve líneas en `/api/publico/cotizar`, así que el desglose se arma en el cliente con el precio del catálogo. No se tocó la ruta. Si un día no cuadra, la calculadora muestra sólo el total.
+- Gotchas: `Recibo.tsx` no se monta en Node (`api.ts` usa `import.meta.env`); su cableado se prueba leyendo la fuente y la lógica va en `tramo.ts`. Las cotizaciones de Pro que esperaban el tramo (260 con 100 departamentos, 956 con 448…) pasaron a parejo en `oferta-gratis-pro`, `comercial-api`, `comercial-registro` e `impuesto-pais`.
+- Verificado: `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` sin errores; suite completa 3242/3242 (`TEST_DATABASE_URL=…/house_test_calc`).
+- Pendiente: revisar a 390 px en navegador (no verificado); commits y push con OK de Miguel.
+
+---
+
 ## 2026-10-31 — Tramos en Pro y Administradora desde el departamento 61 (Claude Code, Opus 5.5 + Sonnet) — push: sí (desplegado f3010a4; script de tramos corrido en producción)
 
 - Decisión de Miguel: «Desde el 61 a S/ 2». Pro: hasta el 60 a S/ 3,00 y desde el 61 a S/ 2,00; Administradora: S/ 2,50 y desde el 61 S/ 1,70 (Sonnet, `feat/tramos-pro-61`, reemplaza a `feat/tramos-pro`). Pro 80 = S/ 220, 150 = S/ 360; Administradora 150 = S/ 303 (verificado con `/api/publico/cotizar`).
