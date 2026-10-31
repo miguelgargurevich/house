@@ -4,6 +4,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { registrarConCondominio } from './helpers/registro';
 import type { DepsAvisos } from '../src/server/services/avisos/canales';
 import { comercialCorreo } from '../src/server/services/comercial/configuracion';
 import { estadoEfectivo, primerDiaSoloLectura, type EntradaSuscripcion } from '../src/server/services/comercial/estado';
@@ -126,9 +127,6 @@ beforeEach(async () => {
 afterEach(() => { enviados = []; invalidarComercial(); });
 
 const sesionA = () => prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: d.complejoA.id } });
-const registro = (correo: string) => ({
-  nombre: 'Rosa Quispe', email: correo, celular: '987 654 321', password: 'Cl4ve-segura-2026', empresa: `Junta ${correo}`, condominio: `Condominio ${correo}`, unidades: 12, acepta_terminos: true,
-});
 const susDeRegistro = async (correo: string) => {
   const c = await prisma.complejoHabitacional.findFirstOrThrow({ where: { nombre: `Condominio ${correo}` } });
   return prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: c.id } });
@@ -142,8 +140,7 @@ const ponerGratis = (finDias: number | null, extra: Record<string, unknown> = {}
 
 describe('registro: el plazo de Gratis y la prueba de Pro dentro', () => {
   it('con el registro: Pro de prueba hasta el día 30, Gratis hasta el día 90 (hoy de Lima + dias_gratis)', async () => {
-    const r = await llamar(base, 'POST', '/api/publico/registro', null, registro('plazo90@casa.pe'));
-    assert.equal(r.status, 202, r.texto);
+    await registrarConCondominio(base, 'plazo90@casa.pe');
     const s = await susDeRegistro('plazo90@casa.pe');
     assert.equal(s.plan_clave, 'pro');
     assert.equal(s.es_prueba, true);
@@ -154,7 +151,7 @@ describe('registro: el plazo de Gratis y la prueba de Pro dentro', () => {
   });
 
   it('el día 31 ya es Gratis (sin solo lectura) y el día 91, solo lectura', async () => {
-    await llamar(base, 'POST', '/api/publico/registro', null, registro('plazo91@casa.pe'));
+    await registrarConCondominio(base, 'plazo91@casa.pe');
     const s = await susDeRegistro('plazo91@casa.pe');
     const planes = await prisma.planComercial.findMany({ select: { clave: true, modulos_incluidos: true } });
     const en = (dias: number) => estadoEfectivo(s, planes, PLAZOS, ahoraEn(dias));
@@ -167,7 +164,7 @@ describe('registro: el plazo de Gratis y la prueba de Pro dentro', () => {
   it('sin prueba de Pro, nace en Gratis con su plazo', async () => {
     await prisma.configuracionComercial.update({ where: { id: 1 }, data: { dias_prueba_pro: 0 } });
     invalidarComercial();
-    await llamar(base, 'POST', '/api/publico/registro', null, registro('sinprueba@casa.pe'));
+    await registrarConCondominio(base, 'sinprueba@casa.pe');
     const s = await susDeRegistro('sinprueba@casa.pe');
     assert.deepEqual([s.plan_clave, s.es_prueba, iso(s.gratis_hasta!.getTime())], ['gratis', false, iso(HOY() + 90 * DIA)]);
   });
@@ -177,7 +174,7 @@ describe('registro: el plazo de Gratis y la prueba de Pro dentro', () => {
       await prisma.configuracionComercial.update({ where: { id: 1 }, data: { dias_gratis: valor } });
       invalidarComercial();
       const correo = `sinplazo${valor}@casa.pe`;
-      await llamar(base, 'POST', '/api/publico/registro', null, registro(correo));
+      await registrarConCondominio(base, correo);
       assert.equal((await susDeRegistro(correo)).gratis_hasta, null, `dias_gratis ${valor}`);
     }
   });

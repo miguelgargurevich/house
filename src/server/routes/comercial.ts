@@ -7,6 +7,7 @@ import { currentUser, requireRole } from '../middleware/auth';
 import { CODIGOS_MONEDA, CODIGOS_PAIS, decimalesDe, monedaEnPlural } from '../../lib/paises';
 import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
 import { puedeAgregarCondominio } from '../services/comercial/cupo';
+import { crearPrimerCondominio } from '../services/comercial/primerCondominio';
 import { usoDelMes } from '../services/comercial/consumo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { cambiarImpuesto, reflejarTasaEnPeru } from '../services/comercial/impuestos';
@@ -149,6 +150,28 @@ comercialRouter.get('/mi-plan/:complejoId/uso', requireRole('admin'), async (req
  *   get: { summary: "¿Puedes crear otro condominio? Gratis incluye uno: con uno ya en Gratis, no (y el motivo para mostrarlo)", tags: [Comercial], responses: { 200: { description: "{ puede, motivo, gratis }" } } } */
 comercialRouter.get('/puede-agregar-condominio', requireRole('admin'), async (req, res) => {
   res.json(await puedeAgregarCondominio(empresaDe(soloAdmin(req))));
+});
+
+/** Paso 2 del registro: nombre de la administradora o junta, del condominio y departamentos (aproximado). Los nombres de los campos son los del registro de antes. */
+const primerCondominioSchema = z.object({
+  empresa: texto(160),
+  condominio: texto(160),
+  unidades: z.coerce.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mínimo 1').max(5000, 'Máximo 5000'),
+});
+
+/** @openapi
+ * /api/comercial/primer-condominio:
+ *   post: { summary: "Paso 2 del registro: crea el primer condominio de tu administradora (renombra tu empresa; crea el condominio, su contrato y su suscripción con la prueba de Torre Pro y el plazo de Gratis). Sólo si tu empresa no tiene condominios", tags: [Comercial], responses: { 201: { description: "{ complejo_id, empresa_id }" }, 403: { description: "No eres administradora" }, 409: { description: "Tu administradora ya tiene un condominio" }, 422: { description: "Campos inválidos" } } } */
+comercialRouter.post('/primer-condominio', requireRole('admin'), async (req, res) => {
+  const u = soloAdmin(req);
+  const body = parseBody(primerCondominioSchema, req);
+  const { complejoId, empresaId } = await crearPrimerCondominio(u, body);
+  invalidarComercial();
+  res.locals.entidad = 'complejo';
+  res.locals.entidadId = complejoId;
+  res.locals.accion = 'primer_condominio';
+  res.locals.auditDetalle = { empresa_id: empresaId, complejo_id: complejoId, unidades: body.unidades };
+  res.status(201).json({ complejo_id: complejoId, empresa_id: empresaId });
 });
 
 /** @openapi

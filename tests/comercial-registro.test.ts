@@ -1,4 +1,4 @@
-// Registro público: una transacción, verificación obligatoria del correo, sin enumerar correos, antiabuso y el endpoint público de planes.
+// Registro público (paso 1 de 2: la cuenta; el condominio es el paso 2, ver `registro-dos-pasos.test.ts`): una transacción, verificación obligatoria del correo, sin enumerar correos, antiabuso y el endpoint público de planes.
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -23,7 +23,7 @@ const depsOriginal = comercialCorreo.deps;
 
 const tokenDe = (c: Correo) => /token=([\w-]+)/.exec(c.cuerpo)?.[1] ?? '';
 const registro = (over: Record<string, unknown> = {}) => ({
-  nombre: 'Rosa Quispe', email: 'rosa@casa.pe', celular: '987 654 321', password: 'Cl4ve-segura-2026', empresa: 'Junta Los Pinos', condominio: 'Condominio Los Pinos', unidades: 48, acepta_terminos: true, ...over,
+  nombre: 'Rosa Quispe', email: 'rosa@casa.pe', celular: '987 654 321', password: 'Cl4ve-segura-2026', acepta_terminos: true, ...over,
 });
 
 let base: string;
@@ -43,7 +43,7 @@ describe('registro público', () => {
   });
   afterEach(async () => { comercialCorreo.deps = depsOriginal; await cerrar(); });
 
-  it('crea en UNA transacción empresa + admin + condominio en Gratis (con su contrato) y manda el enlace', async () => {
+  it('paso 1: crea en UNA transacción empresa (con el nombre de la persona) + admin, SIN condominio ni suscripción, y manda el enlace', async () => {
     const r = await llamar(base, 'POST', '/api/publico/registro', null, registro());
     assert.equal(r.status, 202, r.texto);
     const u = await prisma.usuario.findUniqueOrThrow({ where: { email: 'rosa@casa.pe' } });
@@ -51,22 +51,31 @@ describe('registro público', () => {
     assert.equal(u.correo_verificado, false);
     assert.ok(u.empresa_id);
     const empresa = await prisma.empresaAdministradora.findUniqueOrThrow({ where: { id: u.empresa_id! } });
-    assert.equal(empresa.nombre, 'Junta Los Pinos');
-    const complejo = await prisma.complejoHabitacional.findFirstOrThrow({ where: { empresa_id: empresa.id } });
-    assert.equal(complejo.nombre, 'Condominio Los Pinos');
-    const sus = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: complejo.id } });
-    // Con la prueba por defecto (30 días) nace en Pro de prueba; con 0 días nace en Gratis (tests/prueba-pro.test.ts).
-    assert.equal(sus.plan_clave, 'pro');
-    assert.equal(sus.es_prueba, true);
-    assert.match(sus.notas ?? '', /48 departamentos/);
-    assert.equal(await prisma.contratoAdministracion.count({ where: { complejo_id: complejo.id, empresa_id: empresa.id, fecha_fin: null } }), 1);
+    assert.equal(empresa.nombre, 'Rosa Quispe', 'nombre provisional: el de la persona; el paso 2 lo reemplaza');
+    assert.equal(await prisma.complejoHabitacional.count({ where: { empresa_id: empresa.id } }), 0);
+    assert.equal(await prisma.contratoAdministracion.count({ where: { empresa_id: empresa.id } }), 0);
+    // sembrar() deja 2 condominios; el registro no suma ninguno ni crea suscripciones.
+    assert.equal(await prisma.complejoHabitacional.count(), 2);
+    assert.equal(await prisma.suscripcionCondominio.count({ where: { complejo: { empresa_id: empresa.id } } }), 0);
     const aCliente = enviados.find((c) => c.para === 'rosa@casa.pe')!;
     assert.match(aCliente.cuerpo, /^.*\n[\s\S]*https:\/\/house\.ejemplo\.test\/verificar-correo\?token=/);
+    assert.match(aCliente.cuerpo, /paso 2 de 2 es crear tu condominio/);
     const aSuper = enviados.find((c) => c.para === 'miguel@house.test')!;
     assert.match(aSuper.cuerpo, /Rosa Quispe/);
-    assert.match(aSuper.cuerpo, /Los Pinos/);
+    assert.match(aSuper.cuerpo, /Paso 1 de 2/);
     assert.doesNotMatch(aSuper.cuerpo, /Cl4ve-segura/);
-    assert.equal((await prisma.auditoria.findFirst({ where: { accion: 'registro_publico' } }))?.entidad_id, u.id);
+    const aud = await prisma.auditoria.findFirstOrThrow({ where: { accion: 'registro_publico' } });
+    assert.equal(aud.entidad_id, u.id);
+    assert.equal((aud.detalle as { paso: number }).paso, 1);
+  });
+
+  it('los datos del condominio ya no se aceptan en el paso 1: si llegan se IGNORAN (202) y no se crea condominio ni se usa su nombre', async () => {
+    const r = await llamar(base, 'POST', '/api/publico/registro', null, registro({ empresa: 'Junta Los Pinos', condominio: 'Condominio Los Pinos', unidades: 48 }));
+    assert.equal(r.status, 202, r.texto);
+    assert.equal(await prisma.complejoHabitacional.count({ where: { nombre: 'Condominio Los Pinos' } }), 0);
+    assert.equal(await prisma.empresaAdministradora.count({ where: { nombre: 'Junta Los Pinos' } }), 0);
+    assert.equal(await prisma.empresaAdministradora.count({ where: { nombre: 'Rosa Quispe' } }), 1);
+    assert.equal(await prisma.suscripcionCondominio.count({ where: { plan_clave: { not: 'cortesia' } } }), 0);
   });
 
   it('el token se guarda sólo como hash (nunca el token) y vence en 24 h', async () => {
@@ -83,7 +92,7 @@ describe('registro público', () => {
     const primera = await llamar(base, 'POST', '/api/publico/registro', null, registro());
     await prisma.usuario.update({ where: { email: 'rosa@casa.pe' }, data: { correo_verificado: true } });
     const antes = { u: await prisma.usuario.count(), e: await prisma.empresaAdministradora.count(), c: await prisma.complejoHabitacional.count() };
-    const repetida = await llamar(base, 'POST', '/api/publico/registro', null, registro({ nombre: 'Otra Persona', empresa: 'Otra empresa' }));
+    const repetida = await llamar(base, 'POST', '/api/publico/registro', null, registro({ nombre: 'Otra Persona' }));
     assert.equal(repetida.status, primera.status);
     assert.deepEqual(repetida.body, primera.body);
     assert.deepEqual({ u: await prisma.usuario.count(), e: await prisma.empresaAdministradora.count(), c: await prisma.complejoHabitacional.count() }, antes);
@@ -94,19 +103,19 @@ describe('registro público', () => {
     assert.equal(existente.status, 202);
   });
 
-  it('dos registros simultáneos con el mismo correo: uno solo crea y no quedan empresas ni condominios huérfanos (rollback)', async () => {
+  it('dos registros simultáneos con el mismo correo: uno solo crea y no quedan empresas huérfanas (rollback)', async () => {
     const [a, b] = await Promise.all([
       llamar(base, 'POST', '/api/publico/registro', null, registro({ email: 'carrera@casa.pe' })),
-      llamar(base, 'POST', '/api/publico/registro', null, registro({ email: 'carrera@casa.pe', empresa: 'Otra empresa', condominio: 'Otro condominio' })),
+      llamar(base, 'POST', '/api/publico/registro', null, registro({ email: 'carrera@casa.pe', nombre: 'Otra Persona' })),
     ]);
     assert.equal(a.status, 202);
     assert.equal(b.status, 202);
     assert.deepEqual(a.body, b.body);
     assert.equal(await prisma.usuario.count({ where: { email: 'carrera@casa.pe' } }), 1);
-    // sembrar() crea 2 empresas y 2 condominios; el registro suma exactamente 1 de cada uno.
+    // sembrar() crea 2 empresas y 2 condominios; el registro suma exactamente 1 empresa y ningún condominio.
     assert.equal(await prisma.empresaAdministradora.count(), 3);
-    assert.equal(await prisma.complejoHabitacional.count(), 3);
-    assert.equal(await prisma.suscripcionCondominio.count({ where: { plan_clave: 'pro', es_prueba: true } }), 1);
+    assert.equal(await prisma.complejoHabitacional.count(), 2);
+    assert.equal(await prisma.suscripcionCondominio.count({ where: { plan_clave: 'pro', es_prueba: true } }), 0);
   });
 
   it('sin verificar el correo NO entra (aunque la contraseña sea correcta); con contraseña mala sigue siendo el 401 de siempre', async () => {
@@ -170,8 +179,7 @@ describe('registro público', () => {
   it('validación: contraseña débil, igual al correo, campos vacíos o larguísimos → 422 y no se crea nada', async () => {
     const casos: Record<string, unknown>[] = [
       { password: 'corta1' }, { password: 'solo-letras-largas' }, { password: '12345678' }, { password: 'password123' },
-      { password: 'rosa@casa.pe' }, { email: 'no-es-correo' }, { nombre: '' }, { nombre: 'x'.repeat(121) }, { empresa: 'e'.repeat(161) },
-      { condominio: '' }, { celular: 'abc' }, { unidades: 0 }, { unidades: 99999 }, { unidades: 'muchos' },
+      { password: 'rosa@casa.pe' }, { email: 'no-es-correo' }, { nombre: '' }, { nombre: 'x'.repeat(121) }, { celular: 'abc' },
     ];
     for (const c of casos) {
       const r = await llamar(base, 'POST', '/api/publico/registro', null, registro(c));

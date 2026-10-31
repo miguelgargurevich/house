@@ -4,6 +4,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 import { iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
+import { registrarConCondominio } from './helpers/registro';
 import type { DepsAvisos } from '../src/server/services/avisos/canales';
 import { comercialCorreo } from '../src/server/services/comercial/configuracion';
 import { estadoEfectivo, type EntradaSuscripcion } from '../src/server/services/comercial/estado';
@@ -99,17 +100,13 @@ const ponerPrueba = (vigenteDias: number, extra: Record<string, unknown> = {}) =
     update: { plan_clave: 'pro', modulos: [], estado: 'activa', es_prueba: true, vigente_hasta: new Date(HOY() + vigenteDias * DIA), solicitud_plan: null, solicitud_modulos: [], ...extra },
   });
 const sesionA = () => prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: d.complejoA.id } });
-const registro = (correo: string) => ({
-  nombre: 'Rosa Quispe', email: correo, celular: '987 654 321', password: 'Cl4ve-segura-2026', empresa: `Junta ${correo}`, condominio: `Condominio ${correo}`, unidades: 12, acepta_terminos: true,
-});
 const pagoBody = (over: Record<string, unknown> = {}) => ({ monto: '59.00', fecha_pago: iso(HOY()), medio: 'transferencia', operacion: `OP-${Math.random()}`, periodo_desde: iso(HOY()), periodo_hasta: iso(HOY() + 30 * DIA), ...over });
 
 describe('registro: el condominio nace en Pro de prueba', () => {
   beforeEach(async () => { await prisma.configuracionComercial.update({ where: { id: 1 }, data: { dias_prueba_pro: 30 } }); invalidarComercial(); });
 
   it('con 30 días: Pro, es_prueba y vigente hasta hoy + 30 (día de Lima)', async () => {
-    const r = await llamar(base, 'POST', '/api/publico/registro', null, registro('prueba30@casa.pe'));
-    assert.equal(r.status, 202, r.texto);
+    await registrarConCondominio(base, 'prueba30@casa.pe');
     const c = await prisma.complejoHabitacional.findFirstOrThrow({ where: { nombre: 'Condominio prueba30@casa.pe' } });
     const s = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: c.id } });
     assert.equal(s.plan_clave, 'pro');
@@ -121,8 +118,7 @@ describe('registro: el condominio nace en Pro de prueba', () => {
   it('con 0 días: sin prueba, nace en Gratis como antes', async () => {
     await prisma.configuracionComercial.update({ where: { id: 1 }, data: { dias_prueba_pro: 0 } });
     invalidarComercial();
-    const r = await llamar(base, 'POST', '/api/publico/registro', null, registro('prueba0@casa.pe'));
-    assert.equal(r.status, 202, r.texto);
+    await registrarConCondominio(base, 'prueba0@casa.pe');
     const c = await prisma.complejoHabitacional.findFirstOrThrow({ where: { nombre: 'Condominio prueba0@casa.pe' } });
     const s = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: c.id } });
     assert.equal(s.plan_clave, 'gratis');

@@ -9,14 +9,12 @@ import { contrasenaIgualACorreo, emailSchema, MENSAJE_PASSWORD_CORREO, parse, pa
 
 export interface LimitadoresPublicos { registroIp: RequestHandler; registroCorreo: RequestHandler; verificacion: RequestHandler }
 
+/** Paso 1 de 2: sólo la cuenta. Los datos del condominio (`empresa`, `condominio`, `unidades`) ya no se piden aquí: si llegan (una pantalla vieja en caché) se IGNORAN, no se rechazan, y no se crea condominio. Se piden en el paso 2 (`POST /api/comercial/primer-condominio`). */
 const registroSchema = z.object({
   nombre: texto(120),
   email: emailSchema,
   celular: telefonoObligatorio,
   password: passwordSchema,
-  empresa: texto(160),
-  condominio: texto(160),
-  unidades: z.coerce.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mínimo 1').max(5000, 'Máximo 5000'),
   /** Ley 29733: el consentimiento a los Términos y la Política es obligatorio. La versión la graba el servidor (`VERSION_LEGAL`). */
   acepta_terminos: z.literal(true, { error: 'Debes aceptar los términos y la política de privacidad' }),
   /** Señuelo antiabuso: un campo que ninguna persona ve ni llena. Si llega con algo, se responde igual y no se crea nada. */
@@ -65,7 +63,7 @@ export function publicoRouter(l: LimitadoresPublicos) {
 
   /** @openapi
    * /api/publico/registro:
-   *   post: { summary: "Crea empresa + administrador + condominio (Gratis); exige verificar el correo y aceptar los Términos (`acepta_terminos: true`)", tags: [Público], responses: { 202: { description: "Misma respuesta exista o no el correo" }, 422: { description: "Campos inválidos (también si no se aceptan los términos)" }, 429: { description: "Demasiados intentos" } } } */
+   *   post: { summary: "Paso 1 de 2: crea la cuenta (empresa con nombre provisional + administrador, sin condominio ni suscripción); exige verificar el correo y aceptar los Términos (`acepta_terminos: true`). El condominio se crea después con POST /api/comercial/primer-condominio; si el body trae `empresa`, `condominio` o `unidades` se ignoran", tags: [Público], responses: { 202: { description: "Misma respuesta exista o no el correo" }, 422: { description: "Campos inválidos (también si no se aceptan los términos)" }, 429: { description: "Demasiados intentos" } } } */
   r.post('/registro', l.registroIp, l.registroCorreo, async (req, res) => {
     const d = parseBody(registroSchema, req);
     // Señuelo lleno = robot: mismo 202, sin crear nada.

@@ -1,5 +1,5 @@
 // Registro público y consentimiento (Ley 29733): sin aceptar los Términos y la Política no se crea nada; aceptando, la cuenta
-// guarda la versión y la fecha en la misma transacción que la empresa y el condominio.
+// guarda la versión y la fecha en la misma transacción que la empresa (paso 1: la cuenta; el condominio se crea en el paso 2).
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
@@ -17,7 +17,7 @@ const depsFalsas = (): DepsAvisos => ({
 const depsOriginal = comercialCorreo.deps;
 
 const registro = (over: Record<string, unknown> = {}) => ({
-  nombre: 'Rosa Quispe', email: 'rosa@casa.pe', celular: '987 654 321', password: 'Cl4ve-segura-2026', empresa: 'Junta Los Pinos', condominio: 'Condominio Los Pinos', unidades: 48, ...over,
+  nombre: 'Rosa Quispe', email: 'rosa@casa.pe', celular: '987 654 321', password: 'Cl4ve-segura-2026', ...over,
 });
 
 let base: string;
@@ -39,8 +39,7 @@ describe('registro: aceptar los Términos y la Política de privacidad', () => {
       assert.equal(r.status, 422, r.texto);
       assert.equal(r.body.campos.acepta_terminos, 'Debes aceptar los términos y la política de privacidad');
       assert.equal(await prisma.usuario.count({ where: { email: 'rosa@casa.pe' } }), 0);
-      assert.equal(await prisma.empresaAdministradora.count({ where: { nombre: 'Junta Los Pinos' } }), 0);
-      assert.equal(await prisma.complejoHabitacional.count({ where: { nombre: 'Condominio Los Pinos' } }), 0);
+      assert.equal(await prisma.empresaAdministradora.count({ where: { nombre: 'Rosa Quispe' } }), 0, 'la empresa provisional lleva el nombre de la persona');
     });
   }
 

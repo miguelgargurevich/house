@@ -1,16 +1,14 @@
-// Registro público: crea EN UNA TRANSACCIÓN la empresa, su administrador y el primer condominio (plan Gratis). El correo se verifica
-// con un enlace de un solo uso (sólo se guarda su hash, vence a las 24 h) antes de poder entrar. La respuesta es la misma exista o no el correo.
+// Registro público, PASO 1 de 2 (la cuenta): crea EN UNA TRANSACCIÓN la empresa (con un nombre provisional: el de la persona) y su administrador, sin condominio
+// ni suscripción. El condominio se crea en el paso 2, ya con sesión (`primerCondominio.ts`). El correo se verifica con un enlace de un solo uso
+// (sólo se guarda su hash, vence a las 24 h) antes de poder entrar. La respuesta es la misma exista o no el correo.
 import { createHash, randomBytes } from 'node:crypto';
 import bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { BCRYPT_COST } from '../../config';
 import { prisma } from '../../db';
 import { HttpError } from '../../errors';
-import { abrirContrato } from '../../lib/contratos';
 import { registrarAuditoria } from '../../middleware/audit';
 import { comercialDeps } from './modulos';
-import { finDePrueba } from './estado';
-import { plazoGratisNuevo } from './plazoGratis';
 import { correoA, enlace, enmascarar, obtenerConfiguracion } from './configuracion';
 import { VERSION_LEGAL } from './legal';
 
@@ -24,9 +22,6 @@ export interface DatosRegistro {
   email: string;
   celular: string;
   password: string;
-  empresa: string;
-  condominio: string;
-  unidades: number;
 }
 
 const hashToken = (t: string) => createHash('sha256').update(t).digest('hex');
@@ -41,15 +36,15 @@ async function crearToken(tx: Prisma.TransactionClient | typeof prisma, usuarioI
 async function enviarVerificacion(email: string, nombre: string, token: string): Promise<void> {
   const cfg = await obtenerConfiguracion();
   const link = enlace(cfg, `/verificar-correo?token=${encodeURIComponent(token)}`);
-  await correoA(email, 'Confirma tu correo en Torre', `Hola ${nombre},\n\nPara activar tu cuenta de Torre confirma tu correo con este enlace (vence en ${HORAS_ENLACE} horas y sirve una sola vez):\n\n${link}\n\nSi no te registraste tú, ignora este mensaje.`);
+  await correoA(email, 'Confirma tu correo en Torre', `Hola ${nombre},\n\nPara activar tu cuenta de Torre confirma tu correo con este enlace (vence en ${HORAS_ENLACE} horas y sirve una sola vez):\n\n${link}\n\nAl entrar, el paso 2 de 2 es crear tu condominio.\n\nSi no te registraste tú, ignora este mensaje.`);
 }
 
-async function avisarAlSuperadmin(asunto: string, cuerpo: string): Promise<void> {
+export async function avisarAlSuperadmin(asunto: string, cuerpo: string): Promise<void> {
   const cfg = await obtenerConfiguracion();
   if (cfg.correo_superadmin) await correoA(cfg.correo_superadmin, asunto, cuerpo).catch(() => undefined);
 }
 
-/** Alta de una cuenta nueva. Valida el cierre del registro; el resto de reglas (campos, contraseña) las aplica el esquema de la ruta. */
+/** Paso 1: alta de una cuenta nueva (sin condominio). Valida el cierre del registro; el resto de reglas (campos, contraseña) las aplica el esquema de la ruta. */
 export async function registrarCuenta(d: DatosRegistro, ip: string | null): Promise<void> {
   const cfg = await obtenerConfiguracion();
   if (!cfg.registro_abierto) throw new HttpError(503, 'El registro está cerrado por ahora. Escríbenos y te ayudamos.');
@@ -58,24 +53,14 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
   const existente = await prisma.usuario.findUnique({ where: { email: d.email }, select: { id: true, nombre: true, correo_verificado: true } });
   if (existente) return void (await avisarCorreoExistente(d.email, existente));
 
-  let creado: { usuarioId: number; empresaId: number; complejoId: number; token: string };
+  let creado: { usuarioId: number; empresaId: number; token: string };
   try {
     creado = await prisma.$transaction(async (tx) => {
-      const empresa = await tx.empresaAdministradora.create({ data: { nombre: d.empresa, email: d.email, telefono: d.celular } });
+      // La empresa nace con el nombre de la persona; el paso 2 lo reemplaza por el de su administradora o junta.
+      const empresa = await tx.empresaAdministradora.create({ data: { nombre: d.nombre, email: d.email, telefono: d.celular } });
       const usuario = await tx.usuario.create({ data: { nombre: d.nombre, email: d.email, telefono: d.celular, rol: 'admin', password_hash, empresa_id: empresa.id, correo_verificado: false, terminos_version: VERSION_LEGAL, terminos_aceptados_at: comercialDeps.ahora() }, select: { id: true } });
-      const complejo = await tx.complejoHabitacional.create({ data: { nombre: d.condominio, tipo: 'condominio', empresa_id: empresa.id } });
-      await abrirContrato(tx, complejo.id, empresa.id);
-      // Prueba de Pro (reverse trial): el condominio nace en Pro por `dias_prueba_pro` días; con 0 nace en Gratis, como antes.
-      const prueba = cfg.dias_prueba_pro > 0;
-      // Gratis tiene plazo (`dias_gratis`, 90 por defecto) y la prueba de Pro va DENTRO de él: Pro los primeros días, Gratis hasta el final, luego solo lectura.
-      const plazo = plazoGratisNuevo(cfg, comercialDeps.ahora());
-      await tx.suscripcionCondominio.create({
-        data: prueba
-          ? { complejo_id: complejo.id, plan_clave: 'pro', estado: 'activa', es_prueba: true, vigente_hasta: finDePrueba(cfg.dias_prueba_pro, comercialDeps.ahora()), ...plazo, notas: `Registro público: ~${d.unidades} departamentos. Prueba de Torre Pro de ${cfg.dias_prueba_pro} días.` }
-          : { complejo_id: complejo.id, plan_clave: 'gratis', estado: 'gratis', ...plazo, notas: `Registro público: ~${d.unidades} departamentos` },
-      });
       const token = await crearToken(tx, usuario.id);
-      return { usuarioId: usuario.id, empresaId: empresa.id, complejoId: complejo.id, token };
+      return { usuarioId: usuario.id, empresaId: empresa.id, token };
     });
   } catch (err) {
     // Dos registros simultáneos con el mismo correo: el segundo cae aquí y se trata igual que un correo ya registrado.
@@ -85,10 +70,9 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
     }
     throw err;
   }
-  await registrarAuditoria({ usuario_id: creado.usuarioId, accion: 'registro_publico', entidad: 'usuario', entidad_id: creado.usuarioId, detalle: { empresa_id: creado.empresaId, complejo_id: creado.complejoId, correo: enmascarar(d.email), unidades: d.unidades }, ip });
+  await registrarAuditoria({ usuario_id: creado.usuarioId, accion: 'registro_publico', entidad: 'usuario', entidad_id: creado.usuarioId, detalle: { empresa_id: creado.empresaId, paso: 1, correo: enmascarar(d.email) }, ip });
   await enviarVerificacion(d.email, d.nombre, creado.token).catch(() => undefined);
-  const plan = cfg.dias_prueba_pro > 0 ? `Torre Pro de prueba (${cfg.dias_prueba_pro} días)` : 'Torre Gratis';
-  await avisarAlSuperadmin('Nuevo registro en Torre', `Se registró ${d.nombre} (${enmascarar(d.email)}, ${d.celular}).\nAdministradora o junta: ${d.empresa}\nCondominio: ${d.condominio} (~${d.unidades} departamentos)\nPlan: ${plan}. Correo aún por verificar.`);
+  await avisarAlSuperadmin('Nuevo registro en Torre', `Se registró ${d.nombre} (${enmascarar(d.email)}, ${d.celular}).\nPaso 1 de 2: cuenta creada, correo aún por verificar. Todavía no crea su condominio.`);
 }
 
 async function avisarCorreoExistente(email: string, u: { id: number; nombre: string; correo_verificado: boolean }): Promise<void> {
