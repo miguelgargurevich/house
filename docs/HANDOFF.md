@@ -4,7 +4,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
-## 2026-10-31 — Tramos en Pro y Administradora desde el departamento 61 (Claude Code, Opus 5.5 + Sonnet) — push: no
+## 2026-10-31 — Tramos en Pro y Administradora desde el departamento 61 (Claude Code, Opus 5.5 + Sonnet) — push: sí (desplegado f3010a4; script de tramos corrido en producción)
 
 - Decisión de Miguel: «Desde el 61 a S/ 2». Pro: hasta el 60 a S/ 3,00 y desde el 61 a S/ 2,00; Administradora: S/ 2,50 y desde el 61 S/ 1,70 (Sonnet, `feat/tramos-pro-61`, reemplaza a `feat/tramos-pro`). Pro 80 = S/ 220, 150 = S/ 360; Administradora 150 = S/ 303 (verificado con `/api/publico/cotizar`).
 - Integrado sobre el SEO: el texto del tramo vive en `src/lib/seo/textos.ts` (`textoTope` usa `despuesDelPrecioBase` de `precios/tramo.ts`), así el HTML para buscadores también lo trae. La FAQ «¿Y si mi edificio tiene pocos departamentos?» menciona el tramo de Pro.
