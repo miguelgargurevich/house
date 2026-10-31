@@ -41,7 +41,7 @@ async function crearToken(tx: Prisma.TransactionClient | typeof prisma, usuarioI
 async function enviarVerificacion(email: string, nombre: string, token: string): Promise<void> {
   const cfg = await obtenerConfiguracion();
   const link = enlace(cfg, `/verificar-correo?token=${encodeURIComponent(token)}`);
-  await correoA(email, 'Confirma tu correo en House', `Hola ${nombre},\n\nPara activar tu cuenta de House confirma tu correo con este enlace (vence en ${HORAS_ENLACE} horas y sirve una sola vez):\n\n${link}\n\nSi no te registraste tú, ignora este mensaje.`);
+  await correoA(email, 'Confirma tu correo en Torre', `Hola ${nombre},\n\nPara activar tu cuenta de Torre confirma tu correo con este enlace (vence en ${HORAS_ENLACE} horas y sirve una sola vez):\n\n${link}\n\nSi no te registraste tú, ignora este mensaje.`);
 }
 
 async function avisarAlSuperadmin(asunto: string, cuerpo: string): Promise<void> {
@@ -71,7 +71,7 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
       const plazo = plazoGratisNuevo(cfg, comercialDeps.ahora());
       await tx.suscripcionCondominio.create({
         data: prueba
-          ? { complejo_id: complejo.id, plan_clave: 'pro', estado: 'activa', es_prueba: true, vigente_hasta: finDePrueba(cfg.dias_prueba_pro, comercialDeps.ahora()), ...plazo, notas: `Registro público: ~${d.unidades} departamentos. Prueba de Pro de ${cfg.dias_prueba_pro} días.` }
+          ? { complejo_id: complejo.id, plan_clave: 'pro', estado: 'activa', es_prueba: true, vigente_hasta: finDePrueba(cfg.dias_prueba_pro, comercialDeps.ahora()), ...plazo, notas: `Registro público: ~${d.unidades} departamentos. Prueba de Torre Pro de ${cfg.dias_prueba_pro} días.` }
           : { complejo_id: complejo.id, plan_clave: 'gratis', estado: 'gratis', ...plazo, notas: `Registro público: ~${d.unidades} departamentos` },
       });
       const token = await crearToken(tx, usuario.id);
@@ -87,8 +87,8 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
   }
   await registrarAuditoria({ usuario_id: creado.usuarioId, accion: 'registro_publico', entidad: 'usuario', entidad_id: creado.usuarioId, detalle: { empresa_id: creado.empresaId, complejo_id: creado.complejoId, correo: enmascarar(d.email), unidades: d.unidades }, ip });
   await enviarVerificacion(d.email, d.nombre, creado.token).catch(() => undefined);
-  const plan = cfg.dias_prueba_pro > 0 ? `Pro de prueba (${cfg.dias_prueba_pro} días)` : 'Gratis';
-  await avisarAlSuperadmin('Nuevo registro en House', `Se registró ${d.nombre} (${enmascarar(d.email)}, ${d.celular}).\nAdministradora o junta: ${d.empresa}\nCondominio: ${d.condominio} (~${d.unidades} departamentos)\nPlan: ${plan}. Correo aún por verificar.`);
+  const plan = cfg.dias_prueba_pro > 0 ? `Torre Pro de prueba (${cfg.dias_prueba_pro} días)` : 'Torre Gratis';
+  await avisarAlSuperadmin('Nuevo registro en Torre', `Se registró ${d.nombre} (${enmascarar(d.email)}, ${d.celular}).\nAdministradora o junta: ${d.empresa}\nCondominio: ${d.condominio} (~${d.unidades} departamentos)\nPlan: ${plan}. Correo aún por verificar.`);
 }
 
 async function avisarCorreoExistente(email: string, u: { id: number; nombre: string; correo_verificado: boolean }): Promise<void> {
@@ -97,7 +97,7 @@ async function avisarCorreoExistente(email: string, u: { id: number; nombre: str
     await enviarVerificacion(email, u.nombre, await crearToken(prisma, u.id)).catch(() => undefined);
     return;
   }
-  await correoA(email, 'Ya tienes una cuenta en House', `Hola ${u.nombre},\n\nAlguien intentó registrar este correo en House, pero ya tiene una cuenta. Si fuiste tú, entra con tu contraseña desde el inicio de sesión.\n\nSi no fuiste tú, no hagas nada: tu cuenta sigue segura.`).catch(() => undefined);
+  await correoA(email, 'Ya tienes una cuenta en Torre', `Hola ${u.nombre},\n\nAlguien intentó registrar este correo en Torre, pero ya tiene una cuenta. Si fuiste tú, entra con tu contraseña desde el inicio de sesión.\n\nSi no fuiste tú, no hagas nada: tu cuenta sigue segura.`).catch(() => undefined);
 }
 
 /** Pide otro enlace de verificación. Responde igual exista o no la cuenta; sólo reenvía si existe y sigue sin verificar (con 60 s entre envíos). */

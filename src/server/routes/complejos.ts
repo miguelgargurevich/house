@@ -79,7 +79,7 @@ const crud = crudRouter({
   prepareCreate: async (d, u) => {
     let r = d;
     if (u.rol === 'admin') {
-      // Gratis incluye un condominio: con uno ya en Gratis, otro sólo si pasa a Pro o Administradora el que tiene (409, no crea nada). El superadmin no tiene este límite.
+      // Gratis incluye un condominio: con uno ya en Gratis, otro sólo si pasa a Torre Pro o Torre Administradora el que tiene (409, no crea nada). El superadmin no tiene este límite.
       await exigirPuedeAgregarCondominio(empresaDe(u));
       r = { ...d, empresa_id: empresaDe(u) };
     } else {
@@ -95,7 +95,7 @@ const crud = crudRouter({
     return prisma.$transaction(async (tx) => {
       const c = await tx.complejoHabitacional.create({ data: d as never });
       if (c.empresa_id != null) await abrirContrato(tx, c.id, c.empresa_id);
-      if (plazo.gratis_hasta) await tx.suscripcionCondominio.create({ data: { complejo_id: c.id, plan_clave: 'gratis', estado: 'gratis', ...plazo, notas: 'Condominio creado desde la administradora: Gratis con plazo.' } });
+      if (plazo.gratis_hasta) await tx.suscripcionCondominio.create({ data: { complejo_id: c.id, plan_clave: 'gratis', estado: 'gratis', ...plazo, notas: 'Condominio creado desde la administradora: Torre Gratis con plazo.' } });
       return c;
     });
   },

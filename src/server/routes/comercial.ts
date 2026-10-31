@@ -153,7 +153,7 @@ comercialRouter.get('/puede-agregar-condominio', requireRole('admin'), async (re
 
 /** @openapi
  * /api/comercial/mi-plan/{complejoId}/solicitud:
- *   post: { summary: "Solicita un plan (Pro o Administradora) para un condominio (avisa al superadmin; no activa nada)", tags: [Comercial], responses: { 200: { description: "Vista del condominio" }, 404: { description: "No es de tu empresa" } } }
+ *   post: { summary: "Solicita un plan (Torre Pro o Torre Administradora) para un condominio (avisa al superadmin; no activa nada)", tags: [Comercial], responses: { 200: { description: "Vista del condominio" }, 404: { description: "No es de tu empresa" } } }
  *   delete: { summary: "Cancela la solicitud pendiente", tags: [Comercial], responses: { 204: { description: "Cancelada" } } } */
 comercialRouter.post('/mi-plan/:complejoId/solicitud', requireRole('admin'), async (req, res) => {
   const { complejoId } = parse(complejoParams, req.params);

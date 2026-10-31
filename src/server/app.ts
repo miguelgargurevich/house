@@ -86,7 +86,7 @@ export function createApp(opts: AppOptions = {}) {
     const spec = swaggerJSDoc({
       definition: {
         openapi: '3.0.0',
-        info: { title: 'House API', version: '2.0.0', description: 'API de House SaaS multi-tenant. Contrato completo en docs/API-CONTRATO.md.' },
+        info: { title: 'Torre API', version: '2.0.0', description: 'API de Torre SaaS multi-tenant. Contrato completo en docs/API-CONTRATO.md.' },
         servers: [{ url: '/' }],
         components: { securitySchemes: { cookieAuth: { type: 'apiKey', in: 'cookie', name: 'house_sesion' } } },
       },

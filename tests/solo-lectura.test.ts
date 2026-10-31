@@ -63,7 +63,7 @@ const lectura = (m: number, extra: Record<string, unknown> = {}) => ({ unidad_id
 
 describe('el mensaje', () => {
   it('es el pedido por Miguel, palabra por palabra', () => {
-    assert.equal(MENSAJE_SOLO_LECTURA, 'Este condominio está en solo lectura: terminó su periodo gratis. Pásalo a Pro desde Mi plan para seguir registrando.');
+    assert.equal(MENSAJE_SOLO_LECTURA, 'Este condominio está en solo lectura: terminó su periodo gratis. Pásalo a Torre Pro desde Mi plan para seguir registrando.');
   });
 });
 

@@ -69,14 +69,14 @@ export async function invitarUsuario(usuarioId: number, porUsuarioId: number | n
   const link = enlace(cfg, `/invitacion?token=${encodeURIComponent(token)}`);
   const donde = u.complejo?.nombre ?? u.empresa?.nombre;
   const quien = por?.nombre ?? 'Tu administración';
-  const intro = `${quien} te dio acceso a House como ${rolEnFrase(u.rol)}${donde ? ` de ${donde}` : ''}. Crea tu contraseña para entrar.`;
+  const intro = `${quien} te dio acceso a Torre como ${rolEnFrase(u.rol)}${donde ? ` de ${donde}` : ''}. Crea tu contraseña para entrar.`;
   const { html, texto } = plantillaCorreo({
-    titulo: 'Te invitaron a House',
+    titulo: 'Te invitaron a Torre',
     parrafos: [`Hola ${u.nombre}:`, intro, `El enlace sirve una sola vez y vence en ${DIAS_INVITACION} días.`],
     boton: { texto: 'Crear mi contraseña', url: link },
     pie: 'Si no esperabas este correo, ignóralo: no pasa nada y nadie entra a tu cuenta sin crear una contraseña.',
   });
-  const r = await correoA(u.email, 'Te invitaron a House', texto, undefined, html).catch(() => ({ resultado: 'fallo' as const, motivo: 'No se pudo enviar el correo' }));
+  const r = await correoA(u.email, 'Te invitaron a Torre', texto, undefined, html).catch(() => ({ resultado: 'fallo' as const, motivo: 'No se pudo enviar el correo' }));
   if (r.resultado !== 'ok') {
     await prisma.tokenInvitacion.deleteMany({ where: { id: fila.id } });
     return { estado: 'no_enviada', motivo: r.motivo };

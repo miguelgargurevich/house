@@ -82,7 +82,7 @@ export async function avisarVoucherAlBlock(pagoId: number, deps: typeof voucherB
     const cuerpo = [
       'Hola:',
       '',
-      'Un vecino acaba de subir su voucher de pago en House. Te lo adjuntamos para que lo tengas a mano.',
+      'Un vecino acaba de subir su voucher de pago en Torre. Te lo adjuntamos para que lo tengas a mano.',
       '',
       `Departamento: ${unidad?.codigo ?? '—'}${block ? ` (${block})` : ''}`,
       ...(unidad?.complejo?.nombre ? [`Condominio: ${unidad.complejo.nombre}`] : []),
@@ -94,7 +94,7 @@ export async function avisarVoucherAlBlock(pagoId: number, deps: typeof voucherB
       ...(pago.referencia ? [`N.º de operación: ${pago.referencia}`] : []),
       `Fecha: ${fechaEnZona(pago.fecha_pago, unidad?.complejo?.zona_horaria ?? ZONA_POR_DEFECTO)}`,
       '',
-      `El pago queda en revisión y se valida en House (${ENLACE_APP}). No hace falta que respondas este correo.`,
+      `El pago queda en revisión y se valida en Torre (${ENLACE_APP}). No hace falta que respondas este correo.`,
     ].join('\n');
 
     const adjuntos = [{ nombre: pago.comprobante.nombre, datos: Buffer.from(pago.comprobante.datos) }];

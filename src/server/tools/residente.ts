@@ -176,7 +176,7 @@ export const misPagos = defineHerramienta({
 
 export const mediosParaPagar = defineHerramienta({
   nombre: 'medios_para_pagar',
-  descripcion: 'A dónde pagar: los medios de pago ACTIVOS del block y del condominio de la persona que escribe (cuenta bancaria, Yape, Plin o cuenta recaudadora: «Pago de servicios» de su banco, con `instruccion`). Úsala para «¿cómo/dónde pago?». House no cobra: el pago se hace por fuera y luego se registra el comprobante. Ejemplo: {}.',
+  descripcion: 'A dónde pagar: los medios de pago ACTIVOS del block y del condominio de la persona que escribe (cuenta bancaria, Yape, Plin o cuenta recaudadora: «Pago de servicios» de su banco, con `instruccion`). Úsala para «¿cómo/dónde pago?». Torre no cobra: el pago se hace por fuera y luego se registra el comprobante. Ejemplo: {}.',
   entrada: z.strictObject({}),
   roles: RESIDENTE,
   solo_lectura: true,

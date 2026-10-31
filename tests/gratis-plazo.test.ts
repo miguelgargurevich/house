@@ -305,9 +305,9 @@ describe('avisos del plazo de Gratis: al aplicarse, 7 días antes y el día que 
     await ciclo(0);
     const mios = delPlazo().filter((c) => c.para === 'admin.a@test.pe');
     assert.equal(mios.length, 1, JSON.stringify(enviados.map((c) => c.asunto)));
-    assert.match(mios[0]!.cuerpo, /Desde hoy, Gratis dura 3 meses/);
+    assert.match(mios[0]!.cuerpo, /Desde hoy, Torre Gratis dura 3 meses/);
     assert.match(mios[0]!.cuerpo, /pasa a solo lectura el \d{2}\/\d{2}\/\d{4}/);
-    assert.match(mios[0]!.cuerpo, /Básico desde S\/ 20 al mes o Pro/);
+    assert.match(mios[0]!.cuerpo, /Torre Básico desde S\/ 20 al mes o Torre Pro/);
     await ciclo(0);
     await ciclo(1);
     assert.equal(delPlazo().length, 1, 'no se repite');

@@ -40,7 +40,7 @@ export async function migracionInicial(db: Cliente): Promise<{ aplicada: boolean
     resultado = { aplicada: true, creadas: r.creadas };
   }
   const gratis = await migracionGratis(db);
-  if (gratis.aplicada && gratis.fijados) console.log(`[comercial] plazo de Gratis fijado a ${gratis.fijados} condominios`);
+  if (gratis.aplicada && gratis.fijados) console.log(`[comercial] plazo de Torre Gratis fijado a ${gratis.fijados} condominios`);
   return resultado;
 }
 
@@ -69,7 +69,7 @@ export async function migracionGratis(db: Cliente, opts: { ahora?: Date } = {}):
       if (ef.plan_clave === 'cortesia') continue;
       if (!(ef.plan_clave === 'gratis' || ef.apagada || ef.en_prueba)) continue;
       if (sus) await db.suscripcionCondominio.update({ where: { id: sus.id }, data: { gratis_hasta: fin } });
-      else await db.suscripcionCondominio.create({ data: { complejo_id: c.id, plan_clave: 'gratis', estado: 'gratis', gratis_hasta: fin, notas: 'Gratis con plazo: fijado al estrenar el límite de tiempo.' } });
+      else await db.suscripcionCondominio.create({ data: { complejo_id: c.id, plan_clave: 'gratis', estado: 'gratis', gratis_hasta: fin, notas: 'Torre Gratis con plazo: fijado al estrenar el límite de tiempo.' } });
       fijados++;
     }
     if (fijados) invalidarComercial();

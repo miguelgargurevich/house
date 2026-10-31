@@ -169,7 +169,7 @@ describe('Excel: cada torre tiene su recibo', () => {
     await prisma.reciboConceptoUnidad.create({ data: { recibo_concepto_id: rc.id, unidad_id: unidad.id, monto: 50, estado_pago: 'pendiente' } });
     const r = await subir(T.adminA, excel(BLOCK1));
     assert.equal(r.status, 409, r.texto);
-    assert.match(r.body.error, /sin torre/);
+    assert.match(r.body.error, /sin block/);
     assert.match(r.body.error, /Block 1/);
     assert.equal((await recibosDe()).length, 1);
     // El Block 2 no tiene cargos en ese recibo viejo: su Excel sí pasa.
@@ -357,7 +357,7 @@ describe('Alcance: la junta de un block sólo ve el recibo de SU block', () => {
     const rcs = await prisma.reciboConcepto.findMany({ where: { recibo_id: r1 } });
     const ajena = await llamar(base, 'POST', '/api/recibo-concepto-unidades', T.adminA, { recibo_concepto_id: rcs[0].id, unidad_id: u2, monto: 5 });
     assert.equal(ajena.status, 422, JSON.stringify(ajena.body));
-    assert.match(ajena.body.error, /torre/);
+    assert.match(ajena.body.error, /block/);
     const propia = await prisma.unidad.findFirstOrThrow({ where: { estructura_id: b1.id, id: { not: u1 } } });
     const sin = await prisma.reciboConceptoUnidad.count({ where: { recibo_concepto_id: rcs[0].id, unidad_id: propia.id } });
     await prisma.reciboConceptoUnidad.deleteMany({ where: { recibo_concepto_id: rcs[0].id, unidad_id: propia.id } });

@@ -51,7 +51,7 @@ export interface VistaSuscripcion {
   unidades_cobradas: number;
   /** Tope de unidades del plan que cuenta ahora (Gratis = 20); null = sin tope. */
   unidades_maximas: number | null;
-  /** Mínimo de unidades que cobra el plan contratado (Pro y Administradora = 20); null = sin mínimo. */
+  /** Mínimo de unidades que cobra el plan contratado (Torre Pro y Torre Administradora = 20); null = sin mínimo. */
   unidades_minimas: number | null;
   /** País del condominio y, de él, la moneda en que paga y el impuesto que se le suma (IGV, IVA…). */
   pais: string;
@@ -169,7 +169,7 @@ export async function solicitar(complejoId: number, d: { plan: string }, quien: 
     prisma.complejoHabitacional.findUniqueOrThrow({ where: { id: complejoId }, select: { pais: true } }),
     cargarReferencias(),
   ]);
-  // Los módulos ya no se piden sueltos: se pide un plan (Pro o Administradora) y trae todo.
+  // Los módulos ya no se piden sueltos: se pide un plan (Torre Pro o Torre Administradora) y trae todo.
   const plan = planes.find((p) => p.clave === d.plan);
   if (!plan) throw invalid('Datos inválidos: plan: ese plan no está disponible', { plan: 'Plan no disponible' });
   // Un plan con tope de departamentos (Básico = 50) no se puede pedir con más departamentos que el tope.
@@ -262,7 +262,7 @@ export async function registrarPago(complejoId: number, d: DatosPago, registrado
     const cambiaDePlan = s?.solicitud_plan != null && s.solicitud_plan !== s.plan_clave;
     const modulos = [...new Set([...(cambiaDePlan ? [] : s?.modulos ?? []), ...(s?.solicitud_modulos ?? [])])];
     const planFila = await tx.planComercial.findUnique({ where: { clave: plan }, select: { modulos_incluidos: true } });
-    if (plan === 'gratis' && !modulos.length) throw conflict('Este condominio está en Gratis y no tiene módulos: cambia su plan o sus módulos antes de registrar el pago');
+    if (plan === 'gratis' && !modulos.length) throw conflict('Este condominio está en Torre Gratis y no tiene módulos: cambia su plan o sus módulos antes de registrar el pago');
     if (plan === 'cortesia' && !modulos.length && !(planFila?.modulos_incluidos.length ?? 0)) throw conflict('Un condominio en cortesía no paga');
     const vigente = s?.vigente_hasta && s.vigente_hasta > d.periodo_hasta ? s.vigente_hasta : d.periodo_hasta;
     // Pagar convierte una prueba en un pago normal: la marca se apaga y el periodo pagado sigue igual.

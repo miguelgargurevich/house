@@ -7,7 +7,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 import { darCortesia, iniciar, llamar, login, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
 import { cotizar, type PrecioPlan } from '../src/server/services/comercial/calculo';
-import { CAPACIDADES } from '../src/server/services/comercial/catalogo';
+import { CAPACIDADES, CARACTERISTICAS_GRATIS_ANTERIORES } from '../src/server/services/comercial/catalogo';
 import { estadoEfectivo } from '../src/server/services/comercial/estado';
 import { complejosConModulo, exigirCupoDeUnidades, invalidarComercial, moduloActivo } from '../src/server/services/comercial/modulos';
 import { ajustarOfertaGratisPro } from '../src/server/services/comercial/oferta';
@@ -16,7 +16,7 @@ import { montoDeMoraAplicable } from '../src/server/services/mora';
 const DIA = 86_400_000;
 const HOY = hoyLima().getTime();
 const TASA = '0.18';
-const MENSAJE_LIMITE = 'El plan Gratis llega hasta 20 departamentos; pasa a Pro desde Mi plan';
+const MENSAJE_LIMITE = 'El plan Gratis llega hasta 20 departamentos; pasa a Torre Pro desde Mi plan';
 
 let base: string;
 let cerrar: () => Promise<void>;
@@ -247,7 +247,7 @@ describe('reportes: del plan Pro', () => {
     assert.equal(r.status, 403);
     assert.equal(r.body.code, 'MODULO_NO_ACTIVO');
     assert.equal(r.body.modulo, 'reportes');
-    assert.match(r.body.error, /plan Pro/);
+    assert.match(r.body.error, /plan Torre Pro/);
     assert.equal((await llamar(base, 'GET', `/api/reportes/morosidad?complejo_id=${d.complejoA.id}`, T.adminA)).status, 403);
     assert.equal((await llamar(base, 'GET', '/api/recibos', T.adminA)).status, 200, 'los recibos y la cobranza no se tocan');
   });
@@ -406,9 +406,9 @@ describe('tope de 20 departamentos en Gratis', () => {
 
 describe('script de la oferta: deja una base existente con los valores nuevos', () => {
   const comoProduccionHoy = async () => {
-    await prisma.planComercial.update({ where: { clave: 'gratis' }, data: { unidades_maximas: null, descripcion: 'Para siempre, sin límite de departamentos.', caracteristicas: ['Recibos por torre'] } });
-    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { unidades_minimas: null, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
-    await prisma.planComercial.update({ where: { clave: 'administradora' }, data: { unidades_minimas: null, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
+    await prisma.planComercial.update({ where: { clave: 'gratis' }, data: { nombre: 'Gratis', unidades_maximas: null, descripcion: 'Para siempre, sin límite de departamentos.', caracteristicas: ['Recibos por torre'] } });
+    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { nombre: 'Pro', unidades_minimas: null, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
+    await prisma.planComercial.update({ where: { clave: 'administradora' }, data: { nombre: 'Administradora', unidades_minimas: null, modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
     await prisma.planComercial.update({ where: { clave: 'cortesia' }, data: { modulos_incluidos: ['ia_vouchers', 'whatsapp_avisos', 'asistente'] } });
     invalidarComercial();
   };
@@ -426,6 +426,7 @@ describe('script de la oferta: deja una base existente con los valores nuevos', 
     assert.equal(real.length, 4);
     const g = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } });
     assert.deepEqual([g.unidades_maximas, g.unidades_minimas, g.modulos_incluidos], [20, null, []]);
+    assert.equal(g.nombre, 'Torre Gratis');
     for (const c of ['pro', 'administradora']) {
       const p = await prisma.planComercial.findUniqueOrThrow({ where: { clave: c } });
       assert.deepEqual([p.unidades_maximas, p.unidades_minimas], [null, 20]);
@@ -454,5 +455,32 @@ describe('script de la oferta: deja una base existente con los valores nuevos', 
     await ajustarOfertaGratisPro(prisma);
     for (const c of CAPACIDADES) assert.equal(await moduloActivo(d.complejoA.id, c), true, c);
     await darCortesia(); // sin condominios: no hace nada, sólo comprueba el helper
+  });
+
+  it('el nombre de fábrica pasa a «Torre …»; un nombre escrito a mano por el superadmin no se pisa, y la segunda corrida no cambia nada', async () => {
+    await comoProduccionHoy();
+    await prisma.planComercial.update({ where: { clave: 'administradora' }, data: { nombre: 'Mi administradora' } });
+    await ajustarOfertaGratisPro(prisma);
+    const nombres = Object.fromEntries((await prisma.planComercial.findMany()).map((p) => [p.clave, p.nombre]));
+    assert.deepEqual([nombres.gratis, nombres.pro, nombres.administradora], ['Torre Gratis', 'Torre Pro', 'Mi administradora']);
+    assert.deepEqual(await ajustarOfertaGratisPro(prisma), [], 'idempotente');
+  });
+
+  it('la lista de Gratis de fábrica se reconoce también con «1 condominio» delante (así la sembró el seed): se cambia «Recibos por torre»', async () => {
+    await comoProduccionHoy();
+    await prisma.planComercial.update({ where: { clave: 'gratis' }, data: { caracteristicas: ['1 condominio', ...CARACTERISTICAS_GRATIS_ANTERIORES] } });
+    await ajustarOfertaGratisPro(prisma);
+    const g = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } });
+    assert.equal(g.caracteristicas[0], '1 condominio');
+    assert.ok(g.caracteristicas.includes('Recibos por block'));
+    assert.ok(!g.caracteristicas.includes('Recibos por torre'));
+  });
+
+  it('una lista de Gratis editada a mano no se pisa, con o sin «1 condominio»', async () => {
+    await comoProduccionHoy();
+    const aMano = ['1 condominio', 'Lo que yo quiero'];
+    await prisma.planComercial.update({ where: { clave: 'gratis' }, data: { caracteristicas: aMano } });
+    await ajustarOfertaGratisPro(prisma);
+    assert.deepEqual((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).caracteristicas, aMano);
   });
 });

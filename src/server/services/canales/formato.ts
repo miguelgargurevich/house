@@ -8,7 +8,7 @@ export function aTextoWhatsapp(md: string): string {
   let t = md.replace(/\r\n/g, '\n');
   t = t.replace(/```[a-z]*\n?([\s\S]*?)```/gi, (_m, c: string) => c.trim()); // bloques de código → su contenido
   t = t.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_m, texto: string, url: string) => {
-    if (url.startsWith('/') || url.startsWith(ENLACE_APP)) return `House › ${texto}`;
+    if (url.startsWith('/') || url.startsWith(ENLACE_APP)) return `Torre › ${texto}`;
     return texto === url ? url : `${texto} (${url})`;
   });
   t = t.replace(/^[ \t]*[*+][ \t]+/gm, '- '); // viñetas

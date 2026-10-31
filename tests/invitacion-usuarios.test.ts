@@ -78,9 +78,9 @@ describe('crear usuario: invitación', () => {
     assert.equal(await prisma.usuario.count({ where: { id, password_hash: null } }), 1);
     assert.equal(enviados.length, 1);
     assert.equal(correo.para, email);
-    assert.equal(correo.asunto, 'Te invitaron a House');
+    assert.equal(correo.asunto, 'Te invitaron a Torre');
     assert.match(correo.texto, /Hola Nuevo Limpieza:/);
-    assert.match(correo.texto, /Admin A te dio acceso a House como personal de limpieza de Complejo A\. Crea tu contraseña para entrar\./);
+    assert.match(correo.texto, /Admin A te dio acceso a Torre como personal de limpieza de Complejo A\. Crea tu contraseña para entrar\./);
     assert.match(correo.texto, /Crear mi contraseña: https:\/\/house\.ejemplo\.test\/invitacion\?token=/);
     assert.match(correo.texto, /vence en 7 días/);
     assert.match(correo.texto, /Si no esperabas este correo, ignóralo/);
@@ -152,7 +152,7 @@ describe('crear usuario: invitación', () => {
     const r = await alta(superT, { rol: 'admin', empresa_id: d.empresaB.id, complejo_id: undefined });
     assert.equal(r.status, 201, r.texto);
     const c = enviados.find((x) => x.para === r.body.email)!;
-    assert.match(c.texto, /Super te dio acceso a House como administrador de Empresa B\./);
+    assert.match(c.texto, /Super te dio acceso a Torre como administrador de Empresa B\./);
   });
 
   it('el nombre y la empresa se escapan en el html (nada de HTML inyectado)', async () => {

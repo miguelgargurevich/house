@@ -64,7 +64,7 @@ export const ENLACE_MIS_RECIBOS = ENLACE_APP;
  * Dice qué ya está, cuándo vence y dónde pagarlo.
  */
 export function mensajeGrupoRecibo(d: { periodo: string; ubicacion: string; vencimiento: Date }): string {
-  return `Ya está el mantenimiento de ${d.periodo} del ${d.ubicacion}. Vence el ${diaYMes(d.vencimiento)}. Míralo y págalo con tu voucher en House: ${ENLACE_MIS_RECIBOS}`;
+  return `Ya está el mantenimiento de ${d.periodo} del ${d.ubicacion}. Vence el ${diaYMes(d.vencimiento)}. Míralo y págalo con tu voucher en Torre: ${ENLACE_MIS_RECIBOS}`;
 }
 
 /** Instante → `dd/mm/aaaa` según el día en la zona del condominio (un pago a las 21:00 en Lima ya es el día siguiente en UTC). */
@@ -133,7 +133,7 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
     case 'ia_caida':
       return {
         asunto: 'El asistente de IA se quedó sin proveedores disponibles',
-        cuerpo: `${hola}\n\n${d.motivo ?? 'No queda ninguna ruta de IA sana.'}\n\nMientras tanto el asistente responde con los datos de cada cuenta, sin IA. Revisa el Llavero de IA en ${ENLACE_APP}/superadmin/llavero.\n\n— House`,
+        cuerpo: `${hola}\n\n${d.motivo ?? 'No queda ninguna ruta de IA sana.'}\n\nMientras tanto el asistente responde con los datos de cada cuenta, sin IA. Revisa el Llavero de IA en ${ENLACE_APP}/superadmin/llavero.\n\n— Torre`,
       };
     case 'comunicado':
       return {
@@ -154,7 +154,7 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
     case 'ia_restablecida':
       return {
         asunto: 'El asistente de IA volvió a funcionar',
-        cuerpo: `${hola}\n\n${d.motivo ?? 'La IA del asistente se restableció.'}\n\n— House`,
+        cuerpo: `${hola}\n\n${d.motivo ?? 'La IA del asistente se restableció.'}\n\n— Torre`,
       };
   }
 }

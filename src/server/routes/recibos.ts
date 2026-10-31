@@ -104,7 +104,7 @@ async function planDeEmision(tx: Prisma.TransactionClient, complejoId: number, e
   const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, select: { id: true, estructura_id: true }, orderBy: { id: 'asc' } });
   if (estructuraId != null) {
     const torre = estructuras.find((e) => e.id === estructuraId);
-    if (!torre) throw invalid('Datos inválidos: estructura_id: la torre no existe en ese condominio', { estructura_id: 'No es una torre de este condominio' });
+    if (!torre) throw invalid('Datos inválidos: estructura_id: el block no existe en ese condominio', { estructura_id: 'No es un block de este condominio' });
     return [{ estructuraId, torre: torre.nombre, unidades: unidades.filter((u) => u.estructura_id === estructuraId).map((u) => u.id) }];
   }
   const plan: RecibosAEmitir[] = estructuras
@@ -147,7 +147,7 @@ async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser): P
       const { mismo, general } = await recibosDelPeriodo(tx, { complejoId: d.complejo_id, estructuraId: g.estructuraId, mes: d.mes, anio: d.anio });
       const donde = `${periodoTexto(d.mes, d.anio)}${g.torre ? ` · ${g.torre}` : ''}`;
       if (mismo) throw conflict(`Ya existe el recibo de ${donde}`);
-      if (general) throw conflict(`Ya existe un recibo de ${periodoTexto(d.mes, d.anio)} sin torre que cobra a unidades de ${g.torre ?? 'esta torre'}`);
+      if (general) throw conflict(`Ya existe un recibo de ${periodoTexto(d.mes, d.anio)} sin block que cobra a unidades de ${g.torre ?? 'este block'}`);
     }
     for (const g of plan) {
       const descripcion = d.descripcion ? (plan.length > 1 && g.torre ? `${d.descripcion} · ${g.torre}` : d.descripcion).slice(0, 300) : descripcionRecibo(d.mes, d.anio, g.torre);
@@ -241,7 +241,7 @@ const crud = crudRouter({
     await prisma.$transaction(async (tx) => {
       await bloquearPeriodo(tx, complejoId, mes, anio);
       const { mismo, general } = await recibosDelPeriodo(tx, { complejoId, estructuraId: existing.estructura_id as number | null, mes, anio, excluirId: existing.id as number });
-      if (mismo || general) throw conflict(`Ya existe un recibo de ${periodoTexto(mes, anio)} para esa torre`);
+      if (mismo || general) throw conflict(`Ya existe un recibo de ${periodoTexto(mes, anio)} para ese block`);
     });
     return data;
   },
@@ -450,7 +450,7 @@ router.get('/:id/mensaje-grupo', adminOJunta, async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id, true);
   const r = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true } }, estructura: { select: { id: true, nombre: true } } } });
-  const ubicacion = r.estructura ? (r.estructura.nombre ?? `Torre ${r.estructura.id}`) : `Condominio ${r.complejo?.nombre ?? ''}`.trim();
+  const ubicacion = r.estructura ? (r.estructura.nombre ?? `Block ${r.estructura.id}`) : `Condominio ${r.complejo?.nombre ?? ''}`.trim();
   res.json({ texto: mensajeGrupoRecibo({ periodo: periodoTexto(r.mes, r.anio), ubicacion, vencimiento: r.fecha_vencimiento }) });
 });
 
@@ -648,10 +648,10 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
       let estructuraId: number | null = null;
       if (estructuras.length) {
         const numero = numeroDeTorre(block);
-        if (numero == null) { advertencias.push(`${etiqueta}: no se entiende el identificador de torre «${block}»; se saltó la fila`); filasSaltadas++; continue; }
+        if (numero == null) { advertencias.push(`${etiqueta}: no se entiende el identificador de block «${block}»; se saltó la fila`); filasSaltadas++; continue; }
         const { estructura, motivo } = buscarEstructura(estructuras, numero);
         if (!estructura) {
-          advertencias.push(`${etiqueta}: ${motivo === 'varias' ? `hay varias torres del condominio que coinciden con «${block}»` : `el condominio no tiene la torre «${block}»`}; se saltó la fila`);
+          advertencias.push(`${etiqueta}: ${motivo === 'varias' ? `hay varios blocks del condominio que coinciden con «${block}»` : `el condominio no tiene el block «${block}»`}; se saltó la fila`);
           filasSaltadas++;
           continue;
         }
@@ -685,7 +685,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
       }
       grupo.unidades++;
     }
-    if (!grupos.size) throw invalid('El Excel no trae filas de ninguna torre del condominio', { archivo: 'Sin filas válidas' });
+    if (!grupos.size) throw invalid('El Excel no trae filas de ningún block del condominio', { archivo: 'Sin filas válidas' });
 
     const porTorre: { recibo_id: number; estructura_id: number | null; torre: string | null; accion: 'creado' | 'reemplazado'; unidades_procesadas: number }[] = [];
     const avisosMora: string[] = [];
@@ -693,7 +693,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     for (const [estructuraId, g] of ordenados) {
       const donde = `${periodoTexto(mes, anio)}${g.torre ? ` · ${g.torre}` : ''}`;
       const { mismo, general } = await recibosDelPeriodo(tx, { complejoId, estructuraId, mes, anio });
-      if (general) throw conflict(`Ya existe un recibo de ${periodoTexto(mes, anio)} sin torre que cobra a unidades de ${g.torre ?? 'esta torre'}; asígnale su torre antes de subir el Excel de ese block`);
+      if (general) throw conflict(`Ya existe un recibo de ${periodoTexto(mes, anio)} sin block que cobra a unidades de ${g.torre ?? 'este block'}; asígnale su block antes de subir el Excel de ese block`);
       const descripcion = descripcionRecibo(mes, anio, g.torre);
       let reciboId: number;
       if (mismo) {

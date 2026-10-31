@@ -32,7 +32,7 @@ async function validarRefs(d: Record<string, unknown>, user: AuthUser, existing?
       }
       // Cada torre tiene su propio recibo: un cargo de un recibo de torre sólo puede ser de una unidad de esa torre.
       if (recibo?.estructura_id != null && unidad!.estructura_id !== recibo.estructura_id) {
-        throw invalid('Datos inválidos: unidad_id: la unidad no es de la torre de este recibo', { unidad_id: 'No es de la torre del recibo' });
+        throw invalid('Datos inválidos: unidad_id: la unidad no es del block de este recibo', { unidad_id: 'No es del block del recibo' });
       }
     }
   }

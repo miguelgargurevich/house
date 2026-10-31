@@ -41,14 +41,14 @@ export async function basicoDesde(unidades: number): Promise<string | null> {
 /** «Básico desde S/ 20 al mes o Pro»: lo que se ofrece al terminar Gratis. */
 const ofertaDePago = async (unidades: number): Promise<string> => {
   const desde = await basicoDesde(unidades);
-  return desde ? `Básico desde ${desde} al mes o Pro` : 'Pro';
+  return desde ? `Torre Básico desde ${desde} al mes o Torre Pro` : 'Torre Pro';
 };
 
 const cuerpoAviso = (tipo: Aviso, condominio: string, fin: Date, cfgDias: number | null, oferta: string, dias: number): { asunto: string; cuerpo: string } => {
   const ultimo = fechaTexto(fin);
   const desde = fechaTexto(primerDiaSoloLectura(fin));
   const cierre = `Para seguir registrando, elige un plan desde Mi plan: ${oferta}. Tus datos no se borran.`;
-  if (tipo === 'inicio') return { asunto: `Gratis ahora dura ${duracionTexto(cfgDias ?? 90)}: elige tu plan antes de que termine`, cuerpo: `Desde hoy, Gratis dura ${duracionTexto(cfgDias ?? 90)}: «${condominio}» pasa a solo lectura el ${desde} si no eliges un plan. Hasta entonces todo sigue igual.\n\n${cierre}` };
+  if (tipo === 'inicio') return { asunto: `Torre Gratis ahora dura ${duracionTexto(cfgDias ?? 90)}: elige tu plan antes de que termine`, cuerpo: `Desde hoy, Torre Gratis dura ${duracionTexto(cfgDias ?? 90)}: «${condominio}» pasa a solo lectura el ${desde} si no eliges un plan. Hasta entonces todo sigue igual.\n\n${cierre}` };
   if (tipo === 'siete_dias') return { asunto: `A «${condominio}» le quedan ${dias} ${dias === 1 ? 'día' : 'días'} gratis`, cuerpo: `El periodo gratis de «${condominio}» termina el ${ultimo}. Desde el ${desde} pasa a solo lectura: se puede ver todo, pero no registrar recibos, pagos ni comunicados.\n\n${cierre}` };
   return { asunto: `Hoy termina el periodo gratis de «${condominio}»`, cuerpo: `Hoy es el último día gratis de «${condominio}». Desde mañana (${desde}) pasa a solo lectura: se puede ver todo, pero no registrar recibos, pagos ni comunicados.\n\n${cierre}` };
 };

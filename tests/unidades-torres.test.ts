@@ -61,14 +61,14 @@ describe('torres: son planas (no se anidan)', () => {
     const padre = await crearTorre(T.adminA, { nombre: 'Torre Padre' });
     const r = await crearTorre(T.adminA, { nombre: 'Torre Hija', padre_id: padre.body.id });
     assert.equal(r.status, 422, r.texto);
-    assert.match(r.body.error, /torres planas/i);
+    assert.match(r.body.error, /blocks planos/i);
   });
 
   it('editar una torre con padre_id también se rechaza', async () => {
     const padre = await crearTorre(T.adminA, { nombre: 'Torre Padre 2' });
     const r = await llamar(base, 'PUT', `/api/estructuras/${padre.body.id}`, T.adminA, { padre_id: padre.body.id });
     assert.equal(r.status, 422, r.texto);
-    assert.match(r.body.error, /torres planas/i);
+    assert.match(r.body.error, /blocks planos/i);
   });
 
   it('una torre no se cambia de condominio', async () => {

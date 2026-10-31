@@ -59,14 +59,14 @@ canalesMeRouter.post('/:canal/codigo', async (req, res) => {
   if (limites.codigosUsuario.golpear(`u${u.id}`) > limites.codigosUsuario.tope) throw new HttpError(429, 'Generaste muchos códigos seguidos, intenta de nuevo en unos minutos');
   if (canal === 'telegram') {
     const [bot, empresas] = await Promise.all([botActivo(), empresasDelUsuario(u)]);
-    if (!bot || !empresas.length) throw conflict('Telegram todavía no está activado en House');
+    if (!bot || !empresas.length) throw conflict('Telegram todavía no está activado en Torre');
     const { codigo, expira_at } = await generarCodigo(u.id, canal);
     res.locals.accion = 'generar_codigo';
     res.locals.auditDetalle = { canal }; // nunca el código
     return void res.status(201).json({ canal, codigo, expira_at, vigencia_min: VIGENCIA_CODIGO_MIN, destinos: [], telegram: { bot_usuario: bot.usuario, enlace: enlaceVinculo(bot.usuario, codigo) } });
   }
   const destinos = await destinosDe(u);
-  if (!destinos.some((d) => d.disponible)) throw conflict('Tu administración todavía no activó WhatsApp en House');
+  if (!destinos.some((d) => d.disponible)) throw conflict('Tu administración todavía no activó WhatsApp en Torre');
   const { codigo, expira_at } = await generarCodigo(u.id, canal);
   res.locals.accion = 'generar_codigo';
   res.locals.auditDetalle = { canal }; // nunca el código

@@ -55,7 +55,7 @@ export const contactoAdministracion = defineHerramienta({
       })),
       hay_mas: c.hay_mas,
       siguiente_cursor: c.siguiente_cursor,
-      nota: c.filas.length === 0 ? 'No tienes condominios registrados en House; consulta con tu junta.' : null,
+      nota: c.filas.length === 0 ? 'No tienes condominios registrados en Torre; consulta con tu junta.' : null,
     });
   },
 });

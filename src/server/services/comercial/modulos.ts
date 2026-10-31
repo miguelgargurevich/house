@@ -69,7 +69,7 @@ export const NOMBRES_MODULO: Record<CapacidadClave, string> = {
 
 /** 403 con `code: 'MODULO_NO_ACTIVO'` y la capacidad: la pantalla muestra el aviso «Disponible en el plan Pro» con el enlace a Mi plan. */
 export function moduloNoActivo(clave: CapacidadClave, mensaje?: string): HttpError {
-  return new HttpError(403, mensaje ?? `«${NOMBRES_MODULO[clave]}» está disponible en el plan Pro. Pasa a Pro desde Mi plan`, undefined, 'MODULO_NO_ACTIVO', { modulo: clave });
+  return new HttpError(403, mensaje ?? `«${NOMBRES_MODULO[clave]}» está disponible en el plan Torre Pro. Pasa a Torre Pro desde Mi plan`, undefined, 'MODULO_NO_ACTIVO', { modulo: clave });
 }
 
 export async function exigirModulo(complejoId: number | null | undefined, clave: CapacidadClave, mensaje?: string): Promise<void> {
@@ -111,7 +111,7 @@ export async function complejosConModulo(user: AuthUser, clave: CapacidadClave):
   return activos;
 }
 
-export const MENSAJE_SIN_ASISTENTE = 'Tu condominio no tiene el asistente activo: es parte del plan Pro. Pídele a tu administración que pase a Pro desde Mi plan.';
+export const MENSAJE_SIN_ASISTENTE = 'Tu condominio no tiene el asistente activo: es parte del plan Torre Pro. Pídele a tu administración que pase a Torre Pro desde Mi plan.';
 
 // ---------- Tope de unidades del plan ----------
 /** El plan «que cuenta» para el tope: el contratado, salvo que esté vencido y apagado (entonces se comporta como Gratis, igual que con los módulos). */
@@ -133,5 +133,5 @@ export async function exigirCupoDeUnidades(complejoId: number | null | undefined
   const actuales = await prisma.unidad.count({ where: { complejo_id: complejoId } });
   if (actuales + agregar <= maximo) return;
   const nombre = plan_clave.charAt(0).toUpperCase() + plan_clave.slice(1);
-  throw new HttpError(403, `El plan ${nombre} llega hasta ${maximo} departamentos; pasa a Pro desde Mi plan`, undefined, 'LIMITE_UNIDADES', { limite: maximo, actuales });
+  throw new HttpError(403, `El plan ${nombre} llega hasta ${maximo} departamentos; pasa a Torre Pro desde Mi plan`, undefined, 'LIMITE_UNIDADES', { limite: maximo, actuales });
 }

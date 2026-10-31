@@ -16,7 +16,7 @@ let d: Datos;
 let T: Record<'super' | 'adminA' | 'adminB', string>;
 
 const DIA = 86_400_000;
-const CARACTERISTICAS_GRATIS = ['1 condominio', ...CARACTERISTICAS_GRATIS_ANTERIORES];
+const CARACTERISTICAS_GRATIS = ['1 condominio', 'Recibos por block', ...CARACTERISTICAS_GRATIS_ANTERIORES.slice(1)];
 
 before(async () => {
   d = await sembrar();
@@ -62,7 +62,7 @@ describe('Gratis incluye un condominio por administradora', () => {
     const antes = (await condominiosDeA()).length;
     const r = await crear(T.adminA, 'Nuevo Gratis Dos');
     assert.equal(r.status, 409, r.texto);
-    assert.deepEqual(r.body, { error: 'Gratis incluye un condominio. Para agregar otro, pasa a Pro o Administradora el que ya tienes.' });
+    assert.deepEqual(r.body, { error: 'Torre Gratis incluye un condominio. Para agregar otro, pasa a Torre Pro o Torre Administradora el que ya tienes.' });
     assert.equal((await condominiosDeA()).length, antes, 'no crea nada');
   });
 

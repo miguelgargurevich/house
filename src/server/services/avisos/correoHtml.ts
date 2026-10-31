@@ -68,15 +68,15 @@ export function plantillaCorreo(p: PlantillaCorreo): { html: string; texto: stri
   <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" class="caja" style="width:560px;max-width:100%;">
     <tr><td style="padding:0 4px 16px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td class="logo" width="32" height="32" align="center" valign="middle" bgcolor="${L.marca}" style="width:32px;height:32px;background:${L.marca};border-radius:8px;font-family:${FUENTE};font-size:18px;line-height:32px;font-weight:700;color:${L.sobreMarca};">H</td>
-        <td class="tx" style="padding-left:10px;font-family:${FUENTE};font-size:20px;line-height:32px;font-weight:600;color:${L.tinta};">House</td>
+        <td class="logo" width="32" height="32" align="center" valign="middle" bgcolor="${L.marca}" style="width:32px;height:32px;background:${L.marca};border-radius:8px;font-family:${FUENTE};font-size:18px;line-height:32px;font-weight:700;color:${L.sobreMarca};">T</td>
+        <td class="tx" style="padding-left:10px;font-family:${FUENTE};font-size:20px;line-height:32px;font-weight:600;color:${L.tinta};">Torre</td>
       </tr></table>
     </td></tr>
     <tr><td class="tarjeta" style="padding:32px;background:${L.tarjeta};border:1px solid ${L.linea};border-radius:12px;font-family:${FUENTE};">
       <h1 class="tx" style="margin:0 0 16px;font-size:24px;line-height:32px;font-weight:600;color:${L.tinta};">${titulo}</h1>
       ${parrafos}${boton}${pie}
     </td></tr>
-    <tr><td class="mu" style="padding:16px 4px 0;font-family:${FUENTE};font-size:12px;line-height:18px;color:${L.apagado};">House · Administración de condominios</td></tr>
+    <tr><td class="mu" style="padding:16px 4px 0;font-family:${FUENTE};font-size:12px;line-height:18px;color:${L.apagado};">Torre · Administración de condominios</td></tr>
   </table>
 </td></tr>
 </table>

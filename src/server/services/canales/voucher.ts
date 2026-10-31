@@ -22,8 +22,8 @@ export const MIN_PENDIENTE = 15;
 export const MAX_OPCIONES = 9;
 
 export const MSG = {
-  junta: 'Los comprobantes de pago como administración o junta se registran desde House (menú Pagos). Por aquí sólo recibo los de vecinos.',
-  sinPendientes: 'No tienes mantenimientos pendientes de pago, así que no necesito ningún comprobante. Si crees que es un error, revisa House › Mis recibos.',
+  junta: 'Los comprobantes de pago como administración o junta se registran desde Torre (menú Pagos). Por aquí sólo recibo los de vecinos.',
+  sinPendientes: 'No tienes mantenimientos pendientes de pago, así que no necesito ningún comprobante. Si crees que es un error, revisa Torre › Mis recibos.',
   grande: 'El archivo es muy pesado (máximo 2 MB). Envíame una captura o foto más liviana, o un PDF más pequeño.',
   tipo: 'Sólo puedo leer comprobantes en imagen (JPG, PNG o WebP) o PDF. Envíalo de nuevo en uno de esos formatos.',
   descarga: 'No pude descargar tu archivo. Envíalo de nuevo en un momento.',
@@ -31,7 +31,7 @@ export const MSG = {
   yaEnRevision: 'Ese mantenimiento ya tiene un pago en revisión o ya fue pagado, así que no registré el comprobante.',
   vencido: 'Ese comprobante venció (esperé tu respuesta 15 minutos). Envíalo de nuevo.',
   cancelado: 'Listo, descarté el comprobante.',
-  falloRegistro: 'No pude registrar tu comprobante. Inténtalo de nuevo o súbelo desde House › Mis recibos.',
+  falloRegistro: 'No pude registrar tu comprobante. Inténtalo de nuevo o súbelo desde Torre › Mis recibos.',
 };
 
 interface Opcion { recibo_id: number; unidad_id: number; etiqueta: string }

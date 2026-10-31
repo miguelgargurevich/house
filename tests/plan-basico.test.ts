@@ -44,8 +44,8 @@ describe('el catálogo trae Básico', () => {
     const r = await llamar(base, 'GET', '/api/publico/planes');
     assert.deepEqual(r.body.planes.map((p: { clave: string }) => p.clave), ['gratis', 'basico', 'pro', 'administradora']);
     const b = r.body.planes.find((p: { clave: string }) => p.clave === 'basico');
-    assert.deepEqual([b.nombre, b.descripcion, b.precio_por_unidad, b.unidades_minimas, b.unidades_maximas, b.modulos_incluidos, b.consultar, b.total_minimo_mes], ['Básico', 'Para edificios chicos que ya terminaron su periodo gratis.', '1.00', 20, 50, [], false, '20.00']);
-    assert.deepEqual(b.caracteristicas, ['Todo lo de Gratis, sin plazo', 'Hasta 50 departamentos', 'Vouchers validados a mano', 'Avisos por correo']);
+    assert.deepEqual([b.nombre, b.descripcion, b.precio_por_unidad, b.unidades_minimas, b.unidades_maximas, b.modulos_incluidos, b.consultar, b.total_minimo_mes], ['Torre Básico', 'Para edificios chicos que ya terminaron su periodo gratis.', '1.00', 20, 50, [], false, '20.00']);
+    assert.deepEqual(b.caracteristicas, ['Todo lo de Torre Gratis, sin plazo', 'Hasta 50 departamentos', 'Vouchers validados a mano', 'Avisos por correo']);
     const fila = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } });
     assert.deepEqual([fila.visible, fila.orden, fila.igv_incluido, fila.asistente_por_unidad_mes, fila.whatsapp_por_unidad_mes], [true, 2, false, null, null]);
     assert.deepEqual(PLANES_SEED.map((p) => [p.clave, p.orden]), [['gratis', 1], ['basico', 2], ['pro', 3], ['administradora', 4], ['cortesia', 5]]);
@@ -53,7 +53,7 @@ describe('el catálogo trae Básico', () => {
 
   it('Gratis ya no dice «para siempre»: «Gratis por 3 meses, hasta 20 departamentos»', async () => {
     const g = (await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'gratis');
-    assert.equal(g.descripcion, 'Gratis por 3 meses, hasta 20 departamentos.');
+    assert.equal(g.descripcion, 'Torre Gratis por 3 meses, hasta 20 departamentos.');
     assert.doesNotMatch(JSON.stringify(PLANES_SEED), /siempre/);
   });
 
@@ -73,7 +73,7 @@ describe('el catálogo trae Básico', () => {
     await prisma.planComercial.delete({ where: { clave: 'basico' } });
     const primera = await ajustarOfertaGratisPro(prisma);
     assert.ok(primera.some((c) => c.clave === 'gratis' && c.cambios.includes('descripcion')), JSON.stringify(primera));
-    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).descripcion, 'Gratis por 3 meses, hasta 20 departamentos.');
+    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).descripcion, 'Torre Gratis por 3 meses, hasta 20 departamentos.');
     assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } })).unidades_maximas, 50);
     assert.deepEqual(await ajustarOfertaGratisPro(prisma), [], 'la segunda corrida no cambia nada');
   });
@@ -99,7 +99,7 @@ describe('cotización', () => {
     await unidades(10);
     await ponerBasico();
     const c = await miPlan();
-    assert.deepEqual([c.plan.clave, c.plan.nombre, c.cotizacion.base, c.cotizacion.total_mes, c.unidades_maximas, c.unidades_minimas], ['basico', 'Básico', '20.00', '23.60', 50, 20]);
+    assert.deepEqual([c.plan.clave, c.plan.nombre, c.cotizacion.base, c.cotizacion.total_mes, c.unidades_maximas, c.unidades_minimas], ['basico', 'Torre Básico', '20.00', '23.60', 50, 20]);
   });
 });
 
@@ -182,6 +182,6 @@ describe('Básico pagado y vigente', () => {
     const s = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: d.complejoA.id } });
     assert.deepEqual([s.plan_clave, s.estado, s.solicitud_plan, iso(s.vigente_hasta!.getTime())], ['basico', 'activa', null, iso(HOY() + 30 * DIA)]);
     const lista = await llamar(base, 'GET', '/api/comercial/suscripciones', T.super);
-    assert.equal(lista.body.items.find((x: { complejo_id: number }) => x.complejo_id === d.complejoA.id).plan.nombre, 'Básico');
+    assert.equal(lista.body.items.find((x: { complejo_id: number }) => x.complejo_id === d.complejoA.id).plan.nombre, 'Torre Básico');
   });
 });

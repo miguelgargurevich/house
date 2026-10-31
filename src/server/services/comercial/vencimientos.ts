@@ -21,7 +21,7 @@ async function cuerpoAviso(tipo: Aviso, complejoId: number, vigente: Date, diasG
   // La prueba de Pro sólo avisa que termina: después sigue en Gratis, sin cobro que pedir (no hay plan que pagar todavía).
   if (prueba) {
     const fin = fechaTexto(vigente);
-    return { asunto: `Tu prueba de Pro termina el ${fin}`, cuerpo: `Tu prueba de Pro termina el ${fin}: después sigues en Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Pro desde Mi plan.` };
+    return { asunto: `Tu prueba de Torre Pro termina el ${fin}`, cuerpo: `Tu prueba de Torre Pro termina el ${fin}: después sigues en Torre Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Torre Pro desde Mi plan.` };
   }
   const [v] = await vistas([complejoId]);
   const pago = await datosParaPagar();
@@ -30,8 +30,8 @@ async function cuerpoAviso(tipo: Aviso, complejoId: number, vigente: Date, diasG
   const medios = [pago.yape ? `Yape: ${pago.yape}` : null, pago.banco ? `${pago.banco}${pago.cuenta ? ` cuenta ${pago.cuenta}` : ''}${pago.cci ? ` · CCI ${pago.cci}` : ''}` : null, pago.titular ? `Titular: ${pago.titular}` : null, pago.instrucciones].filter(Boolean).join('\n');
   const comoPagar = `Cómo pagar:\n${medios || 'Escríbenos y te pasamos los datos.'}\nReferencia: ${referenciaPago(complejoId, ahora)}\nCuando pagues, avísanos con el voucher y lo activamos.`;
   const hasta = fechaTexto(vigente);
-  if (tipo === 'por_vencer') return { asunto: `Tu plan de House vence el ${hasta}`, cuerpo: `El plan de «${v.complejo}» vence el ${hasta}.\nMonto: ${monto}.\n\n${comoPagar}` };
-  if (tipo === 'vencida') return { asunto: `Tu plan de House venció el ${hasta}`, cuerpo: `El plan de «${v.complejo}» venció el ${hasta}. Tienes ${diasGracia} días de gracia: los módulos siguen activos mientras tanto.\nMonto: ${monto}.\n\n${comoPagar}` };
+  if (tipo === 'por_vencer') return { asunto: `Tu plan de Torre vence el ${hasta}`, cuerpo: `El plan de «${v.complejo}» vence el ${hasta}.\nMonto: ${monto}.\n\n${comoPagar}` };
+  if (tipo === 'vencida') return { asunto: `Tu plan de Torre venció el ${hasta}`, cuerpo: `El plan de «${v.complejo}» venció el ${hasta}. Tienes ${diasGracia} días de gracia: los módulos siguen activos mientras tanto.\nMonto: ${monto}.\n\n${comoPagar}` };
   return { asunto: 'Se apagaron los módulos de pago de tu condominio', cuerpo: `Pasó la gracia del plan de «${v.complejo}» (venció el ${hasta}), así que los módulos de pago quedaron apagados. Tus datos siguen intactos y todo lo gratis sigue funcionando.\nPara reactivarlos: ${monto}.\n\n${comoPagar}` };
 }
 

@@ -14,7 +14,7 @@ export const CAPACIDADES = [...MODULOS, 'mora_automatica', 'reportes'] as const;
 export type CapacidadClave = (typeof CAPACIDADES)[number];
 export const esCapacidad = (c: string): c is CapacidadClave => (CAPACIDADES as readonly string[]).includes(c);
 
-/** Gratis llega hasta este número de unidades por condominio; Pro y Administradora cobran como mínimo este número. */
+/** Gratis llega hasta este número de unidades por condominio; Torre Pro y Torre Administradora cobran como mínimo este número. */
 export const UNIDADES_GRATIS_MAX = 20;
 export const UNIDADES_PRO_MIN = 20;
 /** Básico (S/ 1 por departamento) cobra como mínimo 20 y llega hasta 50 departamentos. */
@@ -32,6 +32,8 @@ export type EstadoSuscripcion = (typeof ESTADOS_SUSCRIPCION)[number];
 
 /** Viñetas de Gratis tal como salieron con la oferta anterior: el script de la oferta sólo las cambia si siguen así (lo editado a mano se respeta). */
 export const CARACTERISTICAS_GRATIS_ANTERIORES = ['Recibos por torre', 'Cobranza y morosidad', 'Importación del Excel', 'Medios de pago del condominio', 'Portal del vecino', 'Vouchers validados a mano', 'Avisos por correo'] as const;
+/** Viñetas de Gratis de la oferta nueva: las anteriores, con «Recibos por block» en lugar de «Recibos por torre». */
+const CARACTERISTICAS_GRATIS = ['1 condominio', 'Recibos por block', ...CARACTERISTICAS_GRATIS_ANTERIORES.slice(1)] as const;
 
 /** Valores de partida (precios BASE en soles, sin IGV). El seed sólo CREA lo que falta: nunca pisa lo que el superadmin editó. */
 const MODULOS_SEED = [
@@ -41,14 +43,14 @@ const MODULOS_SEED = [
 ] as const;
 
 export const PLANES_SEED = [
-  { clave: 'gratis', nombre: 'Gratis', descripcion: 'Gratis por 3 meses, hasta 20 departamentos.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
-    caracteristicas: ['1 condominio', ...CARACTERISTICAS_GRATIS_ANTERIORES] },
-  { clave: 'basico', nombre: 'Básico', descripcion: 'Para edificios chicos que ya terminaron su periodo gratis.', precio_por_unidad: '1.00', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: UNIDADES_BASICO_MAX as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
-    caracteristicas: ['Todo lo de Gratis, sin plazo', 'Hasta 50 departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },
-  { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
-    caracteristicas: ['Todo lo de Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
-  { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
-    caracteristicas: ['Todo lo de Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
+  { clave: 'gratis', nombre: 'Torre Gratis', descripcion: 'Torre Gratis por 3 meses, hasta 20 departamentos.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
+    caracteristicas: [...CARACTERISTICAS_GRATIS] },
+  { clave: 'basico', nombre: 'Torre Básico', descripcion: 'Para edificios chicos que ya terminaron su periodo gratis.', precio_por_unidad: '1.00', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: UNIDADES_BASICO_MAX as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
+    caracteristicas: ['Todo lo de Torre Gratis, sin plazo', 'Hasta 50 departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },
+  { clave: 'pro', nombre: 'Torre Pro', descripcion: 'Todo Torre, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+    caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
+  { clave: 'administradora', nombre: 'Torre Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+    caracteristicas: ['Todo lo de Torre Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
   { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 5, unidades_maximas: null as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
 ] as const;
 

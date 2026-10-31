@@ -7,7 +7,7 @@ import { obtenerConfiguracion } from './configuracion';
 import { estadoEfectivo } from './estado';
 import { comercialDeps } from './modulos';
 
-export const MENSAJE_GRATIS_UN_CONDOMINIO = 'Gratis incluye un condominio. Para agregar otro, pasa a Pro o Administradora el que ya tienes.';
+export const MENSAJE_GRATIS_UN_CONDOMINIO = 'Torre Gratis incluye un condominio. Para agregar otro, pasa a Torre Pro o Torre Administradora el que ya tienes.';
 
 export interface PuedeAgregarCondominio { puede: boolean; motivo: string | null; gratis: { id: number; nombre: string } | null }
 

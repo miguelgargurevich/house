@@ -14,7 +14,7 @@ import { exigirOperativo } from '../services/comercial/operativo';
  * el ámbito de la junta, el resumen de recibos por torre y la importación del Excel de mantenimiento.
  * Por eso el anidamiento se rechaza: una torre anidada sería un dato que la aplicación no sabría representar.
  */
-const PLANAS = 'House trabaja con torres planas: no se puede anidar una torre dentro de otra';
+const PLANAS = 'Torre trabaja con blocks planos: no se puede anidar un block dentro de otro';
 
 const base = z.object({
   nombre: textoOpcional(120),
@@ -28,7 +28,7 @@ const base = z.object({
 });
 
 async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
-  if (d.padre_id != null) throw invalid(PLANAS, { padre_id: 'Las torres son planas' });
+  if (d.padre_id != null) throw invalid(PLANAS, { padre_id: 'Los blocks son planos' });
   if (d.complejo_id != null) await assertRef(prisma.complejoHabitacional, d.complejo_id as number, scopeComplejos(user), 'complejo_id');
   return d;
 }
@@ -66,10 +66,10 @@ const crud = crudRouter({
   operativo: (r, u) => exigirOperativo(r.complejo_id as number | null, u),
   prepareCreate: validarRefs,
   prepareUpdate: async (d, u, existing) => {
-    if (d.padre_id != null) throw invalid(PLANAS, { padre_id: 'Las torres son planas' });
+    if (d.padre_id != null) throw invalid(PLANAS, { padre_id: 'Los blocks son planos' });
     // Una torre no cambia de condominio: sus unidades y sus medios de pago pertenecen al de origen.
     if (d.complejo_id != null && d.complejo_id !== existing.complejo_id) {
-      throw invalid('Una torre no se cambia de condominio: crea una torre nueva en el otro condominio', { complejo_id: 'No se puede cambiar' });
+      throw invalid('Un block no se cambia de condominio: crea un block nuevo en el otro condominio', { complejo_id: 'No se puede cambiar' });
     }
     // La torre no cambia de condominio y no se anida: se quitan del cuerpo antes de validar el resto.
     const resto = { ...d };
@@ -114,13 +114,13 @@ const crud = crudRouter({
     ]);
     // Borrar la torre se llevaría también su historial de juntas y las cuentas de sus gestiones.
     if (await prisma.juntaDirectiva.count({ where: { estructura_id: id } }) > 0) {
-      throw invalid('La torre tiene juntas directivas registradas (vigente o anteriores): su historial se perdería', { juntas: 'La torre tiene juntas' });
+      throw invalid('El block tiene juntas directivas registradas (vigente o anteriores): su historial se perdería', { juntas: 'El block tiene juntas' });
     }
     if (unidades > 0) {
-      throw invalid(`La torre tiene ${unidades} ${unidades === 1 ? 'unidad asignada' : 'unidades asignadas'}: muévelas a otra torre antes de borrarla`, { unidades: 'La torre tiene unidades' });
+      throw invalid(`El block tiene ${unidades} ${unidades === 1 ? 'unidad asignada' : 'unidades asignadas'}: muévelas a otro block antes de borrarlo`, { unidades: 'El block tiene unidades' });
     }
     if (junta > 0) {
-      throw invalid(`La torre tiene ${junta} ${junta === 1 ? 'usuario de junta' : 'usuarios de junta'}: reasígnalos antes de borrarla (sin torre su alcance pasa a todo el condominio)`, { junta: 'La torre tiene usuarios de junta' });
+      throw invalid(`El block tiene ${junta} ${junta === 1 ? 'usuario de junta' : 'usuarios de junta'}: reasígnalos antes de borrarlo (sin block su alcance pasa a todo el condominio)`, { junta: 'El block tiene usuarios de junta' });
     }
   },
   // Los pisos se van con la torre.

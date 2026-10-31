@@ -21,23 +21,23 @@ export const mensajes = (canal: CanalBot) => {
   const quien = canal === 'telegram' ? 'Telegram' : 'WhatsApp';
   const identidad = canal === 'telegram' ? 'tu Telegram' : 'tu número';
   return {
-    noVinculado: `Vincula ${identidad} desde Mi perfil en House`,
-    vinculoFallido: `No pude vincular ${identidad} con ese código. Genera uno nuevo desde Mi perfil en House.`,
-    vinculado: (nombre: string) => `¡Listo${nombre ? `, ${nombre.trim().split(/\s+/)[0]}` : ''}! Tu ${quien} quedó vinculado a House. Escríbeme tus consultas o envíame la foto de tu comprobante de pago.`,
-    desvinculado: `Listo, desvinculé ${canal === 'telegram' ? 'tu Telegram' : 'tu número'}. Para volver a usarme, vincúlalo desde Mi perfil en House.`,
+    noVinculado: `Vincula ${identidad} desde Mi perfil en Torre`,
+    vinculoFallido: `No pude vincular ${identidad} con ese código. Genera uno nuevo desde Mi perfil en Torre.`,
+    vinculado: (nombre: string) => `¡Listo${nombre ? `, ${nombre.trim().split(/\s+/)[0]}` : ''}! Tu ${quien} quedó vinculado a Torre. Escríbeme tus consultas o envíame la foto de tu comprobante de pago.`,
+    desvinculado: `Listo, desvinculé ${canal === 'telegram' ? 'tu Telegram' : 'tu número'}. Para volver a usarme, vincúlalo desde Mi perfil en Torre.`,
     muchos: 'Estás enviando muchos mensajes seguidos. Espera unos minutos y vuelve a escribirme.',
     largo: 'Tu mensaje es muy largo. Escríbelo más corto, por favor.',
     soloTexto: 'Por ahora sólo entiendo texto, imágenes y PDF de comprobantes.',
-    sinAcceso: `No pude verificar tu acceso. Vincula ${identidad} otra vez desde Mi perfil en House.`,
+    sinAcceso: `No pude verificar tu acceso. Vincula ${identidad} otra vez desde Mi perfil en Torre.`,
   };
 };
 export const MSG = mensajes('whatsapp');
 
 const menuDe = (canal: CanalBot, rol: string, junta: boolean): string => {
   const negrita = (t: string) => (canal === 'whatsapp' ? `*${t}*` : t);
-  const base = [negrita('Menú'), '- Pregúntame por tus pagos, recibos o datos de tu cuenta.', `- Escribe ${negrita(canal === 'telegram' ? '/desvincular' : 'desvincular')} para quitar ${canal === 'telegram' ? 'este Telegram' : 'este número'} de House.`];
+  const base = [negrita('Menú'), '- Pregúntame por tus pagos, recibos o datos de tu cuenta.', `- Escribe ${negrita(canal === 'telegram' ? '/desvincular' : 'desvincular')} para quitar ${canal === 'telegram' ? 'este Telegram' : 'este número'} de Torre.`];
   if (rol === 'propietario' || rol === 'inquilino') base.splice(2, 0, '- Envíame la foto o el PDF de tu comprobante para registrar tu pago.');
-  if (junta) base.splice(2, 0, '- Como junta, valida los pagos desde House › Pagos por validar.');
+  if (junta) base.splice(2, 0, '- Como junta, valida los pagos desde Torre › Pagos por validar.');
   return base.join('\n');
 };
 

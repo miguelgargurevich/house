@@ -104,7 +104,7 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
     prisma.tareaMantenimiento.count({ where: { AND: [scopeTareas(u), { estado: { not: 'completada' } }] } }),
     contarEstados(unidadIds, reloj),
     prisma.pago.count({ where: { AND: [scopePagos(u), pagosEnTorre, { estado_validacion: 'por_validar' }] } }),
-    desglosePorTorre(cargos, palabra, reloj),
+    desglosePorTorre(cargos, reloj),
     monedas.length === 1 ? dineroDe(null) : null,
   ]);
   const montos = dinero
@@ -128,7 +128,7 @@ async function resumenAdmin(u: AuthUser, f: FiltroPanel = {}) {
 }
 
 /** Emitido, cobrado, por cobrar y morosos por torre (el dinero de cada torre se mira aparte: tiene su recibo, su junta y sus cuentas). */
-async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, palabra: 'block' | 'torre', reloj: Reloj) {
+async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, reloj: Reloj) {
   // El último periodo con recibo en el alcance: para «% cobrado del mes» por torre (lo emitido de ESE mes y cuánto de eso ya está pagado).
   const ultimo = await prisma.reciboConceptoUnidad.findFirst({ where: cargos, orderBy: [{ reciboConcepto: { recibo: { anio: 'desc' } } }, { reciboConcepto: { recibo: { mes: 'desc' } } }], select: { reciboConcepto: { select: { recibo: { select: { anio: true, mes: true } } } } } });
   const periodo = ultimo?.reciboConcepto?.recibo ?? null;
@@ -150,7 +150,7 @@ async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, p
   const fila = (unidadId: number) => {
     const { estructura: t, moneda } = torreDe.get(unidadId) ?? { estructura: null, moneda: MONEDA_POR_DEFECTO };
     const clave = t ? String(t.id) : `sin:${moneda}`;
-    return filas.get(clave) ?? filas.set(clave, { estructura_id: t?.id ?? null, nombre: t?.nombre ?? `Sin ${palabra}`, complejo: t?.complejo ? { id: t.complejo.id, nombre: t.complejo.nombre } : null, moneda, emitido: new Prisma.Decimal(0), cobrado: new Prisma.Decimal(0), por_cobrar: new Prisma.Decimal(0), morosos: 0, emitido_mes: new Prisma.Decimal(0), cobrado_mes: new Prisma.Decimal(0) }).get(clave)!;
+    return filas.get(clave) ?? filas.set(clave, { estructura_id: t?.id ?? null, nombre: t?.nombre ?? 'Sin block', complejo: t?.complejo ? { id: t.complejo.id, nombre: t.complejo.nombre } : null, moneda, emitido: new Prisma.Decimal(0), cobrado: new Prisma.Decimal(0), por_cobrar: new Prisma.Decimal(0), morosos: 0, emitido_mes: new Prisma.Decimal(0), cobrado_mes: new Prisma.Decimal(0) }).get(clave)!;
   };
   for (const x of todo) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.emitido = f.emitido.plus(x._sum.monto ?? 0); }
   for (const x of cobrado) if (x.unidad_id != null) { const f = fila(x.unidad_id); f.cobrado = f.cobrado.plus(x._sum.monto ?? 0); }

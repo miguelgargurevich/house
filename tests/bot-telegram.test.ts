@@ -597,7 +597,7 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
     assert.equal(v.identificador, String(C.nuevo));
     assert.equal(v.empresa_id, D.empresaA.id);
     assert.ok(v.verificado_at);
-    assert.match(ultimoPara(C.nuevo)!, /Tu Telegram quedó vinculado a House/);
+    assert.match(ultimoPara(C.nuevo)!, /Tu Telegram quedó vinculado a Torre/);
     assert.ok((await prisma.codigoVinculacion.findFirstOrThrow()).usado_at);
     const aud = await esperar(() => prisma.auditoria.findFirst({ where: { accion: 'vincular' } }));
     assert.equal(aud.usuario_id, D.propietario1.id);
@@ -639,12 +639,12 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
     }
   });
 
-  it('/start sin código y texto sin vínculo: sólo «Vincula tu Telegram desde Mi perfil en House» — sin IA, sin datos, sin conversación', async () => {
+  it('/start sin código y texto sin vínculo: sólo «Vincula tu Telegram desde Mi perfil en Torre» — sin IA, sin datos, sin conversación', async () => {
     await activarBot();
     await vincularTodos();
     for (const t of ['/start', '/menu', 'hola', '¿cuánto debo?', 'desvincular', '/desvincular', '1']) {
       await escribe(C.extra, t);
-      assert.equal(ultimoPara(C.extra), 'Vincula tu Telegram desde Mi perfil en House', t);
+      assert.equal(ultimoPara(C.extra), 'Vincula tu Telegram desde Mi perfil en Torre', t);
     }
     assert.equal(ia.llamadas.filter((l) => !l.esLista).length, 0);
     assert.equal(await prisma.conversacionIA.count(), 0);
@@ -653,7 +653,7 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
 
   it('código inválido, vencido, usado o de una persona SIN empresa: rechazo idéntico y sin pistas; nunca vincula', async () => {
     await activarBot();
-    const RECHAZO = 'No pude vincular tu Telegram con ese código. Genera uno nuevo desde Mi perfil en House.';
+    const RECHAZO = 'No pude vincular tu Telegram con ese código. Genera uno nuevo desde Mi perfil en Torre.';
     // Vencido (10 min).
     const c1 = await codigoPor(T.prop1);
     reloj = Date.now() + 11 * MIN;
@@ -670,7 +670,7 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
     await escribe(C.otro, '/start 000000');
     assert.equal(ultimoPara(C.otro), RECHAZO);
     await escribe(C.otro, '/start abc');
-    assert.equal(ultimoPara(C.otro), 'Vincula tu Telegram desde Mi perfil en House', 'no parece código: sólo la indicación');
+    assert.equal(ultimoPara(C.otro), 'Vincula tu Telegram desde Mi perfil en Torre', 'no parece código: sólo la indicación');
     // De una persona sin ninguna empresa (superadmin): el código existe pero NO vincula.
     const superU = await prisma.usuario.findFirstOrThrow({ where: { email: 'super@test.pe' } });
     await prisma.codigoVinculacion.create({ data: { usuario_id: superU.id, canal: 'telegram', codigo_hash: sha('vinculo:telegram:424242'), expira_at: new Date(Date.now() + 5 * MIN) } });
@@ -700,7 +700,7 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
     assert.equal(await prisma.canalVinculado.count({ where: { usuario_id: D.propietario1.id, revocado_at: null } }), 1);
     assert.equal((await prisma.canalVinculado.findFirstOrThrow({ where: { usuario_id: D.propietario1.id, revocado_at: null } })).identificador, String(C.nuevo));
     await escribe(C.prop1, 'hola');
-    assert.equal(ultimoPara(C.prop1), 'Vincula tu Telegram desde Mi perfil en House', 'el chat viejo ya no responde');
+    assert.equal(ultimoPara(C.prop1), 'Vincula tu Telegram desde Mi perfil en Torre', 'el chat viejo ya no responde');
   });
 
   it('demasiados intentos fallidos desde un chat (>5): se rechaza TODO, hasta el código bueno; otro chat no se ve afectado', async () => {
@@ -718,7 +718,7 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
     await activarBot();
     await vincular(D.propietario1.id, 51911111111, D.empresaA.id, 'whatsapp');
     await escribe(51911111111, 'hola');
-    assert.equal(ultimoPara(51911111111), 'Vincula tu Telegram desde Mi perfil en House');
+    assert.equal(ultimoPara(51911111111), 'Vincula tu Telegram desde Mi perfil en Torre');
     assert.equal(ia.llamadas.filter((l) => !l.esLista).length, 0);
   });
 
@@ -732,7 +732,7 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
     assert.equal((await llamar(base, 'DELETE', `/api/me/canales/${v1.id}`, T.prop2)).status, 404);
     assert.equal((await llamar(base, 'DELETE', `/api/me/canales/${v1.id}`, T.prop1)).status, 204);
     await escribe(C.prop1, 'hola');
-    assert.equal(ultimoPara(C.prop1), 'Vincula tu Telegram desde Mi perfil en House');
+    assert.equal(ultimoPara(C.prop1), 'Vincula tu Telegram desde Mi perfil en Torre');
   });
 
   it('el usuario se relee de la base en cada mensaje: sin rol, sin la empresa o sin unidades en ella, deja de recibir datos', async () => {
@@ -785,7 +785,7 @@ describe('T3 · vincular: Mi perfil y /start <código> (la empresa sale de la pe
     assert.ok(!JSON.stringify(aud).includes(String(C.prop1)));
     assert.equal((aud.detalle as { canal: string }).canal, 'telegram');
     await escribe(C.prop1, 'hola');
-    assert.equal(ultimoPara(C.prop1), 'Vincula tu Telegram desde Mi perfil en House');
+    assert.equal(ultimoPara(C.prop1), 'Vincula tu Telegram desde Mi perfil en Torre');
   });
 });
 
@@ -840,7 +840,7 @@ describe('T4 · asistente por Telegram: mismo motor, mismo alcance por rol', () 
     assert.equal(e.body.parse_mode, undefined, 'sin parse_mode: nada se interpreta como HTML/Markdown');
     assert.ok(e.texto.includes('<b>negrita</b>') && e.texto.includes('<script>'), 'las etiquetas viajan literales (texto)');
     assert.ok(!e.texto.includes('**') && !/(^|\n)#/.test(e.texto), e.texto);
-    assert.match(e.texto, /House › Mis pagos/);
+    assert.match(e.texto, /Torre › Mis pagos/);
     assert.match(e.texto, /^Resumen de tu cuenta/);
     assert.ok(e.body.link_preview_options.is_disabled === true);
     // Mensajes largos: ≤ 4.000 por mensaje.
@@ -1020,16 +1020,16 @@ describe('T5 · voucher por foto o documento', () => {
     assert.equal(descargas.length, 0);
   });
 
-  it('junta y administración: «regístralo desde House» (no se registra ni se descarga nada)', async () => {
+  it('junta y administración: «regístralo desde Torre» (no se registra ni se descarga nada)', async () => {
     const presidente = await prisma.usuario.create({ data: { nombre: 'Presidente', email: 'pres-tg@test.pe', rol: 'propietario', empresa_id: D.empresaA.id, complejo_id: D.complejoA.id, cargo_junta: 'presidente', password_hash: 'x' } });
     await prisma.unidad.update({ where: { id: D.unidadA2.id }, data: { propietario_id: presidente.id } });
     await vincular(presidente.id, C.extra, D.empresaA.id);
     await vincular(D.adminA.id, C.admin, D.empresaA.id);
     ponerArchivo('J1', PNG);
     await enviarUpdate(foto(C.extra, 'J1'));
-    assert.match(ultimoPara(C.extra)!, /se registran desde House/);
+    assert.match(ultimoPara(C.extra)!, /se registran desde Torre/);
     await enviarUpdate(foto(C.admin, 'J1'));
-    assert.match(ultimoPara(C.admin)!, /se registran desde House/);
+    assert.match(ultimoPara(C.admin)!, /se registran desde Torre/);
     assert.equal(await prisma.pago.count(), 0);
     assert.equal(metodos('getFile').length, 0);
     await prisma.unidad.update({ where: { id: D.unidadA2.id }, data: { propietario_id: D.propietario2.id } });
@@ -1040,9 +1040,9 @@ describe('T5 · voucher por foto o documento', () => {
     await vincularTodos();
     ponerArchivo('X1', PNG);
     await enviarUpdate(foto(C.extra, 'X1'));
-    assert.equal(ultimoPara(C.extra), 'Vincula tu Telegram desde Mi perfil en House');
+    assert.equal(ultimoPara(C.extra), 'Vincula tu Telegram desde Mi perfil en Torre');
     await enviarUpdate(documento(C.extra, 'X1', 'image/png', 'a.png', PNG.length));
-    assert.equal(ultimoPara(C.extra), 'Vincula tu Telegram desde Mi perfil en House');
+    assert.equal(ultimoPara(C.extra), 'Vincula tu Telegram desde Mi perfil en Torre');
     assert.equal(metodos('getFile').length, 0);
     assert.equal(descargas.length, 0);
     assert.equal(await prisma.pago.count(), 0);

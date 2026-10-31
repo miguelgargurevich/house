@@ -39,8 +39,8 @@ describe('plantillaCorreo', () => {
     assert.match(html, /#007565/, 'brand claro');
     assert.match(html, /#4bc1ad/, 'brand oscuro');
     assert.match(html, /#f5f9f7/, 'fondo');
-    assert.match(html, /<td class="logo"[^>]*>H<\/td>/);
-    assert.match(html, />House<\/td>/);
+    assert.match(html, /<td class="logo"[^>]*>T<\/td>/);
+    assert.match(html, />Torre<\/td>/);
     assert.match(html, /max-width:100%/);
     assert.match(html, /width="560"/);
     assert.match(html, /prefers-color-scheme: dark/);

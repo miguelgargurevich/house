@@ -169,7 +169,7 @@ describe('mensaje para el grupo de WhatsApp', () => {
   it('dice el periodo, el block, el vencimiento y dónde pagar', async () => {
     const r = await grupo(T.adminA, R.bloque1);
     assert.equal(r.status, 200);
-    assert.equal(r.body.texto, 'Ya está el mantenimiento de setiembre de 2026 del Block 1. Vence el 2 de noviembre. Míralo y págalo con tu voucher en House: https://house.gargurevich.dev');
+    assert.equal(r.body.texto, 'Ya está el mantenimiento de setiembre de 2026 del Block 1. Vence el 2 de noviembre. Míralo y págalo con tu voucher en Torre: https://house.gargurevich.dev');
   });
 
   it('sin block dice el condominio', async () => {

@@ -171,10 +171,10 @@ describe('la prueba en pantalla y en las puertas', () => {
   it('el aviso de la prueba que por vencer dice lo que pasa después y no manda el de «vencida»', async () => {
     await ponerPrueba(3);
     await procesarVencimientos({ ahora: ahoraEn(0), deps: depsFalsas() });
-    const prueba = enviados.filter((c) => /prueba de Pro/.test(c.asunto));
+    const prueba = enviados.filter((c) => /prueba de Torre Pro/.test(c.asunto));
     assert.equal(prueba.length, 1, JSON.stringify(enviados.map((c) => c.asunto)));
-    assert.match(prueba[0]!.cuerpo, /Tu prueba de Pro termina el /);
-    assert.match(prueba[0]!.cuerpo, /después sigues en Gratis, sin perder datos\. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Pro desde Mi plan\./);
+    assert.match(prueba[0]!.cuerpo, /Tu prueba de Torre Pro termina el /);
+    assert.match(prueba[0]!.cuerpo, /después sigues en Torre Gratis, sin perder datos\. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Torre Pro desde Mi plan\./);
     assert.equal(enviados.some((c) => /venció|apagaron/.test(c.asunto)), false);
   });
 

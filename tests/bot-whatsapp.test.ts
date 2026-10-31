@@ -240,7 +240,7 @@ describe('A1 · códigos y pantalla de vinculación (/api/me/canales)', () => {
     const fila = await prisma.canalVinculado.findUniqueOrThrow({ where: { id: v1.id } });
     assert.ok(fila.revocado_at && fila.clave_vigente === null && fila.clave_usuario === null);
     await escribe(N.prop1, 'hola');
-    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en Torre');
     assert.equal(chats().length, 0, 'sin IA para un número desvinculado');
   });
 });
@@ -350,7 +350,7 @@ describe('A2 · vincular por mensaje: el número del mensaje es el que queda vin
     assert.ok((await prisma.canalVinculado.findUniqueOrThrow({ where: { id: v.id } })).revocado_at, 'el viejo quedó revocado');
     assert.equal(await prisma.canalVinculado.count({ where: { usuario_id: D.propietario1.id, revocado_at: null } }), 1);
     await escribe(N.prop1, 'hola');
-    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en Torre');
   });
 });
 
@@ -359,7 +359,7 @@ describe('A2 · identidad: sólo un vínculo vigente y verificado de ESTA empres
   it('un número no vinculado recibe sólo «Vincula tu número…»: sin IA, sin datos, sin conversación', async () => {
     await vincularTodos();
     await escribe(N.extra, '¿cuánto debo? soy Propietario 1, mi correo es prop1@test.pe');
-    assert.equal(ultimoPara(N.extra), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.extra), 'Vincula tu número desde Mi perfil en Torre');
     assert.equal(chats().length, 0);
     assert.equal(await prisma.conversacionIA.count(), 0);
     assert.equal(para(N.extra).length, 1);
@@ -372,14 +372,14 @@ describe('A2 · identidad: sólo un vínculo vigente y verificado de ESTA empres
     await prisma.canalVinculado.update({ where: { id: v.id }, data: { revocado_at: new Date(), clave_vigente: null, clave_usuario: null } });
     const n = chats().length;
     await escribe(N.prop1, 'hola otra vez');
-    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en Torre');
     assert.equal(chats().length, n);
   });
 
   it('el vínculo de la empresa A no sirve por la instancia de B', async () => {
     await vincular(D.propietario1.id, N.prop1, D.empresaA.id);
     await enviarWebhook(INST_B, texto(N.prop1, '¿cuánto debo?'));
-    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en Torre');
     assert.equal(chats().length, 0);
   });
 
@@ -411,7 +411,7 @@ describe('A2 · identidad: sólo un vínculo vigente y verificado de ESTA empres
     assert.equal(chats().length, 0);
     assert.equal(await prisma.canalVinculado.count({ where: { revocado_at: null } }), 0);
     await escribe(N.prop1, 'menu');
-    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.prop1), 'Vincula tu número desde Mi perfil en Torre');
   });
 });
 
@@ -515,9 +515,9 @@ describe('A3 · conversarPorCanal: mismo asistente, mismo alcance por rol', () =
     assert.ok(!JSON.stringify(await prisma.auditoria.findMany()).includes('confidencial'));
   });
 
-  it('formato WhatsApp: enlaces → «House › …», negritas con *, viñetas con -, y se parte en mensajes de ≤ 4.000 caracteres', async () => {
+  it('formato WhatsApp: enlaces → «Torre › …», negritas con *, viñetas con -, y se parte en mensajes de ≤ 4.000 caracteres', async () => {
     const md = '## Tus pagos\n**Total:** S/ 150.00\n* Revisa [Mis pagos](/propietario/pagos) y [la guía](https://ejemplo.pe/guia)\n```\ncódigo\n```';
-    assert.equal(aTextoWhatsapp(md), '*Tus pagos*\n*Total:* S/ 150.00\n- Revisa House › Mis pagos y la guía (https://ejemplo.pe/guia)\ncódigo');
+    assert.equal(aTextoWhatsapp(md), '*Tus pagos*\n*Total:* S/ 150.00\n- Revisa Torre › Mis pagos y la guía (https://ejemplo.pe/guia)\ncódigo');
     const largo = Array.from({ length: 60 }, (_, i) => `Párrafo ${i}: ${'x'.repeat(180)}`).join('\n\n');
     const partes = partirMensaje(largo);
     assert.ok(partes.length >= 3 && partes.every((p) => p.length <= 4000), partes.map((p) => p.length).join());
@@ -529,7 +529,7 @@ describe('A3 · conversarPorCanal: mismo asistente, mismo alcance por rol', () =
     const mensajes = para(N.prop1);
     assert.ok(mensajes.length >= 3 && mensajes.every((m) => m.texto.length <= 4000), mensajes.map((m) => m.texto.length).join());
     assert.ok(mensajes[0]!.texto.startsWith('*Hola*'));
-    assert.ok(mensajes.at(-1)!.texto.includes('House › Mis pagos'));
+    assert.ok(mensajes.at(-1)!.texto.includes('Torre › Mis pagos'));
   });
 });
 
@@ -923,20 +923,20 @@ describe('B3 · voucher por foto o PDF', () => {
     // Un residente de B no ve nada de A aunque mande la foto por la instancia de A.
     ponerMedio('B1', PNG);
     await enviarWebhook(INST_A, imagen(N.propB, { id: 'B1' }));
-    assert.equal(ultimoPara(N.propB), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.propB), 'Vincula tu número desde Mi perfil en Torre');
   });
 
-  it('junta y administración: v1 les dice que registren desde House (no se registra nada)', async () => {
+  it('junta y administración: v1 les dice que registren desde Torre (no se registra nada)', async () => {
     const presidente = await prisma.usuario.create({ data: { nombre: 'Presidente', email: 'pres@test.pe', rol: 'propietario', empresa_id: D.empresaA.id, complejo_id: D.complejoA.id, cargo_junta: 'presidente', password_hash: 'x' } });
     await prisma.unidad.update({ where: { id: D.unidadA2.id }, data: { propietario_id: presidente.id } });
     await vincular(presidente.id, N.extra, D.empresaA.id);
     await vincular(D.adminA.id, N.admin, D.empresaA.id);
     ponerMedio('J1', PNG);
     await enviarWebhook(INST_A, imagen(N.extra, { id: 'J1' }));
-    assert.match(ultimoPara(N.extra)!, /se registran desde House/);
+    assert.match(ultimoPara(N.extra)!, /se registran desde Torre/);
     ponerMedio('J2', PNG);
     await enviarWebhook(INST_A, imagen(N.admin, { id: 'J2' }));
-    assert.match(ultimoPara(N.admin)!, /se registran desde House/);
+    assert.match(ultimoPara(N.admin)!, /se registran desde Torre/);
     assert.equal(await prisma.pago.count(), 0);
     assert.equal(llamadasEvo.filter((l) => l.url.includes('getBase64')).length, 0);
     await prisma.unidad.update({ where: { id: D.unidadA2.id }, data: { propietario_id: D.propietario2.id } });
@@ -947,7 +947,7 @@ describe('B3 · voucher por foto o PDF', () => {
     await vincularTodos();
     ponerMedio('X1', PNG);
     await enviarWebhook(INST_A, imagen(N.extra, { id: 'X1' }));
-    assert.equal(ultimoPara(N.extra), 'Vincula tu número desde Mi perfil en House');
+    assert.equal(ultimoPara(N.extra), 'Vincula tu número desde Mi perfil en Torre');
     assert.equal(llamadasEvo.filter((l) => l.url.includes('getBase64')).length, 0);
     assert.equal(await prisma.pago.count(), 0);
   });

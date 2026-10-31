@@ -86,7 +86,7 @@ describe('POST /api/recibos/excel: lo que crea', () => {
     assert.equal(r.status, 201, r.texto);
     assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, {
       recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3, mora: SIN_MORA,
-      advertencias: ['B.1 Dpto. 999: no existe la unidad; se saltó la fila', 'B.9 Dpto. 101: el condominio no tiene la torre «B.9»; se saltó la fila'],
+      advertencias: ['B.1 Dpto. 999: no existe la unidad; se saltó la fila', 'B.9 Dpto. 101: el condominio no tiene el block «B.9»; se saltó la fila'],
     });
 
     const { recibos, cargos, monto } = await estadoDelRecibo();

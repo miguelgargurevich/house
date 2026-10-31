@@ -58,7 +58,7 @@ export const juntaYResidentes = defineHerramienta({
     'Ejemplo: {"solo_junta":true} o {"estructura_id":3,"texto":"403"}.',
   entrada: z.strictObject({
     condominio_id: idPositivo.optional().describe('Filtra por condominio (id de `condominios_y_blocks`).'),
-    estructura_id: idPositivo.optional().describe('Filtra por block/torre (id de `condominios_y_blocks`).'),
+    estructura_id: idPositivo.optional().describe('Filtra por block (id de `condominios_y_blocks`).'),
     solo_junta: z.boolean().default(false).describe('true = sólo la junta directiva, sin la lista de residentes.'),
     texto: textoCorto(60).optional().describe('Parte del nombre o del código del departamento.'),
     ...paginacion,

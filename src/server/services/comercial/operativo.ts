@@ -6,7 +6,7 @@ import { HttpError } from '../../errors';
 import type { Rol } from '../../config';
 import { estadoDeComplejo } from './modulos';
 
-export const MENSAJE_SOLO_LECTURA = 'Este condominio está en solo lectura: terminó su periodo gratis. Pásalo a Pro desde Mi plan para seguir registrando.';
+export const MENSAJE_SOLO_LECTURA = 'Este condominio está en solo lectura: terminó su periodo gratis. Pásalo a Torre Pro desde Mi plan para seguir registrando.';
 /** Lo que ve un residente: él no puede cambiar el plan, así que se le manda con quien sí. */
 export const MENSAJE_SOLO_LECTURA_VECINO = 'Este condominio está en solo lectura por ahora: no se pueden registrar movimientos nuevos. Habla con tu administración.';
 
