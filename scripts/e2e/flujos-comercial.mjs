@@ -17,9 +17,7 @@
 //   node scripts/e2e/flujos-comercial.mjs                (todos los flujos)
 //   node scripts/e2e/flujos-comercial.mjs registro,plan  (sólo esos)
 // Apagar al terminar:  kill $(lsof -tiTCP:4101 -sTCP:LISTEN)
-// OJO con el límite de registros: el backend deja 5 registros públicos por hora y por IP (no se configura por entorno). Los flujos
-// `registro`, `plan`, `solo-lectura`, `un-condominio` y `superadmin` crean cuentas: una corrida que pase de 5 se hace en tandas,
-// reiniciando el backend entre tandas con `levantar.sh 4101 house_e2e_comercial --sin-copiar` (no recopia la base).
+// Límite de registros (5 por hora por IP): cada página manda su propia IP en X-Forwarded-For (ver `nuevaPagina`), así que no estorba.
 // Capturas en scripts/e2e/capturas/ (ignoradas en git); cada corrida se agrega a scripts/e2e/resultados/comercial.json.
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
@@ -106,11 +104,14 @@ async function paso(flujo, nombre, page, fn) {
 }
 
 /** Página nueva con escritorio 1366×900 o celular 390×844; anota errores de JS, de consola y respuestas 5xx de la API. */
+// Cada página sale con su propia IP de documentación (192.0.2.x) en X-Forwarded-For: el backend confía en un proxy y cuenta el límite de
+// 5 registros por hora por esa IP, así que una corrida completa no choca con el límite ni hace falta reiniciar el backend entre tandas.
+let ipFalsa = Math.floor(Math.random() * 200);
 async function nuevaPagina(browser, { movil = false } = {}) {
   const opciones = movil
     ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
     : { viewport: { width: 1366, height: 900 } };
-  const ctx = await browser.newContext({ ...opciones, locale: 'es-PE' });
+  const ctx = await browser.newContext({ ...opciones, locale: 'es-PE', extraHTTPHeaders: { 'X-Forwarded-For': `192.0.2.${(ipFalsa++ % 254) + 1}` } });
   const page = await ctx.newPage();
   page.setDefaultTimeout(15000);
   page.errores = [];

@@ -38,13 +38,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Pruebas:** `npm test` no corre porque no se tocó código. Mutación: en el paso de planes, `Torre Básico` → `Torre Básico Plus` → fallan los dos pasos (salida 1); se restauró y se verificó con `cmp`.
 - **Próximos pasos:** Miguel decide el push. Pendiente: decidir la caché de 30 s; agregar `scripts/e2e/resultados/` a `.gitignore`; si se quieren corridas completas de una sola vez, un límite de registros configurable para el backend de pruebas (decisión del orquestador).
 - **Sin probar:** envío de correo y WhatsApp (apagados en el lanzador); móvil en los flujos de registro, plan, solo lectura, un condominio y superadmin (sólo `publico` corre en celular).
-## 2026-10-31 — E2E de todos los flujos (Claude Code, Opus 5.5) — push: no — EN CURSO
+## 2026-10-31 — E2E de todos los flujos (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: «corre pruebas e2e de todos los flujos si falta alguno lo creas».
 - `scripts/e2e/levantar.sh [puerto] [base]`: copia la base local `house` (semilla) a `house_e2e…`, abre el registro y levanta el backend con `dist/` SIN correo ni WhatsApp. No toca `house` ni producción.
 - `scripts/pruebas/recorrido-pantallas.mjs`: el rol Público ahora también recorre `/`, `/privacidad` y `/terminos`.
 - Delegado a Haiku: `flujos-comercial.mjs` (público, registro en dos pasos, Mi plan, solo lectura, un condominio, superadmin; backend 4101) y `flujos-operacion.mjs` (cobro, voucher, validar, rechazo, efectivo, comunicado, invitación, junta, personal, perfil; backend 4102).
 - Gotcha: los tokens de correo e invitación se guardan como sha256; las E2E fabrican el suyo por SQL en la base `house_e2e…`.
+- **Resultado (31-oct, verificado por Opus):** recorrido de pantallas 124 pantallas / 13 roles sin errores (sólo el 401 esperado de `/auth/me` sin sesión); `flujos-comercial.mjs` 38/38 dos veces seguidas; `flujos-operacion.mjs` 35/35. Ningún bug de la app encontrado.
+- Arreglo de Opus en `flujos-comercial.mjs`: cada página manda su propia IP (192.0.2.x) en `X-Forwarded-For`, así la corrida completa no choca con el límite de 5 registros por hora por IP.
+- `scripts/e2e/recorrido.cjs` (el viejo, sobre copia de producción con vecinos reales) NO se corrió: lo reemplazan los dos nuevos sobre la semilla.
+- No cubierto: la lectura del voucher por IA (sin clave en local), el envío real de correos/WhatsApp, cifras de cierre central.
 
 ---
 
