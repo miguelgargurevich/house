@@ -44,6 +44,7 @@ const AdminProveedores = lazy(() => import('./pages/admin/Proveedores'));
 const AdminConfiguracion = lazy(() => import('./pages/admin/Configuracion'));
 const AdminAvisos = lazy(() => import('./pages/admin/Avisos'));
 const AdminComunicados = lazy(() => import('./pages/admin/Comunicados'));
+const AdminAreasComunes = lazy(() => import('./pages/admin/AreasComunes'));
 const AdminMediosPago = lazy(() => import('./pages/admin/MediosPago'));
 const AdminJuntas = lazy(() => import('./pages/admin/Juntas'));
 const AdminWhatsappSync = lazy(() => import('./pages/admin/WhatsappSync'));
@@ -54,6 +55,7 @@ const PropietarioPagos = lazy(() => import('./pages/propietario/Pagos'));
 const PropietarioComunicados = lazy(() => import('./pages/propietario/Comunicados'));
 const ResidenteMiJunta = lazy(() => import('./pages/residente/MiJunta'));
 const ResidenteProveedores = lazy(() => import('./pages/residente/Proveedores'));
+const ResidenteReservas = lazy(() => import('./pages/residente/Reservas'));
 const InquilinoInicio = lazy(() => import('./pages/inquilino/Inicio'));
 const InquilinoCargos = lazy(() => import('./pages/inquilino/Cargos'));
 const InquilinoPagos = lazy(() => import('./pages/inquilino/Pagos'));
@@ -126,6 +128,7 @@ export default function App() {
           <Route path="/admin/configuracion" element={<AdminConfiguracion />} />
           <Route path="/admin/avisos" element={<AdminAvisos />} />
           <Route path="/admin/comunicados" element={<AdminComunicados />} />
+          <Route path="/admin/areas-comunes" element={<AdminAreasComunes />} />
           <Route path="/admin/medios-pago" element={<AdminMediosPago />} />
           <Route path="/admin/juntas" element={<AdminJuntas />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsappSync />} />
@@ -155,6 +158,7 @@ export default function App() {
           <Route path="/propietario/pagos" element={<PropietarioPagos />} />
           <Route path="/propietario/junta" element={<ResidenteMiJunta />} />
           <Route path="/propietario/proveedores" element={<ResidenteProveedores />} />
+          <Route path="/propietario/reservas" element={<ResidenteReservas />} />
           <Route path="/propietario/comunicados" element={<PropietarioComunicados />} />
         </Route>
         <Route element={<RequireRole roles={['inquilino']} />}>
@@ -163,6 +167,7 @@ export default function App() {
           <Route path="/inquilino/pagos" element={<InquilinoPagos />} />
           <Route path="/inquilino/junta" element={<ResidenteMiJunta />} />
           <Route path="/inquilino/proveedores" element={<ResidenteProveedores />} />
+          <Route path="/inquilino/reservas" element={<ResidenteReservas />} />
           <Route path="/inquilino/comunicados" element={<InquilinoComunicados />} />
         </Route>
         <Route element={<RequireRole roles={['mantenimiento']} />}>

@@ -6,15 +6,15 @@ import { esJunta } from './junta';
 
 const OPERACION = [
   '/admin/dashboard', '/admin/complejos', '/admin/condominios/:id', '/admin/unidades', '/admin/recibos', '/admin/recibos/:id', '/admin/pagos', '/admin/morosidad', '/admin/cierres',
-  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/comunicados', '/admin/juntas', '/admin/medios-pago', '/admin/whatsapp',
+  '/admin/mantenimientos', '/admin/conceptos', '/admin/residentes', '/admin/personal', '/admin/proveedores', '/admin/configuracion', '/admin/avisos', '/admin/comunicados', '/admin/areas-comunes', '/admin/juntas', '/admin/medios-pago', '/admin/whatsapp',
 ] as const;
 
 export const RUTAS_POR_ROL: Record<Rol, readonly string[]> = {
   superadmin: ['/superadmin/dashboard', '/superadmin/empresas', '/superadmin/empresas/:id', '/superadmin/usuarios', '/superadmin/auditoria', '/superadmin/llavero', '/superadmin/integraciones', '/superadmin/suscripciones', ...OPERACION],
   // `/admin/bienvenida`: paso 2 del registro (la administradora sin condominios; con uno ya, el frontend la manda al Resumen).
   admin: [...OPERACION, '/admin/mi-plan', '/admin/bienvenida'],
-  propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos', '/propietario/junta', '/propietario/proveedores', '/propietario/comunicados'],
-  inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos', '/inquilino/junta', '/inquilino/proveedores', '/inquilino/comunicados'],
+  propietario: ['/propietario/inicio', '/propietario/unidades', '/propietario/cargos', '/propietario/pagos', '/propietario/junta', '/propietario/proveedores', '/propietario/reservas', '/propietario/comunicados'],
+  inquilino: ['/inquilino/inicio', '/inquilino/cargos', '/inquilino/pagos', '/inquilino/junta', '/inquilino/proveedores', '/inquilino/reservas', '/inquilino/comunicados'],
   mantenimiento: ['/mantenimiento/inicio', '/mantenimiento/tareas'],
   seguridad: ['/seguridad/inicio', '/seguridad/unidades'],
   limpieza: ['/limpieza/inicio', '/limpieza/tareas'],

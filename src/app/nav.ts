@@ -3,7 +3,7 @@ import {
   BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon,
+  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { CargoJunta, Rol, Usuario } from '../auth/AuthContext';
@@ -30,6 +30,7 @@ const operacion: NavItem[] = [
   { to: '/admin/mantenimientos', label: 'Mantenimiento', icon: WrenchScrewdriverIcon },
   { to: '/admin/conceptos', label: 'Conceptos', icon: TagIcon },
   { to: '/admin/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
+  { to: '/admin/areas-comunes', label: 'Áreas comunes', icon: HomeModernIcon },
   { to: '/admin/juntas', label: 'Juntas directivas', icon: UserGroupIcon },
   { to: '/admin/whatsapp', label: 'WhatsApp', icon: QrCodeIcon },
   { to: '/admin/proveedores', label: 'Proveedores', icon: TruckIcon },
@@ -74,6 +75,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/propietario/junta', label: 'Mi junta', icon: UserGroupIcon },
       { to: '/propietario/proveedores', label: 'Proveedores', icon: TruckIcon },
       { to: '/propietario/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
+      { to: '/propietario/reservas', label: 'Reservas', icon: CalendarIcon },
     ] },
   ],
   inquilino: [
@@ -84,6 +86,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/inquilino/junta', label: 'Mi junta', icon: UserGroupIcon },
       { to: '/inquilino/proveedores', label: 'Proveedores', icon: TruckIcon },
       { to: '/inquilino/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
+      { to: '/inquilino/reservas', label: 'Reservas', icon: CalendarIcon },
     ] },
   ],
   mantenimiento: [
