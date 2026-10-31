@@ -47,7 +47,7 @@ function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boo
 
 /** El tope de departamentos (Gratis), el rango que cubre (Básico) o el mínimo que se cobra (Torre Pro y Torre Administradora), tal como los publica el catálogo. */
 function Tope({ plan, cat, className = '' }: { plan: Plan; cat: Catalogo; className?: string }) {
-  if (plan.unidades_maximas != null && plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>De {plan.unidades_minimas} a {plan.unidades_maximas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
+  if (plan.unidades_maximas != null && plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio, mínimo {plan.unidades_minimas} cobrados{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
   if (plan.unidades_maximas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio.</p>;
   if (plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Mínimo de {plan.unidades_minimas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
   return null;
