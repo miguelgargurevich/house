@@ -23,6 +23,8 @@ interface Props {
   /** Dónde se ve la junta completa: «Mi junta» para la junta, «Juntas directivas» para la administración. */
   enlaceJunta: string;
   esJunta: boolean;
+  /** Junta única: la junta de todo el condominio se llama «Junta directiva» (no «Junta central»). */
+  unica?: boolean;
   onAgregar: () => void;
   onEditar: (m: Medio) => void;
   onQuitar: (m: Medio) => void;
@@ -50,9 +52,9 @@ function FilaMedio({ m, onEditar, onQuitar, onActivo }: { m: Medio } & Pick<Prop
 }
 
 /** La junta arriba (presidente, tesorero y correo, con enlace a la junta completa) y debajo sus cuentas, que se activan, editan o quitan aquí. */
-export function CuentasBlock({ grupo, mostrarCondominio, enlaceJunta, esJunta, onAgregar, onEditar, onQuitar, onActivo }: Props) {
+export function CuentasBlock({ grupo, mostrarCondominio, enlaceJunta, esJunta, unica = false, onAgregar, onEditar, onQuitar, onActivo }: Props) {
   const j = grupo.ficha?.vigente ?? null;
-  const nombre = nombreAmbito(grupo.estructura);
+  const nombre = unica && grupo.estructura == null ? 'Junta directiva' : nombreAmbito(grupo.estructura);
   return (
     <Card>
       <CardHeader

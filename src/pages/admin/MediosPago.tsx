@@ -39,7 +39,9 @@ export default function MediosPago() {
   // Como mucho 6 activos por block: 100 alcanza para agrupar todo sin paginar (si no, se avisa).
   const list = useList<Medio>('/api/medios-pago', { pageSize: 100, params: { complejo_id: complejo || undefined, estructura_id: torre || undefined } });
   const juntas = useResource<ListaJuntas>(`/api/juntas${complejo ? `?complejo_id=${complejo}` : ''}`);
-  const grupos = useMemo(() => agrupar(juntas.data?.items ?? [], list.items, torre), [juntas.data, list.items, torre]);
+  // Junta única (una sola junta, la de todo el condominio): ni filtro por block ni tarjetas de blocks «sin junta»; sólo la junta.
+  const unica = esJunta ? user?.junta_unica === true : juntas.data?.complejos?.find(c => String(c.id) === complejo)?.junta_unica === true;
+  const grupos = useMemo(() => { const g = agrupar(juntas.data?.items ?? [], list.items, torre); return unica ? g.filter(x => x.estructura == null) : g; }, [juntas.data, list.items, torre, unica]);
 
   async function cambiarActivo(m: Medio, activo: boolean) {
     try {
@@ -69,13 +71,13 @@ export default function MediosPago() {
     <>
       <PageHeader
         title="Medios de pago"
-        description={esJunta ? `Las cuentas y los Yape o Plin donde pagan los vecinos de tu ${palabra.una}.` : `Las cuentas bancarias y los Yape o Plin donde pagan los vecinos de cada ${palabra.una}. Los define la administración o la junta directiva.`}
+        description={esJunta ? (unica ? 'Las cuentas y los Yape o Plin donde pagan los vecinos del edificio.' : `Las cuentas y los Yape o Plin donde pagan los vecinos de tu ${palabra.una}.`) : `Las cuentas bancarias y los Yape o Plin donde pagan los vecinos de cada ${palabra.una}. Los define la administración o la junta directiva.`}
         actions={<Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedeAgregar} onClick={() => nuevo({ complejo_id: complejo, estructura_id: torre })}>Agregar medio de pago</Button>}
       />
       {!esJunta && <ValidacionAutomaticaIA />}
       {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y los blocks: {ambitos.error}</Alert></div>}
       {/* Los blocks son los del condominio elegido arriba: con «Todos los condominios» no se listan (se confundirían). */}
-      {(ambitos.loading || (!ambitos.data?.fijo && complejo !== '')) && (
+      {!unica && (ambitos.loading || (!ambitos.data?.fijo && complejo !== '')) && (
       <Card className="mb-4">
         <Toolbar>
           {ambitos.loading ? <Skeleton className="h-9 w-full sm:w-48" /> : (
@@ -112,6 +114,7 @@ export default function MediosPago() {
                 mostrarCondominio={complejos.length > 1}
                 enlaceJunta={esJunta ? '/junta/mi-junta' : '/admin/juntas'}
                 esJunta={esJunta}
+                unica={unica}
                 onAgregar={() => nuevo({ complejo_id: String(g.complejo.id), estructura_id: g.estructura ? String(g.estructura.id) : 'ninguna' })}
                 onEditar={setEditando}
                 onQuitar={setQuitar}
