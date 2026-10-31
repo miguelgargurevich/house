@@ -41,19 +41,17 @@ const MODULOS_SEED = [
 ] as const;
 
 /**
- * Tramos de Torre Pro y Torre Administradora (Miguel, 31-oct): los primeros 60 departamentos al precio normal y del 61 en adelante a un precio menor,
- * para los edificios grandes. Son valores de partida: el superadmin los edita en Suscripciones › Precios.
+ * Sin tramos de partida: Pro y Administradora cobran parejo (Miguel, 31-oct: «por ahora»). El soporte de tramos sigue en el código y el superadmin
+ * lo pone por plan en Suscripciones › Precios (desde qué departamento y a qué precio).
  */
-export const TRAMO_DESDE_SEED = 61;
-
 export const PLANES_SEED = [
   { clave: 'gratis', nombre: 'Torre Gratis', descripcion: 'Torre Gratis por 3 meses, sin tope de departamentos.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: null as number | null, unidades_minimas: null as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: [...CARACTERISTICAS_GRATIS] },
   { clave: 'basico', nombre: 'Torre Básico', descripcion: 'Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.', precio_por_unidad: '1.50', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: ['Todo lo de Torre Gratis, sin plazo', 'Sin tope de departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },
-  { clave: 'pro', nombre: 'Torre Pro', descripcion: 'Todo Torre, sin tope de departamentos.', precio_por_unidad: '3.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: TRAMO_DESDE_SEED as number | null, tramo_precio: '2.00' as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+  { clave: 'pro', nombre: 'Torre Pro', descripcion: 'Todo Torre, sin tope de departamentos.', precio_por_unidad: '3.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
-  { clave: 'administradora', nombre: 'Torre Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: TRAMO_DESDE_SEED as number | null, tramo_precio: '1.70' as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+  { clave: 'administradora', nombre: 'Torre Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Torre Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
   { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 5, unidades_maximas: null as number | null, unidades_minimas: null as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
 ] as const;

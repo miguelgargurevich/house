@@ -282,10 +282,10 @@ describe('endpoint público de planes', () => {
     await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.00' } });
   });
 
-  it('cotizar: 448 deptos en Pro = 956,00 + IGV al mes (1.128,08 con IGV) y 11.472,00 + IGV al año; sin módulos sueltos; plan inexistente 422', async () => {
-    // 60 × 3.00 + 388 × 2.00 (tramo desde el 61) = 180.00 + 776.00 = 956.00; IGV 18 % = 172.08; con IGV 1128.08; anual 956 × 12 = 11472.00
+  it('cotizar: 448 deptos en Pro = 1.344,00 + IGV al mes (1.585,92 con IGV) y 16.128,00 + IGV al año; sin módulos sueltos; plan inexistente 422', async () => {
+    // 448 × 3.00 (parejo, sin tramo de partida) = 1344.00; IGV 18 % = 241.92; con IGV 1585.92; anual 1344 × 12 = 16128.00
     const pro = await llamar(base, 'GET', '/api/publico/cotizar?unidades=448&plan=pro');
-    assert.deepEqual(pro.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 448, unidades_cobradas: 448, minimo_aplicado: false, total_mes: '956.00', total_anio: '11472.00', igv_mes: '172.08', total_con_igv_mes: '1128.08', igv_incluido: false, tramo_desde: 61, tramo_precio: '2.00', unidades_tramo: 388 });
+    assert.deepEqual(pro.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 448, unidades_cobradas: 448, minimo_aplicado: false, total_mes: '1344.00', total_anio: '16128.00', igv_mes: '241.92', total_con_igv_mes: '1585.92', igv_incluido: false, tramo_desde: null, tramo_precio: null, unidades_tramo: 0 });
     const mod = await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&modulos=ia_vouchers,asistente');
     assert.equal(mod.body.total_mes, '0.00', 'los módulos sueltos ya no se cotizan: sin plan, nada que cobrar');
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=cortesia')).status, 422, 'cortesía no se cotiza al público');

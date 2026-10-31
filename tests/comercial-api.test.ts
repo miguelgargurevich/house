@@ -299,9 +299,9 @@ describe('superadmin: lista, cambios y pagos', () => {
   it('cambiar el IGV: el precio público (sin IGV) no cambia y el total con IGV sigue la tasa vigente (sin 18 % fijo en el código)', async () => {
     await llamar(base, 'PUT', '/api/comercial/configuracion', T.super, { igv_tasa: '0.10' });
     assert.equal((await llamar(base, 'GET', '/api/publico/planes')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '3.00');
-    // 60 × 3.00 + 40 × 2.00 (tramo desde el 61) = 260.00 sin IGV; IGV 10 % = 26.00; con IGV 286.00
+    // 100 × 3.00 (parejo, sin tramo de partida) = 300.00 sin IGV; IGV 10 % = 30.00; con IGV 330.00
     const c = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body;
-    assert.deepEqual([c.total_mes, c.igv_mes, c.total_con_igv_mes], ['260.00', '26.00', '286.00']);
+    assert.deepEqual([c.total_mes, c.igv_mes, c.total_con_igv_mes], ['300.00', '30.00', '330.00']);
   });
 });
 

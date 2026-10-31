@@ -1,8 +1,8 @@
 /**
  * Oferta «Gratis con límite o Pro con todo»: deja en la base los valores nuevos de los planes (Gratis hasta 20 departamentos; Pro y
  * Administradora con mínimo de 20 departamentos cobrados; Pro, Administradora y Cortesía con los tres módulos + mora automática + reportes;
- * textos de la página de precios; y el precio por tramos de Pro y Administradora —del departamento 61 en adelante—, sólo en filas que no tengan ninguno de
- * los dos campos del tramo: un tramo que el superadmin ya editó no se pisa). No toca precios ni suscripciones: los condominios en cortesía (Los Libertadores) siguen igual.
+ * textos de la página de precios). No pone ni quita tramos de precio (Pro y Administradora cobran parejo; el superadmin pone un tramo en
+ * Suscripciones › Precios si lo quiere). No toca precios ni suscripciones: los condominios en cortesía (Los Libertadores) siguen igual.
  * Idempotente: correrlo otra vez no cambia nada. Los precios y los topes se editan después en Suscripciones › Precios.
  *
  * Uso (contra la base que corresponda; sin DATABASE_URL usa la del .env):

@@ -109,11 +109,8 @@ describe('cotizar con tramo', () => {
 });
 
 describe('seed y script de la oferta', () => {
-  it('PLANES_SEED: Pro desde el 61 a 2.00, Administradora desde el 61 a 1.70; Gratis, Básico y Cortesía sin tramo', () => {
-    const por = (c: string) => PLANES_SEED.find((p) => p.clave === c)!;
-    assert.deepEqual([por('pro').tramo_desde, por('pro').tramo_precio], [61, '2.00']);
-    assert.deepEqual([por('administradora').tramo_desde, por('administradora').tramo_precio], [61, '1.70']);
-    for (const c of ['gratis', 'basico', 'cortesia']) assert.deepEqual([por(c).tramo_desde, por(c).tramo_precio], [null, null], c);
+  it('PLANES_SEED: ningún plan trae tramo (Pro y Administradora cobran parejo); el superadmin lo pone después', () => {
+    for (const p of PLANES_SEED) assert.deepEqual([p.tramo_desde, p.tramo_precio], [null, null], p.clave);
   });
 });
 
@@ -148,23 +145,22 @@ const planPublico = async (clave: string, query = '') => (await llamar(base, 'GE
 const editar = (clave: string, cuerpo: Record<string, unknown>, token = T.super) => llamar(base, 'PUT', `/api/comercial/planes/${clave}`, token, cuerpo);
 
 describe('la base siembra los tramos y el script no pisa lo editado', () => {
-  it('una base nueva trae los tramos del seed (Pro 61 / 2.00, Administradora 61 / 1.70, el resto null)', async () => {
+  it('una base nueva no trae tramos (Pro y Administradora cobran parejo)', async () => {
     await prisma.planComercial.deleteMany();
     await sembrarCatalogoComercial(prisma);
     const filas = await prisma.planComercial.findMany();
-    const f = (c: string) => filas.find((p) => p.clave === c)!;
-    assert.deepEqual([f('pro').tramo_desde, f('pro').tramo_precio?.toString()], [61, '2']);
-    assert.deepEqual([f('administradora').tramo_desde, f('administradora').tramo_precio?.toString()], [61, '1.7']);
-    for (const c of ['gratis', 'basico', 'cortesia']) assert.deepEqual([f(c).tramo_desde, f(c).tramo_precio], [null, null], c);
+    for (const f of filas) assert.deepEqual([f.clave, f.tramo_desde, f.tramo_precio], [f.clave, null, null]);
   });
 
-  it('ajustarOfertaGratisPro pone el tramo en las filas que no tienen ninguno de los dos campos, y a la segunda corrida no cambia nada', async () => {
+  it('ajustarOfertaGratisPro no pone tramos: ni en filas sin tramo ni en la segunda corrida (y no los quita de filas que ya los tienen)', async () => {
     await prisma.planComercial.updateMany({ where: { clave: { in: ['pro', 'administradora'] } }, data: { tramo_desde: null, tramo_precio: null } });
     const informe = await ajustarOfertaGratisPro(prisma);
-    assert.deepEqual(informe.filter((i) => i.cambios.some((c) => c.startsWith('tramo'))).map((i) => i.clave).sort(), ['administradora', 'pro']);
-    assert.deepEqual([(await plan('pro')).tramo_desde, (await plan('pro')).tramo_precio?.toString()], [61, '2']);
-    assert.deepEqual([(await plan('administradora')).tramo_desde, (await plan('administradora')).tramo_precio?.toString()], [61, '1.7']);
-    assert.deepEqual((await ajustarOfertaGratisPro(prisma)).filter((i) => i.cambios.some((c) => c.startsWith('tramo'))), []);
+    assert.deepEqual(informe.filter((i) => i.cambios.some((c) => c.startsWith('tramo'))), []);
+    assert.deepEqual([(await plan('pro')).tramo_desde, (await plan('pro')).tramo_precio], [null, null]);
+    assert.deepEqual([(await plan('administradora')).tramo_desde, (await plan('administradora')).tramo_precio], [null, null]);
+    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { tramo_desde: 61, tramo_precio: '2.00' } });
+    await ajustarOfertaGratisPro(prisma);
+    assert.deepEqual([(await plan('pro')).tramo_desde, (await plan('pro')).tramo_precio?.toString()], [61, '2'], 'un tramo que ya está se queda');
   });
 
   it('el script no pisa un tramo que el superadmin ya editó (ni una fila con sólo uno de los dos campos); en seco no escribe', async () => {

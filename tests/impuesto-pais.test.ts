@@ -252,7 +252,7 @@ describe('API pública por país', () => {
     const sin = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=administradora&pais=CL')).body;
     assert.deepEqual([sin.consultar, sin.total_mes, sin.total_anio, sin.igv_mes, sin.total_con_igv_mes, sin.moneda], [true, null, null, null, null, 'CLP']);
     const pe = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body;
-    assert.deepEqual([pe.total_mes, pe.igv_mes, pe.total_con_igv_mes, pe.moneda, pe.impuesto_nombre], ['260.00', '46.80', '306.80', 'PEN', 'IGV'], 'Perú: 60 × 3,00 + 40 × 2,00 (tramo desde el 61) = 260,00 + IGV 46,80');
+    assert.deepEqual([pe.total_mes, pe.igv_mes, pe.total_con_igv_mes, pe.moneda, pe.impuesto_nombre], ['300.00', '54.00', '354.00', 'PEN', 'IGV'], 'Perú: 100 × 3,00 (parejo) = 300,00 + IGV 54,00');
   });
 
   it('la API pública no expone tasas internas ni datos de pago', async () => {
@@ -289,8 +289,8 @@ describe('el superadmin edita impuestos y precios por moneda (auditado); nadie m
     await llamar(base, 'PUT', '/api/comercial/impuestos/PE', T.super, { tasa: '0.12' });
     assert.equal((await prisma.configuracionComercial.findUniqueOrThrow({ where: { id: 1 } })).igv_tasa.toString(), '0.12');
     const c = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body;
-    // 60 × 3.00 + 40 × 2.00 = 260.00; IGV 12 % = 31.20; con IGV 291.20
-    assert.deepEqual([c.igv_mes, c.total_con_igv_mes], ['31.20', '291.20']);
+    // 100 × 3.00 = 300.00 (parejo); IGV 12 % = 36.00; con IGV 336.00
+    assert.deepEqual([c.igv_mes, c.total_con_igv_mes], ['36.00', '336.00']);
   });
 
   it('datos inválidos → 422: tasa fuera de 0–1, moneda o país que no existen, nombre vacío; un país válido pero sin fila no pasa de 404', async () => {
