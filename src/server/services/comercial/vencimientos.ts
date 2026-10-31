@@ -9,6 +9,7 @@ import { fechaTexto } from '../avisos/plantillas';
 import { correoA, obtenerConfiguracion } from './configuracion';
 import { estadoEfectivo } from './estado';
 import { comercialDeps, invalidarComercial } from './modulos';
+import { procesarAvisosGratis } from './plazoGratis';
 import { datosParaPagar, referenciaPago, vistas } from './suscripciones';
 
 type Aviso = 'por_vencer' | 'vencida' | 'apagada';
@@ -70,5 +71,7 @@ export async function procesarVencimientos(opts: { ahora?: Date; deps?: DepsAvis
       if (!fallo) await prisma.suscripcionCondominio.update({ where: { id: s.id }, data: { [MARCA[tipo]]: vigente } });
     }
   }
+  // El plazo de Gratis tiene sus propios avisos (al aplicarse, 7 días antes y el día que vence), fuera de las suscripciones de pago.
+  r.correos += await procesarAvisosGratis({ ahora, deps: opts.deps, plazos, diasGratis: cfg.dias_gratis });
   return r;
 }

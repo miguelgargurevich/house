@@ -8,6 +8,7 @@ import { currentUser, type AuthUser } from '../middleware/auth';
 import { procesarPronto } from '../services/avisos';
 import { encolarComunicado, origenDe } from '../services/comunicados';
 import { idSchema, listQuerySchema, parse, parseBody, parseId, texto, z } from '../validation';
+import { exigirOperativo } from '../services/comercial/operativo';
 
 const MAX_TITULO = 120;
 const MAX_CUERPO = 4000;
@@ -175,6 +176,7 @@ comunicadosRouter.post('/', async (req, res) => {
   const u = currentUser(req);
   const d = parseBody(crearSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
+  await exigirOperativo(ambito.complejo_id, u);
   const c = await prisma.comunicado.create({
     data: { ...ambito, titulo: d.titulo, cuerpo: d.cuerpo, autor_id: u.id, enviar_correo: d.enviar_correo, enviar_whatsapp: d.enviar_whatsapp, fijado: d.fijado },
     include: incluir,
@@ -198,6 +200,7 @@ async function cargar(req: Request) {
 
 const editar = async (req: Request, res: Response) => {
   const c = await cargar(req);
+  await exigirOperativo(c.complejo_id, currentUser(req));
   if (c.archivado_at) throw conflict('Este comunicado está archivado y ya no se puede editar');
   const d = parseBody(editarSchema, req);
   const data: Prisma.ComunicadoUpdateInput = {
@@ -224,6 +227,7 @@ comunicadosRouter.patch('/:id', editar);
  */
 comunicadosRouter.post('/:id/archivar', async (req, res) => {
   const c = await cargar(req);
+  await exigirOperativo(c.complejo_id, currentUser(req));
   res.locals.entidadId = c.id;
   res.locals.accion = 'archivar';
   res.locals.auditDetalle = { titulo: c.titulo, complejo_id: c.complejo_id, estructura_id: c.estructura_id };

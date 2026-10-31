@@ -17,8 +17,13 @@ export const esCapacidad = (c: string): c is CapacidadClave => (CAPACIDADES as r
 /** Gratis llega hasta este número de unidades por condominio; Pro y Administradora cobran como mínimo este número. */
 export const UNIDADES_GRATIS_MAX = 20;
 export const UNIDADES_PRO_MIN = 20;
+/** Básico (S/ 1 por departamento) cobra como mínimo 20 y llega hasta 50 departamentos. */
+export const UNIDADES_BASICO_MIN = 20;
+export const UNIDADES_BASICO_MAX = 50;
+/** Días de Gratis de partida (3 meses); el superadmin los edita en la configuración. */
+export const DIAS_GRATIS_INICIAL = 90;
 
-export const PLANES = ['gratis', 'pro', 'administradora', 'cortesia'] as const;
+export const PLANES = ['gratis', 'basico', 'pro', 'administradora', 'cortesia'] as const;
 export type PlanClave = (typeof PLANES)[number];
 
 export const MEDIOS_PAGO_SUSCRIPCION = ['transferencia', 'yape', 'plin', 'efectivo', 'otro'] as const;
@@ -36,13 +41,15 @@ const MODULOS_SEED = [
 ] as const;
 
 export const PLANES_SEED = [
-  { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para empezar y para siempre, sin costo.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
+  { clave: 'gratis', nombre: 'Gratis', descripcion: 'Gratis por 3 meses, hasta 20 departamentos.', precio_por_unidad: '0.00', modulos_incluidos: [] as string[], visible: true, orden: 1, unidades_maximas: UNIDADES_GRATIS_MAX as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: ['1 condominio', ...CARACTERISTICAS_GRATIS_ANTERIORES] },
-  { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+  { clave: 'basico', nombre: 'Básico', descripcion: 'Para edificios chicos que ya terminaron su periodo gratis.', precio_por_unidad: '1.00', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: UNIDADES_BASICO_MAX as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
+    caracteristicas: ['Todo lo de Gratis, sin plazo', 'Hasta 50 departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },
+  { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House, sin tope de departamentos.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes'] },
-  { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+  { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
-  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 4, unidades_maximas: null as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
+  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 5, unidades_maximas: null as number | null, unidades_minimas: null as number | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
 ] as const;
 
 /** Moneda en la que está escrito `PlanComercial.precio_por_unidad`; las demás monedas llevan su precio en `PrecioPlanMoneda`. */
@@ -69,9 +76,12 @@ export const impuestosSeed = (tasaPeru: Prisma.Decimal | string = '0.18') => PAI
 
 /** Idempotente: crea los módulos, planes, impuestos por país y la configuración que falten (`skipDuplicates`); lo ya existente no se toca. */
 export async function sembrarCatalogoComercial(db: Cliente): Promise<void> {
+  // Básico llegó después: en una base que ya tenía planes, al crearlo se corre un puesto el orden de Pro, Administradora y Cortesía (en una base nueva ya viene ordenado).
+  const [habiaPlanes, habiaBasico] = await Promise.all([db.planComercial.count(), db.planComercial.findUnique({ where: { clave: 'basico' }, select: { clave: true } })]);
   await db.moduloComercial.createMany({ data: MODULOS_SEED.map((m) => ({ ...m, precio_por_unidad: new Prisma.Decimal(m.precio_por_unidad) })), skipDuplicates: true });
   await db.planComercial.createMany({ data: PLANES_SEED.map((p) => ({ ...p, modulos_incluidos: [...p.modulos_incluidos], caracteristicas: [...p.caracteristicas], precio_por_unidad: new Prisma.Decimal(p.precio_por_unidad) })), skipDuplicates: true });
-  await db.configuracionComercial.createMany({ data: [{ id: CONFIGURACION_ID, igv_tasa: new Prisma.Decimal('0.18'), dias_gracia: 7, dias_aviso_vencimiento: 5, url_publica: URL_PUBLICA_INICIAL }], skipDuplicates: true });
+  if (habiaPlanes > 0 && !habiaBasico) await db.planComercial.updateMany({ where: { clave: { not: 'basico' }, orden: { gte: 2 } }, data: { orden: { increment: 1 } } });
+  await db.configuracionComercial.createMany({ data: [{ id: CONFIGURACION_ID, igv_tasa: new Prisma.Decimal('0.18'), dias_gracia: 7, dias_aviso_vencimiento: 5, dias_gratis: DIAS_GRATIS_INICIAL, url_publica: URL_PUBLICA_INICIAL }], skipDuplicates: true });
   const cfg = await db.configuracionComercial.findUnique({ where: { id: CONFIGURACION_ID }, select: { igv_tasa: true } });
   await db.impuestoPais.createMany({ data: impuestosSeed(cfg?.igv_tasa), skipDuplicates: true });
 }

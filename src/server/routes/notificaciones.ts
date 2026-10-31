@@ -9,6 +9,7 @@ import { currentUser } from '../middleware/auth';
 import { estadoCanales, CANALES, TIPOS, procesarPronto } from '../services/avisos';
 import { moduloActivoPara } from '../services/comercial/modulos';
 import { idSchema, parse, parseId, z } from '../validation';
+import { exigirOperativoEmpresa } from '../services/comercial/operativo';
 
 const ESTADOS = ['pendiente', 'enviada', 'error', 'omitida'] as const;
 
@@ -117,6 +118,8 @@ router.post('/:id/reenviar', async (req, res) => {
   const id = parseId(req);
   const n = await prisma.notificacion.findFirst({ where: { AND: [{ id }, scopeNotificaciones(currentUser(req))] }, select: { id: true, estado: true, canal: true, tipo: true } });
   if (!n) throw notFound('Aviso');
+  // Reenviar es volver a avisar a un vecino: con todos los condominios de la empresa en solo lectura no se envía nada nuevo.
+  await exigirOperativoEmpresa(currentUser(req).empresa_id, currentUser(req));
   // Cambio atómico: sólo pasa a pendiente si sigue en error u omitida.
   const r = await prisma.notificacion.updateMany({
     where: { id, estado: { in: ['error', 'omitida'] } },

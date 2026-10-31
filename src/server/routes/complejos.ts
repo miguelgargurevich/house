@@ -5,7 +5,10 @@ import { invalid, notFound } from '../errors';
 import { abrirContrato, cambiarAdministradora } from '../lib/contratos';
 import { empresaDe, scopeComplejos } from '../lib/scope';
 import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda, zonaInicial, zonaSchema } from '../lib/paisMoneda';
+import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { exigirPuedeAgregarCondominio } from '../services/comercial/cupo';
+import { comercialDeps } from '../services/comercial/modulos';
+import { plazoGratisNuevo } from '../services/comercial/plazoGratis';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
 import { emailSchema, fechaSchema, idSchema, parseBody, parseId, telefonoSchema, texto, textoOpcional, z } from '../validation';
@@ -86,13 +89,16 @@ const crud = crudRouter({
     const pais = await paisInicial(r.pais as string | undefined, r.empresa_id as number | null);
     return { ...r, pais, moneda: monedaInicial(r.moneda as string | undefined, pais), zona_horaria: zonaInicial(r.zona_horaria as string | undefined, pais) };
   },
-  // Un condominio nuevo nace con su contrato de administración vigente.
-  create: (d) =>
-    prisma.$transaction(async (tx) => {
+  // Un condominio nuevo nace con su contrato de administración vigente y, con plazo de Gratis configurado, en Gratis con su `gratis_hasta` (hoy + `dias_gratis`).
+  create: async (d) => {
+    const plazo = plazoGratisNuevo(await obtenerConfiguracion(), comercialDeps.ahora());
+    return prisma.$transaction(async (tx) => {
       const c = await tx.complejoHabitacional.create({ data: d as never });
       if (c.empresa_id != null) await abrirContrato(tx, c.id, c.empresa_id);
+      if (plazo.gratis_hasta) await tx.suscripcionCondominio.create({ data: { complejo_id: c.id, plan_clave: 'gratis', estado: 'gratis', ...plazo, notas: 'Condominio creado desde la administradora: Gratis con plazo.' } });
       return c;
-    }),
+    });
+  },
   prepareUpdate: async (d, u, existing) => {
     // La administradora no se edita aquí: cambiarla cierra un contrato y abre otro (POST /:id/administradora).
     const { empresa_id, ...resto } = d;

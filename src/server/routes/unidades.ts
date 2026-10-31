@@ -4,6 +4,7 @@ import { scopeComplejos, scopeEstructuras, scopePisos, scopeUnidades, scopeUsuar
 import type { AuthUser } from '../middleware/auth';
 import { exigirCupoDeUnidades } from '../services/comercial/modulos';
 import { idSchema, texto, textoOpcional, z } from '../validation';
+import { exigirOperativo } from '../services/comercial/operativo';
 
 /** Tipos admitidos (minúscula, sin tilde). Espejo de `src/pages/admin/_parts/unidades/tipoUnidad.ts`. */
 export const TIPOS_UNIDAD = ['departamento', 'casa', 'local', 'estacionamiento', 'deposito'] as const;
@@ -68,6 +69,7 @@ export const unidadesRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: (r, u) => exigirOperativo(r.complejo_id as number | null, u),
   // Tope de unidades del plan (Gratis = 20): crear por encima falla con 403 «LIMITE_UNIDADES»; lo que ya existe no se toca.
   prepareCreate: async (d, user) => {
     const out = await validarRefs(d, user);

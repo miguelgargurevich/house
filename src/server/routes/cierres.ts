@@ -18,6 +18,7 @@ import { CATEGORIAS, CATEGORIAS_EGRESO, CATEGORIAS_INGRESO, CATEGORIA_ETIQUETA, 
 import { DESTINO_AYUDA, DESTINO_ETIQUETA, lineaSchemaRegex, llevaConformidad } from '../services/cierres/destinos';
 import { esAdministracion, esJuntaCentral, esTesoreroCentral, puedeDarConformidad, puedeRegistrar, puedeRegistrarCentral, puedeVerCentral } from '../services/cierres/permisos';
 import { idSchema, montoSchema, parse, parseBody, parseId, parseQuery, textoOpcional, z } from '../validation';
+import { exigirOperativo } from '../services/comercial/operativo';
 
 export const cierresRouter = Router();
 cierresRouter.use((req, res, next) => {
@@ -208,6 +209,7 @@ async function ubicarRegistro(req: Request): Promise<Block> {
   const u = currentUser(req);
   const block = await cargarBlock(u, parseId(req));
   if (!puedeRegistrar(u, block)) throw forbidden('Sólo el tesorero del block o la administración registran los pagos del cierre');
+  await exigirOperativo(block.complejo_id, u);
   return block;
 }
 
@@ -283,6 +285,7 @@ cierresRouter.delete('/lineas/:id', async (req, res) => {
   const u = currentUser(req);
   const e = await cargarEgreso(u, parseId(req));
   if (!puedeRegistrar(u, e.estructura)) throw forbidden('Sólo el tesorero del block o la administración corrigen los pagos del cierre');
+  await exigirOperativo(e.complejo_id, u);
   if (e.conformidad_at) throw conflict('Ese pago ya tiene conformidad: no se puede quitar');
   await prisma.egresoBlock.delete({ where: { id: e.id } });
   res.locals.entidadId = e.id;
@@ -297,6 +300,7 @@ async function cargarParaConformidad(u: AuthUser, id: number) {
   if (!llevaConformidad(e.destino)) throw conflict('Sólo el pago a la empresa administradora y el aporte a la Junta central llevan conformidad');
   if (!puedeDarConformidad(u, e.destino, e.complejo_id)) throw forbidden(e.destino === 'administradora' ? 'Sólo la administración da la conformidad del pago a la empresa administradora' : 'Sólo el tesorero de la Junta central da la conformidad');
   if (e.registrado_por_id === u.id) throw forbidden('No puedes dar la conformidad a un pago que registraste tú');
+  await exigirOperativo(e.complejo_id, u);
   return e;
 }
 
@@ -366,6 +370,7 @@ async function ubicarCentral(req: Request): Promise<{ complejoId: number }> {
   const q = parseQuery(z.object({ complejo_id: idSchema.optional() }), req);
   const complejoId = await condominioDe(u, q.complejo_id);
   if (!puedeRegistrarCentral(u, complejoId)) throw forbidden('Sólo el tesorero de la Junta central o la administración registran los movimientos de la Junta central');
+  await exigirOperativo(complejoId, u);
   return { complejoId };
 }
 
@@ -429,6 +434,7 @@ cierresRouter.delete('/central/movimientos/:id', async (req, res) => {
   const u = currentUser(req);
   const m = await cargarMovimiento(u, parseId(req));
   if (!puedeRegistrarCentral(u, m.complejo_id)) throw forbidden('Sólo el tesorero de la Junta central o la administración corrigen los movimientos de la Junta central');
+  await exigirOperativo(m.complejo_id, u);
   await prisma.movimientoCentral.delete({ where: { id: m.id } });
   res.locals.entidad = 'cierre_central';
   res.locals.entidadId = m.id;

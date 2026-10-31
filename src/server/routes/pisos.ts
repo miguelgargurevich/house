@@ -2,6 +2,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { scopeEstructuras, scopePisos } from '../lib/scope';
 import { idSchema, z } from '../validation';
+import { complejoDeEstructura, exigirOperativo } from '../services/comercial/operativo';
 
 const base = z.object({
   numero: z.number().int().min(-10).max(300).nullish(),
@@ -23,6 +24,7 @@ export const pisosRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: async (r, u) => exigirOperativo(await complejoDeEstructura(r.estructura_id as number | null), u),
   prepareCreate: async (d, u) => {
     await assertRef(prisma.estructura, d.estructura_id as number, scopeEstructuras(u), 'estructura_id');
     return d;

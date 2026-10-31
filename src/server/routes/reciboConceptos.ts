@@ -4,6 +4,7 @@ import { invalid } from '../errors';
 import { scopeConceptos, scopeRecibosEscritura, scopeReciboConceptos, scopeReciboConceptosEscritura } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { idSchema, montoSchema, z } from '../validation';
+import { complejoDeRecibo, exigirOperativo } from '../services/comercial/operativo';
 
 const base = z.object({
   recibo_id: idSchema,
@@ -42,6 +43,7 @@ export const reciboConceptosRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: async (r, u) => exigirOperativo(await complejoDeRecibo(r.recibo_id as number | null), u),
   prepareCreate: (d, u) => validarRefs(d, u),
   prepareUpdate: (d, u, e) => validarRefs(d, u, e),
 });

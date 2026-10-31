@@ -126,7 +126,7 @@ describe('Mi plan y la solicitud usan el impuesto y la moneda del país del cond
     assert.deepEqual(a.planes_disponibles, ['pro'], 'Administradora no tiene precio en pesos: no se puede pedir');
     const b = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminB)).body.condominios[0];
     assert.deepEqual([b.pais, b.moneda, b.impuesto.nombre, b.cotizacion.total_mes], ['PE', 'PEN', 'IGV', '59.00'], 'Perú: lo de siempre (20 × 2,50 = 50,00 + 9,00)');
-    assert.deepEqual(b.planes_disponibles, ['pro', 'administradora']);
+    assert.deepEqual(b.planes_disponibles, ['basico', 'pro', 'administradora']);
   });
 
   it('los módulos sueltos heredados tienen precio en soles: en un condominio que no cobra en soles no se suman (no se cobran soles como si fueran pesos)', async () => {

@@ -10,6 +10,7 @@ import { scopePagos, scopePagosEscritura, scopePagosJunta } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { estadoParaResidente, selectEvaluacion } from '../lib/evaluacionVista';
+import { complejoDeCargo, exigirOperativo } from '../services/comercial/operativo';
 import { avisarVoucherEnSegundoPlano } from '../services/avisos/voucherBlock';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { validarSiCumple } from '../services/validacionAutomatica';
@@ -36,6 +37,8 @@ const cargador = (alcanceDe: (u: AuthUser) => Prisma.PagoWhereInput): RequestHan
   const campos = { id: true, usuario_id: true, estado_validacion: true, recibo_concepto_unidad_id: true, fecha_pago: true, grupo: true, grupo_principal: true } as const;
   let pago = await prisma.pago.findFirst({ where: { AND: [{ id: parseId(req) }, alcanceDe(u)] }, select: campos });
   if (!pago) throw notFound('Pago');
+  // Solo lectura: subir el comprobante, validar o rechazar, dar la conformidad o pedir la evaluación crean trabajo; ver (GET) sigue abierto.
+  if (req.method !== 'GET') await exigirOperativo(await complejoDeCargo(pago.recibo_concepto_unidad_id), u);
   // Pago de un mantenimiento: el comprobante, la evaluación y la validación son del GRUPO y viven en su pago principal.
   if (pago.grupo != null && !pago.grupo_principal) pago = (await prisma.pago.findFirst({ where: { grupo: pago.grupo, grupo_principal: true }, select: campos })) ?? pago;
   res.locals.pago = pago;

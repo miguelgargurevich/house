@@ -10,7 +10,7 @@ import { puedeAgregarCondominio } from '../services/comercial/cupo';
 import { usoDelMes } from '../services/comercial/consumo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { cambiarImpuesto, reflejarTasaEnPeru } from '../services/comercial/impuestos';
-import { invalidarComercial } from '../services/comercial/modulos';
+import { complejosDe, invalidarComercial } from '../services/comercial/modulos';
 import { cambiarSuscripcion, cancelarSolicitud, catalogoPublico, datosParaPagar, pagoVista, registrarPago, solicitar, vistas } from '../services/comercial/suscripciones';
 import { fechaSchema, idSchema, listQuerySchema, parse, parseBody, parseQuery, texto, textoOpcional, z } from '../validation';
 
@@ -75,6 +75,8 @@ const configSchema = z.object({
   registro_abierto: z.boolean().optional(),
   /** Días de Pro de prueba al registrarse (0 = sin prueba: el condominio nace en Gratis). */
   dias_prueba_pro: z.number().int().min(0).max(90).optional(),
+  /** Días de Gratis desde el registro (la prueba de Pro va dentro); pasado el plazo, el condominio queda en solo lectura. null o 0 = sin plazo. */
+  dias_gratis: z.number().int().min(0, 'Mínimo 0').max(365, 'Máximo 365').nullable().optional(),
   pago_titular: textoOpcional(120),
   pago_banco: textoOpcional(80),
   pago_cuenta: textoOpcional(60),
@@ -119,6 +121,18 @@ comercialRouter.get('/mi-plan', requireRole('admin'), async (req, res) => {
   // Cada condominio trae cuánto va del mes (topes y vouchers) para la pantalla y el Resumen.
   const usos = await Promise.all(condominios.map((c) => usoDelMes(c.complejo_id)));
   res.json({ condominios: condominios.map((c, i) => ({ ...c, uso: usos[i] })), pagar, catalogo, puede_agregar_condominio: puede });
+});
+
+/** @openapi
+ * /api/comercial/estado-operativo:
+ *   get: { summary: "Si los condominios que alcanzas están en solo lectura (terminó su periodo gratis), con el último día gratis y lo que cuesta Básico; lo lee la banda de todas las pantallas", tags: [Comercial], security: [{ cookieAuth: [] }], responses: { 200: { description: "{ condominios: [{ complejo_id, complejo, solo_lectura, gratis_hasta, solo_lectura_desde, dias_gratis_restantes, basico_desde }] }; el superadmin recibe la lista vacía (nunca queda en solo lectura)" } } } */
+comercialRouter.get('/estado-operativo', async (req, res) => {
+  const ids = await complejosDe(currentUser(req));
+  if (!ids?.length) return void res.json({ condominios: [] });
+  const vs = await vistas(ids);
+  res.json({
+    condominios: vs.map((v) => ({ complejo_id: v.complejo_id, complejo: v.complejo, solo_lectura: v.solo_lectura, gratis_hasta: v.gratis_hasta, solo_lectura_desde: v.solo_lectura_desde, dias_gratis_restantes: v.dias_gratis_restantes, basico_desde: v.basico_desde })),
+  });
 });
 
 /** @openapi

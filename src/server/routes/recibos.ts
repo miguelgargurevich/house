@@ -28,6 +28,7 @@ import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, l
 import multer from 'multer';
 import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
 import XLSX from 'xlsx';
+import { complejoDeRecibo, exigirOperativo } from '../services/comercial/operativo';
 
 const conceptoItem = z.object({ concepto_id: idSchema, monto: montoSchema, es_recargo: z.boolean().optional() });
 
@@ -121,6 +122,7 @@ async function planDeEmision(tx: Prisma.TransactionClient, complejoId: number, e
  */
 async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser): Promise<{ ids: number[]; mora: InformeMora; avisosMora: string[] }> {
   const complejo = await assertRef(prisma.complejoHabitacional, d.complejo_id, scopeComplejos(user), 'complejo_id');
+  await exigirOperativo(d.complejo_id, user);
   const empresa_id = complejo!.empresa_id as number | null;
   const montoMora = await montoDeMoraAplicable(d.complejo_id, complejo!.mora_monto as Prisma.Decimal | undefined);
   const ids = [...new Set(d.conceptos.map((c) => c.concepto_id))];
@@ -222,6 +224,7 @@ const crud = crudRouter({
   },
   createSchema,
   updateSchema,
+  operativo: (r, u) => exigirOperativo(r.complejo_id as number | null, u),
   format: formatearRecibos,
   // El POST real es `router.post('/')` (declarado antes que el CRUD: puede emitir varios recibos a la vez); esto es sólo el respaldo si se llegara aquí.
   async create(data, user) {
@@ -430,6 +433,7 @@ router.get('/:id/avisar', adminOJunta, async (req, res) => {
 router.post('/:id/avisar', adminOJunta, async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id, true);
+  await exigirOperativo(await complejoDeRecibo(id), currentUser(req));
   const espera = await esperaAviso(id);
   if (espera > 0) throw conflict(`Ya avisaste a los vecinos de este recibo hace un momento. Vuelve a intentarlo en ${espera} s.`);
   const { mes, anio } = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true } });
@@ -514,6 +518,7 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, voucherOpcional,
   const multipart = Boolean(req.is('multipart/form-data'));
   const body = multipart ? parse(pagoMantenimiento, camposDeFormulario(req.body)) : parseBody(pagoMantenimiento, req);
   const unidad = ubicado<Awaited<ReturnType<typeof ubicarParaCobrar>>>(res, 'unidadPago') ?? (await ubicarParaCobrar(req, id, unidadId));
+  await exigirOperativo(await complejoDeRecibo(id), u);
   const voucher = req.file ? voucherVerificado(req.file, u.id) : undefined;
   const { usuario_id, ...datos } = body;
   if (usuario_id != null) {
@@ -544,6 +549,7 @@ router.post('/:id/mantenimientos/:unidadId/quitar-multa', requireRole('admin'), 
   const u = currentUser(req);
   const { id, unidadId } = parse(idsMant, req.params);
   await ubicarParaCobrar(req, id, unidadId);
+  await exigirOperativo(await complejoDeRecibo(id), u);
   const { motivo } = parseBody(quitarMultaSchema, req);
   const r = await quitarMulta({ reciboId: id, unidadId, motivo });
   const { mes, anio } = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true } });
@@ -597,6 +603,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   const complejoId = Number(req.body.complejo_id);
   if (!complejoId) throw invalid('Datos inválidos: complejo_id es obligatorio', { complejo_id: 'Obligatorio' });
   const complejo = await assertRef(prisma.complejoHabitacional, complejoId, scopeComplejos(u), 'complejo_id');
+  await exigirOperativo(complejoId, u);
   const empresa_id = complejo!.empresa_id as number | null;
   if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
 

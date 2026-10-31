@@ -42,7 +42,7 @@ export async function estadoDeComplejo(complejoId: number): Promise<EstadoEfecti
   const c = porComplejo.get(complejoId);
   if (c && c.hasta > t) return c.valor;
   const [sus, ref] = await Promise.all([
-    prisma.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId }, select: { plan_clave: true, modulos: true, estado: true, es_prueba: true, vigente_hasta: true, solicitud_plan: true, solicitud_modulos: true } }),
+    prisma.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId }, select: { plan_clave: true, modulos: true, estado: true, es_prueba: true, gratis_hasta: true, vigente_hasta: true, solicitud_plan: true, solicitud_modulos: true } }),
     cargarReferencia(),
   ]);
   const valor = estadoEfectivo(sus, ref.planes, ref.plazos, comercialDeps.ahora());

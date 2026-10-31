@@ -4,6 +4,7 @@ import { invalid } from '../errors';
 import { empresaDe, scopeConceptos } from '../lib/scope';
 import { DESTINOS, sugerirDestino } from '../services/cierres/destinos';
 import { boolQuery, idSchema, texto, textoOpcional, z } from '../validation';
+import { exigirOperativoEmpresa } from '../services/comercial/operativo';
 
 const base = z.object({
   nombre: texto(120),
@@ -44,6 +45,7 @@ export const conceptosRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: (r, u) => exigirOperativoEmpresa(r.empresa_id as number | null, u),
   include: { proveedor: { select: { id: true, razon_social: true } } },
   prepareCreate: (d, u) => empresa(d, u, true),
   prepareUpdate: (d, u, existing) => empresa(d, u, false, existing),

@@ -6,6 +6,7 @@ import { relojDeCondominios } from '../lib/zonas';
 import { scopeCargos, scopeCargosEscritura, scopeReciboConceptosEscritura, scopeUnidades } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
+import { complejoDeUnidad, exigirOperativo } from '../services/comercial/operativo';
 
 const base = z.object({
   recibo_concepto_id: idSchema,
@@ -68,6 +69,7 @@ export const cargosRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: async (r, u) => exigirOperativo(await complejoDeUnidad(r.unidad_id as number | null), u),
   prepareCreate: (d, u) => validarRefs(d, u),
   prepareUpdate: (d, u, e) => validarRefs(d, u, e),
   format: (items) => items.map((c) => formatearCargo(c)),

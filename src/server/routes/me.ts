@@ -21,6 +21,7 @@ import { idSchema } from '../validation';
 import { METODOS_PAGO } from './pagos';
 import { comunicadoDeUnidades, origenDe } from '../services/comunicados';
 import { juntasDelResidente } from '../services/juntas';
+import { complejoDeCargo, complejoDeUnidad, exigirOperativo } from '../services/comercial/operativo';
 
 /** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
 function unidadesPropias(u: AuthUser) {
@@ -234,6 +235,8 @@ export function meRouter(limitePassword: RequestHandler) {
   const ubicarCargoPropio = async (req: Parameters<typeof currentUser>[0]) => {
     const cargo = await prisma.reciboConceptoUnidad.findFirst({ where: { id: parseId(req), unidad: unidadesPropias(currentUser(req)) }, select: { id: true } });
     if (!cargo) throw notFound('Cargo');
+    // Solo lectura: el vecino ve su historial, pero no sube vouchers mientras su condominio no pase a un plan de pago.
+    await exigirOperativo(await complejoDeCargo(cargo.id), currentUser(req));
     return cargo;
   };
 
@@ -340,6 +343,7 @@ export function meRouter(limitePassword: RequestHandler) {
   async function ubicarPropio(req: Parameters<typeof currentUser>[0], unidadId: number) {
     const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesPropias(currentUser(req))] }, select: { id: true } });
     if (!unidad) throw notFound('Mantenimiento');
+    await exigirOperativo(await complejoDeUnidad(unidad.id), currentUser(req));
     return unidad;
   }
   /** El departamento se ubica ANTES de recibir el archivo: uno ajeno recibe 404 sin que se lea el cuerpo. */

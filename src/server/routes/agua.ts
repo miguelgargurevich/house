@@ -14,6 +14,7 @@ import { aguaDelRecibo, filasDePlantilla, guardarLecturas, importarLecturas, typ
 import { enviarImagen, imagenCruda, verificarImagen } from '../services/imagenes';
 import { fechaSchema, idSchema, parse, parseBody, parseId, z } from '../validation';
 import { adminOJunta, reciboAccesible, recibosDe, unidadesDe } from './recibos';
+import { complejoDeRecibo, exigirOperativo } from '../services/comercial/operativo';
 
 export const aguaRouter = Router();
 
@@ -72,6 +73,7 @@ aguaRouter.put('/:id/agua', adminOJunta, async (req, res) => {
   const id = parseId(req);
   const { lecturas } = parseBody(lecturasSchema, req);
   await reciboAccesible(req, id, true);
+  await exigirOperativo(await complejoDeRecibo(id), u);
   const r = await guardarLecturas(id, lecturas as EntradaLectura[], { unidadWhere: unidadesDe(u), usuarioId: u.id });
   res.locals.entidad = 'lectura_agua';
   res.locals.entidadId = id;
@@ -84,6 +86,7 @@ const subirArchivo = multer({ storage: multer.memoryStorage(), limits: { fileSiz
 /** El rol y el recibo se comprueban ANTES de recibir el archivo. */
 const archivoDeLecturas: RequestHandler = async (req, res, next) => {
   await reciboAccesible(req, parseId(req), true);
+  await exigirOperativo(await complejoDeRecibo(parseId(req)), currentUser(req));
   subirArchivo.single('archivo')(req, res, (err?: unknown) => {
     if (err instanceof multer.MulterError) {
       const grande = err.code === 'LIMIT_FILE_SIZE';
@@ -114,6 +117,7 @@ aguaRouter.delete('/:id/agua/:unidadId', adminOJunta, async (req, res) => {
   const u = currentUser(req);
   const { id, unidadId } = parse(idsUnidad, req.params);
   await reciboAccesible(req, id, true);
+  await exigirOperativo(await complejoDeRecibo(id), u);
   const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesDe(u)] }, select: { id: true } });
   const r = unidad ? await prisma.lecturaAgua.deleteMany({ where: { recibo_id: id, unidad_id: unidadId } }) : { count: 0 };
   if (r.count === 0) throw notFound('Lectura');
@@ -129,6 +133,7 @@ const cargarLectura: RequestHandler = async (req, res, next) => {
   const u = currentUser(req);
   const { id, unidadId } = parse(idsUnidad, req.params);
   await reciboAccesible(req, id, req.method !== 'GET');
+  if (req.method !== 'GET') await exigirOperativo(await complejoDeRecibo(id), u);
   const unidad = await prisma.unidad.findFirst({ where: { AND: [{ id: unidadId }, unidadesDe(u)] }, select: { id: true } });
   const lectura = unidad ? await prisma.lecturaAgua.findUnique({ where: { unidad_id_recibo_id: { unidad_id: unidadId, recibo_id: id } }, select: { id: true } }) : null;
   if (!lectura) throw notFound('Lectura de agua: guarda primero la lectura de ese departamento');
@@ -169,6 +174,7 @@ aguaRouter.put('/:id/datos', adminOJunta, async (req, res) => {
   const id = parseId(req);
   const { fecha_corte_agua } = parseBody(datosSchema, req);
   await reciboAccesible(req, id, true);
+  await exigirOperativo(await complejoDeRecibo(id), currentUser(req));
   const r = await prisma.recibo.update({ where: { id }, data: { fecha_corte_agua }, select: { id: true, fecha_corte_agua: true } });
   res.locals.entidad = 'recibo';
   res.locals.entidadId = id;

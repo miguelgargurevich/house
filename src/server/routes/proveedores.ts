@@ -7,6 +7,7 @@ import { ambitoJunta, esJunta } from '../lib/junta';
 import { empresaDe, scopeComplejos, scopeProveedores, scopeProveedoresJunta } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { boolQuery, emailSchema, idSchema, telefonoSchema, texto, textoOpcional, z } from '../validation';
+import { exigirOperativo, exigirOperativoEmpresa } from '../services/comercial/operativo';
 
 const base = z.object({
   razon_social: texto(160),
@@ -58,6 +59,7 @@ const adminRouter = crudRouter({
   format: (items) => items.map((p) => ({ ...p, complejos: (p.complejos as { complejo: { id: number; nombre: string } }[]).map((x) => x.complejo) })),
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: (r, u) => exigirOperativoEmpresa(r.empresa_id as number | null, u),
   prepareCreate: async (d, u) => {
     const { complejo_ids, empresa_id, ...resto } = d as z.infer<typeof base>;
     let empresa: number;
@@ -117,6 +119,7 @@ const juntaRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: (_r, u) => exigirOperativo(ambitoJunta(u)!.complejo_id, u),
   prepareCreate: async (d, u) => {
     const { complejo_ids, empresa_id: _ignorada, ...resto } = d as z.infer<typeof base>;
     void _ignorada;

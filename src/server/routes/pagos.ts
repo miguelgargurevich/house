@@ -11,6 +11,7 @@ import { conAvisoMulta } from '../services/revisionMora';
 import { scopeCargosEscritura, scopePagos, scopePagosEscritura, scopePagosJunta, scopeUsuarios } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
+import { complejoDeCargo, exigirOperativo } from '../services/comercial/operativo';
 
 export const METODOS_PAGO = ['transferencia', 'yape', 'plin', 'efectivo', 'tarjeta'] as const;
 export const ESTADOS_VALIDACION = ['por_validar', 'validado', 'rechazado'] as const;
@@ -91,6 +92,7 @@ export const pagosRouter = crudRouter({
   createSchema: base,
   // El cargo de un pago no se reasigna; sólo se corrigen los datos del pago.
   updateSchema: z.object({ fecha_pago: fechaSchema.optional(), metodo_pago: base.shape.metodo_pago.optional(), referencia: textoOpcional(120), observaciones: textoOpcional(500) }),
+  operativo: async (r, u) => exigirOperativo(await complejoDeCargo(r.recibo_concepto_unidad_id as number | null), u),
   prepareCreate: validarRefs,
   async create(data, user) {
     const d = data as { recibo_concepto_unidad_id: number } & Record<string, unknown>;

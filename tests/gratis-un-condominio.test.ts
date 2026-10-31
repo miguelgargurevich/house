@@ -54,7 +54,7 @@ describe('Gratis incluye un condominio por administradora', () => {
     const r = await crear(T.adminA, 'Nuevo Gratis Uno');
     assert.equal(r.status, 201, r.texto);
     const sus = await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: r.body.id } });
-    assert.equal(sus, null, 'sin fila de suscripción = Gratis');
+    assert.equal(sus?.plan_clave, 'gratis', 'nace en Gratis, con su plazo (gratis_hasta)');
   });
 
   it('con un condominio ya en Gratis responde 409 con el motivo y no crea nada', async () => {
@@ -72,14 +72,14 @@ describe('Gratis incluye un condominio por administradora', () => {
     await ponerPlan(primero.body.id, 'pro', 30);
     const segundo = await crear(T.adminA, 'Nuevo Gratis Dos');
     assert.equal(segundo.status, 201, segundo.texto);
-    assert.equal(await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: segundo.body.id } }), null);
+    assert.equal((await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: segundo.body.id } }))?.plan_clave, 'gratis');
     // Ahora ese segundo está en Gratis: el límite vuelve a aplicar.
     assert.equal((await crear(T.adminA, 'Nuevo Gratis Tres')).status, 409);
   });
 
   it('la prueba de Pro vigente cuenta como Gratis: también frena (si no, al vencer quedarían dos gratis)', async () => {
     const primero = await crear(T.adminA, 'Nuevo Gratis Uno');
-    await prisma.suscripcionCondominio.create({ data: { complejo_id: primero.body.id, plan_clave: 'pro', modulos: [], estado: 'activa', es_prueba: true, vigente_hasta: new Date(hoyLima().getTime() + 20 * DIA) } });
+    await prisma.suscripcionCondominio.update({ where: { complejo_id: primero.body.id }, data: { plan_clave: 'pro', modulos: [], estado: 'activa', es_prueba: true, vigente_hasta: new Date(hoyLima().getTime() + 20 * DIA) } });
     const r = await crear(T.adminA, 'Nuevo Gratis Dos');
     assert.equal(r.status, 409, r.texto);
   });

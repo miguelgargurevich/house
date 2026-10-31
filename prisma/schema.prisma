@@ -972,6 +972,8 @@ model SuscripcionCondominio {
   /// Prueba de Pro al registrarse: al vencer vuelve a Gratis AL INSTANTE (sin gracia ni aviso de «vencida»). Pagar o cambiar el plan o la vigencia a mano la apaga.
   es_prueba             Boolean              @default(false)
   vigente_hasta         DateTime?
+  /// Hasta cuándo dura el periodo gratis (00:00 UTC del día de Lima). Pasado, si el condominio cuenta como Gratis queda en solo lectura. null = sin plazo.
+  gratis_hasta          DateTime?
   solicitud_plan        String?
   solicitud_modulos     String[]
   solicitada_at         DateTime?
@@ -983,6 +985,10 @@ model SuscripcionCondominio {
   aviso_por_vencer_para DateTime?
   aviso_vencida_para    DateTime?
   aviso_apagada_para    DateTime?
+  /// `gratis_hasta` para el que ya se envió cada aviso del plazo de Gratis (al aplicarse el plazo, 7 días antes y el día que vence): idempotente por condominio y fecha.
+  aviso_gratis_inicio_para  DateTime?
+  aviso_gratis_7d_para      DateTime?
+  aviso_gratis_vence_para   DateTime?
   created_at            DateTime             @default(now())
   updated_at            DateTime             @updatedAt
 
@@ -1034,6 +1040,10 @@ model ConfiguracionComercial {
   registro_abierto       Boolean  @default(true)
   /// Días de Pro de prueba que recibe cada condominio al registrarse (0 = sin prueba: nace en Gratis).
   dias_prueba_pro        Int      @default(30)
+  /// Días de Gratis que recibe cada condominio (los 30 primeros pueden ser la prueba de Pro, dentro de este plazo); pasado el plazo queda en SOLO LECTURA hasta que pase a un plan de pago. null o 0 = sin plazo.
+  dias_gratis            Int?     @default(90)
+  /// Cuándo se fijó el plazo de Gratis a los condominios que ya estaban en Gratis (una sola vez; ver services/comercial/migracionGratis.ts).
+  migracion_gratis_at    DateTime?
   /// Cuándo se dejaron en «cortesía» los condominios que ya existían al estrenar la capa comercial (una sola vez; ver services/comercial/migracion.ts).
   migracion_cortesia_at  DateTime?
   pago_titular           String?

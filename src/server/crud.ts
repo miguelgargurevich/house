@@ -43,6 +43,11 @@ export interface CrudOptions {
   afterDelete?: (existing: Record<string, unknown>) => Promise<void> | void;
   /** Enriquece/transforma filas ya consultadas (lote, para poder agregar con una sola consulta). */
   format?: (items: any[], user: AuthUser) => Promise<any[]> | any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  /**
+   * Puerta de solo lectura: se llama antes de crear (con los datos ya preparados), editar o borrar (con la fila existente) y debe lanzar 409 si el condominio
+   * de esa fila terminó su periodo gratis (`exigirOperativo`). Lo que sólo lee no pasa por aquí.
+   */
+  operativo?: (row: Record<string, unknown>, user: AuthUser) => Promise<void>;
   /** Reemplaza el create estándar (p. ej. recibos, que generan cargos). Debe devolver la fila creada. */
   create?: (data: Record<string, unknown>, user: AuthUser) => Promise<Record<string, unknown>>;
   /** Reemplaza el update estándar (p. ej. reasignar el departamento de un residente). Debe devolver la fila actualizada. */
@@ -101,6 +106,7 @@ export function crudRouter(o: CrudOptions): Router {
     const user = currentUser(req);
     let data = parseBody(createSchema, req) as Record<string, unknown>;
     if (o.prepareCreate) data = await o.prepareCreate(data, user);
+    await o.operativo?.(data, user);
     const created = o.create
       ? await o.create(data, user)
       : await o.delegate.create({ data, ...queryArgs(o) });
@@ -117,6 +123,7 @@ export function crudRouter(o: CrudOptions): Router {
     if (!existing) throw notFound();
     let data = parseBody(updateSchema, req) as Record<string, unknown>;
     if (o.prepareUpdate) data = await o.prepareUpdate(data, user, existing);
+    await o.operativo?.(existing, user);
     const updated = o.update
       ? await o.update(data, existing, user)
       : await o.delegate.update({ where: { id }, data, ...queryArgs(o) });
@@ -133,6 +140,7 @@ export function crudRouter(o: CrudOptions): Router {
     const id: Id = parseId(req);
     const existing = await o.delegate.findFirst({ where: { AND: [{ id }, (o.writeScope ?? o.scope)(user)] } });
     if (!existing) throw notFound();
+    await o.operativo?.(existing, user);
     if (o.beforeDelete) await o.beforeDelete(existing, user);
     await o.delegate.delete({ where: { id } });
     if (o.afterDelete) await o.afterDelete(existing);

@@ -10,6 +10,7 @@ import { abrirContrato } from '../../lib/contratos';
 import { registrarAuditoria } from '../../middleware/audit';
 import { comercialDeps } from './modulos';
 import { finDePrueba } from './estado';
+import { plazoGratisNuevo } from './plazoGratis';
 import { correoA, enlace, enmascarar, obtenerConfiguracion } from './configuracion';
 import { VERSION_LEGAL } from './legal';
 
@@ -66,10 +67,12 @@ export async function registrarCuenta(d: DatosRegistro, ip: string | null): Prom
       await abrirContrato(tx, complejo.id, empresa.id);
       // Prueba de Pro (reverse trial): el condominio nace en Pro por `dias_prueba_pro` días; con 0 nace en Gratis, como antes.
       const prueba = cfg.dias_prueba_pro > 0;
+      // Gratis tiene plazo (`dias_gratis`, 90 por defecto) y la prueba de Pro va DENTRO de él: Pro los primeros días, Gratis hasta el final, luego solo lectura.
+      const plazo = plazoGratisNuevo(cfg, comercialDeps.ahora());
       await tx.suscripcionCondominio.create({
         data: prueba
-          ? { complejo_id: complejo.id, plan_clave: 'pro', estado: 'activa', es_prueba: true, vigente_hasta: finDePrueba(cfg.dias_prueba_pro, comercialDeps.ahora()), notas: `Registro público: ~${d.unidades} departamentos. Prueba de Pro de ${cfg.dias_prueba_pro} días.` }
-          : { complejo_id: complejo.id, plan_clave: 'gratis', estado: 'gratis', notas: `Registro público: ~${d.unidades} departamentos` },
+          ? { complejo_id: complejo.id, plan_clave: 'pro', estado: 'activa', es_prueba: true, vigente_hasta: finDePrueba(cfg.dias_prueba_pro, comercialDeps.ahora()), ...plazo, notas: `Registro público: ~${d.unidades} departamentos. Prueba de Pro de ${cfg.dias_prueba_pro} días.` }
+          : { complejo_id: complejo.id, plan_clave: 'gratis', estado: 'gratis', ...plazo, notas: `Registro público: ~${d.unidades} departamentos` },
       });
       const token = await crearToken(tx, usuario.id);
       return { usuarioId: usuario.id, empresaId: empresa.id, complejoId: complejo.id, token };

@@ -7,6 +7,7 @@ import { scopeComplejos, scopeEstructuras } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { correoEfectivo } from '../services/juntas';
 import { emailSchema, idSchema, parseBody, parseId, texto, textoOpcional, z } from '../validation';
+import { exigirOperativo } from '../services/comercial/operativo';
 
 /**
  * Las torres son planas. Todo el motor de House agrupa por torre directa (`Unidad.estructura_id`):
@@ -62,6 +63,7 @@ const crud = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  operativo: (r, u) => exigirOperativo(r.complejo_id as number | null, u),
   prepareCreate: validarRefs,
   prepareUpdate: async (d, u, existing) => {
     if (d.padre_id != null) throw invalid(PLANAS, { padre_id: 'Las torres son planas' });
@@ -135,6 +137,7 @@ router.post('/:id/asignar-unidades', requireRole('admin'), async (req, res) => {
   const id = parseId(req);
   const est = await prisma.estructura.findFirst({ where: { AND: [{ id }, scopeEstructuras(user)] }, select: { id: true, complejo_id: true } });
   if (!est) throw notFound();
+  await exigirOperativo(est.complejo_id, user);
   const r = await prisma.unidad.updateMany({ where: { complejo_id: est.complejo_id, estructura_id: null }, data: { estructura_id: id } });
   res.locals.entidad = 'estructura';
   res.locals.entidadId = id;

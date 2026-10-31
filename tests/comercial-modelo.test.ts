@@ -165,13 +165,13 @@ describe('seed del catálogo y migración a cortesía', () => {
   it('el seed deja los precios base y es idempotente: no pisa lo que el superadmin editó', async () => {
     const precios = async () => Object.fromEntries((await prisma.moduloComercial.findMany()).map((m) => [m.clave, m.precio_por_unidad.toFixed(2)]));
     assert.deepEqual(await precios(), { ia_vouchers: '1.00', whatsapp_avisos: '1.00', asistente: '0.50' });
-    assert.deepEqual((await prisma.planComercial.findMany({ orderBy: { orden: 'asc' } })).map((p) => [p.clave, p.precio_por_unidad.toFixed(2), p.visible]), [['gratis', '0.00', true], ['pro', '2.50', true], ['administradora', '2.00', true], ['cortesia', '0.00', false]]);
+    assert.deepEqual((await prisma.planComercial.findMany({ orderBy: { orden: 'asc' } })).map((p) => [p.clave, p.precio_por_unidad.toFixed(2), p.visible]), [['gratis', '0.00', true], ['basico', '1.00', true], ['pro', '2.50', true], ['administradora', '2.00', true], ['cortesia', '0.00', false]]);
     assert.equal((await prisma.configuracionComercial.findUniqueOrThrow({ where: { id: 1 } })).igv_tasa.toString(), '0.18');
     await prisma.moduloComercial.update({ where: { clave: 'asistente' }, data: { precio_por_unidad: '0.75' } });
     await sembrarCatalogoComercial(prisma);
     await sembrarCatalogoComercial(prisma);
     assert.equal((await precios()).asistente, '0.75', 'el seed no pisa la edición');
-    assert.equal(await prisma.planComercial.count(), 4);
+    assert.equal(await prisma.planComercial.count(), 5);
     assert.equal(await prisma.moduloComercial.count(), 3);
   });
 

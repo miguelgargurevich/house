@@ -2,12 +2,12 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { conflict, HttpError, invalid, notFound } from '../../errors';
-import { hoyLima } from '../../lib/fechas';
+import { diasEntre, hoyLima } from '../../lib/fechas';
 import { PAISES, decimalesDe, formatoDinero, monedaEnPlural } from '../../../lib/paises';
 import { MONEDA_BASE_PRECIOS, esModulo, type EstadoSuscripcion } from './catalogo';
 import { cotizar, desglosarMonto, precioSinIgv, type Cotizacion, type PrecioPlan } from './calculo';
 import { correoA, obtenerConfiguracion } from './configuracion';
-import { estadoEfectivo, type EntradaSuscripcion } from './estado';
+import { estadoEfectivo, primerDiaSoloLectura, type EntradaSuscripcion } from './estado';
 import { cargarReferencias, contextoDe, contextoPublico, planContratable, precioEnMoneda, type ContextoCobro } from './impuestos';
 import { comercialDeps, invalidarComercial } from './modulos';
 
@@ -36,6 +36,16 @@ export interface VistaSuscripcion {
   en_gracia: boolean;
   /** Prueba de Pro vigente (`dias_para_vencer` son los días que le quedan); al vencer ya no aparece aquí, la vista pasa a Gratis. */
   en_prueba: boolean;
+  /** Último día del periodo gratis (null = sin plazo). Se informa aunque hoy esté en un plan de pago: si luego vuelve a Gratis, vale. */
+  gratis_hasta: Date | null;
+  /** Solo lectura: cuenta como Gratis y su plazo ya pasó. Se ve todo, pero no se registra nada nuevo hasta pasar a un plan de pago. */
+  solo_lectura: boolean;
+  /** Primer día en solo lectura (el siguiente a `gratis_hasta`); null si no hay plazo. */
+  solo_lectura_desde: Date | null;
+  /** Días que le quedan al periodo gratis (0 = hoy es el último); null si no corre un plazo (plan de pago, cortesía, sin plazo o ya en solo lectura). */
+  dias_gratis_restantes: number | null;
+  /** Lo menos que cuesta Básico a este condominio, ya con su moneda («S/ 20»); null si no cabe en su tope de departamentos o no tiene precio en su moneda. */
+  basico_desde: string | null;
   unidades_facturables: number;
   /** Unidades que se cobran: `max(unidades, mínimo del plan)`. */
   unidades_cobradas: number;
@@ -103,6 +113,9 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
     // Cortesía no cobra nada aunque su plan traiga todo.
     const cobra = ef.plan_clave !== 'cortesia';
     const { cot, consultar } = cobra ? cotizarPlan(plan, sueltos) : { cot: cotizarPlan(null, []).cot, consultar: false };
+    const basico = planDe('basico');
+    const precioBasico = basico && basico.visible ? precioEnMoneda(basico, ctx.moneda, ref.precios) : null;
+    const basicoCabe = basico != null && (basico.unidades_maximas == null || n <= basico.unidades_maximas);
     let solicitud: VistaSuscripcion['solicitud'] = null;
     if (s && (s.solicitud_plan || s.solicitud_modulos.length)) {
       const { cot: cotSol, consultar: consultarSol } = cotizarPlan(planDe(s.solicitud_plan) ?? plan, [...new Set([...sueltos, ...s.solicitud_modulos])]);
@@ -120,6 +133,11 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       dias_para_vencer: ef.dias_para_vencer,
       en_gracia: ef.en_gracia,
       en_prueba: ef.en_prueba,
+      gratis_hasta: ef.gratis_hasta,
+      solo_lectura: ef.solo_lectura,
+      solo_lectura_desde: ef.gratis_hasta ? primerDiaSoloLectura(ef.gratis_hasta) : null,
+      dias_gratis_restantes: ef.gratis_hasta && !ef.solo_lectura && (ef.plan_clave === 'gratis' || ef.apagada || ef.en_prueba) ? diasEntre(hoyLima(ahora), ef.gratis_hasta) : null,
+      basico_desde: basico && precioBasico !== null && basicoCabe ? formatoDinero(cotizar({ unidades: 0, plan: precioDePlan(basico, precioBasico), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base, ctx.moneda, ' ', true) : null,
       unidades_facturables: n,
       unidades_cobradas: cot.unidades_cobradas,
       unidades_maximas: planTope?.unidades_maximas ?? null,
@@ -129,7 +147,8 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       impuesto: impuestoVista(ctx),
       cotizacion: cot,
       precio_consultar: consultar,
-      planes_disponibles: planes.filter((p) => p.visible && !['gratis', 'cortesia'].includes(p.clave) && planContratable(ctx, p, ref.precios)).map((p) => p.clave),
+      // Un plan con tope (Básico, 50) no se ofrece al condominio que ya tiene más departamentos que el tope.
+      planes_disponibles: planes.filter((p) => p.visible && !['gratis', 'cortesia'].includes(p.clave) && (p.unidades_maximas == null || n <= p.unidades_maximas) && planContratable(ctx, p, ref.precios)).map((p) => p.clave),
       solicitud,
       referencia_pago: referenciaPago(c.id, ahora),
       ...(opts.conNotas ? { notas: s?.notas ?? null } : {}),
@@ -153,6 +172,11 @@ export async function solicitar(complejoId: number, d: { plan: string }, quien: 
   // Los módulos ya no se piden sueltos: se pide un plan (Pro o Administradora) y trae todo.
   const plan = planes.find((p) => p.clave === d.plan);
   if (!plan) throw invalid('Datos inválidos: plan: ese plan no está disponible', { plan: 'Plan no disponible' });
+  // Un plan con tope de departamentos (Básico = 50) no se puede pedir con más departamentos que el tope.
+  if (plan.unidades_maximas != null) {
+    const unidades = await prisma.unidad.count({ where: { complejo_id: complejoId } });
+    if (unidades > plan.unidades_maximas) throw invalid(`Datos inválidos: plan: ${plan.nombre} llega hasta ${plan.unidades_maximas} departamentos y este condominio tiene ${unidades}`, { plan: `Llega hasta ${plan.unidades_maximas} departamentos` });
+  }
   // Sin precio en la moneda del país del condominio no se puede contratar: se atiende por consulta.
   if (!planContratable(contextoDe(complejo.pais, ref), plan, ref.precios)) throw invalid('Datos inválidos: plan: todavía no tiene precio en tu país; consúltanos', { plan: 'Consúltanos: aún no hay precio en tu país' });
   const actual = await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId }, select: { estado: true } });
@@ -297,6 +321,8 @@ export async function catalogoPublico(pais?: string | null) {
     // Los módulos ya no se venden sueltos: se muestran como «lo que trae Pro» (sin precio).
     modulos: modulos.map((m) => ({ clave: m.clave, nombre: m.nombre, descripcion: m.descripcion })),
     registro_abierto: cfg.registro_abierto,
+    /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
+    dias_gratis: cfg.dias_gratis && cfg.dias_gratis > 0 ? cfg.dias_gratis : null,
   };
 }
 
