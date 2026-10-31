@@ -182,7 +182,7 @@ describe('reservas: pantallas (fuente)', () => {
     const tab = f(`${ADMIN}ReservasTab.tsx`);
     assert.match(tab, /hideBelow: 'sm'/);
     assert.match(tab, /sm:hidden/, 'la fecha se repite dentro de la primera columna cuando la columna de fecha se oculta');
-    assert.match(tab, /grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-4/);
+    assert.match(tab, /grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-\[1fr_1fr_1fr_auto\]/);
     assert.match(f(`${ADMIN}AreasTab.tsx`), /hideBelow: 'md'/);
     assert.match(f(`${ADMIN}AreaModal.tsx`), /grid gap-4 sm:grid-cols-2/);
     assert.match(f(`${ADMIN}PaginaAreasComunes.tsx`), /grid gap-3 sm:grid-cols-2 lg:grid-cols-3/);

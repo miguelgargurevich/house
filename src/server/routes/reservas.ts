@@ -57,7 +57,7 @@ const auditar = (res: Response, r: { id: number; area_id: number; unidad_id: num
  * @openapi
  * /api/reservas:
  *   get:
- *     summary: Reservas (administración: las de sus condominios; residente: las que él pidió)
+ *     summary: 'Reservas (administración: las de sus condominios; residente: las que él pidió)'
  *     tags: [Reservas]
  *     parameters:
  *       - { in: query, name: complejo_id, schema: { type: integer } }

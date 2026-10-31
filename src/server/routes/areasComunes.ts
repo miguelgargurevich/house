@@ -78,7 +78,7 @@ async function cargar(req: Request) {
  * @openapi
  * /api/areas-comunes:
  *   get:
- *     summary: Áreas comunes reservables (administración: las de sus condominios; residente: las activas de los condominios de sus unidades)
+ *     summary: 'Áreas comunes reservables (administración: las de sus condominios; residente: las activas de los condominios de sus unidades)'
  *     tags: [Reservas]
  *     parameters:
  *       - { in: query, name: complejo_id, schema: { type: integer } }
@@ -158,7 +158,7 @@ areasComunesRouter.post('/', requireRole('admin'), async (req, res) => {
  * @openapi
  * /api/areas-comunes/{id}:
  *   patch:
- *     summary: Edita un área (o la desactiva con `activa: false`)
+ *     summary: 'Edita un área (o la desactiva con `activa: false`)'
  *     tags: [Reservas]
  *     description: Desactivar o cambiar el horario NO toca las reservas que ya existen; sólo rige para las nuevas. También acepta PUT.
  *     responses:
