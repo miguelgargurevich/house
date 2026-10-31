@@ -1,20 +1,26 @@
+import { dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo } from '../catalogo';
+import { plazoGratisTexto } from '../plazoGratis';
 
 /** Respuestas cortas a lo que más preguntan; sólo lo que House hace hoy (cobro manual, sin pasarela ni contrato). Los topes salen del catálogo. */
 function preguntas(cat: Catalogo): { p: string; r: string }[] {
   const tope = cat.planes.find(x => x.clave === 'gratis')?.unidades_maximas;
   const minimo = cat.planes.find(x => x.clave === 'pro')?.unidades_minimas;
+  const basico = cat.planes.find(x => x.clave === 'basico');
+  const plazo = plazoGratisTexto(cat);
   const imp = Number(cat.impuesto.tasa);
   const nombreImp = cat.impuesto.nombre;
   return [
     { p: '¿Cómo se paga?', r: 'Por transferencia, Yape o Plin. Desde «Mi plan» ves el monto y la referencia de tu pago; cuando lo confirmamos, activamos tu plan.' },
-    { p: '¿Cómo paso a Pro?', r: 'Desde «Mi plan» lo pides por condominio. No se activa nada hasta confirmar el pago, así que no hay cobros por sorpresa. Pro trae todo: ya no hay módulos sueltos.' },
+    { p: '¿Cómo paso a un plan de pago?', r: 'Desde «Mi plan» lo pides por condominio. No se activa nada hasta confirmar el pago, así que no hay cobros por sorpresa. Pro trae todo: ya no hay módulos sueltos.' },
     imp > 0
       ? { p: `¿El precio incluye ${nombreImp}?`, r: `No. Los precios de esta página no incluyen ${nombreImp}: se suma al pagar, según el país de tu condominio. La calculadora te muestra también el total con ${nombreImp}.` }
       : { p: '¿El precio incluye impuestos?', r: 'En el país elegido no se suma ningún impuesto al pagar: el precio de esta página es el que pagas.' },
     { p: '¿Hay permanencia o contrato?', r: 'No. No te atamos a un plazo mínimo.' },
-    { p: '¿Hasta cuántos departamentos es gratis?', r: tope != null ? `Gratis llega hasta ${tope} departamentos por condominio, con recibos, cobranza, portal del vecino, vouchers validados a mano y avisos por correo. Con más departamentos, o si quieres IA, WhatsApp, asistente, mora automática y reportes, pasas a Pro.` : 'El plan Gratis no tiene tope de departamentos; la IA, WhatsApp, el asistente, la mora automática y los reportes son de Pro.' },
+    { p: '¿Cuánto dura y hasta cuántos departamentos llega Gratis?', r: `${cat.dias_gratis ? `Gratis dura ${plazo.replace('por ', '')} desde que creas tu cuenta` : 'Gratis no tiene plazo'}${tope != null ? ` y llega hasta ${tope} departamentos por condominio` : ''}, con recibos, cobranza, portal del vecino, vouchers validados a mano y avisos por correo. Si quieres IA, WhatsApp, asistente, mora automática y reportes, pasas a Pro.` },
+    ...(cat.dias_gratis ? [{ p: '¿Qué pasa cuando termina el plan Gratis?', r: `El condominio queda en solo lectura: puedes ver todo, pero no registrar recibos, pagos ni comunicados nuevos. No se borra nada, y vuelves a registrar apenas pases a ${basico ? `${basico.nombre} o ` : ''}Pro. Te avisamos al empezar, siete días antes y el día que termina.` }] : []),
+    ...(basico && basico.unidades_maximas != null ? [{ p: `¿Qué es ${basico.nombre}?`, r: `Es el plan para edificios chicos que ya terminaron su periodo gratis: lo mismo que Gratis, sin plazo, hasta ${basico.unidades_maximas} departamentos${basico.precio_por_unidad !== null ? `, a ${dinero(basico.precio_por_unidad, cat.moneda)} por departamento al mes${basico.unidades_minimas != null ? ` con un mínimo de ${basico.unidades_minimas} departamentos` : ''}` : ''}. No trae IA, WhatsApp, asistente, mora automática ni reportes: eso es de Pro.` }] : []),
     { p: '¿Hay un mínimo en Pro?', r: minimo != null ? `Sí: Pro y Administradora cobran como mínimo ${minimo} departamentos por condominio. Si tu condominio tiene menos, pagas ese mínimo; si tiene más, pagas por los que tengas.` : 'No hay un mínimo de departamentos: pagas por los que tengas.' },
   ];
 }

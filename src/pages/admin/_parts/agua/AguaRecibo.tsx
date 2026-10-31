@@ -8,6 +8,7 @@ import { avisoAgua, cuentaAgua } from './calculo';
 import { DatosRecibo } from './DatosRecibo';
 import { FotoContometroModal } from './FotoContometroModal';
 import type { AguaDelRecibo, FilaAgua, ResultadoGuardado, ResultadoImportacion } from './tipos';
+import { Bloqueable } from '../../../../app/Bloqueable';
 
 interface Borrador { fa: string; la: string; fc: string; lc: string; fx: string }
 
@@ -136,8 +137,8 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
             <Button variant="secondary" className="mb-6" disabled={!factor.trim()} onClick={aplicarFactor}>Aplicar a todas las filas</Button>
             <div className="mb-6 ml-auto flex flex-wrap gap-2">
               <Button variant="secondary" icon={<ArrowDownTrayIcon className="h-4 w-4" />} onClick={() => window.location.assign(`/api/recibos/${reciboId}/agua/plantilla`)}>Descargar plantilla</Button>
-              <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} onClick={() => archivo.current?.click()}>Subir Excel o CSV</Button>
-              <Button loading={guardando} disabled={cambiadas.length === 0} onClick={() => void guardar()}>Guardar lecturas{cambiadas.length > 0 ? ` (${cambiadas.length})` : ''}</Button>
+              <Bloqueable>{b => <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} disabled={b} onClick={() => archivo.current?.click()}>Subir Excel o CSV</Button>}</Bloqueable>
+              <Bloqueable>{b => <Button loading={guardando} disabled={cambiadas.length === 0 || b} onClick={() => void guardar()}>Guardar lecturas{cambiadas.length > 0 ? ` (${cambiadas.length})` : ''}</Button>}</Bloqueable>
             </div>
             <input ref={archivo} type="file" accept=".xlsx,.xls,.csv,text/csv" className="sr-only" tabIndex={-1} aria-label="Elegir el Excel o CSV de lecturas" onChange={e => void subir(e)} />
           </div>

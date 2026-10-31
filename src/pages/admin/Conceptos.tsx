@@ -9,6 +9,7 @@ import type { Column } from '../../ui';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { TIPOS_MONTO } from './_parts/catalogo/opciones';
 import { DESTINOS, etiquetaDestino } from './_parts/cierres/vista';
+import { Bloqueable } from '../../app/Bloqueable';
 
 interface Fila {
   id: number; nombre: string; descripcion: string | null; tipo_monto: string | null; activo: boolean;
@@ -104,7 +105,7 @@ export default function Conceptos() {
       <PageHeader
         title="Conceptos"
         description="Lo que se cobra en cada recibo: cuota de mantenimiento, agua, luz de áreas comunes, recargo por mora."
-        actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>Nuevo concepto</Button>}
+        actions={<Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => abrir('nuevo')}>Nuevo concepto</Button>}</Bloqueable>}
       />
       <Card>
         <Toolbar><SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar concepto" /></Toolbar>
@@ -126,7 +127,7 @@ export default function Conceptos() {
               ? 'Prueba con otra búsqueda.'
               : 'Los conceptos son lo que cobras en cada recibo: cuota de mantenimiento, agua, luz de áreas comunes o recargo por mora. Crea al menos uno antes de emitir tu primer recibo.',
             icon: <TagIcon />,
-            action: list.q ? undefined : <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>Nuevo concepto</Button>,
+            action: list.q ? undefined : <Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => abrir('nuevo')}>Nuevo concepto</Button>}</Bloqueable>,
           }}
         />
       </Card>

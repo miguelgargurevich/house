@@ -11,6 +11,7 @@ import { ProgresoCobro } from './_parts/cobranza/ProgresoCobro';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { etiquetaRecibo, type ReciboFila } from './_parts/cobranza/comun';
 import { AvisarVecinosModal } from './_parts/recibos/AvisarVecinosModal';
+import { Bloqueable } from '../../app/Bloqueable';
 
 interface Props {
   /** Condominio fijo (ficha del condominio): sólo sus recibos y sin filtro de condominio. */
@@ -46,9 +47,11 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
     { key: 'estado', header: 'Estado', cell: r => <StatusBadge estado={r.estado} /> },
     // El botón no abre el periodo: se detiene el clic de la fila.
     { key: 'avisar', header: 'Avisos', cell: r => (
-      <Button size="sm" variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} onClick={e => { e.stopPropagation(); setAvisando(r); }}>
-        Avisar<span className="sr-only"> a los vecinos de {periodo(r.mes, r.anio)}</span>
-      </Button>
+      <Bloqueable>{b => (
+        <Button size="sm" variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} disabled={b} onClick={e => { e.stopPropagation(); setAvisando(r); }}>
+          Avisar<span className="sr-only"> a los vecinos de {periodo(r.mes, r.anio)}</span>
+        </Button>
+      )}</Bloqueable>
     ) },
   ];
 
@@ -58,7 +61,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
         <PageHeader
           title="Recibos"
           description="Cada torre tiene su propio recibo cada mes. Emítelo (o sube el Excel de la torre) y ábrelo para ver el mantenimiento de cada departamento."
-          actions={<><Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEmitiendo(true)}>Emitir recibo</Button><Button icon={<PaperClipIcon className="h-4 w-4" />} onClick={() => setSubiendoExcel(true)}>Subir Excel</Button></>}
+          actions={<><Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => setEmitiendo(true)}>Emitir recibo</Button>}</Bloqueable><Bloqueable>{b => <Button icon={<PaperClipIcon className="h-4 w-4" />} disabled={b} onClick={() => setSubiendoExcel(true)}>Subir Excel</Button>}</Bloqueable></>}
         />
       )}
       <Card>
@@ -83,7 +86,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
             title: 'Aún no hay recibos',
             description: filtrando ? 'Prueba con otro filtro.' : 'Emite el primero y cada departamento activo recibirá su mantenimiento con todos los conceptos.',
             icon: <ReceiptPercentIcon />,
-            action: filtrando ? undefined : <Button onClick={() => setEmitiendo(true)}>Emitir recibo</Button>,
+            action: filtrando ? undefined : <Bloqueable>{b => <Button disabled={b} onClick={() => setEmitiendo(true)}>Emitir recibo</Button>}</Bloqueable>,
           }}
         />
       </Card>

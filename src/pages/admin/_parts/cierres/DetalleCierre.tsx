@@ -7,6 +7,7 @@ import type { CierreBlock, LineaCierre } from './tipos';
 import { QUIEN_CONFIRMA, detalleRegistro, estadoLinea, etiquetaDestino, ESTADO_CIERRE, puedeQuitarPago, puedeRegistrarLinea, textoCuenta } from './vista';
 import { abrirVoucher } from './voucher';
 import { RegistrarLineaModal } from './RegistrarLineaModal';
+import { Bloqueable } from '../../../../app/Bloqueable';
 
 function Monto({ etiqueta, valor, moneda, destacado }: { etiqueta: string; valor: string; moneda: string; destacado?: boolean }) {
   return (
@@ -67,7 +68,7 @@ function TarjetaLinea({ l, cierre, ocupado, onRegistrar, onVoucher, onQuitar, on
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {puedeRegistrarLinea(cierre.puede.registrar, l) && <Button size="sm" icon={<BanknotesIcon className="h-4 w-4" />} onClick={onRegistrar}>Registrar pago</Button>}
+        {puedeRegistrarLinea(cierre.puede.registrar, l) && <Bloqueable>{b => <Button size="sm" icon={<BanknotesIcon className="h-4 w-4" />} disabled={b} onClick={onRegistrar}>Registrar pago</Button>}</Bloqueable>}
         {r?.voucher && <Button size="sm" variant="secondary" icon={<ArrowTopRightOnSquareIcon className="h-4 w-4" />} onClick={() => onVoucher(r.id)}>Ver voucher</Button>}
         {r && l.puede_conformidad && (r.conformidad
           ? <Button size="sm" variant="secondary" disabled={ocupado} onClick={() => onConformidad(false)}>Quitar conformidad</Button>

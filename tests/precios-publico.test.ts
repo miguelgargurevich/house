@@ -24,6 +24,7 @@ before(async () => {
 /** Precios, topes y mínimos INVENTADOS a propósito (no son los de producción): si el componente trae los suyos, el test lo nota. */
 const cat = (abierto: boolean): Catalogo => ({
   registro_abierto: abierto,
+  dias_gratis: 90,
   pais: 'PE', moneda: 'PEN', impuesto: { nombre: 'IGV', tasa: '0.18' },
   paises: [{ codigo: 'PE', nombre: 'Perú', bandera: '🇵🇪', moneda: 'PEN', impuesto: { nombre: 'IGV', tasa: '0.18' } }, { codigo: 'CL', nombre: 'Chile', bandera: '🇨🇱', moneda: 'CLP', impuesto: { nombre: 'IVA', tasa: '0.19' } }],
   planes: [
@@ -72,7 +73,7 @@ describe('página pública de precios', () => {
 
   it('las preguntas frecuentes toman el tope y el mínimo del catálogo (no los escriben)', () => {
     const html = enRuta(createElement(Preguntas, { cat: cat(true) }));
-    assert.match(html, /Gratis llega hasta 13 departamentos/);
+    assert.match(html, /llega hasta 13 departamentos por condominio/);
     assert.match(html, /como mínimo 17 departamentos/);
     assert.doesNotMatch(html, /módulo suelto|sin límite de departamentos/i);
   });

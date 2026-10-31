@@ -166,8 +166,9 @@ export function textosTerminos(l: Legal): { intro: ReactNode; secciones: Seccion
         id: 'planes',
         titulo: '3. Planes y pagos',
         cuerpo: <ul>
-          <li>El plan <strong>Gratis</strong> no tiene costo y tiene los límites publicados en <Link to="/precios" className="font-medium text-brand underline">Precios</Link>.</li>
-          <li>Los planes de pago se cobran por departamento y por mes, según la tarifa vigente publicada. Si el pago vence y no se renueva, el condominio vuelve a las funciones de Gratis; sus datos se conservan.</li>
+          <li>El plan <strong>Gratis</strong> no tiene costo, dura 3 meses desde que se crea el condominio en House, llega hasta 20 departamentos y tiene los demás límites publicados en <Link to="/precios" className="font-medium text-brand underline">Precios</Link>.</li>
+          <li>Al terminar el plazo de Gratis, el condominio queda en <strong>solo lectura</strong>: se puede ver todo, pero no registrar recibos, pagos, comunicados ni otros movimientos nuevos hasta que pase a un plan de pago (Básico, Pro o Administradora). No se borra ningún dato: al pasar a un plan de pago, todo vuelve a estar disponible.</li>
+          <li>Los planes de pago se cobran por departamento y por mes, según la tarifa vigente publicada. Si el pago vence y no se renueva, el condominio vuelve a las funciones de Gratis y, si su plazo de Gratis ya terminó, queda en solo lectura; sus datos se conservan.</li>
           <li>Podemos cambiar precios y planes avisando con al menos {pendiente(PENDIENTES.dias_aviso_precios)} días de anticipación; el cambio rige desde el siguiente período.</li>
         </ul>,
       },

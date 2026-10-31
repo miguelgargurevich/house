@@ -4,6 +4,7 @@ import { CheckIcon } from '@heroicons/react/24/outline';
 import { cx, dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo, Plan } from '../catalogo';
+import { plazoGratisTexto } from '../plazoGratis';
 
 const boton = 'inline-flex h-12 w-full items-center justify-center whitespace-nowrap rounded px-6 text-base font-semibold transition-colors duration-150 active:scale-[0.98]';
 
@@ -39,13 +40,14 @@ function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boo
   return (
     <div>
       <p className={`num font-semibold leading-none tracking-tight ${grande ? 'text-6xl sm:text-7xl' : 'text-5xl'}`}>{dinero(plan.precio_por_unidad, cat.moneda)}</p>
-      <p className="mt-2 text-base text-muted">{gratis ? 'para siempre' : `por departamento al mes${masImpuesto(cat)}`}</p>
+      <p className="mt-2 text-base text-muted">{gratis ? plazoGratisTexto(cat) : `por departamento al mes${masImpuesto(cat)}`}</p>
     </div>
   );
 }
 
-/** El tope de departamentos (Gratis) o el mínimo que se cobra (Pro y Administradora), tal como los publica el catálogo. */
+/** El tope de departamentos (Gratis), el rango que cubre (Básico) o el mínimo que se cobra (Pro y Administradora), tal como los publica el catálogo. */
 function Tope({ plan, cat, className = '' }: { plan: Plan; cat: Catalogo; className?: string }) {
+  if (plan.unidades_maximas != null && plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>De {plan.unidades_minimas} a {plan.unidades_maximas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
   if (plan.unidades_maximas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio.</p>;
   if (plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Mínimo de {plan.unidades_minimas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
   return null;
@@ -77,11 +79,12 @@ function Nivel({ plan, cat, destacado = false, retraso = 0, pie }: { plan: Plan;
 }
 
 /**
- * Las tarjetas de nivel: Gratis, Pro (la recomendada, en medio y con borde de marca) y Administradora. Fila en escritorio y
- * apiladas en el celular. Nombres, precios y contenido salen del catálogo; «Ver mi total» lleva a la calculadora con ese plan.
+ * Las tarjetas de nivel: Gratis (por 3 meses), Básico, Pro (la recomendada, con borde de marca) y Administradora. Cuatro en fila en pantalla ancha,
+ * dos por fila en tableta y apiladas en el celular. Nombres, precios y contenido salen del catálogo; «Ver mi total» lleva a la calculadora con ese plan.
  */
 export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave: string) => void }) {
   const gratis = cat.planes.find(p => p.clave === 'gratis');
+  const basico = cat.planes.find(p => p.clave === 'basico');
   const pro = cat.planes.find(p => p.clave === 'pro');
   const adm = cat.planes.find(p => p.clave === 'administradora');
   const abierto = cat.registro_abierto;
@@ -90,11 +93,16 @@ export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave:
   );
   return (
     <section aria-labelledby="planes-titulo" className="scroll-mt-6">
-      <h2 id="planes-titulo" className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">Gratis con límite, o Pro con todo</h2>
-      <div className="mt-10 grid items-stretch gap-5 lg:grid-cols-3 lg:gap-6">
+      <h2 id="planes-titulo" className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">{cat.dias_gratis ? `Gratis ${plazoGratisTexto(cat)}; después, Básico o Pro` : 'Gratis con límite, o Pro con todo'}</h2>
+      <div className="mt-10 grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4 lg:gap-6">
         {gratis && (
           <Nivel plan={gratis} cat={cat} retraso={0} pie={
             <Accion abierto={abierto} texto="Crear cuenta gratis" className={`${boton} bg-surface2 text-ink hover:bg-brand-soft`} />
+          } />
+        )}
+        {basico && (
+          <Nivel plan={basico} cat={cat} retraso={40} pie={
+            calcular('basico', `${boton} bg-surface2 text-ink hover:bg-brand-soft`)
           } />
         )}
         {pro && (

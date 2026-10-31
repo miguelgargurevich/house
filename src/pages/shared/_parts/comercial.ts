@@ -34,6 +34,8 @@ export interface VistaSuscripcion {
   vigente_hasta: string | null;
   dias_para_vencer: number | null;
   en_gracia: boolean;
+  /** Lo menos que cuesta Básico a este condominio («S/ 20»); null si no cabe o no se ofrece. */
+  basico_desde: string | null;
   unidades_facturables: number;
   /** Departamentos que se cobran: el mayor entre los que tiene y el mínimo del plan. */
   unidades_cobradas: number;
@@ -65,4 +67,4 @@ export const MEDIOS = [['transferencia', 'Transferencia'], ['yape', 'Yape'], ['p
 export const aFechaInput = (v: string | null | undefined): string => (v ? v.slice(0, 10) : '');
 
 /** `pro` → `Pro` (las claves de plan viajan en minúscula; al cliente se le muestra con mayúscula inicial). */
-export const nombreDePlan = (clave: string): string => clave.charAt(0).toUpperCase() + clave.slice(1);
+export const nombreDePlan = (clave: string): string => (clave === 'basico' ? 'Básico' : clave.charAt(0).toUpperCase() + clave.slice(1));

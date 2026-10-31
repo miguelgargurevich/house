@@ -9,9 +9,9 @@ export interface Plan {
   /** El plan de pago no tiene precio en la moneda del país elegido: no se puede contratar ahí. */
   consultar: boolean;
   modulos_incluidos: string[]; caracteristicas: string[];
-  /** Tope de departamentos por condominio (Gratis); null = sin tope. */
+  /** Tope de departamentos por condominio (Gratis y Básico); null = sin tope. */
   unidades_maximas: number | null;
-  /** Departamentos que se cobran como mínimo por condominio (Pro y Administradora); null = sin mínimo. */
+  /** Departamentos que se cobran como mínimo por condominio (Básico, Pro y Administradora); null = sin mínimo. */
   unidades_minimas: number | null;
   /** Lo menos que paga un condominio con este plan al mes (mínimo de departamentos × precio, sin impuesto), calculado por el servidor. */
   total_minimo_mes: string | null;
@@ -29,6 +29,8 @@ export interface Catalogo {
   /** Los países abiertos a contratar: lo que ofrece el selector. */
   paises: PaisAbierto[];
   planes: Plan[]; modulos: Modulo[]; registro_abierto: boolean;
+  /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
+  dias_gratis: number | null;
 }
 
 /** Una petición por país y carga de página: el marco (botón «Crear cuenta») y la página de precios comparten la respuesta. */

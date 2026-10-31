@@ -4,6 +4,44 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Sonnet 5.5, delegado en worktree) — Gratis con plazo de 3 meses, solo lectura y plan Básico (rama `feat/gratis-plazo`, sin push)
+
+- **Pedido de Miguel:** «el plan gratis también debe tener límite, quizá 3 meses» → al vencer, «Solo lectura»; los que ya están en Gratis, «3 meses desde hoy»; y un cobro bajo (Básico S/ 1 por depa, mínimo S/ 20, hasta 50) frente a la competencia (ComunidadesPerú S/ 30 por edificio de hasta 50; OPE Starter S/ 89 hasta 35; Habitek Básico S/ 2,90 por dpto, revisado el 30-oct).
+- **Hecho (contrato completo en `docs/API-CONTRATO.md`, sección «Gratis con plazo, solo lectura y plan Básico»):**
+  - Esquema aditivo: `ConfiguracionComercial.dias_gratis` (90) y `migracion_gratis_at`; `SuscripcionCondominio.gratis_hasta` y tres marcas de aviso. `PUT /api/comercial/configuracion` acepta `dias_gratis` 0–365 o null.
+  - Registro: `gratis_hasta` = hoy (Lima) + 90 con la prueba de Pro (30) dentro. Un condominio que se crea después (`POST /api/complejos`) nace en Gratis con su plazo.
+  - Migración de una sola vez dentro de `migracionInicial` (no se tocó `src/server.ts`, fuera de lo permitido): fija el plazo a los que cuentan como Gratis (sin suscripción, Gratis, prueba vigente, plan de pago apagado); no toca cortesía ni planes de pago. Idempotente (marca + nunca corre un `gratis_hasta` existente).
+  - `estadoEfectivo`/`vistas`: `solo_lectura`, `gratis_hasta`, y en la vista `solo_lectura_desde`, `dias_gratis_restantes`, `basico_desde`. `GET /api/comercial/estado-operativo` alimenta la banda.
+  - `exigirOperativo(complejoId, user)` (`services/comercial/operativo.ts`) → 409 `SOLO_LECTURA`. La lista exacta de lo bloqueado y de lo permitido está en el contrato. `crud.ts` ganó la opción `operativo` (create/update/delete) que usan unidades, estructuras, pisos, conceptos, proveedores, recibos, recibo-conceptos, cargos y pagos.
+  - Avisos por correo (en `procesarVencimientos`): al aplicarse, 7 días antes y el día que vence; una vez por condominio y fecha.
+  - Plan Básico en `PLANES_SEED` (`orden` 2; los demás corren un puesto, también en una base que ya tenía planes). Es «de pago» por su clave (`planDePago`), aunque no traiga módulos.
+  - Pantallas: banda fija en el Shell (admin y junta), `Bloqueable` en los botones de emitir/subir recibos, avisar, registrar pago, nueva unidad/concepto/proveedor/comunicado, cierres, lecturas de agua y pago del mantenimiento; Mi plan y Resumen con «Te quedan N días gratis»; superadmin edita «Días de Gratis»; /precios con cuatro niveles, calculadora que ofrece Básico, preguntas y Términos (sección 3) con el plazo.
+- **Verificado:**
+  - Suite completa (`npm test`, base `house_test_gratisplazo`): 2945 pruebas, 2944 en verde y 1 en rojo. La roja era `cierre-central-ui` (esperaba `c.puede.registrar && <Button` sin envolver); la arreglé DESPUÉS de que ese archivo corriera en la suite y la volví a correr junto a los archivos nuevos y los tocados (`cierre-central-ui`, `cierres-ui`, `gratis-plazo`, `solo-lectura`, `plan-basico`, `solo-lectura-ui`, `comercial-modelo`, `gratis-un-condominio`, `precios-ui`, `precios-publico`, `oferta-ui`): 183/183. No se repitió la suite entera tras ese arreglo (tarda ~2 h con la Mac cargada). `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build`: sin errores.
+  - Pruebas nuevas: `gratis-plazo` (23), `solo-lectura` (21), `plan-basico` (15), `solo-lectura-ui` (19). Ajustadas por el catálogo de 5 planes y por «un condominio nuevo ya nace con suscripción»: `comercial-modelo`, `comercial-registro`, `gratis-un-condominio`, `impuesto-pais`, `oferta-ui`, `precios-ui`, `precios-publico`.
+  - 41 mutaciones (M01–M31 backend, U01–U10 pantalla): todas en rojo. Copias en el scratchpad, restauradas con `cp` + `cmp`.
+  - Playwright (backend `:4100` contra `house_test_gratisplazo`, Vite `:5174` con config temporal ya borrada) a 375 y 1440 px, claro y oscuro: `/precios` (4 tarjetas, calculadora Gratis 40 → ofrece Básico; Básico 10 → S/ 20 + IGV), `/registro`, `/terminos`, y como admin del condominio en solo lectura: Resumen, Mi plan, Recibos, Pagos, Unidades con la banda y «Emitir recibo»/«Registrar pago» desactivados con su motivo; como admin con 12 días: «Te quedan 12 días gratis» en Resumen y Mi plan. Sin desborde horizontal ni errores de consola en ninguno de los 4 casos.
+- **Decisiones:**
+  - `gratis_hasta` es el ÚLTIMO día gratis (igual que `vigente_hasta`): solo lectura desde el día siguiente. «Te quedan 0 días» = hoy es el último.
+  - `exigirOperativo` lleva el usuario (el superadmin pasa). Lo de la empresa y no del condominio (conceptos, proveedores, reenviar avisos) se bloquea sólo si TODOS los condominios de la empresa están en solo lectura.
+  - Siguen permitidos: configuración del condominio (`PUT /api/complejos/:id`, medios de pago, cuentas del cierre, correo del block), usuarios, juntas, tareas de mantenimiento, canales propios, el asistente y `excel/vista-mora` (sólo calcula).
+  - Un plan de pago que existía sin `gratis_hasta` y vence vuelve a Gratis SIN plazo (la migración no toca planes de pago, como se pidió).
+  - Los recordatorios automáticos de recibos ya emitidos siguen saliendo en solo lectura (no crean trabajo nuevo); decidir si se apagan.
+  - La versión de los Términos (`VERSION_LEGAL`) no se subió pese al cambio de la sección 3: no hay flujo de re-aceptación. Sigue «Borrador sujeto a revisión legal».
+  - El texto «3 meses» de `PLANES_SEED` y de los Términos es fijo; la página pública lo toma de `dias_gratis`.
+- **Próximos pasos:**
+  - Push con OK de Miguel. En producción, al arrancar corre solo la migración (y el catálogo crea Básico); `npx tsx scripts/oferta-gratis-pro.ts --seco` y luego real cambia la descripción de Gratis. Revisar que `dias_gratis` esté en 90 antes del primer arranque: ese arranque fija las fechas de los que hoy están en Gratis.
+  - Que el superadmin pueda editar `gratis_hasta` de un condominio (extender el plazo): hoy sólo por la base.
+  - Botones sin desactivar todavía (el servidor igual responde 409): iconos de editar/borrar en listas, la junta en `/junta/agua`, los modales de editar de cada pantalla, y el botón de subir voucher del vecino (el vecino ve el mensaje del servidor «Habla con tu administración»).
+  - El selector «Todos» desactiva el botón sólo si todos están en solo lectura; en conceptos/proveedores (de la empresa) la pantalla y el servidor pueden no coincidir con un condominio elegido.
+  - Antes de publicar: revisión legal de la sección 3 de los Términos.
+- **Gotchas:**
+  - `node_modules` era un enlace al checkout principal: se aisló antes del primer `db push` (enlaces por entrada, `.prisma` y `@prisma/client` copiados). El cliente del principal quedó intacto (sha `ff6422e…`, sin `gratis_hasta`).
+  - Los componentes que se renderizan en pruebas no pueden importar `catalogo.ts` ni `AuthContext` (cargan `api.ts`, que usa `import.meta.env`): por eso `src/pages/publico/plazoGratis.ts` y `src/app/ContenidoBanda.tsx` son archivos sin API.
+  - Un botón desactivado no recibe el puntero: el `title` con el motivo va en el contenedor (`Bloqueable`).
+  - Ruta real de cargos: `/api/recibo-concepto-unidades` (con «es» final).
+  - En la verificación visual los espacios en blanco de las capturas de página completa son las animaciones de aparición (`Aparece`), no un error.
+
 ## 2026-10-30 — Claude Code (Haiku 5.5, delegado en worktree) — Plan Gratis: un condominio, prueba de Pro y topes de consumo (rama `feat/plan-gratis`, sin push)
 
 - **Herramientas:** Bash (git, npm test, prisma), Edit/Write, Playwright (`/opt/homebrew/lib/node_modules/playwright`) para la verificación visual.

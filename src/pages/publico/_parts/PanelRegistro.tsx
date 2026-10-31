@@ -13,8 +13,8 @@ const BENEFICIOS = [
 export function PanelRegistro() {
   return (
     <aside aria-labelledby="panel-registro-titulo" className="rounded-2xl bg-escena p-6 text-on-escena sm:p-10 lg:sticky lg:top-6">
-      <p id="panel-registro-titulo" className="text-2xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl">Empieza gratis con hasta 20 departamentos.</p>
-      <p className="mt-3 text-sm opacity-85">Sin tarjeta. Cuando tu condominio crezca, pasas a Pro desde Mi plan.</p>
+      <p id="panel-registro-titulo" className="text-2xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl">Gratis por 3 meses, hasta 20 departamentos.</p>
+      <p className="mt-3 text-sm opacity-85">Sin tarjeta. Al terminar los 3 meses, tus datos siguen aquí y eliges Básico o Pro desde Mi plan.</p>
       <ul className="mt-6 space-y-2.5 text-sm">
         {BENEFICIOS.map(b => (
           <li key={b} className="flex gap-2.5"><CheckIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><span>{b}</span></li>

@@ -15,6 +15,7 @@ import { QuitarMultaModal } from '../cobranza/QuitarMultaModal';
 import { ValidarPagoModal } from '../cobranza/ValidarPagoModal';
 import type { PagoRevisable } from '../cobranza/ValidarPagoModal';
 import { FormPagoMantenimiento } from './FormPagoMantenimiento';
+import { Bloqueable } from '../../../../app/Bloqueable';
 
 interface Props { reciboId: number; unidadId: number; onClose: () => void; onCambio: () => void }
 
@@ -80,7 +81,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
           <>
             <Button variant="secondary" onClick={onClose}>Cerrar</Button>
             <Button variant="secondary" icon={<PrinterIcon className="h-4 w-4" />} disabled={!d} onClick={() => setImprimiendo(true)}>Ver / imprimir recibo</Button>
-            {puedeRegistrar && !registrando && <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>}
+            {puedeRegistrar && !registrando && <Bloqueable>{b => <Button disabled={b} onClick={() => setRegistrando(true)}>Registrar pago</Button>}</Bloqueable>}
           </>
         }
       >

@@ -16,9 +16,9 @@ describe('Mi plan: ya no ofrece módulos sueltos', () => {
     assert.match(m, /minimo_aplicado/);
   });
 
-  it('la tarjeta del condominio dice «Pasar a Pro», muestra el tope de Gratis y avisa al llegar o pasarlo', () => {
+  it('la tarjeta del condominio dice «Elegir un plan», muestra el tope de Gratis y avisa al llegar o pasarlo', () => {
     const m = fuente('src/pages/admin/MiPlan.tsx');
-    assert.match(m, /'Pasar a Pro'/);
+    assert.match(m, /'Elegir un plan'/);
     assert.doesNotMatch(m, /Solicitar módulo|Solicitar otro módulo/);
     assert.match(m, /c\.unidades_maximas != null && c\.unidades_facturables >= c\.unidades_maximas/);
     assert.match(m, /no se oculta ni se borra ninguno/);

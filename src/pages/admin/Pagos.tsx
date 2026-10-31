@@ -13,6 +13,7 @@ import { RegistrarPagoModal } from './_parts/cobranza/RegistrarPagoModal';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { ValidarPagoModal } from './_parts/cobranza/ValidarPagoModal';
 import type { PagoRevisable } from './_parts/cobranza/ValidarPagoModal';
+import { Bloqueable } from '../../app/Bloqueable';
 
 type Pestana = 'por_validar' | 'validado' | 'rechazado';
 
@@ -114,7 +115,7 @@ export default function Pagos() {
           <>
             {/* La junta carga las lecturas de agua de su torre desde aquí (el menú de la junta no tiene esa entrada). */}
             {junta && <Link to="/junta/agua" className="inline-flex h-10 items-center rounded border border-line bg-surface px-4 text-sm font-medium transition-colors duration-150 hover:bg-surface2">Lecturas de agua</Link>}
-            <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setRegistrando(true)}>Registrar pago</Button>
+            <Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => setRegistrando(true)}>Registrar pago</Button>}</Bloqueable>
           </>
         ) : undefined}
       />
@@ -157,7 +158,7 @@ export default function Pagos() {
             title: textos.vacio,
             description: filtrando ? 'Prueba con otro filtro.' : textos.vacioDesc,
             icon: <BanknotesIcon />,
-            action: !puedeRegistrar || filtrando || pestana !== 'validado' ? undefined : <Button onClick={() => setRegistrando(true)}>Registrar pago</Button>,
+            action: !puedeRegistrar || filtrando || pestana !== 'validado' ? undefined : <Bloqueable>{b => <Button disabled={b} onClick={() => setRegistrando(true)}>Registrar pago</Button>}</Bloqueable>,
           }}
         />
       </Card>

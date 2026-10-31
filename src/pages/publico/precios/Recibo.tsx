@@ -2,6 +2,7 @@ import { MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
 import { cx, dinero } from '../../../ui';
 import type { Catalogo } from '../catalogo';
+import { plazoGratisTexto } from '../plazoGratis';
 import { useTotal } from './useTotal';
 
 export interface Eleccion { unidades: string; plan: string }
@@ -10,7 +11,7 @@ const PRESETS = [20, 50, 100, 250] as const;
 const MAX = 100_000;
 
 /**
- * El recibo de House: la calculadora presentada como lo que House emite. Gratis o Pro (o Administradora); Pro trae todos los módulos.
+ * El recibo de House: la calculadora presentada como lo que House emite. Gratis (por 3 meses), Básico, Pro o Administradora; Pro trae todos los módulos.
  * Los topes y mínimos de departamentos salen del catálogo; el total al mes y al año lo calcula el servidor (`/api/publico/cotizar`).
  */
 export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: Eleccion; onCambio: (e: Eleccion) => void }) {
@@ -27,6 +28,9 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
   const tope = plan?.unidades_maximas ?? null;
   const excede = tope != null && n > tope;
   const pro = cat.planes.find(p => p.clave === 'pro');
+  // Si el plan elegido se queda corto, se ofrece el siguiente que sí cabe: Básico (hasta 50) para quien sale de Gratis, y si no, Pro.
+  const basico = cat.planes.find(p => p.clave === 'basico');
+  const siguiente = plan?.clave === 'gratis' && basico && !basico.consultar && basico.unidades_maximas != null && n <= basico.unidades_maximas ? basico : pro;
   const set = (parcial: Partial<Eleccion>) => onCambio({ ...eleccion, ...parcial });
   const paso = (d: number) => set({ unidades: String(Math.min(MAX, Math.max(1, (Math.trunc(Number(unidades)) || 0) + d))) });
 
@@ -62,9 +66,9 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
 
         <fieldset>
           <legend className="text-sm font-medium">Plan</legend>
-          <div className="mt-2 flex gap-1 rounded bg-surface2 p-1">
+          <div className="mt-2 grid grid-cols-2 gap-1 rounded bg-surface2 p-1 sm:grid-cols-4">
             {cat.planes.map(p => (
-              <label key={p.clave} className="flex-auto cursor-pointer">
+              <label key={p.clave} className="cursor-pointer">
                 <input type="radio" name="plan" value={p.clave} checked={plan?.clave === p.clave} onChange={() => set({ plan: p.clave })} className="peer sr-only" />
                 <span className="flex h-10 items-center justify-center rounded px-3 text-sm font-medium text-muted transition-colors duration-150 hover:text-ink peer-checked:bg-surface peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-brand">{p.nombre}</span>
               </label>
@@ -101,8 +105,8 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
           <>
             <p className="text-sm font-medium opacity-90">{plan?.nombre} · {n} departamentos</p>
             <p className="mt-1 text-2xl font-semibold leading-tight sm:text-3xl">{plan?.nombre} llega hasta {tope} departamentos</p>
-            <p className="mt-2 text-lg">Con {n} necesitas {pro?.nombre ?? 'Pro'}, que no tiene tope.</p>
-            {pro && <button type="button" onClick={() => set({ plan: pro.clave })} className="mt-4 inline-flex h-11 items-center rounded bg-on-brand px-5 text-base font-semibold text-brand transition-colors duration-150 hover:opacity-90 active:scale-[0.98]">Ver el total con {pro.nombre}</button>}
+            <p className="mt-2 text-lg">Con {n} necesitas {siguiente?.nombre ?? 'Pro'}{siguiente?.unidades_maximas != null ? `, que llega hasta ${siguiente.unidades_maximas}` : ', que no tiene tope'}.</p>
+            {siguiente && <button type="button" onClick={() => set({ plan: siguiente.clave })} className="mt-4 inline-flex h-11 items-center rounded bg-on-brand px-5 text-base font-semibold text-brand transition-colors duration-150 hover:opacity-90 active:scale-[0.98]">Ver el total con {siguiente.nombre}</button>}
           </>
         ) : (
           <>
@@ -110,7 +114,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
             {total.r ? (
               <div key={total.r.total_mes} className="sube-corto">
                 <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(total.r.total_mes, total.r.moneda)}</p>
-                <p className="num mt-2 text-lg">{gratis ? `Gratis para siempre${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${conImpuesto ? `Más ${nombreImp} · ` : ''}${dinero(total.r.total_anio, total.r.moneda)} al año`}</p>
+                <p className="num mt-2 text-lg">{gratis ? `Gratis ${plazoGratisTexto(cat)}${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${conImpuesto ? `Más ${nombreImp} · ` : ''}${dinero(total.r.total_anio, total.r.moneda)} al año`}</p>
                 {!gratis && conImpuesto && total.r.total_con_igv_mes && <p className="num mt-1 text-base opacity-90">Con {total.r.impuesto_nombre}: {dinero(total.r.total_con_igv_mes, total.r.moneda)} al mes</p>}
                 {total.r.minimo_aplicado && <p className="mt-1 text-base">{plan?.nombre} cobra un mínimo de {total.r.unidades_cobradas} departamentos por condominio.</p>}
               </div>

@@ -5,7 +5,7 @@ import { Marco } from './Marco';
 const BENEFICIOS = [
   { icono: ReceiptPercentIcon, titulo: 'Recibos claros por torre', texto: 'Emite desde tu Excel y cada vecino ve qué debe, en tu moneda, desde su celular.' },
   { icono: BanknotesIcon, titulo: 'Cobranza y morosidad al día', texto: 'Vouchers, medios de pago del condominio y seguimiento de lo vencido.' },
-  { icono: BellAlertIcon, titulo: 'Gratis para empezar', texto: 'El plan Gratis es para siempre, con un límite de departamentos. Pro trae todo: IA de vouchers, WhatsApp, asistente, mora automática y reportes.' },
+  { icono: BellAlertIcon, titulo: 'Gratis para empezar', texto: 'Gratis por 3 meses, hasta 20 departamentos. Después, Básico para edificios chicos o Pro con todo: IA de vouchers, WhatsApp, asistente, mora automática y reportes.' },
 ] as const;
 
 /** Portada para quien llega sin sesión: qué es House, tres beneficios y los dos caminos (crear cuenta, ver precios). */

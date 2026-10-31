@@ -10,7 +10,9 @@ import { Assistant } from './Assistant';
 import { useEscritorio, usePanelAbierto } from './asistente/useDock';
 import { Pista } from './Pista';
 import { useBarra } from './useBarra';
+import { BandaSoloLectura } from './BandaSoloLectura';
 import { CondominioProvider } from './CondominioProvider';
+import { SoloLecturaProvider } from './SoloLecturaProvider';
 import { SelectorCondominio } from './SelectorCondominio';
 
 function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
@@ -31,7 +33,7 @@ const linkRiel = '!justify-center !gap-0 !px-0';
 /** El condominio elegido arriba lo comparten todas las pantallas: el estado vive fuera, con la sesión (`key`) para no heredar el de otro usuario. */
 export function Shell() {
   const { user } = useAuth();
-  return <CondominioProvider key={user?.id ?? 0}><ShellInterior /></CondominioProvider>;
+  return <CondominioProvider key={user?.id ?? 0}><SoloLecturaProvider><ShellInterior /></SoloLecturaProvider></CondominioProvider>;
 }
 
 function ShellInterior() {
@@ -140,6 +142,8 @@ function ShellInterior() {
         </div>
       </header>
       <div className="px-4 pb-2 empty:hidden lg:hidden"><SelectorCondominio /></div>
+      {/* Banda de solo lectura (terminó el periodo gratis): fija con la barra, en todas las pantallas de la administración y la junta. */}
+      <BandaSoloLectura />
       </div>
 
       {/* Hasta 1600 px el contenido ocupa el ancho de la ventana (antes 1152 px: en un monitor de 1920 quedaban tablas con scroll). */}

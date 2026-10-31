@@ -6,6 +6,7 @@ import { RegistrarMovimientoModal } from './RegistrarMovimientoModal';
 import type { AporteBlock, CierreCentral as Cierre, MovimientoCentral } from './tipos';
 import { ESTADO_APORTE, ESTADO_CENTRAL, detalleMovimiento, tituloMovimiento } from './vista';
 import { abrirVoucher } from './voucher';
+import { Bloqueable } from '../../../../app/Bloqueable';
 
 function Monto({ etiqueta, valor, moneda, destacado }: { etiqueta: string; valor: string; moneda: string; destacado?: boolean }) {
   return (
@@ -95,7 +96,7 @@ export function CierreCentral({ complejoId, mes, anio }: Props) {
     <section className="space-y-3" aria-label={tipo === 'ingreso' ? 'Otros ingresos' : 'Egresos'}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold">{tipo === 'ingreso' ? 'Otros ingresos' : 'Egresos'} <span className="num text-sm font-normal text-muted">{dinero(tipo === 'ingreso' ? c.ingresos.otros.total : c.egresos.total, c.moneda)}</span></h3>
-        {c.puede.registrar && <Button size="sm" icon={<BanknotesIcon className="h-4 w-4" />} onClick={() => setRegistrando(tipo)}>{tipo === 'ingreso' ? 'Registrar ingreso' : 'Registrar egreso'}</Button>}
+        {c.puede.registrar && <Bloqueable>{b => <Button size="sm" icon={<BanknotesIcon className="h-4 w-4" />} disabled={b} onClick={() => setRegistrando(tipo)}>{tipo === 'ingreso' ? 'Registrar ingreso' : 'Registrar egreso'}</Button>}</Bloqueable>}
       </div>
       {tipo === 'ingreso' && <p className="text-sm text-muted">El alquiler de estacionamientos se paga aparte, a la cuenta de la Junta central: regístralo aquí con su voucher.</p>}
       {items.length === 0

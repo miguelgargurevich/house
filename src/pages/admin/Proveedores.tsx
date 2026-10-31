@@ -10,6 +10,7 @@ import type { Column } from '../../ui';
 import { Interruptor } from './_parts/catalogo/Interruptor';
 import { RUBROS, rubroLabel } from './_parts/personas/proveedores';
 import type { Proveedor, Rubro } from './_parts/personas/proveedores';
+import { Bloqueable } from '../../app/Bloqueable';
 
 interface Opt { id: number; nombre: string; empresa_id?: number | null }
 /** La junta recibe además `compartido`: atiende también a otros condominios y sólo la administración lo cambia. `visible_vecinos`: lo ven los vecinos en su menú «Proveedores». */
@@ -134,7 +135,7 @@ export default function Proveedores() {
 
   return (
     <>
-      <PageHeader title="Proveedores" description={esJunta ? 'Los servicios externos de tu condominio (ascensores, gasfitería, pintura…). Puedes agregar y editar los que atienden sólo a tu condominio; si un proveedor ya no sirve, márcalo como inactivo. Los que también atienden a otros condominios los ve la administración y aquí son de sólo lectura.' : 'Ascensores, gasfitería, pintura y demás servicios externos. Son una ficha de contacto (no inician sesión) que asignas a las tareas de mantenimiento.'} actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>Nuevo proveedor</Button>} />
+      <PageHeader title="Proveedores" description={esJunta ? 'Los servicios externos de tu condominio (ascensores, gasfitería, pintura…). Puedes agregar y editar los que atienden sólo a tu condominio; si un proveedor ya no sirve, márcalo como inactivo. Los que también atienden a otros condominios los ve la administración y aquí son de sólo lectura.' : 'Ascensores, gasfitería, pintura y demás servicios externos. Son una ficha de contacto (no inician sesión) que asignas a las tareas de mantenimiento.'} actions={<Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => abrir('nuevo')}>Nuevo proveedor</Button>}</Bloqueable>} />
       <Card>
         <Toolbar>
           <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar por nombre, RUC o contacto" />
@@ -166,7 +167,7 @@ export default function Proveedores() {
             title: filtrado ? 'Sin resultados' : 'Aún no hay proveedores',
             description: filtrado ? 'Prueba con otra búsqueda o quita los filtros.' : 'Registra el primero para poder asignarlo a una tarea de mantenimiento.',
             icon: <TruckIcon />,
-            action: filtrado ? undefined : <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => abrir('nuevo')}>Nuevo proveedor</Button>,
+            action: filtrado ? undefined : <Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => abrir('nuevo')}>Nuevo proveedor</Button>}</Bloqueable>,
           }}
         />
       </Card>

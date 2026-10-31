@@ -110,7 +110,7 @@ describe('estructura de las pantallas', () => {
     assert.match(modal, /capture="environment"/, 'cámara en el celular');
   });
   it('registrar y quitar sólo se ofrecen si el servidor dice que puede (puede.registrar); el cliente no mira cargos', () => {
-    assert.match(cierre, /c\.puede\.registrar && <Button/);
+    assert.match(cierre, /c\.puede\.registrar && <Bloqueable>\{b => <Button/);
     assert.match(cierre, /puede=\{c\.puede\.registrar\}/);
     assert.doesNotMatch(cierre, /cargo_junta|useAuth/);
     assert.doesNotMatch(modal, /cargo_junta|useAuth/);

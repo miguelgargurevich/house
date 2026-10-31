@@ -18,6 +18,7 @@ before(async () => {
 /** Catálogo de prueba con cifras INVENTADAS: si la tarjeta trae otras, es que las escribió a mano. */
 const cat = (): Catalogo => ({
   registro_abierto: true,
+  dias_gratis: 90,
   pais: 'PE', moneda: 'PEN', impuesto: { nombre: 'IGV', tasa: '0.18' },
   paises: [{ codigo: 'PE', nombre: 'Perú', bandera: '🇵🇪', moneda: 'PEN', impuesto: { nombre: 'IGV', tasa: '0.18' } }],
   planes: [
@@ -59,9 +60,9 @@ describe('página de precios como oferta', () => {
     assert.equal([...html.matchAll(/href="#recibo"[^>]*>Ver mi total/g)].length, 2, 'Pro y Administradora llevan a la calculadora');
   });
 
-  it('las tarjetas van en fila en escritorio (lg) y apiladas debajo, con botones alineados abajo (mt-auto)', () => {
+  it('las cuatro tarjetas van en fila en pantalla ancha (xl), de dos en dos en tableta y apiladas en el celular, con botones alineados abajo (mt-auto)', () => {
     const s = fuente('src/pages/publico/precios/Planes.tsx');
-    assert.match(s, /grid items-stretch gap-5 lg:grid-cols-3/);
+    assert.match(s, /grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4/);
     assert.match(s, /mt-auto flex flex-col gap-3 pt-8/);
   });
 

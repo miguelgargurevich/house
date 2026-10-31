@@ -12,6 +12,7 @@ import { ComunicadoModal } from './ComunicadoModal';
 import { alcanceLabel, baseDe, enviosDeComunicado, textoEnvios } from './tipos';
 import type { Comunicado } from './tipos';
 import { useAmbitosComunicados } from './useAmbitos';
+import { Bloqueable } from '../../../../app/Bloqueable';
 
 type Pestana = 'publicados' | 'archivados';
 
@@ -87,7 +88,7 @@ export function ComunicadosTab() {
     <>
       {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios: {ambitos.error}</Alert></div>}
       <div className="mb-4 flex justify-end">
-        <Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedePublicar} onClick={() => setEditando('nuevo')}>Nuevo comunicado</Button>
+        <Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedePublicar || b} onClick={() => setEditando('nuevo')}>Nuevo comunicado</Button>}</Bloqueable>
       </div>
       <Card>
         <Toolbar>
@@ -121,7 +122,7 @@ export function ComunicadosTab() {
             title: hayFiltros ? 'No hay comunicados con estos filtros' : pestana === 'archivados' ? 'No hay comunicados archivados' : 'Aún no hay comunicados',
             description: hayFiltros ? 'Prueba con otra búsqueda, otro condominio (arriba) o ' + palabra.una + '.' : pestana === 'archivados' ? 'Los que archives dejan de verse para los vecinos y quedan guardados aquí.' : 'Publica el primero para avisar a tus vecinos: un corte de agua, una asamblea, un trabajo en el edificio.',
             icon: <MegaphoneIcon />,
-            action: puedePublicar && !hayFiltros && pestana === 'publicados' ? <Button onClick={() => setEditando('nuevo')}>Nuevo comunicado</Button> : undefined,
+            action: puedePublicar && !hayFiltros && pestana === 'publicados' ? <Bloqueable>{b => <Button disabled={b} onClick={() => setEditando('nuevo')}>Nuevo comunicado</Button>}</Bloqueable> : undefined,
           }}
         />
       </Card>

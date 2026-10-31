@@ -7,10 +7,11 @@ import { HistorialPagos } from './_parts/plan/HistorialPagos';
 import { ModalSolicitud } from './_parts/plan/ModalSolicitud';
 import { ESTADO_UI, MODULO_NOMBRE, nombreDePlan, type DatosPago, type ModuloClave, type VistaSuscripcion } from '../shared/_parts/comercial';
 import { diasDePrueba } from './_parts/plan/diasDePrueba';
+import { diasGratisTexto, fechaLarga, ofertaDePago } from '../../app/soloLectura';
 import { mensajeVouchers, textoTope, topeAlto, type UsoMes } from './_parts/plan/usoDelMes';
 
-/** La vista del servidor: la de siempre, más si el condominio está en prueba de Pro y lo que va del mes. */
-type Vista = VistaSuscripcion & { en_prueba: boolean; uso: UsoMes };
+/** La vista del servidor: la de siempre, más si el condominio está en prueba de Pro, su plazo de Gratis (y si ya está en solo lectura) y lo que va del mes. */
+type Vista = VistaSuscripcion & { en_prueba: boolean; gratis_hasta: string | null; solo_lectura: boolean; solo_lectura_desde: string | null; dias_gratis_restantes: number | null; uso: UsoMes };
 
 /** Lo que va del mes: cada tope y los vouchers; avisa al pasar el 80 % de un tope, y lo que dicen los vouchers. */
 function UsoDelMes({ uso, plan, enPrueba }: { uso: UsoMes; plan: string; enPrueba: boolean }) {
@@ -45,7 +46,7 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: Dato
   const toast = useToast();
   const [pagos, setPagos] = useState(false);
   const [cancelando, setCancelando] = useState(false);
-  const est = c.en_prueba ? { label: 'Prueba de Pro', tone: 'brand' as const } : ESTADO_UI[c.estado];
+  const est = c.solo_lectura ? { label: 'Solo lectura', tone: 'bad' as const } : c.en_prueba ? { label: 'Prueba de Pro', tone: 'brand' as const } : ESTADO_UI[c.estado];
   const a = aviso(c);
   const cobro = c.solicitud ? c.solicitud.cotizacion : c.cotizacion;
   const consultar = c.solicitud ? c.solicitud.consultar : c.precio_consultar;
@@ -66,6 +67,12 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: Dato
         action={<Badge tone={est.tone}>{est.label}</Badge>}
       />
       <CardBody className="space-y-4">
+        {c.solo_lectura && <Alert tone="bad">Este condominio está en solo lectura desde el {fechaLarga(c.solo_lectura_desde)}: terminó su periodo gratis. Tus datos siguen aquí; puedes verlo todo, pero no registrar nada nuevo. Pásalo a un plan de pago para seguir registrando: {ofertaDePago(c.basico_desde)}.</Alert>}
+        {c.dias_gratis_restantes != null && (
+          <Alert tone={c.dias_gratis_restantes <= 7 ? 'warn' : 'info'}>
+            {diasGratisTexto(c.dias_gratis_restantes)}{c.en_prueba ? ' (la prueba de Pro va dentro de ese plazo)' : ''}. Después, el {fechaLarga(c.solo_lectura_desde)}, queda en solo lectura: se ve todo, pero no se registra nada nuevo. Elige un plan para seguir: {ofertaDePago(c.basico_desde)}.
+          </Alert>
+        )}
         {c.en_prueba && <Alert tone="info">Prueba de Pro · {diasDePrueba(c.dias_para_vencer)}. Después sigues en Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Pro.</Alert>}
         {a && <Alert tone={a.tone}>{a.texto}</Alert>}
         <UsoDelMes uso={c.uso} plan={c.plan.clave} enPrueba={c.en_prueba} />
@@ -101,7 +108,7 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: Dato
         {hayQuePagar && <ComoPagar cot={cobro} referencia={c.referencia_pago} pagar={pagar} />}
 
         <div className="flex flex-wrap items-center gap-2">
-          {!esCortesia && <Button onClick={onSolicitar}>{c.plan.clave === 'gratis' ? 'Pasar a Pro' : 'Cambiar de plan'}</Button>}
+          {!esCortesia && <Button onClick={onSolicitar}>{c.plan.clave === 'gratis' ? 'Elegir un plan' : 'Cambiar de plan'}</Button>}
           {c.solicitud && <Button variant="secondary" loading={cancelando} onClick={() => void cancelar()}>Cancelar solicitud</Button>}
           <Button variant="ghost" onClick={() => setPagos(v => !v)} aria-expanded={pagos}>{pagos ? 'Ocultar pagos' : 'Ver pagos'}</Button>
         </div>
@@ -118,7 +125,7 @@ export default function MiPlan() {
 
   return (
     <>
-      <PageHeader title="Mi plan" description="Gratis con límite de departamentos, o Pro con todo. El plan se elige por condominio; los precios del plan no incluyen el impuesto de tu país (IGV, IVA…); el monto a pagar ya lo suma, en la moneda de tu condominio." />
+      <PageHeader title="Mi plan" description="Gratis por 3 meses, y después Básico (edificios de hasta 50 departamentos) o Pro con todo. El plan se elige por condominio; los precios del plan no incluyen el impuesto de tu país (IGV, IVA…); el monto a pagar ya lo suma, en la moneda de tu condominio." />
       {loading && <div className="space-y-4"><Skeleton className="h-56 w-full" /><Skeleton className="h-56 w-full" /></div>}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && !data.condominios.length && <EmptyState icon={<CreditCardIcon />} title="Aún no tienes condominios" description="Cuando crees tu primer condominio verás aquí su plan." />}
