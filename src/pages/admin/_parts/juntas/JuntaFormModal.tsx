@@ -17,13 +17,15 @@ interface Props {
   soloCorreo?: boolean;
   /** «block» o «torre». */
   palabra: string;
+  /** Cómo se llama la junta de todo el condominio al registrarla («Junta directiva del condominio»); sin él, «Junta central». */
+  tituloCentral?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
 const MAX_NOTAS = 500;
 
-export function JuntaFormModal({ entrada, soloCorreo, palabra, onClose, onSaved }: Props) {
+export function JuntaFormModal({ entrada, soloCorreo, palabra, tituloCentral, onClose, onSaved }: Props) {
   const toast = useToast();
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Form>();
   const [miembros, setMiembros] = useState<FilaMiembro[]>([]);
@@ -69,7 +71,7 @@ export function JuntaFormModal({ entrada, soloCorreo, palabra, onClose, onSaved 
       onClose={onClose}
       size="lg"
       title={titulo}
-      description={`${nombreAmbito(estructura)}${junta ? ` · gestión desde ${fechaCorta(junta.desde)}` : ''}`}
+      description={`${estructura == null && tituloCentral ? tituloCentral : nombreAmbito(estructura)}${junta ? ` · gestión desde ${fechaCorta(junta.desde)}` : ''}`}
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={idForm} loading={isSubmitting}>{junta ? 'Guardar cambios' : 'Registrar la junta'}</Button></>}
     >
       <form id={idForm} onSubmit={handleSubmit(guardar)} className="grid gap-4 sm:grid-cols-2" noValidate>

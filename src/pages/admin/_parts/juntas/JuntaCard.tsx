@@ -13,6 +13,8 @@ interface Props {
   mostrarCondominio?: boolean;
   /** «block» o «torre», según cómo llame el condominio a sus edificios. */
   palabra: string;
+  /** Título de la junta de todo el condominio cuando es la única del condominio («Junta directiva»); sin él, «Junta central». */
+  tituloCentral?: string;
   onRegistrar: () => void;
   onEditar: (j: Junta) => void;
   onNuevaGestion: (j: Junta) => void;
@@ -37,7 +39,7 @@ function Cuenta({ m, onEditar }: { m: Medio; onEditar: () => void }) {
 }
 
 /** Una tarjeta por block: la gestión vigente (miembros, correo y cuenta) con sus acciones, o «Registrar la junta» si aún no hay. */
-export function JuntaCard({ ficha, puedeGestionar, mostrarCondominio, palabra, onRegistrar, onEditar, onNuevaGestion, onHistorial, onCuenta }: Props) {
+export function JuntaCard({ ficha, puedeGestionar, mostrarCondominio, palabra, tituloCentral, onRegistrar, onEditar, onNuevaGestion, onHistorial, onCuenta }: Props) {
   const j = ficha.vigente;
   const nombre = nombreAmbito(ficha.estructura);
   const deLaJunta = laJuntaDe(ficha.estructura);
@@ -45,7 +47,7 @@ export function JuntaCard({ ficha, puedeGestionar, mostrarCondominio, palabra, o
   return (
     <Card>
       <CardHeader
-        title={nombre}
+        title={ficha.estructura == null && tituloCentral ? tituloCentral : nombre}
         description={[mostrarCondominio || !j ? ficha.complejo.nombre : null, j ? `Gestión ${nombreGestion(j)} · desde ${fechaCorta(j.desde)}` : null].filter(Boolean).join(' · ')}
         action={j ? <Badge tone="ok">Vigente</Badge> : <Badge tone="neutral">Sin junta</Badge>}
       />

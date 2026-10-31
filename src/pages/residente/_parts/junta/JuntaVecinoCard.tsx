@@ -46,8 +46,10 @@ function Cuenta({ c }: { c: CuentaVecino }) {
 /** «Mi junta»: la junta vigente de un block (o la Junta central) en sólo lectura. Cargo, nombre y departamento; el correo de la junta; la cuenta donde se paga. */
 export function JuntaVecinoCard({ item, mostrarCondominio }: { item: JuntaVecino; mostrarCondominio: boolean }) {
   const { ambito, junta: j } = item;
-  const nombre = nombreJunta(ambito);
   const centro = ambito.estructura == null;
+  // En junta única la de todo el condominio es la junta directiva del edificio: no hay «Junta central» que distinguir.
+  const unica = centro && item.junta_unica === true;
+  const nombre = unica ? 'Junta directiva' : nombreJunta(ambito);
   return (
     <Card>
       <CardHeader
@@ -83,7 +85,7 @@ export function JuntaVecinoCard({ item, mostrarCondominio }: { item: JuntaVecino
               <section aria-label={`Escríbele a ${laJunta(ambito)}`}>
                 <a href={mailtoJunta(j.correo)} className="inline-flex max-w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-brand hover:bg-surface2">
                   <EnvelopeIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="min-w-0">Escríbele a {centro ? 'la Junta central' : 'tu junta'}<span className="block break-all text-xs font-normal text-muted">{j.correo}</span></span>
+                  <span className="min-w-0">{unica ? 'Escríbele a la junta' : `Escríbele a ${centro ? 'la Junta central' : 'tu junta'}`}<span className="block break-all text-xs font-normal text-muted">{j.correo}</span></span>
                 </a>
               </section>
             )}

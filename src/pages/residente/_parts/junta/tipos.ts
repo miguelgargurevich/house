@@ -11,6 +11,8 @@ export interface MiembroVecino { cargo: CargoJunta; nombre: string; departamento
 export interface JuntaVecino {
   ambito: { complejo: { id: number; nombre: string }; estructura: { id: number; nombre: string | null; tipo: string } | null };
   junta: { desde: string; correo: string | null; miembros: MiembroVecino[]; cuentas: CuentaVecino[] } | null;
+  /** El condominio tiene una sola junta (la de todo el condominio): se titula «Junta directiva», no «Junta central». */
+  junta_unica?: boolean;
 }
 
 /** «Block 1», o «Junta central» si es la de todo el condominio. */

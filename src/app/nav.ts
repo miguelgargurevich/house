@@ -139,11 +139,11 @@ const CIERRE_CENTRAL: NavItem = { to: '/junta/cierre-central', label: 'Cierre de
 /** Lo único que ve una administradora que todavía no creó su condominio (paso 2 del registro): su bienvenida. El menú completo llega con el primer condominio. */
 export const NAV_SIN_CONDOMINIO: NavGroup[] = [{ items: [{ to: '/admin/bienvenida', label: 'Bienvenida', icon: HomeIcon }] }];
 
-export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id'> & { estructura_id?: number | null }, opts: { sinCondominios?: boolean } = {}): NavGroup[] {
+export function navPara(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'complejo_id' | 'junta_unica'> & { estructura_id?: number | null }, opts: { sinCondominios?: boolean } = {}): NavGroup[] {
   if (user.rol === 'admin' && opts.sinCondominios) return NAV_SIN_CONDOMINIO;
   if (!esJunta(user)) return NAV[user.rol];
-  // La Junta central (sin block) ve además lo que cada block le transfirió.
-  const central = user.estructura_id == null;
+  // La Junta central (sin block) ve además lo que cada block le transfirió. En junta única no hay blocks ni Junta central: sólo «Cierre del mes».
+  const central = user.estructura_id == null && !user.junta_unica;
   return [...NAV[user.rol], central ? { ...JUNTA, items: [...JUNTA.items, APORTES, CIERRE_CENTRAL] } : JUNTA];
 }
 
@@ -166,10 +166,11 @@ const CARGO_LABEL: Record<CargoJunta, string> = { presidente: 'Presidente', teso
 /**
  * Rótulo del rol con el cargo en la junta: «Propietario · Tesorero del Block 1» o «Propietario · Presidente de la Junta central».
  * Sin cargo, el rol de siempre. Si el block no tiene nombre, el rótulo no lo menciona («Propietario · Tesorero»).
+ * En junta única (una sola junta, la del condominio): «Propietario · Tesorero de la junta».
  */
-export function rotuloRol(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'estructura_id' | 'estructura_nombre'>): string {
+export function rotuloRol(user: Pick<Usuario, 'rol' | 'cargo_junta' | 'estructura_id' | 'estructura_nombre' | 'junta_unica'>): string {
   const rol = ROL_LABEL[user.rol];
   if (!user.cargo_junta) return rol;
-  const lugar = user.estructura_id == null ? ' de la Junta central' : user.estructura_nombre ? ` del ${user.estructura_nombre}` : '';
+  const lugar = user.junta_unica ? ' de la junta' : user.estructura_id == null ? ' de la Junta central' : user.estructura_nombre ? ` del ${user.estructura_nombre}` : '';
   return `${rol} · ${CARGO_LABEL[user.cargo_junta]}${lugar}`;
 }

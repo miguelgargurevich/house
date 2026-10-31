@@ -232,6 +232,7 @@ describe('Junta central y cargos que faltan', () => {
     const c = readFileSync('src/pages/admin/_parts/juntas/JuntaCard.tsx', 'utf8');
     assert.match(c, /CARGOS_UNICOS\.filter\(c => !j\.miembros\.some/);
     assert.match(c, /Sin asignar/);
-    assert.match(readFileSync('src/pages/admin/Juntas.tsx', 'utf8'), />Junta central<\/Button>/);
+    // El botón dice «Junta central» salvo en un condominio sin junta de block (ahí, «Junta directiva del condominio»): ver junta-unica-ui.test.ts.
+    assert.match(readFileSync('src/pages/admin/Juntas.tsx', 'utf8'), /: 'Junta central'\}<\/Button>/);
   });
 });

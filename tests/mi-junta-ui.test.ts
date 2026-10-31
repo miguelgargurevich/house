@@ -62,7 +62,7 @@ describe('«Mi junta» del residente: la pantalla', () => {
   it('el correo de la junta es un enlace mailto: «Escríbele a tu junta», y que no se salga del 375 px (break-all)', () => {
     const s = f(`${RES}_parts/junta/JuntaVecinoCard.tsx`);
     assert.match(s, /<a href=\{mailtoJunta\(j\.correo\)\}/);
-    assert.match(s, /Escríbele a \{centro \? 'la Junta central' : 'tu junta'\}/);
+    assert.match(s, /Escríbele a \$\{centro \? 'la Junta central' : 'tu junta'\}/);
     assert.match(s, /break-all text-xs font-normal text-muted">\{j\.correo\}/);
   });
 

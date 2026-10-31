@@ -9,9 +9,15 @@ export function MiJuntaResidente() {
   const r = useResource<{ items: JuntaVecino[] }>('/api/me/juntas');
   const items = r.data?.items ?? [];
   const mostrarCondominio = new Set(items.map(i => i.ambito.complejo.id)).size > 1;
+  const unica = items.length > 0 && items.every(i => i.junta_unica === true);
   return (
     <>
-      <PageHeader title="Mi junta" description="Quiénes forman la junta directiva de tu block y la Junta central, cómo escribirles y a qué cuenta pagas." />
+      <PageHeader
+        title="Mi junta"
+        description={unica
+          ? 'Quiénes forman la junta directiva de tu edificio, cómo escribirles y a qué cuenta pagas.'
+          : 'Quiénes forman la junta directiva de tu block y la Junta central, cómo escribirles y a qué cuenta pagas.'}
+      />
       {r.error ? (
         <Card><ErrorState message={r.error} onRetry={r.reload} /></Card>
       ) : r.loading && !r.data ? (

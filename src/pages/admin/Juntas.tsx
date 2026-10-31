@@ -36,33 +36,45 @@ export default function Juntas() {
   const palabra = palabraDe(items);
   const complejoElegido = complejos.find(c => String(c.id) === complejo) ?? (complejos.length === 1 ? complejos[0]! : null);
   const hayJuntaDelCondominio = items.some(i => i.estructura === null && i.complejo.id === complejoElegido?.id);
+  // Junta única (el condominio sólo tiene la junta de todo el condominio): la pantalla no muestra blocks «Sin junta» a su junta.
+  const unica = complejoElegido?.junta_unica === true;
+  const visibles = esJunta && unica ? items.filter(i => i.estructura === null) : items;
+  // Sin junta de block, la junta de todo el condominio se llama «Junta directiva» (la junta) o «Junta directiva del condominio» (la administración), no «Junta central».
+  const sinBlocksConJunta = (complejoId: number) => !items.some(i => i.estructura !== null && i.vigente !== null && i.complejo.id === complejoId);
+  const tituloCentralDe = (complejoId: number) => (sinBlocksConJunta(complejoId) ? (esJunta ? 'Junta directiva' : 'Junta directiva del condominio') : undefined);
+  const tituloRegistro = registrando ? tituloCentralDe('nueva' in registrando ? registrando.nueva.complejo_id : registrando.junta.complejo_id) : undefined;
   const recargar = () => void lista.reload();
 
   return (
     <>
       <PageHeader
         title={esJunta ? 'Mi junta' : 'Juntas directivas'}
-        description={esJunta
-          ? 'Los miembros de tu junta, su correo y la cuenta donde pagan los vecinos. Puedes editar el correo y la cuenta; los miembros y las gestiones nuevas las registra la administración.'
-          : `La junta de cada ${palabra} con sus miembros, su correo y la cuenta donde pagan los vecinos. Cuando cambia la junta, registra una nueva gestión: los permisos pasan solos y la anterior queda en el historial.`}
+        description={unica
+          ? (esJunta
+            ? 'Los miembros de la junta directiva de tu edificio, su correo y la cuenta donde pagan los vecinos. Puedes editar el correo y la cuenta; los miembros y las gestiones nuevas las registra la administración.'
+            : 'La junta directiva del condominio con sus miembros, su correo y la cuenta donde pagan los vecinos. Cuando cambia la junta, registra una nueva gestión: los permisos pasan solos y la anterior queda en el historial.')
+          : esJunta
+            ? 'Los miembros de tu junta, su correo y la cuenta donde pagan los vecinos. Puedes editar el correo y la cuenta; los miembros y las gestiones nuevas las registra la administración.'
+            : `La junta de cada ${palabra} con sus miembros, su correo y la cuenta donde pagan los vecinos. Cuando cambia la junta, registra una nueva gestión: los permisos pasan solos y la anterior queda en el historial.`}
         actions={puedeGestionar && complejoElegido && !hayJuntaDelCondominio && !lista.loading
-          ? <Button variant="secondary" icon={<UserGroupIcon className="h-4 w-4" />} onClick={() => setRegistrando({ nueva: { complejo_id: complejoElegido.id, estructura: null } })}>Junta central</Button>
+          ? <Button variant="secondary" icon={<UserGroupIcon className="h-4 w-4" />} onClick={() => setRegistrando({ nueva: { complejo_id: complejoElegido.id, estructura: null } })}>{sinBlocksConJunta(complejoElegido.id) ? 'Junta directiva del condominio' : 'Junta central'}</Button>
           : undefined}
       />
       {lista.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar las juntas: {lista.error}</Alert></div>}
       {lista.loading && !lista.data ? (
         <div className="grid gap-4 lg:grid-cols-2"><Skeleton className="h-64 w-full" /><Skeleton className="h-64 w-full" /></div>
-      ) : items.length === 0 && !lista.error ? (
+      ) : visibles.length === 0 && !lista.error ? (
         <EmptyState icon={<UserGroupIcon />} title={`No hay ${palabra}s para mostrar`} description={`Cuando el condominio tenga ${palabra}s, aquí verás la junta de cada uno.`} />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {items.map(f => (
+          {visibles.map(f => (
             <JuntaCard
               key={`${f.complejo.id}:${f.estructura?.id ?? 'condominio'}`}
               ficha={f}
               puedeGestionar={puedeGestionar}
               mostrarCondominio={complejos.length > 1}
               palabra={palabra}
+              tituloCentral={tituloCentralDe(f.complejo.id)}
               onRegistrar={() => setRegistrando({ nueva: { complejo_id: f.complejo.id, estructura: f.estructura } })}
               onEditar={j => setRegistrando({ junta: j })}
               onNuevaGestion={setNueva}
@@ -73,8 +85,8 @@ export default function Juntas() {
         </div>
       )}
 
-      <JuntaFormModal entrada={registrando} soloCorreo={!puedeGestionar} palabra={palabra} onClose={() => setRegistrando(null)} onSaved={recargar} />
-      <NuevaGestionModal junta={nueva} palabra={palabra} onClose={() => setNueva(null)} onSaved={(j, cuentaNueva) => { recargar(); if (cuentaNueva) setCuenta({ junta: j, medio: 'nuevo' }); }} />
+      <JuntaFormModal entrada={registrando} soloCorreo={!puedeGestionar} palabra={palabra} tituloCentral={tituloRegistro} onClose={() => setRegistrando(null)} onSaved={recargar} />
+      <NuevaGestionModal junta={nueva} palabra={palabra} tituloCentral={nueva ? tituloCentralDe(nueva.complejo_id) : undefined} onClose={() => setNueva(null)} onSaved={(j, cuentaNueva) => { recargar(); if (cuentaNueva) setCuenta({ junta: j, medio: 'nuevo' }); }} />
       <HistorialModal ambito={historial ? { complejo_id: historial.complejo.id, estructura: historial.estructura } : null} onClose={() => setHistorial(null)} />
       {ambitos.data && (
         <MedioFormModal

@@ -14,6 +14,8 @@ interface Props {
   junta: Junta | null;
   /** «block» o «torre». */
   palabra: string;
+  /** Título de la junta de todo el condominio cuando es la única del condominio; sin él, «Junta central». */
+  tituloCentral?: string;
   onClose: () => void;
   /** `cuentaNueva`: la nueva junta no copió la cuenta, así que la página abre «Agregar cuenta» para ella. */
   onSaved: (nueva: Junta, cuentaNueva: boolean) => void;
@@ -22,7 +24,7 @@ interface Props {
 const MAX_NOTAS = 500;
 
 /** Cierra la gestión vigente y abre otra: la que termina queda en el historial y los cargos pasan solos a los miembros nuevos. */
-export function NuevaGestionModal({ junta, palabra, onClose, onSaved }: Props) {
+export function NuevaGestionModal({ junta, palabra, tituloCentral, onClose, onSaved }: Props) {
   const toast = useToast();
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<Form>();
   const [miembros, setMiembros] = useState<FilaMiembro[]>([]);
@@ -64,7 +66,7 @@ export function NuevaGestionModal({ junta, palabra, onClose, onSaved }: Props) {
       onClose={onClose}
       size="lg"
       title="Nueva gestión"
-      description={junta ? `${laJuntaDe(junta.estructura).replace(/^l/, 'L')}: la gestión desde ${fechaCorta(junta.desde)} pasa al historial.` : undefined}
+      description={junta ? `${junta.estructura == null && tituloCentral ? tituloCentral : laJuntaDe(junta.estructura).replace(/^l/, 'L')}: la gestión desde ${fechaCorta(junta.desde)} pasa al historial.` : undefined}
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={idForm} loading={isSubmitting}>Registrar la nueva gestión</Button></>}
     >
       {junta && (

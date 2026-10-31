@@ -25,6 +25,8 @@ export interface Usuario {
   estructura_id?: number | null;
   /** Nombre de esa torre, sólo para el rótulo («Tesorero del Block 1»); null si no tiene nombre o es la Junta central. */
   estructura_nombre?: string | null;
+  /** Su junta es la ÚNICA del condominio (sólo junta directiva, sin blocks con junta): el menú y las pantallas no hablan de blocks ni de «Junta central». Lo calcula el servidor. */
+  junta_unica?: boolean;
 }
 
 interface AuthState {

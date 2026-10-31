@@ -39,7 +39,8 @@ export interface FichaJunta {
 
 export interface ListaJuntas {
   items: FichaJunta[];
-  complejos: { id: number; nombre: string }[];
+  /** `junta_unica`: el condominio tiene una sola junta, la de todo el condominio (sin blocks con junta). */
+  complejos: { id: number; nombre: string; junta_unica?: boolean }[];
   /** La administración gestiona todo; el presidente y el tesorero sólo su correo y su cuenta. */
   puede_gestionar: boolean;
 }
