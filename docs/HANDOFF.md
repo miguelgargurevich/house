@@ -4,6 +4,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — /precios: «Sin tope de departamentos» con su propio check (Claude Code, Opus 5.5) — push: sí
+
+- Pedido de Miguel: separar el hecho «Torre Gratis por 3 meses, sin tope de departamentos» en dos checks («Torre Gratis por 3 meses» y «Sin tope de departamentos»). `src/pages/publico/Precios.tsx`; con un tope cargado por el superadmin vuelve a ser un solo hecho «…, hasta N departamentos».
+
+---
+
 ## 2026-10-30 — Registro en dos pasos: primero la cuenta, después el condominio (Claude Code, Sonnet 5.5) — push: no
 
 - **Pedido de Miguel:** «mejores el onboarding, primero es la cuenta del super admin (usuario) que se crea luego viene lo del condominio». Rama `feat/registro-en-dos-pasos`.

@@ -31,7 +31,7 @@ export default function Precios() {
   const tope = cat?.planes.find(p => p.clave === 'gratis')?.unidades_maximas;
   // Moneda e impuesto son los del país elegido (selector): vienen del servidor, no de esta página.
   const impuesto = cat && Number(cat.impuesto.tasa) > 0 ? `Más ${cat.impuesto.nombre}` : 'Sin impuesto adicional';
-  const hechos = [cat ? `Precios en ${monedaDe(cat.moneda)?.plural ?? cat.moneda}` : 'Precios por país', impuesto, tope != null ? `Torre Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos` : cat ? `Torre Gratis ${plazoGratisTexto(cat)}, sin tope de departamentos` : 'Empiezas gratis', 'Sin permanencia'];
+  const hechos = [cat ? `Precios en ${monedaDe(cat.moneda)?.plural ?? cat.moneda}` : 'Precios por país', impuesto, ...(tope != null ? [`Torre Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos`] : cat ? [`Torre Gratis ${plazoGratisTexto(cat)}`, 'Sin tope de departamentos'] : ['Empiezas gratis']), 'Sin permanencia'];
 
   return (
     <Marco completo ancho="max-w-6xl">
