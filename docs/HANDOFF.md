@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Checks de /precios en celular (Claude Code, Opus 5.5) — push: no
+
+- **Qué:** en la lista de «hechos» bajo el selector de país (`src/pages/publico/Precios.tsx`), con el texto en dos líneas el check quedaba suelto a la izquierda. Ahora `items-start`, `text-left`, check `shrink-0` y el texto en su `<span>`. Visto a 375 px en oscuro; `precios-*` 22/22. Commit `5e86f65`, sin subir.
+- **Pendiente de Miguel:** quitar el tope de 20 de Torre Gratis (propuesta: Gratis 3 meses sin tope). El registro de cuentas nuevas está CERRADO en producción (`ConfiguracionComercial.registro_abierto = false`): lo abre el superadmin.
+
+---
+
 ## 2026-10-30 — Torre Básico sin tope de departamentos (Claude Code, Opus 5.5) — push: sí
 
 - **Pedido de Miguel:** «quita el tope» (no perder los edificios de más de 50 que no quieren Pro). Torre Básico: S/ 1 por departamento, mínimo 20 cobrados, **sin tope** (`unidades_maximas: null`); descripción «Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.», viñeta «Sin tope de departamentos». Calculadora de Precios y Mi plan sin «hasta 50».
