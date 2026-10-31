@@ -116,7 +116,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
                 <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(total.r.total_mes, total.r.moneda)}</p>
                 <p className="num mt-2 text-lg">{gratis ? `Torre Gratis ${plazoGratisTexto(cat)}${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${conImpuesto ? `Más ${nombreImp} · ` : ''}${dinero(total.r.total_anio, total.r.moneda)} al año`}</p>
                 {!gratis && conImpuesto && total.r.total_con_igv_mes && <p className="num mt-1 text-base opacity-90">Con {total.r.impuesto_nombre}: {dinero(total.r.total_con_igv_mes, total.r.moneda)} al mes</p>}
-                {total.r.minimo_aplicado && <p className="mt-1 text-base">{plan?.nombre} cobra un mínimo de {total.r.unidades_cobradas} departamentos por condominio.</p>}
+                {total.r.minimo_aplicado && <p className="mt-1 text-base">El precio base de {plan?.nombre} incluye hasta {total.r.unidades_cobradas} departamentos por condominio.</p>}
               </div>
             ) : <div className="mt-2 h-14 w-56 rounded bg-on-brand/20" aria-hidden="true" />}
           </>

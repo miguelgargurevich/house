@@ -45,11 +45,12 @@ function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boo
   );
 }
 
-/** El tope de departamentos (Gratis), el rango que cubre (Básico) o el mínimo que se cobra (Torre Pro y Torre Administradora), tal como los publica el catálogo. */
+/** El tope de departamentos (Gratis), el rango que cubre o el precio base con los departamentos que incluye (Básico, Torre Pro y Torre Administradora), tal como los publica el catálogo. */
 function Tope({ plan, cat, className = '' }: { plan: Plan; cat: Catalogo; className?: string }) {
   if (plan.unidades_maximas != null && plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio, mínimo {plan.unidades_minimas} cobrados{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
   if (plan.unidades_maximas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio.</p>;
-  if (plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Mínimo de {plan.unidades_minimas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
+  // El mínimo se dice como precio base («desde S/ 60 al mes, incluye hasta 20 departamentos»): a un edificio chico no le suena a «no es para ti».
+  if (plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>{plan.total_minimo_mes ? `Desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}, incluye hasta ${plan.unidades_minimas} departamentos` : `Incluye hasta ${plan.unidades_minimas} departamentos en el precio base`}{plan.precio_por_unidad !== null ? `; desde el ${plan.unidades_minimas + 1}, ${dinero(plan.precio_por_unidad, cat.moneda)} cada uno` : ''}.</p>;
   return null;
 }
 

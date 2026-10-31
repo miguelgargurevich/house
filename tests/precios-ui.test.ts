@@ -50,7 +50,7 @@ describe('página de precios como oferta', () => {
       assert.ok(html.includes(dato), `falta «${dato}»`);
     }
     assert.match(html, /S\/ 0/, 'Gratis muestra cero');
-    assert.match(html, /Mínimo de 17 departamentos cobrados por condominio · desde S\/ 132\.09 al mes \+ IGV\./, 'el mínimo de Pro sale del catálogo');
+    assert.match(html, /Desde S\/\s*132\.09 al mes \+ IGV, incluye hasta 17 departamentos; desde el 18, S\/\s*7\.77 cada uno\./, 'el precio base de Pro y lo que incluye salen del catálogo');
   });
 
   it('los botones: Gratis «Crear cuenta gratis», Pro «Empezar con Torre Pro» y, debajo, «Ver mi total»; Administradora sólo «Ver mi total» (a la calculadora)', () => {

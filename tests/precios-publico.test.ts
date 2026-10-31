@@ -46,7 +46,7 @@ describe('página pública de precios', () => {
     for (const dato of ['7.77', '5.55', '132.09', '94.35']) assert.ok(html.includes(dato), `falta ${dato}`);
     assert.match(html, /S\/\s*0/, 'Gratis se muestra en cero');
     assert.match(html, /Hasta 13 departamentos por condominio/, 'el tope de Gratis viene del catálogo');
-    assert.match(html, /Mínimo de 17 departamentos cobrados por condominio · desde S\/\s*132\.09 al mes/, 'el mínimo de Pro y su total salen del catálogo');
+    assert.match(html, /Desde S\/\s*132\.09 al mes \+ IGV, incluye hasta 17 departamentos; desde el 18, S\/\s*7\.77 cada uno/, 'el precio base de Pro y lo que incluye salen del catálogo');
   });
 
   it('los módulos se presentan como «lo que trae Pro»: sin precio, sin botón de sumar', () => {
@@ -68,8 +68,8 @@ describe('página pública de precios', () => {
     const c = cat(true);
     c.planes.splice(1, 0, { clave: 'basico', nombre: 'Básico', descripcion: 'Sin IA.', precio_por_unidad: '1.11', consultar: false, modulos_incluidos: [], caracteristicas: ['Todo lo de Gratis, sin plazo'], unidades_maximas: null, unidades_minimas: 19, total_minimo_mes: '21.09' });
     const nota = enRuta(createElement(Comparativa, { cat: c }));
-    assert.match(nota, /Básico cobra como mínimo 19 departamentos por condominio \(desde S\/\s*21\.09 al mes\)\./);
-    assert.match(nota, /Pro cobra como mínimo 17 departamentos por condominio \(desde S\/\s*132\.09 al mes\)\./);
+    assert.match(nota, /Básico parte en S\/\s*21\.09 al mes por condominio e incluye hasta 19 departamentos\./);
+    assert.match(nota, /Pro parte en S\/\s*132\.09 al mes por condominio e incluye hasta 17 departamentos\./);
     const fila = (nombre: string) => new RegExp(`<tr[^>]*><th[^>]*>${nombre}</th>(.*?)</tr>`).exec(html)?.[1] ?? '';
     const marcas = (celdas: string) => [...celdas.matchAll(/<span class="sr-only">(Incluido|No incluido)<\/span>/g)].map(m => m[1]);
     for (const nombre of ['IA que lee y valida vouchers', 'Asistente con IA', 'Mora automática', 'Reportes y exportes']) {
@@ -84,7 +84,7 @@ describe('página pública de precios', () => {
   it('las preguntas frecuentes toman el tope y el mínimo del catálogo (no los escriben)', () => {
     const html = enRuta(createElement(Preguntas, { cat: cat(true) }));
     assert.match(html, /llega hasta 13 departamentos por condominio/);
-    assert.match(html, /como mínimo 17 departamentos/);
+    assert.match(html, /incluye hasta 17 departamentos/);
     assert.doesNotMatch(html, /módulo suelto|sin límite de departamentos/i);
   });
 
@@ -147,7 +147,7 @@ describe('/precios por país: moneda, precios e impuesto del país elegido', () 
     const html = enRuta(createElement(Planes, { cat: catChile(), onCalcular: sinCalcular }) );
     assert.match(html, /\$\u00a01\.900/);
     assert.match(html, /por departamento al mes \+ IVA/);
-    assert.match(html, /desde \$\u00a038\.000 al mes \+ IVA/);
+    assert.match(html, /Desde \$ 38\.000 al mes \+ IVA/);
     assert.match(html, /Consúltanos/, 'Administradora no tiene precio en pesos');
     assert.doesNotMatch(html, /S\/|IGV|5\.55/);
     assert.match(html, /\$\u00a00/, 'Gratis es $ 0 para siempre');
