@@ -97,7 +97,7 @@ export function ReservasTab({ complejo, areas }: { complejo: string; areas: Area
     <>
       <Card>
         <Toolbar>
-          <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
             <Select label="Ver" value={vista} onChange={e => setVista(e.target.value as Vista)}>
               {VISTAS.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
             </Select>

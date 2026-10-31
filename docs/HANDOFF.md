@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Reservas de áreas comunes integradas; tramos de Pro apartados (Claude Code, Opus 5.5 + Sonnet) — push: no
+
+- Pedido de Miguel: reservas (la tienen los 8 competidores) y tramos de Pro. Después Miguel: «eso de los tramos lo revisamos al final… un mejor producto no se baja sólo por volar bajo». **Tramos NO integrados**: rama `feat/tramos-pro` (worktree `.claude/worktrees/tramos-pro`, 2 commits, Pro y Administradora desde el dpto 41 a S/ 1,50 / 1,30, editable por el superadmin). Revisar antes de decidir.
+- Reservas (Sonnet, `feat/reservas`): modelos `AreaComun` y `Reserva` (aditivos), API `/api/areas-comunes` y `/api/reservas`, admin `/admin/areas-comunes`, vecinos `/propietario/reservas` e `/inquilino/reservas`. Probado por Opus en el navegador (house_e2e): crear área, pedir reserva en celular, pendiente → aprobar → el vecino la ve aprobada; sin desborde.
+- Arreglo de Opus: los filtros de Reservas (admin) ponían el buscador fuera del recuadro en escritorio (`lg:grid-cols-[1fr_1fr_1fr_auto]`).
+- Visto, sin arreglar: en «Nueva área», lo que se escribe en el primer segundo tras abrir el modal se puede borrar (el `reset` inicial llega después); con uso normal no se nota.
+- Producción: el deploy hace `prisma db push` (aditivo). Fuera de alcance: cobro de la reserva en el recibo, avisos, junta aprobando.
+
+---
+
 ## 2026-10-31 — Reservas de áreas comunes, MVP de punta a punta (Claude Code, Sonnet 5.5) — push: no
 
 - **Pedido de Miguel:** «Sí, esos dos (reservas de áreas comunes: la tienen los 8 competidores del benchmark…)». Rama `feat/reservas`, worktree `.claude/worktrees/reservas`, base `house_test_reservas`.
