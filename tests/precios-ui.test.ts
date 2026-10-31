@@ -134,7 +134,7 @@ describe('precio por tramos en /precios y en las pantallas de planes', () => {
 
   it('la frase del tramo se parte en el celular (390 px): el párrafo no usa whitespace-nowrap y la tarjeta no fija un ancho', () => {
     const s = fuente('src/pages/publico/precios/Planes.tsx');
-    const linea = /<p className=\{`([^`]*)`\}>\{plan\.total_minimo_mes \?/.exec(s)?.[1] ?? '';
+    const linea = /<p className=\{`([^`]*)`\}>\{texto\}<\/p>/.exec(s)?.[1] ?? ''; // el texto del precio base y el tramo viene de lib/seo/textos (textoTope)
     assert.ok(linea, 'el párrafo del precio base existe');
     assert.doesNotMatch(linea, /nowrap/);
     assert.doesNotMatch(s, /\bw-\[\d+px\]|\bmin-w-\[\d+(px|rem)\]/);
