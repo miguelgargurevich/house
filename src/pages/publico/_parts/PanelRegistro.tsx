@@ -3,9 +3,9 @@ import { CheckIcon } from '@heroicons/react/20/solid';
 
 /** Lo que trae el plan Gratis (espejo de `caracteristicas` del servidor, sin los que son sólo de Pro). */
 const BENEFICIOS = [
-  'Recibos por torre, con cada concepto desglosado',
+  'Recibos por block, con cada concepto desglosado',
   'La cobranza del mes, al día en tu resumen',
-  'Subes el Excel del recibo de cada torre',
+  'Subes el Excel del recibo de cada block',
   'Vouchers validados a mano y avisos por correo',
 ];
 
@@ -13,8 +13,8 @@ const BENEFICIOS = [
 export function PanelRegistro() {
   return (
     <aside aria-labelledby="panel-registro-titulo" className="rounded-2xl bg-escena p-6 text-on-escena sm:p-10 lg:sticky lg:top-6">
-      <p id="panel-registro-titulo" className="text-2xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl">Gratis por 3 meses, hasta 20 departamentos.</p>
-      <p className="mt-3 text-sm opacity-85">Sin tarjeta. Al terminar los 3 meses, tus datos siguen aquí y eliges Básico o Pro desde Mi plan.</p>
+      <p id="panel-registro-titulo" className="text-2xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl">Torre Gratis por 3 meses, hasta 20 departamentos.</p>
+      <p className="mt-3 text-sm opacity-85">Sin tarjeta. Al terminar los 3 meses, tus datos siguen aquí y eliges Torre Básico o Torre Pro desde Mi plan.</p>
       <ul className="mt-6 space-y-2.5 text-sm">
         {BENEFICIOS.map(b => (
           <li key={b} className="flex gap-2.5"><CheckIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><span>{b}</span></li>
@@ -26,7 +26,7 @@ export function PanelRegistro() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-semibold">Mantenimiento de octubre</p>
-              <p className="text-xs text-muted">Torre A · Depto. 804</p>
+              <p className="text-xs text-muted">Block A · Depto. 804</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-ok-soft px-2 py-0.5 text-xs font-medium text-ok"><CheckCircleIcon className="h-3.5 w-3.5" />Pagado</span>
           </div>
@@ -46,7 +46,7 @@ export function PanelRegistro() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><BellAlertIcon className="h-5 w-5" /></span>
             <div className="min-w-0">
               <p className="text-xs font-semibold">Aviso por correo</p>
-              <p className="mt-0.5 text-xs leading-snug text-muted">Tu mantenimiento de noviembre vence el 10. Págalo desde House en un minuto.</p>
+              <p className="mt-0.5 text-xs leading-snug text-muted">Tu mantenimiento de noviembre vence el 10. Págalo desde Torre en un minuto.</p>
             </div>
           </div>
         </div>

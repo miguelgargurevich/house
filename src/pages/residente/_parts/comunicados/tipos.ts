@@ -12,4 +12,4 @@ export interface ComunicadoResidente {
 }
 
 export const origenLabel = (o: ComunicadoResidente['origen']) => (o === 'junta' ? 'Junta directiva' : 'Administración');
-export const alcanceDe = (c: Pick<ComunicadoResidente, 'estructura' | 'complejo'>) => (c.estructura ? (c.estructura.nombre?.trim() || `Torre ${c.estructura.id}`) : c.complejo?.nombre ? `Todo ${c.complejo.nombre}` : 'Todo el condominio');
+export const alcanceDe = (c: Pick<ComunicadoResidente, 'estructura' | 'complejo'>) => (c.estructura ? (c.estructura.nombre?.trim() || `Block ${c.estructura.id}`) : c.complejo?.nombre ? `Todo ${c.complejo.nombre}` : 'Todo el condominio');

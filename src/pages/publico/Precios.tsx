@@ -31,14 +31,14 @@ export default function Precios() {
   const tope = cat?.planes.find(p => p.clave === 'gratis')?.unidades_maximas;
   // Moneda e impuesto son los del país elegido (selector): vienen del servidor, no de esta página.
   const impuesto = cat && Number(cat.impuesto.tasa) > 0 ? `Más ${cat.impuesto.nombre}` : 'Sin impuesto adicional';
-  const hechos = [cat ? `Precios en ${monedaDe(cat.moneda)?.plural ?? cat.moneda}` : 'Precios por país', impuesto, tope != null ? `Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos` : 'Empiezas gratis', 'Sin permanencia'];
+  const hechos = [cat ? `Precios en ${monedaDe(cat.moneda)?.plural ?? cat.moneda}` : 'Precios por país', impuesto, tope != null ? `Torre Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos` : 'Empiezas gratis', 'Sin permanencia'];
 
   return (
     <Marco completo ancho="max-w-6xl">
       <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-20">
         <header className="mx-auto max-w-3xl text-center">
           <h1 style={sube(0)} className="sube text-[1.8rem] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">Cobra el mantenimiento sin Excel ni WhatsApp sueltos</h1>
-          <p style={sube(1)} className="sube mx-auto mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">House emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis por 3 meses y después eliges Básico o, cuando necesites todo, Pro.</p>
+          <p style={sube(1)} className="sube mx-auto mt-6 max-w-xl text-lg leading-relaxed sm:text-xl">Torre emite los recibos, recibe los vouchers y te dice quién debe. Empiezas gratis por 3 meses y después eliges Torre Básico o, cuando necesites todo, Torre Pro.</p>
           {cat && cat.paises.length > 1 && <SelectorPais cat={cat} className="sube mx-auto mt-6 max-w-xs text-left" />}
           <ul style={sube(2)} className="sube mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-base font-medium">
             {hechos.map(h => <li key={h} className="inline-flex items-center gap-1.5"><CheckIcon className="h-5 w-5 text-brand" aria-hidden="true" />{h}</li>)}
@@ -65,8 +65,8 @@ export default function Precios() {
       {cat && (
         <section aria-labelledby="cierre-titulo" className="bg-brand text-on-brand">
           <Aparece className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-28">
-            <h2 id="cierre-titulo" className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.03em] sm:text-6xl">Tu próximo recibo, desde House</h2>
-            <p className="mt-6 max-w-xl text-lg sm:text-xl">{abierto ? 'Crea tu cuenta en Gratis, carga tu Excel y emite el recibo del mes.' : 'Si ya tienes cuenta, ingresa y sigue cobrando desde House.'}</p>
+            <h2 id="cierre-titulo" className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.03em] sm:text-6xl">Tu próximo recibo, desde Torre</h2>
+            <p className="mt-6 max-w-xl text-lg sm:text-xl">{abierto ? 'Crea tu cuenta en Torre Gratis, carga tu Excel y emite el recibo del mes.' : 'Si ya tienes cuenta, ingresa y sigue cobrando desde Torre.'}</p>
             <div className="mt-9">
               {abierto
                 ? <Link to="/registro" className={`${boton} bg-on-brand text-brand hover:opacity-90`}>Crear cuenta gratis</Link>

@@ -21,7 +21,7 @@ export interface Torre {
 interface Form { nombre: string; tipo: string; cantidad_pisos: string; correo_vouchers: string }
 
 const TIPOS = ['Torre', 'Block'];
-const nombreDe = (t: Torre) => t.nombre?.trim() || `Torre ${t.id}`;
+const nombreDe = (t: Torre) => t.nombre?.trim() || `Block ${t.id}`;
 
 /** Torres del condominio: alta (con sus pisos), edición, baja y asignación de las unidades que aún no tienen torre. */
 export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
@@ -33,13 +33,13 @@ export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
   const [busy, setBusy] = useState(false);
 
   const columns: Column<Torre>[] = [
-    { key: 'nombre', header: 'Torre', cell: t => <span className="font-medium">{nombreDe(t)}</span> },
+    { key: 'nombre', header: 'Block', cell: t => <span className="font-medium">{nombreDe(t)}</span> },
     { key: 'tipo', header: 'Tipo', hideBelow: 'sm', cell: t => <Badge tone="brand">{t.tipo}</Badge> },
     { key: 'pisos', header: 'Pisos', align: 'right', hideBelow: 'sm', cell: t => <span className="num">{t.pisos_count ?? 0}</span> },
     { key: 'unidades', header: 'Unidades', align: 'right', cell: t => <span className="num">{t.unidades_count ?? 0}</span> },
     { key: 'acciones', header: '', align: 'right', cell: t => (
       <div className="flex justify-end gap-1">
-        <IconButton label={`Asignar a ${nombreDe(t)} las unidades que no tienen torre`} onClick={() => setAsignando(t)}><UserPlusIcon className="h-4 w-4" /></IconButton>
+        <IconButton label={`Asignar a ${nombreDe(t)} las unidades que no tienen block`} onClick={() => setAsignando(t)}><UserPlusIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Editar ${nombreDe(t)}`} onClick={() => setEditando(t)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Eliminar ${nombreDe(t)}`} onClick={() => setBorrar(t)}><TrashIcon className="h-4 w-4" /></IconButton>
       </div>
@@ -51,7 +51,7 @@ export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
     setBusy(true);
     try {
       await api(`/api/estructuras/${borrar.id}`, { method: 'DELETE' });
-      toast.ok(`Torre ${nombreDe(borrar)} eliminada`);
+      toast.ok(`Block ${nombreDe(borrar)} eliminado`);
       setBorrar(null);
       void list.reload();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
@@ -63,7 +63,7 @@ export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
     try {
       const r = await api<{ asignadas: number }>(`/api/estructuras/${asignando.id}/asignar-unidades`, { method: 'POST' });
       toast.ok(r.asignadas === 0
-        ? 'No había unidades sin torre en este condominio'
+        ? 'No había unidades sin block en este condominio'
         : `${r.asignadas} ${r.asignadas === 1 ? 'unidad quedó' : 'unidades quedaron'} en ${nombreDe(asignando)}`);
       setAsignando(null);
       void list.reload();
@@ -74,11 +74,11 @@ export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
     <>
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
-          <p className="text-sm text-muted">Las torres del condominio. Cada unidad puede pertenecer a una torre y a un piso.</p>
-          <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditando('nueva')}>Nueva torre</Button>
+          <p className="text-sm text-muted">Los blocks del condominio. Cada unidad puede pertenecer a un block y a un piso.</p>
+          <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditando('nueva')}>Nuevo block</Button>
         </div>
         <DataTable
-          caption="Torres"
+          caption="Blocks"
           columns={columns}
           rows={list.items}
           rowKey={t => t.id}
@@ -90,10 +90,10 @@ export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
           total={list.total}
           onPage={list.setPage}
           empty={{
-            title: 'Este condominio no tiene torres',
-            description: 'Crea la primera torre para después asignarle las unidades.',
+            title: 'Este condominio no tiene blocks',
+            description: 'Crea el primer block para después asignarle las unidades.',
             icon: <BuildingOffice2Icon />,
-            action: <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditando('nueva')}>Nueva torre</Button>,
+            action: <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setEditando('nueva')}>Nuevo block</Button>,
           }}
         />
       </Card>
@@ -111,9 +111,9 @@ export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
         onConfirm={confirmarBorrado}
         loading={busy}
         danger
-        title="Eliminar torre"
-        message={`Se eliminará la torre ${borrar ? nombreDe(borrar) : ''} y sus pisos. No se puede si tiene unidades o usuarios de junta asignados.`}
-        confirmLabel="Eliminar torre"
+        title="Eliminar block"
+        message={`Se eliminará el block ${borrar ? nombreDe(borrar) : ''} y sus pisos. No se puede si tiene unidades o usuarios de junta asignados.`}
+        confirmLabel="Eliminar block"
       />
 
       <ConfirmDialog
@@ -121,8 +121,8 @@ export function TorresDelCondominio({ complejoId }: { complejoId: number }) {
         onClose={() => setAsignando(null)}
         onConfirm={asignar}
         loading={busy}
-        title="Asignar torre a las unidades que no tienen"
-        message={asignando ? `Todas las unidades de este condominio que todavía no tienen torre pasarán a ${nombreDe(asignando)}.` : ''}
+        title="Asignar block a las unidades que no tienen"
+        message={asignando ? `Todas las unidades de este condominio que todavía no tienen block pasarán a ${nombreDe(asignando)}.` : ''}
         confirmLabel="Asignar"
       />
     </>
@@ -151,7 +151,7 @@ function ModalTorre({ torre, complejoId, onClose, onGuardada }: { torre: Torre |
     };
     try {
       await api(esNueva ? '/api/estructuras' : `/api/estructuras/${(torre as Torre).id}`, { method: esNueva ? 'POST' : 'PUT', json: body });
-      toast.ok(esNueva ? 'Torre creada' : 'Cambios guardados');
+      toast.ok(esNueva ? 'Block creado' : 'Cambios guardados');
       onGuardada();
     } catch (e) { toast.error(errorText(e)); }
   }
@@ -160,11 +160,11 @@ function ModalTorre({ torre, complejoId, onClose, onGuardada }: { torre: Torre |
     <Modal
       open={torre !== null}
       onClose={onClose}
-      title={esNueva ? 'Nueva torre' : 'Editar torre'}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={isSubmitting} onClick={handleSubmit(guardar)}>{esNueva ? 'Crear torre' : 'Guardar cambios'}</Button></>}
+      title={esNueva ? 'Nuevo block' : 'Editar block'}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={isSubmitting} onClick={handleSubmit(guardar)}>{esNueva ? 'Crear block' : 'Guardar cambios'}</Button></>}
     >
       <form onSubmit={handleSubmit(guardar)} className="grid gap-4 sm:grid-cols-2" noValidate>
-        <Input label="Nombre" className="sm:col-span-2" placeholder="Ej. Torre 1" error={errors.nombre && 'Ingresa el nombre'} {...register('nombre')} />
+        <Input label="Nombre" className="sm:col-span-2" placeholder="Ej. Block 1" error={errors.nombre && 'Ingresa el nombre'} {...register('nombre')} />
         <Select label="Tipo" {...register('tipo', { required: true })}>
           {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
         </Select>

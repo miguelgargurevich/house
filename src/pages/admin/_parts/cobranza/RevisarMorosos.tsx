@@ -117,18 +117,18 @@ export function RevisarMorosos({ fuente, moneda }: { fuente: FuenteMora; moneda?
       {vista.torres.map(t => {
         const filas = filtrarUnidades(t.unidades, soloRevisar);
         return (
-          <section key={t.estructura_id ?? 'sin-torre'} aria-label={t.torre ?? 'Sin torre'}>
-            {(vista.torres.length > 1 || t.torre) && <h4 className="text-sm font-medium">{t.torre ?? 'Departamentos sin torre'}</h4>}
+          <section key={t.estructura_id ?? 'sin-torre'} aria-label={t.torre ?? 'Sin block'}>
+            {(vista.torres.length > 1 || t.torre) && <h4 className="text-sm font-medium">{t.torre ?? 'Departamentos sin block'}</h4>}
             {!t.anterior ? (
               <p className="text-sm text-muted">No hay recibo del mes anterior{t.torre ? ` en ${t.torre}` : ''}: nadie recibirá multa.</p>
             ) : t.aun_no_vence ? (
               <Alert tone="warn">El recibo de {periodo(t.anterior.mes, t.anterior.anio).toLowerCase()} vence el {fechaCorta(t.anterior.fecha_vencimiento)}: aún no se puede saber quién pagó tarde, así que no se agregará multa.</Alert>
             ) : filas.length === 0 ? (
-              <EmptyState title={soloRevisar ? 'Nada para revisar' : 'Sin departamentos'} description={soloRevisar ? 'Todas las fechas vienen del voucher y no hay pagos por validar.' : 'Esta torre no tiene departamentos activos.'} />
+              <EmptyState title={soloRevisar ? 'Nada para revisar' : 'Sin departamentos'} description={soloRevisar ? 'Todas las fechas vienen del voucher y no hay pagos por validar.' : 'Este block no tiene departamentos activos.'} />
             ) : (
               <>
                 <p className="text-xs text-muted">Recibo de {periodo(t.anterior.mes, t.anterior.anio).toLowerCase()} · vence el {fechaCorta(t.anterior.fecha_vencimiento)}</p>
-                <ul className="max-h-96 divide-y divide-line overflow-y-auto" aria-label={`Departamentos de ${t.torre ?? 'la torre'}`}>
+                <ul className="max-h-96 divide-y divide-line overflow-y-auto" aria-label={`Departamentos de ${t.torre ?? 'el block'}`}>
                   {filas.map(u => <FilaUnidad key={u.unidad_id} u={u} moneda={moneda} onCorregida={() => void cargar()} />)}
                 </ul>
               </>

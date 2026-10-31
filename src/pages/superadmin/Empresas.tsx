@@ -31,7 +31,7 @@ export default function Empresas() {
     <>
       <PageHeader
         title="Empresas"
-        description="Administradoras de condominios que usan House."
+        description="Administradoras de condominios que usan Torre."
         actions={<Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => setNueva(true)}>Nueva empresa</Button>}
       />
       <Card>

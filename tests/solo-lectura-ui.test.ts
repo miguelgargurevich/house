@@ -46,8 +46,8 @@ describe('qué estado vale para la pantalla', () => {
     assert.equal(fechaLarga('2026-10-30T00:00:00.000Z'), '30 de octubre de 2026');
     assert.equal(fechaLarga('2027-01-01T00:00:00.000Z'), '1 de enero de 2027');
     assert.equal(fechaLarga(null), '');
-    assert.equal(ofertaDePago('S/ 20'), 'Básico desde S/ 20 o Pro');
-    assert.equal(ofertaDePago(null), 'Pro');
+    assert.equal(ofertaDePago('S/ 20'), 'Torre Básico desde S/ 20 o Torre Pro');
+    assert.equal(ofertaDePago(null), 'Torre Pro');
   });
 
   it('el texto de la banda es el pedido: «Este condominio está en solo lectura desde el … Tus datos siguen aquí.»', () => {
@@ -66,10 +66,10 @@ describe('la banda y los botones, renderizados', () => {
   });
   const banda = (junta: boolean) => renderToStaticMarkup(createElement(StaticRouter, { location: '/admin/dashboard' }, createElement(ContenidoBanda, { v: vistaSoloLectura([estado(1)], 1, junta), junta })));
 
-  it('la administración ve el texto, la oferta de Básico o Pro y el botón a Mi plan', () => {
+  it('la administración ve el texto, la oferta de Básico o Torre Pro y el botón a Mi plan', () => {
     const html = banda(false);
     assert.match(html, /Este condominio está en solo lectura desde el 30 de octubre de 2026\. Tus datos siguen aquí\./);
-    assert.match(html, /Pásalo a un plan de pago para seguir registrando: Básico desde S\/ 20 o Pro\./);
+    assert.match(html, /Pásalo a un plan de pago para seguir registrando: Torre Básico desde S\/ 20 o Torre Pro\./);
     assert.match(html, /href="\/admin\/mi-plan"[^>]*>Ir a Mi plan/);
     assert.match(html, /data-banda="solo-lectura"/);
   });
@@ -134,7 +134,7 @@ describe('cableado', () => {
     assert.match(f, /<Bloqueable>\{b => <Button size="sm" icon=\{<BanknotesIcon className="h-4 w-4" \/>\} disabled=\{b\} onClick=\{\(\) => setRegistrando\(tipo\)\}>/);
   });
 
-  it('Mi plan avisa «Te quedan N días gratis», marca la solo lectura y ofrece Básico o Pro; el Resumen también cuenta los días', () => {
+  it('Mi plan avisa «Te quedan N días gratis», marca la solo lectura y ofrece Básico o Torre Pro; el Resumen también cuenta los días', () => {
     const m = fuente('src/pages/admin/MiPlan.tsx');
     assert.match(m, /diasGratisTexto\(c\.dias_gratis_restantes\)/);
     assert.match(m, /label: 'Solo lectura', tone: 'bad'/);
@@ -148,7 +148,7 @@ describe('cableado', () => {
   it('el superadmin fija los días de Gratis (0 a 365) junto a los de la prueba de Pro', () => {
     const f = fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx');
     assert.match(f, /dias_gratis: number \| null;/);
-    assert.match(f, /label="Días de Gratis" type="number" min=\{0\} max=\{365\}/);
+    assert.match(f, /label="Días de Torre Gratis" type="number" min=\{0\} max=\{365\}/);
     assert.match(f, /dias_gratis: Number\(f\.dias_gratis\)/);
   });
 

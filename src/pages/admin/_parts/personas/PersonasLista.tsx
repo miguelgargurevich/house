@@ -253,8 +253,8 @@ export default function PersonasLista({ tipo, encima, titulo, descripcion, compl
               <>
                 {/* Las torres son las del condominio elegido arriba: con «Todos los condominios» no se listan (se confundirían). */}
                 {filtroComplejo !== '' && (
-                  <Select label="Filtrar por torre" className="sm:w-40" value={filtroTorre} onChange={e => setFiltroTorre(e.target.value)} disabled={torresFiltro.loading}>
-                    <option value="">Todas las torres</option>
+                  <Select label="Filtrar por block" className="sm:w-40" value={filtroTorre} onChange={e => setFiltroTorre(e.target.value)} disabled={torresFiltro.loading}>
+                    <option value="">Todos los blocks</option>
                     {(torresFiltro.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
                   </Select>
                 )}

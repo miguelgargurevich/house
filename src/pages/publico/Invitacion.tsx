@@ -75,7 +75,7 @@ export default function Invitacion() {
               <form onSubmit={enviar} noValidate>
                 <h1 className="text-2xl font-semibold">Crea tu contraseña</h1>
                 <p className="mt-2 text-sm text-muted">
-                  Hola, <span className="font-medium text-ink">{datos.nombre}</span>. Te dieron acceso a House como {datos.rol_texto}{donde}. Tu cuenta es <span className="font-medium text-ink">{datos.email}</span>.
+                  Hola, <span className="font-medium text-ink">{datos.nombre}</span>. Te dieron acceso a Torre como {datos.rol_texto}{donde}. Tu cuenta es <span className="font-medium text-ink">{datos.email}</span>.
                 </p>
 
                 <div className="mt-6 space-y-4">

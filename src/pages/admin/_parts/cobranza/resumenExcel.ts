@@ -32,7 +32,7 @@ export function resumenSubida(r: ResultadoExcel) {
   const recibos = r.recibos ?? [];
   const sufijo = recibos.length === 1 && recibos[0]!.torre ? ` · ${recibos[0]!.torre}` : '';
   return {
-    titulo: recibos.length > 1 ? `Recibos de ${periodo(r.mes, r.anio).toLowerCase()} cargados: uno por torre` : `Recibo de ${periodo(r.mes, r.anio).toLowerCase()}${sufijo} cargado`,
+    titulo: recibos.length > 1 ? `Recibos de ${periodo(r.mes, r.anio).toLowerCase()} cargados: uno por block` : `Recibo de ${periodo(r.mes, r.anio).toLowerCase()}${sufijo} cargado`,
     linea: partes.join(' · '),
     /** Un renglón por torre: «Block 1: creado (32 departamentos)». */
     torres: recibos.filter(x => x.torre).map(x => `${x.torre}: ${x.accion === 'creado' ? 'creado' : 'reemplazado'} (${plural(x.unidades_procesadas, 'departamento', 'departamentos')})`),

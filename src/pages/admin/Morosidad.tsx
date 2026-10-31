@@ -68,7 +68,7 @@ export default function Morosidad() {
     const una = monedas.length <= 1 ? (monedas[0] ?? 'PEN') : null;
     descargarCSV(
       `morosidad-${hoyISO()}.csv`,
-      ['Unidad', 'Condominio', 'Torre', 'Propietario', una ? `Deuda (${simboloDe(una)})` : 'Deuda', 'Cargos vencidos', 'Días de atraso', ...(una ? [] : ['Moneda'])],
+      ['Unidad', 'Condominio', 'Block', 'Propietario', una ? `Deuda (${simboloDe(una)})` : 'Deuda', 'Cargos vencidos', 'Días de atraso', ...(una ? [] : ['Moneda'])],
       list.items.map(m => [texto(m.unidad), m.complejo?.nombre ?? '', m.estructura?.nombre ?? '', texto(m.propietario), Number(m.deuda_total).toFixed(2), m.cargos_vencidos, m.dias_max_atraso, ...(una ? [] : [m.moneda])]),
     );
   }
@@ -76,7 +76,7 @@ export default function Morosidad() {
   const columns: Column<Moroso>[] = [
     { key: 'unidad', header: 'Unidad', cell: m => <span className="font-medium">{texto(m.unidad) || '—'}</span> },
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: m => m.complejo?.nombre ?? '—' },
-    { key: 'torre', header: 'Torre', hideBelow: 'sm', cell: m => m.estructura?.nombre ?? '—' },
+    { key: 'torre', header: 'Block', hideBelow: 'sm', cell: m => m.estructura?.nombre ?? '—' },
     { key: 'propietario', header: 'Propietario', hideBelow: 'sm', cell: m => texto(m.propietario) || '—' },
     { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{dinero(m.deuda_total, m.moneda)}</span> },
     { key: 'meses', header: 'Meses vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.recibos?.length ?? '—'}</span> },
@@ -89,7 +89,7 @@ export default function Morosidad() {
     return (
       <>
         <PageHeader title="Morosidad" description="Unidades con cargos vencidos, de mayor a menor deuda." />
-        <Card><div className="p-5"><AvisoModulo modulo="reportes" /><p className="mt-3 text-sm text-muted">La cobranza sigue igual: tus recibos, pagos y cargos vencidos están en sus pantallas. El reporte de morosidad y sus exportes son del plan Pro.</p></div></Card>
+        <Card><div className="p-5"><AvisoModulo modulo="reportes" /><p className="mt-3 text-sm text-muted">La cobranza sigue igual: tus recibos, pagos y cargos vencidos están en sus pantallas. El reporte de morosidad y sus exportes son del plan Torre Pro.</p></div></Card>
       </>
     );
   }

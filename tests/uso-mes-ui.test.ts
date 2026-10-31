@@ -30,7 +30,7 @@ describe('mensajes de los vouchers', () => {
   it('en Gratis dice lo que se validó a mano y lo que cambia con Pro', () => {
     assert.equal(
       mensajeVouchers(uso({ vouchers_a_mano: 4 }), 'gratis', false),
-      'Este mes validaste a mano 4 vouchers. Con Pro, la IA los lee y valida los que coinciden; tú sólo revisas.',
+      'Este mes validaste a mano 4 vouchers. Con Torre Pro, la IA los lee y valida los que coinciden; tú sólo revisas.',
     );
     assert.equal(mensajeVouchers(uso({ vouchers_a_mano: 1 }), 'gratis', false)?.startsWith('Este mes validaste a mano 1 voucher.'), true);
   });

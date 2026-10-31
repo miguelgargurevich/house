@@ -191,7 +191,7 @@ export function MedioFormModal({ medio, ambitos, inicial, junta, onClose, onSave
               <option value="ahorros">Ahorros</option>
               <option value="corriente">Corriente</option>
             </Select>
-            <Select label="Moneda" hint="Sólo informa al vecino: House no convierte nada." {...register('moneda', { required: true })}>
+            <Select label="Moneda" hint="Sólo informa al vecino: Torre no convierte nada." {...register('moneda', { required: true })}>
               {MONEDAS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </Select>
             <Input

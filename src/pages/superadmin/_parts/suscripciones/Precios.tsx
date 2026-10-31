@@ -33,7 +33,7 @@ function FilaModulo({ m, tasa, onGuardado }: { m: Modulo; tasa: string; onGuarda
     <li className="flex flex-wrap items-end gap-3 py-3">
       <div className="min-w-[12rem] flex-1"><p className="text-sm font-medium">{m.nombre}</p><p className="text-xs text-muted">Sólo para suscripciones antiguas con este módulo suelto (en soles): <span className="num">{conIgv(precio, tasa)}</span> por depto al mes con IGV</p></div>
       <Input label="Precio base (S/, sin impuesto)" inputMode="decimal" value={precio} onChange={e => setPrecio(e.target.value)} className="w-44" />
-      <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={activo} onChange={e => setActivo(e.target.checked)} />Se muestra en «lo que trae Pro»</label>
+      <label className="flex h-10 items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={activo} onChange={e => setActivo(e.target.checked)} />Se muestra en «lo que trae Torre Pro»</label>
       <Button size="sm" loading={busy} onClick={() => void guardar()}>Guardar</Button>
     </li>
   );
@@ -108,8 +108,8 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
         <Input label="Tasa de IGV de Perú" inputMode="decimal" hint="0.18 = 18 %. Es la de Perú en «Impuestos y moneda por país»." {...t('igv_tasa')} />
         <Input label="Días de gracia" type="number" min={0} max={90} {...t('dias_gracia')} />
         <Input label="Avisar de vencimiento (días antes)" type="number" min={1} max={60} {...t('dias_aviso_vencimiento')} />
-        <Input label="Días de prueba de Pro al registrarse" type="number" min={0} max={90} hint="0 = sin prueba: el condominio nace en Gratis." {...t('dias_prueba_pro')} />
-        <Input label="Días de Gratis" type="number" min={0} max={365} hint="90 = 3 meses (la prueba de Pro va dentro). Pasado el plazo, el condominio queda en solo lectura. 0 = sin plazo." {...t('dias_gratis')} />
+        <Input label="Días de prueba de Torre Pro al registrarse" type="number" min={0} max={90} hint="0 = sin prueba: el condominio nace en Torre Gratis." {...t('dias_prueba_pro')} />
+        <Input label="Días de Torre Gratis" type="number" min={0} max={365} hint="90 = 3 meses (la prueba de Torre Pro va dentro). Pasado el plazo, el condominio queda en solo lectura. 0 = sin plazo." {...t('dias_gratis')} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Correo para avisos (registros y solicitudes)" type="email" {...t('correo_superadmin')} />
@@ -171,11 +171,11 @@ export function PreciosYPagos() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Módulos (ya no se venden sueltos)" description="Pro los trae todos. El precio sólo se usa para las suscripciones antiguas que los tenían sueltos; al público no se le muestra." />
+        <CardHeader title="Módulos (ya no se venden sueltos)" description="Torre Pro los trae todos. El precio sólo se usa para las suscripciones antiguas que los tenían sueltos; al público no se le muestra." />
         <CardBody><ul className="divide-y divide-line">{data.modulos.map(m => <FilaModulo key={m.clave} m={m} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
       </Card>
       <Card>
-        <CardHeader title="Planes" description="Precio BASE en soles por departamento al mes (el público lo ve sin impuesto y el impuesto se suma al pagar). Las otras monedas se fijan en «Precios por moneda». Gratis y cortesía no cobran; Pro y Administradora cobran como mínimo los departamentos que indiques. Un plan oculto no sale en la página de precios." />
+        <CardHeader title="Planes" description="Precio BASE en soles por departamento al mes (el público lo ve sin impuesto y el impuesto se suma al pagar). Las otras monedas se fijan en «Precios por moneda». Torre Gratis y cortesía no cobran; Torre Pro y Torre Administradora cobran como mínimo los departamentos que indiques. Un plan oculto no sale en la página de precios." />
         <CardBody><ul className="divide-y divide-line">{data.planes.map(p => <FilaPlan key={p.clave} p={p} tasa={tasa} onGuardado={reload} />)}</ul></CardBody>
       </Card>
       <ImpuestosYPrecios impuestos={data.impuestos} precios={data.precios_moneda} planes={data.planes} onGuardado={reload} />

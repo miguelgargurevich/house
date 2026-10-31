@@ -29,17 +29,17 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
     <section aria-labelledby="comparativa-titulo" className="bg-surface2">
       <Aparece className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
         <h2 id="comparativa-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Qué trae cada plan</h2>
-        <p className="mt-3 max-w-xl text-lg">Básico y Pro traen todo lo de Gratis, sin plazo. Lo demás —IA, WhatsApp, asistente, mora automática y reportes— es de Pro.</p>
+        <p className="mt-3 max-w-xl text-lg">Torre Básico y Torre Pro traen todo lo de Torre Gratis, sin plazo. Lo demás —IA, WhatsApp, asistente, mora automática y reportes— es de Torre Pro.</p>
         <div className="mt-8 overflow-hidden rounded-xl bg-surface">
           <div className="relative overflow-x-auto">
             <table className="w-full text-base sm:min-w-[30rem]">
-              <caption className="sr-only">Comparación entre Gratis, Básico y Pro</caption>
+              <caption className="sr-only">Comparación entre Torre Gratis, Torre Básico y Torre Pro</caption>
               <thead>
                 <tr>
                   <th scope="col" className="px-3 py-4 text-left align-bottom font-medium text-muted sm:px-6">Función</th>
-                  <th scope="col" className={cabeza}><span className="block text-lg font-semibold">{gratis?.nombre ?? 'Gratis'}</span><span className="num block text-sm font-normal text-muted">{dinero(gratis?.precio_por_unidad ?? 0, cat.moneda)}</span></th>
+                  <th scope="col" className={cabeza}><span className="block text-lg font-semibold">{gratis?.nombre ?? 'Torre Gratis'}</span><span className="num block text-sm font-normal text-muted">{dinero(gratis?.precio_por_unidad ?? 0, cat.moneda)}</span></th>
                   {basico && <th scope="col" className={cabeza}><span className="block text-lg font-semibold">{basico.nombre}</span><span className="num block text-sm font-normal text-muted">{basico.precio_por_unidad == null ? 'Consúltanos' : dinero(basico.precio_por_unidad, cat.moneda)}</span></th>}
-                  <th scope="col" className={`${cabeza} bg-brand text-on-brand`}><span className="block text-lg font-semibold">{pro?.nombre ?? 'Pro'}</span><span className="num block text-sm font-normal">{pro?.precio_por_unidad == null ? 'Consúltanos' : dinero(pro.precio_por_unidad, cat.moneda)}</span></th>
+                  <th scope="col" className={`${cabeza} bg-brand text-on-brand`}><span className="block text-lg font-semibold">{pro?.nombre ?? 'Torre Pro'}</span><span className="num block text-sm font-normal">{pro?.precio_por_unidad == null ? 'Consúltanos' : dinero(pro.precio_por_unidad, cat.moneda)}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -58,7 +58,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
             </table>
           </div>
         </div>
-        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}.{basico?.unidades_minimas != null && basico.unidades_maximas != null && ` ${basico.nombre} cobra como mínimo ${basico.unidades_minimas} departamentos y llega hasta ${basico.unidades_maximas}.`}{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `, a ${dinero(adm.precio_por_unidad, cat.moneda)}`}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
+        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}.{basico?.unidades_minimas != null && basico.unidades_maximas != null && ` ${basico.nombre} cobra como mínimo ${basico.unidades_minimas} departamentos y llega hasta ${basico.unidades_maximas}.`}{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Torre Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `, a ${dinero(adm.precio_por_unidad, cat.moneda)}`}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
       </Aparece>
     </section>
   );

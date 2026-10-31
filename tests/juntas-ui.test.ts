@@ -187,11 +187,11 @@ describe('juntas: funciones de la pantalla', () => {
     assert.match(textoCuentaJunta({ desde: '2026-01-01' }), /^Cuenta de la junta 2026 \(desde .*2026\)$/);
   });
 
-  it('palabraDe: «block» si todos los edificios son blocks; «torre» si hay otros o ninguno (la junta del condominio no cuenta)', () => {
+  it('palabraDe: siempre «block», cualquiera sea el tipo del edificio (la junta del condominio no cuenta)', () => {
     assert.equal(palabraDe([{ estructura: { tipo: 'Block' } }, { estructura: { tipo: 'block' } }, { estructura: null }]), 'block');
-    assert.equal(palabraDe([{ estructura: { tipo: 'Block' } }, { estructura: { tipo: 'Torre' } }]), 'torre');
-    assert.equal(palabraDe([{ estructura: null }]), 'torre');
-    assert.equal(palabraDe([]), 'torre');
+    assert.equal(palabraDe([{ estructura: { tipo: 'Block' } }, { estructura: { tipo: 'Torre' } }]), 'block');
+    assert.equal(palabraDe([{ estructura: null }]), 'block');
+    assert.equal(palabraDe([]), 'block');
   });
 
   it('cargoRepetido avisa del presidente, el tesorero y el secretario repetidos (no de los vocales); diaSiguiente respeta los bisiestos', () => {

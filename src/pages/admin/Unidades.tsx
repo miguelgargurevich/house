@@ -11,7 +11,7 @@ export default function Unidades() {
     <>
       <PageHeader
         title="Unidades"
-        description="Departamentos, casas, locales, estacionamientos y depósitos, con su torre, propietario e inquilino."
+        description="Departamentos, casas, locales, estacionamientos y depósitos, con su block, propietario e inquilino."
         actions={<Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => setEditando('nuevo')}>Nueva unidad</Button>}</Bloqueable>}
       />
       <ListaDeUnidades editando={editando} onEditando={setEditando} />

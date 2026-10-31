@@ -25,20 +25,20 @@ const pendiente = (valor: string) => <Dato valor={valor} />;
 export function textosPrivacidad(l: Legal): { intro: ReactNode; secciones: Seccion[] } {
   const correo = dato(l, 'correo');
   return {
-    intro: <p>Esta política explica qué datos personales trata House, para qué, con quién los comparte y cómo puedes ejercer tus derechos, según la Ley N.º 29733, Ley de Protección de Datos Personales, y su Reglamento (D.S. N.º 016-2024-JUS).</p>,
+    intro: <p>Esta política explica qué datos personales trata Torre, para qué, con quién los comparte y cómo puedes ejercer tus derechos, según la Ley N.º 29733, Ley de Protección de Datos Personales, y su Reglamento (D.S. N.º 016-2024-JUS).</p>,
     secciones: [
       {
         id: 'responsable',
         titulo: '1. Quién es el responsable',
         cuerpo: <>
           <ul>
-            <li>Responsable de House: {dato(l, 'razon_social')}, RUC {dato(l, 'ruc')}, con domicilio en {dato(l, 'domicilio')}.</li>
+            <li>Responsable de Torre: {dato(l, 'razon_social')}, RUC {dato(l, 'ruc')}, con domicilio en {dato(l, 'domicilio')}.</li>
             <li>Contacto para temas de privacidad: {correo}.</li>
           </ul>
-          <p>House es un servicio para administrar edificios y condominios. Hay dos situaciones distintas:</p>
+          <p>Torre es un servicio para administrar edificios y condominios. Hay dos situaciones distintas:</p>
           <ul>
-            <li><strong>Si te registras como administradora o junta directiva</strong>, House trata tus datos como <strong>titular del banco de datos</strong> de sus clientes.</li>
-            <li><strong>Si eres vecino (propietario o inquilino) o personal del edificio</strong>, tus datos los carga y decide tu administradora o tu junta. Ella es la <strong>responsable</strong> de ese tratamiento y House actúa como <strong>encargado</strong>: trata los datos sólo para prestarle el servicio y según sus instrucciones. Para ejercer tus derechos puedes dirigirte a tu administradora o escribirnos; si nos escribes, se lo trasladamos.</li>
+            <li><strong>Si te registras como administradora o junta directiva</strong>, Torre trata tus datos como <strong>titular del banco de datos</strong> de sus clientes.</li>
+            <li><strong>Si eres vecino (propietario o inquilino) o personal del edificio</strong>, tus datos los carga y decide tu administradora o tu junta. Ella es la <strong>responsable</strong> de ese tratamiento y Torre actúa como <strong>encargado</strong>: trata los datos sólo para prestarle el servicio y según sus instrucciones. Para ejercer tus derechos puedes dirigirte a tu administradora o escribirnos; si nos escribes, se lo trasladamos.</li>
           </ul>
         </>,
       },
@@ -75,7 +75,7 @@ export function textosPrivacidad(l: Legal): { intro: ReactNode; secciones: Secci
             <li>Atender consultas y la facturación del plan contratado.</li>
             <li>Seguridad y prevención de fraude: registro de accesos y cambios, límites de intentos.</li>
           </ol>
-          <p>Estas finalidades son necesarias para el servicio que tú o tu administradora contrataron. <strong>No vendemos tus datos ni los usamos para publicidad de terceros.</strong> Si algún día queremos enviarte novedades comerciales de House, te pediremos un consentimiento aparte, que podrás retirar cuando quieras.</p>
+          <p>Estas finalidades son necesarias para el servicio que tú o tu administradora contrataron. <strong>No vendemos tus datos ni los usamos para publicidad de terceros.</strong> Si algún día queremos enviarte novedades comerciales de Torre, te pediremos un consentimiento aparte, que podrás retirar cuando quieras.</p>
         </>,
       },
       {
@@ -105,8 +105,8 @@ export function textosPrivacidad(l: Legal): { intro: ReactNode; secciones: Secci
         id: 'plazos',
         titulo: '6. Cuánto tiempo los guardamos',
         cuerpo: <ul>
-          <li>Mientras la cuenta o el condominio estén activos en House.</li>
-          <li>Recibos, pagos y vouchers: mientras el condominio use House y, después, el tiempo que exijan las normas contables y tributarias o que haga falta para atender reclamos.</li>
+          <li>Mientras la cuenta o el condominio estén activos en Torre.</li>
+          <li>Recibos, pagos y vouchers: mientras el condominio use Torre y, después, el tiempo que exijan las normas contables y tributarias o que haga falta para atender reclamos.</li>
           <li>Registros de acceso y de cambios: hasta {pendiente(PENDIENTES.plazo_auditoria)}.</li>
           <li>Al terminar el servicio, la administradora puede pedir una copia de sus datos y su eliminación.</li>
         </ul>,
@@ -120,24 +120,24 @@ export function textosPrivacidad(l: Legal): { intro: ReactNode; secciones: Secci
         id: 'derechos',
         titulo: '8. Tus derechos',
         cuerpo: <>
-          <p>Puedes pedir <strong>acceso</strong> a tus datos, su <strong>rectificación</strong> (corregirlos), su <strong>cancelación</strong> (eliminarlos) y <strong>oponerte</strong> a su tratamiento, además de revocar un consentimiento que nos hayas dado. Escríbenos a {correo} indicando tu nombre, tu correo en House y qué pides. Responderemos en los plazos de ley. Muchos datos los puedes corregir tú mismo en <strong>Mi perfil</strong>.</p>
+          <p>Puedes pedir <strong>acceso</strong> a tus datos, su <strong>rectificación</strong> (corregirlos), su <strong>cancelación</strong> (eliminarlos) y <strong>oponerte</strong> a su tratamiento, además de revocar un consentimiento que nos hayas dado. Escríbenos a {correo} indicando tu nombre, tu correo en Torre y qué pides. Responderemos en los plazos de ley. Muchos datos los puedes corregir tú mismo en <strong>Mi perfil</strong>.</p>
           <p>Si no estás conforme con la respuesta, puedes acudir a la Autoridad Nacional de Protección de Datos Personales del Ministerio de Justicia y Derechos Humanos.</p>
         </>,
       },
       {
         id: 'cookies',
         titulo: '9. Cookies',
-        cuerpo: <p>House usa sólo lo necesario para que funcione: la sesión iniciada y preferencias como el tema claro u oscuro. No usamos cookies de publicidad ni de seguimiento de terceros.</p>,
+        cuerpo: <p>Torre usa sólo lo necesario para que funcione: la sesión iniciada y preferencias como el tema claro u oscuro. No usamos cookies de publicidad ni de seguimiento de terceros.</p>,
       },
       {
         id: 'menores',
         titulo: '10. Menores de edad',
-        cuerpo: <p>House no está dirigido a menores de 18 años y no pedimos sus datos a propósito.</p>,
+        cuerpo: <p>Torre no está dirigido a menores de 18 años y no pedimos sus datos a propósito.</p>,
       },
       {
         id: 'cambios',
         titulo: '11. Cambios a esta política',
-        cuerpo: <p>Si la cambiamos, publicaremos la nueva versión aquí con su fecha y, si el cambio es importante, te avisaremos dentro de House o por correo.</p>,
+        cuerpo: <p>Si la cambiamos, publicaremos la nueva versión aquí con su fecha y, si el cambio es importante, te avisaremos dentro de Torre o por correo.</p>,
       },
     ],
   };
@@ -151,7 +151,7 @@ export function textosTerminos(l: Legal): { intro: ReactNode; secciones: Seccion
       {
         id: 'servicio',
         titulo: '1. El servicio',
-        cuerpo: <p>House es un servicio en línea de {dato(l, 'razon_social')} (RUC {dato(l, 'ruc')}) para administrar edificios y condominios: recibos, pagos, morosidad, comunicados, junta directiva y portal del vecino. Al crear una cuenta o usar House aceptas estos términos y la <Link to="/privacidad" className="font-medium text-brand underline">Política de privacidad</Link>.</p>,
+        cuerpo: <p>Torre es un servicio en línea de {dato(l, 'razon_social')} (RUC {dato(l, 'ruc')}) para administrar edificios y condominios: recibos, pagos, morosidad, comunicados, junta directiva y portal del vecino. Al crear una cuenta o usar Torre aceptas estos términos y la <Link to="/privacidad" className="font-medium text-brand underline">Política de privacidad</Link>.</p>,
       },
       {
         id: 'cuentas',
@@ -166,9 +166,9 @@ export function textosTerminos(l: Legal): { intro: ReactNode; secciones: Seccion
         id: 'planes',
         titulo: '3. Planes y pagos',
         cuerpo: <ul>
-          <li>El plan <strong>Gratis</strong> no tiene costo, dura 3 meses desde que se crea el condominio en House, llega hasta 20 departamentos y tiene los demás límites publicados en <Link to="/precios" className="font-medium text-brand underline">Precios</Link>.</li>
-          <li>Al terminar el plazo de Gratis, el condominio queda en <strong>solo lectura</strong>: se puede ver todo, pero no registrar recibos, pagos, comunicados ni otros movimientos nuevos hasta que pase a un plan de pago (Básico, Pro o Administradora). No se borra ningún dato: al pasar a un plan de pago, todo vuelve a estar disponible.</li>
-          <li>Los planes de pago se cobran por departamento y por mes, según la tarifa vigente publicada. Si el pago vence y no se renueva, el condominio vuelve a las funciones de Gratis y, si su plazo de Gratis ya terminó, queda en solo lectura; sus datos se conservan.</li>
+          <li>El plan <strong>Torre Gratis</strong> no tiene costo, dura 3 meses desde que se crea el condominio en Torre, llega hasta 20 departamentos y tiene los demás límites publicados en <Link to="/precios" className="font-medium text-brand underline">Precios</Link>.</li>
+          <li>Al terminar el plazo de Torre Gratis, el condominio queda en <strong>solo lectura</strong>: se puede ver todo, pero no registrar recibos, pagos, comunicados ni otros movimientos nuevos hasta que pase a un plan de pago (Torre Básico, Torre Pro o Torre Administradora). No se borra ningún dato: al pasar a un plan de pago, todo vuelve a estar disponible.</li>
+          <li>Los planes de pago se cobran por departamento y por mes, según la tarifa vigente publicada. Si el pago vence y no se renueva, el condominio vuelve a las funciones de Torre Gratis y, si su plazo de Torre Gratis ya terminó, queda en solo lectura; sus datos se conservan.</li>
           <li>Podemos cambiar precios y planes avisando con al menos {pendiente(PENDIENTES.dias_aviso_precios)} días de anticipación; el cambio rige desde el siguiente período.</li>
         </ul>,
       },
@@ -176,9 +176,9 @@ export function textosTerminos(l: Legal): { intro: ReactNode; secciones: Seccion
         id: 'encargo',
         titulo: '4. Datos del condominio y de los vecinos (encargo de tratamiento)',
         cuerpo: <ul>
-          <li>La administradora o la junta es la <strong>responsable</strong> de los datos personales que carga en House (vecinos, personal, pagos y vouchers) y declara tener una base legal para tratarlos, como la relación de administración del edificio.</li>
-          <li>House actúa como <strong>encargado del tratamiento</strong>: trata esos datos sólo para prestar el servicio, según las instrucciones de la administradora, con medidas de seguridad, y con proveedores sujetos a la misma obligación (ver la Política de privacidad).</li>
-          <li>House no usa esos datos para fines propios ni los vende.</li>
+          <li>La administradora o la junta es la <strong>responsable</strong> de los datos personales que carga en Torre (vecinos, personal, pagos y vouchers) y declara tener una base legal para tratarlos, como la relación de administración del edificio.</li>
+          <li>Torre actúa como <strong>encargado del tratamiento</strong>: trata esos datos sólo para prestar el servicio, según las instrucciones de la administradora, con medidas de seguridad, y con proveedores sujetos a la misma obligación (ver la Política de privacidad).</li>
+          <li>Torre no usa esos datos para fines propios ni los vende.</li>
           <li>Al terminar el servicio, la administradora puede pedir una copia de sus datos. Después de {pendiente(PENDIENTES.dias_conservacion)} días los eliminaremos o anonimizaremos, salvo lo que la ley obligue a conservar.</li>
           <li>Si recibimos una solicitud de un vecino sobre sus datos, se la trasladamos a su administradora.</li>
         </ul>,
@@ -186,7 +186,7 @@ export function textosTerminos(l: Legal): { intro: ReactNode; secciones: Seccion
       {
         id: 'uso',
         titulo: '5. Uso aceptable',
-        cuerpo: <p>No se permite usar House para enviar mensajes no deseados, cargar datos de personas sin una base legal, subir contenido ilícito, intentar acceder a datos de otras administradoras, ni afectar el funcionamiento del servicio.</p>,
+        cuerpo: <p>No se permite usar Torre para enviar mensajes no deseados, cargar datos de personas sin una base legal, subir contenido ilícito, intentar acceder a datos de otras administradoras, ni afectar el funcionamiento del servicio.</p>,
       },
       {
         id: 'vouchers',
@@ -196,12 +196,12 @@ export function textosTerminos(l: Legal): { intro: ReactNode; secciones: Seccion
       {
         id: 'responsabilidad',
         titulo: '7. Disponibilidad y responsabilidad',
-        cuerpo: <p>Trabajamos para que House esté disponible y sus datos respaldados, pero puede haber interrupciones por mantenimiento o fallas de terceros. House no responde por decisiones tomadas sobre datos cargados incorrectamente por los usuarios. Nada de esto limita los derechos que te da el Código de Protección y Defensa del Consumidor cuando corresponda.</p>,
+        cuerpo: <p>Trabajamos para que Torre esté disponible y sus datos respaldados, pero puede haber interrupciones por mantenimiento o fallas de terceros. Torre no responde por decisiones tomadas sobre datos cargados incorrectamente por los usuarios. Nada de esto limita los derechos que te da el Código de Protección y Defensa del Consumidor cuando corresponda.</p>,
       },
       {
         id: 'baja',
         titulo: '8. Suspensión y baja',
-        cuerpo: <p>Puedes dejar de usar House cuando quieras. Podemos suspender una cuenta que incumpla estos términos, avisando antes salvo que haya un riesgo para otros usuarios.</p>,
+        cuerpo: <p>Puedes dejar de usar Torre cuando quieras. Podemos suspender una cuenta que incumpla estos términos, avisando antes salvo que haya un riesgo para otros usuarios.</p>,
       },
       {
         id: 'cambios',

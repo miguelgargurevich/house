@@ -85,7 +85,7 @@ export default function Pagos() {
         </span>
       </span>
     ) },
-    { key: 'torre', header: 'Torre', hideBelow: 'xl', cell: p => (
+    { key: 'torre', header: 'Block', hideBelow: 'xl', cell: p => (
       <span className="block">{p.unidad?.estructura?.nombre ?? '—'}{p.unidad?.complejo && <span className="block text-xs text-muted">{p.unidad.complejo.nombre}</span>}</span>
     ) },
     { key: 'metodo', header: 'Método', hideBelow: 'lg', cell: p => (
@@ -110,7 +110,7 @@ export default function Pagos() {
     <>
       <PageHeader
         title="Pagos"
-        description={junta ? (tesorero ? 'Revisa los comprobantes de los vecinos de tu torre y confirma que el dinero llegó a la cuenta o al Yape de la junta: la administración verá tu conformidad y valida el pago. También puedes registrar aquí los pagos que recibas directamente.' : 'Revisa los comprobantes de los vecinos de tu torre. El tesorero confirma que el dinero llegó a la cuenta o al Yape de la junta y la administración valida el pago. También puedes registrar aquí los pagos que recibas directamente.') : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
+        description={junta ? (tesorero ? 'Revisa los comprobantes de los vecinos de tu block y confirma que el dinero llegó a la cuenta o al Yape de la junta: la administración verá tu conformidad y valida el pago. También puedes registrar aquí los pagos que recibas directamente.' : 'Revisa los comprobantes de los vecinos de tu block. El tesorero confirma que el dinero llegó a la cuenta o al Yape de la junta y la administración valida el pago. También puedes registrar aquí los pagos que recibas directamente.') : 'Cada fila es el pago de un mantenimiento (todos sus conceptos, un comprobante). Revisa los que registran los vecinos y registra aquí los que recibes por transferencia, Yape, Plin, efectivo o tarjeta.'}
         actions={puedeRegistrar ? (
           <>
             {/* La junta carga las lecturas de agua de su torre desde aquí (el menú de la junta no tiene esa entrada). */}
@@ -121,7 +121,7 @@ export default function Pagos() {
       />
       <StatStrip
         stats={[
-          { label: textos.stat, value: cargandoStats ? <Skeleton className="h-7 w-28" /> : dinerosPorMoneda(montosPagina), tone: textos.tone, hint: !cargandoStats && monedasEnPagina > 1 ? 'Una cifra por moneda: no se suman' : !cargandoStats && torresEnPagina > 1 ? `Suma ${torresEnPagina} torres: filtra por torre para separarlas` : undefined },
+          { label: textos.stat, value: cargandoStats ? <Skeleton className="h-7 w-28" /> : dinerosPorMoneda(montosPagina), tone: textos.tone, hint: !cargandoStats && monedasEnPagina > 1 ? 'Una cifra por moneda: no se suman' : !cargandoStats && torresEnPagina > 1 ? `Suma ${torresEnPagina} blocks: filtra por block para separarlas` : undefined },
           { label: 'Pagos en esta página', value: cargandoStats ? <Skeleton className="h-7 w-10" /> : list.items.length, hint: list.error ? undefined : `${list.total} en total` },
         ]}
       />

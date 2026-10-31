@@ -65,7 +65,7 @@ export default function Login() {
               <rect width="32" height="32" rx="8" className="fill-brand" />
               <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
             </svg>
-            <span className="text-xl">House</span>
+            <span className="text-xl">Torre</span>
           </div>
           <h1 className="text-2xl font-semibold">Ingresa a tu cuenta</h1>
           <p className="mt-1 text-sm text-muted">Recibos, pagos y mantenimiento de tu condominio.</p>

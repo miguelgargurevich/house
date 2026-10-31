@@ -13,13 +13,13 @@ export default function JuntaAgua() {
 
   return (
     <>
-      <PageHeader title="Lecturas de agua" description="Carga la lectura de cada departamento de tu torre, la fecha de corte y el correo para enviar vouchers: salen en el recibo de cada vecino." />
+      <PageHeader title="Lecturas de agua" description="Carga la lectura de cada departamento de tu block, la fecha de corte y el correo para enviar vouchers: salen en el recibo de cada vecino." />
       {periodos.error ? (
         <Card><ErrorState message={periodos.error} onRetry={periodos.reload} /></Card>
       ) : periodos.loading && periodos.items.length === 0 ? (
         <Card><div className="space-y-3 p-5"><Skeleton className="h-10 w-64" /><Skeleton className="h-40 w-full" /></div></Card>
       ) : periodos.items.length === 0 ? (
-        <Card><EmptyState title="Aún no hay recibos" description="Cuando la administración emita el recibo de tu torre, podrás cargar aquí las lecturas de agua." /></Card>
+        <Card><EmptyState title="Aún no hay recibos" description="Cuando la administración emita el recibo de tu block, podrás cargar aquí las lecturas de agua." /></Card>
       ) : (
         <>
           <div className="mb-4 max-w-sm">

@@ -36,6 +36,6 @@ export interface Piso { id: number; numero: number | null }
 export const ESTADOS_UNIDAD = [{ value: 'activa', label: 'Activa' }, { value: 'inactiva', label: 'Inactiva' }];
 
 /** Texto de la torre; si no tiene nombre, se muestra el id (las torres siempre se nombran al crearlas). */
-export const nombreTorre = (t: { id: number; nombre: string | null }) => t.nombre?.trim() || `Torre ${t.id}`;
+export const nombreTorre = (t: { id: number; nombre: string | null }) => t.nombre?.trim() || `Block ${t.id}`;
 
 export const idONull = (v: string) => (v ? Number(v) : null);

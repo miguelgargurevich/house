@@ -46,8 +46,8 @@ export function Modulos({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave
   const pro = cat.planes.find(p => p.clave === 'pro');
   return (
     <section aria-labelledby="modulos-titulo" className="scroll-mt-6">
-      <h2 id="modulos-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Lo que trae {pro?.nombre ?? 'Pro'}</h2>
-      <p className="mt-3 max-w-xl text-lg">Estos módulos van incluidos en {pro?.nombre ?? 'Pro'}; no se venden por separado y el plan Gratis no los trae.</p>
+      <h2 id="modulos-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Lo que trae {pro?.nombre ?? 'Torre Pro'}</h2>
+      <p className="mt-3 max-w-xl text-lg">Estos módulos van incluidos en {pro?.nombre ?? 'Torre Pro'}; no se venden por separado y el plan Torre Gratis no los trae.</p>
       <ul className="mt-8 space-y-10">
         {cat.modulos.map(m => <Fila key={m.clave} m={m} />)}
       </ul>

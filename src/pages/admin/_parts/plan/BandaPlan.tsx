@@ -19,7 +19,7 @@ export function BandaPlan() {
   const condominios = (data?.condominios ?? []).filter(c => elegido == null || c.complejo_id === elegido);
   const avisos = condominios.flatMap(c => {
     const salida: { id: string; texto: string }[] = [];
-    if (c.en_prueba) salida.push({ id: `${c.complejo_id}-prueba`, texto: `Prueba de Pro${condominios.length > 1 ? ` de ${c.complejo}` : ''} · ${diasDePrueba(c.dias_para_vencer)}. Después sigues en Gratis, sin perder datos.` });
+    if (c.en_prueba) salida.push({ id: `${c.complejo_id}-prueba`, texto: `Prueba de Torre Pro${condominios.length > 1 ? ` de ${c.complejo}` : ''} · ${diasDePrueba(c.dias_para_vencer)}. Después sigues en Torre Gratis, sin perder datos.` });
     // Los días que le quedan al periodo gratis (el solo lectura ya tiene su banda fija arriba de todo).
     const gratis = diasGratisTexto(c.dias_gratis_restantes);
     if (gratis && !c.solo_lectura) salida.push({ id: `${c.complejo_id}-gratis`, texto: `${condominios.length > 1 ? `${c.complejo}: ` : ''}${gratis}. Después, el ${fechaLarga(c.solo_lectura_desde)}, queda en solo lectura. Elige un plan para seguir: ${ofertaDePago(c.basico_desde)}.` });

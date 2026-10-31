@@ -81,7 +81,7 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
         },
       });
       const n = r.recibos?.length ?? 1;
-      toast.ok(n > 1 ? `Se emitieron ${n} recibos, uno por torre` : 'Recibo emitido');
+      toast.ok(n > 1 ? `Se emitieron ${n} recibos, uno por block` : 'Recibo emitido');
       onSaved();
       onClose();
     } catch (e) { toast.error(errorText(e)); }
@@ -137,8 +137,8 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
             {(complejos.data?.items ?? []).map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </Select>
           {opcionesTorre.length > 0 && (
-            <Select label="Torre" className="sm:col-span-2" {...register('estructura_id')}>
-              <option value="">Todas las torres (un recibo por torre)</option>
+            <Select label="Block" className="sm:col-span-2" {...register('estructura_id')}>
+              <option value="">Todos los blocks (un recibo por block)</option>
               {opcionesTorre.map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
             </Select>
           )}
@@ -193,8 +193,8 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
             <Alert>{opcionesTorre.length === 0
               ? 'Se generará un cargo por cada unidad activa del condominio.'
               : torreElegida
-                ? `Se emitirá el recibo de ${nombreTorre(opcionesTorre.find(t => String(t.id) === torreElegida) ?? { id: 0, nombre: 'la torre' })}: un cargo por cada unidad activa de esa torre.`
-                : `Se emitirá un recibo por cada torre (${opcionesTorre.length}), cada uno con un cargo por cada unidad activa de su torre.`}</Alert>
+                ? `Se emitirá el recibo de ${nombreTorre(opcionesTorre.find(t => String(t.id) === torreElegida) ?? { id: 0, nombre: 'el block' })}: un cargo por cada unidad activa de ese block.`
+                : `Se emitirá un recibo por cada block (${opcionesTorre.length}), cada uno con un cargo por cada unidad activa de su block.`}</Alert>
           </div>
         </form>
       )}

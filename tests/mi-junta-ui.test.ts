@@ -93,7 +93,7 @@ describe('«Mi junta» del residente: textos y enlaces', () => {
     assert.equal(nombreJunta({ complejo, estructura: null }), 'Junta central');
     assert.equal(laJunta({ complejo, estructura: null }), 'la Junta central');
     assert.equal(nombreJunta({ complejo, estructura: { id: 7, nombre: ' Block 3 ', tipo: 'Block' } }), 'Block 3');
-    assert.equal(nombreJunta({ complejo, estructura: { id: 7, nombre: null, tipo: 'Torre' } }), 'Torre 7');
+    assert.equal(nombreJunta({ complejo, estructura: { id: 7, nombre: null, tipo: 'Torre' } }), 'Block 7');
     assert.equal(laJunta({ complejo, estructura: { id: 7, nombre: 'Block 3', tipo: 'Block' } }), 'la junta de Block 3');
   });
 

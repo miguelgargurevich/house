@@ -37,7 +37,7 @@ export interface Comunicado {
 export const TOPE_TITULO = 120;
 export const TOPE_CUERPO = 4000;
 
-export const alcanceLabel = (c: Pick<Comunicado, 'estructura'>) => (c.estructura ? (c.estructura.nombre?.trim() || `Torre ${c.estructura.id}`) : 'Todo el condominio');
+export const alcanceLabel = (c: Pick<Comunicado, 'estructura'>) => (c.estructura ? (c.estructura.nombre?.trim() || `Block ${c.estructura.id}`) : 'Todo el condominio');
 
 /** «3 enviados · 1 con error», o «Sin envíos» si sólo se publicó en pantalla. */
 export function textoEnvios(e: Envios | undefined): string {

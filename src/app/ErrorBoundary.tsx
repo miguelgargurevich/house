@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, Estado> {
     return (
       <div className="mx-auto max-w-md space-y-4 px-6 py-16 text-center">
         <h1 className="text-xl font-semibold">Algo salió mal</h1>
-        <Alert tone="warn">Puede que haya una versión nueva de House. Recarga la página para continuar.</Alert>
+        <Alert tone="warn">Puede que haya una versión nueva de Torre. Recarga la página para continuar.</Alert>
         <Button onClick={() => location.reload()}>Recargar la página</Button>
       </div>
     );

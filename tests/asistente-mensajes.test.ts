@@ -91,7 +91,7 @@ describe('exportar a Markdown', () => {
   const fecha = new Date('2026-10-23T15:00:00-05:00');
   it('título, fecha y los turnos en orden; sin vacíos, sin parciales en curso y sin métricas', () => {
     const md = exportarMarkdown('Mis recibos', [u('1', 'Hola'), { ...a('2', 'Respuesta **uno**'), modelo: 'openai/secreto', latencia_ms: 900 }, a('3', '', 'error'), u('4', 'Otra'), a('5', 'a medias', 'transmitiendo')], fecha);
-    assert.equal(md, '# Mis recibos\n\n_Exportada de House el 23 de octubre de 2026._\n\n## Tú\n\nHola\n\n## Asistente\n\nRespuesta **uno**\n\n## Tú\n\nOtra\n');
+    assert.equal(md, '# Mis recibos\n\n_Exportada de Torre el 23 de octubre de 2026._\n\n## Tú\n\nHola\n\n## Asistente\n\nRespuesta **uno**\n\n## Tú\n\nOtra\n');
     assert.ok(!md.includes('secreto') && !md.includes('900'));
   });
   it('el título multilínea queda en una línea; conversación sin texto no revienta', () => {

@@ -24,7 +24,7 @@ export function VistaResumen({ data }: { data: Historial }) {
       <StatStrip stats={data.moneda !== null ? cifras(data.resumen, data.anio, data.moneda) : cifrasPorMoneda(data.resumen, data.anio)} />
       {data.moneda === null && <div className="mb-6"><AvisoMonedas /></div>}
       {data.resumen.meses_en_periodo === 1 && (
-        <div className="mb-6"><Alert tone="info">Este es tu primer mes en House. Con cada recibo nuevo, estos gráficos te mostrarán cómo se mueve tu mantenimiento mes a mes.</Alert></div>
+        <div className="mb-6"><Alert tone="info">Este es tu primer mes en Torre. Con cada recibo nuevo, estos gráficos te mostrarán cómo se mueve tu mantenimiento mes a mes.</Alert></div>
       )}
 
       {data.moneda !== null && (

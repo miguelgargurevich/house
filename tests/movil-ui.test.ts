@@ -39,14 +39,14 @@ describe('vista móvil', () => {
   it('medios de pago: el CCI admite guiones y el condominio de blocks dice «block», no «torre»', () => {
     const form = fuente('src/pages/admin/_parts/medios/MedioFormModal.tsx');
     assert.match(form, /\/\^\\d\{20\}\$\/\.test\(v\.replace\(\/\[\\s-\]\/g, ''\)\)/);
-    assert.match(fuente('src/pages/admin/_parts/medios/tipos.ts'), /every\(e => e\.tipo\?\.toLowerCase\(\) === 'block'\)/);
+    assert.match(fuente('src/pages/admin/_parts/medios/tipos.ts'), /return \{ una: 'block', todas: 'todos los blocks' \};/);
     assert.match(fuente('src/pages/admin/MediosPago.tsx'), /label=\{`Filtrar por \$\{palabra\.una\}`\}/);
   });
 
-  it('filtro de cobranza: «Todos los blocks» si todos son blocks (también «Block» con mayúscula); si no, «Todas las torres»', () => {
+  it('filtro de cobranza: siempre «Todos los blocks», sea cual sea el tipo de los edificios', () => {
     assert.deepEqual(palabraDeTorres([{ tipo: 'block' }, { tipo: 'Block' }]), { titulo: 'Block', todas: 'Todos los blocks' });
-    assert.deepEqual(palabraDeTorres([{ tipo: 'block' }, { tipo: 'torre' }]), { titulo: 'Torre', todas: 'Todas las torres' });
-    assert.deepEqual(palabraDeTorres([]), { titulo: 'Torre', todas: 'Todas las torres' });
+    assert.deepEqual(palabraDeTorres([{ tipo: 'block' }, { tipo: 'torre' }]), { titulo: 'Block', todas: 'Todos los blocks' });
+    assert.deepEqual(palabraDeTorres([]), { titulo: 'Block', todas: 'Todos los blocks' });
     assert.match(fuente('src/pages/admin/_parts/cobranza/SelectoresUbicacion.tsx'), /<option value="">\{palabra\.todas\}<\/option>/);
   });
 

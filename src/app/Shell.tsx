@@ -22,7 +22,7 @@ function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
         <rect width="32" height="32" rx="8" className="fill-brand" />
         <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
-      {!soloMarca && 'House'}
+      {!soloMarca && 'Torre'}
     </span>
   );
 }

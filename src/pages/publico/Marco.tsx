@@ -6,12 +6,12 @@ import { useCatalogo } from './catalogo';
 
 export function Logo() {
   return (
-    <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="House, inicio">
+    <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="Torre, inicio">
       <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
         <rect width="32" height="32" rx="8" className="fill-brand" />
         <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
-      <span className="text-xl">House</span>
+      <span className="text-xl">Torre</span>
     </Link>
   );
 }
@@ -36,7 +36,7 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false }: { chi
       </header>
       <main className={completo ? 'w-full flex-1' : cx('mx-auto w-full flex-1 px-4 py-8 sm:px-6 sm:py-12', ancho)}>{children}</main>
       <footer className={completo ? 'bg-surface2' : 'border-t border-line'}>
-        <p className={cx('mx-auto w-full px-4 py-6 text-xs text-muted sm:px-6', ancho)}>House · Administración de condominios. {data ? `Precios en ${monedaDe(data.moneda)?.plural ?? data.moneda}${Number(data.impuesto.tasa) > 0 ? `, sin ${data.impuesto.nombre}` : ''}.` : 'Precios sin impuestos.'}</p>
+        <p className={cx('mx-auto w-full px-4 py-6 text-xs text-muted sm:px-6', ancho)}>Torre · Administración de condominios. {data ? `Precios en ${monedaDe(data.moneda)?.plural ?? data.moneda}${Number(data.impuesto.tasa) > 0 ? `, sin ${data.impuesto.nombre}` : ''}.` : 'Precios sin impuestos.'}</p>
         <nav aria-label="Legal" className={cx('mx-auto flex w-full flex-wrap gap-x-2 px-4 pb-6 text-xs text-muted sm:px-6', ancho)}>
           <Link to="/privacidad" className="underline-offset-2 hover:text-ink hover:underline">Privacidad</Link>
           <span aria-hidden="true">·</span>

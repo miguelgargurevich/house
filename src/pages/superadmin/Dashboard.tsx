@@ -33,7 +33,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Resumen de la plataforma" description="Empresas, usuarios y cobranza de todos los condominios en House." />
+      <PageHeader title="Resumen de la plataforma" description="Empresas, usuarios y cobranza de todos los condominios en Torre." />
       {error ? (
         <Card><ErrorState message={error} onRetry={reload} /></Card>
       ) : loading || !data ? (

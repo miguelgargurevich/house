@@ -154,7 +154,7 @@ export function PagosResidente() {
         }
       >
         {ver && <div>{comprobante(ver)}</div>}
-        {ver && <ZonaImprimible><h2 className="mb-4 text-lg font-semibold">Comprobante de pago · House</h2>{comprobante(ver)}</ZonaImprimible>}
+        {ver && <ZonaImprimible><h2 className="mb-4 text-lg font-semibold">Comprobante de pago · Torre</h2>{comprobante(ver)}</ZonaImprimible>}
         {estadoIA && <div className="mt-4 print:hidden"><EstadoEvaluacion estado={estadoIA} /></div>}
         {ver?.estado_validacion === 'rechazado' && <div className="mt-4 print:hidden"><Alert tone="bad">Tu pago fue rechazado: {ver.motivo_rechazo ?? 'sin motivo indicado'}. Vuelve a pagar el mantenimiento desde Mis recibos.</Alert></div>}
         {ver?.comprobante && (

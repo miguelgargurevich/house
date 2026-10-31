@@ -191,7 +191,7 @@ describe('parámetros del turno', () => {
     assert.ok(ultima().url.endsWith('/models/gemini-flash-latest:generateContent'));
     c = ultima().cuerpo;
     assert.deepEqual(c.generationConfig, { temperature: 0.7, topP: 0.95, topK: 40, maxOutputTokens: 1024 + 1024, thinkingConfig: { thinkingBudget: 1024 } });
-    assert.equal(c.systemInstruction.parts[0].text.includes('Eres el asistente de House'), true);
+    assert.equal(c.systemInstruction.parts[0].text.includes('Eres el asistente de Torre'), true);
     assert.deepEqual(c.contents, [{ role: 'user', parts: [{ text: MSG }] }]);
   });
 

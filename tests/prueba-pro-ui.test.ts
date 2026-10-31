@@ -19,13 +19,13 @@ describe('pantallas de la prueba', () => {
   it('el superadmin fija los días de prueba (0 a 90) en la configuración de precios', () => {
     const f = fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx');
     assert.match(f, /dias_prueba_pro: number;/);
-    assert.match(f, /label="Días de prueba de Pro al registrarse" type="number" min=\{0\} max=\{90\}/);
+    assert.match(f, /label="Días de prueba de Torre Pro al registrarse" type="number" min=\{0\} max=\{90\}/);
     assert.match(f, /dias_prueba_pro: Number\(f\.dias_prueba_pro\)/);
   });
 
   it('Mi plan marca la prueba con su banda y no avisa de «vence» a quien está en prueba', () => {
     const f = fuente('src/pages/admin/MiPlan.tsx');
-    assert.match(f, /Prueba de Pro · \{diasDePrueba\(c\.dias_para_vencer\)\}/);
+    assert.match(f, /Prueba de Torre Pro · \{diasDePrueba\(c\.dias_para_vencer\)\}/);
     assert.match(f, /if \(c\.en_prueba\) return null;/);
   });
 

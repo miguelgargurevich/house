@@ -144,10 +144,10 @@ describe('el asistente describe el pago en un solo panel', () => {
     assert.match(p, /voucher[^.]*obligatorio|obligatori[^.]*voucher/i);
   });
 
-  it('el prompt ya no manda al vecino a «Cómo pagar» dentro del panel y dice que House avisa a la junta del block por correo', () => {
+  it('el prompt ya no manda al vecino a «Cómo pagar» dentro del panel y dice que Torre avisa a la junta del block por correo', () => {
     const p = fuente('src/config/ai-system-prompt.txt');
     assert.doesNotMatch(p, /luego «Cómo pagar»|«Ver QR»/);
     assert.match(p, /«Ver detalle» › «Ver \/ imprimir recibo»/);
-    assert.match(p, /House le manda tu voucher a la junta por correo[^.]*no hace falta que lo envíes tú/);
+    assert.match(p, /Torre le manda tu voucher a la junta por correo[^.]*no hace falta que lo envíes tú/);
   });
 });

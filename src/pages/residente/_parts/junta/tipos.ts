@@ -14,7 +14,7 @@ export interface JuntaVecino {
 }
 
 /** «Block 1», o «Junta central» si es la de todo el condominio. */
-export const nombreJunta = (a: JuntaVecino['ambito']) => (a.estructura ? a.estructura.nombre?.trim() || `Torre ${a.estructura.id}` : 'Junta central');
+export const nombreJunta = (a: JuntaVecino['ambito']) => (a.estructura ? a.estructura.nombre?.trim() || `Block ${a.estructura.id}` : 'Junta central');
 
 /** «la junta de Block 1» o «la Junta central»: para frases. */
 export const laJunta = (a: JuntaVecino['ambito']) => (a.estructura ? `la junta de ${nombreJunta(a)}` : 'la Junta central');

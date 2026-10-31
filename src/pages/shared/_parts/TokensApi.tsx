@@ -68,7 +68,7 @@ export function TokensApiPerfil() {
     <Card className="lg:col-span-2">
       <CardHeader
         title="Tokens de API"
-        description="Para conectar un cliente MCP (como Claude) y consultar tus datos de House. Son de solo lectura y ven exactamente lo mismo que tú."
+        description="Para conectar un cliente MCP (como Claude) y consultar tus datos de Torre. Son de solo lectura y ven exactamente lo mismo que tú."
         action={<Button size="sm" onClick={abrir} disabled={lleno} icon={<KeyIcon className="h-4 w-4" />}>Crear token</Button>}
       />
       <CardBody>

@@ -220,7 +220,7 @@ export function ReciboArticulo({ d }: { d: DetalleMantenimiento }) {
       <div className={cx('grid items-start gap-3', hayCajas ? 'sm:grid-cols-[3fr_2fr]' : '')}>
         {hayCajas && (
           <div className="space-y-2">
-            {dosGrupos && delBlock.length > 0 && <p className="font-bold uppercase">Cuentas de {block ?? 'la torre'}</p>}
+            {dosGrupos && delBlock.length > 0 && <p className="font-bold uppercase">Cuentas {block ? `de ${block}` : 'del block'}</p>}
             {delBlock.map(m => <CajaMedio key={m.id} m={m} correo={d.correo_vouchers} />)}
             {dosGrupos && <p className="font-bold uppercase">Cuentas del condominio{c ? ` ${c.nombre}` : ''}</p>}
             {delCondominio.map(m => <CajaMedio key={m.id} m={m} correo={delBlock.length === 0 ? d.correo_vouchers : null} />)}

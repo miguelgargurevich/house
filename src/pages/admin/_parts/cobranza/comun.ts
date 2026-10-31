@@ -38,7 +38,7 @@ export function nombreMes(mes: number): string {
 
 /** «Octubre de 2026 · Block 1 · Los Libertadores»: un recibo por torre, así que la torre va siempre en el rótulo (si no, N torres repetirían la misma opción). */
 export function etiquetaRecibo(r: Pick<ReciboFila, 'mes' | 'anio' | 'estructura' | 'complejo'>): string {
-  return `${periodo(r.mes, r.anio)}${r.estructura ? ` · ${r.estructura.nombre ?? `Torre ${r.estructura.id}`}` : ''} · ${r.complejo?.nombre ?? 'Condominio'}`;
+  return `${periodo(r.mes, r.anio)}${r.estructura ? ` · ${r.estructura.nombre ?? `Block ${r.estructura.id}`}` : ''} · ${r.complejo?.nombre ?? 'Condominio'}`;
 }
 
 /** Fila de la lista de recibos (la emisión del mes de UNA torre de un condominio; sin torre = condominio sin torres o recibo general). */

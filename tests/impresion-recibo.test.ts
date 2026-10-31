@@ -95,7 +95,7 @@ describe('comprobante del residente', () => {
   const funcion = pagos.slice(pagos.indexOf('function comprobante('), pagos.indexOf('const columns'));
 
   it('la zona imprimible lleva el comprobante completo con su título', () => {
-    assert.match(zonaPago, /Comprobante de pago · House/);
+    assert.match(zonaPago, /Comprobante de pago · Torre/);
     assert.match(zonaPago, /\{comprobante\(ver\)\}/);
   });
 

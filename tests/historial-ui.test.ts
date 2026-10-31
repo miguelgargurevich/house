@@ -286,7 +286,7 @@ describe('render de las pestañas de «Mi historial» (react-dom/server)', () =>
     const html = render(VistaResumen, { data: unMes });
     for (const t of ['Pagado', 'Promedio por mes', 'Deuda de hoy', 'Puntualidad', 'Cuánto pagas cada mes']) assert.ok(html.includes(t), `falta «${t}»`);
     assert.equal(canvas(html), 1, 'un canvas: el del total (la comparación no tiene promedio ni mes para una línea)');
-    assert.match(html, /Este es tu primer mes en House/);
+    assert.match(html, /Este es tu primer mes en Torre/);
     assert.match(html, /<div class="sr-only"><table><caption>Cuánto pagas cada mes, por concepto<\/caption>/, 'la tabla va dentro de un div sr-only: una <table> sr-only no recorta y ensancha la página en el celular');
     assert.doesNotMatch(html, /Aún no hay lecturas de agua|Aún no hay pagos para medir|Descargar Excel/, 'agua y puntualidad tienen su pestaña; los filtros y el Excel, los suyos');
   });

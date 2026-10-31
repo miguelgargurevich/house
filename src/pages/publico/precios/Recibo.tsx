@@ -11,7 +11,7 @@ const PRESETS = [20, 50, 100, 250] as const;
 const MAX = 100_000;
 
 /**
- * El recibo de House: la calculadora presentada como lo que House emite. Gratis (por 3 meses), Básico, Pro o Administradora; Pro trae todos los módulos.
+ * El recibo de House: la calculadora presentada como lo que House emite. Gratis (por 3 meses), Básico, Torre Pro o Torre Administradora; Pro trae todos los módulos.
  * Los topes y mínimos de departamentos salen del catálogo; el total al mes y al año lo calcula el servidor (`/api/publico/cotizar`).
  */
 export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: Eleccion; onCambio: (e: Eleccion) => void }) {
@@ -85,7 +85,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
                 <li key={m.clave} className={cx('flex items-center gap-3 rounded bg-surface2 px-3 py-2.5', trae ? 'text-ink' : 'text-muted')}>
                   <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-full', trae ? 'bg-brand text-on-brand' : 'bg-surface')} aria-hidden="true">{trae && <CheckIcon className="h-3.5 w-3.5" />}</span>
                   <span className="min-w-0 flex-1 text-base leading-snug">{m.nombre}</span>
-                  <span className="shrink-0 text-sm">{trae ? 'Incluido' : 'Sólo en Pro'}</span>
+                  <span className="shrink-0 text-sm">{trae ? 'Incluido' : 'Sólo en Torre Pro'}</span>
                 </li>
               );
             })}
@@ -105,7 +105,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
           <>
             <p className="text-sm font-medium opacity-90">{plan?.nombre} · {n} departamentos</p>
             <p className="mt-1 text-2xl font-semibold leading-tight sm:text-3xl">{plan?.nombre} llega hasta {tope} departamentos</p>
-            <p className="mt-2 text-lg">Con {n} necesitas {siguiente?.nombre ?? 'Pro'}{siguiente?.unidades_maximas != null ? `, que llega hasta ${siguiente.unidades_maximas}` : ', que no tiene tope'}.</p>
+            <p className="mt-2 text-lg">Con {n} necesitas {siguiente?.nombre ?? 'Torre Pro'}{siguiente?.unidades_maximas != null ? `, que llega hasta ${siguiente.unidades_maximas}` : ', que no tiene tope'}.</p>
             {siguiente && <button type="button" onClick={() => set({ plan: siguiente.clave })} className="mt-4 inline-flex h-11 items-center rounded bg-on-brand px-5 text-base font-semibold text-brand transition-colors duration-150 hover:opacity-90 active:scale-[0.98]">Ver el total con {siguiente.nombre}</button>}
           </>
         ) : (
@@ -114,7 +114,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
             {total.r ? (
               <div key={total.r.total_mes} className="sube-corto">
                 <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(total.r.total_mes, total.r.moneda)}</p>
-                <p className="num mt-2 text-lg">{gratis ? `Gratis ${plazoGratisTexto(cat)}${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${conImpuesto ? `Más ${nombreImp} · ` : ''}${dinero(total.r.total_anio, total.r.moneda)} al año`}</p>
+                <p className="num mt-2 text-lg">{gratis ? `Torre Gratis ${plazoGratisTexto(cat)}${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${conImpuesto ? `Más ${nombreImp} · ` : ''}${dinero(total.r.total_anio, total.r.moneda)} al año`}</p>
                 {!gratis && conImpuesto && total.r.total_con_igv_mes && <p className="num mt-1 text-base opacity-90">Con {total.r.impuesto_nombre}: {dinero(total.r.total_con_igv_mes, total.r.moneda)} al mes</p>}
                 {total.r.minimo_aplicado && <p className="mt-1 text-base">{plan?.nombre} cobra un mínimo de {total.r.unidades_cobradas} departamentos por condominio.</p>}
               </div>

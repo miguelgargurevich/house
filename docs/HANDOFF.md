@@ -4,6 +4,38 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Haiku 5.5 + subagentes Haiku, worktree `feat/marca-torre`) — Marca Torre, planes «Torre …» y «block» (commits en la rama, sin push)
+
+- **Pedido de Miguel:** que ya no diga «House» sino «Torre», los planes sean «Torre Gratis / Básico / Pro / Administradora» y que no quede «gratis para siempre».
+- **Hecho:**
+  - «House» → «Torre» en todo lo visible de `src/`, `index.html`, `docs/legal/*.md` y el prompt del asistente. Quedan a propósito: comentarios internos, `name: 'house'` del servidor MCP y la clave `house-theme` de localStorage (no se ven).
+  - «torre» (palabra común) → «block» en lo visible. Los identificadores, las claves JSON (`torre`, `torres`, `palabra_estructura: 'torre'`), los comentarios y la regex de `lib/excelRecibos.ts` quedaron igual.
+  - Nombres de plan «Torre Gratis / Básico / Pro / Administradora» en `PLANES_SEED`, en pantallas, correos, avisos y legal. «Administradora» como rol (login, empresas, cambio de administradora) no cambió.
+  - Textos de `PLANES_SEED`: Gratis trae «Recibos por block». `CARACTERISTICAS_GRATIS_ANTERIORES` conserva «Recibos por torre» porque compara con lo ya guardado.
+  - `ajustarOfertaGratisPro` (`services/comercial/oferta.ts`) cambia el nombre sólo si sigue en su valor de fábrica, y reconoce la lista de Gratis de fábrica también con «1 condominio» delante (así la sembraba el seed; antes no la reconocía).
+  - Logo del correo: la letra pasa de «H» a «T».
+  - Simplificadas tres funciones que devolvían siempre lo mismo (`palabraDe`, `palabraDeTorres`, `palabraEstructura`); conservan su firma.
+  - `desglosePorTorre` del dashboard ya no recibe `palabra`; el texto «Sin block» es fijo.
+  - Pruebas: rótulos y nombres actualizados en 33 archivos; `tests/marca-torre.test.ts` nuevo (41 pruebas: ninguna pantalla pública ni asunto de correo dice «House»); pruebas nuevas de la sincronización de nombres y de la lista de Gratis en `oferta-gratis-pro.test.ts`.
+- **Verificado:**
+  - Suite completa con la base `house_test_torre`: `node --import tsx --test --test-concurrency=1 "tests/*.test.ts"` → 2989 pasan, 0 fallan (231 s).
+  - `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build`: sin errores.
+  - Mutaciones en rojo: «House» de vuelta en la Portada (marca-torre); sin sincronización de nombres (oferta); sin la lista con «1 condominio» (oferta). Restauradas con `cp` + `cmp`.
+  - Playwright a 375 px, claro y oscuro, en `/`, `/precios`, `/registro`, `/login` y `/terminos`: sin «House», sin desborde horizontal, con los nombres de plan nuevos. Capturas en el scratchpad de la sesión. Los 401/403 de consola son de sesión anónima y de la fuente del entorno.
+- **Decisiones:**
+  - Un condominio con bloques de cualquier tipo se llama «block» en toda la app (antes «torre» si había tipos mixtos). Consecuencia: los edificios de tipo «Torre» también se ven como «block».
+  - `VERSION_LEGAL` no se sube; el cambio de marca en los Términos no tiene flujo de re-aceptación.
+- **Próximos pasos:**
+  - Push con OK de Miguel. En producción, `npx tsx scripts/oferta-gratis-pro.ts --seco` y luego sin `--seco`: cambia los nombres de fábrica a «Torre …» y «Recibos por torre» a «Recibos por block».
+  - Decidir la etiqueta del selector «Tipo» de los bloques: hoy muestra «Torre» (valor guardado) y «Block». Separar etiqueta y valor es un cambio de código.
+  - `docs/API-CONTRATO.md` sigue diciendo «House» en la prosa (el encabezado `x-house-secret` se queda).
+  - Revisión legal de la sección 3 de los Términos (antes de publicar).
+- **Gotchas:**
+  - En zsh una variable con saltos de línea no se separa en argumentos: usar `grep … | xargs`.
+  - Un encargo a subagente sin la lista de alcance en el mismo mensaje llega vacío y el agente no hace nada.
+  - El filtro de comentarios por `^\s*\*` también atrapa líneas Markdown que empiezan con `**`.
+  - Un reemplazo global de «Pro y Administradora» también tocó algunos comentarios (cosmético).
+  - Los puertos 4000 y 5173 los usaba otra sesión; la verificación visual corrió en 4100 y 5174 con un config temporal que ya se borró.
 ## 2026-10-30 — Claude Code (Haiku 5.5, delegado en worktree) — Manual versión 3: planes, solo lectura y Mi plan (rama `docs/manual-planes`, sin push)
 
 - **Herramientas:** Bash, Edit/Python para el JSON, Playwright (`scripts/marketing/capturas-manual.mjs`, seed local) para las capturas.

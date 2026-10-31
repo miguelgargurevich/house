@@ -145,7 +145,7 @@ export function Assistant({ open, onClose, escritorio, barra }: { open: boolean;
     <aside
       ref={panel}
       role="complementary"
-      aria-label="Asistente de House"
+      aria-label="Asistente de Torre"
       inert={!open}
       onKeyDown={teclas}
       style={estilo}
@@ -181,7 +181,7 @@ export function Assistant({ open, onClose, escritorio, barra }: { open: boolean;
                 <div className="mx-auto w-full max-w-2xl px-4 pt-6">
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-brand"><SparklesIcon className="h-5 w-5" aria-hidden="true" /></span>
                   <p className="mt-3 text-lg font-semibold">Hola, {user.nombre.split(/\s+/)[0]}</p>
-                  <p className="mt-1 text-sm text-muted">Pregúntame cómo usar House o por tu cuenta: tus recibos, tus pagos o dónde hacer algo.</p>
+                  <p className="mt-1 text-sm text-muted">Pregúntame cómo usar Torre o por tu cuenta: tus recibos, tus pagos o dónde hacer algo.</p>
                   <ul className="mt-5 space-y-2" aria-label="Preguntas sugeridas">
                     {chips.map((t) => (
                       <li key={t}>

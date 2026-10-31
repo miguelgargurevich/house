@@ -45,7 +45,7 @@ function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boo
   );
 }
 
-/** El tope de departamentos (Gratis), el rango que cubre (Básico) o el mínimo que se cobra (Pro y Administradora), tal como los publica el catálogo. */
+/** El tope de departamentos (Gratis), el rango que cubre (Básico) o el mínimo que se cobra (Torre Pro y Torre Administradora), tal como los publica el catálogo. */
 function Tope({ plan, cat, className = '' }: { plan: Plan; cat: Catalogo; className?: string }) {
   if (plan.unidades_maximas != null && plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>De {plan.unidades_minimas} a {plan.unidades_maximas} departamentos cobrados por condominio{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
   if (plan.unidades_maximas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio.</p>;
@@ -93,7 +93,7 @@ export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave:
   );
   return (
     <section aria-labelledby="planes-titulo" className="scroll-mt-6">
-      <h2 id="planes-titulo" className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">{cat.dias_gratis ? `Gratis ${plazoGratisTexto(cat)}; después, Básico o Pro` : 'Gratis con límite, o Pro con todo'}</h2>
+      <h2 id="planes-titulo" className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">{cat.dias_gratis ? `Torre Gratis ${plazoGratisTexto(cat)}; después, Torre Básico o Torre Pro` : 'Torre Gratis con límite, o Torre Pro con todo'}</h2>
       <div className="mt-10 grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4 lg:gap-6">
         {gratis && (
           <Nivel plan={gratis} cat={cat} retraso={0} pie={
@@ -107,7 +107,7 @@ export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave:
         )}
         {pro && (
           <Nivel plan={pro} cat={cat} destacado retraso={80} pie={<>
-            <Accion abierto={abierto} texto="Empezar con Pro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`} />
+            <Accion abierto={abierto} texto="Empezar con Torre Pro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`} />
             {calcular('pro', 'inline-flex h-11 items-center justify-center text-base font-medium text-brand underline underline-offset-4 hover:text-brand-hover')}
           </>} />
         )}

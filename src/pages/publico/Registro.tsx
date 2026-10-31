@@ -61,7 +61,7 @@ export default function Registro() {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start lg:gap-14">
         <div>
           <h1 className="text-2xl font-semibold sm:text-3xl">Crea tu cuenta gratis</h1>
-          <p className="mt-1 text-sm text-muted">Sin tarjeta: empiezas en el plan Gratis, que dura 3 meses, y después pasas a Básico o Pro. Te enviaremos un enlace para confirmar tu correo.</p>
+          <p className="mt-1 text-sm text-muted">Sin tarjeta: empiezas en el plan Torre Gratis, que dura 3 meses, y después pasas a Torre Básico o Torre Pro. Te enviaremos un enlace para confirmar tu correo.</p>
           <form onSubmit={enviar} className="mt-8 space-y-8" noValidate>
             {error && <Alert tone="bad">{error}</Alert>}
 

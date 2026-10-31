@@ -35,7 +35,7 @@ interface Resumen extends Partial<DineroPanel> {
 /** Los textos del panel según cómo se llama el edificio en el condominio. */
 const PALABRA = {
   block: { una: 'block', titulo: 'Block', mira: 'míralos juntos o filtra por uno' },
-  torre: { una: 'torre', titulo: 'Torre', mira: 'míralas juntas o filtra por una' },
+  torre: { una: 'block', titulo: 'Block', mira: 'míralos juntos o filtra por uno' },
 };
 
 /** Estado de mantenimientos: etiqueta y color de la barra. */

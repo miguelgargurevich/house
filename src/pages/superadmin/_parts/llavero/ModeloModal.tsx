@@ -48,7 +48,7 @@ export function ModeloModal({ objetivo, onClose, onGuardado }: Props) {
       open={objetivo !== null}
       onClose={onClose}
       title={`Cambiar modelo de ${objetivo?.proveedor.nombre ?? ''}`}
-      description="Sólo se ofrecen los modelos que el proveedor tiene activos para esta clave. En Automático, House elige el mejor y prueba otro si falla."
+      description="Sólo se ofrecen los modelos que el proveedor tiene activos para esta clave. En Automático, Torre elige el mejor y prueba otro si falla."
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={guardando} disabled={modelos === null || valor === fijado} onClick={() => void guardar()}>Guardar modelo</Button></>}
     >
       {error && <div className="mb-3"><Alert tone="bad">{error}</Alert></div>}

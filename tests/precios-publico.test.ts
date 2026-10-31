@@ -80,7 +80,7 @@ describe('página pública de precios', () => {
 
   it('con el registro abierto, los planes llevan a /registro', () => {
     const html = enRuta(createElement(Planes, { cat: cat(true), onCalcular: sinCalcular }));
-    assert.match(html, /href="\/registro"[^>]*>Empezar con Pro/);
+    assert.match(html, /href="\/registro"[^>]*>Empezar con Torre Pro/);
     assert.match(html, /href="\/registro"[^>]*>Crear cuenta gratis/);
     assert.doesNotMatch(html, /href="\/login"/);
   });

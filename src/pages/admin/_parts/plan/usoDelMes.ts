@@ -30,6 +30,6 @@ const vouchers = (n: number): string => `${n} ${n === 1 ? 'voucher' : 'vouchers'
  */
 export function mensajeVouchers(u: UsoMes, plan: string, enPrueba: boolean): string | null {
   if (enPrueba) return u.vouchers_ia > 0 ? `La IA ya validó ${vouchers(u.vouchers_ia)} por ti este mes.` : null;
-  if (plan === 'gratis' && u.vouchers_a_mano > 0) return `Este mes validaste a mano ${vouchers(u.vouchers_a_mano)}. Con Pro, la IA los lee y valida los que coinciden; tú sólo revisas.`;
+  if (plan === 'gratis' && u.vouchers_a_mano > 0) return `Este mes validaste a mano ${vouchers(u.vouchers_a_mano)}. Con Torre Pro, la IA los lee y valida los que coinciden; tú sólo revisas.`;
   return null;
 }

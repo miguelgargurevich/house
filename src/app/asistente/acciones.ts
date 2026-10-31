@@ -75,5 +75,5 @@ export function exportarMarkdown(titulo: string, mensajes: MensajeChat[], fecha:
     .map((m) => `## ${m.rol === 'user' ? 'Tú' : 'Asistente'}\n\n${m.texto.trim()}`)
     .join('\n\n');
   const dia = new Intl.DateTimeFormat('es-PE', { dateStyle: 'long', timeZone: 'America/Lima' }).format(fecha);
-  return `# ${titulo.replace(/\s+/g, ' ').trim() || 'Conversación'}\n\n_Exportada de House el ${dia}._\n\n${cuerpo}\n`;
+  return `# ${titulo.replace(/\s+/g, ' ').trim() || 'Conversación'}\n\n_Exportada de Torre el ${dia}._\n\n${cuerpo}\n`;
 }

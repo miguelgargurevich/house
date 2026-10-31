@@ -51,7 +51,7 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
       <div className="min-w-0"><p className="font-medium num">{f.codigo}</p><p className="truncate text-xs text-muted sm:hidden">{etiquetaTipoUnidad(f.tipo)}{f.estructura ? ` · ${nombreTorre(f.estructura)}` : ''}</p></div>
     ) },
     { key: 'tipo', header: 'Tipo', hideBelow: 'sm', cell: f => etiquetaTipoUnidad(f.tipo) },
-    { key: 'torre', header: 'Torre', hideBelow: 'sm', cell: f => f.estructura ? nombreTorre(f.estructura) : <span className="text-muted">Sin torre</span> },
+    { key: 'torre', header: 'Block', hideBelow: 'sm', cell: f => f.estructura ? nombreTorre(f.estructura) : <span className="text-muted">Sin block</span> },
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: f => f.complejo?.nombre ?? '—' },
     { key: 'propietario', header: 'Propietario', hideBelow: 'md', cell: f => f.propietario?.nombre ?? <span className="text-muted">Sin asignar</span> },
     { key: 'inquilino', header: 'Inquilino', hideBelow: 'lg', cell: f => f.inquilino?.nombre ?? <span className="text-muted">—</span> },
@@ -71,7 +71,7 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
       <Card>
         {complejoId && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
-            <p className="text-sm text-muted">Las unidades de este condominio, con su torre y su piso.</p>
+            <p className="text-sm text-muted">Las unidades de este condominio, con su block y su piso.</p>
             <Button icon={<PlusIcon className="h-4 w-4" />} onClick={() => onEditando('nuevo')}>Nueva unidad</Button>
           </div>
         )}
@@ -80,8 +80,8 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {/* Las torres son las del condominio elegido arriba: con «Todos los condominios» no se listan (se confundirían). */}
             {complejo !== '' && (
-              <FiltroSelect label="Filtrar por torre" value={torre} onChange={setTorre} className="sm:w-44">
-                <option value="">Todas las torres</option>
+              <FiltroSelect label="Filtrar por block" value={torre} onChange={setTorre} className="sm:w-44">
+                <option value="">Todos los blocks</option>
                 {(torres.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
               </FiltroSelect>
             )}

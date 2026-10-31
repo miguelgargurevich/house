@@ -79,7 +79,7 @@ export function MantenimientosLista({ reciboId, estructuraId, sinBlock, estado, 
         total={list.total}
         onPage={list.setPage}
         onRowClick={onVer}
-        empty={{ title: 'No hay departamentos con ese filtro', description: 'Prueba con otro estado, torre o código.', icon: <HomeModernIcon /> }}
+        empty={{ title: 'No hay departamentos con ese filtro', description: 'Prueba con otro estado, block o código.', icon: <HomeModernIcon /> }}
       />
     </>
   );

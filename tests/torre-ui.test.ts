@@ -67,7 +67,7 @@ describe('nombres de mes: una sola ayuda por lado y en el Perú se dice «setiem
 describe('la torre: ayudas puras', () => {
   it('nombreTorre y etiquetaTorre (con varios condominios, «Block 1» se rotula con su condominio)', () => {
     assert.equal(nombreTorre({ id: 4, nombre: 'Block 1' }), 'Block 1');
-    assert.equal(nombreTorre({ id: 4, nombre: null }), 'Torre 4');
+    assert.equal(nombreTorre({ id: 4, nombre: null }), 'Block 4');
     const a = { id: 1, nombre: 'Block 1', complejo: { id: 10, nombre: 'Libertadores' } };
     const b = { id: 2, nombre: 'Block 1', complejo: { id: 11, nombre: 'Surco' } };
     assert.equal(hayVariosCondominios([a, b]), true);
@@ -85,7 +85,7 @@ describe('la torre: ayudas puras', () => {
     assert.equal(etiquetaRecibo({ ...base, estructura: null }), 'Octubre de 2026 · Libertadores');
   });
 
-  it('resumenSubida: un renglón por torre y el título dice «uno por torre»', () => {
+  it('resumenSubida: un renglón por torre y el título dice «uno por block»', () => {
     const r = resumenSubida({
       recibo_id: 1, mes: 9, anio: 2026, unidades_procesadas: 64, filas_saltadas: 0, conceptos: 5,
       recibos: [
@@ -93,7 +93,7 @@ describe('la torre: ayudas puras', () => {
         { recibo_id: 2, estructura_id: 2, torre: 'Block 2', accion: 'reemplazado', unidades_procesadas: 32 },
       ],
     });
-    assert.equal(r.titulo, 'Recibos de setiembre de 2026 cargados: uno por torre');
+    assert.equal(r.titulo, 'Recibos de setiembre de 2026 cargados: uno por block');
     assert.deepEqual(r.torres, ['Block 1: creado (32 departamentos)', 'Block 2: reemplazado (32 departamentos)']);
     const uno = resumenSubida({ recibo_id: 1, mes: 10, anio: 2026, unidades_procesadas: 1, filas_saltadas: 0, conceptos: 1, recibos: [{ recibo_id: 1, estructura_id: 1, torre: 'Block 1', accion: 'creado', unidades_procesadas: 1 }] });
     assert.equal(uno.titulo, 'Recibo de octubre de 2026 · Block 1 cargado');
@@ -104,25 +104,25 @@ describe('la torre: ayudas puras', () => {
 describe('pantallas: la torre se ve y se filtra', () => {
   it('Recibos: columna Torre, filtro por torre y por condominio, y «Todo el condominio» para el recibo sin torre', () => {
     const s = f(`${ADMIN}Recibos.tsx`);
-    assert.match(s, /key: 'torre', header: 'Torre'/);
+    assert.match(s, /key: 'torre', header: 'Block'/);
     assert.match(s, /estructura_id: torre \|\| undefined/);
     assert.match(s, /SelectoresUbicacion/);
     assert.match(s, /Todo el condominio/);
     assert.match(f(`${COB}SelectoresUbicacion.tsx`), /\{palabra\.todas\}/);
-    assert.match(f(`${COB}torres.ts`), /Todas las torres/);
+    assert.match(f(`${COB}torres.ts`), /Todos los blocks/);
   });
 
   it('Emitir recibo: elige torre o «todas» (un recibo por torre) y manda estructura_id sólo si eligió una', () => {
     const s = f(`${COB}EmitirReciboModal.tsx`);
-    assert.match(s, /Todas las torres \(un recibo por torre\)/);
+    assert.match(s, /Todos los blocks \(un recibo por block\)/);
     assert.match(s, /estructura_id: Number\(v\.estructura_id\)/);
-    assert.match(s, /Se emitirá un recibo por cada torre/);
+    assert.match(s, /Se emitirá un recibo por cada block/);
     assert.doesNotMatch(s, /Se generará un cargo por cada unidad activa del condominio\.<\/Alert>/, 'el texto único «para todo el condominio» ya no es el único');
   });
 
   it('Subir Excel: dice que cada torre del archivo crea o reemplaza SU recibo y muestra el resultado por torre', () => {
     const s = f(`${COB}SubirExcelModal.tsx`);
-    assert.match(s, /Cada torre del archivo \(columna BLOCK\) crea o reemplaza SU recibo/);
+    assert.match(s, /Cada block del archivo \(columna BLOCK\) crea o reemplaza SU recibo/);
     assert.match(s, /resumen\.torres/);
   });
 
@@ -131,16 +131,16 @@ describe('pantallas: la torre se ve y se filtra', () => {
     assert.match(s, /tituloRecibo\(p\.mes, p\.anio, p\.estructura/);
     assert.match(s, /const deTorre = Boolean\(p\?\.estructura\)/);
     assert.match(s, /const agrupado = !deTorre && \(bloques\.data\?\.agrupado \?\? false\)/);
-    assert.match(s, /\{agrupado && \(\s*<Select label="Torre"/);
+    assert.match(s, /\{agrupado && \(\s*<Select label="Block"/);
     assert.match(s, /BloquesPeriodo/, 'un recibo viejo que mezcla torres sigue agrupado');
   });
 
   it('Pagos: columna Torre/Condominio, filtros por condominio y torre, y avisa si la suma junta varias torres', () => {
     const s = f(`${ADMIN}Pagos.tsx`);
-    assert.match(s, /key: 'torre', header: 'Torre'/);
+    assert.match(s, /key: 'torre', header: 'Block'/);
     assert.match(s, /complejo_id: complejo \|\| undefined, estructura_id: torre \|\| undefined/);
     assert.match(s, /SelectoresUbicacion[^>]*oculto=\{junta\}/, 'la junta no lista torres (sólo ve la suya)');
-    assert.match(s, /Suma \$\{torresEnPagina\} torres/);
+    assert.match(s, /Suma \$\{torresEnPagina\} blocks/);
   });
 
   it('Validar pago: muestra el departamento con su torre y el condominio', () => {
@@ -160,7 +160,7 @@ describe('pantallas: la torre se ve y se filtra', () => {
     const s = f('src/pages/shared/mantenimiento/ReciboImprimible.tsx');
     assert.match(s, /Block: <span[^>]*>\{block\}<\/span>/);
     assert.match(s, /m\.ambito === 'block'/);
-    assert.match(s, /Cuentas de \{block \?\? 'la torre'\}/);
+    assert.match(s, /Cuentas \{block \? `de \$\{block\}` : 'del block'\}/);
     assert.match(s, /Cuentas del condominio/);
   });
 
@@ -169,7 +169,7 @@ describe('pantallas: la torre se ve y se filtra', () => {
     assert.match(s, /SelectoresUbicacion/);
     assert.match(s, /complejo_id: complejo \|\| undefined/);
     assert.match(s, /key: 'complejo', header: 'Condominio'/);
-    assert.match(s, /\['Unidad', 'Condominio', 'Torre'/);
+    assert.match(s, /\['Unidad', 'Condominio', 'Block'/);
     assert.match(s, /cifras\.data/);
   });
 

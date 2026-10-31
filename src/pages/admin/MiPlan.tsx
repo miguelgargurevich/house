@@ -35,10 +35,10 @@ interface Respuesta {
 function aviso(c: Vista): { tone: 'warn' | 'bad'; texto: string } | null {
   // La prueba de Pro tiene su propia banda: no se avisa de «vence» ni de «venció».
   if (c.en_prueba) return null;
-  if (c.estado === 'por_vencer') return { tone: 'warn', texto: `Tu plan vence ${c.dias_para_vencer === 0 ? 'hoy' : `en ${c.dias_para_vencer} ${c.dias_para_vencer === 1 ? 'día' : 'días'}`}. Renueva para no perder lo de Pro.` };
+  if (c.estado === 'por_vencer') return { tone: 'warn', texto: `Tu plan vence ${c.dias_para_vencer === 0 ? 'hoy' : `en ${c.dias_para_vencer} ${c.dias_para_vencer === 1 ? 'día' : 'días'}`}. Renueva para no perder lo de Torre Pro.` };
   if (c.estado === 'vencida') return c.en_gracia
-    ? { tone: 'warn', texto: 'Tu plan venció y estás en días de gracia: lo de Pro sigue activo por ahora.' }
-    : { tone: 'bad', texto: 'Tu plan venció y lo de Pro está apagado. Tus datos siguen intactos y todo lo gratis sigue funcionando; paga para reactivarlo.' };
+    ? { tone: 'warn', texto: 'Tu plan venció y estás en días de gracia: lo de Torre Pro sigue activo por ahora.' }
+    : { tone: 'bad', texto: 'Tu plan venció y lo de Torre Pro está apagado. Tus datos siguen intactos y todo lo gratis sigue funcionando; paga para reactivarlo.' };
   return null;
 }
 
@@ -46,7 +46,7 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: Dato
   const toast = useToast();
   const [pagos, setPagos] = useState(false);
   const [cancelando, setCancelando] = useState(false);
-  const est = c.solo_lectura ? { label: 'Solo lectura', tone: 'bad' as const } : c.en_prueba ? { label: 'Prueba de Pro', tone: 'brand' as const } : ESTADO_UI[c.estado];
+  const est = c.solo_lectura ? { label: 'Solo lectura', tone: 'bad' as const } : c.en_prueba ? { label: 'Prueba de Torre Pro', tone: 'brand' as const } : ESTADO_UI[c.estado];
   const a = aviso(c);
   const cobro = c.solicitud ? c.solicitud.cotizacion : c.cotizacion;
   const consultar = c.solicitud ? c.solicitud.consultar : c.precio_consultar;
@@ -70,24 +70,24 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: Dato
         {c.solo_lectura && <Alert tone="bad">Este condominio está en solo lectura desde el {fechaLarga(c.solo_lectura_desde)}: terminó su periodo gratis. Tus datos siguen aquí; puedes verlo todo, pero no registrar nada nuevo. Pásalo a un plan de pago para seguir registrando: {ofertaDePago(c.basico_desde)}.</Alert>}
         {c.dias_gratis_restantes != null && (
           <Alert tone={c.dias_gratis_restantes <= 7 ? 'warn' : 'info'}>
-            {diasGratisTexto(c.dias_gratis_restantes)}{c.en_prueba ? ' (la prueba de Pro va dentro de ese plazo)' : ''}. Después, el {fechaLarga(c.solo_lectura_desde)}, queda en solo lectura: se ve todo, pero no se registra nada nuevo. Elige un plan para seguir: {ofertaDePago(c.basico_desde)}.
+            {diasGratisTexto(c.dias_gratis_restantes)}{c.en_prueba ? ' (la prueba de Torre Pro va dentro de ese plazo)' : ''}. Después, el {fechaLarga(c.solo_lectura_desde)}, queda en solo lectura: se ve todo, pero no se registra nada nuevo. Elige un plan para seguir: {ofertaDePago(c.basico_desde)}.
           </Alert>
         )}
-        {c.en_prueba && <Alert tone="info">Prueba de Pro · {diasDePrueba(c.dias_para_vencer)}. Después sigues en Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Pro.</Alert>}
+        {c.en_prueba && <Alert tone="info">Prueba de Torre Pro · {diasDePrueba(c.dias_para_vencer)}. Después sigues en Torre Gratis, sin perder datos. Para seguir con la IA de vouchers, WhatsApp y reportes, pasa a Torre Pro.</Alert>}
         {a && <Alert tone={a.tone}>{a.texto}</Alert>}
         <UsoDelMes uso={c.uso} plan={c.plan.clave} enPrueba={c.en_prueba} />
         {c.unidades_maximas != null && c.unidades_facturables >= c.unidades_maximas && (
           <Alert tone="warn">
-            {c.unidades_facturables > c.unidades_maximas ? `Tienes ${c.unidades_facturables} departamentos y ${c.plan.nombre} llega hasta ${c.unidades_maximas}: no podrás agregar más, pero no se oculta ni se borra ninguno.` : `Llegaste al tope de ${c.unidades_maximas} departamentos de ${c.plan.nombre}.`} Pasa a Pro para seguir creciendo.
+            {c.unidades_facturables > c.unidades_maximas ? `Tienes ${c.unidades_facturables} departamentos y ${c.plan.nombre} llega hasta ${c.unidades_maximas}: no podrás agregar más, pero no se oculta ni se borra ninguno.` : `Llegaste al tope de ${c.unidades_maximas} departamentos de ${c.plan.nombre}.`} Pasa a Torre Pro para seguir creciendo.
           </Alert>
         )}
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
           <div><dt className="text-xs text-muted">Plan</dt><dd className="text-sm font-medium">{c.plan.nombre}</dd></div>
           <div><dt className="text-xs text-muted">Vigente hasta</dt><dd className="num text-sm font-medium">{esCortesia ? 'Sin vencimiento' : c.vigente_hasta ? fechaCorta(c.vigente_hasta) : '—'}</dd></div>
           <div className="sm:col-span-2">
-            <dt className="text-xs text-muted">Lo que tienes activo de Pro</dt>
+            <dt className="text-xs text-muted">Lo que tienes activo de Torre Pro</dt>
             <dd className="mt-1 flex flex-wrap gap-1.5">
-              {c.modulos_activos.length ? c.modulos_activos.map(m => <Badge key={m} tone="brand">{MODULO_NOMBRE[m as ModuloClave] ?? m}</Badge>) : <span className="text-sm text-muted">Nada de Pro: tienes todo lo gratis (IA, WhatsApp, asistente, mora automática y reportes son de Pro).</span>}
+              {c.modulos_activos.length ? c.modulos_activos.map(m => <Badge key={m} tone="brand">{MODULO_NOMBRE[m as ModuloClave] ?? m}</Badge>) : <span className="text-sm text-muted">Nada de Torre Pro: tienes todo lo gratis (IA, WhatsApp, asistente, mora automática y reportes son de Torre Pro).</span>}
             </dd>
             {c.modulos_sueltos.length > 0 && c.plan.clave !== 'cortesia' && <dd className="mt-1.5 text-xs text-muted">Los módulos sueltos que ya tenías ({c.modulos_sueltos.map(m => MODULO_NOMBRE[m as ModuloClave] ?? m).join(', ')}) se respetan hasta que cambies de plan: ya no se venden por separado.</dd>}
           </div>
@@ -125,7 +125,7 @@ export default function MiPlan() {
 
   return (
     <>
-      <PageHeader title="Mi plan" description="Gratis por 3 meses, y después Básico (edificios de hasta 50 departamentos) o Pro con todo. El plan se elige por condominio; los precios del plan no incluyen el impuesto de tu país (IGV, IVA…); el monto a pagar ya lo suma, en la moneda de tu condominio." />
+      <PageHeader title="Mi plan" description="Torre Gratis por 3 meses, y después Torre Básico (edificios de hasta 50 departamentos) o Torre Pro con todo. El plan se elige por condominio; los precios del plan no incluyen el impuesto de tu país (IGV, IVA…); el monto a pagar ya lo suma, en la moneda de tu condominio." />
       {loading && <div className="space-y-4"><Skeleton className="h-56 w-full" /><Skeleton className="h-56 w-full" /></div>}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && !data.condominios.length && <EmptyState icon={<CreditCardIcon />} title="Aún no tienes condominios" description="Cuando crees tu primer condominio verás aquí su plan." />}

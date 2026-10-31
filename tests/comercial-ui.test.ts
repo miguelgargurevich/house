@@ -28,7 +28,7 @@ describe('lógica de las pantallas', () => {
     assert.equal(MODULO_NOMBRE.ia_vouchers, 'IA que lee y valida vouchers');
     assert.equal(aFechaInput('2026-11-26T00:00:00.000Z'), '2026-11-26');
     assert.equal(aFechaInput(null), '');
-    assert.equal(nombreDePlan('pro'), 'Pro');
+    assert.equal(nombreDePlan('pro'), 'Torre Pro');
   });
 });
 

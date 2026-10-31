@@ -78,7 +78,7 @@ export function CanalesPerfil() {
                 </div>
               </>
             ) : estado === 'sin_whatsapp' ? (
-              <p className="text-sm text-muted">Tu administración todavía no activó WhatsApp en House. Cuando lo haga podrás vincular tu número aquí.</p>
+              <p className="text-sm text-muted">Tu administración todavía no activó WhatsApp en Torre. Cuando lo haga podrás vincular tu número aquí.</p>
             ) : (
               <>
                 <p className="text-sm"><span className="font-medium text-muted">Sin vincular.</span> Te damos un código de 6 dígitos que vence a los 10 minutos.</p>

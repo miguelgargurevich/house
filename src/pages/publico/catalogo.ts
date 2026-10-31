@@ -11,7 +11,7 @@ export interface Plan {
   modulos_incluidos: string[]; caracteristicas: string[];
   /** Tope de departamentos por condominio (Gratis y Básico); null = sin tope. */
   unidades_maximas: number | null;
-  /** Departamentos que se cobran como mínimo por condominio (Básico, Pro y Administradora); null = sin mínimo. */
+  /** Departamentos que se cobran como mínimo por condominio (Básico, Torre Pro y Torre Administradora); null = sin mínimo. */
   unidades_minimas: number | null;
   /** Lo menos que paga un condominio con este plan al mes (mínimo de departamentos × precio, sin impuesto), calculado por el servidor. */
   total_minimo_mes: string | null;

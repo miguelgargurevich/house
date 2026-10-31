@@ -3,9 +3,9 @@ import { BanknotesIcon, BellAlertIcon, ReceiptPercentIcon } from '@heroicons/rea
 import { Marco } from './Marco';
 
 const BENEFICIOS = [
-  { icono: ReceiptPercentIcon, titulo: 'Recibos claros por torre', texto: 'Emite desde tu Excel y cada vecino ve qué debe, en tu moneda, desde su celular.' },
+  { icono: ReceiptPercentIcon, titulo: 'Recibos claros por block', texto: 'Emite desde tu Excel y cada vecino ve qué debe, en tu moneda, desde su celular.' },
   { icono: BanknotesIcon, titulo: 'Cobranza y morosidad al día', texto: 'Vouchers, medios de pago del condominio y seguimiento de lo vencido.' },
-  { icono: BellAlertIcon, titulo: 'Gratis para empezar', texto: 'Gratis por 3 meses, hasta 20 departamentos. Después, Básico para edificios chicos o Pro con todo: IA de vouchers, WhatsApp, asistente, mora automática y reportes.' },
+  { icono: BellAlertIcon, titulo: 'Torre Gratis para empezar', texto: 'Torre Gratis por 3 meses, hasta 20 departamentos. Después, Torre Básico para edificios chicos o Torre Pro con todo: IA de vouchers, WhatsApp, asistente, mora automática y reportes.' },
 ] as const;
 
 /** Portada para quien llega sin sesión: qué es House, tres beneficios y los dos caminos (crear cuenta, ver precios). */
@@ -14,7 +14,7 @@ export default function Portada() {
     <Marco>
       <section className="py-4 text-center sm:py-10">
         <h1 className="mx-auto max-w-3xl text-3xl font-semibold leading-tight sm:text-5xl">Cobra las cuotas de tu condominio sin perseguir a nadie</h1>
-        <p className="mx-auto mt-4 max-w-2xl text-base text-muted sm:text-lg">House ordena recibos, pagos y morosidad de edificios y condominios en el Perú. Empieza gratis; activa la IA cuando la necesites.</p>
+        <p className="mx-auto mt-4 max-w-2xl text-base text-muted sm:text-lg">Torre ordena recibos, pagos y morosidad de edificios y condominios en el Perú. Empieza gratis; activa la IA cuando la necesites.</p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link to="/registro" className="rounded bg-brand px-5 py-2.5 text-sm font-semibold text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta gratis</Link>
           <Link to="/precios" className="rounded border border-line px-5 py-2.5 text-sm font-semibold transition-colors duration-150 hover:border-brand hover:text-brand">Ver precios</Link>

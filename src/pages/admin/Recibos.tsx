@@ -39,7 +39,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
         {r.descripcion && <span className="block max-w-[10rem] truncate text-xs font-normal text-muted">{r.descripcion}</span>}
       </Link>
     ) },
-    { key: 'torre', header: 'Torre', cell: r => (r.estructura ? <span className="font-medium">{r.estructura.nombre ?? `Torre ${r.estructura.id}`}</span> : <span className="text-muted">Todo el condominio</span>) },
+    { key: 'torre', header: 'Block', cell: r => (r.estructura ? <span className="font-medium">{r.estructura.nombre ?? `Block ${r.estructura.id}`}</span> : <span className="text-muted">Todo el condominio</span>) },
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: r => r.complejo?.nombre ?? '—' },
     { key: 'emision', header: 'Emisión', hideBelow: 'lg', cell: r => fechaCorta(r.fecha_emision) },
     { key: 'vencimiento', header: 'Vence', hideBelow: 'sm', cell: r => fechaCorta(r.fecha_vencimiento) },
@@ -60,7 +60,7 @@ export function ListaDeRecibos({ complejoId, conEncabezado = true }: Props) {
       {conEncabezado && (
         <PageHeader
           title="Recibos"
-          description="Cada torre tiene su propio recibo cada mes. Emítelo (o sube el Excel de la torre) y ábrelo para ver el mantenimiento de cada departamento."
+          description="Cada block tiene su propio recibo cada mes. Emítelo (o sube el Excel del block) y ábrelo para ver el mantenimiento de cada departamento."
           actions={<><Bloqueable>{b => <Button icon={<PlusIcon className="h-4 w-4" />} disabled={b} onClick={() => setEmitiendo(true)}>Emitir recibo</Button>}</Bloqueable><Bloqueable>{b => <Button icon={<PaperClipIcon className="h-4 w-4" />} disabled={b} onClick={() => setSubiendoExcel(true)}>Subir Excel</Button>}</Bloqueable></>}
         />
       )}

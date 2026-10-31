@@ -53,10 +53,10 @@ describe('página de precios como oferta', () => {
     assert.match(html, /Mínimo de 17 departamentos cobrados por condominio · desde S\/ 132\.09 al mes \+ IGV\./, 'el mínimo de Pro sale del catálogo');
   });
 
-  it('los botones: Gratis «Crear cuenta gratis», Pro «Empezar con Pro» y, debajo, «Ver mi total»; Administradora sólo «Ver mi total» (a la calculadora)', () => {
+  it('los botones: Gratis «Crear cuenta gratis», Pro «Empezar con Torre Pro» y, debajo, «Ver mi total»; Administradora sólo «Ver mi total» (a la calculadora)', () => {
     const html = enRuta(createElement(Planes, { cat: cat(), onCalcular: () => undefined }));
     assert.match(html, /href="\/registro"[^>]*>Crear cuenta gratis/);
-    assert.match(html, /href="\/registro"[^>]*>Empezar con Pro/);
+    assert.match(html, /href="\/registro"[^>]*>Empezar con Torre Pro/);
     assert.equal([...html.matchAll(/href="#recibo"[^>]*>Ver mi total/g)].length, 2, 'Pro y Administradora llevan a la calculadora');
   });
 

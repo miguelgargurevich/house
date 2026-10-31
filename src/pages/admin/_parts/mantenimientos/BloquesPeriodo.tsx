@@ -37,7 +37,7 @@ export function BloquesPeriodo({ reciboId, moneda, blocks, loading, error, onRet
 
   return (
     <Card>
-      <ul className="divide-y divide-line" aria-label="Torres del periodo">
+      <ul className="divide-y divide-line" aria-label="Blocks del periodo">
         {blocks.map(b => {
           const clave = b.estructura_id ?? 'sin';
           const abierta = abierto === clave;

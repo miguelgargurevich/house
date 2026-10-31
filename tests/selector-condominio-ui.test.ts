@@ -170,8 +170,8 @@ describe('las pantallas usan el condominio de la barra y se quitaron su filtro p
     assert.match(s, /useTorres\(complejo \|\| null, !oculto && !sinCondominio\)/);
     assert.match(s, /if \(opciones\.length === 0\) return null/);
     assert.doesNotMatch(s, /onComplejo|\/api\/complejos/, 'ya no pide ni elige condominios');
-    assert.match(f(`${PARTS}unidades/ListaDeUnidades.tsx`), /\{complejo !== '' && \(\s*<FiltroSelect label="Filtrar por torre"/);
-    assert.match(f(`${PARTS}personas/PersonasLista.tsx`), /\{filtroComplejo !== '' && \(\s*<Select label="Filtrar por torre"/);
+    assert.match(f(`${PARTS}unidades/ListaDeUnidades.tsx`), /\{complejo !== '' && \(\s*<FiltroSelect label="Filtrar por block"/);
+    assert.match(f(`${PARTS}personas/PersonasLista.tsx`), /\{filtroComplejo !== '' && \(\s*<Select label="Filtrar por block"/);
     assert.match(f(`${ADMIN}MediosPago.tsx`), /!ambitos\.data\?\.fijo && complejo !== ''/);
   });
 

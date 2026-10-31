@@ -67,7 +67,7 @@ export function RegistrarPagoModal({ onClose, onSaved }: { onClose: () => void; 
       onClose={onClose}
       size="lg"
       title="Registrar pago"
-      description="Elige el periodo (cada torre tiene el suyo), busca el departamento y registra cómo pagó el mantenimiento completo."
+      description="Elige el periodo (cada block tiene el suyo), busca el departamento y registra cómo pagó el mantenimiento completo."
       footer={<Button variant="secondary" onClick={onClose}>Cerrar</Button>}
     >
       <div className="space-y-5">
@@ -76,7 +76,7 @@ export function RegistrarPagoModal({ onClose, onSaved }: { onClose: () => void; 
         ) : (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Select label="Periodo y torre" value={periodoActual} onChange={e => { setReciboId(e.target.value); setElegido(null); }} disabled={recibos.loading}>
+              <Select label="Periodo y block" value={periodoActual} onChange={e => { setReciboId(e.target.value); setElegido(null); }} disabled={recibos.loading}>
                 {(recibos.data?.items ?? []).map(r => <option key={r.id} value={r.id}>{etiquetaRecibo(r)}</option>)}
               </Select>
               <Input label="Código de departamento" placeholder="Ej. A-101" autoComplete="off" value={q} onChange={e => { setQ(e.target.value); setElegido(null); }} />

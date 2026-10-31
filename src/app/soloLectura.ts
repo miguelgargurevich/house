@@ -51,7 +51,7 @@ export function diasGratisTexto(n: number | null): string | null {
 }
 
 /** «Pásalo a Pro» con la oferta de Básico cuando cabe: «Básico desde S/ 20 o Pro». */
-export const ofertaDePago = (basicoDesde: string | null): string => (basicoDesde ? `Básico desde ${basicoDesde} o Pro` : 'Pro');
+export const ofertaDePago = (basicoDesde: string | null): string => (basicoDesde ? `Torre Básico desde ${basicoDesde} o Torre Pro` : 'Torre Pro');
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 /** `2027-01-29T00:00:00.000Z` → `29 de enero de 2027` (la fecha es un día calendario: se lee en UTC, sin corrimiento de zona). */

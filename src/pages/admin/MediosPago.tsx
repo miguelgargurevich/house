@@ -73,7 +73,7 @@ export default function MediosPago() {
         actions={<Button icon={<PlusIcon className="h-4 w-4" />} disabled={!puedeAgregar} onClick={() => nuevo({ complejo_id: complejo, estructura_id: torre })}>Agregar medio de pago</Button>}
       />
       {!esJunta && <ValidacionAutomaticaIA />}
-      {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y las torres: {ambitos.error}</Alert></div>}
+      {ambitos.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar los condominios y los blocks: {ambitos.error}</Alert></div>}
       {/* Los blocks son los del condominio elegido arriba: con «Todos los condominios» no se listan (se confundirían). */}
       {(ambitos.loading || (!ambitos.data?.fijo && complejo !== '')) && (
       <Card className="mb-4">

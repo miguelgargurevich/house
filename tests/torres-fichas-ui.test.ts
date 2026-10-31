@@ -8,8 +8,8 @@ import { NAV } from '../src/app/nav';
 const fuente = (ruta: string) => readFileSync(ruta, 'utf8');
 
 const ETIQUETAS_OLD = [
-  'Filtrar por block', 'Todos los blocks', 'Block de la junta', 'nombreBlock',
-  'por block.', 'tu block', 'de su block', 'sin block', 'sin blocks.',
+  'Filtrar por torre', 'Todas las torres', 'Torre de la junta', 'nombreBlock',
+  'por torre.', 'tu torre', 'de su torre', 'sin torre', 'sin torres.',
 ];
 
 describe('menú: cada grupo es un objeto de trabajo y la plataforma va al final', () => {
@@ -209,14 +209,14 @@ describe('unidades: la torre de punta a punta', () => {
   const modal = fuente('src/pages/admin/_parts/unidades/ModalDeUnidad.tsx');
 
   it('la lista tiene columna Torre y filtro por torre', () => {
-    assert.ok(lista.includes("header: 'Torre'"), 'columna Torre');
-    assert.ok(lista.includes('label="Filtrar por torre"'), 'filtro por torre');
+    assert.ok(lista.includes("header: 'Block'"), 'columna Torre');
+    assert.ok(lista.includes('label="Filtrar por block"'), 'filtro por torre');
     assert.ok(lista.includes('estructura_id: torre || undefined'), 'el filtro se manda como estructura_id');
-    assert.ok(lista.includes('<option value="">Todas las torres</option>'));
+    assert.ok(lista.includes('<option value="">Todos los blocks</option>'));
   });
 
   it('el filtro por torre depende del condominio elegido', () => {
-    const iFiltro = lista.indexOf('label="Filtrar por torre"');
+    const iFiltro = lista.indexOf('label="Filtrar por block"');
     const iTorres = lista.indexOf('/api/estructuras?complejo_id=');
     assert.ok(iTorres > -1 && iTorres < iFiltro, 'las torres se piden con el condominio');
     assert.ok(lista.includes('const complejo = complejoId ? String(complejoId) : elegido'), 'el condominio viene fijo (ficha) o de la barra superior');
@@ -260,7 +260,7 @@ describe('torres: el hueco que se cierra', () => {
   });
 
   it('la API rechaza las torres anidadas', () => {
-    assert.ok(api.includes('House trabaja con torres planas'), 'el mensaje');
+    assert.ok(api.includes('Torre trabaja con blocks planos'), 'el mensaje');
     assert.ok(api.includes('z.never'), 'el esquema no admite padre_id');
     assert.ok(api.includes('if (d.padre_id != null) throw invalid(PLANAS'), 'ni al crear ni al editar');
   });
@@ -272,7 +272,7 @@ describe('torres: el hueco que se cierra', () => {
   });
 });
 
-describe('vocabulario: la UI habla de torre, no de block', () => {
+describe('vocabulario: la UI habla de block, no de torre', () => {
   it('el helper se llama nombreTorre', () => {
     const t = fuente('src/pages/admin/_parts/medios/tipos.ts');
     assert.ok(t.includes('export const nombreTorre ='), 'nombreTorre');
@@ -288,7 +288,7 @@ describe('vocabulario: la UI habla de torre, no de block', () => {
       'src/pages/admin/PeriodoRecibo.tsx',
       'src/pages/admin/Pagos.tsx',
     ]) {
-      const s = fuente(ruta);
+      const s = fuente(ruta).split('\n').filter((l) => !/^\s*(\/\/|\/\*|\*|\{\/\*)/.test(l)).join('\n');
       for (const viejo of ETIQUETAS_OLD) assert.ok(!s.includes(viejo), `${ruta} todavía dice «${viejo}»`);
     }
   });

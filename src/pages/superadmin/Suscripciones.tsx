@@ -54,7 +54,7 @@ export default function Suscripciones() {
         <Card>
           <Toolbar>
             <div className="max-w-full overflow-x-auto">
-              <Tabs<Filtro> value={filtro} onChange={setFiltro} label="Estado" items={[{ id: '', label: 'Todas' }, { id: 'solicitada', label: 'Solicitadas' }, { id: 'por_vencer', label: 'Por vencer' }, { id: 'vencida', label: 'Vencidas' }, { id: 'activa', label: 'Activas' }, { id: 'gratis', label: 'Gratis' }]} />
+              <Tabs<Filtro> value={filtro} onChange={setFiltro} label="Estado" items={[{ id: '', label: 'Todas' }, { id: 'solicitada', label: 'Solicitadas' }, { id: 'por_vencer', label: 'Por vencer' }, { id: 'vencida', label: 'Vencidas' }, { id: 'activa', label: 'Activas' }, { id: 'gratis', label: 'Torre Gratis' }]} />
             </div>
             <SearchBox value={list.q} onChange={list.setQ} placeholder="Buscar condominio o empresa…" />
           </Toolbar>

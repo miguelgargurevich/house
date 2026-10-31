@@ -43,10 +43,9 @@ export interface Ambitos {
 
 export const useAmbitos = () => useResource<Ambitos>('/api/medios-pago/ambitos');
 
-/** Cómo llama el condominio a sus edificios: «block» si todos son blocks (como VRANY), si no «torre». */
-export function palabraEstructura(a: Ambitos | null | undefined): { una: string; todas: string } {
-  const todas = a?.complejos.flatMap(c => c.estructuras) ?? [];
-  return todas.length > 0 && todas.every(e => e.tipo?.toLowerCase() === 'block') ? { una: 'block', todas: 'todos los blocks' } : { una: 'torre', todas: 'todas las torres' };
+/** Cómo llama el condominio a sus edificios: siempre «block». */
+export function palabraEstructura(_a: Ambitos | null | undefined): { una: string; todas: string } {
+  return { una: 'block', todas: 'todos los blocks' };
 }
 
 export const TIPOS: { value: TipoMedio; label: string }[] = [
@@ -79,7 +78,7 @@ export const CODIGOS_PAGO: { value: CodigoPago; label: string }[] = [
   { value: 'otro', label: 'Otro código (lo explicas tú)' },
 ];
 
-export const nombreTorre = (e: { id: number; nombre: string | null }) => e.nombre?.trim() || `Torre ${e.id}`;
+export const nombreTorre = (e: { id: number; nombre: string | null }) => e.nombre?.trim() || `Block ${e.id}`;
 export const ambitoLabel = (m: Pick<Medio, 'estructura'>) => (m.estructura ? nombreTorre(m.estructura) : 'Todo el condominio');
 
 /** Dato con el que se paga: el número de cuenta, el celular o, en una recaudación, el servicio. */

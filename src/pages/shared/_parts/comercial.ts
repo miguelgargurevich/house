@@ -13,7 +13,7 @@ export const MODULO_NOMBRE: Record<ModuloClave, string> = {
 
 export type EstadoSuscripcion = 'gratis' | 'solicitada' | 'activa' | 'por_vencer' | 'vencida';
 export const ESTADO_UI: Record<EstadoSuscripcion, { label: string; tone: Tone }> = {
-  gratis: { label: 'Gratis', tone: 'neutral' },
+  gratis: { label: 'Torre Gratis', tone: 'neutral' },
   solicitada: { label: 'Solicitada', tone: 'info' },
   activa: { label: 'Activa', tone: 'ok' },
   por_vencer: { label: 'Por vencer', tone: 'warn' },
@@ -41,7 +41,7 @@ export interface VistaSuscripcion {
   unidades_cobradas: number;
   /** Tope de departamentos del plan que cuenta hoy (Gratis); null = sin tope. */
   unidades_maximas: number | null;
-  /** Mínimo de departamentos que cobra el plan (Pro y Administradora); null = sin mínimo. */
+  /** Mínimo de departamentos que cobra el plan (Torre Pro y Torre Administradora); null = sin mínimo. */
   unidades_minimas: number | null;
   /** País del condominio y, de él, la moneda en que paga y el impuesto que se le suma. */
   pais: string;
@@ -67,4 +67,6 @@ export const MEDIOS = [['transferencia', 'Transferencia'], ['yape', 'Yape'], ['p
 export const aFechaInput = (v: string | null | undefined): string => (v ? v.slice(0, 10) : '');
 
 /** `pro` → `Pro` (las claves de plan viajan en minúscula; al cliente se le muestra con mayúscula inicial). */
-export const nombreDePlan = (clave: string): string => (clave === 'basico' ? 'Básico' : clave.charAt(0).toUpperCase() + clave.slice(1));
+const NOMBRES_DE_PLAN: Record<string, string> = { gratis: 'Torre Gratis', basico: 'Torre Básico', pro: 'Torre Pro', administradora: 'Torre Administradora' };
+
+export const nombreDePlan = (clave: string): string => NOMBRES_DE_PLAN[clave] ?? clave.charAt(0).toUpperCase() + clave.slice(1);

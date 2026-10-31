@@ -93,16 +93,16 @@ export function ModalDeUnidad({ unidad, complejoId, complejoNombre, onClose, onG
           </Select>
         )}
         <Select
-          label="Torre"
+          label="Block"
           hint={torres.error ?? undefined}
           disabled={!complejoElegido || torres.loading}
           {...register('estructura_id', { onChange: () => setValue('piso_id', '') })}
         >
-          <option value="">{!complejoElegido ? 'Elige primero el condominio' : torres.loading ? 'Cargando…' : 'Sin torre'}</option>
+          <option value="">{!complejoElegido ? 'Elige primero el condominio' : torres.loading ? 'Cargando…' : 'Sin block'}</option>
           {(torres.data?.items ?? []).map(t => <option key={t.id} value={t.id}>{nombreTorre(t)}</option>)}
         </Select>
         <Select label="Piso" disabled={!torreElegida || pisos.loading} {...register('piso_id')}>
-          <option value="">{!torreElegida ? 'Elige primero la torre' : pisos.loading ? 'Cargando…' : 'Sin piso'}</option>
+          <option value="">{!torreElegida ? 'Elige primero el block' : pisos.loading ? 'Cargando…' : 'Sin piso'}</option>
           {(pisos.data?.items ?? []).map(p => <option key={p.id} value={p.id}>{p.numero != null ? `Piso ${p.numero}` : `Piso ${p.id}`}</option>)}
         </Select>
         <Select label="Estado" {...register('estado', { required: true })}>

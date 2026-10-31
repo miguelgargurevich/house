@@ -20,7 +20,7 @@ import { ListaDeRecibos } from './Recibos';
 
 const VISTAS = [
   { id: 'datos', label: 'Datos' },
-  { id: 'torres', label: 'Torres' },
+  { id: 'torres', label: 'Blocks' },
   { id: 'unidades', label: 'Unidades' },
   { id: 'residentes', label: 'Residentes' },
   { id: 'recibos', label: 'Recibos' },
@@ -79,7 +79,7 @@ export default function CondominioDetalle() {
           <StatStrip
             stats={[
               { label: 'Unidades', value: c ? (c.unidades_count ?? c._count?.unidades ?? 0) : <Skeleton className="h-7 w-10" /> },
-              { label: 'Torres', value: c ? (c.blocks_count ?? 0) : <Skeleton className="h-7 w-10" /> },
+              { label: 'Blocks', value: c ? (c.blocks_count ?? 0) : <Skeleton className="h-7 w-10" /> },
               { label: 'Administrado por', value: c ? (c.empresa?.nombre ?? '—') : <Skeleton className="h-7 w-28" /> },
             ]}
           />

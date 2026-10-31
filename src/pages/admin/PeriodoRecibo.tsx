@@ -56,7 +56,7 @@ export default function PeriodoRecibo() {
   const qFinal = useDebounced(q.trim());
 
   const p = periodoDb.data;
-  const titulo = p ? tituloRecibo(p.mes, p.anio, p.estructura ? p.estructura.nombre ?? `Torre ${p.estructura.id}` : null) : 'Periodo';
+  const titulo = p ? tituloRecibo(p.mes, p.anio, p.estructura ? p.estructura.nombre ?? `Block ${p.estructura.id}` : null) : 'Periodo';
   const deTorre = Boolean(p?.estructura);
   const agrupado = !deTorre && (bloques.data?.agrupado ?? false);
   const filtrando = qFinal !== '' || estado !== '' || block !== '';
@@ -108,8 +108,8 @@ export default function PeriodoRecibo() {
         <Toolbar>
           <SearchBox value={q} onChange={setQ} placeholder="Buscar departamento (ej. B01-804)" label="Buscar departamento" />
           {agrupado && (
-            <Select label="Torre" className="w-full sm:w-48 [&_label]:sr-only" value={block} onChange={e => setBlock(e.target.value)}>
-              <option value="">Todas las torres</option>
+            <Select label="Block" className="w-full sm:w-48 [&_label]:sr-only" value={block} onChange={e => setBlock(e.target.value)}>
+              <option value="">Todos los blocks</option>
               {(bloques.data?.blocks ?? []).map(b => <option key={b.estructura_id ?? 'sin'} value={b.estructura_id ?? 'sin'}>{b.nombre}</option>)}
             </Select>
           )}

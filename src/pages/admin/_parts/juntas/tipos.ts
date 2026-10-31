@@ -62,14 +62,11 @@ export const CARGOS: { value: CargoJunta; label: string }[] = [
 ];
 export const cargoLabel = (c: CargoJunta | null | undefined) => CARGOS.find(x => x.value === c)?.label ?? '—';
 
-/** Cómo llama el condominio a sus edificios: «block» si todos son blocks, si no «torre» (la misma regla de `palabraEstructura` en Medios de pago; aquí sin importar la capa de red). */
-export const palabraDe = (items: { estructura: { tipo?: string } | null }[]): string => {
-  const tipos = items.flatMap(i => (i.estructura ? [i.estructura.tipo] : []));
-  return tipos.length > 0 && tipos.every(t => t?.toLowerCase() === 'block') ? 'block' : 'torre';
-};
+/** Cómo llama el condominio a sus edificios: siempre «block» (la misma palabra que `palabraEstructura` en Medios de pago). */
+export const palabraDe = (_items: { estructura: { tipo?: string } | null }[]): string => 'block';
 
 /** «Block 1», o «Junta central» si la junta no es de un block (la de todo el condominio). */
-export const nombreAmbito = (e: { id: number; nombre: string | null } | null) => (e ? e.nombre?.trim() || `Torre ${e.id}` : 'Junta central');
+export const nombreAmbito = (e: { id: number; nombre: string | null } | null) => (e ? e.nombre?.trim() || `Block ${e.id}` : 'Junta central');
 
 /** «la junta de Block 1» o «la Junta central»: para frases. */
 export const laJuntaDe = (e: { id: number; nombre: string | null } | null) => (e ? `la junta de ${nombreAmbito(e)}` : 'la Junta central');

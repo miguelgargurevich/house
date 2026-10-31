@@ -46,7 +46,7 @@ export function DatosRecibo({ reciboId, recibo, onCambio }: { reciboId: number; 
           <Button variant="secondary" className="mb-6" loading={guardando === 'correo'} disabled={!cambioCorreo} onClick={() => void guardarCorreo()}>Guardar</Button>
         </div>
       ) : (
-        <p className="self-center text-sm text-muted">Este recibo no es de una torre: el correo para enviar vouchers se define en cada torre.</p>
+        <p className="self-center text-sm text-muted">Este recibo no es de un block: el correo para enviar vouchers se define en cada block.</p>
       )}
     </div>
   );
