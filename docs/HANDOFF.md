@@ -4,6 +4,28 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Candado de la IA de vouchers en la validación (Claude Code, Haiku 5.5) — push: no
+
+- **Pedido de Miguel:** en Torre Básico (y Gratis), al validar un voucher a mano, un candado que venda Torre Pro: «¿Quieres que la IA valide este voucher? Pásate a Torre Pro». Rama `feat/candado-ia`, worktree `.claude/worktrees/candado-ia`.
+- **Qué se hizo:**
+  - `AvisoModulo.tsx`: variante `variante="voucher"` (título y texto acordados). Admin → «Pasar a Torre Pro» a `/admin/mi-plan`; superadmin → «Ver suscripciones» como hoy; junta y otros → «Pídeselo a tu administración.» sin enlace.
+  - `evaluacion.tsx`: `EvaluacionPanel` recibe `capacidadIA`. Con `false` (sin la IA de vouchers) el aviso sale desde el inicio y **sustituye** a «Aún no se evaluó»; no se pide ninguna evaluación. Con `null` (no se sabe) manda la marca que el servidor deja al subir el comprobante (`no_disponible` + `MOTIVO_SIN_MODULO`), como antes. Con `true` no sale aviso, y una marca vieja de antes de pasar a Pro se ignora. Hook nuevo `useCapacidadIA`.
+  - `ValidarPagoModal.tsx`: llama al hook con `pago.unidad.complejo.id` y pasa la capacidad al panel.
+  - `tests/candado-ia-ui.test.ts` (nuevo, 12 pruebas de fuente).
+- **Decisiones:**
+  - La capacidad la sabe **sólo el admin**, por `GET /api/comercial/mi-plan` (trae `modulos_activos` de cada condominio). No gasta una evaluación ni llama a la IA. Ese endpoint es `requireRole('admin')`.
+  - El aviso también sale en `SeguimientoVoucher` (usa el mismo panel); ese sitio no pasa capacidad, así que sigue la marca del servidor.
+- **Gotchas:**
+  1. `evaluacion.tsx` y `AvisoModulo.tsx` importan `AuthContext` → `api.ts`, que lee `import.meta.env`: no se pueden importar en una prueba de Node. Por eso la prueba es de fuente (como el resto de `*-ui`).
+  2. Pasar de Básico a Pro no reescribe la marca `no_disponible` de las evaluaciones viejas. Para el admin, la capacidad manda; **la junta no tiene forma de saberla** y, si la marca es vieja, verá el aviso aunque el condominio ya sea Pro.
+- **Próximos pasos:**
+  - Para que la junta sepa la capacidad sin marca previa, hace falta que la lista de pagos o `GET /api/pagos/:id/evaluacion` traiga `ia_vouchers` (es cambio de backend; no se hizo: fuera de «Permitidos»).
+  - Verificar a 390 px en el navegador: **no hecho** (no se levantó la app con datos).
+  - Miguel decide el push.
+- **Pruebas:** `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` limpios. Prueba nueva 12/12 y las relacionadas (`comercial-ui`, `oferta-ui`, `adjuntar-comprobante-ui`, `voucher-admin-ui`) 53/53. Tres mutaciones en rojo (quitar el aviso; mostrarlo también en Pro; cambiar el enlace del admin), cada una restaurada con `cp` + `cmp`.
+
+---
+
 ## 2026-10-31 — /precios: «Condominios por cuenta» en la comparativa (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: la fila «1 condominio» con ✓ en Gratis, Básico y Pro confundía (parecía que los planes de pago también traían uno solo). `Comparativa.tsx` saca esa viñeta de las filas con ✓ y agrega la fila «Condominios por cuenta»: Gratis «1», Básico y Pro «Los que quieras». La nota de abajo dice «Cada condominio tiene su propio plan…». La nota también da el mínimo de Torre Básico (antes sólo salía si Básico tenía tope) y el total mínimo de Básico y Pro («desde S/ 20.00 / S/ 50.00 al mes»), del catálogo (`minimoTexto`). Test en `precios-publico` (2 mutaciones en rojo). Suite 3018/3018.

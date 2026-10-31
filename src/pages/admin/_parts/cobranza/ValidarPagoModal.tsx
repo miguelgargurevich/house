@@ -6,7 +6,7 @@ import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, dinero, fe
 import { ComprobanteVista } from '../../../shared/ComprobanteVista';
 import type { ComprobanteMeta } from '../../../shared/comprobantes';
 import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../../shared/comprobantes';
-import { EvaluacionPanel, useEvaluacionCompleta } from '../../../shared/evaluacion';
+import { EvaluacionPanel, useCapacidadIA, useEvaluacionCompleta } from '../../../shared/evaluacion';
 import type { EvaluacionCompleta } from '../../../shared/evaluacion';
 import { fechaPorRevisar, textoFechaPago } from '../../../shared/mantenimiento/fechaPago';
 import type { FechaOrigen } from '../../../shared/mantenimiento/tipos';
@@ -82,6 +82,8 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
 
   const ia = useEvaluacionCompleta(pago?.id ?? null, pago?.evaluacion ?? null);
+  // Si el condominio tiene la IA de vouchers se sabe al abrir (sin pedir una evaluación): sin ella, el panel ofrece pasar a Torre Pro.
+  const capacidadIA = useCapacidadIA(pago?.unidad?.complejo?.id ?? null);
 
   useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinCheck(false); setQuitandoMulta(false); setMultaQuitada(false); }, [pago?.id]);
 
@@ -289,6 +291,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               onReevaluar={() => void ia.reevaluar()}
               errorReevaluar={ia.error}
               fase={ia.fase}
+              capacidadIA={capacidadIA}
             />
           )}
 

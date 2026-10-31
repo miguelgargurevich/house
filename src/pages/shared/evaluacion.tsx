@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircleIcon, ExclamationTriangleIcon, MinusCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { api } from '../../api';
+import { useAuth } from '../../auth/AuthContext';
 import { Alert, Badge, Button, Spinner, dinero, fechaCorta } from '../../ui';
 import type { Tone } from '../../ui';
 import {
@@ -73,14 +74,19 @@ interface Props {
   errorReevaluar?: string | null;
   /** Cuánto lleva esperando una evaluación pendiente (`useEvaluacionCompleta`); sin ella, no se avisa de la demora. */
   fase?: FaseEspera;
+  /** ¿Tiene el condominio la IA de vouchers? (`useCapacidadIA`). `null` = no se sabe: manda la marca que dejó el servidor. */
+  capacidadIA?: boolean | null;
 }
 
 /** Panel «Evaluación automática» del modal de validar: la IA lee el comprobante y el código lo compara con lo esperado. */
-export function EvaluacionPanel({ evaluacion: ev, montoEsperado, moneda, validadoPorIA, puedeReevaluar, reevaluando, onReevaluar, errorReevaluar, fase = 'normal' }: Props) {
-  const evaluando = estaEvaluando(ev?.estado, reevaluando, fase);
+export function EvaluacionPanel({ evaluacion: evBruta, montoEsperado, moneda, validadoPorIA, puedeReevaluar, reevaluando, onReevaluar, errorReevaluar, fase = 'normal', capacidadIA = null }: Props) {
+  const evaluando = estaEvaluando(evBruta?.estado, reevaluando, fase);
+  const marcaSinModulo = evBruta?.estado === 'no_disponible' && esMotivoSinModulo(evBruta.error);
+  // Con la capacidad a la vista manda ella: una marca de antes de pasar a Torre Pro no vuelve a decir «sin módulo».
+  const ev = capacidadIA === true && marcaSinModulo ? null : evBruta;
   const sinResultado = evaluando ? null : ev ? mensajeSinResultado(ev.estado, ev.error, fase === 'agotada') : null;
-  // Condominio sin el módulo de IA: no es un fallo, es un plan; se dice así y no se ofrece «Reintentar».
-  const sinModulo = !evaluando && ev?.estado === 'no_disponible' && esMotivoSinModulo(ev.error);
+  // Sin la IA de vouchers (Gratis o Básico) el aviso sale desde el inicio, sin pedir ninguna evaluación; si no se sabe (junta), lo dice la marca del servidor.
+  const sinModulo = !evaluando && (capacidadIA === false || (capacidadIA === null && marcaSinModulo));
   const x = ev?.estado === 'completada' ? ev.extraido : null;
   const c = ev?.estado === 'completada' ? ev.coincidencias : null;
   const filas: { etiqueta: string; detectado: string | null; esperado?: string; ok: Comprobacion }[] = x && c ? [
@@ -99,10 +105,10 @@ export function EvaluacionPanel({ evaluacion: ev, montoEsperado, moneda, validad
         {evaluando ? <Badge tone="info">Evaluando…</Badge> : ev?.estado === 'pendiente' ? <Badge tone="warn">Sin respuesta</Badge> : <VeredictoBadge evaluacion={ev} />}
       </div>
 
-      {!ev && !evaluando && <p className="mt-2 text-sm text-muted">Aún no se evaluó este comprobante.</p>}
+      {!ev && !evaluando && !sinModulo && <p className="mt-2 text-sm text-muted">Aún no se evaluó este comprobante.</p>}
       {evaluando && <p className="mt-2 flex items-center gap-2 text-sm text-muted" role="status"><Spinner />Leyendo el comprobante…</p>}
       {evaluando && fase === 'tarda' && <div className="mt-2"><Alert tone="warn">{AVISO_TARDA_GESTION}</Alert></div>}
-      {sinModulo && <AvisoModulo modulo="ia_vouchers" className="mt-2" />}
+      {sinModulo && <AvisoModulo modulo="ia_vouchers" variante="voucher" className="mt-2" />}
       {sinResultado && !sinModulo && <div className="mt-2"><Alert tone="warn">{sinResultado}</Alert></div>}
 
       {!evaluando && filas.length > 0 && (
@@ -206,6 +212,30 @@ export function useEvaluacionCompleta(pagoId: number | null, inicial: Evaluacion
   const seguir = useCallback(() => { setError(null); setEsperando(true); setCiclo(c => c + 1); }, []);
 
   return { ev, validadoPorIA, esperando, fase, error, reevaluar, seguir };
+}
+
+/**
+ * ¿Tiene el condominio la IA de vouchers? Sólo lo sabe quien administra (`GET /api/comercial/mi-plan` trae los módulos de cada condominio);
+ * no llama a la IA ni gasta una evaluación. `null` = no se sabe (junta, superadmin o sin respuesta): entonces manda la marca del servidor.
+ */
+export function useCapacidadIA(complejoId: number | null | undefined): boolean | null {
+  const { user } = useAuth();
+  const admin = user?.rol === 'admin';
+  const [capacidad, setCapacidad] = useState<boolean | null>(null);
+  useEffect(() => {
+    setCapacidad(null);
+    if (!admin || complejoId == null) return;
+    let vivo = true;
+    api<{ condominios: { complejo_id: number; modulos_activos: string[] }[] }>('/api/comercial/mi-plan')
+      .then(r => {
+        if (!vivo) return;
+        const c = r.condominios.find(x => x.complejo_id === complejoId);
+        setCapacidad(c ? c.modulos_activos.includes('ia_vouchers') : null);
+      })
+      .catch(() => { if (vivo) setCapacidad(null); });
+    return () => { vivo = false; };
+  }, [admin, complejoId]);
+  return capacidad;
 }
 
 // ---------- Lo que ve el residente ----------
