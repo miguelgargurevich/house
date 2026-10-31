@@ -5,14 +5,26 @@ import { Alert, Button } from '../ui';
 const CLAVE = 'house-recarga';
 const ERROR_DE_ARCHIVO = /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk|reading 'default'/i;
 
-/** Recarga la página una sola vez (si hubo otra hace menos de 15 s, no insiste para no entrar en bucle). */
+/** Intentos de recarga permitidos dentro de la ventana, y la espera antes de cada uno. */
+const INTENTOS = 3;
+const VENTANA_MS = 120_000;
+const ESPERA_MS = 3_000;
+
+/**
+ * Recarga la página tras un archivo que ya no existe. Durante un redespliegue el proxy reparte entre el contenedor viejo y el nuevo
+ * un rato, así que una sola recarga inmediata a veces vuelve a fallar: se reintenta hasta 3 veces en 2 minutos, esperando 3 s antes
+ * de cada una. Pasado eso, se rinde y deja el aviso (sin bucles).
+ */
 export function recargarUnaVez(): boolean {
   try {
-    const ultima = Number(sessionStorage.getItem(CLAVE) ?? 0);
-    if (Date.now() - ultima < 15_000) return false;
-    sessionStorage.setItem(CLAVE, String(Date.now()));
-  } catch { /* sin almacenamiento: se recarga igual una vez */ }
-  location.reload();
+    const ahora = Date.now();
+    let guardado: unknown = [];
+    try { guardado = JSON.parse(sessionStorage.getItem(CLAVE) ?? '[]'); } catch { /* valor viejo (un número suelto): se descarta */ }
+    const previas = (Array.isArray(guardado) ? guardado : []).filter((t): t is number => typeof t === 'number' && ahora - t < VENTANA_MS);
+    if (previas.length >= INTENTOS) return false;
+    sessionStorage.setItem(CLAVE, JSON.stringify([...previas, ahora]));
+  } catch { /* sin almacenamiento (o un valor viejo que no es JSON): se recarga igual */ }
+  setTimeout(() => location.reload(), ESPERA_MS);
   return true;
 }
 

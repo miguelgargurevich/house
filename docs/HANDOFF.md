@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Precio destacado, sello «Voucher confirmado» y recarga tras un despliegue (Claude Code, Opus 5.5) — push: sí
+
+- `/precios`: el precio de la tarjeta destacada (`grande`) bajaba a `lg:text-5xl` (con 4 columnas se salía de la tarjeta); medido a 1440/1024/800/375 px.
+- Login (`_login/Escena.tsx`): el sello dice sólo «Voucher confirmado».
+- `ErrorBoundary.recargarUnaVez`: durante un redespliegue Traefik reparte un rato entre el contenedor viejo y el nuevo, y un archivo con hash da 404; una sola recarga inmediata podía volver a fallar y dejaba «Algo salió mal». Ahora reintenta hasta 3 veces en 2 minutos, esperando 3 s antes de cada recarga. Prueba de fuente `tests/recarga-version-ui.test.ts`.
+- En curso: registro en dos pasos (cuenta → condominio) delegado a Sonnet en `.claude/worktrees/registro-en-dos-pasos`.
+
+---
+
 ## 2026-10-30 — Torre Gratis sin tope de departamentos (Claude Code, Opus 5.5) — push: sí
 
 - **Pedido de Miguel:** que un condominio de 3 o 5 torres pueda probar Torre completo; el límite de Gratis es el plazo de 3 meses, no los departamentos. `PLANES_SEED` gratis: `unidades_maximas: null`, «Torre Gratis por 3 meses, sin tope de departamentos.»; se quitó `UNIDADES_GRATIS_MAX`. Textos: Portada, panel del registro, hechos de /precios, términos (`textos.tsx` y `docs/legal/terminos.md`) y prompt del asistente. Sigue «un condominio gratis por administradora» y la solo lectura al vencer.
