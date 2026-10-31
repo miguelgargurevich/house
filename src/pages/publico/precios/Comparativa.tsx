@@ -10,6 +10,9 @@ const No = () => <span className="inline-flex justify-center text-muted"><MinusI
 /** Departamentos por condominio: lo que dice el catálogo (tope en Gratis y Básico, sin tope en Pro). */
 const topeTexto = (max: number | null | undefined) => (max != null ? `Hasta ${max}` : 'Sin tope');
 
+/** La viñeta «1 condominio» de Gratis: con ✓ en todas las columnas parecía que los planes de pago también traían uno solo. */
+const UN_CONDOMINIO = /^\s*(1|un|uno)\s+condominio\b/i;
+
 /** Qué trae cada plan: Gratis (por 3 meses), Básico y Pro (Administradora trae lo de Pro). La columna Pro va en un tono distinto, sin líneas. */
 export function Comparativa({ cat }: { cat: Catalogo }) {
   const gratis = cat.planes.find(p => p.clave === 'gratis');
@@ -17,8 +20,8 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
   const pro = cat.planes.find(p => p.clave === 'pro');
   const adm = cat.planes.find(p => p.clave === 'administradora');
   const nombresModulo = new Set(cat.modulos.map(m => m.nombre));
-  // Lo de Gratis (sin la viñeta del tope: tiene su propia fila) y, de Pro, lo que no es un módulo ni «todo lo de…» (mora automática, reportes…).
-  const deGratis = (gratis?.caracteristicas ?? []).filter(c => !/departamentos/i.test(c));
+  // Lo de Gratis (sin las viñetas del tope y de «1 condominio»: tienen su propia fila, que dice cuántos trae cada plan) y, de Pro, lo que no es un módulo ni «todo lo de…» (mora automática, reportes…).
+  const deGratis = (gratis?.caracteristicas ?? []).filter(c => !/departamentos/i.test(c) && !UN_CONDOMINIO.test(c));
   const extrasPro = (pro?.caracteristicas ?? []).filter(c => !/^todo lo de/i.test(c) && !nombresModulo.has(c) && ![...nombresModulo].some(n => c.toLowerCase().includes(n.toLowerCase())));
   const fila = 'odd:bg-surface2/60';
   const celda = 'px-2 py-3 text-center sm:px-4';
@@ -45,6 +48,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
               <tbody>
                 <tr className={fila}><th scope="row" className={filaNombre}>Duración</th><td className={celda}>{cat.dias_gratis ? duracionGratis(cat.dias_gratis) : 'Sin plazo'}</td>{basico && <td className={celda}>Sin plazo</td>}<td className={celdaPro}>Sin plazo</td></tr>
                 <tr className={fila}><th scope="row" className={filaNombre}>Departamentos por condominio</th><td className={celda}>{topeTexto(gratis?.unidades_maximas)}</td>{basico && <td className={celda}>{topeTexto(basico.unidades_maximas)}</td>}<td className={celdaPro}>{topeTexto(pro?.unidades_maximas)}</td></tr>
+                <tr className={fila}><th scope="row" className={filaNombre}>Condominios por cuenta</th><td className={celda}>1</td>{basico && <td className={celda}>Los que quieras</td>}<td className={celdaPro}>Los que quieras</td></tr>
                 {deGratis.map(f => (
                   <tr key={f} className={fila}><th scope="row" className={filaNombre}>{f}</th><td className={celda}><Si /></td>{basico && <td className={celda}><Si /></td>}<td className={celdaPro}><Si /></td></tr>
                 ))}
@@ -58,7 +62,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
             </table>
           </div>
         </div>
-        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}.{basico?.unidades_minimas != null && basico.unidades_maximas != null && ` ${basico.nombre} cobra como mínimo ${basico.unidades_minimas} departamentos y llega hasta ${basico.unidades_maximas}.`}{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Torre Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `, a ${dinero(adm.precio_por_unidad, cat.moneda)}`}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
+        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}. Cada condominio tiene su propio plan: {gratis?.nombre ?? 'Torre Gratis'} es uno por cuenta y con un plan de pago sumas los que quieras.{basico?.unidades_minimas != null && basico.unidades_maximas != null && ` ${basico.nombre} cobra como mínimo ${basico.unidades_minimas} departamentos y llega hasta ${basico.unidades_maximas}.`}{pro?.unidades_minimas != null && ` ${pro.nombre} cobra como mínimo ${pro.unidades_minimas} departamentos por condominio.`}{adm && ` ${adm.nombre} trae todo lo de Torre Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `, a ${dinero(adm.precio_por_unidad, cat.moneda)}`}${adm.unidades_minimas != null ? ` con el mismo mínimo de ${adm.unidades_minimas} departamentos por condominio` : ''}.`}</p>
       </Aparece>
     </section>
   );

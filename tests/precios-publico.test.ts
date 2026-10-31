@@ -28,7 +28,7 @@ const cat = (abierto: boolean): Catalogo => ({
   pais: 'PE', moneda: 'PEN', impuesto: { nombre: 'IGV', tasa: '0.18' },
   paises: [{ codigo: 'PE', nombre: 'Perú', bandera: '🇵🇪', moneda: 'PEN', impuesto: { nombre: 'IGV', tasa: '0.18' } }, { codigo: 'CL', nombre: 'Chile', bandera: '🇨🇱', moneda: 'CLP', impuesto: { nombre: 'IVA', tasa: '0.19' } }],
   planes: [
-    { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para siempre.', precio_por_unidad: '0.00', consultar: false, modulos_incluidos: [], caracteristicas: ['Hasta 13 departamentos', 'Recibos por torre', 'Portal del vecino'], unidades_maximas: 13, unidades_minimas: null, total_minimo_mes: null },
+    { clave: 'gratis', nombre: 'Gratis', descripcion: 'Para siempre.', precio_por_unidad: '0.00', consultar: false, modulos_incluidos: [], caracteristicas: ['1 condominio', 'Hasta 13 departamentos', 'Recibos por torre', 'Portal del vecino'], unidades_maximas: 13, unidades_minimas: null, total_minimo_mes: null },
     { clave: 'pro', nombre: 'Pro', descripcion: 'Todo House.', precio_por_unidad: '7.77', consultar: false, modulos_incluidos: ['ia_vouchers', 'asistente', 'mora_automatica', 'reportes'], caracteristicas: ['Todo lo de Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Mora automática', 'Reportes y exportes'], unidades_maximas: null, unidades_minimas: 17, total_minimo_mes: '132.09' },
     { clave: 'administradora', nombre: 'Administradora', descripcion: 'Varios condominios.', precio_por_unidad: '5.55', consultar: false, modulos_incluidos: ['ia_vouchers', 'asistente', 'mora_automatica', 'reportes'], caracteristicas: ['Todo lo de Pro', 'Descuento por volumen'], unidades_maximas: null, unidades_minimas: 17, total_minimo_mes: '94.35' },
   ],
@@ -60,6 +60,10 @@ describe('página pública de precios', () => {
   it('la comparativa es Gratis vs Pro: Gratis sin IA, WhatsApp, asistente, mora ni reportes; Pro con todo; sin columna de módulo suelto', () => {
     const html = enRuta(createElement(Comparativa, { cat: cat(true) }));
     assert.doesNotMatch(html, /Módulo suelto/);
+    // «1 condominio» con ✓ en todas las columnas hacía creer que los planes de pago traían uno solo: ahora es una fila con cuántos trae cada plan.
+    assert.doesNotMatch(html, /<th[^>]*>1 condominio<\/th>/, 'la viñeta «1 condominio» no va como fila con ✓');
+    assert.match(html, /<th[^>]*>Condominios por cuenta<\/th><td[^>]*>1<\/td><td[^>]*>Los que quieras<\/td><\/tr>/, 'sin Básico en este catálogo: Gratis y Pro');
+    assert.match(html, /Cada condominio tiene su propio plan/);
     const fila = (nombre: string) => new RegExp(`<tr[^>]*><th[^>]*>${nombre}</th>(.*?)</tr>`).exec(html)?.[1] ?? '';
     const marcas = (celdas: string) => [...celdas.matchAll(/<span class="sr-only">(Incluido|No incluido)<\/span>/g)].map(m => m[1]);
     for (const nombre of ['IA que lee y valida vouchers', 'Asistente con IA', 'Mora automática', 'Reportes y exportes']) {
