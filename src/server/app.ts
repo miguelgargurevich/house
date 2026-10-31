@@ -12,6 +12,7 @@ import { errorHandler, notFoundHandler } from './middleware/error';
 import { crearLimitadores, limitarSegunSesion, type RateLimitOptions } from './middleware/rateLimit';
 import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
+import { areasComunesRouter } from './routes/areasComunes';
 import { auditoriaRouter } from './routes/auditoria';
 import { juntasRouter } from './routes/juntas';
 import { llaveroRouter } from './routes/llavero';
@@ -42,6 +43,7 @@ import { proveedoresRouter } from './routes/proveedores';
 import { reciboConceptosRouter } from './routes/reciboConceptos';
 import { recibosRouter } from './routes/recibos';
 import { reportesRouter } from './routes/reportes';
+import { reservasRouter } from './routes/reservas';
 import { tareasRouter } from './routes/tareas';
 import { unidadesRouter } from './routes/unidades';
 import { usuariosRouter } from './routes/usuarios';
@@ -138,6 +140,8 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/auditoria', auditoriaRouter);
   api.use('/whatsapp', whatsappRouter);
   api.use('/comercial', comercialRouter);
+  api.use('/areas-comunes', areasComunesRouter);
+  api.use('/reservas', reservasRouter);
   app.use('/api', api);
   app.use('/api', notFoundHandler);
 

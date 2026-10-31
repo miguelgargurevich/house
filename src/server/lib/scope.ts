@@ -199,3 +199,35 @@ export function scopeBlocksCierre(u: AuthUser): Prisma.EstructuraWhereInput {
   if (!a) throw forbidden();
   return a.estructura_id == null ? { complejo_id: a.complejo_id } : { id: a.estructura_id, complejo_id: a.complejo_id };
 }
+
+/** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
+const unidadesPropias = (u: AuthUser): Prisma.UnidadWhereInput => (u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id });
+const esResidente = (u: AuthUser) => u.rol === 'propietario' || u.rol === 'inquilino';
+
+/**
+ * Áreas comunes: admin = condominios de su empresa; residente (propietario o inquilino) = condominios donde tiene una unidad (como dueño o como
+ * inquilino); superadmin = todas. Otro condominio u otra empresa → no entra (404). Cualquier otro rol (personal) → 403.
+ */
+export function scopeAreasComunes(u: AuthUser): Prisma.AreaComunWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return { complejo: { empresa_id: empresaDe(u) } };
+  if (esResidente(u)) return { complejo: { unidades: { some: unidadesPropias(u) } } };
+  throw forbidden();
+}
+
+/**
+ * Reservas: admin = las áreas de su empresa; residente = SÓLO las que él pidió (otros vecinos no ven quién reservó); superadmin = todas.
+ * Otro rol → 403. Un residente que ya no tiene unidad en el condominio sigue viendo (y pudiendo cancelar) lo que pidió antes.
+ */
+export function scopeReservas(u: AuthUser): Prisma.ReservaWhereInput {
+  if (esGlobal(u)) return {};
+  if (u.rol === 'admin') return { area: { complejo: { empresa_id: empresaDe(u) } } };
+  if (esResidente(u)) return { usuario_id: u.id };
+  throw forbidden();
+}
+
+/** Unidades con las que un residente puede reservar: sólo las suyas. */
+export const scopeUnidadesReserva = (u: AuthUser): Prisma.UnidadWhereInput => {
+  if (!esResidente(u)) throw forbidden('Sólo propietarios e inquilinos reservan áreas comunes');
+  return unidadesPropias(u);
+};

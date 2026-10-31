@@ -81,6 +81,8 @@ model Usuario {
   movimientosCentral MovimientoCentral[]
   lecturasAguaRegistradas LecturaAgua[]
   imagenesReciboSubidas ImagenRecibo[]
+  reservas          Reserva[]              @relation("ReservaUsuario")
+  reservasResueltas Reserva[]              @relation("ReservaResolutor")
 }
 
 model EmpresaAdministradora {
@@ -156,6 +158,7 @@ model ComplejoHabitacional {
   suscripcion SuscripcionCondominio?
   pagosSuscripcion PagoSuscripcion[]
   consumosMensuales ConsumoMensual[]
+  areasComunes AreaComun[]
 }
 
 /// Quién administra un condominio y desde cuándo. Un solo contrato vigente (`fecha_fin` null) por condominio; `ComplejoHabitacional.empresa_id` es la empresa de ese contrato.
@@ -264,6 +267,7 @@ model Unidad {
   reciboConceptoUnidades ReciboConceptoUnidad[]
   tareasMantenimiento    TareaMantenimiento[]
   lecturasAgua           LecturaAgua[]
+  reservas               Reserva[]
   complejo               ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
   empresa                EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   estructura             Estructura?            @relation(fields: [estructura_id], references: [id])
@@ -1206,4 +1210,58 @@ model ArchivoMovimientoCentral {
   subido_por_id Int?
   created_at    DateTime          @default(now())
   movimiento    MovimientoCentral @relation(fields: [movimiento_id], references: [id], onDelete: Cascade)
+}
+
+/// Área común reservable de un condominio (salón de eventos, parrilla, piscina…). Horario y días se interpretan en la zona horaria del condominio.
+model AreaComun {
+  id                    Int                  @id @default(autoincrement())
+  complejo_id           Int
+  nombre                String
+  descripcion           String?
+  /// Personas que admite; informativo (no se valida contra nada).
+  capacidad             Int?
+  /// «HH:MM» (24 h) en la zona del condominio. `hora_cierre` admite «24:00» (medianoche).
+  hora_apertura         String
+  hora_cierre           String
+  duracion_max_horas    Int                  @default(2)
+  /// Hasta cuántos días por delante (contando hoy) se puede reservar.
+  dias_anticipacion_max Int                  @default(30)
+  /// true = la reserva nace `pendiente` y la administración la aprueba; false = nace `aprobada`.
+  requiere_aprobacion   Boolean              @default(false)
+  activa                Boolean              @default(true)
+  created_at            DateTime             @default(now())
+  updated_at            DateTime             @updatedAt
+  complejo              ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  reservas              Reserva[]
+
+  @@index([complejo_id, activa])
+}
+
+/// Reserva de un área común por una unidad. Estados: pendiente | aprobada | rechazada | cancelada. Sólo `pendiente` y `aprobada` ocupan el área.
+model Reserva {
+  id              Int       @id @default(autoincrement())
+  area_id         Int
+  unidad_id       Int
+  /// Quién la pidió.
+  usuario_id      Int?
+  /// Instantes UTC; el día y la hora de pared salen de la zona del condominio.
+  inicio          DateTime
+  fin             DateTime
+  estado          String    @default("pendiente")
+  /// Motivo de rechazo o de cancelación (cuando lo hay).
+  motivo          String?
+  /// Quién y cuándo aprobó, rechazó o canceló.
+  resuelto_por_id Int?
+  resuelto_at     DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  area            AreaComun @relation(fields: [area_id], references: [id], onDelete: Cascade)
+  unidad          Unidad    @relation(fields: [unidad_id], references: [id], onDelete: Cascade)
+  usuario         Usuario?  @relation("ReservaUsuario", fields: [usuario_id], references: [id], onDelete: SetNull)
+  resuelto_por    Usuario?  @relation("ReservaResolutor", fields: [resuelto_por_id], references: [id], onDelete: SetNull)
+
+  @@index([area_id, inicio, fin])
+  @@index([area_id, estado, inicio])
+  @@index([unidad_id])
+  @@index([usuario_id, inicio])
 }
