@@ -4,6 +4,29 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Precios nuevos: Torre Pro S/ 3,00 y Torre Administradora S/ 2,50 (Claude Code, Haiku 5.5) — push: no
+
+- **Pedido de Miguel:** «y si torre pro son 3 soles y torre administradora 2.50 .. siento que torre pro es muy caro» → «Sí, aplícalos». Por departamento al mes, sin IGV. Mínimo 20 sin cambios: Pro 60,00 (con IGV 70,80) y Administradora 50,00 (con IGV 59,00). Básico sigue en 1,50 y Gratis en 0.
+- **Qué se hizo:** en `PLANES_SEED` (`src/server/services/comercial/catalogo.ts`) sólo cambiaron Pro (3.50 → 3.00) y Administradora (3.00 → 2.50). La lógica de cobro (`calculo.ts`) no cambió. El prompt de IA (`src/config/ai-system-prompt.txt`) no lleva precios de plan (su «S/ 350.00» es sólo un ejemplo de formato): no se tocó.
+- **Pruebas ajustadas (seis archivos):** `comercial-api`, `comercial-modelo`, `comercial-registro`, `impuesto-pais`, `oferta-gratis-pro`, `solo-lectura`. Los montos se recalcularon a mano; ninguna aserción se debilitó ni se cambió lógica. Hubo dos clases de cambio:
+  - Aserciones contra el seed (montos, nombres de prueba, mensajes).
+  - Setups que fijaban el precio viejo en la base (`beforeEach` de `comercial-api` e `impuesto-pais` en 3.50; restauración de Pro a 3.50 al final de `oferta-gratis-pro` y de `comercial-registro`). Ahora restauran a 3.00.
+- **Cambio de valor a propósito:** en `comercial-api` («editar precios…») el `PUT` de Pro pasó de 3.00 a 2.00. Con el seed nuevo en 3.00, el cambio y el valor inicial serían iguales y la prueba no probaría nada.
+- **Fixtures puros que NO se tocaron** (pasan su precio como entrada a la función, no leen el seed; siguen en verde): `comercial-modelo.ts` línea 14 (`pro` en 3.50) y sus cálculos de 448 y 100 deptos; `impuesto-pais` línea 91; `oferta-gratis-pro` líneas 27–28 (fixtures `pro` 3.50 y `administradora` 3.00) y sus nombres/aserciones de «Pro: 10 deptos = 82.60» y «Administradora: 10 deptos = 70.80». Si se quiere que los nombres digan el precio nuevo, es un cambio aparte.
+- **Pruebas:** suite completa `npm test` **3092/3092** (una corrida, 270 s; `TEST_DATABASE_URL` = `house_test_precios_pro_3`). `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` sin errores.
+- **Mutación:** con Pro en 3.50 en el seed, fallan 1 prueba en `comercial-registro` y 1 en `comercial-modelo`. Se restauró con `cp` + `cmp` (archivo original copiado al scratchpad antes de mutar).
+- **Gotchas:**
+  - `total_mes` de `mi-plan` y de la solicitud trae IGV incluido (70,80); `total_mes` de `/api/publico/cotizar` va sin IGV (60,00) y el total con IGV es `total_con_igv_mes`. No mezclar.
+  - La prueba del `PUT` de Pro en `oferta-gratis-pro` (mínimo 30) no restaura el mínimo si falla antes del `try`. Un fallo ahí causa cascada de 201 en vez de 403 en las pruebas del tope de Gratis (ya pasó con este cambio). La restauración sin `try/finally` sigue siendo frágil.
+  - En la primera corrida de la suite, `solo-lectura` «la administración lee todas sus pantallas» dio 500 en `/api/dashboard/resumen` (5 s). No se reprodujo: el archivo pasó solo y en la corrida completa siguiente.
+- **Próximos pasos:**
+  - Miguel decide el push.
+  - Los entregables con precios viejos quedan desactualizados según la entrada anterior: el benchmark de precios y `manual-house.json` (captura `precios.jpg`). Fuera de «Permitidos»; una tarea aparte.
+  - Los comentarios de ejemplo `S/ 20` de `src/app/soloLectura.ts`, `src/pages/publico/precios/Comparativa.tsx` y `src/server/services/comercial/plazoGratis.ts` siguen pendientes.
+- **Entorno:** `node_modules` es un enlace al checkout principal; no se corrió `npm install`. Sin cambios de dependencias ni de variables de entorno.
+
+---
+
 ## 2026-10-31 — Reservas de áreas comunes integradas; tramos de Pro apartados (Claude Code, Opus 5.5 + Sonnet) — push: no
 
 - Pedido de Miguel: reservas (la tienen los 8 competidores) y tramos de Pro. Después Miguel: «eso de los tramos lo revisamos al final… un mejor producto no se baja sólo por volar bajo». **Tramos NO integrados**: rama `feat/tramos-pro` (worktree `.claude/worktrees/tramos-pro`, 2 commits, Pro y Administradora desde el dpto 41 a S/ 1,50 / 1,30, editable por el superadmin). Revisar antes de decidir.

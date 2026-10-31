@@ -104,15 +104,15 @@ describe('cálculo con el mínimo de 20 departamentos', () => {
 describe('API pública: cotizar y planes sin módulos sueltos', () => {
   it('cotizar aplica el mínimo y dice cuántas unidades se cobran', async () => {
     const a = await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=pro');
-    assert.deepEqual(a.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 10, unidades_cobradas: 20, minimo_aplicado: true, total_mes: '70.00', total_anio: '840.00', igv_mes: '12.60', total_con_igv_mes: '82.60', igv_incluido: false }, 'precio público sin IGV (20 × 3,50 = 70,00); aparte el total con IGV');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body.total_mes, '350.00');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=administradora')).body.total_mes, '60.00'); // 20 × 3.00 sin IGV
+    assert.deepEqual(a.body, { pais: 'PE', moneda: 'PEN', impuesto_nombre: 'IGV', consultar: false, unidades: 10, unidades_cobradas: 20, minimo_aplicado: true, total_mes: '60.00', total_anio: '720.00', igv_mes: '10.80', total_con_igv_mes: '70.80', igv_incluido: false }, 'precio público sin IGV (20 × 3,00 = 60,00); aparte el total con IGV');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro')).body.total_mes, '300.00');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=10&plan=administradora')).body.total_mes, '50.00'); // 20 × 2.50 sin IGV
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=15&plan=gratis')).body.total_mes, '0.00');
   });
 
   it('cotizar ignora los módulos sueltos: Gratis + WhatsApp ya no cuesta nada aparte, y no se pueden sumar a Pro', async () => {
     assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=20&plan=gratis&modulos=whatsapp_avisos,ia_vouchers')).body.total_mes, '0.00');
-    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro&modulos=asistente')).body.total_mes, '350.00');
+    assert.equal((await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=pro&modulos=asistente')).body.total_mes, '300.00');
   });
 
   it('/api/publico/planes: Gratis sin tope y sin capacidades; Pro y Administradora con mínimo 20 y todo; módulos sin precio', async () => {
@@ -129,10 +129,10 @@ describe('API pública: cotizar y planes sin módulos sueltos', () => {
 });
 
 describe('Mi plan y Suscripciones: unidades cobradas y topes', () => {
-  it('Pro con 2 deptos: se cobra el mínimo (82.60) y la vista lo dice; Gratis no tiene tope', async () => {
+  it('Pro con 2 deptos: se cobra el mínimo (70.80 con IGV) y la vista lo dice; Gratis no tiene tope', async () => {
     await fijarPlan('pro', { dias: 40 });
     const pro2 = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0];
-    assert.deepEqual({ cobradas: pro2.unidades_cobradas, reales: pro2.unidades_facturables, min: pro2.unidades_minimas, max: pro2.unidades_maximas, mes: pro2.cotizacion.total_mes }, { cobradas: 20, reales: 2, min: 20, max: null, mes: '82.60' });
+    assert.deepEqual({ cobradas: pro2.unidades_cobradas, reales: pro2.unidades_facturables, min: pro2.unidades_minimas, max: pro2.unidades_maximas, mes: pro2.cotizacion.total_mes }, { cobradas: 20, reales: 2, min: 20, max: null, mes: '70.80' });
     await fijarPlan('gratis');
     const g = (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0];
     assert.deepEqual({ max: g.unidades_maximas, min: g.unidades_minimas, mes: g.cotizacion.total_mes }, { max: null, min: null, mes: '0.00' });
@@ -149,7 +149,7 @@ describe('Mi plan y Suscripciones: unidades cobradas y topes', () => {
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.unidades_minimas, 30);
     await fijarPlan('pro', { dias: 40 });
-    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '123.90', '30 × 3,50 = 105,00 + IGV 18,90');
+    assert.equal((await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios[0].cotizacion.total_mes, '106.20', '30 × 3,00 = 90,00 + IGV 16,20');
     try {
       assert.equal((await llamar(base, 'PUT', '/api/comercial/planes/gratis', T.super, { unidades_maximas: 5 })).status, 200);
       await fijarPlan('gratis');
@@ -226,7 +226,7 @@ describe('puertas por capacidad: Gratis sin IA, WhatsApp, asistente, mora ni rep
   it('un pago del plan solicitado también deja atrás los módulos sueltos viejos', async () => {
     await fijarPlan('gratis', { modulos: ['whatsapp_avisos'] });
     assert.equal((await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, { plan: 'pro' })).status, 200);
-    const pago = await llamar(base, 'POST', `/api/comercial/suscripciones/${d.complejoA.id}/pagos`, T.super, { monto: '82.60', fecha_pago: '2026-10-28', medio: 'yape', operacion: 'OP-ofer', periodo_desde: '2026-10-28', periodo_hasta: '2026-11-28' });
+    const pago = await llamar(base, 'POST', `/api/comercial/suscripciones/${d.complejoA.id}/pagos`, T.super, { monto: '70.80', fecha_pago: '2026-10-28', medio: 'yape', operacion: 'OP-ofer', periodo_desde: '2026-10-28', periodo_hasta: '2026-11-28' });
     assert.equal(pago.status, 201, pago.texto);
     const s = await prisma.suscripcionCondominio.findUniqueOrThrow({ where: { complejo_id: d.complejoA.id } });
     assert.deepEqual([s.plan_clave, s.modulos], ['pro', []]);
@@ -451,7 +451,7 @@ describe('script de la oferta: deja una base existente con los valores nuevos', 
     const p = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'pro' } });
     assert.equal(p.precio_por_unidad.toFixed(2), '3.10');
     assert.equal(p.visible, false);
-    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.50', visible: true } });
+    await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.00', visible: true } });
   });
 
   it('con la oferta aplicada, Libertadores (cortesía) sigue con todas las capacidades', async () => {

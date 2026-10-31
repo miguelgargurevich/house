@@ -258,7 +258,7 @@ describe('solo lectura: el superadmin, otro tenant y el pago de un plan', () => 
   });
 
   it('pagar un plan de pago levanta el bloqueo al instante (Pro y Básico); y si luego vence pasada la gracia, vuelve a solo lectura', async () => {
-    const pago = (plan: string, over: Record<string, unknown> = {}) => ({ monto: plan === 'basico' ? '35.40' : '82.60', fecha_pago: iso(HOY()), medio: 'transferencia', operacion: `OP-${plan}-${Math.random()}`, periodo_desde: iso(HOY()), periodo_hasta: iso(HOY() + 30 * DIA), ...over });
+    const pago = (plan: string, over: Record<string, unknown> = {}) => ({ monto: plan === 'basico' ? '35.40' : '70.80', fecha_pago: iso(HOY()), medio: 'transferencia', operacion: `OP-${plan}-${Math.random()}`, periodo_desde: iso(HOY()), periodo_hasta: iso(HOY() + 30 * DIA), ...over });
     const comunicado = () => api(T.adminA, 'POST', '/api/comunicados', { complejo_id: d.complejoA.id, titulo: 'Tras el pago', cuerpo: 'Texto del comunicado tras el pago.' });
     for (const plan of ['pro', 'basico']) {
       await enSoloLectura();
