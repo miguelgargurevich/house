@@ -108,7 +108,7 @@ describe('página pública de precios', () => {
     assert.doesNotMatch(r, /type="checkbox"|sueltos|modulos:/);
     assert.match(r, /useTotal\(n, plan\?\.clave \?\? null, cat\.pais, valido && !!plan\)/, 'la calculadora cotiza con el país elegido');
     assert.match(r, /const excede = tope != null && n > tope/);
-    assert.match(r, /total\.r\.minimo_aplicado/);
+    assert.match(r, /notaDelMinimo\(n, minimo\)/, 'avisa del mínimo con la nota del desglose');
     const t = readFileSync('src/pages/publico/precios/useTotal.ts', 'utf8');
     assert.doesNotMatch(t, /modulos/, 'la cotización pública ya no lleva módulos sueltos');
   });
@@ -191,7 +191,7 @@ describe('/precios por país: moneda, precios e impuesto del país elegido', () 
     const r = readFileSync('src/pages/publico/precios/Recibo.tsx', 'utf8');
     assert.match(r, /plan\?\.consultar/);
     assert.match(r, /Consúltanos/);
-    assert.match(r, /Con \{total\.r\.impuesto_nombre\}/);
+    assert.match(r, /Con \{r\.impuesto_nombre\}/);
     assert.match(readFileSync('src/pages/publico/precios/useTotal.ts', 'utf8'), /pais/);
   });
 

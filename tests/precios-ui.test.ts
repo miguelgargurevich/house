@@ -148,12 +148,13 @@ describe('precio por tramos en /precios y en las pantallas de planes', () => {
     assert.doesNotMatch(enRuta(createElement(Comparativa, { cat: cat() })), /por departamento desde el|desde el departamento/);
   });
 
-  it('la calculadora lee del servidor cuántos departamentos caen en el tramo y los explica; sin cifras escritas a mano', () => {
+  it('la calculadora arma el desglose con la cotización del servidor y el catálogo (sin cifras escritas a mano), y no muestra el total anual', () => {
     const s = fuente(RECIBO);
-    assert.match(s, /total\.r\.unidades_tramo/);
-    assert.match(s, /total\.r\.tramo_desde/);
-    assert.match(s, /departamentos a \$\{dinero\(plan\.precio_por_unidad/);
-    assert.match(s, /desde el \$\{total\.r\.tramo_desde\} a \$\{dinero\(total\.r\.tramo_precio/);
+    assert.match(s, /desglosar\(\{/);
+    assert.match(s, /tramo_desde: r\.tramo_desde \?\? null/);
+    assert.match(s, /decimales: decimalesDe\(moneda\)/);
+    assert.match(s, /Promedio por departamento/);
+    assert.doesNotMatch(s, /al año|total_anio/, 'sin el total anual');
     assert.match(fuente('src/pages/publico/precios/useTotal.ts'), /tramo_desde\?: number \| null; tramo_precio\?: string \| null; unidades_tramo\?: number/);
   });
 

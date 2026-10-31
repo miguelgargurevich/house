@@ -1,9 +1,11 @@
 import { MinusIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
+import { decimalesDe } from '../../../lib/paises';
 import { cx, dinero } from '../../../ui';
-import type { Catalogo } from '../catalogo';
+import type { Catalogo, Plan } from '../catalogo';
 import { plazoGratisTexto } from '../plazoGratis';
-import { useTotal } from './useTotal';
+import { desglosar, etiquetaDeFila, notaDelMinimo } from './tramo';
+import { useTotal, type Total } from './useTotal';
 
 export interface Eleccion { unidades: string; plan: string }
 
@@ -11,8 +13,50 @@ const PRESETS = [20, 50, 100, 250] as const;
 const MAX = 100_000;
 
 /**
+ * El total de un plan de pago al mes (sin impuesto y con él) y de dónde sale: una fila por cada tramo de departamentos con su precio, y el promedio
+ * por departamento. Todo viene de la cotización del servidor (`r`) y del catálogo (`plan`). Sin impuesto no hay «+ IGV». El desglose sólo se muestra si
+ * suma EXACTAMENTE el total del servidor: si no cuadra, se ve el total y nada más.
+ */
+function TotalDelMes({ r, plan, n, cat }: { r: Total; plan: Plan; n: number; cat: Catalogo }) {
+  const moneda = r.moneda;
+  const tope = plan.unidades_maximas ?? null;
+  if (Number(plan.precio_por_unidad) === 0) return (
+    <>
+      <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(r.total_mes, moneda)}</p>
+      <p className="num mt-2 text-lg">{`Torre Gratis ${plazoGratisTexto(cat)}${tope != null ? `, hasta ${tope} departamentos` : ''}.`}</p>
+    </>
+  );
+  const conImpuesto = Number(cat.impuesto.tasa) > 0;
+  const minimo = plan.unidades_minimas ?? 0;
+  const d = desglosar({ unidades: n, cobradas: r.unidades_cobradas, minimo: plan.unidades_minimas, precio: plan.precio_por_unidad ?? '0', tramo_desde: r.tramo_desde ?? null, tramo_precio: r.tramo_precio ?? null, total: r.total_mes ?? '0', decimales: decimalesDe(moneda) });
+  const nota = notaDelMinimo(n, minimo);
+  return (
+    <>
+      <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(r.total_mes, moneda)}</p>
+      <p className="mt-1 text-lg">al mes{conImpuesto ? ` + ${r.impuesto_nombre}` : ''}</p>
+      {conImpuesto && r.total_con_igv_mes && <p className="num mt-2 text-base opacity-90">Con {r.impuesto_nombre}: {dinero(r.total_con_igv_mes, moneda)}</p>}
+      {d.cuadra && (
+        <dl className="mt-5 border-t border-on-brand/25 text-base">
+          {d.filas.map(f => (
+            <div key={f.desde} className="flex items-baseline justify-between gap-4 border-b border-on-brand/25 py-2.5">
+              <dt className="min-w-0 opacity-90">{etiquetaDeFila(f, n, minimo, moneda, dinero)}</dt>
+              <dd className="num shrink-0 font-medium">{dinero(f.monto, moneda)}</dd>
+            </div>
+          ))}
+          <div className="flex items-baseline justify-between gap-4 py-2.5">
+            <dt className="min-w-0 opacity-90">Promedio por departamento</dt>
+            <dd className="num shrink-0 font-medium">{dinero(d.promedio, moneda)}</dd>
+          </div>
+        </dl>
+      )}
+      {nota && <p className="mt-3 text-base">{nota}</p>}
+    </>
+  );
+}
+
+/**
  * El recibo de House: la calculadora presentada como lo que House emite. Gratis (por 3 meses), Básico, Torre Pro o Torre Administradora; Pro trae todos los módulos.
- * Los topes y mínimos de departamentos salen del catálogo; el total al mes y al año lo calcula el servidor (`/api/publico/cotizar`).
+ * Los topes y mínimos de departamentos salen del catálogo; el total al mes lo calcula el servidor (`/api/publico/cotizar`).
  */
 export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: Eleccion; onCambio: (e: Eleccion) => void }) {
   const { unidades, plan: claveplan } = eleccion;
@@ -24,7 +68,6 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
   const conImpuesto = Number(cat.impuesto.tasa) > 0;
   const nombreImp = cat.impuesto.nombre;
   const paisNombre = cat.paises.find(p => p.codigo === cat.pais)?.nombre ?? cat.pais;
-  const gratis = plan && Number(plan.precio_por_unidad) === 0;
   const tope = plan?.unidades_maximas ?? null;
   const excede = tope != null && n > tope;
   const pro = cat.planes.find(p => p.clave === 'pro');
@@ -113,15 +156,7 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
             <p className="text-sm font-medium opacity-90">Total al mes · {n} {n === 1 ? 'departamento' : 'departamentos'}</p>
             {total.r ? (
               <div key={total.r.total_mes} className="sube-corto">
-                <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(total.r.total_mes, total.r.moneda)}</p>
-                <p className="num mt-2 text-lg">{gratis ? `Torre Gratis ${plazoGratisTexto(cat)}${tope != null ? `, hasta ${tope} departamentos` : ''}.` : `${conImpuesto ? `Más ${nombreImp} · ` : ''}${dinero(total.r.total_anio, total.r.moneda)} al año`}</p>
-                {!gratis && conImpuesto && total.r.total_con_igv_mes && <p className="num mt-1 text-base opacity-90">Con {total.r.impuesto_nombre}: {dinero(total.r.total_con_igv_mes, total.r.moneda)} al mes</p>}
-                {!gratis && total.r.tramo_desde != null && total.r.tramo_precio != null && plan?.precio_por_unidad != null && (
-                  <p className="num mt-1 text-base">
-                    {total.r.unidades_tramo ? `${total.r.unidades_cobradas - total.r.unidades_tramo} departamentos a ${dinero(plan.precio_por_unidad, total.r.moneda)} y ${total.r.unidades_tramo} desde el ${total.r.tramo_desde} a ${dinero(total.r.tramo_precio, total.r.moneda)}.` : `Desde el departamento ${total.r.tramo_desde}, cada uno cuesta ${dinero(total.r.tramo_precio, total.r.moneda)}.`}
-                  </p>
-                )}
-                {total.r.minimo_aplicado && <p className="mt-1 text-base">El precio base de {plan?.nombre} incluye hasta {total.r.unidades_cobradas} departamentos por condominio.</p>}
+                {plan && <TotalDelMes r={total.r} plan={plan} n={n} cat={cat} />}
               </div>
             ) : <div className="mt-2 h-14 w-56 rounded bg-on-brand/20" aria-hidden="true" />}
           </>
