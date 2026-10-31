@@ -15,6 +15,10 @@ export interface Plan {
   unidades_minimas: number | null;
   /** Lo menos que paga un condominio con este plan al mes (mínimo de departamentos × precio, sin impuesto), calculado por el servidor. */
   total_minimo_mes: string | null;
+  /** Precio por tramos: desde este departamento (61 = los primeros 60 al precio normal) cada uno cuesta `tramo_precio`. `null` = precio único (o sin tramo en la moneda del país). */
+  tramo_desde?: number | null;
+  /** Precio por departamento al mes desde `tramo_desde`, sin impuesto, en la moneda del catálogo. */
+  tramo_precio?: string | null;
 }
 /** Lo que trae Pro. Los módulos ya no se venden sueltos: no tienen precio. */
 export interface Modulo { clave: string; nombre: string; descripcion: string | null }

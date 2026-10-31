@@ -3,7 +3,7 @@ import { api, errorText, useResource } from '../../../../api';
 import { Alert, Button, Modal, dinero, useToast } from '../../../../ui';
 import type { VistaSuscripcion } from '../../../shared/_parts/comercial';
 
-interface Catalogo { planes: { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string | null; consultar: boolean; unidades_minimas: number | null; unidades_maximas: number | null; total_minimo_mes: string | null }[]; moneda: string; impuesto: { nombre: string; tasa: string } }
+interface Catalogo { planes: { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string | null; consultar: boolean; unidades_minimas: number | null; unidades_maximas: number | null; total_minimo_mes: string | null; tramo_desde?: number | null; tramo_precio?: string | null }[]; moneda: string; impuesto: { nombre: string; tasa: string } }
 interface Total { unidades_cobradas: number; minimo_aplicado: boolean; moneda: string; impuesto_nombre: string; consultar: boolean; total_mes: string | null; total_anio: string | null; total_con_igv_mes: string | null }
 
 /**
@@ -69,7 +69,7 @@ export function ModalSolicitud({ condominio, onClose, onHecho }: { condominio: V
                     <span><span className="block font-medium">{p.nombre}</span>{p.descripcion && <span className="block text-xs text-muted">{p.descripcion}</span>}</span>
                   </span>
                   <span className="num shrink-0 text-right text-xs text-muted">
-                    {pasadoDelTope ? <span className="block font-medium">Llega hasta {p.unidades_maximas} departamentos<span className="block font-normal">tu condominio tiene {n}</span></span> : disponible && p.precio_por_unidad !== null ? <>{dinero(p.precio_por_unidad, catalogo?.moneda)} por depto al mes{p.unidades_minimas != null && <span className="block">mínimo {p.unidades_minimas} departamentos</span>}</> : <span className="block font-medium">Consúltanos<span className="block font-normal">aún no hay precio en tu país</span></span>}
+                    {pasadoDelTope ? <span className="block font-medium">Llega hasta {p.unidades_maximas} departamentos<span className="block font-normal">tu condominio tiene {n}</span></span> : disponible && p.precio_por_unidad !== null ? <>{dinero(p.precio_por_unidad, catalogo?.moneda)} por depto al mes{p.unidades_minimas != null && <span className="block">mínimo {p.unidades_minimas} departamentos</span>}{p.tramo_desde != null && p.tramo_precio != null && <span className="block">{dinero(p.tramo_precio, catalogo?.moneda)} desde el departamento {p.tramo_desde}</span>}</> : <span className="block font-medium">Consúltanos<span className="block font-normal">aún no hay precio en tu país</span></span>}
                   </span>
                 </label>
               );

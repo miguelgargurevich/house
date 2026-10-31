@@ -3,6 +3,8 @@ import { api } from '../../../api';
 
 export interface Total {
   unidades_cobradas: number; minimo_aplicado: boolean; moneda: string; impuesto_nombre: string;
+  /** Precio por tramos del plan (sin impuesto) y cuántos departamentos de este cálculo caen en él; sin tramo: null y 0. */
+  tramo_desde?: number | null; tramo_precio?: string | null; unidades_tramo?: number;
   /** El plan no tiene precio en la moneda del país: sin totales («Consúltanos»). */
   consultar: boolean;
   /** Sin impuesto. */ total_mes: string | null; total_anio: string | null; igv_mes: string | null; total_con_igv_mes: string | null;

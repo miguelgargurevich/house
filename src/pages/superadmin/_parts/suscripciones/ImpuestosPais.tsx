@@ -4,8 +4,8 @@ import { Badge, Button, Card, CardBody, CardHeader, Input, Select, dinero, useTo
 import { MONEDAS, decimalesDe, monedaDe, paisDe } from '../../../../lib/paises';
 
 export interface ImpuestoPais { pais: string; nombre: string; tasa: string; moneda: string; activo: boolean }
-export interface PrecioMoneda { plan_clave: string; moneda: string; precio_por_unidad: string }
-interface PlanPrecio { clave: string; nombre: string; precio_por_unidad: string }
+export interface PrecioMoneda { plan_clave: string; moneda: string; precio_por_unidad: string; tramo_precio_por_unidad?: string | null }
+interface PlanPrecio { clave: string; nombre: string; precio_por_unidad: string; tramo_desde?: number | null }
 
 /** La API guarda la tasa en fracción (0.19); aquí se edita en porcentaje (19). Se redondea a 2 decimales para no arrastrar 7.000000000000001. */
 const aPorcentaje = (tasa: string): string => String(Number((Number(tasa) * 100).toFixed(2)));
@@ -50,12 +50,15 @@ function FilaImpuesto({ f, onGuardado }: { f: ImpuestoPais; onGuardado: () => vo
 function FilaPrecio({ plan, moneda, fila, onGuardado }: { plan: PlanPrecio; moneda: string; fila: PrecioMoneda | undefined; onGuardado: () => void }) {
   const toast = useToast();
   const [precio, setPrecio] = useState(fila?.precio_por_unidad ?? '');
+  const [tramo, setTramo] = useState(fila?.tramo_precio_por_unidad ?? '');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setPrecio(fila?.precio_por_unidad ?? ''); }, [fila]);
+  useEffect(() => { setPrecio(fila?.precio_por_unidad ?? ''); setTramo(fila?.tramo_precio_por_unidad ?? ''); }, [fila]);
+  // Sólo un plan con tramo (desde qué departamento) lleva precio de tramo por moneda; sin él, en esta moneda el plan se cobra con precio único.
+  const conTramo = plan.tramo_desde != null;
   const url = `/api/comercial/planes/${plan.clave}/precios/${moneda}`;
   async function guardar() {
     setBusy(true);
-    try { await api(url, { method: 'PUT', json: { precio_por_unidad: precio.trim() } }); toast.ok(`${plan.nombre} en ${moneda}: precio guardado`); onGuardado(); } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
+    try { await api(url, { method: 'PUT', json: { precio_por_unidad: precio.trim(), ...(conTramo ? { tramo_precio_por_unidad: tramo.trim() ? tramo.trim() : null } : {}) } }); toast.ok(`${plan.nombre} en ${moneda}: precio guardado`); onGuardado(); } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
   }
   async function quitar() {
     setBusy(true);
@@ -68,7 +71,8 @@ function FilaPrecio({ plan, moneda, fila, onGuardado }: { plan: PlanPrecio; mone
         <p className="num text-xs text-muted">{fila ? `Se muestra: ${dinero(fila.precio_por_unidad, moneda)} por depto al mes + impuesto` : 'Sin precio: en estos países se muestra «Consúltanos» y no se puede contratar'}</p>
       </div>
       <Input label={`Precio base (${monedaDe(moneda)?.simbolo ?? moneda}, sin impuesto)`} inputMode={decimalesDe(moneda) === 0 ? 'numeric' : 'decimal'} value={precio} onChange={e => setPrecio(e.target.value)} hint={decimalesDe(moneda) === 0 ? 'Sin decimales.' : undefined} className="w-56" />
-      <Button size="sm" loading={busy} disabled={!precio.trim() || precio.trim() === fila?.precio_por_unidad} onClick={() => void guardar()} aria-label={`Guardar precio de ${plan.nombre} en ${moneda}`}>Guardar</Button>
+      {conTramo && <Input label={`Desde el departamento ${plan.tramo_desde} (${monedaDe(moneda)?.simbolo ?? moneda}, sin impuesto)`} inputMode={decimalesDe(moneda) === 0 ? 'numeric' : 'decimal'} value={tramo} onChange={e => setTramo(e.target.value)} hint="Vacío = precio único en esta moneda." className="w-56" />}
+      <Button size="sm" loading={busy} disabled={!precio.trim() || (precio.trim() === fila?.precio_por_unidad && (!conTramo || tramo.trim() === (fila?.tramo_precio_por_unidad ?? '')))} onClick={() => void guardar()} aria-label={`Guardar precio de ${plan.nombre} en ${moneda}`}>Guardar</Button>
       {fila && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void quitar()} aria-label={`Quitar precio de ${plan.nombre} en ${moneda}`}>Quitar</Button>}
     </li>
   );

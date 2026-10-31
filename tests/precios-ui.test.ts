@@ -83,3 +83,94 @@ describe('página de precios como oferta', () => {
     }
   });
 });
+
+describe('precio por tramos en /precios y en las pantallas de planes', () => {
+  /** El catálogo de arriba con tramo en Pro (desde el 41 a 3.33) y en Administradora (desde el 31 a 2.22); Gratis sin tramo. */
+  const catTramos = (): Catalogo => {
+    const c = cat();
+    c.planes = c.planes.map(p => (p.clave === 'pro' ? { ...p, tramo_desde: 41, tramo_precio: '3.33' } : p.clave === 'administradora' ? { ...p, tramo_desde: 31, tramo_precio: '2.22' } : { ...p, tramo_desde: null, tramo_precio: null }));
+    return c;
+  };
+  const tarjeta = (html: string, nombre: string) => new RegExp(`<article[^>]*>(?:(?!</article>).)*<h3[^>]*>${nombre}</h3>.*?</article>`).exec(html)?.[0] ?? '';
+
+  it('la tarjeta de Pro y la de Administradora meten el tramo en la frase del precio base («del 18 al 40 … ; desde el 41 …»), tomado del catálogo', () => {
+    const html = enRuta(createElement(Planes, { cat: catTramos(), onCalcular: () => undefined }));
+    assert.match(tarjeta(html, 'Pro'), /Desde S\/\s*132\.09 al mes \+ IGV, incluye hasta 17 departamentos; del 18 al 40, S\/\s*7\.77 cada uno; desde el 41, S\/\s*3\.33\./);
+    assert.match(tarjeta(html, 'Administradora'), /incluye hasta 17 departamentos; del 18 al 30, S\/\s*5\.55 cada uno; desde el 31, S\/\s*2\.22\./);
+    assert.equal((tarjeta(html, 'Pro').match(/desde el 41/g) ?? []).length, 1, 'el tramo se dice una sola vez en la tarjeta (no hay una línea aparte debajo del precio)');
+  });
+
+  it('con los valores de fábrica (Pro 3.00 y 61 a 2.00; Administradora 2.50 y 61 a 1.70) la tarjeta dice exactamente lo que pidió Miguel', () => {
+    const c = cat();
+    c.planes = c.planes.map(p => (p.clave === 'pro'
+      ? { ...p, precio_por_unidad: '3.00', unidades_minimas: 20, total_minimo_mes: '60.00', tramo_desde: 61, tramo_precio: '2.00' }
+      : p.clave === 'administradora'
+        ? { ...p, precio_por_unidad: '2.50', unidades_minimas: 20, total_minimo_mes: '50.00', tramo_desde: 61, tramo_precio: '1.70' }
+        : p));
+    const html = enRuta(createElement(Planes, { cat: c, onCalcular: () => undefined }));
+    assert.match(tarjeta(html, 'Pro'), /Desde S\/\s*60\.00 al mes \+ IGV, incluye hasta 20 departamentos; del 21 al 60, S\/\s*3\.00 cada uno; desde el 61, S\/\s*2\.00\./);
+    assert.match(tarjeta(html, 'Administradora'), /Desde S\/\s*50\.00 al mes \+ IGV, incluye hasta 20 departamentos; del 21 al 60, S\/\s*2\.50 cada uno; desde el 61, S\/\s*1\.70\./);
+  });
+
+  it('la frase del tramo con bordes: tramo pegado al precio base, de un solo departamento, sin tramo, sin mínimo y sin precio', async () => {
+    const { despuesDelPrecioBase } = await import('../src/pages/publico/precios/tramo');
+    const f = (monto: string) => `S/ ${monto}`;
+    const base = cat().planes.find(p => p.clave === 'pro')!; // mínimo 17, precio 7.77
+    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 61, tramo_precio: '2.00' }, 'PEN', f), '; del 18 al 60, S/ 7.77 cada uno; desde el 61, S/ 2.00');
+    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 19, tramo_precio: '2.00' }, 'PEN', f), '; el 18, S/ 7.77 cada uno; desde el 19, S/ 2.00');
+    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 18, tramo_precio: '2.00' }, 'PEN', f), '; desde el 18, S/ 2.00 cada uno');
+    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: null, tramo_precio: null }, 'PEN', f), '; desde el 18, S/ 7.77 cada uno');
+    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 61, tramo_precio: null }, 'PEN', f), '; desde el 18, S/ 7.77 cada uno', 'con sólo uno de los dos campos no hay tramo');
+    assert.equal(despuesDelPrecioBase({ ...base, unidades_minimas: null }, 'PEN', f), '');
+    assert.equal(despuesDelPrecioBase({ ...base, precio_por_unidad: null }, 'PEN', f), '');
+  });
+
+  it('Gratis y un plan sin tramo no dicen nada de tramos', () => {
+    const html = enRuta(createElement(Planes, { cat: catTramos(), onCalcular: () => undefined }));
+    assert.doesNotMatch(tarjeta(html, 'Gratis'), /desde el \d/);
+    const sin = enRuta(createElement(Planes, { cat: cat(), onCalcular: () => undefined }));
+    assert.doesNotMatch(sin, /por departamento desde el/);
+  });
+
+  it('la frase del tramo se parte en el celular (390 px): el párrafo no usa whitespace-nowrap y la tarjeta no fija un ancho', () => {
+    const s = fuente('src/pages/publico/precios/Planes.tsx');
+    const linea = /<p className=\{`([^`]*)`\}>\{plan\.total_minimo_mes \?/.exec(s)?.[1] ?? '';
+    assert.ok(linea, 'el párrafo del precio base existe');
+    assert.doesNotMatch(linea, /nowrap/);
+    assert.doesNotMatch(s, /\bw-\[\d+px\]|\bmin-w-\[\d+(px|rem)\]/);
+  });
+
+  it('la nota de la comparativa menciona el tramo de Pro y el de Administradora', async () => {
+    const { Comparativa } = await import('../src/pages/publico/precios/Comparativa');
+    const html = enRuta(createElement(Comparativa, { cat: catTramos() }));
+    assert.match(html, /Pro cobra S\/\s3\.33 por departamento desde el 41\./);
+    assert.match(html, /S\/\s2\.22 desde el departamento 31/);
+    assert.doesNotMatch(enRuta(createElement(Comparativa, { cat: cat() })), /por departamento desde el|desde el departamento/);
+  });
+
+  it('la calculadora lee del servidor cuántos departamentos caen en el tramo y los explica; sin cifras escritas a mano', () => {
+    const s = fuente(RECIBO);
+    assert.match(s, /total\.r\.unidades_tramo/);
+    assert.match(s, /total\.r\.tramo_desde/);
+    assert.match(s, /departamentos a \$\{dinero\(plan\.precio_por_unidad/);
+    assert.match(s, /desde el \$\{total\.r\.tramo_desde\} a \$\{dinero\(total\.r\.tramo_precio/);
+    assert.match(fuente('src/pages/publico/precios/useTotal.ts'), /tramo_desde\?: number \| null; tramo_precio\?: string \| null; unidades_tramo\?: number/);
+  });
+
+  it('Mi plan muestra el detalle de las dos líneas (unidades × precio = base) sólo cuando hay más de una', () => {
+    const s = fuente('src/pages/admin/MiPlan.tsx');
+    assert.match(s, /c\.cotizacion\.lineas\?\.length \?\? 0\) > 1/);
+    assert.match(s, /l\.unidades\} \{l\.unidades === 1 \? 'departamento' : 'departamentos'\} × \{dinero\(l\.precio_unidad_base, c\.moneda\)\} = \{dinero\(l\.base, c\.moneda\)\}/);
+    assert.match(fuente('src/pages/shared/_parts/comercial.ts'), /lineas\?: LineaCotizacion\[\]/);
+  });
+
+  it('Superadmin › Precios edita «Desde el departamento» y «Precio desde ahí» por plan, y el precio de tramo por moneda; los manda al servidor', () => {
+    const s = fuente('src/pages/superadmin/_parts/suscripciones/Precios.tsx');
+    assert.match(s, /label="Desde el departamento \(precio por tramos\)"/);
+    assert.match(s, /label="Precio desde ahí \(S\/, sin impuesto\)"/);
+    assert.match(s, /tramo_desde: tramoDesde\.trim\(\) \? Number\(tramoDesde\) : null, tramo_precio: tramoPrecio\.trim\(\) \? tramoPrecio\.trim\(\) : null/);
+    const m = fuente('src/pages/superadmin/_parts/suscripciones/ImpuestosPais.tsx');
+    assert.match(m, /tramo_precio_por_unidad: tramo\.trim\(\) \? tramo\.trim\(\) : null/);
+    assert.match(m, /const conTramo = plan\.tramo_desde != null/);
+  });
+});

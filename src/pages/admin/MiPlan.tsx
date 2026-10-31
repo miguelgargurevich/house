@@ -96,7 +96,12 @@ function Condominio({ c, pagar, onSolicitar, onCambio }: { c: Vista; pagar: Dato
             <dd className="text-sm">
               {c.precio_consultar
                 ? <><span className="text-lg font-semibold">Consúltanos</span><span className="block text-xs text-muted">Tu plan todavía no tiene precio en la moneda de tu país.</span></>
-                : <><span className="num text-lg font-semibold">{dinero(c.cotizacion.total_mes, c.moneda)}</span>{Number(c.cotizacion.total_mes) > 0 && conImpuesto && <span className="num block text-xs text-muted">{dinero(c.cotizacion.base, c.moneda)} + {c.impuesto.nombre} {dinero(c.cotizacion.igv, c.moneda)}</span>}</>}{c.cotizacion.minimo_aplicado && <span className="block text-xs text-muted">Se cobra el mínimo de {c.cotizacion.unidades_cobradas} departamentos por condominio ({c.plan.nombre}).</span>}</dd>
+                : <><span className="num text-lg font-semibold">{dinero(c.cotizacion.total_mes, c.moneda)}</span>{Number(c.cotizacion.total_mes) > 0 && conImpuesto && <span className="num block text-xs text-muted">{dinero(c.cotizacion.base, c.moneda)} + {c.impuesto.nombre} {dinero(c.cotizacion.igv, c.moneda)}</span>}</>}{!c.precio_consultar && (c.cotizacion.lineas?.length ?? 0) > 1 && (
+                <ul className="num mt-1 space-y-0.5 text-xs text-muted" aria-label="Detalle del total por tramos">
+                  {c.cotizacion.lineas!.map(l => <li key={l.concepto}>{l.unidades} {l.unidades === 1 ? 'departamento' : 'departamentos'} × {dinero(l.precio_unidad_base, c.moneda)} = {dinero(l.base, c.moneda)}</li>)}
+                  {conImpuesto && <li>(sin {c.impuesto.nombre})</li>}
+                </ul>
+              )}{c.cotizacion.minimo_aplicado && <span className="block text-xs text-muted">Se cobra el mínimo de {c.cotizacion.unidades_cobradas} departamentos por condominio ({c.plan.nombre}).</span>}</dd>
           </div>
         </dl>
 

@@ -5,6 +5,7 @@ import { dinero } from '../../ui/format';
 import { monedaDe } from '../paises';
 import type { Catalogo, Plan } from '../../pages/publico/catalogo';
 import { plazoGratisTexto } from '../../pages/publico/plazoGratis';
+import { despuesDelPrecioBase } from '../../pages/publico/precios/tramo';
 
 export const MARCA = 'Torre';
 export const MARCA_LARGA = 'Torre · Administración de condominios';
@@ -72,7 +73,7 @@ export function textoTope(plan: Plan, cat: Catalogo): string | null {
   if (plan.unidades_maximas != null && plan.unidades_minimas != null) return `Hasta ${plan.unidades_maximas} departamentos por condominio, mínimo ${plan.unidades_minimas} cobrados${plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.`;
   if (plan.unidades_maximas != null) return `Hasta ${plan.unidades_maximas} departamentos por condominio.`;
   // El mínimo se dice como precio base («desde S/ 60 al mes, incluye hasta 20 departamentos»): a un edificio chico no le suena a «no es para ti».
-  if (plan.unidades_minimas != null) return `${plan.total_minimo_mes ? `Desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}, incluye hasta ${plan.unidades_minimas} departamentos` : `Incluye hasta ${plan.unidades_minimas} departamentos en el precio base`}${plan.precio_por_unidad !== null ? `; desde el ${plan.unidades_minimas + 1}, ${dinero(plan.precio_por_unidad, cat.moneda)} cada uno` : ''}.`;
+  if (plan.unidades_minimas != null) return `${plan.total_minimo_mes ? `Desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}, incluye hasta ${plan.unidades_minimas} departamentos` : `Incluye hasta ${plan.unidades_minimas} departamentos en el precio base`}${despuesDelPrecioBase(plan, cat.moneda, dinero)}.`;
   return null;
 }
 

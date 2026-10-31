@@ -21,7 +21,9 @@ export const ESTADO_UI: Record<EstadoSuscripcion, { label: string; tone: Tone }>
 };
 
 /** `moneda` (ISO 4217) e `impuesto_nombre` (IGV, IVA…) son los del país del condominio; `igv` e `igv_tasa` (fracción) son ese impuesto. */
-export interface Cotizacion { moneda: string; impuesto_nombre: string; unidades: number; unidades_cobradas: number; minimo_aplicado: boolean; base: string; igv: string; total_mes: string; total_anio: string; igv_tasa: string }
+export interface LineaCotizacion { concepto: string; clave: string; unidades: number; precio_unidad_base: string; base: string }
+/** Con precio por tramos (Pro, Administradora) y más departamentos que `tramo_desde - 1`, `lineas` trae dos: los primeros al precio normal y el resto al del tramo. */
+export interface Cotizacion { moneda: string; impuesto_nombre: string; unidades: number; unidades_cobradas: number; minimo_aplicado: boolean; unidades_tramo?: number; lineas?: LineaCotizacion[]; base: string; igv: string; total_mes: string; total_anio: string; igv_tasa: string }
 
 export interface VistaSuscripcion {
   complejo_id: number;
