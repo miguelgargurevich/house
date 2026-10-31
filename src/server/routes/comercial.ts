@@ -67,6 +67,8 @@ const precioMonedaParams = z.object({ clave: z.string().min(1).max(40), moneda: 
 const impuestoSchema = z.object({ nombre: texto(20).optional(), tasa: tasaSchema.optional(), moneda: monedaEnum.optional(), activo: z.boolean().optional() });
 /** Texto opcional que, si viene vacío o sólo con espacios, se guarda como null (no como ""). */
 const textoLegal = (max: number) => z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(max, `Máximo ${max} caracteres`).nullish());
+/** Código de verificación de un buscador: letras, números, `_`, `-` y `.` (nada de comillas ni `<`: va dentro de un atributo HTML). */
+const codigoVerificacion = z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(100, 'Máximo 100 caracteres').regex(/^[A-Za-z0-9_.-]+$/, 'Sólo el código: letras, números, guion y punto').nullish());
 const configSchema = z.object({
   igv_tasa: tasaSchema.optional(),
   dias_gracia: z.number().int().min(0).max(90).optional(),
@@ -89,6 +91,9 @@ const configSchema = z.object({
   legal_ruc: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().regex(/^\d{11}$/, 'El RUC tiene 11 dígitos').nullish()),
   legal_domicilio: textoLegal(255),
   legal_correo: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.email('Correo inválido').max(160).nullish()),
+  // Verificación de propiedad del sitio (Search Console / Bing Webmaster): sólo el código, que va en una etiqueta `meta` de la portada. Vacío = null = sin etiqueta.
+  google_site_verification: codigoVerificacion,
+  bing_site_verification: codigoVerificacion,
 });
 const listaSchema = listQuerySchema.extend({ estado: z.enum(ESTADOS_SUSCRIPCION).optional(), empresa_id: idSchema.optional() });
 

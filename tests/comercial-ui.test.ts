@@ -42,7 +42,8 @@ describe('estructura de las pantallas', () => {
     const precios = fuente('src/pages/publico/Precios.tsx');
     assert.match(precios, /\/api\/publico\/planes/);
     assert.match(precios, /\/api\/publico\/cotizar/);
-    assert.match(precios, /Más \$\{cat\.impuesto\.nombre\}/, 'el impuesto es el del país elegido, no un «IGV» fijo');
+    // Los «hechos» de la cabecera viven en `lib/seo/textos` (los comparte el HTML estático para buscadores).
+    assert.match(precios + fuente('src/lib/seo/textos.ts'), /Más \$\{cat\.impuesto\.nombre\}/, 'el impuesto es el del país elegido, no un «IGV» fijo');
     assert.doesNotMatch(precios, /IGV incluido/);
   });
   it('rutas públicas y de cuenta: /registro, /precios, /verificar-correo, portada en «/», Mi plan sólo admin y Suscripciones sólo superadmin', () => {

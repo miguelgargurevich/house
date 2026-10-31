@@ -4,6 +4,28 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — SEO de la parte pública: HTML con contenido, noindex, robots/sitemap/llms, www y verificación de buscadores (Claude Code, Sonnet 5.5) — push: no
+
+- **Pedido de Miguel:** «necesito que la pagina publica tenga todo SEO. que las encuentren los llm como gemini y chat gpt y todo lo que necesita…». Rama `feat/seo-publico` (worktree `.claude/worktrees/seo-publico`, base `house_test_seo`). Detalle y pasos de Miguel en `docs/seo.md`.
+- **Qué se hizo:** módulo `src/server/seo/` (`index.ts` middleware, `paginas.ts` head + JSON-LD + contenido de `#root`, `documentos.ts` robots/sitemap/llms, `contenido.ts` funciones para LLM, `contexto.ts`, `escapar.ts`, `rutas.ts`) enganchado en `app.ts` (`seoDocumentos()` antes del estático; `paginaSpa()` reemplaza el catch-all; opción `distDir` sólo para pruebas). Textos compartidos página ↔ servidor en `src/lib/seo/textos.ts`: `preguntas(cat)` (idéntica a la anterior, verificada con diff contra `HEAD`), `textoTope`, `unidadPrecio`, `tituloPlanes`, `hechosPrecios`, `PORTADA`, `PRECIOS_HERO`, `REGISTRO`, `pieMarco`. Los componentes (`Planes`, `Preguntas`, `Modulos`, `Precios`, `Portada`, `Registro`, `Marco`) los usan; **no cambia ningún texto visible**. Las páginas legales se renderizan en el servidor con los MISMOS `textosPrivacidad/textosTerminos` (react-dom/server + `StaticRouter`).
+- **Esquema (aditivo):** `ConfiguracionComercial.google_site_verification` y `bing_site_verification`; `PUT /api/comercial/configuracion` los valida (`[A-Za-z0-9_.-]`, ≤ 100) y la auditoría anota el nombre del campo; pantalla del superadmin: tarjeta «Buscadores (SEO)» en `Precios.tsx` + una pista bajo «URL pública». Producción: el deploy hace `prisma db push` (aditivo).
+- **Imágenes:** `public/og-torre.png` (1200×630), `apple-touch-icon.png`, `icon-192/512.png`, `site.webmanifest`, generados con `scripts/seo/generar-imagenes.mjs`.
+- **Decisiones:**
+  - Lo no público (todo lo que no está en `PUBLICAS`) sale con `noindex, nofollow`; `/login` con `noindex, follow`. Sin leer la base: no cuesta nada.
+  - Host no canónico → `X-Robots-Tag: noindex` + canonical al dominio de `url_publica`; sin redirect. `www.<canónico>` → 301 (sólo GET/HEAD, fuera de `/api`, `/mcp`, `/assets`). El Host sólo se COMPARA; los enlaces salen de `url_publica`.
+  - `/registro` pasa a `noindex` y sale del sitemap con el registro cerrado. Sin `url_publica`: sitemap 404, robots sin `Sitemap:`, sin canonical.
+  - Sin catálogo (base caída) las páginas públicas salen 200 con el head genérico de `index.html`; sitemap/llms dan 503.
+  - Sin dependencias nuevas (react-dom/react-router-dom ya estaban).
+- **Gotchas:**
+  - **`url_publica` debe ser `https://torrecondominios.com` al desplegar**: hoy vale `https://house.gargurevich.dev` y, mientras tanto, torrecondominios.com saldría con `noindex` y su canonical apuntaría a house.gargurevich.dev.
+  - `tsx` en las pruebas no aplica `jsx: react-jsx` a los `.tsx` sin el comentario `/** @jsxRuntime automatic */`: por eso las pruebas no renderizan `Planes`/`Preguntas` (comparan contra las mismas funciones y vigilan el código fuente). El servidor sí importa `legal/textos.tsx` (trae el comentario).
+  - El `<title>` y la `<meta description>` de `index.html` se reemplazan por regex, y el contenido se inyecta con reemplazo por función (un `$&` en un nombre de plan no se interpreta): hay pruebas.
+  - `/api/auth/me` da 401 en consola al abrir cualquier página pública sin sesión: es de antes, no de este cambio.
+- **Próximos pasos:** Miguel decide el push; cambiar `url_publica`; pasos de Search Console y Bing Webmaster (lista en `docs/seo.md`); si se agregan funciones a la app, actualizar `FUNCIONES` en `src/server/seo/contenido.ts` (alimenta llms.txt).
+- **Pruebas:** ver el resumen de la sesión: `tests/seo-publico.test.ts` 61/61; mutaciones (9, todas en rojo, restauradas con `cp` + `cmp`): `esc` sin escapar, JSON-LD sin escapar, sin noindex en /login, /precios fuera del sitemap, canonical roto, sin redirect de www, host no canónico sin noindex, base caída → 500.
+
+---
+
 ## 2026-10-31 — Pro S/ 3,00, Administradora S/ 2,50, mínimo como precio base y tema en el menú (Claude Code, Opus 5.5 + Haiku) — push: sí
 
 - Miguel: «siento que torre pro es muy caro» → Pro S/ 3,00 y Administradora S/ 2,50 (Básico sigue en S/ 1,50). Seed y pruebas (Haiku, `precios-pro-3`); producción por SQL en `PlanComercial` (sin suscripciones de pago).

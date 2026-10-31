@@ -5,6 +5,7 @@ import { CheckIcon, EnvelopeIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react
 import { api, errorText } from '../../api';
 import { HOME, useAuth } from '../../auth/AuthContext';
 import { Alert, Button, Card, CardBody, cx, Input, TelefonoInput } from '../../ui';
+import { REGISTRO } from '../../lib/seo/textos';
 import { Marco } from './Marco';
 import { IndicadorPasos } from './_parts/IndicadorPasos';
 import { PanelRegistro } from './_parts/PanelRegistro';
@@ -63,9 +64,9 @@ export default function Registro() {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start lg:gap-14">
         <div>
           <IndicadorPasos actual={1} />
-          <h1 className="mt-6 text-2xl font-semibold sm:text-3xl">Crea tu cuenta gratis</h1>
-          <p className="mt-1 text-sm font-medium">Paso 1 de 2: tu cuenta</p>
-          <p className="mt-1 text-sm text-muted">Sin tarjeta: empiezas en el plan Torre Gratis, que dura 3 meses, y después pasas a Torre Básico o Torre Pro. Te enviaremos un enlace para confirmar tu correo; tu condominio lo creas después, al entrar.</p>
+          <h1 className="mt-6 text-2xl font-semibold sm:text-3xl">{REGISTRO.h1}</h1>
+          <p className="mt-1 text-sm font-medium">{REGISTRO.paso}</p>
+          <p className="mt-1 text-sm text-muted">{REGISTRO.texto}</p>
           <form onSubmit={enviar} className="mt-8 space-y-8" noValidate>
             {error && <Alert tone="bad">{error}</Alert>}
 

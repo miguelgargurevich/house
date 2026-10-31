@@ -10,6 +10,7 @@ import { auditoria } from './middleware/audit';
 import { authenticate } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { crearLimitadores, limitarSegunSesion, type RateLimitOptions } from './middleware/rateLimit';
+import { paginaSpa, seoDocumentos } from './seo';
 import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
 import { areasComunesRouter } from './routes/areasComunes';
@@ -51,6 +52,8 @@ import { usuariosRouter } from './routes/usuarios';
 export interface AppOptions {
   /** Sólo para pruebas: sube o baja los topes de rate-limit. */
   rateLimits?: RateLimitOptions;
+  /** Sólo para pruebas: carpeta del frontend compilado (por defecto `dist/` del directorio de trabajo). */
+  distDir?: string;
 }
 
 export function createApp(opts: AppOptions = {}) {
@@ -145,18 +148,19 @@ export function createApp(opts: AppOptions = {}) {
   app.use('/api', api);
   app.use('/api', notFoundHandler);
 
+  // SEO: www → dominio canónico y robots.txt / sitemap.xml / llms.txt (dinámicos). Antes de los archivos estáticos; no dependen de `dist/`.
+  app.use(seoDocumentos());
+
   // Producción: el mismo contenedor sirve el frontend compilado (dist/).
-  const distDir = path.join(process.cwd(), 'dist');
+  const distDir = opts.distDir ?? path.join(process.cwd(), 'dist');
   if (fs.existsSync(distDir)) {
     // Archivos con hash en el nombre: inmutables. Si falta uno (pestaña abierta durante un redespliegue)
     // debe ser un 404 real: devolver index.html con 200 deja la pantalla en blanco sin ningún error.
     app.use('/assets', express.static(path.join(distDir, 'assets'), { immutable: true, maxAge: '1y', index: false }));
     app.use('/assets', (_req: Request, res: Response) => { res.status(404).type('text/plain').send('No encontrado'); });
     app.use(express.static(distDir, { index: false }));
-    app.get(/^(?!\/api)(?!.*\.[a-z0-9]+$).*/i, (_req: Request, res: Response) => {
-      res.set('Cache-Control', 'no-cache'); // la página de inicio siempre se revalida: apunta a los archivos vigentes
-      res.sendFile(path.join(distDir, 'index.html'));
-    });
+    // Páginas de la SPA: index.html con el head y el contenido de cada ruta pública (SEO) y `noindex` en lo privado. Siempre se revalida (no-cache).
+    app.get(/^(?!\/api)(?!.*\.[a-z0-9]+$).*/i, paginaSpa(distDir));
   }
 
   app.use(errorHandler);

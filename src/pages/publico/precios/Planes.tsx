@@ -4,7 +4,7 @@ import { CheckIcon } from '@heroicons/react/24/outline';
 import { cx, dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo, Plan } from '../catalogo';
-import { plazoGratisTexto } from '../plazoGratis';
+import { textoTope, tituloPlanes, unidadPrecio } from '../../../lib/seo/textos';
 
 const boton = 'inline-flex h-12 w-full items-center justify-center whitespace-nowrap rounded px-6 text-base font-semibold transition-colors duration-150 active:scale-[0.98]';
 
@@ -22,9 +22,6 @@ function Lista({ plan }: { plan: Plan }) {
   );
 }
 
-/** «+ IGV» / «+ IVA»: el impuesto del país elegido; sin impuesto (tasa 0) no se menciona. */
-const masImpuesto = (cat: Catalogo) => (Number(cat.impuesto.tasa) > 0 ? ` + ${cat.impuesto.nombre}` : '');
-
 /** El precio grande y, debajo, su unidad (por departamento al mes, con el impuesto que diga el país). */
 function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boolean }) {
   // Un plan de pago sin precio en la moneda del país no se muestra con cifra: «Consúltanos».
@@ -36,22 +33,18 @@ function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boo
       </div>
     );
   }
-  const gratis = Number(plan.precio_por_unidad) === 0;
   return (
     <div>
       <p className={`num font-semibold leading-none tracking-tight ${grande ? 'text-6xl sm:text-7xl lg:text-5xl' : 'text-5xl'} whitespace-nowrap`}>{dinero(plan.precio_por_unidad, cat.moneda)}</p>
-      <p className="mt-2 text-base text-muted">{gratis ? plazoGratisTexto(cat) : `por departamento al mes${masImpuesto(cat)}`}</p>
+      <p className="mt-2 text-base text-muted">{unidadPrecio(plan, cat)}</p>
     </div>
   );
 }
 
-/** El tope de departamentos (Gratis), el rango que cubre o el precio base con los departamentos que incluye (Básico, Torre Pro y Torre Administradora), tal como los publica el catálogo. */
+/** El tope de departamentos (Gratis), el rango que cubre o el precio base con los departamentos que incluye (Básico, Torre Pro y Torre Administradora): el texto es de `lib/seo/textos` (lo comparte el HTML estático para buscadores). */
 function Tope({ plan, cat, className = '' }: { plan: Plan; cat: Catalogo; className?: string }) {
-  if (plan.unidades_maximas != null && plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio, mínimo {plan.unidades_minimas} cobrados{plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.</p>;
-  if (plan.unidades_maximas != null) return <p className={`text-base font-medium ${className}`}>Hasta {plan.unidades_maximas} departamentos por condominio.</p>;
-  // El mínimo se dice como precio base («desde S/ 60 al mes, incluye hasta 20 departamentos»): a un edificio chico no le suena a «no es para ti».
-  if (plan.unidades_minimas != null) return <p className={`text-base font-medium ${className}`}>{plan.total_minimo_mes ? `Desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}, incluye hasta ${plan.unidades_minimas} departamentos` : `Incluye hasta ${plan.unidades_minimas} departamentos en el precio base`}{plan.precio_por_unidad !== null ? `; desde el ${plan.unidades_minimas + 1}, ${dinero(plan.precio_por_unidad, cat.moneda)} cada uno` : ''}.</p>;
-  return null;
+  const texto = textoTope(plan, cat);
+  return texto ? <p className={`text-base font-medium ${className}`}>{texto}</p> : null;
 }
 
 /** Enlace de cada plan: crear la cuenta si el registro está abierto; si no, lo que sí se puede hacer (ingresar). */
@@ -94,7 +87,7 @@ export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave:
   );
   return (
     <section aria-labelledby="planes-titulo" className="scroll-mt-6">
-      <h2 id="planes-titulo" className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">{cat.dias_gratis ? `Torre Gratis ${plazoGratisTexto(cat)}; después, Torre Básico o Torre Pro` : 'Torre Gratis con límite, o Torre Pro con todo'}</h2>
+      <h2 id="planes-titulo" className="text-center text-3xl font-semibold tracking-tight sm:text-4xl">{tituloPlanes(cat)}</h2>
       <div className="mt-10 grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4 lg:gap-6">
         {gratis && (
           <Nivel plan={gratis} cat={cat} retraso={0} pie={

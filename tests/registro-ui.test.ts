@@ -6,13 +6,15 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 const fuente = (ruta: string) => readFileSync(ruta, 'utf8');
+// El texto del paso 1 vive en `lib/seo/textos` (lo comparten la página y el HTML estático para buscadores); Registro.tsx lo usa.
 const registro = fuente('src/pages/publico/Registro.tsx');
+const textosRegistro = registro + fuente('src/lib/seo/textos.ts');
 const panel = fuente('src/pages/publico/_parts/PanelRegistro.tsx');
 
 describe('Registro: paso 1 de 2, sólo la cuenta', () => {
   it('dice «Paso 1 de 2: tu cuenta», que el condominio se crea después, y muestra el indicador de pasos en el paso 1', () => {
-    assert.match(registro, /Paso 1 de 2: tu cuenta/);
-    assert.match(registro, /tu condominio lo creas después, al entrar/);
+    assert.match(textosRegistro, /Paso 1 de 2: tu cuenta/);
+    assert.match(textosRegistro, /tu condominio lo creas después, al entrar/);
     assert.match(registro, /<IndicadorPasos actual=\{1\} \/>/);
   });
 

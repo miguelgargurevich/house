@@ -1,30 +1,6 @@
-import { dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo } from '../catalogo';
-import { plazoGratisTexto } from '../plazoGratis';
-
-/** Respuestas cortas a lo que más preguntan; sólo lo que House hace hoy (cobro manual, sin pasarela ni contrato). Los topes salen del catálogo. */
-function preguntas(cat: Catalogo): { p: string; r: string }[] {
-  const tope = cat.planes.find(x => x.clave === 'gratis')?.unidades_maximas;
-  const pro = cat.planes.find(x => x.clave === 'pro');
-  const minimo = pro?.unidades_minimas;
-  const basico = cat.planes.find(x => x.clave === 'basico');
-  const plazo = plazoGratisTexto(cat);
-  const imp = Number(cat.impuesto.tasa);
-  const nombreImp = cat.impuesto.nombre;
-  return [
-    { p: '¿Cómo se paga?', r: 'Por transferencia, Yape o Plin. Desde «Mi plan» ves el monto y la referencia de tu pago; cuando lo confirmamos, activamos tu plan.' },
-    { p: '¿Cómo paso a un plan de pago?', r: 'Desde «Mi plan» lo pides por condominio. No se activa nada hasta confirmar el pago, así que no hay cobros por sorpresa. Torre Pro trae todo: ya no hay módulos sueltos.' },
-    imp > 0
-      ? { p: `¿El precio incluye ${nombreImp}?`, r: `No. Los precios de esta página no incluyen ${nombreImp}: se suma al pagar, según el país de tu condominio. La calculadora te muestra también el total con ${nombreImp}.` }
-      : { p: '¿El precio incluye impuestos?', r: 'En el país elegido no se suma ningún impuesto al pagar: el precio de esta página es el que pagas.' },
-    { p: '¿Hay permanencia o contrato?', r: 'No. No te atamos a un plazo mínimo.' },
-    { p: '¿Cuánto dura y hasta cuántos departamentos llega Torre Gratis?', r: `${cat.dias_gratis ? `Torre Gratis dura ${plazo.replace('por ', '')} desde que creas tu cuenta` : 'Torre Gratis no tiene plazo'}${tope != null ? ` y llega hasta ${tope} departamentos por condominio` : ''}, con recibos, cobranza, portal del vecino, vouchers validados a mano y avisos por correo. Si quieres IA, WhatsApp, asistente, mora automática y reportes, pasas a Torre Pro.` },
-    ...(cat.dias_gratis ? [{ p: '¿Qué pasa cuando termina el plan Torre Gratis?', r: `El condominio queda en solo lectura: puedes ver todo, pero no registrar recibos, pagos ni comunicados nuevos. No se borra nada, y vuelves a registrar apenas pases a ${basico ? `${basico.nombre} o ` : ''}Torre Pro. Te avisamos al empezar, siete días antes y el día que termina.` }] : []),
-    ...(basico && basico.unidades_maximas != null ? [{ p: `¿Qué es ${basico.nombre}?`, r: `Es el plan para edificios chicos que ya terminaron su periodo gratis: lo mismo que Torre Gratis, sin plazo, hasta ${basico.unidades_maximas} departamentos${basico.precio_por_unidad !== null ? `, a ${dinero(basico.precio_por_unidad, cat.moneda)} por departamento al mes${basico.unidades_minimas != null ? `, con hasta ${basico.unidades_minimas} departamentos incluidos en el precio base` : ''}` : ''}. No trae IA, WhatsApp, asistente, mora automática ni reportes: eso es de Torre Pro.` }] : []),
-    { p: '¿Y si mi edificio tiene pocos departamentos?', r: minimo != null ? `Los planes de pago tienen un precio base por condominio que incluye hasta ${minimo} departamentos${pro?.total_minimo_mes ? ` (en Torre Pro, ${dinero(pro.total_minimo_mes, cat.moneda)} al mes)` : ''}. Si tu edificio tiene menos, pagas ese precio base; desde el ${minimo + 1}, pagas por cada departamento adicional.` : 'Pagas sólo por los departamentos que tengas.' },
-  ];
-}
+import { preguntas } from '../../../lib/seo/textos';
 
 /** Preguntas frecuentes como texto corrido: la pregunta abre cada párrafo y la respuesta sigue en la misma línea. */
 export function Preguntas({ cat }: { cat: Catalogo }) {

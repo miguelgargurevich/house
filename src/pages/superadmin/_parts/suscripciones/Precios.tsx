@@ -10,6 +10,7 @@ interface Config {
   igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean; dias_prueba_pro: number; dias_gratis: number | null;
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
   legal_razon_social: string | null; legal_ruc: string | null; legal_domicilio: string | null; legal_correo: string | null;
+  google_site_verification: string | null; bing_site_verification: string | null;
 }
 interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config; impuestos: ImpuestoPais[]; precios_moneda: PrecioMoneda[] }
 
@@ -113,7 +114,7 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Correo para avisos (registros y solicitudes)" type="email" {...t('correo_superadmin')} />
-        <Input label="URL pública (enlaces de los correos)" placeholder="https://house.gargurevich.dev" {...t('url_publica')} />
+        <Input label="URL pública (enlaces de los correos)" placeholder="https://house.gargurevich.dev" hint="Es el dominio canónico del sitio: también arma los enlaces canónicos, el sitemap y llms.txt. Sin barra final." {...t('url_publica')} />
       </div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={f.registro_abierto} onChange={e => setF(x => ({ ...x, registro_abierto: e.target.checked }))} />Registro público abierto</label>
       <h3 className="pt-2 text-sm font-semibold">Datos de pago (los ve el cliente en Mi plan)</h3>
@@ -161,6 +162,35 @@ function DatosLegales({ c, onGuardado }: { c: Config; onGuardado: () => void }) 
   );
 }
 
+/** Códigos de verificación de propiedad del sitio en Google Search Console y Bing Webmaster Tools: se ponen en la portada como etiquetas `meta`. */
+function Buscadores({ c, onGuardado }: { c: Config; onGuardado: () => void }) {
+  const toast = useToast();
+  const desde = (x: Config) => ({ google_site_verification: x.google_site_verification ?? '', bing_site_verification: x.bing_site_verification ?? '' });
+  const [f, setF] = useState(desde(c));
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setF(desde(c)); }, [c]);
+  const t = (k: keyof typeof f) => ({ value: f[k], onChange: (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value })) });
+  async function guardar() {
+    setBusy(true); setError(null);
+    try {
+      await api('/api/comercial/configuracion', { method: 'PUT', json: f });
+      toast.ok('Códigos de buscadores guardados');
+      onGuardado();
+    } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
+  }
+  return (
+    <div className="space-y-4">
+      {error && <Alert tone="bad">{error}</Alert>}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input label="Google Search Console" maxLength={100} hint="Sólo el código: el valor de content en la etiqueta google-site-verification." {...t('google_site_verification')} />
+        <Input label="Bing Webmaster Tools" maxLength={100} hint="Sólo el código: el valor de content en la etiqueta msvalidate.01." {...t('bing_site_verification')} />
+      </div>
+      <Button loading={busy} onClick={() => void guardar()}>Guardar códigos</Button>
+    </div>
+  );
+}
+
 /** Precios (base, sin IGV), planes, plazos, datos de pago y datos legales: todo se edita aquí; nada vive en el código ni en variables de entorno. */
 export function PreciosYPagos() {
   const { data, loading, error, reload } = useResource<Catalogo>('/api/comercial/catalogo');
@@ -186,6 +216,10 @@ export function PreciosYPagos() {
       <Card>
         <CardHeader title="Datos legales" description="Los ve el público en la Política de privacidad y los Términos. Un dato vacío se muestra «por confirmar»." />
         <CardBody><DatosLegales c={data.configuracion} onGuardado={reload} /></CardBody>
+      </Card>
+      <Card>
+        <CardHeader title="Buscadores (SEO)" description="Códigos para verificar el sitio en Google y Bing; se ponen en la portada. Vacío = sin etiqueta." />
+        <CardBody><Buscadores c={data.configuracion} onGuardado={reload} /></CardBody>
       </Card>
     </div>
   );

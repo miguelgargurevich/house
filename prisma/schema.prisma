@@ -1061,6 +1061,10 @@ model ConfiguracionComercial {
   legal_ruc              String?
   legal_domicilio        String?
   legal_correo           String?
+  /// Código de verificación de Google Search Console (el `content` de la etiqueta `google-site-verification`). Opcional; se inyecta en la portada.
+  google_site_verification String?
+  /// Código de verificación de Bing Webmaster Tools (el `content` de la etiqueta `msvalidate.01`). Opcional; se inyecta en la portada.
+  bing_site_verification String?
   updated_at             DateTime @updatedAt
 }
 

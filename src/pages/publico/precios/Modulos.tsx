@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 import { Aparece } from '../Aparece';
 import type { Catalogo, Modulo } from '../catalogo';
+import { textosModulos } from '../../../lib/seo/textos';
 
 /**
  * Pedacitos de la interfaz de cada módulo, con datos de ejemplo. Van en HTML (no son imágenes) y no se leen en voz alta:
@@ -44,10 +45,11 @@ function Fila({ m }: { m: Modulo }) {
 /** Lo que trae Pro: cada módulo con su muestra y su beneficio. Ya no se venden sueltos, así que no llevan precio ni botón de sumar. */
 export function Modulos({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave: string) => void }) {
   const pro = cat.planes.find(p => p.clave === 'pro');
+  const textos = textosModulos(cat);
   return (
     <section aria-labelledby="modulos-titulo" className="scroll-mt-6">
-      <h2 id="modulos-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Lo que trae {pro?.nombre ?? 'Torre Pro'}</h2>
-      <p className="mt-3 max-w-xl text-lg">Estos módulos van incluidos en {pro?.nombre ?? 'Torre Pro'}; no se venden por separado y el plan Torre Gratis no los trae.</p>
+      <h2 id="modulos-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">{textos.h2}</h2>
+      <p className="mt-3 max-w-xl text-lg">{textos.bajada}</p>
       <ul className="mt-8 space-y-10">
         {cat.modulos.map(m => <Fila key={m.clave} m={m} />)}
       </ul>
