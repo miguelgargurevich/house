@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import { conflict, invalid, notFound } from '../errors';
 import { hoyEn } from '../lib/fechas';
 import { ambitoJunta, puedeGestionar } from '../lib/junta';
+import { condominiosEnJuntaUnica } from '../lib/juntaUnica';
 import { scopeComplejos, scopeJuntas } from '../lib/scope';
 import { zonaDeComplejo } from '../lib/zonas';
 import { currentUser, type AuthUser } from '../middleware/auth';
@@ -61,7 +62,7 @@ const detalleAuditoria = (j: { complejo_id: number; estructura_id: number | null
  *     parameters:
  *       - { in: query, name: complejo_id, schema: { type: integer } }
  *     responses:
- *       200: { description: "{ items: [{ complejo, estructura, vigente, anteriores }], complejos, puede_gestionar }" }
+ *       200: { description: "{ items: [{ complejo, estructura, vigente, anteriores }], complejos: [{ id, nombre, junta_unica }], puede_gestionar }. junta_unica: el condominio tiene junta vigente sólo a nivel de condominio (sin blocks con junta)" }
  *       403: { description: Secretario, vocal o residente }
  */
 juntasRouter.get('/', async (req, res) => {
@@ -76,9 +77,10 @@ juntasRouter.get('/', async (req, res) => {
   });
   const ids = complejos.map((c) => c.id);
   const donde = { AND: [scopeJuntas(u), { complejo_id: { in: ids } }] } satisfies Prisma.JuntaDirectivaWhereInput;
-  const [vigentes, cerradas] = await Promise.all([
+  const [vigentes, cerradas, unicos] = await Promise.all([
     prisma.juntaDirectiva.findMany({ where: { AND: [donde, { hasta: null }] }, include: incluirDetalle }),
     prisma.juntaDirectiva.groupBy({ by: ['complejo_id', 'estructura_id'], where: { AND: [donde, { hasta: { not: null } }] }, _count: { _all: true } }),
+    condominiosEnJuntaUnica(ids),
   ]);
   const formateadas = await formatearJuntas(vigentes);
   const vigentePor = new Map(formateadas.map((j) => [`${j.complejo_id}:${j.estructura_id}`, j]));
@@ -95,7 +97,7 @@ juntasRouter.get('/', async (req, res) => {
     const blocks = [...c.estructuras].sort((x, y) => (x.nombre ?? '').localeCompare(y.nombre ?? '', 'es', { numeric: true }) || x.id - y.id);
     return [...blocks.map(ficha), ...(delCondominio.vigente || delCondominio.anteriores ? [delCondominio] : [])];
   });
-  res.json({ items, complejos: complejos.map((c) => ({ id: c.id, nombre: c.nombre })), puede_gestionar: esAdministracion(u) });
+  res.json({ items, complejos: complejos.map((c) => ({ id: c.id, nombre: c.nombre, junta_unica: unicos.has(c.id) })), puede_gestionar: esAdministracion(u) });
 });
 
 /**

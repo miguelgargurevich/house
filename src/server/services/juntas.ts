@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { forbidden, invalid } from '../errors';
 import { CARGOS_JUNTA, type CargoJunta } from '../lib/junta';
+import { condominiosEnJuntaUnica } from '../lib/juntaUnica';
 import { emailSchema, texto, z } from '../validation';
 import { revocarDeUsuario } from './sesiones';
 import { camposDePago, codigoUnidadDelMedio, columnas, nombreEntidad, MAX_ACTIVOS, type MedioInput } from './mediosPago';
@@ -238,13 +239,15 @@ type UnidadDelVecino = { codigo: string; complejo_id: number | null; estructura_
  * «Mi junta»: las juntas VIGENTES de los blocks donde el residente tiene unidades y la Junta central de esos condominios (si existe).
  * El `select` es explícito: de cada miembro sólo salen cargo, nombre y departamentos; NUNCA su correo, celular ni id de usuario. De la
  * cuenta, lo mismo que ya ve en «cómo pagar». Un block sin junta vigente sale con `junta: null`; sin Junta central no sale nada de ella.
+ * Junta única (`junta_unica`, `lib/juntaUnica.ts`): el condominio sólo tiene la junta de todo el condominio, así que no salen sus blocks
+ * («Sin junta») y esa junta sale con `junta_unica: true` para que la pantalla la titule «Junta directiva».
  */
 export async function juntasDelResidente(unidades: UnidadDelVecino[]) {
   const propias = unidades.filter((u): u is UnidadDelVecino & { complejo_id: number } => u.complejo_id != null);
   const blockIds = [...new Set(propias.flatMap((u) => (u.estructura_id != null ? [u.estructura_id] : [])))];
   const complejoIds = [...new Set(propias.map((u) => u.complejo_id))];
   if (!complejoIds.length) return [];
-  const [juntas, blocks, centrales] = await Promise.all([
+  const [juntas, blocks, centrales, unicos] = await Promise.all([
     prisma.juntaDirectiva.findMany({
       where: { hasta: null, OR: [...(blockIds.length ? [{ estructura_id: { in: blockIds } }] : []), { estructura_id: null, complejo_id: { in: complejoIds } }] },
       orderBy: { id: 'asc' },
@@ -258,6 +261,7 @@ export async function juntasDelResidente(unidades: UnidadDelVecino[]) {
     }),
     blockIds.length ? prisma.estructura.findMany({ where: { id: { in: blockIds } }, select: { id: true, nombre: true, tipo: true, complejo: { select: { id: true, nombre: true } } } }) : [],
     prisma.complejoHabitacional.findMany({ where: { id: { in: complejoIds } }, select: { id: true, nombre: true } }),
+    condominiosEnJuntaUnica(complejoIds),
   ]);
   const deptos = await departamentosDe(juntas);
   const vigentes = new Map(juntas.map((j) => [j.estructura_id ?? `c${j.complejo_id}`, j]));
@@ -276,12 +280,14 @@ export async function juntasDelResidente(unidades: UnidadDelVecino[]) {
     })),
   });
 
+  // En junta única no hay blocks que mostrar: todos estarían «Sin junta» y la junta del condominio ya es la única.
   const deBlocks = [...blocks]
+    .filter((b) => !(b.complejo && unicos.has(b.complejo.id)))
     .sort((a, b) => (a.nombre ?? '').localeCompare(b.nombre ?? '', 'es', { numeric: true }) || a.id - b.id)
-    .map((b) => ({ ambito: { complejo: b.complejo, estructura: { id: b.id, nombre: b.nombre, tipo: b.tipo } }, junta: vigentes.has(b.id) ? deLaJunta(vigentes.get(b.id)!) : null }));
+    .map((b) => ({ ambito: { complejo: b.complejo, estructura: { id: b.id, nombre: b.nombre, tipo: b.tipo } }, junta: vigentes.has(b.id) ? deLaJunta(vigentes.get(b.id)!) : null, junta_unica: false }));
   const deLaCentral = [...centrales]
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { numeric: true }) || a.id - b.id)
-    .flatMap((c) => { const j = vigentes.get(`c${c.id}`); return j ? [{ ambito: { complejo: c, estructura: null }, junta: deLaJunta(j) }] : []; });
+    .flatMap((c) => { const j = vigentes.get(`c${c.id}`); return j ? [{ ambito: { complejo: c, estructura: null }, junta: deLaJunta(j), junta_unica: unicos.has(c.id) }] : []; });
   return [...deBlocks, ...deLaCentral];
 }
 

@@ -6,6 +6,7 @@ import { HttpError, notFound } from '../errors';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser } from '../middleware/auth';
 import { MENSAJE_LOGIN_BLOQUEADO, type BloqueoCuenta } from '../middleware/rateLimit';
+import { juntaUnicaDeUsuario } from '../lib/juntaUnica';
 import { aceptarInvitacion, datosDeInvitacion } from '../services/invitaciones';
 import { borrarCookie, crearSesion, listarActivas, ponerCookie, revocarDeUsuario, revocarPropia } from '../services/sesiones';
 import { emailSchema, parse, parseBody, passwordSchema, z } from '../validation';
@@ -73,7 +74,7 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
     // Cuenta del registro público sin confirmar: la contraseña era correcta (no se delata nada), pero no entra hasta abrir el enlace del correo.
     if (!usuario.correo_verificado) throw new HttpError(403, 'Confirma tu correo para entrar: te enviamos un enlace al registrarte.', undefined, 'CORREO_NO_VERIFICADO');
     cuenta.exito(email);
-    const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id, estructura_nombre: usuario.estructura?.nombre ?? null };
+    const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id, estructura_nombre: usuario.estructura?.nombre ?? null, junta_unica: await juntaUnicaDeUsuario(usuario) };
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));
     ponerCookie(res, token);
     await registrarAuditoria({ usuario_id: user.id, accion: 'login', entidad: 'usuario', entidad_id: user.id, ip: ipDe(req) });
@@ -159,7 +160,9 @@ sesionRouter.get('/me', async (req, res) => {
   const cargado = await prisma.usuario.findUnique({ where: { id: u.id }, select: { ...usuarioPublico, telefono: true, aviso_email: true, aviso_whatsapp: true, empresa: { select: { id: true, nombre: true } }, complejo: { select: { id: true, nombre: true } }, estructura: { select: { nombre: true } } } });
   // Del block sólo sale el nombre (para el rótulo del cargo), no el objeto de la torre.
   const { estructura, ...usuario } = cargado ?? { estructura: null };
-  res.json({ ...usuario, estructura_nombre: estructura?.nombre ?? null, csrf: req.sesion?.csrf });
+  // `junta_unica`: la junta del usuario está en un condominio con una sola junta (sin blocks con junta). Se lee de la base en cada llamada.
+  const junta_unica = cargado ? await juntaUnicaDeUsuario(cargado) : false;
+  res.json({ ...usuario, estructura_nombre: estructura?.nombre ?? null, junta_unica, csrf: req.sesion?.csrf });
 });
 
 /**

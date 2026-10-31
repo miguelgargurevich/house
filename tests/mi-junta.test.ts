@@ -168,7 +168,7 @@ describe('GET /api/me/juntas: la junta de mi block y la Junta central', () => {
   it('un block sin junta sale como «sin junta» (sólo su nombre) y sin Junta central no aparece nada de ella', async () => {
     const r = await llama(T.prop2);
     assert.equal(r.status, 200, r.texto);
-    assert.deepEqual(itemsDe(r), [{ ambito: { complejo: { id: d.complejoA.id, nombre: 'Complejo A' }, estructura: { id: e2.id, nombre: 'Block 2', tipo: 'Block' } }, junta: null }]);
+    assert.deepEqual(itemsDe(r), [{ ambito: { complejo: { id: d.complejoA.id, nombre: 'Complejo A' }, estructura: { id: e2.id, nombre: 'Block 2', tipo: 'Block' } }, junta: null, junta_unica: false }]);
   });
 
   it('quien tiene unidades en dos blocks ve las dos juntas, y de cada miembro sólo sus departamentos de ESE block', async () => {

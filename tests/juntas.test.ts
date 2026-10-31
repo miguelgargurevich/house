@@ -540,6 +540,6 @@ describe('candidatos y lista', () => {
     assert.deepEqual(r.body.items.map((i: { estructura: { nombre: string } | null }) => i.estructura?.nombre), ['Block 1', 'Block 2']);
     assert.equal(r.body.items[0].vigente.miembros.length, 4);
     assert.equal(r.body.items[1].vigente, null);
-    assert.deepEqual(r.body.complejos, [{ id: d.complejoA.id, nombre: 'Complejo A' }]);
+    assert.deepEqual(r.body.complejos, [{ id: d.complejoA.id, nombre: 'Complejo A', junta_unica: false }]);
   });
 });
