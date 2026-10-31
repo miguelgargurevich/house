@@ -1,4 +1,4 @@
-// Plan Básico (S/ 1 por departamento, mínimo 20, hasta 50): fila del catálogo (también en una base que ya tenía planes), cotización, tope de 50,
+// Plan Básico (S/ 1 por departamento, mínimo 20, sin tope desde el 30-oct): fila del catálogo (también en una base que ya tenía planes), cotización, tope de 50,
 // sin módulos de Pro, sin plazo ni solo lectura mientras esté pagado y vigente, y cuenta como plan de pago para el límite de «un condominio gratis».
 import './helpers/env';
 import assert from 'node:assert/strict';
@@ -40,12 +40,12 @@ const unidades = (n: number) => prisma.unidad.createMany({ data: Array.from({ le
 const miPlan = async () => (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios.find((c: { complejo_id: number }) => c.complejo_id === d.complejoA.id);
 
 describe('el catálogo trae Básico', () => {
-  it('con los valores pedidos: S/ 1,00 por departamento, mínimo 20, hasta 50, sin módulos de Pro, entre Gratis y Pro', async () => {
+  it('con los valores pedidos: S/ 1,00 por departamento, mínimo 20, sin tope, sin módulos de Pro, entre Gratis y Pro', async () => {
     const r = await llamar(base, 'GET', '/api/publico/planes');
     assert.deepEqual(r.body.planes.map((p: { clave: string }) => p.clave), ['gratis', 'basico', 'pro', 'administradora']);
     const b = r.body.planes.find((p: { clave: string }) => p.clave === 'basico');
-    assert.deepEqual([b.nombre, b.descripcion, b.precio_por_unidad, b.unidades_minimas, b.unidades_maximas, b.modulos_incluidos, b.consultar, b.total_minimo_mes], ['Torre Básico', 'Para edificios chicos que ya terminaron su periodo gratis.', '1.00', 20, 50, [], false, '20.00']);
-    assert.deepEqual(b.caracteristicas, ['Todo lo de Torre Gratis, sin plazo', 'Hasta 50 departamentos', 'Vouchers validados a mano', 'Avisos por correo']);
+    assert.deepEqual([b.nombre, b.descripcion, b.precio_por_unidad, b.unidades_minimas, b.unidades_maximas, b.modulos_incluidos, b.consultar, b.total_minimo_mes], ['Torre Básico', 'Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.', '1.00', 20, null, [], false, '20.00']);
+    assert.deepEqual(b.caracteristicas, ['Todo lo de Torre Gratis, sin plazo', 'Sin tope de departamentos', 'Vouchers validados a mano', 'Avisos por correo']);
     const fila = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } });
     assert.deepEqual([fila.visible, fila.orden, fila.igv_incluido, fila.asistente_por_unidad_mes, fila.whatsapp_por_unidad_mes], [true, 2, false, null, null]);
     assert.deepEqual(PLANES_SEED.map((p) => [p.clave, p.orden]), [['gratis', 1], ['basico', 2], ['pro', 3], ['administradora', 4], ['cortesia', 5]]);
@@ -74,7 +74,7 @@ describe('el catálogo trae Básico', () => {
     const primera = await ajustarOfertaGratisPro(prisma);
     assert.ok(primera.some((c) => c.clave === 'gratis' && c.cambios.includes('descripcion')), JSON.stringify(primera));
     assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).descripcion, 'Torre Gratis por 3 meses, hasta 20 departamentos.');
-    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } })).unidades_maximas, 50);
+    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } })).unidades_maximas, null);
     assert.deepEqual(await ajustarOfertaGratisPro(prisma), [], 'la segunda corrida no cambia nada');
   });
 
@@ -99,43 +99,27 @@ describe('cotización', () => {
     await unidades(10);
     await ponerBasico();
     const c = await miPlan();
-    assert.deepEqual([c.plan.clave, c.plan.nombre, c.cotizacion.base, c.cotizacion.total_mes, c.unidades_maximas, c.unidades_minimas], ['basico', 'Torre Básico', '20.00', '23.60', 50, 20]);
+    assert.deepEqual([c.plan.clave, c.plan.nombre, c.cotizacion.base, c.cotizacion.total_mes, c.unidades_maximas, c.unidades_minimas], ['basico', 'Torre Básico', '20.00', '23.60', null, 20]);
   });
 });
 
-describe('el tope de 50 departamentos', () => {
-  it('con 50 o menos se ofrece Básico (con «desde S/ 20»); con 51 no aparece en planes_disponibles y pedirlo da 422', async () => {
-    await unidades(48); // 2 de la siembra + 48 = 50
-    let c = await miPlan();
-    assert.equal(c.unidades_facturables, 50);
-    assert.deepEqual([c.planes_disponibles.includes('basico'), c.basico_desde], [true, 'S/ 20']);
-    await prisma.unidad.create({ data: { codigo: 'BX-extra', tipo: 'Departamento', complejo_id: d.complejoA.id, empresa_id: d.empresaA.id, estado: 'activa' } }); // 51
-    c = await miPlan();
+describe('sin tope de departamentos', () => {
+  it('con 51 departamentos se sigue ofreciendo Básico («desde S/ 20») y se puede pedir', async () => {
+    await unidades(49); // 2 de la siembra + 49 = 51
+    const c = await miPlan();
     assert.equal(c.unidades_facturables, 51);
-    assert.deepEqual([c.planes_disponibles.includes('basico'), c.basico_desde], [false, null]);
-    assert.ok(c.planes_disponibles.includes('pro'), 'Pro sigue disponible');
+    assert.deepEqual([c.planes_disponibles.includes('basico'), c.planes_disponibles.includes('pro'), c.basico_desde], [true, true, 'S/ 20']);
     const r = await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, { plan: 'basico' });
-    assert.equal(r.status, 422, r.texto);
-    assert.match(r.body.error, /Básico llega hasta 50 departamentos y este condominio tiene 51/);
-    assert.equal((await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: d.complejoA.id } }))?.solicitud_plan ?? null, null, 'no queda solicitud');
+    assert.ok(r.status < 300, r.texto);
+    assert.equal((await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: d.complejoA.id } }))?.solicitud_plan, 'basico');
   });
 
-  it('con Básico vigente no se crea el departamento 51 (403 LIMITE_UNIDADES), igual que Gratis frena el 21', async () => {
+  it('con Básico vigente se crea el departamento 51 (ya no hay LIMITE_UNIDADES) y cotiza S/ 1 por cada uno', async () => {
     await unidades(48);
     await ponerBasico();
-    const tope = await llamar(base, 'POST', '/api/unidades', T.adminA, { codigo: 'BX-50', tipo: 'Departamento', complejo_id: d.complejoA.id });
-    assert.equal(tope.status, 403, 'ya son 50: el 51 no entra');
-    assert.equal(tope.body.code, 'LIMITE_UNIDADES');
-    assert.equal(tope.body.limite, 50);
-    await prisma.unidad.deleteMany({ where: { codigo: { startsWith: 'BX-4' } } }); // salen 9: quedan 41 y el siguiente sí cabe
-    const cabe = await llamar(base, 'POST', '/api/unidades', T.adminA, { codigo: 'BX-nueva', tipo: 'Departamento', complejo_id: d.complejoA.id });
-    assert.equal(cabe.status, 201, cabe.texto);
-  });
-
-  it('un condominio que ya tiene más de 50 no puede ofrecer ni cobrar Básico: se le sugiere Pro en el modal (planes_disponibles sin Básico)', async () => {
-    await unidades(60);
-    const c = await miPlan();
-    assert.deepEqual([c.planes_disponibles.includes('basico'), c.planes_disponibles.includes('pro')], [false, true]);
+    const r = await llamar(base, 'POST', '/api/unidades', T.adminA, { codigo: 'BX-51', tipo: 'Departamento', complejo_id: d.complejoA.id });
+    assert.equal(r.status, 201, r.texto);
+    assert.equal((await miPlan()).cotizacion.base, '51.00');
   });
 });
 

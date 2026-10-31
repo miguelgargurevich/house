@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Torre Básico sin tope de departamentos (Claude Code, Opus 5.5) — push: sí
+
+- **Pedido de Miguel:** «quita el tope» (no perder los edificios de más de 50 que no quieren Pro). Torre Básico: S/ 1 por departamento, mínimo 20 cobrados, **sin tope** (`unidades_maximas: null`); descripción «Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.», viñeta «Sin tope de departamentos». Calculadora de Precios y Mi plan sin «hasta 50».
+- Producción: `scripts/oferta-gratis-pro.ts` sincroniza tope, descripción y viñetas de Básico. Manual v3 y benchmark actualizados en sus mismos enlaces (objeto reemplazado en MinIO). Manual anterior de House (`cmvv9urmi000bf5xdkb42hpwt`) borrado de My Workspace con OK de Miguel.
+- Pruebas: `plan-basico`, `solo-lectura`, `comercial-registro` ajustadas (con 51 se ofrece y se pide Básico; se crea el dpto 51). Suite 2988/2988.
+
+---
+
 ## 2026-10-30 — Manual y videos pasan a Torre (Claude Code, Opus 5.5) — push: no
 
 - **Qué:** `docs/manual/manual-house.json` dice Torre, apunta a `torrecondominios.com`, planes «Torre Gratis/Básico/Pro/Administradora» y Básico «Hasta 50 por condominio (se cobran mínimo 20)». Guiones (`docs/marketing/guiones-videos.md`), cierre del video (`grabar-video.mjs`: «Torre» + `torrecondominios.com`) y salida `torre-<video>-<formato>.mp4` (`montar-video.sh`).

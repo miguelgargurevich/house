@@ -101,7 +101,7 @@
           [
             "Torre Básico",
             "S/ 1,00 por departamento al mes, mínimo S/ 20",
-            "Hasta 50 por condominio (se cobran mínimo 20)",
+            "Sin tope (se cobran mínimo 20)",
             "Lo mismo que Gratis, sin plazo."
           ],
           [
@@ -584,7 +584,7 @@
         "**¿Puedo usar Torre en el celular?** Sí, todas las pantallas funcionan en el navegador del celular.",
         "**¿Cómo cambio mi contraseña o mi celular?** En Mi perfil, desde tu nombre arriba a la derecha.",
         "**¿Qué pasa al terminar los 3 meses gratis?** El condominio queda en solo lectura: se ve todo, pero no se registra nada nuevo. No se borra nada, y al pasar a Básico, Pro o Administradora vuelve todo. Te avisamos 7 días antes y el día que vence.",
-        "**¿Qué diferencia hay entre Básico y Pro?** Básico es lo mismo que Gratis, sin plazo y hasta 50 departamentos. No trae la IA que lee vouchers, WhatsApp, asistente, mora automática ni reportes. Pro trae todo eso y no tiene tope de departamentos.",
+        "**¿Qué diferencia hay entre Básico y Pro?** Básico es lo mismo que Gratis, sin plazo y sin tope de departamentos. No trae la IA que lee vouchers, WhatsApp, asistente, mora automática ni reportes. Pro trae todo eso.",
         "**¿Dónde está la política de privacidad?** En [torrecondominios.com/privacidad](https://torrecondominios.com/privacidad), junto a los [Términos y condiciones](https://torrecondominios.com/terminos). También está en el pie de cada página."
       ]
     },

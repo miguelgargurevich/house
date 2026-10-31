@@ -28,9 +28,9 @@ export function Recibo({ cat, eleccion, onCambio }: { cat: Catalogo; eleccion: E
   const tope = plan?.unidades_maximas ?? null;
   const excede = tope != null && n > tope;
   const pro = cat.planes.find(p => p.clave === 'pro');
-  // Si el plan elegido se queda corto, se ofrece el siguiente que sí cabe: Básico (hasta 50) para quien sale de Gratis, y si no, Pro.
+  // Si el plan elegido se queda corto, se ofrece el siguiente que sí cabe: Básico (sin tope) para quien sale de Gratis, y si no, Pro.
   const basico = cat.planes.find(p => p.clave === 'basico');
-  const siguiente = plan?.clave === 'gratis' && basico && !basico.consultar && basico.unidades_maximas != null && n <= basico.unidades_maximas ? basico : pro;
+  const siguiente = plan?.clave === 'gratis' && basico && !basico.consultar && (basico.unidades_maximas == null || n <= basico.unidades_maximas) ? basico : pro;
   const set = (parcial: Partial<Eleccion>) => onCambio({ ...eleccion, ...parcial });
   const paso = (d: number) => set({ unidades: String(Math.min(MAX, Math.max(1, (Math.trunc(Number(unidades)) || 0) + d))) });
 

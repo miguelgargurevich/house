@@ -125,7 +125,7 @@ export default function MiPlan() {
 
   return (
     <>
-      <PageHeader title="Mi plan" description="Torre Gratis por 3 meses, y después Torre Básico (edificios de hasta 50 departamentos) o Torre Pro con todo. El plan se elige por condominio; los precios del plan no incluyen el impuesto de tu país (IGV, IVA…); el monto a pagar ya lo suma, en la moneda de tu condominio." />
+      <PageHeader title="Mi plan" description="Torre Gratis por 3 meses, y después Torre Básico o Torre Pro con todo. El plan se elige por condominio; los precios del plan no incluyen el impuesto de tu país (IGV, IVA…); el monto a pagar ya lo suma, en la moneda de tu condominio." />
       {loading && <div className="space-y-4"><Skeleton className="h-56 w-full" /><Skeleton className="h-56 w-full" /></div>}
       {error && <ErrorState message={error} onRetry={reload} />}
       {data && !data.condominios.length && <EmptyState icon={<CreditCardIcon />} title="Aún no tienes condominios" description="Cuando crees tu primer condominio verás aquí su plan." />}

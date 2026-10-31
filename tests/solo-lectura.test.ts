@@ -222,12 +222,12 @@ describe('solo lectura: lo que sigue permitido', () => {
     assert.deepEqual([b.complejo_id, b.solo_lectura], [d.complejoB.id, false], 'la cortesía de B nunca');
   });
 
-  it('un condominio con más de 50 departamentos no ve la oferta de Básico en el estado', async () => {
+  it('un condominio con más de 50 departamentos también ve la oferta de Básico (sin tope)', async () => {
     const extra = Array.from({ length: 49 }, (_, i) => ({ codigo: `X-${i}`, tipo: 'Departamento', complejo_id: d.complejoA.id, empresa_id: d.empresaA.id, estado: 'activa' }));
     await prisma.unidad.createMany({ data: extra }); // 2 + 49 = 51
     try {
       const c = (await api(T.adminA, 'GET', '/api/comercial/estado-operativo')).body.condominios[0];
-      assert.equal(c.basico_desde, null);
+      assert.equal(c.basico_desde, 'S/ 20');
     } finally {
       await prisma.unidad.deleteMany({ where: { codigo: { startsWith: 'X-' } } });
     }
