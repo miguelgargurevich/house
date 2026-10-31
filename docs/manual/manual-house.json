@@ -1,6 +1,6 @@
 {
  "titulo": "Cómo usar House, según tu rol",
- "kicker": "Manual de usuario · versión del 30-oct-2026 (2)",
+ "kicker": "Manual de usuario · versión del 30-oct-2026 (3)",
  "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
  "diseno": "manual",
  "meta": [
@@ -27,27 +27,27 @@
      [
       "Administradora",
       "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-      "Secciones 06 a 17"
+      "Secciones 06 a 18"
      ],
      [
       "Junta directiva del block (presidente o tesorero)",
       "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago, cargas el agua y cierras el mes del block",
-      "Secciones 18 a 23"
+      "Secciones 19 a 24"
      ],
      [
       "Propietario",
       "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-      "Secciones 24 a 30"
+      "Secciones 25 a 31"
      ],
      [
       "Inquilino",
       "Lo mismo que el propietario, para el departamento que alquilas",
-      "Sección 31"
+      "Sección 32"
      ],
      [
       "Personal (mantenimiento, limpieza, jardinería, seguridad)",
       "Atiendes tus tareas o consultas las unidades",
-      "Secciones 32 y 33"
+      "Secciones 33 y 34"
      ],
      [
       "Todavía no tienes cuenta",
@@ -61,11 +61,12 @@
    "titulo": "Crea tu cuenta",
    "etiqueta": "Sin cuenta",
    "parrafos": [
-    "Si administras un condominio y todavía no usas House, la creas tú en [house.gargurevich.dev/registro](https://house.gargurevich.dev/registro). No tiene tarjeta: empiezas en el plan Gratis y pasas a Pro cuando lo necesites."
+    "Si administras un condominio y todavía no usas House, la creas tú en [house.gargurevich.dev/registro](https://house.gargurevich.dev/registro). No tiene tarjeta: el condominio empieza en el plan Gratis, que dura 3 meses. Los primeros 30 días tiene **Pro de prueba**, dentro de esos 3 meses, sin costo; después sigue en Gratis sin perder datos."
    ],
    "numerada": [
     "Escribe tu nombre, tu correo, tu celular y una contraseña. La regla de la contraseña se va marcando mientras escribes.",
     "En **Tu condominio** escribe el nombre de tu administradora o junta, el del condominio y el número aproximado de departamentos.",
+    "Marca la casilla **Acepto los Términos y condiciones y la Política de privacidad**. Los dos enlaces se abren en otra pestaña. Sin la casilla, el botón no se activa.",
     "Pulsa **Crear cuenta gratis**.",
     "Abre el correo de confirmación y pulsa el enlace. Recién entonces puedes entrar con tu correo y tu contraseña."
    ],
@@ -79,10 +80,48 @@
    "titulo": "Planes y precios",
    "etiqueta": "Sin cuenta",
    "parrafos": [
-    "House tiene tres planes. **Gratis** es para un condominio de hasta 20 departamentos. **Pro** cobra por departamento, con un mínimo de departamentos cobrados por condominio, y trae todos los módulos. **Administradora** es para quien lleva varios condominios en una sola cuenta, con descuento por volumen.",
-    "Los precios de tu país, con su impuesto si corresponde, están en [house.gargurevich.dev/precios](https://house.gargurevich.dev/precios). Ahí mismo está la calculadora: pones tu número de departamentos y ves cuánto pagarías."
+    "House tiene cuatro planes. **Gratis** es para empezar: un condominio de hasta 20 departamentos, durante 3 meses. Después eliges **Básico**, **Pro** o **Administradora**. Si no eliges ninguno, el condominio queda en solo lectura (ver «Mi condominio está en solo lectura»).",
+    "Los precios van en soles y sin IGV: en Perú se suma el 18 %. Ahí mismo, en [house.gargurevich.dev/precios](https://house.gargurevich.dev/precios), está la calculadora: pones tu número de departamentos y ves cuánto pagarías, con el mínimo que aplique."
    ],
-   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/precios.jpg"
+   "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/precios.jpg",
+   "tabla": {
+    "columnas": [
+     "Plan",
+     "Precio",
+     "Hasta cuántos departamentos",
+     "Qué trae"
+    ],
+    "filas": [
+     [
+      "Gratis",
+      "S/ 0 por 3 meses",
+      "Hasta 20 por condominio",
+      "1 condominio. Recibos, cobranza y morosidad, Excel, medios de pago, portal del vecino, vouchers validados a mano y avisos por correo. Sin IA, WhatsApp ni asistente."
+     ],
+     [
+      "Básico",
+      "S/ 1,00 por departamento al mes, mínimo S/ 20",
+      "De 20 a 50",
+      "Lo mismo que Gratis, sin plazo."
+     ],
+     [
+      "Pro",
+      "S/ 2,50 por departamento al mes, mínimo 20 departamentos (S/ 50)",
+      "Sin tope",
+      "Todo House: IA que lee y valida vouchers, avisos por WhatsApp, asistente, mora automática y reportes."
+     ],
+     [
+      "Administradora",
+      "S/ 2,00 por departamento al mes, mínimo 20 por condominio",
+      "Sin tope",
+      "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen."
+     ]
+    ]
+   },
+   "aviso": {
+    "tipo": "nota",
+    "texto": "La prueba de Pro de 30 días va dentro de los 3 meses gratis: Pro hasta el día 30 y Gratis hasta el día 90. No hay permanencia ni contrato."
+   }
   },
   {
    "titulo": "Cómo entrar por primera vez",
@@ -109,7 +148,8 @@
     "**La luna**: cambia entre modo claro y oscuro.",
     "**El ícono de destellos**: abre el Asistente. Pregúntale «¿Cuánto debo?», «¿Cómo pago?» o dónde hacer algo.",
     "**El selector de condominio**, arriba a la izquierda (sólo administradora): filtra todas las pantallas por condominio.",
-    "En el celular, el menú se abre con las tres rayas de arriba a la izquierda."
+    "En el celular, el menú se abre con las tres rayas de arriba a la izquierda.",
+    "**La banda de solo lectura**: si el condominio ya terminó su periodo gratis, aparece arriba con el botón **Ir a Mi plan** (ver «Mi condominio está en solo lectura»)."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/perfil.jpg"
   },
@@ -118,7 +158,8 @@
    "etiqueta": "Administradora",
    "parrafos": [
     "Al entrar ves lo cobrado este mes, lo que falta cobrar, las unidades morosas y las tareas abiertas. Debajo, dos gráficos: **Emitido vs. cobrado** de los últimos 6 meses y **% cobrado por block** del último mes, de mayor a menor (en rojo los que van por debajo del 50 %).",
-    "Con el filtro **Todos los blocks** miras uno solo."
+    "Con el filtro **Todos los blocks** miras uno solo.",
+    "Si el condominio está en su periodo gratis, el Resumen y Mi plan dicen cuántos días le quedan: «Te quedan N días gratis»."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-resumen.jpg"
   },
@@ -273,9 +314,25 @@
     "**Unidades**: departamentos, casas, locales, estacionamientos y depósitos, cada uno con su block, propietario e inquilino.",
     "**Mantenimiento**: las tareas de reparación y cuidado. Las asignas al personal y ves si están pendientes, en progreso o completadas.",
     "**Proveedores**: ascensores, gasfitería, pintura y demás. Activa **Visible para los vecinos** en los que quieras compartir.",
-    "**Mi empresa** y **Mi plan**: los datos de tu empresa y el plan de cada condominio (Gratis con límite de departamentos, o Pro)."
+    "**Mi empresa** y **Mi plan** están en **Cuenta**, en el menú: los datos de tu empresa y el plan de cada condominio (ver «Mi plan: lo que pagas y lo que usas»)."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/admin-mantenimiento.jpg"
+  },
+  {
+   "titulo": "Mi plan: lo que pagas y lo que usas",
+   "etiqueta": "Administradora · Cuenta",
+   "parrafos": [
+    "En **Mi plan** ves cada condominio: su plan, hasta cuándo está vigente, lo de Pro que tienes activo y el total al mes.",
+    "Mientras el condominio esté en su periodo gratis, Mi plan dice **«Te quedan N días gratis»**. Si está en la prueba de Pro, lo dice aparte: después sigue en Gratis, sin perder datos."
+   ],
+   "bullets": [
+    "**Uso del mes**: las consultas al asistente y los mensajes de WhatsApp, contra su tope. En Pro y Administradora el tope es de 5 consultas y 6 mensajes por departamento cobrado. Al llegar al 80 % te avisa; si se acaba, el asistente y los WhatsApp se detienen hasta el 1 del mes siguiente.",
+    "**Vouchers**: en Gratis, Mi plan dice cuántos validaste a mano este mes. En la prueba de Pro, cuántos validó la IA por ti."
+   ],
+   "aviso": {
+    "tipo": "nota",
+    "texto": "**Gratis incluye un condominio.** Mientras tengas uno en Gratis (o en la prueba de Pro), no puedes crear otro. Para agregarlo, pasa el que ya tienes a un plan de pago."
+   }
   },
   {
    "titulo": "Mi junta",
@@ -426,7 +483,7 @@
    "titulo": "Si alquilas",
    "etiqueta": "Inquilino",
    "parrafos": [
-    "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores y Comunicados. Pagas y subes tu voucher igual que en la sección 26."
+    "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores y Comunicados. Pagas y subes tu voucher igual que en la sección 27."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/inquilino-inicio.jpg"
   },
@@ -445,6 +502,29 @@
     "En **Inicio** ves tu condominio asignado. En **Unidades** buscas por código y ves el propietario y el inquilino de cada una antes de autorizar una visita."
    ],
    "imagen": "https://sitios.gargurevich.dev/manual-house-capturas/seguridad-inicio.jpg"
+  },
+  {
+   "titulo": "Mi condominio está en solo lectura",
+   "etiqueta": "Administradora · Junta · Vecinos",
+   "parrafos": [
+    "Cuando el condominio termina sus 3 meses gratis sin un plan de pago, queda en **solo lectura**. No se borra nada: se ve todo (recibos, pagos, historial y vouchers), pero no se registra nada nuevo. Una banda arriba lo avisa. Antes de que pase, House te avisa 7 días antes y el día que vence."
+   ],
+   "bullets": [
+    "**Sí se puede**: ver todas las pantallas, cambiar los datos del condominio, los medios de pago y las cuentas del cierre, manejar usuarios y juntas, asignar tareas de mantenimiento y usar el Asistente.",
+    "**No se puede**: emitir o subir recibos, registrar pagos, recibir vouchers, mandar comunicados, cerrar el mes, cargar lecturas de agua, ni dar de alta unidades, conceptos o proveedores.",
+    "**El vecino** lo ve igual, con su historial y sus vouchers. Si intenta subir un voucher, ve «Habla con tu administración».",
+    "**La junta** ve la banda con «Pídele a tu administración que lo pase a un plan de pago»."
+   ],
+   "numerada": [
+    "Entra a **Mi plan** (en **Cuenta**, en el menú) o pulsa **Ir a Mi plan** en la banda.",
+    "Elige **Básico** (desde S/ 20 al mes), **Pro** o **Administradora** y pide el plan del condominio.",
+    "Paga por transferencia, Yape o Plin con la referencia que te muestra Mi plan.",
+    "Cuando confirmamos tu pago, el plan se activa y el condominio vuelve a registrar de inmediato."
+   ],
+   "aviso": {
+    "tipo": "ok",
+    "texto": "Al pasar a un plan de pago no se pierde nada: lo que estaba en el condominio sigue ahí."
+   }
   },
   {
    "titulo": "Qué hacer si algo falla",
@@ -480,6 +560,16 @@
       "«Demasiadas solicitudes» al entrar",
       "Varios intentos fallidos seguidos",
       "Espera unos minutos y vuelve a intentar"
+     ],
+     [
+      "«Este condominio está en solo lectura»",
+      "Terminó el periodo gratis de 3 meses sin un plan de pago",
+      "Pasa el condominio a un plan de pago desde Mi plan; mientras tanto puedes verlo todo"
+     ],
+     [
+      "«Habla con tu administración» al subir voucher",
+      "El condominio está en solo lectura",
+      "Avisa a tu administración"
      ]
     ]
    }
@@ -492,7 +582,10 @@
     "**¿Quién valida mi pago?** La administración, o la validación automática si está activada (el OCR de House lee el voucher y la IA sólo si hace falta), siempre con el check del tesorero de tu block.",
     "**¿Cambió la junta?** La administración registra la nueva gestión y los permisos pasan solos.",
     "**¿Puedo usar House en el celular?** Sí, todas las pantallas funcionan en el navegador del celular.",
-    "**¿Cómo cambio mi contraseña o mi celular?** En Mi perfil, desde tu nombre arriba a la derecha."
+    "**¿Cómo cambio mi contraseña o mi celular?** En Mi perfil, desde tu nombre arriba a la derecha.",
+    "**¿Qué pasa al terminar los 3 meses gratis?** El condominio queda en solo lectura: se ve todo, pero no se registra nada nuevo. No se borra nada, y al pasar a Básico, Pro o Administradora vuelve todo. Te avisamos 7 días antes y el día que vence.",
+    "**¿Qué diferencia hay entre Básico y Pro?** Básico es lo mismo que Gratis, sin plazo y hasta 50 departamentos. No trae la IA que lee vouchers, WhatsApp, asistente, mora automática ni reportes. Pro trae todo eso y no tiene tope de departamentos.",
+    "**¿Dónde está la política de privacidad?** En [house.gargurevich.dev/privacidad](https://house.gargurevich.dev/privacidad), junto a los [Términos y condiciones](https://house.gargurevich.dev/terminos). También está en el pie de cada página."
    ]
   },
   {

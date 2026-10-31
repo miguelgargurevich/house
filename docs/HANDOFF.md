@@ -4,6 +4,36 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Claude Code (Haiku 5.5, delegado en worktree) — Manual versión 3: planes, solo lectura y Mi plan (rama `docs/manual-planes`, sin push)
+
+- **Herramientas:** Bash, Edit/Python para el JSON, Playwright (`scripts/marketing/capturas-manual.mjs`, seed local) para las capturas.
+- **Pedido de Miguel:** «Actualiza los manuales». Se trabajó sólo el manual de usuario (`docs/manual/manual-house.json`), según el brief de Opus.
+- **Hecho:**
+  - «Crea tu cuenta»: casilla de Términos (el botón no se activa sin ella) y 30 días de Pro de prueba dentro de los 3 meses gratis.
+  - «Planes y precios»: tabla con los cuatro planes (Gratis, Básico, Pro, Administradora), precios sin IGV, mínimos y topes. Sin «para siempre».
+  - Nueva sección «Mi plan: lo que pagas y lo que usas» (después de Unidades): uso del mes, topes (5 y 6 por departamento en Pro y Administradora), vouchers a mano o de la IA, y «Gratis incluye un condominio».
+  - Nueva sección «Mi condominio está en solo lectura» (después de Seguridad): qué se ve y qué no, qué ve el vecino y la junta, cómo salir.
+  - «Lo que tienen todas las pantallas», Resumen, Unidades: banda de solo lectura, «Te quedan N días gratis», Mi empresa y Mi plan en Cuenta.
+  - «Qué hacer si algo falla»: dos filas nuevas. Preguntas frecuentes: tres nuevas (fin del plazo, Básico frente a Pro, privacidad).
+  - `kicker` con «versión del 30-oct-2026 (3)». Las secciones pasan de 36 a 38: la tabla de rangos por rol y la referencia «sección 27» se actualizaron.
+  - Capturas nuevas `precios` y `registro` (seed local) en `.claude/manual/capturas/` del checkout principal. Se ven las cuatro tarjetas; no hizo falta tocar el script.
+  - `docs/manual/README.md`: versión 3 marcada «pendiente de publicar».
+- **Verificado:**
+  - `python3 -c "import json;json.load(open('docs/manual/manual-house.json'))"` → sin errores. Sin «para siempre», `{{`, ni nombres reales (`grep`: 0).
+  - Cifras cotejadas con `catalogo.ts`, `registro.ts`, `cupo.ts`, `consumo.ts`, `usoDelMes.ts`, `soloLectura.ts` y `Preguntas.tsx`.
+  - No hay código de la app tocado: no aplica suite.
+- **Decisiones:**
+  - Las secciones nuevas van dentro de la administración y de Ayuda; la numeración se recalculó en vez de meter todo al final.
+  - El texto de «Mi plan» y del aviso usa los textos reales de la app («Te quedan N días gratis», «Gratis incluye un condominio»).
+- **Próximos pasos:**
+  - Opus: subir las capturas `precios.jpg` y `registro.jpg` a `sitios.gargurevich.dev/manual-house-capturas/` (scp, sobrescribe), publicar el manual con `web_crear` (`diseno: manual`) y poner el id en `docs/manual/README.md`.
+  - Revisar el manual con Miguel antes de publicar (sobre todo la sección de solo lectura).
+- **Gotchas:**
+  - El texto de la app dice «Para empezar y para siempre» en la tarjeta de Gratis (`src/pages/publico/precios/Planes.tsx`): contradice el plazo de 3 meses. El manual no lo repite; el código no se tocó (fuera de alcance).
+  - El mensaje de «un condominio» (`cupo.ts`, `MENSAJE_GRATIS_UN_CONDOMINIO`) dice «pasa a Pro o Administradora», pero Básico también deja crear otro. El manual dice «un plan de pago».
+  - La banda de solo lectura dice «Pásalo a un plan de pago», y el servidor «Pásalo a Pro desde Mi plan»: el manual usa la frase de la banda.
+  - `timeout` no existe en esta Mac: para acotar un comando usa el `timeout` de la herramienta Bash.
+
 ## 2026-10-30 — Claude Code (Sonnet 5.5, delegado en worktree) — Gratis con plazo de 3 meses, solo lectura y plan Básico (rama `feat/gratis-plazo`, sin push)
 
 - **Pedido de Miguel:** «el plan gratis también debe tener límite, quizá 3 meses» → al vencer, «Solo lectura»; los que ya están en Gratis, «3 meses desde hoy»; y un cobro bajo (Básico S/ 1 por depa, mínimo S/ 20, hasta 50) frente a la competencia (ComunidadesPerú S/ 30 por edificio de hasta 50; OPE Starter S/ 89 hasta 35; Habitek Básico S/ 2,90 por dpto, revisado el 30-oct).
