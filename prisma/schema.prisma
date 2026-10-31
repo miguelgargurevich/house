@@ -1078,6 +1078,14 @@ model ConfiguracionComercial {
   google_site_verification String?
   /// Código de verificación de Bing Webmaster Tools (el `content` de la etiqueta `msvalidate.01`). Opcional; se inyecta en la portada.
   bing_site_verification String?
+  /// Tipo de cambio: soles por 1 US$. Con él los países que no son Perú cobran en dólares (precio en soles ÷ tipo de cambio). null = sin tipo de cambio: esos países ven «Consúltanos».
+  tipo_cambio_usd        Decimal?
+  /// true = lo fijó el superadmin a mano y la tarea diaria NO lo pisa; false = lo lee solo de una fuente pública.
+  tipo_cambio_manual     Boolean  @default(false)
+  /// Cuándo se fijó o se leyó por última vez.
+  tipo_cambio_at         DateTime?
+  /// De dónde salió: «manual» o el dominio de la fuente pública (open.er-api.com).
+  tipo_cambio_fuente     String?
   updated_at             DateTime @updatedAt
 }
 

@@ -4,13 +4,14 @@ import { Prisma } from '@prisma/client';
 import { forbidden, invalid, notFound } from '../errors';
 import { empresaDe, scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
-import { CODIGOS_MONEDA, CODIGOS_PAIS, decimalesDe, monedaEnPlural } from '../../lib/paises';
+import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDA_COBRO_EXTRANJERO, decimalesDe, monedaEnPlural } from '../../lib/paises';
 import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
 import { puedeAgregarCondominio } from '../services/comercial/cupo';
 import { crearPrimerCondominio } from '../services/comercial/primerCondominio';
 import { usoDelMes } from '../services/comercial/consumo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
-import { cambiarImpuesto, reflejarTasaEnPeru } from '../services/comercial/impuestos';
+import { cambiarImpuesto, cargarReferencias, preciosEnDolares, reflejarTasaEnPeru } from '../services/comercial/impuestos';
+import { estadoTipoCambio, fijarTipoCambioManual, volverAAutomatico } from '../services/comercial/tipoCambio';
 import { complejosDe, invalidarComercial } from '../services/comercial/modulos';
 import { cambiarSuscripcion, cancelarSolicitud, catalogoPublico, datosParaPagar, pagoVista, registrarPago, solicitar, vistas } from '../services/comercial/suscripciones';
 import { fechaSchema, idSchema, listQuerySchema, parse, parseBody, parseQuery, texto, textoOpcional, z } from '../validation';
@@ -287,11 +288,12 @@ comercialRouter.get('/suscripciones/:complejoId/pagos', superadmin, async (req, 
   res.json({ items: pagos.map(pagoVista) });
 });
 
-/** Precios BASE y datos completos para editarlos (el público sólo ve el precio sin impuesto, en la moneda de su país), más el impuesto de cada país y los precios por moneda. */
+/** Precios BASE y datos completos para editarlos (el público sólo ve el precio sin impuesto, en la moneda de su país), más el impuesto de cada país, los precios por moneda y los de dólares ya convertidos (`precios_usd`, al tipo de cambio de `configuracion.tipo_cambio_usd`). */
 comercialRouter.get('/catalogo', superadmin, async (_req, res) => {
   const [planes, modulos, configuracion] = await Promise.all([prisma.planComercial.findMany({ orderBy: { orden: 'asc' } }), prisma.moduloComercial.findMany({ orderBy: { orden: 'asc' } }), obtenerConfiguracion()]);
-  const [impuestos, precios_moneda] = await Promise.all([prisma.impuestoPais.findMany({ orderBy: { pais: 'asc' } }), prisma.precioPlanMoneda.findMany({ orderBy: [{ plan_clave: 'asc' }, { moneda: 'asc' }] })]);
-  res.json({ planes, modulos, configuracion, impuestos, precios_moneda });
+  const [impuestos, precios_moneda, ref] = await Promise.all([prisma.impuestoPais.findMany({ orderBy: { pais: 'asc' } }), prisma.precioPlanMoneda.findMany({ orderBy: [{ plan_clave: 'asc' }, { moneda: 'asc' }] }), cargarReferencias()]);
+  // `precios_usd`: lo que se cobra en dólares (precio en soles ÷ tipo de cambio, ya redondeado); no se edita, manda sobre cualquier fila de `precios_moneda` en USD.
+  res.json({ planes, modulos, configuracion, impuestos, precios_moneda, precios_usd: preciosEnDolares(planes, ref) });
 });
 
 /** @openapi
@@ -314,6 +316,8 @@ comercialRouter.put('/impuestos/:pais', superadmin, async (req, res) => {
  *   delete: { summary: "Quita el precio de un plan en una moneda (vuelve a «Consúltanos»); el de soles no se quita", tags: [Comercial], responses: { 204: { description: "Quitado" } } } */
 comercialRouter.put('/planes/:clave/precios/:moneda', superadmin, async (req, res) => {
   const { clave, moneda } = parse(precioMonedaParams, req.params);
+  // El dólar NO se fija a mano: es el precio en soles ÷ el tipo de cambio. Una fila en USD se ignoraría en silencio; mejor decirlo.
+  if (moneda === MONEDA_COBRO_EXTRANJERO) throw invalid('Datos inválidos: moneda: el precio en dólares sale del precio en soles ÷ el tipo de cambio; cambia esos, no se fija aquí', { moneda: 'En dólares el precio sale del tipo de cambio' });
   const { precio_por_unidad, tramo_precio_por_unidad } = parseBody(z.object({ precio_por_unidad: precio, tramo_precio_por_unidad: precio.nullable().optional() }), req);
   const sinDecimales = decimalesDe(moneda) === 0;
   if (sinDecimales && /\./.test(precio_por_unidad)) throw invalid(`Datos inválidos: precio_por_unidad: en ${monedaEnPlural(moneda)} el precio no lleva decimales`, { precio_por_unidad: 'Sin decimales en esta moneda' });
@@ -389,6 +393,32 @@ comercialRouter.put('/planes/:clave', superadmin, async (req, res) => {
   res.locals.accion = 'editar';
   res.locals.auditDetalle = { plan: clave, ...(body.precio_por_unidad !== undefined ? { precio_por_unidad: body.precio_por_unidad } : {}), ...(body.modulos_incluidos ? { modulos_incluidos: body.modulos_incluidos } : {}), ...(body.unidades_maximas !== undefined ? { unidades_maximas: body.unidades_maximas } : {}), ...(body.unidades_minimas !== undefined ? { unidades_minimas: body.unidades_minimas } : {}), ...(body.tramo_desde !== undefined ? { tramo_desde: body.tramo_desde } : {}), ...(body.tramo_precio !== undefined ? { tramo_precio: body.tramo_precio } : {}), ...(body.visible !== undefined ? { visible: body.visible } : {}) };
   res.json(p);
+});
+
+/** Fija a mano el tipo de cambio (soles por 1 US$) o vuelve a automático; exactamente una de las dos cosas. */
+const tipoCambioSchema = z.object({
+  tipo_cambio: z.union([z.number(), z.string()], { error: 'Tipo de cambio inválido' }).transform((v) => String(v).trim()).pipe(z.string().regex(/^\d{1,2}(\.\d{1,6})?$/, 'Tipo de cambio inválido (soles por dólar, p. ej. 3.75)')).optional(),
+  automatico: z.literal(true, { error: 'automatico solo admite true' }).optional(),
+}).refine((b) => (b.tipo_cambio === undefined) !== (b.automatico === undefined), { message: 'Envía tipo_cambio (a mano) o automatico: true, no los dos ni ninguno', path: ['tipo_cambio'] });
+
+/** @openapi
+ * /api/comercial/tipo-cambio:
+ *   get: { summary: "Tipo de cambio vigente (soles por 1 US$), si es manual o automático, de cuándo y de dónde (sólo superadmin)", tags: [Comercial], responses: { 200: { description: "{ tipo_cambio, manual, actualizado_en, fuente }" }, 403: { description: "Sólo superadmin" } } }
+ *   put: { summary: "Fija el tipo de cambio a mano ({ tipo_cambio }: pasa a manual, no lo pisa la lectura diaria) o vuelve a automático ({ automatico: true }: lo lee de la fuente en ese momento). Los países que no son Perú pagan en dólares con él (sólo superadmin; auditado)", tags: [Comercial], responses: { 200: { description: "El estado nuevo" }, 403: { description: "Sólo superadmin" }, 422: { description: "No es un número entre 2 y 6, o el body no trae exactamente una opción" }, 502: { description: "Al volver a automático la fuente no respondió bien: no cambia nada" } } }
+ */
+const tipoCambioVista = (e: Awaited<ReturnType<typeof estadoTipoCambio>>) => ({ tipo_cambio: e.tipo_cambio?.toString() ?? null, manual: e.manual, actualizado_en: e.at, fuente: e.fuente });
+comercialRouter.get('/tipo-cambio', superadmin, async (_req, res) => {
+  res.json(tipoCambioVista(await estadoTipoCambio()));
+});
+comercialRouter.put('/tipo-cambio', superadmin, async (req, res) => {
+  const body = parseBody(tipoCambioSchema, req);
+  const antes = await estadoTipoCambio();
+  const despues = body.automatico ? await volverAAutomatico() : await fijarTipoCambioManual(body.tipo_cambio as string);
+  res.locals.entidad = 'tipo_cambio';
+  res.locals.entidadId = null;
+  res.locals.accion = 'editar';
+  res.locals.auditDetalle = { modo: despues.manual ? 'manual' : 'automatico', anterior: antes.tipo_cambio?.toString() ?? null, nuevo: despues.tipo_cambio?.toString() ?? null };
+  res.json(tipoCambioVista(despues));
 });
 
 comercialRouter.put('/configuracion', superadmin, async (req, res) => {

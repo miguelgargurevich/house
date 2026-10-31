@@ -105,8 +105,8 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
     const preciosModulos = ctx.moneda === MONEDA_BASE_PRECIOS ? catalogoPrecios : [];
     /** El plan cotizado en la moneda del condominio; sin precio ahí queda sin cotizar y `consultar` en true. */
     const cotizarPlan = (p: typeof plan, modulosSueltos: string[]) => {
-      const precioMoneda = p ? precioEnMoneda(p, ctx.moneda, ref.precios) : null;
-      const cot = cotizar({ unidades: n, plan: p && precioMoneda !== null ? precioDePlan(p, precioMoneda, tramoEnMoneda(p, ctx.moneda, ref.precios)) : null, modulosSueltos, catalogo: preciosModulos, tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
+      const precioMoneda = p ? precioEnMoneda(p, ctx.moneda, ref) : null;
+      const cot = cotizar({ unidades: n, plan: p && precioMoneda !== null ? precioDePlan(p, precioMoneda, tramoEnMoneda(p, ctx.moneda, ref)) : null, modulosSueltos, catalogo: preciosModulos, tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
       return { cot, consultar: p != null && precioMoneda === null };
     };
     // Vencido y apagado se comporta como Gratis también para el tope de unidades.
@@ -116,7 +116,7 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
     const cobra = ef.plan_clave !== 'cortesia';
     const { cot, consultar } = cobra ? cotizarPlan(plan, sueltos) : { cot: cotizarPlan(null, []).cot, consultar: false };
     const basico = planDe('basico');
-    const precioBasico = basico && basico.visible ? precioEnMoneda(basico, ctx.moneda, ref.precios) : null;
+    const precioBasico = basico && basico.visible ? precioEnMoneda(basico, ctx.moneda, ref) : null;
     const basicoCabe = basico != null && (basico.unidades_maximas == null || n <= basico.unidades_maximas);
     let solicitud: VistaSuscripcion['solicitud'] = null;
     if (s && (s.solicitud_plan || s.solicitud_modulos.length)) {
@@ -139,7 +139,7 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       solo_lectura: ef.solo_lectura,
       solo_lectura_desde: ef.gratis_hasta ? primerDiaSoloLectura(ef.gratis_hasta) : null,
       dias_gratis_restantes: ef.gratis_hasta && !ef.solo_lectura && (ef.plan_clave === 'gratis' || ef.apagada || ef.en_prueba) ? diasEntre(hoyLima(ahora), ef.gratis_hasta) : null,
-      basico_desde: basico && precioBasico !== null && basicoCabe ? formatoDinero(cotizar({ unidades: 0, plan: precioDePlan(basico, precioBasico, tramoEnMoneda(basico, ctx.moneda, ref.precios)), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base, ctx.moneda, ' ', true) : null,
+      basico_desde: basico && precioBasico !== null && basicoCabe ? formatoDinero(cotizar({ unidades: 0, plan: precioDePlan(basico, precioBasico, tramoEnMoneda(basico, ctx.moneda, ref)), modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda }).base, ctx.moneda, ' ', true) : null,
       unidades_facturables: n,
       unidades_cobradas: cot.unidades_cobradas,
       unidades_maximas: planTope?.unidades_maximas ?? null,
@@ -150,7 +150,7 @@ export async function vistas(complejoIds: number[], opts: { conNotas?: boolean }
       cotizacion: cot,
       precio_consultar: consultar,
       // Un plan con tope (Básico, 50) no se ofrece al condominio que ya tiene más departamentos que el tope.
-      planes_disponibles: planes.filter((p) => p.visible && !['gratis', 'cortesia'].includes(p.clave) && (p.unidades_maximas == null || n <= p.unidades_maximas) && planContratable(ctx, p, ref.precios)).map((p) => p.clave),
+      planes_disponibles: planes.filter((p) => p.visible && !['gratis', 'cortesia'].includes(p.clave) && (p.unidades_maximas == null || n <= p.unidades_maximas) && planContratable(ctx, p, ref)).map((p) => p.clave),
       solicitud,
       referencia_pago: referenciaPago(c.id, ahora),
       ...(opts.conNotas ? { notas: s?.notas ?? null } : {}),
@@ -180,7 +180,7 @@ export async function solicitar(complejoId: number, d: { plan: string }, quien: 
     if (unidades > plan.unidades_maximas) throw invalid(`Datos inválidos: plan: ${plan.nombre} llega hasta ${plan.unidades_maximas} departamentos y este condominio tiene ${unidades}`, { plan: `Llega hasta ${plan.unidades_maximas} departamentos` });
   }
   // Sin precio en la moneda del país del condominio no se puede contratar: se atiende por consulta.
-  if (!planContratable(contextoDe(complejo.pais, ref), plan, ref.precios)) throw invalid('Datos inválidos: plan: todavía no tiene precio en tu país; consúltanos', { plan: 'Consúltanos: aún no hay precio en tu país' });
+  if (!planContratable(contextoDe(complejo.pais, ref), plan, ref)) throw invalid('Datos inválidos: plan: todavía no tiene precio en tu país; consúltanos', { plan: 'Consúltanos: aún no hay precio en tu país' });
   const actual = await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: complejoId }, select: { estado: true } });
   const guardado = !actual || actual.estado === 'gratis' || actual.estado === 'activa' ? 'solicitada' : actual.estado; // por_vencer / vencida siguen siendo lo que son
   await prisma.suscripcionCondominio.upsert({
@@ -312,9 +312,9 @@ export async function catalogoPublico(pais?: string | null) {
     paises: paisesAbiertos(ref),
     igv_incluido: false,
     planes: planes.map((p) => {
-      const precio = precioEnMoneda(p, ctx.moneda, ref.precios);
+      const precio = precioEnMoneda(p, ctx.moneda, ref);
       // Con precio y tramo en la moneda del país: desde qué departamento rige el segundo precio y cuánto es (sin impuesto, como `precio_por_unidad`). Sin tramo en esa moneda: precio único.
-      const tramo = precio === null ? null : tramoEnMoneda(p, ctx.moneda, ref.precios);
+      const tramo = precio === null ? null : tramoEnMoneda(p, ctx.moneda, ref);
       return {
         clave: p.clave, nombre: p.nombre, descripcion: p.descripcion, precio_por_unidad: precio === null ? null : precioSinIgv(precio, ctx.tasa, p.igv_incluido, dm).toFixed(dm), consultar: precio === null,
         tramo_desde: tramo?.desde ?? null, tramo_precio: tramo ? precioSinIgv(tramo.precio, ctx.tasa, p.igv_incluido, dm).toFixed(dm) : null,
@@ -341,8 +341,8 @@ export async function cotizacionPublica(unidades: number, planClave: string | nu
   const plan = planClave ? planes.find((p) => p.clave === planClave) : null;
   if (planClave && !plan) throw new HttpError(422, 'Datos inválidos: plan: no existe', { plan: 'Plan inexistente' });
   const ctx = contextoPublico(pais, ref);
-  const precio = plan ? precioEnMoneda(plan, ctx.moneda, ref.precios) : null;
-  const tramo = plan && precio !== null ? tramoEnMoneda(plan, ctx.moneda, ref.precios) : null;
+  const precio = plan ? precioEnMoneda(plan, ctx.moneda, ref) : null;
+  const tramo = plan && precio !== null ? tramoEnMoneda(plan, ctx.moneda, ref) : null;
   const c = cotizar({ unidades, plan: plan && precio !== null ? precioDePlan(plan, precio, tramo) : null, modulosSueltos: [], catalogo: [], tasa: ctx.tasa, moneda: ctx.moneda, impuestoNombre: ctx.impuesto_nombre });
   const dm = decimalesDe(ctx.moneda);
   const comun = {

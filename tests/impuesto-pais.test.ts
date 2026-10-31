@@ -51,17 +51,23 @@ beforeEach(async () => {
   await prisma.planComercial.update({ where: { clave: 'pro' }, data: { precio_por_unidad: '3.00' } });
   await prisma.impuestoPais.deleteMany();
   await sembrarCatalogoComercial(prisma);
+  // El seed deja a Chile cobrando en dólares (todos menos Perú); aquí se fija en pesos para probar el mecanismo de una moneda con precios por fila
+  // (lo del dólar al tipo de cambio vive en `multimoneda-usd.test.ts`).
+  await prisma.impuestoPais.update({ where: { pais: 'CL' }, data: { moneda: 'CLP' } });
   invalidarComercial();
 });
 afterEach(() => { invalidarComercial(); });
 
 describe('tabla ImpuestoPais: se siembra desde el catálogo y nunca pisa lo editado', () => {
-  it('un país por fila con el impuesto y la moneda del catálogo: Perú = IGV 18 % en soles; Chile = IVA 19 % en pesos; EE. UU. sin impuesto nacional (tasa 0)', async () => {
+  it('un país por fila con el impuesto del catálogo y su moneda de cobro: Perú = IGV 18 % en soles; Chile = IVA 19 % en dólares (todos menos Perú cobran en US$); EE. UU. sin impuesto nacional (tasa 0)', async () => {
+    await prisma.impuestoPais.deleteMany();
+    await sembrarCatalogoComercial(prisma);
     const filas = await prisma.impuestoPais.findMany();
     assert.equal(filas.length, PAISES.length);
     const f = (p: string) => filas.find((x) => x.pais === p)!;
     assert.deepEqual([f('PE').nombre, f('PE').tasa.toString(), f('PE').moneda, f('PE').activo], ['IGV', '0.18', 'PEN', true]);
-    assert.deepEqual([f('CL').nombre, f('CL').tasa.toString(), f('CL').moneda], ['IVA', '0.19', 'CLP']);
+    assert.deepEqual([f('CL').nombre, f('CL').tasa.toString(), f('CL').moneda], ['IVA', '0.19', 'USD'], 'el impuesto de Chile se mantiene; la moneda de cobro es el dólar');
+    assert.deepEqual(filas.filter((x) => x.pais !== 'PE').filter((x) => x.moneda !== 'USD').map((x) => x.pais), [], 'ningún país distinto de Perú cobra en otra moneda');
     assert.deepEqual([f('DO').nombre, f('DO').tasa.toString()], ['ITBIS', '0.18']);
     assert.equal(f('US').tasa.toString(), '0', 'sin impuesto nacional: no se cobra ninguno hasta que el superadmin lo fije');
   });
@@ -301,6 +307,7 @@ describe('el superadmin edita impuestos y precios por moneda (auditado); nadie m
   });
 
   it('precio de un plan en otra moneda: se fija, lo ve la API pública y el aviso queda auditado; se quita y vuelve a «Consúltanos»', async () => {
+    await prisma.impuestoPais.update({ where: { pais: 'CO' }, data: { moneda: 'COP' } }); // Colombia en pesos (el seed la deja en dólares): el mecanismo de una moneda con precios por fila
     const r = await llamar(base, 'PUT', '/api/comercial/planes/pro/precios/COP', T.super, { precio_por_unidad: '8000' });
     assert.equal(r.status, 200, r.texto);
     assert.equal((await llamar(base, 'GET', '/api/publico/planes?pais=CO')).body.planes.find((p: { clave: string }) => p.clave === 'pro').precio_por_unidad, '8000');

@@ -129,6 +129,7 @@ async function restaurar() {
   await prisma.configuracionComercial.update({ where: { id: 1 }, data: { igv_tasa: '0.18' } });
   await prisma.impuestoPais.update({ where: { pais: 'PE' }, data: { tasa: '0.18' } });
   await prisma.complejoHabitacional.updateMany({ data: { pais: 'PE', moneda: 'PEN' } });
+  await prisma.impuestoPais.update({ where: { pais: 'CL' }, data: { moneda: 'CLP' } }); // Chile en pesos con precios por fila: el mecanismo de otra moneda (el dólar al tipo de cambio vive en multimoneda-usd.test.ts)
   invalidarComercial();
 }
 

@@ -10,6 +10,7 @@ process.env.SESIONES_LIMPIEZA = 'off';
 process.env.MODELOS_SYNC = 'off';
 process.env.ASISTENTE_CANARY = 'off';
 process.env.ASISTENTE_LIMPIEZA = 'off';
+process.env.TIPO_CAMBIO_AUTO = 'off';
 delete process.env.CORS_ORIGIN;
 delete process.env.GEMINI_API_KEY;
 // Vacías (no borradas: `dotenv` rellenaría las ausentes desde un .env): ninguna prueba manda correos reales; las que lo prueban inyectan su propio `fetch` y `env`.

@@ -113,6 +113,13 @@ export const CODIGOS_MONEDA = MONEDAS.map((m) => m.codigo) as [string, ...string
 export const paisDe = (codigo: string | null | undefined): Pais | undefined => PAISES.find((p) => p.codigo === codigo);
 export const monedaDe = (codigo: string | null | undefined): Moneda | undefined => MONEDAS.find((m) => m.codigo === codigo);
 
+/**
+ * Moneda en que House cobra su SUSCRIPCIÓN en un país (no la del condominio con sus vecinos: esa es `monedaDelPais`). Perú paga en soles; todos los
+ * demás países pagan en dólares, al tipo de cambio del día (el precio en soles ÷ el tipo de cambio).
+ */
+export const MONEDA_COBRO_EXTRANJERO = 'USD';
+export const monedaDeCobroSuscripcion = (codigo: string | null | undefined): string => ((codigo || PAIS_POR_DEFECTO) === PAIS_POR_DEFECTO ? MONEDA_POR_DEFECTO : MONEDA_COBRO_EXTRANJERO);
+
 /** La moneda que se propone para un país (soles si no se conoce). */
 export const monedaDelPais = (codigo: string | null | undefined): string => paisDe(codigo)?.moneda ?? MONEDA_POR_DEFECTO;
 

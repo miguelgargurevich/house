@@ -1,5 +1,5 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
-import { PAISES } from '../../../lib/paises';
+import { PAISES, monedaDeCobroSuscripcion } from '../../../lib/paises';
 
 /** Módulos que se venden por condominio. Las claves son contrato con el código (puertas) y con los datos. */
 export const MODULOS = ['ia_vouchers', 'whatsapp_avisos', 'asistente'] as const;
@@ -66,7 +66,8 @@ export const URL_PUBLICA_INICIAL = 'https://house.gargurevich.dev';
 type Cliente = Pick<PrismaClient<any, any, any>, 'moduloComercial' | 'planComercial' | 'configuracionComercial' | 'impuestoPais'>;
 
 /**
- * Un país por fila, con el impuesto de referencia de `src/lib/paises.ts` (18 → 0.18) y la moneda del país. Donde el catálogo no tiene un impuesto
+ * Un país por fila, con el impuesto de referencia de `src/lib/paises.ts` (18 → 0.18) y la moneda de cobro de la suscripción (soles en Perú, dólares
+ * en todos los demás: `monedaDeCobroSuscripcion`; no es la moneda propia del país). Donde el catálogo no tiene un impuesto
  * nacional (Brasil, EE. UU.) la tasa queda en 0: no se cobra ni se muestra impuesto hasta que el superadmin lo fije. Perú arranca con la tasa de
  * `igv_tasa` si ya había una configuración (`tasaPeru`), para no cambiar lo que ya se cobra.
  */
@@ -74,7 +75,7 @@ export const impuestosSeed = (tasaPeru: Prisma.Decimal | string = '0.18') => PAI
   pais: p.codigo,
   nombre: p.impuesto?.nombre ?? 'Impuesto',
   tasa: p.codigo === 'PE' ? new Prisma.Decimal(tasaPeru) : new Prisma.Decimal(p.impuesto?.tasa ?? 0).div(100),
-  moneda: p.moneda,
+  moneda: monedaDeCobroSuscripcion(p.codigo),
   activo: true,
 }));
 

@@ -7,6 +7,7 @@ import { crearContratosIniciales } from './server/lib/contratosIniciales';
 import { migrarOcrDesdeEnv } from './server/lib/gatewaysDatos';
 import { sembrarCatalogoComercial } from './server/services/comercial/catalogo';
 import { migracionInicial } from './server/services/comercial/migracion';
+import { iniciarTipoCambio } from './server/services/comercial/tipoCambio';
 
 const PORT = Number(process.env.PORT) || 4000;
 iniciarLimpieza();
@@ -28,4 +29,6 @@ app.listen(PORT, () => {
   console.log(`Servidor backend escuchando en puerto ${PORT}`);
   if (planificadorActivo()) iniciarPlanificador();
   iniciarTareasAsistente();
+  // Tipo de cambio PEN/USD (los países que no son Perú pagan en dólares): lo lee solo cada 24 h, salvo que el superadmin lo haya fijado a mano.
+  iniciarTipoCambio();
 });
