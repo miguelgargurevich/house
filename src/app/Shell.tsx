@@ -1,12 +1,11 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Bars3Icon, ChevronDoubleLeftIcon, MoonIcon, SparklesIcon, SunIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, ChevronDoubleLeftIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmDialog, IconButton, cx } from '../ui';
 import { navPara } from './nav';
 import { useCondominio } from './condominio';
 import { MenuUsuario } from './MenuUsuario';
-import { useTheme } from './theme';
 import { Assistant } from './Assistant';
 import { useEscritorio, usePanelAbierto } from './asistente/useDock';
 import { Pista } from './Pista';
@@ -39,7 +38,6 @@ export function Shell() {
 
 function ShellInterior() {
   const { user, logout } = useAuth();
-  const { dark, toggle } = useTheme();
   const nav = useNavigate();
   const loc = useLocation();
   const [menu, setMenu] = useState(false);
@@ -135,9 +133,6 @@ function ShellInterior() {
         {/* En escritorio el condominio va a la izquierda de la barra; en el celular no cabe junto al resto y baja a su propia fila. */}
         <div className="hidden min-w-0 lg:block"><SelectorCondominio /></div>
         <div className="ml-auto flex items-center gap-1">
-          <IconButton label={dark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'} onClick={toggle}>
-            {dark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
-          </IconButton>
           <IconButton label={chat.abierto ? 'Cerrar asistente' : 'Abrir asistente'} aria-pressed={chat.abierto} onClick={chat.alternar} className={chat.abierto ? '!text-brand' : undefined}><SparklesIcon className="h-5 w-5" /></IconButton>
           <span className="mx-1 h-6 w-px bg-line" aria-hidden="true" />
           <MenuUsuario user={user} onSalir={() => setConfirmarSalida(true)} />

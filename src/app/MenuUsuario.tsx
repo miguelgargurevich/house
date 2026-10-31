@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ArrowRightStartOnRectangleIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { ArrowRightStartOnRectangleIcon, ChevronDownIcon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
 import type { Usuario } from '../auth/AuthContext';
 import { Avatar, cx } from '../ui';
 import { PERFIL, rotuloRol } from './nav';
+import { useTheme } from './theme';
 
 const item = 'flex w-full items-center gap-3 rounded px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:bg-surface2 hover:text-ink focus-visible:bg-surface2 focus-visible:text-ink focus-visible:outline-none';
 
 /**
- * El usuario arriba a la derecha: avatar (con nombre y rol desde `sm`) que abre «Mi perfil» y «Cerrar sesión».
+ * El usuario arriba a la derecha: avatar (con nombre y rol desde `sm`) que abre «Mi perfil», el tema claro u oscuro y «Cerrar sesión».
+ * El tema cambia sin cerrar el menú, para ver el resultado al instante.
  * Se cierra al hacer clic fuera, con Escape (devuelve el foco al botón) o al cambiar de página. `onSalir` pide la confirmación.
  */
 export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 'email' | 'rol' | 'cargo_junta' | 'estructura_id' | 'estructura_nombre'>; onSalir: () => void }) {
@@ -18,6 +20,7 @@ export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 
   const boton = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const loc = useLocation();
+  const { dark, toggle } = useTheme();
 
   useEffect(() => { setAbierto(false); }, [loc.pathname]);
   useEffect(() => {
@@ -75,6 +78,9 @@ export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 
             <NavLink to={PERFIL.to} role="menuitem" className={item}>
               <PERFIL.icon className="h-5 w-5 shrink-0" aria-hidden="true" /> {PERFIL.label}
             </NavLink>
+            <button type="button" role="menuitem" onClick={toggle} className={item}>
+              {dark ? <SunIcon className="h-5 w-5 shrink-0" aria-hidden="true" /> : <MoonIcon className="h-5 w-5 shrink-0" aria-hidden="true" />} {dark ? 'Tema claro' : 'Tema oscuro'}
+            </button>
             <button type="button" role="menuitem" onClick={() => { setAbierto(false); onSalir(); }} className={item}>
               <ArrowRightStartOnRectangleIcon className="h-5 w-5 shrink-0" aria-hidden="true" /> Cerrar sesión
             </button>

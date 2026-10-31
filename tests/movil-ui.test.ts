@@ -75,6 +75,10 @@ describe('vista móvil', () => {
     assert.match(m, /<NavLink to=\{PERFIL\.to\} role="menuitem"/);
     assert.match(m, /onClick=\{\(\) => \{ setAbierto\(false\); onSalir\(\); \}\}/);
     assert.match(m, /e\.key === 'Escape'/);
+    // El tema claro/oscuro vive dentro del menú del usuario, no suelto en la barra.
+    assert.match(m, /role="menuitem" onClick=\{toggle\}/);
+    assert.match(m, /dark \? 'Tema claro' : 'Tema oscuro'/);
+    assert.doesNotMatch(s, /useTheme|Cambiar a tema/, 'la barra ya no lleva el botón del tema');
   });
 
   it('el pago parcial de un concepto queda oculto en el detalle del mantenimiento', () => {
