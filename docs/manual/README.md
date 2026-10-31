@@ -14,7 +14,6 @@ vuelve a publicar pasando su contenido a `web_crear` (crea un recurso NUEVO: ano
   - 30-oct-2026, recurso `cmvuwrn5z000yzt7dybudh1r1` (reemplazado y borrado de My Workspace el 30-oct).
   - 30-oct-2026 (2), recurso `cmvv9urmi000bf5xdkb42hpwt` (reemplazado por la versión 3): 36 secciones; agrega «Crea tu cuenta» y «Planes y precios»,
     «Notificaciones», la validación con OCR primero, «Ver mi voucher» y «Ampliar», y el cargo de la junta en el menú.
-  - 30-oct-2026 (3), **pendiente de publicar** (id: por poner): 38 secciones; agrega «Mi plan: lo que pagas y lo que usas» y «Mi condominio está en solo lectura», los cuatro planes (tabla de precios), la casilla de Términos en el registro y los 30 días de Pro de prueba. Las capturas `precios` y `registro` se tomaron de nuevo.
   - 30-oct-2026 (3), recurso `cmvvqh1kf000xf5xdaahmr6o5` (vigente): marca Torre, `torrecondominios.com`, cuatro planes (Torre Gratis/Básico/Pro/Administradora), solo lectura, Mi plan y privacidad; 38 secciones, capturas en `manual-torre-capturas/`.
 
 - Nota: hubo una publicación intermedia el mismo día (`cmvv9nbz10004f5xdk0dejkks`) con «tú misma» y dos textos que nombraban sólo a la IA; la vigente es `cmvv9urmi000bf5xdkb42hpwt`.
