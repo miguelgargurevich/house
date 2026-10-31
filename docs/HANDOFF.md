@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-30 — Manual y videos pasan a Torre (Claude Code, Opus 5.5) — push: no
+
+- **Qué:** `docs/manual/manual-house.json` dice Torre, apunta a `torrecondominios.com`, planes «Torre Gratis/Básico/Pro/Administradora» y Básico «Hasta 50 por condominio (se cobran mínimo 20)». Guiones (`docs/marketing/guiones-videos.md`), cierre del video (`grabar-video.mjs`: «Torre» + `torrecondominios.com`) y salida `torre-<video>-<formato>.mp4` (`montar-video.sh`).
+- **Voces:** 7 frases con «House» regeneradas con Dora (Kokoro `ef_dora`): v1 e2/e8, v2 e1/e11, v3 e1/e7, v4 e8; las anteriores en `.claude/videos/<v>/voz-house/`.
+- **Próximo:** terminar de grabar y montar los 8 videos, reemplazar los recursos de My Workspace; retomar las 31 capturas del manual (todavía muestran House), subirlas a `sitios…/manual-house-capturas/` y republicar el manual con `web_crear`.
+- **Gotchas:** producción ya está en Torre (`5bf0629`) y el catálogo se sincronizó con `scripts/oferta-gratis-pro.ts`. `torrecondominios.com` se agregó en Coolify editando `fqdn` Y `custom_labels` (las etiquetas de Traefik no se regeneran solas). Pendiente de Miguel: el tope de 50 de Torre Básico.
+
+---
+
 ## 2026-10-30 — Claude Code (Haiku 5.5 + subagentes Haiku, worktree `feat/marca-torre`) — Marca Torre, planes «Torre …» y «block» (commits en la rama, sin push)
 
 - **Pedido de Miguel:** que ya no diga «House» sino «Torre», los planes sean «Torre Gratis / Básico / Pro / Administradora» y que no quede «gratis para siempre».

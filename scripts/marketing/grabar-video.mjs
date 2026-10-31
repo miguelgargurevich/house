@@ -1,4 +1,4 @@
-// Graba las escenas de un video de marketing de House con Playwright sobre la app LOCAL (seed de Los Libertadores; ningún dato real).
+// Graba las escenas de un video de marketing de Torre con Playwright sobre la app LOCAL (seed de Los Libertadores; ningún dato real).
 // Uso: node scripts/marketing/grabar-video.mjs <video> <escritorio|celular>   (video: v1 …; ver ESCENAS)
 // Lee la voz de cada escena en .claude/videos/<video>/voz/e<N>.wav (la duración de la escena la manda su audio) y deja un clip por escena en
 // .claude/videos/<video>/<formato>/e<N>.webm. El montaje (voz + clips + cierre) lo hace scripts/marketing/montar-video.sh.
@@ -164,8 +164,8 @@ const CIERRE = `<!doctype html><meta charset="utf-8"><style>
   .l{width:84px;height:84px;border-radius:20px;background:#f0fdfa;display:grid;place-items:center}
   p{font-size:40px;margin:36px 0 0;opacity:.95} small{display:block;margin-top:22px;font-size:26px;opacity:.75}
   @media (max-aspect-ratio:1/1){.m{font-size:52px}p{font-size:34px}}
-</style><div class="c"><div class="m"><span class="l"><svg viewBox="0 0 32 32" width="56" height="56"><path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" stroke="#0f766e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg></span>House</div>
-<p>Tu condominio, en orden.</p><small>house.gargurevich.dev</small></div>`;
+</style><div class="c"><div class="m"><span class="l"><svg viewBox="0 0 32 32" width="56" height="56"><path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" stroke="#0f766e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg></span>Torre</div>
+<p>Tu condominio, en orden.</p><small>torrecondominios.com</small></div>`;
 
 async function grabar() {
   const escenas = ESCENAS[video];

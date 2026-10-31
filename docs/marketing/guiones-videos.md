@@ -1,33 +1,33 @@
-# Guiones de los videos de House
+# Guiones de los videos de Torre
 
 Versión del 29-oct-2026. Cuatro videos, cada uno en **escritorio (16:9, 1920×1080)** y **celular (9:16, 1080×1920)**.
-Pantallas reales de House en local con el seed de Los Libertadores (datos de prueba, ningún dato real). Narración con la voz
+Pantallas reales de Torre en local con el seed de Los Libertadores (datos de prueba, ningún dato real). Narración con la voz
 femenina «Dora» de My Workspace (Kokoro `ef_dora`, elegida por Miguel el 30-oct; antes OpenVoice). Cada escena: lo que se ve → lo que dice la voz. Duración objetivo ≈ 60 s
 (≈ 140 palabras); la del rol administradora ≈ 90 s.
 
 Reglas: tuteo, frases cortas, sin cifras inventadas (sólo las que se ven en pantalla), sin nombres de clientes reales,
-cada escena cuenta UNA cosa. El cierre de todos: «House. Tu condominio, en orden.» + la dirección del sitio.
+cada escena cuenta UNA cosa. El cierre de todos: «Torre. Tu condominio, en orden.» + la dirección del sitio.
 
 ---
 
-## 1. House en un minuto (promo general)
+## 1. Torre en un minuto (promo general)
 
 | # | En pantalla | Voz |
 |---|---|---|
 | 1 | Login nuevo: la escena del recibo, el recordatorio y el cobro | ¿Administras un condominio y cobrar cada mes es una pelea? |
-| 2 | Administradora · Recibos: emitir el mantenimiento del mes | Con House emites los recibos del mes en minutos, desglosados por concepto y por departamento. |
+| 2 | Administradora · Recibos: emitir el mantenimiento del mes | Con Torre emites los recibos del mes en minutos, desglosados por concepto y por departamento. |
 | 3 | Celular del vecino · Mis recibos → detalle del mantenimiento | Cada vecino ve exactamente qué debe, por qué, y hasta cuándo. |
 | 4 | Vecino · Pagar mantenimiento → subir comprobante | Paga y sube su comprobante desde el celular, sin llamar a nadie. |
 | 5 | Administradora/Junta · Pagos por validar | La administración o la junta lo valida con un clic. |
 | 6 | Comunicados › Notificaciones: recordatorios por WhatsApp y correo | Los recordatorios salen solos por WhatsApp y correo. |
 | 7 | Morosidad / Resumen con el avance del cobro | Y tú ves, en una sola pantalla, quién está al día y quién no. |
-| 8 | Logo + cierre | House. Tu condominio, en orden. |
+| 8 | Logo + cierre | Torre. Tu condominio, en orden. |
 
 ## 2. Para la administradora (≈ 70 s)
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Resumen de la administradora | Este es tu día a día en House: todo el condominio en una sola pantalla. |
+| 1 | Resumen de la administradora | Este es tu día a día en Torre: todo el condominio en una sola pantalla. |
 | 2 | Recibos por periodo, con el avance del cobro | Emite el mantenimiento del mes y míralo por block, con cuánto ya se cobró. |
 | 3 | Pagos → revisar un pago con su voucher | Cada pago llega con su voucher: la inteligencia artificial lo revisa y el tesorero confirma que llegó a la cuenta. |
 | 4 | Medios de pago → tarjeta del block con su junta y su cuenta | Cada block tiene su junta y la cuenta donde pagan sus vecinos, siempre al día. |
@@ -37,19 +37,19 @@ cada escena cuenta UNA cosa. El cierre de todos: «House. Tu condominio, en orde
 | 8 | Juntas directivas → Nueva gestión | Cuando cambia la junta, registras la nueva gestión y los permisos pasan solos. |
 | 9 | Cierres del mes → Block 1, octubre | Al cerrar el mes, cada tesorero registra lo que paga, y tú ves el estado de todos los blocks. |
 | 10 | Periodo → Consolidado del block | Y el consolidado del block sale listo para imprimir junto con el recibo de cada vecino, sin armar el Excel a mano. |
-| 11 | Cierre | House. Tu condominio, en orden. |
+| 11 | Cierre | Torre. Tu condominio, en orden. |
 
 ## 3. Para la junta directiva (≈ 45 s; tesorera del Block 1)
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Mi junta | Si eres de la junta de tu block, House te da tu propio espacio. |
+| 1 | Mi junta | Si eres de la junta de tu block, Torre te da tu propio espacio. |
 | 2 | Pagos → un pago con su voucher | Ves cada pago de tus vecinos con su voucher, y como tesorero confirmas que el dinero llegó a la cuenta. |
 | 3 | Medios de pago de la junta | Mantienes al día la cuenta donde pagan tus vecinos. |
 | 4 | Lecturas de agua | Cargas las lecturas de agua del block. |
 | 5 | Cierre del mes (octubre) | Al cerrar el mes, registras lo que va a la administración, a la Junta central y a los servicios. |
 | 6 | Comunicados → nuevo comunicado | Y avisas a tus vecinos con un comunicado. |
-| 7 | Cierre | House. Tu condominio, en orden. |
+| 7 | Cierre | Torre. Tu condominio, en orden. |
 
 ## 4. Para el vecino (≈ 40 s, primero celular)
 
@@ -62,7 +62,7 @@ cada escena cuenta UNA cosa. El cierre de todos: «House. Tu condominio, en orde
 | 5 | Mi junta | Conoce a la junta de tu block y a la Junta central. |
 | 6 | Proveedores | Encuentra a los proveedores de confianza de tu condominio. |
 | 7 | Comunicados | Y entérate de todo lo que pasa en tu edificio. |
-| 8 | Cierre | House. Tu condominio, en orden. |
+| 8 | Cierre | Torre. Tu condominio, en orden. |
 
 ---
 

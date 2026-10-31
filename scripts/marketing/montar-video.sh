@@ -20,6 +20,6 @@ while [ -f "$clips/e$n.webm" ]; do
   echo "file 'e$n.mp4'" >> "$lista"
   n=$((n + 1))
 done
-salida="$base/house-$video-$formato.mp4"
+salida="$base/torre-$video-$formato.mp4"
 ffmpeg -v error -y -f concat -safe 0 -i "$lista" -c copy -movflags +faststart "$salida"
 printf '%s  %.1f s\n' "$salida" "$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$salida")"
