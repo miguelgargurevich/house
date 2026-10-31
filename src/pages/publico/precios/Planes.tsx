@@ -39,7 +39,7 @@ function Precio({ plan, cat, grande }: { plan: Plan; cat: Catalogo; grande?: boo
   const gratis = Number(plan.precio_por_unidad) === 0;
   return (
     <div>
-      <p className={`num font-semibold leading-none tracking-tight ${grande ? 'text-6xl sm:text-7xl' : 'text-5xl'}`}>{dinero(plan.precio_por_unidad, cat.moneda)}</p>
+      <p className={`num font-semibold leading-none tracking-tight ${grande ? 'text-6xl sm:text-7xl lg:text-5xl' : 'text-5xl'} whitespace-nowrap`}>{dinero(plan.precio_por_unidad, cat.moneda)}</p>
       <p className="mt-2 text-base text-muted">{gratis ? plazoGratisTexto(cat) : `por departamento al mes${masImpuesto(cat)}`}</p>
     </div>
   );

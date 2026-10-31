@@ -9,7 +9,7 @@ export const ESCENA_MARGEN = { x: 56, y: 48 };
 /*
  * El flujo del producto en tres tiempos, en una sola composición:
  *   1. llega el recibo del mes (con su detalle por concepto),
- *   2. el vecino sube su voucher y aparece el sello «Voucher leído · Tesorero confirmó» (IA + tesorero),
+ *   2. el vecino sube su voucher y aparece el sello «Voucher confirmado» (IA + tesorero),
  *   3. la cobranza del block sube.
  * Las animaciones viven aquí, acotadas con prefijo `lg-`. El estado final es el natural de cada elemento: sin movimiento
  * (prefers-reduced-motion) o si la animación no corre, la escena ya está completa.
@@ -113,10 +113,7 @@ function Voucher() {
         {/* Sello de goma: borde punteado con un filete interior, en mayúsculas, inclinado y con la tinta un poco gastada. */}
         <p className="lg-sello inline-flex items-center gap-2 whitespace-nowrap rounded-md border-2 border-dashed border-ok px-3 py-1.5 text-ok opacity-90 outline outline-1 outline-offset-[-5px] outline-ok/40" style={{ ...retardo(1350), transform: 'rotate(-8deg)' }}>
           <ShieldCheckIcon className="h-5 w-5 shrink-0" />
-          <span className="flex flex-col leading-tight">
-            <span className="text-[0.75rem] font-bold uppercase tracking-[0.14em]">Voucher leído</span>
-            <span className="text-[0.625rem] font-semibold uppercase tracking-[0.1em]">Tesorero confirmó</span>
-          </span>
+          <span className="text-[0.8125rem] font-bold uppercase leading-tight tracking-[0.14em]">Voucher confirmado</span>
         </p>
       </div>
       <p className="mt-4 text-center text-xs text-muted">La IA lee el monto y la operación; el tesorero confirma.</p>

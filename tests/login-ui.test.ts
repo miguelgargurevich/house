@@ -18,7 +18,8 @@ describe('login', () => {
 
   it('una sola escena con el flujo en tres tiempos: recibo, voucher con el sello «IA + tesorero» y cobranza', () => {
     for (const parte of ['<Recibo />', '<Voucher />', '<Cobranza />']) assert.ok(escena.includes(parte), parte);
-    assert.match(escena, />Voucher leído<\/span>[\s\S]*?>Tesorero confirmó<\/span>/);
+    assert.match(escena, />Voucher confirmado<\/span>/);
+    assert.doesNotMatch(escena, /Voucher leído|Tesorero confirmó/);
     assert.match(escena, /border-dashed border-ok[^"]*" style=\{\{ \.\.\.retardo\(1350\), transform: 'rotate\(-8deg\)' \}\}/);
     // El recibo pasa de «Por pagar» a «Pagado»; el total cuadra con sus conceptos (70 + 50.93 + 35 + 16.10 + 10).
     assert.match(escena, />Por pagar<\/span>/);
