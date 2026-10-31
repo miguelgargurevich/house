@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — SEO integrado (sin subir) y medición de vouchers pospuesta (Claude Code, Opus 5.5) — push: no
+
+- SEO (Sonnet, `feat/seo-publico`) integrado en main tras revisión: HTML con head y contenido por ruta pública, JSON-LD, robots/sitemap/llms(-full).txt, noindex en lo privado y fuera del dominio canónico, 301 www → apex, og-torre.png y manifiesto, verificación Google/Bing en la BD. Probado por Opus con `curl -A GPTBot` (texto completo de /precios en el HTML) y en el navegador (igual que antes, sin errores). Suite 3153/3153.
+- **ANTES de desplegar**: `update "ConfiguracionComercial" set url_publica='https://torrecondominios.com'` en producción (hoy `https://house.gargurevich.dev`); si no, torrecondominios.com sale con noindex y canonical al otro dominio. Cambia también los enlaces de los correos.
+- Medición de la lectura de vouchers (31-oct, producción, sólo lectura): 18 pagos y UNA evaluación de IA en total → sin cifra publicable. Miguel: «más adelante»; plan: lote de 30–50 vouchers reales con su planilla de verdad y un script que compare campo por campo.
+- La portada `/` tiene poco texto (h1 + 3 tarjetas): para posicionar, conviene más contenido real (funciones, para quién, preguntas).
+
+---
+
 ## 2026-10-31 — SEO de la parte pública: HTML con contenido, noindex, robots/sitemap/llms, www y verificación de buscadores (Claude Code, Sonnet 5.5) — push: no
 
 - **Pedido de Miguel:** «necesito que la pagina publica tenga todo SEO. que las encuentren los llm como gemini y chat gpt y todo lo que necesita…». Rama `feat/seo-publico` (worktree `.claude/worktrees/seo-publico`, base `house_test_seo`). Detalle y pasos de Miguel en `docs/seo.md`.
