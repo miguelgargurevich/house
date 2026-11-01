@@ -5,7 +5,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { StaticRouter } from 'react-router-dom';
 import { dinero } from '../../ui/format';
-import { MARCA, MARCA_LARGA, PORTADA, PRECIOS_HERO, REGISTRO, cierrePrecios, hechosPrecios, pieMarco, preguntas, textoTope, textosModulos, tituloPlanes, unidadPrecio } from '../../lib/seo/textos';
+import { MARCA, MARCA_LARGA, PORTADA, PRECIOS_HERO, REGISTRO, cierrePrecios, hechosPrecios, pieMarco, preguntas, preguntasPortada, textoTope, textosModulos, tituloPlanes, unidadPrecio } from '../../lib/seo/textos';
 import { textosPrivacidad, textosTerminos } from '../../pages/publico/legal/textos';
 import { VERSION_LEGAL, datosLegales } from '../services/comercial/legal';
 import type { Plan } from '../../pages/publico/catalogo';
@@ -193,11 +193,24 @@ function marco(ctx: ContextoSeo, contenido: string): string {
 const estiloH1 = 'font-size:1.875rem;line-height:1.2;font-weight:600;margin:0 0 1rem';
 const estiloH2 = 'font-size:1.5rem;line-height:1.25;font-weight:600;margin:2rem 0 .75rem';
 
-function cuerpoPortada(): string {
+/** La portada con las MISMAS secciones y textos de la landing (sin los controles: los pasos y las dos formas de junta van como lista). */
+function cuerpoPortada(ctx: ContextoSeo): string {
+  const abierto = ctx.cfg.registro_abierto;
+  const cierre = cierrePrecios(abierto);
+  const e = PORTADA.enunciado;
+  const enunciado = e.tramos.map(t => `${t.texto} (${t.ficha})`).join(' ') + e.cierre;
+  const orden = ['gratis', 'basico', 'pro', 'administradora'];
+  const planes = orden.map(c => ctx.cat.planes.find(p => p.clave === c)).filter((p): p is Plan => !!p);
   return `<section><h1 style="${estiloH1}">${esc(PORTADA.h1)}</h1>
 <p>${esc(PORTADA.bajada)}</p>
-<p>${A('/registro', PORTADA.botones.registro)} · ${A('/precios', PORTADA.botones.precios)}</p></section>
-<ul style="list-style:none;padding:0">${PORTADA.beneficios.map(b => `<li><h2 style="${estiloH2}">${esc(b.titulo)}</h2><p>${esc(b.texto)}</p></li>`).join('')}</ul>`;
+<p>${abierto ? `${A('/registro', PORTADA.botones.registro)} · ` : ''}${A('/precios', PORTADA.botones.precios)}</p></section>
+<section><h2 style="${estiloH2}">${esc(e.titulo)}</h2><p>${esc(enunciado)}</p></section>
+<section><h2 style="${estiloH2}">${esc(PORTADA.pasos.titulo)}</h2><ol>${PORTADA.pasos.lista.map(p => `<li><h3>${esc(p.clausula)}</h3><p>${esc(p.texto)}</p></li>`).join('')}</ol></section>
+<section><h2 style="${estiloH2}">${esc(PORTADA.juntas.block.titulo)}</h2><p>${esc(PORTADA.juntas.block.texto)}</p><p>${esc(PORTADA.juntas.una.titulo)}: ${esc(PORTADA.juntas.una.texto)}</p></section>
+<section><h2 style="${estiloH2}">${esc(PORTADA.roles.titulo)}</h2><p>${esc(PORTADA.roles.bajada)}</p><ul>${PORTADA.roles.lista.map(r => `<li><h3>${esc(r.nombre)}</h3><p>${esc(r.texto)}</p></li>`).join('')}</ul></section>
+<section><h2 style="${estiloH2}">${esc(PORTADA.precios.titulo)}</h2>${planes.map(p => tarjetaPlan(p, ctx)).join('\n')}<p>${esc(PORTADA.precios.nota)}</p></section>
+<section><h2 style="${estiloH2}">${esc(PORTADA.preguntas.titulo)}</h2>${preguntasPortada(ctx.cat).map(({ p, r }) => `<p><strong>${esc(p)}</strong> ${esc(r)}</p>`).join('\n')}</section>
+<section><h2 style="${estiloH2}">${esc(cierre.h2)}</h2><p>${esc(cierre.texto)}</p><p>${abierto ? A('/registro', PORTADA.botones.registro) : A('/login', 'Ingresar')}</p></section>`;
 }
 
 function tarjetaPlan(p: Plan, ctx: ContextoSeo): string {
@@ -254,7 +267,7 @@ function cuerpoLegal(ruta: '/privacidad' | '/terminos', ctx: ContextoSeo): strin
 /** Contenido de `#root` para una ruta pública. */
 export function construirCuerpo(ruta: RutaPublica, ctx: ContextoSeo): string {
   switch (ruta) {
-    case '/': return marco(ctx, cuerpoPortada());
+    case '/': return marco(ctx, cuerpoPortada(ctx));
     case '/precios': return marco(ctx, cuerpoPrecios(ctx));
     case '/registro': return marco(ctx, cuerpoRegistro());
     default: return marco(ctx, cuerpoLegal(ruta, ctx));

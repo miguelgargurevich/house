@@ -219,7 +219,10 @@ describe('contenido estático dentro de #root', () => {
   it('/: título, bajada y las tres tarjetas de la portada', async () => {
     const plano = textoPlano(raiz((await pedir('/')).texto));
     assert.ok(plano.includes(PORTADA.h1) && plano.includes(PORTADA.bajada));
-    for (const b of PORTADA.beneficios) assert.ok(plano.includes(b.titulo) && plano.includes(b.texto), b.titulo);
+    for (const p of PORTADA.pasos.lista) assert.ok(plano.includes(p.clausula) && plano.includes(p.texto), p.nombre);
+    for (const r of PORTADA.roles.lista) assert.ok(plano.includes(r.nombre) && plano.includes(r.texto), r.nombre);
+    for (const q of PORTADA.preguntas.lista) assert.ok(plano.includes(q.p) && plano.includes(q.r), q.p);
+    assert.ok(plano.includes(PORTADA.juntas.block.titulo) && plano.includes(PORTADA.juntas.una.texto));
   });
 
   it('/registro: el título y el texto del paso 1', async () => {

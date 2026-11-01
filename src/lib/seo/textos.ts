@@ -10,16 +10,61 @@ import { tramoDeTarjeta } from '../../pages/publico/precios/tramo';
 export const MARCA = 'Torre';
 export const MARCA_LARGA = 'Torre · Administración de condominios';
 
-/** Portada (`/`): el título, la bajada y las tres tarjetas. Los íconos los pone el componente. */
+/**
+ * Portada (`/`): la landing completa. Las capturas son de la app con los datos de prueba del seed (Los Libertadores), nunca de un cliente.
+ * Sólo lo que Torre hace hoy; sin testimonios ni cifras de clientes.
+ */
 export const PORTADA = {
-  h1: 'Cobra las cuotas de tu condominio sin perseguir a nadie',
-  bajada: 'Torre ordena recibos, pagos y morosidad de edificios y condominios en el Perú. Empieza gratis; activa la IA cuando la necesites.',
-  beneficios: [
-    { titulo: 'Recibos claros por block', texto: 'Emite desde tu Excel y cada vecino ve qué debe, en tu moneda, desde su celular.' },
-    { titulo: 'Cobranza y morosidad al día', texto: 'Vouchers, medios de pago del condominio y seguimiento de lo vencido.' },
-    { titulo: 'Torre Gratis para empezar', texto: 'Torre Gratis por 3 meses, sin tope de departamentos. Después, Torre Básico o Torre Pro con todo: IA de vouchers, WhatsApp, asistente, mora automática, reportes y conciliación bancaria.' },
-  ],
+  h1: 'Cobra sin perseguir a nadie',
+  bajada: 'Torre emite los recibos de tu edificio o condominio, recibe el voucher de cada vecino y te dice quién debe. Hecho para el Perú; empiezas gratis.',
   botones: { registro: 'Crear cuenta gratis', precios: 'Ver precios' },
+  /** La frase grande de «qué hace»: cada tramo de texto lleva detrás, en la página, un pedacito de la interfaz (`ficha`). */
+  enunciado: {
+    titulo: 'Qué hace Torre',
+    tramos: [
+      { texto: 'Emites los recibos', ficha: 'Emitido' },
+      { texto: 'desde tu Excel. El vecino sube su voucher', ficha: 'S/ 206.03' },
+      { texto: 'desde el celular. La IA lo lee, el banco lo confirma', ficha: 'Conciliado' },
+      { texto: 'y tú ves quién debe', ficha: '12 morosos' },
+    ],
+    cierre: '.',
+  },
+  pasos: {
+    titulo: 'Cómo funciona',
+    lista: [
+      { nombre: 'Recibo', clausula: 'Primero, emites el recibo del mes', texto: 'Cargas tu Excel o tus conceptos y Torre arma el recibo de cada departamento, por block y con su vencimiento.', imagen: '/portada/admin-periodo.webp', alt: 'Pantalla de Torre con el mantenimiento de octubre: lo emitido, lo cobrado y lo que falta por block.', celular: false },
+      { nombre: 'Voucher', clausula: 'Luego, el vecino sube su voucher', texto: 'Paga por transferencia, Yape o Plin a la cuenta del condominio y sube la foto del voucher desde su celular.', imagen: '/portada/vecino-pagar.webp', alt: 'Pantalla del vecino en el celular para pagar el mantenimiento y subir su voucher.', celular: true },
+      { nombre: 'Validación', clausula: 'Después, Torre lo revisa contigo', texto: 'En Torre Pro la IA lee el voucher y lo compara con el recibo; el tesorero del block da su check y tú validas el pago.', imagen: '/portada/admin-pagos.webp', alt: 'Lista de pagos por validar con el método, el número de operación y el check del tesorero.', celular: false },
+      { nombre: 'Banco', clausula: 'Al final, lo cruzas con tu banco', texto: 'En Torre Pro subes el extracto del banco y Torre marca qué pagos llegaron de verdad y qué vouchers no tienen abono.', imagen: '/portada/admin-conciliacion.webp', alt: 'Conciliación bancaria: abonos del extracto cruzados con los pagos registrados.', celular: false },
+    ],
+  },
+  juntas: {
+    una: { opcion: 'Una junta', titulo: 'Una junta para todo el edificio', texto: 'En un edificio de una sola torre, la junta directiva revisa los pagos de todos y publica una sola cuenta.' },
+    block: { opcion: 'Junta por block', titulo: 'Una junta para cada block', texto: 'En un condominio con varios blocks, cada block tiene su junta, su tesorero y su cuenta; cada vecino paga a la de su block.' },
+  },
+  roles: {
+    titulo: 'Una pantalla para cada quien',
+    bajada: 'Cada persona entra con su correo y ve sólo lo suyo. También hay pantallas para el personal de mantenimiento y de seguridad.',
+    lista: [
+      { nombre: 'Administración', texto: 'Recibos, pagos, morosidad y conciliación de todos tus condominios en un lugar.', imagen: '/portada/admin-morosidad.webp', alt: 'Pantalla de morosidad: deuda vencida, unidades morosas y mayor atraso.', celular: false },
+      { nombre: 'Junta directiva', texto: 'El tesorero da su check a los pagos de su block y publica la cuenta donde pagan los vecinos.', imagen: '/portada/junta-mi-junta.webp', alt: 'Pantalla «Mi junta» del tesorero con los miembros y la cuenta del block.', celular: false },
+      { nombre: 'Vecinos', texto: 'Ven qué deben, pagan, suben su voucher y descargan su recibo desde el celular, sin instalar nada.', imagen: '/portada/vecino-inicio.webp', alt: 'Inicio del vecino en el celular: su deuda, lo pagado este año y los mantenimientos por pagar.', celular: true },
+    ],
+  },
+  precios: {
+    titulo: 'Lo que pagarías',
+    pregunta: '¿Cuántos departamentos tiene tu edificio?',
+    nota: 'Precios por condominio, sin permanencia. El detalle de cada plan está en la página de precios.',
+  },
+  preguntas: {
+    titulo: 'Preguntas',
+    lista: [
+      { p: '¿Puedo empezar con el Excel que ya uso?', r: 'Sí. Torre importa tu Excel de departamentos y conceptos para armar el primer recibo; no tienes que cargar todo a mano.' },
+      { p: '¿Mis vecinos tienen que instalar algo?', r: 'No. Entran a Torre desde el navegador del celular o de la computadora, con su correo.' },
+      { p: '¿Y si un vecino sube un voucher que no es real?', r: 'El pago queda por validar hasta que la junta o la administración lo revisa. Con la conciliación bancaria de Torre Pro ves qué vouchers no tienen abono en el banco.' },
+      { p: '¿Sirve para un condominio con varios blocks?', r: 'Sí. Los recibos, la morosidad y las juntas directivas se ordenan por block; si tu edificio es de una sola torre, trabajas con una sola junta.' },
+    ],
+  },
 } as const;
 
 /** Texto del pie del marco público (portada, precios, registro y legales). Sin catálogo (cargando) dice «Precios sin impuestos.». */
@@ -105,4 +150,10 @@ export function preguntas(cat: Catalogo): { p: string; r: string }[] {
     ...(basico && basico.unidades_maximas != null ? [{ p: `¿Qué es ${basico.nombre}?`, r: `Es el plan para edificios chicos que ya terminaron su periodo gratis: lo mismo que Torre Gratis, sin plazo, hasta ${basico.unidades_maximas} departamentos${basico.precio_por_unidad !== null ? `, a ${dinero(basico.precio_por_unidad, cat.moneda)} por departamento al mes${basico.total_minimo_mes ? `, desde ${dinero(basico.total_minimo_mes, cat.moneda)} al mes por condominio` : ''}` : ''}. No trae IA, WhatsApp, asistente, mora automática ni reportes: eso es de Torre Pro.` }] : []),
     { p: '¿Y si mi edificio tiene pocos departamentos?', r: minimos.length > 0 ? `Cada plan de pago tiene un monto mínimo por condominio (${minimos.join(' y ')} al mes${masImpuesto(cat)}). Si tu edificio tiene pocos departamentos, pagas ese mínimo; si tiene más, pagas cada departamento al precio del plan.` : 'Pagas sólo por los departamentos que tengas.' },
   ];
+}
+
+/** Las preguntas de la portada: las propias del producto y, del catálogo, las de pago, permanencia y plazo de Gratis (las mismas de /precios). */
+export function preguntasPortada(cat: Catalogo | null): { p: string; r: string }[] {
+  const delCatalogo = cat ? preguntas(cat).filter(q => /^¿(Cómo se paga|Hay permanencia|Cuánto dura)/.test(q.p)) : [];
+  return [...PORTADA.preguntas.lista, ...delCatalogo];
 }

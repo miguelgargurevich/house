@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-01 — Landing completa en la portada `/` (Claude Code, Opus 5.5) — push: no
+
+- Pedido de Miguel: «Sí, constrúyela» (convertir la portada fina en una landing completa dentro de la app). Hecho con la skill de diseño (dirección «one motif», paleta y tipografía de Torre).
+- Motivo único: la fachada del logo con una ventana por departamento (`src/pages/publico/portada/Fachada.tsx`): enorme en el hero (las ventanas se encienden al cargar), de máscara con techo en cada captura y de viñeta en listas.
+- Secciones: hero · frase con fichas de interfaz · «Cómo funciona» con deslizador de 4 pasos (recibo, voucher, validación, banco) · control grande «Una junta / Junta por block» · una pantalla por rol · precios vivos (escribes cuántos departamentos y `/api/publico/cotizar` da el total del plan elegido) · preguntas (`<details name>`) · cierre.
+- Capturas en `public/portada/*.webp`, sacadas de `.claude/manual/capturas` (seed Los Libertadores; Miguel enmascarado). Sin testimonios ni cifras de clientes.
+- Textos en `PORTADA` y `preguntasPortada()` (`src/lib/seo/textos.ts`); el HTML para buscadores (`cuerpoPortada(ctx)` en `src/server/seo/paginas.ts`) usa los mismos. `tests/seo-publico.test.ts` comprueba pasos, roles, preguntas y juntas.
+- Verificado: inspector de diseño 0 FAIL (avisos: sin video; el pie de 12 px del marco compartido), claro y oscuro a 1366 y 390 px sin desborde.
+
+---
+
 ## 2026-11-01 — Conciliación v2 en producción; manual v6, videos 2–4 y benchmark al día (Claude Code, Opus 5.5 + Sonnet) — push: sí
 
 - Conciliación v2 (Sonnet) desplegada bd3b94a: operación + fecha (n.º repetido en otra fecha → por revisar), hoja correcta del libro, salidas, saldo, fuera de período y pista por nombre. Lecciones tomadas del cruce de Tesorería del Portal (`CruceDeIngresos.cs`).

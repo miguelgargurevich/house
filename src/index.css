@@ -94,6 +94,17 @@
 /* Entrada de las páginas públicas: sólo mueve (opacidad y desplazamiento); sin animación el contenido ya está en su lugar. */
 .sube { animation: sube 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .sube-corto { animation: sube-corto 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Portada: las ventanas de la fachada se encienden (departamentos que pagan). Sólo opacidad; sin animación quedan encendidas. */
+@keyframes enciende { from { opacity: 0.12; } to { opacity: 1; } }
+.ventana { animation: enciende 520ms ease-out both; }
+/* Deslizador de «Cómo funciona»: riel lleno de 8 px y una manija cuadrada del color de marca (sin degradados). */
+.deslizador-pasos { appearance: none; height: 2.5rem; background: transparent; cursor: pointer; }
+.deslizador-pasos::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: oklch(var(--line)); }
+.deslizador-pasos::-moz-range-track { height: 8px; border-radius: 4px; background: oklch(var(--line)); }
+.deslizador-pasos::-webkit-slider-thumb { appearance: none; width: 2rem; height: 2rem; margin-top: -12px; border-radius: 6px; background: oklch(var(--brand)); transition: transform 150ms; }
+.deslizador-pasos::-moz-range-thumb { width: 2rem; height: 2rem; border: 0; border-radius: 6px; background: oklch(var(--brand)); }
+.deslizador-pasos:active::-webkit-slider-thumb { transform: scale(1.08); }
+@media (max-width: 639px) { .deslizador-pasos::-webkit-slider-thumb { width: 2.5rem; height: 2.5rem; margin-top: -16px; } }
 
 /* Tablas (DataTable): columnas y relleno según el ANCHO DEL CONTENEDOR, no de la ventana. Con la barra lateral y el asistente abiertos
    una tabla mide bastante menos que la ventana. Los umbrales son los de hideBelow: sm 480, md 640, lg 800, xl 960 px. Sin soporte de
