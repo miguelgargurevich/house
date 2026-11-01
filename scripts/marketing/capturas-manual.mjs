@@ -75,7 +75,14 @@ const CAPTURAS = {
   'junta-pagos': { rol: 'tesorero', url: '/junta/pagos', accion: (p) => pulsar(p, p.locator('tbody tr')) },
   'junta-medios': { rol: 'tesorero', url: '/junta/medios-pago' },
   'junta-cierre': { rol: 'tesorero', url: '/junta/cierre', accion: octubre },
-  'junta-agua': { rol: 'tesorero', url: '/junta/agua' },
+  'admin-agua': { rol: 'admin', url: '/admin/agua' },
+  'admin-conciliacion': { rol: 'admin', url: '/admin/conciliacion' },
+  'admin-areas': { rol: 'admin', url: '/admin/areas-comunes' },
+  'vecino-reservas': { rol: 'propietario', url: '/propietario/reservas', celular: true, accion: async (p) => {
+    await p.getByLabel('Área').selectOption({ label: 'Zona de parrillas' }).catch(() => {});
+    await p.getByLabel('Día', { exact: true }).fill('2026-11-01').catch(() => {});
+    await asentar(p);
+  } },
   'vecino-inicio': { rol: 'propietario', url: '/propietario/inicio', celular: true },
   'vecino-recibos': { rol: 'propietario', url: '/propietario/cargos', celular: true },
   'vecino-detalle': { rol: 'propietario', url: '/propietario/cargos', celular: true, accion: (p) => pulsar(p, p.getByRole('button', { name: /ver detalle|ver recibo|detalle/i })) },

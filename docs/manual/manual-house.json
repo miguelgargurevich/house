@@ -1,14 +1,14 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 31-oct-2026 (5)",
+  "kicker": "Manual de usuario · versión del 1-nov-2026 (6)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
     "torrecondominios.com",
-    "Versión 31-oct-2026",
+    "Versión 1-nov-2026",
     "Español · Perú"
   ],
-  "descripcion": "Manual de Torre por roles (administradora, junta, propietario, inquilino, personal) con capturas de datos de prueba. Corte: 31-oct-2026.",
+  "descripcion": "Manual de Torre por roles (administradora, junta, propietario, inquilino, personal) con capturas de datos de prueba. Corte: 1-nov-2026.",
   "secciones": [
     {
       "titulo": "Torre en una frase",
@@ -144,8 +144,8 @@
       "titulo": "Lo que tienen todas las pantallas",
       "etiqueta": "Todos",
       "bullets": [
-        "**Tu nombre y tu rol, arriba a la derecha**: si tienes un cargo en la junta, sale junto a tu rol («Propietario · Tesorero del Block 1»). Desde ahí abres Mi perfil (nombre, celular y avisos, contraseña) y Cerrar sesión.",
-        "**La luna**: cambia entre modo claro y oscuro.",
+        "**Tu nombre y tu rol, arriba a la derecha**: si tienes un cargo en la junta, sale junto a tu rol («Propietario · Tesorero del Block 1»). Desde ahí abres Mi perfil (nombre, celular y avisos, contraseña), cambias el tema claro u oscuro y cierras sesión.",
+        "**Tema claro u oscuro**: está dentro del menú de tu nombre, arriba a la derecha («Tema oscuro» / «Tema claro»).",
         "**El ícono de destellos**: abre el Asistente. Pregúntale «¿Cuánto debo?», «¿Cómo pago?» o dónde hacer algo.",
         "**El selector de condominio**, arriba a la izquierda (sólo administradora): filtra todas las pantallas por condominio.",
         "En el celular, el menú se abre con las tres rayas de arriba a la izquierda.",
@@ -188,10 +188,10 @@
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-consolidado.jpg"
     },
     {
-      "titulo": "Lecturas de agua del recibo",
-      "etiqueta": "Administradora · Recibos",
+      "titulo": "Lecturas de agua",
+      "etiqueta": "Administradora · Cobranza",
       "numerada": [
-        "Abre el recibo del mes y ve a la pestaña **Agua y datos del recibo**.",
+        "Entra a **Lecturas de agua** (menú Cobranza) y elige el recibo del mes y el block. También está en el detalle del recibo, pestaña **Agua y datos del recibo**.",
         "Si quieres, anota la **fecha de corte del agua**: sale en el recibo impreso.",
         "Escribe el **factor** (S/ por m³) y pulsa **Aplicar a todas las filas**.",
         "Escribe la lectura actual de cada departamento, o pulsa **Descargar plantilla**, llénala y usa **Subir Excel o CSV**.",
@@ -200,7 +200,8 @@
       "aviso": {
         "tipo": "nota",
         "texto": "Las lecturas de agua las carga sólo la administración; la junta del block no las edita. La lectura anterior sale sola de la del mes previo. Si el agua que cobra el recibo no cuadra con la lectura, la fila te avisa. Las lecturas no cambian ningún monto del recibo."
-      }
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-agua.jpg"
     },
     {
       "titulo": "Avisar a los vecinos",
@@ -245,6 +246,24 @@
         "texto": "La validación automática nunca rechaza un pago por su cuenta: lo dudoso queda para que una persona lo revise. Viene apagada; la activas o apagas con el interruptor."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-medios.jpg"
+    },
+    {
+      "titulo": "Conciliación bancaria",
+      "etiqueta": "Administradora · Cobranza · Torre Pro",
+      "parrafos": [
+        "Sube el extracto de la cuenta del condominio (el Excel o CSV que descargas del banco) y Torre cruza cada abono con los pagos registrados. Así sabes qué dinero llegó de verdad al banco y qué vouchers no tienen abono."
+      ],
+      "numerada": [
+        "Entra a **Conciliación** (menú Cobranza) y elige la cuenta.",
+        "Pulsa **Subir extracto** y elige el archivo del banco. Torre reconoce solo las columnas (fecha, descripción, monto, n.º de operación, saldo); si no puede, te pide elegirlas una vez y las recuerda.",
+        "Revisa el resumen: abonos, salidas (cargos), neto del periodo y si el saldo del extracto cuadra.",
+        "Atiende las pestañas **Por revisar** (varios pagos posibles, o el mismo n.º de operación en otra fecha), **Abonos sin voucher** (alguien pagó y no subió su voucher: vincúlalo a mano) y **Vouchers sin abono** (validados, pero el dinero no está en el banco: revísalos)."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Volver a subir un extracto que se cruza con uno anterior no duplica movimientos. Los pagos conciliados muestran «Conciliado con el banco» en Pagos. Es parte de Torre Pro y Torre Administradora."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-conciliacion.jpg"
     },
     {
       "titulo": "Morosidad",
@@ -334,6 +353,15 @@
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-mantenimiento.jpg"
     },
     {
+      "titulo": "Áreas comunes y reservas",
+      "etiqueta": "Administradora · Operación",
+      "parrafos": [
+        "En **Áreas comunes** defines lo que tus vecinos pueden reservar (salón, parrilla, piscina…): horario, cuántas horas seguidas, con cuántos días de anticipación y si cada reserva necesita tu aprobación.",
+        "En la pestaña **Reservas** ves las de cada día y apruebas, rechazas (con motivo) o cancelas. Dos vecinos nunca pueden reservar el mismo horario."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-areas.jpg"
+    },
+    {
       "titulo": "Mi plan: lo que pagas y lo que usas",
       "etiqueta": "Administradora · Cuenta",
       "parrafos": [
@@ -410,6 +438,14 @@
       }
     },
     {
+      "titulo": "Si tu edificio tiene una sola junta",
+      "etiqueta": "Junta directiva",
+      "parrafos": [
+        "Si tu condominio no tiene juntas por block sino una sola junta para todo el edificio, Torre lo muestra así: «Junta directiva» (sin «Junta central» ni aportes de blocks). La junta valida los pagos de todo el edificio y hace el cierre del mes.",
+        "La administración la registra en Juntas directivas como junta de todo el condominio, sin elegir block."
+      ]
+    },
+    {
       "titulo": "Inicio: cuánto debes",
       "etiqueta": "Propietario",
       "parrafos": [
@@ -477,6 +513,17 @@
         "Lo que la administración y la junta anuncian: cortes, reuniones, trabajos y avisos. Los fijados salen primero. Si activaste los avisos en Mi perfil, también te llegan por correo o WhatsApp."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-comunicados.jpg"
+    },
+    {
+      "titulo": "Reservar un área común",
+      "etiqueta": "Propietario e inquilino",
+      "numerada": [
+        "Entra a **Reservas**.",
+        "Elige el área y el día: la barra muestra los horarios libres, ocupados y por aprobar.",
+        "Elige **Desde** y **Hasta**, el departamento, y pulsa **Pedir reserva**.",
+        "En **Mis reservas** ves si quedó aprobada o pendiente, y puedes cancelarla mientras no empiece."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-reservas.jpg"
     },
     {
       "titulo": "Si alquilas",
