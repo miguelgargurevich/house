@@ -6,12 +6,13 @@ import { letraDeColumna, type Cuenta, type ResultadoSubida } from './tipos';
 
 interface Props { cuenta: Cuenta; onClose: () => void; onDone: () => void }
 
-type Eleccion = { fecha: string; descripcion: string; abono: string; cargo: string; operacion: string; fila_inicio: string };
-const VACIA: Eleccion = { fecha: '', descripcion: '', abono: '', cargo: '', operacion: '', fila_inicio: '1' };
+type Eleccion = { fecha: string; descripcion: string; abono: string; cargo: string; operacion: string; saldo: string; fila_inicio: string };
+const VACIA: Eleccion = { fecha: '', descripcion: '', abono: '', cargo: '', operacion: '', saldo: '', fila_inicio: '1' };
 
 /**
  * Subir el extracto de la cuenta (.xlsx, .xls o .csv). Torre detecta sola el encabezado y las columnas; si no las reconoce, muestra las primeras filas y deja
- * elegir qué columna es cada dato (esa elección se guarda para la cuenta). Sólo entran los abonos; el archivo no se guarda.
+ * elegir qué columna es cada dato (esa elección se guarda para la cuenta). Entran los abonos y las salidas (cargos); si el extracto trae saldo, se verifica que
+ * cuadre con los movimientos. El archivo no se guarda.
  */
 export function SubirExtractoModal({ cuenta, onClose, onDone }: Props) {
   const toast = useToast();
@@ -39,7 +40,7 @@ export function SubirExtractoModal({ cuenta, onClose, onDone }: Props) {
     fd.append('archivo', archivo);
     if (conColumnas) {
       const n = (v: string) => (v === '' ? null : Number(v));
-      fd.append('columnas', JSON.stringify({ fecha: n(eleccion.fecha), descripcion: n(eleccion.descripcion), abono: n(eleccion.abono), cargo: n(eleccion.cargo), operacion: n(eleccion.operacion), fila_inicio: Math.max(0, Number(eleccion.fila_inicio) - 1) }));
+      fd.append('columnas', JSON.stringify({ fecha: n(eleccion.fecha), descripcion: n(eleccion.descripcion), abono: n(eleccion.abono), cargo: n(eleccion.cargo), operacion: n(eleccion.operacion), saldo: n(eleccion.saldo), fila_inicio: Math.max(0, Number(eleccion.fila_inicio) - 1) }));
     }
     try {
       const r = await api<ResultadoSubida>(`/api/conciliacion/cuentas/${cuenta.id}/extractos`, { method: 'POST', body: fd });
@@ -58,13 +59,17 @@ export function SubirExtractoModal({ cuenta, onClose, onDone }: Props) {
             <p className="mt-1 num">{dinero(resultado.extracto.total_abonos, cuenta.moneda)} nuevos · del {fechaCorta(resultado.extracto.fecha_desde)} al {fechaCorta(resultado.extracto.fecha_hasta)}</p>
           </Alert>
           {resultado.cruce && (
-            <ul className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3" aria-label="Resultado del cruce">
+            <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4" aria-label="Resultado del cruce">
               <li className="rounded bg-surface2 p-3"><span className="num block text-xl font-semibold text-ok">{resultado.cruce.conciliados}</span>conciliados con un pago</li>
-              <li className="rounded bg-surface2 p-3"><span className="num block text-xl font-semibold text-warn">{resultado.cruce.por_revisar}</span>por revisar (varios pagos posibles)</li>
+              <li className="rounded bg-surface2 p-3"><span className="num block text-xl font-semibold text-warn">{resultado.cruce.por_revisar}</span>por revisar</li>
               <li className="rounded bg-surface2 p-3"><span className="num block text-xl font-semibold text-bad">{resultado.cruce.sin_pago}</span>abonos sin voucher</li>
+              <li className="rounded bg-surface2 p-3"><span className="num block text-xl font-semibold">{resultado.cruce.fuera_periodo}</span>fuera de período</li>
             </ul>
           )}
-          {resultado.descartes && resultado.descartes.cargos > 0 && <p className="text-sm text-muted">{resultado.descartes.cargos} cargos (salidas de dinero) se dejaron fuera: sólo se concilian los abonos.</p>}
+          {resultado.extracto.salidas_leidas > 0 && <p className="text-sm text-muted">{resultado.extracto.salidas_leidas} {resultado.extracto.salidas_leidas === 1 ? 'salida' : 'salidas'} (cargos) por <span className="num">{dinero(resultado.extracto.total_salidas, cuenta.moneda)}</span>{resultado.extracto.salidas_nuevas < resultado.extracto.salidas_leidas ? `, ${resultado.extracto.salidas_nuevas} nuevas` : ''}: las ves en la pestaña «Salidas» y no se cruzan con pagos.</p>}
+          {resultado.extracto.saldo && (resultado.extracto.saldo.cuadra
+            ? <Alert tone="ok">El saldo cuadra: <span className="num">{dinero(resultado.extracto.saldo.inicial, cuenta.moneda)}</span> al inicio más los movimientos da <span className="num">{dinero(resultado.extracto.saldo.final, cuenta.moneda)}</span>.</Alert>
+            : <Alert tone="warn"><p className="font-medium">El saldo del extracto no cuadra con sus movimientos.</p><ul className="mt-1 list-disc space-y-0.5 pl-5">{resultado.extracto.saldo.avisos.map(a => <li key={a}>{a}</li>)}</ul></Alert>)}
           <div className="flex justify-end"><Button onClick={onClose}>Listo</Button></div>
         </div>
       ) : (
@@ -72,7 +77,7 @@ export function SubirExtractoModal({ cuenta, onClose, onDone }: Props) {
           <div>
             <label htmlFor="extracto-archivo" className="mb-1 block text-sm font-medium">Archivo del banco (.xlsx, .xls o .csv)</label>
             <input id="extracto-archivo" type="file" accept=".xlsx,.xls,.csv" onChange={e => { setArchivo(e.target.files?.[0] ?? null); setVista(null); setError(null); setEleccion(VACIA); }} className="block w-full text-sm text-muted file:mr-2 file:rounded file:border file:border-line file:bg-surface file:px-3 file:py-1 file:text-sm" />
-            <p className="mt-1 text-xs text-muted">Descarga el extracto de tu banca por internet. Hasta 5 MB y 5 000 filas. Si subes un extracto que se solapa con otro, no se duplica nada. Torre guarda sólo los abonos, no el archivo.{cuenta.tiene_mapeo ? ' Esta cuenta ya tiene tus columnas guardadas.' : ''}</p>
+            <p className="mt-1 text-xs text-muted">Descarga el extracto de tu banca por internet. Hasta 5 MB y 5 000 filas. Si subes un extracto que se solapa con otro, no se duplica nada. Torre guarda los movimientos (abonos y salidas), no el archivo.{cuenta.tiene_mapeo ? ' Esta cuenta ya tiene tus columnas guardadas.' : ''}</p>
           </div>
 
           {error && <Alert tone="bad">{error}</Alert>}
@@ -89,10 +94,11 @@ export function SubirExtractoModal({ cuenta, onClose, onDone }: Props) {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Select label="Fecha" value={eleccion.fecha} onChange={e => setEleccion({ ...eleccion, fecha: e.target.value })}>{opciones('Elige la columna')}</Select>
-                <Select label="Abono o monto" hint="Si el banco trae un solo monto con signo, elige ése (los negativos se descartan)." value={eleccion.abono} onChange={e => setEleccion({ ...eleccion, abono: e.target.value })}>{opciones('Elige la columna')}</Select>
+                <Select label="Abono o monto" hint="Si el banco trae un solo monto con signo, elige ése: los negativos son salidas." value={eleccion.abono} onChange={e => setEleccion({ ...eleccion, abono: e.target.value })}>{opciones('Elige la columna')}</Select>
                 <Select label="Descripción (opcional)" value={eleccion.descripcion} onChange={e => setEleccion({ ...eleccion, descripcion: e.target.value })}>{opciones('No viene')}</Select>
                 <Select label="N.º de operación (opcional)" value={eleccion.operacion} onChange={e => setEleccion({ ...eleccion, operacion: e.target.value })}>{opciones('No viene')}</Select>
-                <Select label="Cargo (opcional)" value={eleccion.cargo} onChange={e => setEleccion({ ...eleccion, cargo: e.target.value })}>{opciones('No viene')}</Select>
+                <Select label="Cargo o débito (opcional)" value={eleccion.cargo} onChange={e => setEleccion({ ...eleccion, cargo: e.target.value })}>{opciones('No viene')}</Select>
+                <Select label="Saldo (opcional)" hint="Con el saldo, Torre verifica que el extracto esté completo." value={eleccion.saldo} onChange={e => setEleccion({ ...eleccion, saldo: e.target.value })}>{opciones('No viene')}</Select>
                 <Select label="Primera fila de datos" value={eleccion.fila_inicio} onChange={e => setEleccion({ ...eleccion, fila_inicio: e.target.value })}>
                   {vista.map((_, r) => <option key={r} value={r + 1}>Fila {r + 1}</option>)}
                 </Select>

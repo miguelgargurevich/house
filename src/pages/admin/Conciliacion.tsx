@@ -7,6 +7,7 @@ import type { Column } from '../../ui';
 import { Bloqueable } from '../../app/Bloqueable';
 import { AvisoModulo } from '../shared/_parts/AvisoModulo';
 import { MovimientoModal } from './_parts/conciliacion/MovimientoModal';
+import { ResumenPeriodo } from './_parts/conciliacion/ResumenPeriodo';
 import { SubirExtractoModal } from './_parts/conciliacion/SubirExtractoModal';
 import { ESTADO_UI, nombreDeCuenta, type Cuenta, type EstadoMovimiento, type Movimiento, type PagoResumen, type Resumen } from './_parts/conciliacion/tipos';
 
@@ -16,8 +17,10 @@ const PESTANAS: { id: Pestana; label: string }[] = [
   { id: 'por_revisar', label: 'Por revisar' },
   { id: 'sin_pago', label: 'Abonos sin voucher' },
   { id: 'conciliado', label: 'Conciliados' },
+  { id: 'fuera_periodo', label: 'Fuera de período' },
   { id: 'ignorado', label: 'Ignorados' },
   { id: 'sin_abono', label: 'Vouchers sin abono' },
+  { id: 'salida', label: 'Salidas' },
 ];
 
 const METODOS: Record<string, string> = { transferencia: 'Transferencia', yape: 'Yape', plin: 'Plin', efectivo: 'Efectivo', tarjeta: 'Tarjeta' };
@@ -110,13 +113,25 @@ function PanelDeCuenta({ cuenta }: { cuenta: Cuenta }) {
         <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <Badge tone={ESTADO_UI[m.estado].tone}>{ESTADO_UI[m.estado].label}</Badge>
           {m.estado === 'conciliado' && m.pago && <span className="text-xs text-muted"><span className="num">{m.pago.unidad?.codigo ?? '—'}</span> · {m.vinculo === 'manual' ? 'a mano' : 'automático'}</span>}
-          {m.estado === 'por_revisar' && <span className="text-xs text-muted">{m.sugerencias.length} {m.sugerencias.length === 1 ? 'pago posible' : 'pagos posibles'}</span>}
+          {m.estado === 'por_revisar' && <span className="text-xs text-muted">{m.sugerencias.length} {m.sugerencias.length === 1 ? 'pago posible' : 'pagos posibles'}{m.sugerencias[0]?.nombre_coincide ? ' · el primero coincide con el nombre' : ''}</span>}
           {m.estado === 'ignorado' && m.motivo_ignorar && <span className="max-w-[10rem] truncate text-xs text-muted" title={m.motivo_ignorar}>{m.motivo_ignorar}</span>}
         </span>
+        {m.estado === 'por_revisar' && m.motivo_revision && <span className="mt-1 block text-xs text-warn">{m.motivo_revision}</span>}
       </span>
     ) },
     { key: 'monto', header: 'Monto', align: 'right', cell: m => <span className="num whitespace-nowrap font-medium">{dinero(m.monto, moneda)}</span> },
-    { key: 'acciones', header: '', align: 'right', hideBelow: 'sm', cell: m => <Button size="sm" variant={m.estado === 'por_revisar' || m.estado === 'sin_pago' ? 'primary' : 'secondary'} onClick={() => setAbierto(m)}>{m.estado === 'por_revisar' ? 'Revisar' : m.estado === 'sin_pago' ? 'Vincular' : 'Ver'}</Button> },
+    { key: 'acciones', header: '', align: 'right', hideBelow: 'sm', cell: m => <Button size="sm" variant={m.estado === 'por_revisar' || m.estado === 'sin_pago' ? 'primary' : 'secondary'} onClick={() => setAbierto(m)}>{m.estado === 'por_revisar' ? 'Revisar' : m.estado === 'sin_pago' || m.estado === 'fuera_periodo' ? 'Vincular' : 'Ver'}</Button> },
+  ];
+
+  // Las salidas (cargos del banco) sólo se leen: no se vinculan ni se ignoran.
+  const columnasSalidas: Column<Movimiento>[] = [
+    { key: 'fecha', header: 'Salida', cell: m => (
+      <span className="block min-w-0">
+        <span className="block whitespace-nowrap font-medium">{fechaCorta(m.fecha)}</span>
+        <span className="block max-w-[13rem] truncate text-xs text-muted sm:max-w-md" title={m.descripcion}>{m.descripcion || '—'}{m.numero_operacion ? ` · op. ${m.numero_operacion}` : ''}</span>
+      </span>
+    ) },
+    { key: 'monto', header: 'Monto', align: 'right', cell: m => <span className="num whitespace-nowrap font-medium">−{dinero(m.monto, moneda)}</span> },
   ];
 
   const columnasSinAbono: Column<PagoResumen>[] = [
@@ -134,6 +149,7 @@ function PanelDeCuenta({ cuenta }: { cuenta: Cuenta }) {
         </p>
         <Bloqueable>{b => <Button icon={<ArrowUpTrayIcon className="h-4 w-4" />} disabled={b} onClick={() => setSubiendo(true)}>Subir extracto</Button>}</Bloqueable>
       </div>
+      <ResumenPeriodo resumen={r ?? null} moneda={moneda} />
       <StatStrip
         stats={[
           { label: 'Conciliados', value: cifra(r?.conciliados), tone: 'ok' },
@@ -154,11 +170,21 @@ function PanelDeCuenta({ cuenta }: { cuenta: Cuenta }) {
             <DataTable caption="Vouchers sin abono en el banco" columns={columnasSinAbono} rows={sinAbono.data?.items ?? []} rowKey={p => p.id} loading={sinAbono.loading} error={sinAbono.error} onRetry={sinAbono.reload}
               empty={{ title: 'Ningún voucher sin abono', description: r?.rango ? 'Todos los pagos validados del periodo tienen su abono en el banco.' : 'Sube un extracto para compararlo con tus pagos validados.', icon: <ArrowsRightLeftIcon /> }} />
           </>
+        ) : pestana === 'salida' ? (
+          <>
+            <p className="px-4 pt-4 text-sm text-muted">Cargos del banco: comisiones, pagos de servicios, retiros… No se cruzan con los pagos de los vecinos.{r && r.salidas.cantidad > 0 ? <> Total: <span className="num font-medium text-ink">{dinero(r.salidas.monto, moneda)}</span> en {r.salidas.cantidad} {r.salidas.cantidad === 1 ? 'salida' : 'salidas'}.</> : null}</p>
+            <DataTable caption="Salidas del extracto" columns={columnasSalidas} rows={lista.items} rowKey={m => m.id} loading={lista.loading} error={lista.error} onRetry={lista.reload}
+              page={lista.page} pageSize={lista.pageSize} total={lista.total} onPage={lista.setPage}
+              empty={{ title: 'Sin salidas', description: 'El extracto no trae cargos, o aún no subiste ninguno.', icon: <ArrowsRightLeftIcon /> }} />
+          </>
         ) : (
+          <>
+            {pestana === 'fuera_periodo' && <p className="px-4 pt-4 text-sm text-muted">Abonos sin voucher cuya fecha queda fuera de los días que cubren tus pagos registrados: todavía no hay nada que cruzar. No cuentan como «abonos sin voucher»; si registras pagos de esos días, vuelven allí al cruzar.</p>}
           <DataTable caption="Abonos del extracto" columns={columns} rows={lista.items} rowKey={m => m.id} loading={lista.loading} error={lista.error} onRetry={lista.reload}
             page={lista.page} pageSize={lista.pageSize} total={lista.total} onPage={lista.setPage} onRowClick={setAbierto}
             empty={{ title: pestana === 'todos' ? 'Sin abonos todavía' : 'Nada en esta pestaña', description: pestana === 'todos' ? 'Sube el extracto del banco para ver y cruzar sus abonos.' : 'Prueba con otra pestaña.', icon: <ArrowsRightLeftIcon />,
               action: pestana === 'todos' ? <Bloqueable>{b => <Button disabled={b} onClick={() => setSubiendo(true)}>Subir extracto</Button>}</Bloqueable> : undefined }} />
+          </>
         )}
       </Card>
       {subiendo && <SubirExtractoModal cuenta={cuenta} onClose={() => setSubiendo(false)} onDone={recargar} />}

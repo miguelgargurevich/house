@@ -1,7 +1,8 @@
 // Tipos y textos de la conciliación bancaria (lo que devuelve /api/conciliacion).
 import type { Tone } from '../../../../ui';
 
-export type EstadoMovimiento = 'conciliado' | 'por_revisar' | 'sin_pago' | 'ignorado';
+/** Los abonos van de `conciliado` a `ignorado`; `salida` es un cargo del banco (no se cruza con pagos). */
+export type EstadoMovimiento = 'conciliado' | 'por_revisar' | 'sin_pago' | 'fuera_periodo' | 'ignorado' | 'salida';
 
 export interface Cuenta {
   id: number;
@@ -26,6 +27,8 @@ export interface PagoResumen {
   estado_validacion: string;
   unidad: { codigo: string; estructura: string | null } | null;
   pagador: string | null;
+  /** El nombre de la glosa del abono coincide con el propietario, el inquilino o quien registró el pago (sólo ordena). */
+  nombre_coincide: boolean;
 }
 
 export interface Movimiento {
@@ -39,36 +42,52 @@ export interface Movimiento {
   vinculado_at: string | null;
   vinculado_por: string | null;
   motivo_ignorar: string | null;
+  /** Por qué está «por revisar» cuando no es sólo «varios pagos posibles» (p. ej. mismo n.º de operación, otra fecha). */
+  motivo_revision: string | null;
   pago: PagoResumen | null;
   sugerencias: PagoResumen[];
 }
 
-interface Cifra { cantidad: number; monto: string }
+export interface Cifra { cantidad: number; monto: string }
+/** Verificación del saldo del extracto: `avisos` dice entre qué filas no cuadra. */
+export interface Saldo { inicial: string; final: string; cuadra: boolean; avisos: string[] }
 export interface Resumen {
   moneda: string;
   conciliados: Cifra;
   por_revisar: Cifra;
   sin_pago: Cifra;
+  fuera_periodo: Cifra;
   ignorados: Cifra;
-  total: Cifra;
+  /** Todo lo que entró al banco en el periodo de los extractos, sea cual sea su estado. */
+  abonos: Cifra;
+  salidas: Cifra;
+  /** Abonos − salidas del periodo. */
+  neto: string;
   vouchers_sin_abono: Cifra;
   extractos: number;
   rango: { desde: string; hasta: string } | null;
+  /** Verificación del saldo de la última subida cuyo extracto traía saldo; null si ninguno lo trae. */
+  saldo: (Saldo & { extracto_id: number; archivo_nombre: string }) | null;
 }
 
 export interface ResultadoSubida {
   requiere_mapeo: boolean;
   vista?: string[][];
-  extracto?: { id: number; archivo_nombre: string; filas_leidas: number; filas_nuevas: number; filas_repetidas: number; total_abonos: string; fecha_desde: string | null; fecha_hasta: string | null };
-  cruce?: { revisados: number; conciliados: number; por_revisar: number; sin_pago: number };
-  descartes?: { cargos: number; sin_fecha: number; sin_monto: number };
+  extracto?: {
+    id: number; archivo_nombre: string; filas_leidas: number; filas_nuevas: number; filas_repetidas: number; total_abonos: string; fecha_desde: string | null; fecha_hasta: string | null;
+    salidas_leidas: number; salidas_nuevas: number; total_salidas: string; saldo: Saldo | null; hoja: string | null;
+  };
+  cruce?: { revisados: number; conciliados: number; por_revisar: number; sin_pago: number; fuera_periodo: number };
+  descartes?: { sin_fecha: number; sin_monto: number };
 }
 
 export const ESTADO_UI: Record<EstadoMovimiento, { label: string; tone: Tone }> = {
   conciliado: { label: 'Conciliado', tone: 'ok' },
   por_revisar: { label: 'Por revisar', tone: 'warn' },
   sin_pago: { label: 'Abono sin voucher', tone: 'bad' },
+  fuera_periodo: { label: 'Fuera de período', tone: 'neutral' },
   ignorado: { label: 'Ignorado', tone: 'neutral' },
+  salida: { label: 'Salida', tone: 'neutral' },
 };
 
 /** «Cuenta BCP ····0000 · Condominio Demo (Block 1)». */

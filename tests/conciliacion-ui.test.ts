@@ -11,6 +11,8 @@ const fuente = (r: string) => readFileSync(r, 'utf8');
 const PAGINA = fuente('src/pages/admin/Conciliacion.tsx');
 const SUBIR = fuente('src/pages/admin/_parts/conciliacion/SubirExtractoModal.tsx');
 const MOVIMIENTO = fuente('src/pages/admin/_parts/conciliacion/MovimientoModal.tsx');
+const PERIODO = fuente('src/pages/admin/_parts/conciliacion/ResumenPeriodo.tsx');
+const TIPOS = fuente('src/pages/admin/_parts/conciliacion/tipos.ts');
 
 describe('ruta y menú', () => {
   it('/admin/conciliacion está en App.tsx, en el menú de cobranza (admin y superadmin) y en las rutas que conoce el asistente', () => {
@@ -92,5 +94,48 @@ describe('precios', () => {
   it('la comparativa de /precios nombra la conciliación bancaria entre lo de Torre Pro', () => {
     assert.match(fuente('src/pages/publico/precios/Comparativa.tsx'), /reportes y conciliación bancaria— es de Torre Pro/);
     assert.match(fuente('src/lib/seo/textos.ts'), /reportes y conciliación bancaria/);
+  });
+});
+
+describe('conciliación v2 en pantalla', () => {
+  it('pestañas «Fuera de período» y «Salidas»; las salidas se leen pero no se abren ni se vinculan', () => {
+    for (const e of ["'fuera_periodo'", "'salida'", "label: 'Fuera de período'", "label: 'Salidas'"]) assert.ok(PAGINA.includes(e), e);
+    const salidas = PAGINA.slice(PAGINA.indexOf("pestana === 'salida' ? ("), PAGINA.indexOf('Abonos del extracto'));
+    assert.match(salidas, /caption="Salidas del extracto"/);
+    assert.doesNotMatch(salidas, /onRowClick|setAbierto/, 'una salida no abre el modal de vincular');
+    assert.match(PAGINA, /No se cruzan con los pagos de los vecinos/);
+    assert.match(PAGINA, /Abonos sin voucher cuya fecha queda fuera de los días/);
+  });
+  it('el resumen muestra abonos, salidas y neto del periodo (tres columnas aun en el celular) y el aviso del saldo con las filas', () => {
+    assert.match(PAGINA, /<ResumenPeriodo resumen=\{r \?\? null\} moneda=\{moneda\} \/>/);
+    for (const t of ['Abonos', 'Salidas', 'Neto del periodo']) assert.ok(PERIODO.includes(t), t);
+    assert.match(PERIODO, /grid-cols-3/);
+    assert.match(PERIODO, /no cuadra con sus movimientos/);
+    assert.match(PERIODO, /saldo\.avisos\.map/);
+    assert.match(PERIODO, /Cuadra con los movimientos/);
+    assert.doesNotMatch(PERIODO, /\bw-\[\d+px\]|min-w-\[\d{3,}px\]/);
+  });
+  it('un abono por revisar muestra su motivo (n.º de operación con otra fecha) y la pista «coincide el nombre»', () => {
+    assert.match(PAGINA, /m\.estado === 'por_revisar' && m\.motivo_revision/);
+    assert.match(MOVIMIENTO, /movimiento\.motivo_revision/);
+    assert.match(MOVIMIENTO, /Coincide el nombre/);
+    assert.match(TIPOS, /nombre_coincide: boolean/);
+    assert.match(TIPOS, /motivo_revision: string \| null/);
+  });
+  it('un abono fuera de período se puede vincular a mano', () => {
+    assert.match(MOVIMIENTO, /movimiento\?\.estado === 'fuera_periodo'/);
+    assert.match(MOVIMIENTO, /fuera de los días que cubren tus pagos registrados/);
+    assert.match(PAGINA, /m\.estado === 'sin_pago' \|\| m\.estado === 'fuera_periodo' \? 'Vincular'/);
+  });
+  it('subir: se puede elegir la columna de saldo, y el resultado cuenta salidas, fuera de período y si el saldo cuadra', () => {
+    assert.match(SUBIR, /label="Saldo \(opcional\)"/);
+    assert.match(SUBIR, /saldo: n\(eleccion\.saldo\)/);
+    assert.match(SUBIR, /los negativos son salidas/);
+    assert.match(SUBIR, /fuera de período/);
+    assert.match(SUBIR, /pestaña «Salidas»/);
+    assert.match(SUBIR, /resultado\.extracto\.saldo/);
+    assert.match(SUBIR, /El saldo cuadra/);
+    assert.match(SUBIR, /no cuadra con sus movimientos/);
+    assert.doesNotMatch(SUBIR + PAGINA, /descartes\.cargos|se dejaron fuera/, 'los cargos ya no se descartan');
   });
 });

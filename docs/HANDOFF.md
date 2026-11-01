@@ -4,6 +4,24 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-01 — Conciliación bancaria v2 (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
+
+- Pedido de Miguel: completar la conciliación (extracto con fecha, glosa, n.º de operación, cargos/abonos o importe con signo y saldo) con lo aprendido en el cruce de Tesorería del Portal (`CruceDeIngresos.cs`, sólo leído). Rama `feat/conciliacion-v2` (sobre origin/main de898a1), base de pruebas `house_test_conc2`. Esquema ADITIVO (`prisma db push`).
+- **Qué cambia** (todo en `src/server/services/conciliacion/**`, la ruta y la pantalla `/admin/conciliacion`):
+  1. **Operación + fecha**: mismo n.º de operación y monto dentro de `ventana_dias` → concilia; misma operación y monto en OTRA fecha (hasta 31 días, `TOPE_REVISAR_FECHA_DIAS`) → `por_revisar` con `motivo_revision` «Mismo n.º de operación, otra fecha (dd/mm vs dd/mm)» (abono vs pago), nunca automático. Se quitó el atajo de `TOPE_OPERACION_DIAS`. Si hay otra fecha en juego, ni un único candidato normal se concilia solo.
+  2. **Hoja**: `leerLibro` elige la hoja que es el extracto (columnas reconocidas, con preferencia por nombre «accountDetail»/«Movimientos»/«Detalle»…); `extracto.hoja` lo dice.
+  3. **Salidas**: los cargos se guardan con `estado: 'salida'` (monto en positivo), no se cruzan, no se vinculan ni ignoran (409). Importe con signo: negativos = salidas. `GET movimientos` sin `estado` devuelve sólo abonos; `estado=salida` las trae. Resumen: `abonos`, `salidas`, `neto`. Extracto: `salidas_leidas/nuevas`, `total_salidas`. Un extracto sólo con salidas entra; sin ningún movimiento, 422.
+  4. **Saldo**: columna `saldo` (detectada o en el mapeo, opcional) → `verificarSaldo` en Decimal, prueba los dos órdenes, un hueco = un aviso, guarda `saldo_inicial/final/cuadra/avisos`. El resumen muestra la verificación de la ÚLTIMA subida que traía saldo.
+  5. **Fuera de período**: abono sin candidatos cuyo día queda fuera del rango (primer–último día) de los pagos no rechazados y no en efectivo del alcance de la cuenta → `estado: 'fuera_periodo'` (sin pagos no hay rango). Se reevalúa al cruzar. «Vouchers sin abono» ya miraba sólo el rango del extracto; ahora el rango del extracto cubre abonos Y salidas.
+  6. **Nombre**: `tokensDeNombre`/`puntajeNombre` (sin tildes, ≥ 3 letras, sin palabras del banco, el apellido abreviado vale como prefijo) ordenan las sugerencias de `por_revisar` y la búsqueda manual; `nombre_coincide` en `PagoResumen`. Nunca concilia; la API no devuelve nombres de personas.
+- **Pantalla**: pestañas «Fuera de período» y «Salidas», franja Abonos/Salidas/Neto (3 columnas también a 390 px), aviso de saldo con las filas, motivo en el abono por revisar, «Coincide el nombre», selector de «Saldo» al elegir columnas.
+- **Tests**: `conciliacion-v2-lectura.test.ts` (puro), `conciliacion-v2.test.ts` (API + base), UI en `conciliacion-ui.test.ts`; fixtures sintéticos `bcp-detalle.xlsx`, `saldo-{asc,desc,roto}.csv` (`generar-v2.ts`). Se ajustaron pruebas de v1 que fijaban el comportamiento viejo (cargos descartados, `descartes.cargos`, atajo por operación, `sin_pago` donde ahora es `fuera_periodo`).
+- **Decisiones**: salidas con monto positivo y estado propio (las sumas por estado siguen sirviendo); `total` del resumen se conserva como alias de `abonos`; el saldo del resumen es el de la última subida con saldo (no acumula avisos viejos); `fuera_periodo` es un estado guardado (filtrable) y no un cálculo al vuelo.
+- **Gotchas**: (a) una prueba que deje un solo pago en una fecha y suba abonos de otros días ahora ve `fuera_periodo`, no `sin_pago`: añade un pago que amplíe el rango. (b) Los fixtures v1 traen saldo constante (5000): no cuadran y avisarían; sólo importa si una prueba espera «sin aviso». (c) El `Saldo` mapeado a mano por una cuenta con mapeo guardado de la v1 no existe: se vuelve a detectar solo.
+- **Próximos pasos / fuera de alcance**: cruzar las salidas con egresos/cierres de la junta; que la conciliación alimente la conformidad del tesorero; la junta conciliando; conexión directa con el banco. Falta probar con un extracto REAL del BCP (sólo se probó con sintéticos).
+
+---
+
 ## 2026-10-31 — Lecturas de agua sólo de la administración (Claude Code, Haiku 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel: «Las lecturas de agua las realiza el personal de administración no lo hace el tesorero». Rama `fix/agua-solo-admin` (sobre origin/main 1cf592d), base de pruebas `house_test_agua`.

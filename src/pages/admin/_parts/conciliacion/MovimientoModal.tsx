@@ -15,7 +15,7 @@ function PagoLinea({ pago, moneda, monto, accion }: { pago: PagoResumen; moneda:
       <div className="min-w-0 text-sm">
         <p className="font-medium"><span className="num">{pago.unidad?.codigo ?? '—'}</span>{pago.unidad?.estructura ? ` · ${pago.unidad.estructura}` : ''} <span className="num ml-1">{dinero(pago.total, moneda)}</span></p>
         <p className="text-xs text-muted">{fechaCorta(pago.fecha_pago)} · {METODOS[pago.metodo_pago ?? ''] ?? pago.metodo_pago ?? '—'}{pago.referencia ? ` · ${pago.referencia}` : ''}{pago.pagador ? ` · ${pago.pagador}` : ''}</p>
-        <p className="mt-1 flex flex-wrap gap-1"><StatusBadge estado={pago.estado_validacion} />{difiere && <Badge tone="warn">El monto difiere</Badge>}</p>
+        <p className="mt-1 flex flex-wrap gap-1"><StatusBadge estado={pago.estado_validacion} />{difiere && <Badge tone="warn">El monto difiere</Badge>}{pago.nombre_coincide && <Badge tone="info">Coincide el nombre</Badge>}</p>
       </div>
       {accion}
     </li>
@@ -36,7 +36,7 @@ export function MovimientoModal({ cuenta, movimiento, onClose, onChanged }: Prop
   const [motivo, setMotivo] = useState('');
   const abierto = movimiento !== null;
   const base = movimiento ? `/api/conciliacion/cuentas/${cuenta.id}/movimientos/${movimiento.id}` : null;
-  const pendiente = movimiento?.estado === 'por_revisar' || movimiento?.estado === 'sin_pago';
+  const pendiente = movimiento?.estado === 'por_revisar' || movimiento?.estado === 'sin_pago' || movimiento?.estado === 'fuera_periodo';
 
   useEffect(() => { setQ(''); setMotivo(''); setError(null); setOpciones([]); }, [movimiento?.id]);
   useEffect(() => {
@@ -80,6 +80,8 @@ export function MovimientoModal({ cuenta, movimiento, onClose, onChanged }: Prop
             </div>
           </div>
           {error && <Alert tone="bad">{error}</Alert>}
+          {movimiento.estado === 'por_revisar' && movimiento.motivo_revision && <Alert tone="warn">{movimiento.motivo_revision}. Revisa que el pago sea de este abono antes de vincularlo.</Alert>}
+          {movimiento.estado === 'fuera_periodo' && <Alert tone="info">Este abono queda fuera de los días que cubren tus pagos registrados, por eso no cuenta como «abono sin voucher». Si corresponde a un pago, vincúlalo.</Alert>}
 
           {movimiento.estado === 'conciliado' && movimiento.pago && (
             <section aria-label="Pago vinculado" className="space-y-3">
@@ -103,7 +105,7 @@ export function MovimientoModal({ cuenta, movimiento, onClose, onChanged }: Prop
                 {sugeridos.length > 0 && (
                   <ul className="space-y-2">{sugeridos.map(p => <PagoLinea key={p.id} pago={p} moneda={moneda} monto={movimiento.monto} accion={<Button size="sm" loading={trabajando} onClick={() => void ejecutar('vincular', { pago_id: p.id }, 'Abono vinculado al pago')}>Vincular</Button>} />)}</ul>
                 )}
-                <Input label="Buscar otro pago" placeholder="Departamento o n.º de operación" value={q} onChange={e => setQ(e.target.value)} hint="Se muestran los pagos del condominio (o del block de la cuenta) que aún no tienen abono; los de monto igual, primero." />
+                <Input label="Buscar otro pago" placeholder="Departamento o n.º de operación" value={q} onChange={e => setQ(e.target.value)} hint="Se muestran los pagos del condominio (o del block de la cuenta) que aún no tienen abono. Primero los que coinciden con el nombre de la descripción, luego los de monto igual." />
                 {cargando && <p className="text-sm text-muted" role="status">Buscando…</p>}
                 {!cargando && resto.length === 0 && sugeridos.length === 0 && <p className="text-sm text-muted">No hay pagos libres que mostrar. Si el vecino aún no subió su voucher, el abono queda como «abono sin voucher».</p>}
                 {resto.length > 0 && <ul className="max-h-72 space-y-2 overflow-y-auto">{resto.map(p => <PagoLinea key={p.id} pago={p} moneda={moneda} monto={movimiento.monto} accion={<Button size="sm" variant="secondary" loading={trabajando} onClick={() => void ejecutar('vincular', { pago_id: p.id }, 'Abono vinculado al pago')}>Vincular</Button>} />)}</ul>}
