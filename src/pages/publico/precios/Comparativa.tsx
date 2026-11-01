@@ -11,8 +11,8 @@ const No = () => <span className="inline-flex justify-center text-muted"><MinusI
 /** Departamentos por condominio: lo que dice el catálogo (tope en Gratis y Básico, sin tope en Pro). */
 const topeTexto = (max: number | null | undefined) => (max != null ? `Hasta ${max}` : 'Sin tope');
 
-/** «Torre Básico parte en S/ 30.00 al mes por condominio e incluye hasta 20 departamentos.» — precio base, departamentos incluidos y tope, del catálogo. */
-const minimoTexto = (p: Plan, cat: Catalogo) => `${p.nombre} parte en ${p.total_minimo_mes ? `${dinero(p.total_minimo_mes, cat.moneda)} al mes por condominio` : 'un precio base por condominio'} e incluye hasta ${p.unidades_minimas} departamentos${p.unidades_maximas != null ? `; llega hasta ${p.unidades_maximas}` : ''}.`;
+/** «Torre Básico: desde S/ 30.00 al mes por condominio.» — el monto mínimo en soles, del catálogo (sin hablar de departamentos incluidos: eso está en la tabla). */
+const minimoTexto = (p: Plan, cat: Catalogo) => (p.total_minimo_mes ? `${p.nombre}: desde ${dinero(p.total_minimo_mes, cat.moneda)} al mes por condominio.` : '');
 
 /** «Torre Pro cobra S/ X por departamento desde el N.» — el tramo del plan, si lo tiene (del catálogo). */
 const tramoNota = (p: Plan, cat: Catalogo) => {
@@ -72,7 +72,7 @@ export function Comparativa({ cat }: { cat: Catalogo }) {
             </table>
           </div>
         </div>
-        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}. Cada condominio tiene su propio plan: {gratis?.nombre ?? 'Torre Gratis'} es uno por cuenta y con un plan de pago sumas los que quieras.{basico?.unidades_minimas != null && ` ${minimoTexto(basico, cat)}`}{pro?.unidades_minimas != null && ` ${minimoTexto(pro, cat)}`}{pro && tramoNota(pro, cat)}{adm && ` ${adm.nombre} trae todo lo de Torre Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `: ${dinero(adm.precio_por_unidad, cat.moneda)} por departamento al mes`}${adm.precio_por_unidad != null && adm.unidades_minimas != null ? `${adm.total_minimo_mes ? `, desde ${dinero(adm.total_minimo_mes, cat.moneda)} por condominio` : ''} con hasta ${adm.unidades_minimas} departamentos incluidos` : ''}${adm.tramo_desde != null && adm.tramo_precio != null && adm.precio_por_unidad != null ? ` y ${dinero(adm.tramo_precio, cat.moneda)} desde el departamento ${adm.tramo_desde}` : ''}.`}</p>
+        <p className="mt-5 max-w-2xl text-base">Precios por departamento al mes{Number(cat.impuesto.tasa) > 0 ? `, sin ${cat.impuesto.nombre}` : ''}. Cada condominio tiene su propio plan: {gratis?.nombre ?? 'Torre Gratis'} es uno por cuenta y con un plan de pago sumas los que quieras.{basico?.unidades_minimas != null && ` ${minimoTexto(basico, cat)}`}{pro?.unidades_minimas != null && ` ${minimoTexto(pro, cat)}`}{pro && tramoNota(pro, cat)}{adm && ` ${adm.nombre} trae todo lo de Torre Pro${adm.caracteristicas.length > 1 ? ' más ' + adm.caracteristicas.filter(c => !/^todo lo de/i.test(c)).map(c => c.toLowerCase()).join(' y ') : ''}${adm.precio_por_unidad == null ? ', con precio a consultar en tu país' : `: ${dinero(adm.precio_por_unidad, cat.moneda)} por departamento al mes`}${adm.precio_por_unidad != null && adm.total_minimo_mes ? `, desde ${dinero(adm.total_minimo_mes, cat.moneda)} por condominio` : ''}${adm.tramo_desde != null && adm.tramo_precio != null && adm.precio_por_unidad != null ? ` y ${dinero(adm.tramo_precio, cat.moneda)} desde el departamento ${adm.tramo_desde}` : ''}.`}</p>
       </Aparece>
     </section>
   );

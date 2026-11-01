@@ -5,7 +5,7 @@ import { dinero } from '../../ui/format';
 import { monedaDe } from '../paises';
 import type { Catalogo, Plan } from '../../pages/publico/catalogo';
 import { plazoGratisTexto } from '../../pages/publico/plazoGratis';
-import { despuesDelPrecioBase } from '../../pages/publico/precios/tramo';
+import { tramoDeTarjeta } from '../../pages/publico/precios/tramo';
 
 export const MARCA = 'Torre';
 export const MARCA_LARGA = 'Torre · Administración de condominios';
@@ -68,12 +68,12 @@ export function unidadPrecio(plan: Plan, cat: Catalogo): string | null {
   return Number(plan.precio_por_unidad) === 0 ? plazoGratisTexto(cat) : `por departamento al mes${masImpuesto(cat)}`;
 }
 
-/** El tope de departamentos (Gratis), el rango que cubre o el precio base con los departamentos que incluye (Básico, Torre Pro y Torre Administradora). `null` si no aplica. */
+/** El tope de departamentos (Gratis), o el monto mínimo por condominio en soles (Básico, Torre Pro y Torre Administradora): «Desde S/ 30.00 al mes + IGV.» y, con tramo, «; desde el departamento 61, S/ 2.00 cada uno.». `null` si no aplica. */
 export function textoTope(plan: Plan, cat: Catalogo): string | null {
   if (plan.unidades_maximas != null && plan.unidades_minimas != null) return `Hasta ${plan.unidades_maximas} departamentos por condominio, mínimo ${plan.unidades_minimas} cobrados${plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.`;
   if (plan.unidades_maximas != null) return `Hasta ${plan.unidades_maximas} departamentos por condominio.`;
-  // El mínimo se dice como precio base («desde S/ 60 al mes, incluye hasta 20 departamentos»): a un edificio chico no le suena a «no es para ti».
-  if (plan.unidades_minimas != null) return `${plan.total_minimo_mes ? `Desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}, incluye hasta ${plan.unidades_minimas} departamentos` : `Incluye hasta ${plan.unidades_minimas} departamentos en el precio base`}${despuesDelPrecioBase(plan, cat.moneda, dinero)}.`;
+  // Sólo el monto mínimo en soles: no se dice cuántos departamentos incluye (eso confundía: parecía que el departamento 21 pagaba otro precio).
+  if (plan.unidades_minimas != null && plan.total_minimo_mes) return `Desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}${tramoDeTarjeta(plan, cat.moneda, dinero)}.`;
   return null;
 }
 
@@ -87,8 +87,9 @@ export function textosModulos(cat: Catalogo): { h2: string; bajada: string } {
 export function preguntas(cat: Catalogo): { p: string; r: string }[] {
   const tope = cat.planes.find(x => x.clave === 'gratis')?.unidades_maximas;
   const pro = cat.planes.find(x => x.clave === 'pro');
-  const minimo = pro?.unidades_minimas;
   const basico = cat.planes.find(x => x.clave === 'basico');
+  // Los planes de pago con monto mínimo en soles, en el orden del catálogo: «Torre Básico desde S/ 30.00 y Torre Pro desde S/ 60.00».
+  const minimos = [basico, pro].flatMap(p => (p?.total_minimo_mes ? [`${p.nombre} desde ${dinero(p.total_minimo_mes, cat.moneda)}`] : []));
   const plazo = plazoGratisTexto(cat);
   const imp = Number(cat.impuesto.tasa);
   const nombreImp = cat.impuesto.nombre;
@@ -101,7 +102,7 @@ export function preguntas(cat: Catalogo): { p: string; r: string }[] {
     { p: '¿Hay permanencia o contrato?', r: 'No. No te atamos a un plazo mínimo.' },
     { p: '¿Cuánto dura y hasta cuántos departamentos llega Torre Gratis?', r: `${cat.dias_gratis ? `Torre Gratis dura ${plazo.replace('por ', '')} desde que creas tu cuenta` : 'Torre Gratis no tiene plazo'}${tope != null ? ` y llega hasta ${tope} departamentos por condominio` : ''}, con recibos, cobranza, portal del vecino, vouchers validados a mano y avisos por correo. Si quieres IA, WhatsApp, asistente, mora automática, reportes y conciliación bancaria, pasas a Torre Pro.` },
     ...(cat.dias_gratis ? [{ p: '¿Qué pasa cuando termina el plan Torre Gratis?', r: `El condominio queda en solo lectura: puedes ver todo, pero no registrar recibos, pagos ni comunicados nuevos. No se borra nada, y vuelves a registrar apenas pases a ${basico ? `${basico.nombre} o ` : ''}Torre Pro. Te avisamos al empezar, siete días antes y el día que termina.` }] : []),
-    ...(basico && basico.unidades_maximas != null ? [{ p: `¿Qué es ${basico.nombre}?`, r: `Es el plan para edificios chicos que ya terminaron su periodo gratis: lo mismo que Torre Gratis, sin plazo, hasta ${basico.unidades_maximas} departamentos${basico.precio_por_unidad !== null ? `, a ${dinero(basico.precio_por_unidad, cat.moneda)} por departamento al mes${basico.unidades_minimas != null ? `, con hasta ${basico.unidades_minimas} departamentos incluidos en el precio base` : ''}` : ''}. No trae IA, WhatsApp, asistente, mora automática ni reportes: eso es de Torre Pro.` }] : []),
-    { p: '¿Y si mi edificio tiene pocos departamentos?', r: minimo != null ? `Los planes de pago tienen un precio base por condominio que incluye hasta ${minimo} departamentos${pro?.total_minimo_mes ? ` (en Torre Pro, ${dinero(pro.total_minimo_mes, cat.moneda)} al mes${Number(cat.impuesto.tasa) > 0 ? ` + ${cat.impuesto.nombre}` : ''})` : ''}. Si tu edificio tiene menos, pagas ese precio base; desde el ${minimo + 1}, pagas por cada departamento adicional${pro?.tramo_desde != null && pro.tramo_precio != null ? `, y en ${pro.nombre} desde el ${pro.tramo_desde} cada uno baja a ${dinero(pro.tramo_precio, cat.moneda)}` : ''}.` : 'Pagas sólo por los departamentos que tengas.' },
+    ...(basico && basico.unidades_maximas != null ? [{ p: `¿Qué es ${basico.nombre}?`, r: `Es el plan para edificios chicos que ya terminaron su periodo gratis: lo mismo que Torre Gratis, sin plazo, hasta ${basico.unidades_maximas} departamentos${basico.precio_por_unidad !== null ? `, a ${dinero(basico.precio_por_unidad, cat.moneda)} por departamento al mes${basico.total_minimo_mes ? `, desde ${dinero(basico.total_minimo_mes, cat.moneda)} al mes por condominio` : ''}` : ''}. No trae IA, WhatsApp, asistente, mora automática ni reportes: eso es de Torre Pro.` }] : []),
+    { p: '¿Y si mi edificio tiene pocos departamentos?', r: minimos.length > 0 ? `Cada plan de pago tiene un monto mínimo por condominio (${minimos.join(' y ')} al mes${masImpuesto(cat)}). Si tu edificio tiene pocos departamentos, pagas ese mínimo; si tiene más, pagas cada departamento al precio del plan.` : 'Pagas sólo por los departamentos que tengas.' },
   ];
 }

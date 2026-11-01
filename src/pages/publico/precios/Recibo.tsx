@@ -29,7 +29,7 @@ function TotalDelMes({ r, plan, n, cat }: { r: Total; plan: Plan; n: number; cat
   const conImpuesto = Number(cat.impuesto.tasa) > 0;
   const minimo = plan.unidades_minimas ?? 0;
   const d = desglosar({ unidades: n, cobradas: r.unidades_cobradas, minimo: plan.unidades_minimas, precio: plan.precio_por_unidad ?? '0', tramo_desde: r.tramo_desde ?? null, tramo_precio: r.tramo_precio ?? null, total: r.total_mes ?? '0', decimales: decimalesDe(moneda) });
-  const nota = notaDelMinimo(n, minimo);
+  const nota = notaDelMinimo(n, minimo, dinero(r.total_mes, moneda));
   return (
     <>
       <p className="num mt-1 text-5xl font-semibold tracking-tight sm:text-6xl">{dinero(r.total_mes, moneda)}</p>

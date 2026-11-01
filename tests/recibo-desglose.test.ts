@@ -32,7 +32,7 @@ function de(n: number, k: Caso) {
 const enMinimos = (monto: string, decimales: number) => Math.round(Number(monto) * 10 ** decimales);
 /** Formato de prueba (como `dinero`, con «S/» y el número tal cual): sólo para leer las etiquetas. */
 const formato = (monto: string, moneda: string) => `${moneda === 'CLP' ? '$' : 'S/'} ${monto}`;
-const fila = (f: FilaDesglose) => [f.desde, f.hasta, f.unidades, f.precio, f.monto, f.base];
+const fila = (f: FilaDesglose) => [f.desde, f.hasta, f.unidades, f.precio, f.monto];
 
 describe('desglosar: las filas suman EXACTAMENTE el total del servidor', () => {
   for (const k of CASOS) for (const n of UNIDADES) {
@@ -42,9 +42,9 @@ describe('desglosar: las filas suman EXACTAMENTE el total del servidor', () => {
       assert.equal(d.cuadra, true, 'la suma de las filas cuadra con el total del servidor');
       const suma = d.filas.reduce((s, f) => s + enMinimos(f.monto, k.decimales), 0);
       assert.equal(suma, enMinimos(c.base, k.decimales), 'al centavo (o al peso)');
-      // Las filas cubren los departamentos cobrados, sin huecos ni repetidos.
+      // Las filas cubren los departamentos cobrados, sin huecos ni repetidos (con menos que el mínimo hay una sola fila: el mínimo).
       assert.equal(d.filas[0].desde, 1);
-      assert.equal(d.filas.reduce((s, f) => s + f.unidades, 0), c.unidades_cobradas);
+      assert.equal(d.filas.reduce((s, f) => s + f.unidades, 0), n < k.minimo ? k.minimo : n, 'los departamentos cobrados');
       for (let i = 1; i < d.filas.length; i++) assert.equal(d.filas[i].desde, d.filas[i - 1].hasta + 1, 'filas contiguas');
       // Promedio = total ÷ departamentos reales, a la mitad hacia arriba con los decimales de la moneda.
       assert.equal(d.promedio, new Prisma.Decimal(c.base).div(n).toDecimalPlaces(k.decimales, Prisma.Decimal.ROUND_HALF_UP).toFixed(k.decimales), 'promedio');
@@ -53,35 +53,35 @@ describe('desglosar: las filas suman EXACTAMENTE el total del servidor', () => {
 });
 
 describe('desglosar: filas exactas en los casos que Miguel miró', () => {
-  it('15 departamentos (menos que el mínimo de 20): una sola fila de precio base, promedio con los 15 reales', () => {
+  it('15 departamentos (menos que el mínimo de 20): una sola fila, el mínimo del plan (60.00), promedio con los 15 reales', () => {
     const d = de(15, PEN_SIN);
-    assert.deepEqual(d.filas.map(fila), [[1, 20, 20, '3.00', '60.00', true]]);
+    assert.deepEqual(d.filas.map(fila), [[1, 20, 20, '3.00', '60.00']]);
     assert.equal(d.promedio, '4.00');
   });
 
-  it('20 departamentos (igual al mínimo): también una sola fila de precio base', () => {
-    assert.deepEqual(de(20, PEN_SIN).filas.map(fila), [[1, 20, 20, '3.00', '60.00', true]]);
+  it('20 departamentos (igual al mínimo): una sola fila, sin nota', () => {
+    assert.deepEqual(de(20, PEN_SIN).filas.map(fila), [[1, 20, 20, '3.00', '60.00']]);
   });
 
-  it('21 departamentos sin tramo: el precio base de los primeros 20 y el resto a precio normal', () => {
-    assert.deepEqual(de(21, PEN_SIN).filas.map(fila), [[1, 20, 20, '3.00', '60.00', true], [21, 21, 1, '3.00', '3.00', false]]);
+  it('21 departamentos sin tramo: todos al mismo precio, sin corte en el 21 (21 × 3 = 63)', () => {
+    assert.deepEqual(de(21, PEN_SIN).filas.map(fila), [[1, 21, 21, '3.00', '63.00']]);
   });
 
-  it('250 departamentos sin tramo (parejo): 60 + 230 × 3 = 750', () => {
+  it('250 departamentos sin tramo (parejo): 250 × 3 = 750', () => {
     const d = de(250, PEN_SIN);
-    assert.deepEqual(d.filas.map(fila), [[1, 20, 20, '3.00', '60.00', true], [21, 250, 230, '3.00', '690.00', false]]);
+    assert.deepEqual(d.filas.map(fila), [[1, 250, 250, '3.00', '750.00']]);
     assert.equal(d.promedio, '3.00');
   });
 
-  it('250 departamentos con tramo desde el 61 a 2.00: 60 + 40 × 3 + 190 × 2 = 560', () => {
+  it('250 departamentos con tramo desde el 61 a 2.00: 60 × 3 + 190 × 2 = 560', () => {
     const d = de(250, PEN_TRAMO);
-    assert.deepEqual(d.filas.map(fila), [[1, 20, 20, '3.00', '60.00', true], [21, 60, 40, '3.00', '120.00', false], [61, 250, 190, '2.00', '380.00', false]]);
+    assert.deepEqual(d.filas.map(fila), [[1, 60, 60, '3.00', '180.00'], [61, 250, 190, '2.00', '380.00']]);
     assert.equal(d.promedio, '2.24');
   });
 
-  it('pesos chilenos (sin decimales) con tramo: 20 × 1900 + 40 × 1900 + 40 × 1500 = 174000', () => {
+  it('pesos chilenos (sin decimales) con tramo: 60 × 1900 + 40 × 1500 = 174000', () => {
     const d = de(100, CLP_TRAMO);
-    assert.deepEqual(d.filas.map(fila), [[1, 20, 20, '1900', '38000', true], [21, 60, 40, '1900', '76000', false], [61, 100, 40, '1500', '60000', false]]);
+    assert.deepEqual(d.filas.map(fila), [[1, 60, 60, '1900', '114000'], [61, 100, 40, '1500', '60000']]);
     assert.equal(d.promedio, '1740');
   });
 
@@ -99,25 +99,31 @@ describe('desglosar: filas exactas en los casos que Miguel miró', () => {
 describe('etiquetas y nota del desglose', () => {
   const etiquetas = (n: number, k: Caso) => de(n, k).filas.map((f) => etiquetaDeFila(f, n, k.minimo, k.moneda, formato));
 
-  it('bajo el mínimo o igual: «Precio base · incluye hasta 20» y la nota con el número del condominio', () => {
-    assert.deepEqual(etiquetas(15, PEN_SIN), ['Precio base · incluye hasta 20 departamentos']);
-    assert.deepEqual(etiquetas(20, PEN_SIN), ['Precio base · incluye hasta 20 departamentos']);
-    assert.equal(notaDelMinimo(15, 20), 'Tu condominio tiene 15: pagas el precio base.');
-    assert.equal(notaDelMinimo(20, 20), 'Tu condominio tiene 20: pagas el precio base.');
+  it('con menos departamentos que el mínimo: «Monto mínimo del plan» y la nota con el mínimo en soles', () => {
+    assert.deepEqual(etiquetas(15, PEN_SIN), ['Monto mínimo del plan']);
+    assert.deepEqual(etiquetas(1, PEN_SIN), ['Monto mínimo del plan']);
+    assert.equal(notaDelMinimo(15, 20, 'S/ 60.00'), 'Tu condominio tiene 15 departamentos: pagas el mínimo de S/ 60.00 al mes.');
+    assert.equal(notaDelMinimo(1, 20, 'S/ 60.00'), 'Tu condominio tiene 1 departamento: pagas el mínimo de S/ 60.00 al mes.');
   });
 
-  it('sobre el mínimo: «Departamentos 1 al 20 · precio base», sin la nota', () => {
-    assert.deepEqual(etiquetas(21, PEN_SIN), ['Departamentos 1 al 20 · precio base', 'Departamento 21 · S/ 3.00']);
-    assert.equal(notaDelMinimo(21, 20), null);
+  it('igual o más que el mínimo: «N departamentos × S/ precio» y sin la nota', () => {
+    assert.deepEqual(etiquetas(20, PEN_SIN), ['20 departamentos × S/ 3.00']);
+    assert.deepEqual(etiquetas(21, PEN_SIN), ['21 departamentos × S/ 3.00']);
+    assert.equal(notaDelMinimo(20, 20, 'S/ 60.00'), null);
+    assert.equal(notaDelMinimo(21, 20, 'S/ 60.00'), null);
   });
 
-  it('con tramo: las filas dicen rango, cantidad y precio («40 × S/ 3.00», «190 × S/ 2.00»)', () => {
-    assert.deepEqual(etiquetas(250, PEN_TRAMO), ['Departamentos 1 al 20 · precio base', 'Departamentos 21 al 60 · 40 × S/ 3.00', 'Departamentos 61 al 250 · 190 × S/ 2.00']);
+  it('con tramo: las filas dicen rango, cantidad y precio («60 × S/ 3.00», «190 × S/ 2.00»)', () => {
+    assert.deepEqual(etiquetas(250, PEN_TRAMO), ['Departamentos 1 al 60 · 60 × S/ 3.00', 'Departamentos 61 al 250 · 190 × S/ 2.00']);
+  });
+
+  it('justo en el tramo: el 61 solo es «Departamento 61 · precio»', () => {
+    assert.deepEqual(etiquetas(61, PEN_TRAMO), ['Departamentos 1 al 60 · 60 × S/ 3.00', 'Departamento 61 · S/ 2.00']);
   });
 
   it('sin mínimo la nota no aplica; en pesos el precio sale con el formato de la moneda', () => {
-    assert.equal(notaDelMinimo(1, 0), null);
-    assert.deepEqual(etiquetas(100, CLP_TRAMO), ['Departamentos 1 al 20 · precio base', 'Departamentos 21 al 60 · 40 × $ 1900', 'Departamentos 61 al 100 · 40 × $ 1500']);
+    assert.equal(notaDelMinimo(1, 0, 'S/ 0.00'), null);
+    assert.deepEqual(etiquetas(100, CLP_TRAMO), ['Departamentos 1 al 60 · 60 × $ 1900', 'Departamentos 61 al 100 · 40 × $ 1500']);
   });
 });
 

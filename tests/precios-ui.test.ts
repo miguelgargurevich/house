@@ -50,7 +50,8 @@ describe('página de precios como oferta', () => {
       assert.ok(html.includes(dato), `falta «${dato}»`);
     }
     assert.match(html, /S\/ 0/, 'Gratis muestra cero');
-    assert.match(html, /Desde S\/\s*132\.09 al mes \+ IGV, incluye hasta 17 departamentos; desde el 18, S\/\s*7\.77 cada uno\./, 'el precio base de Pro y lo que incluye salen del catálogo');
+    assert.match(html, /Desde S\/\s*132\.09 al mes \+ IGV\./, 'el mínimo de Pro en soles sale del catálogo');
+    assert.doesNotMatch(html, /incluye hasta|desde el 18/, 'sin «incluye hasta» ni «desde el 18»: el mínimo se dice sólo en soles');
   });
 
   it('los botones: Gratis «Crear cuenta gratis», Pro «Empezar con Torre Pro» y, debajo, «Ver mi total»; Administradora sólo «Ver mi total» (a la calculadora)', () => {
@@ -93,11 +94,11 @@ describe('precio por tramos en /precios y en las pantallas de planes', () => {
   };
   const tarjeta = (html: string, nombre: string) => new RegExp(`<article[^>]*>(?:(?!</article>).)*<h3[^>]*>${nombre}</h3>.*?</article>`).exec(html)?.[0] ?? '';
 
-  it('la tarjeta de Pro y la de Administradora meten el tramo en la frase del precio base («del 18 al 40 … ; desde el 41 …»), tomado del catálogo', () => {
+  it('la tarjeta de Pro y la de Administradora dicen el mínimo en soles y el tramo («; desde el departamento 41, S/ 3.33 cada uno»), tomado del catálogo', () => {
     const html = enRuta(createElement(Planes, { cat: catTramos(), onCalcular: () => undefined }));
-    assert.match(tarjeta(html, 'Pro'), /Desde S\/\s*132\.09 al mes \+ IGV, incluye hasta 17 departamentos; del 18 al 40, S\/\s*7\.77 cada uno; desde el 41, S\/\s*3\.33\./);
-    assert.match(tarjeta(html, 'Administradora'), /incluye hasta 17 departamentos; del 18 al 30, S\/\s*5\.55 cada uno; desde el 31, S\/\s*2\.22\./);
-    assert.equal((tarjeta(html, 'Pro').match(/desde el 41/g) ?? []).length, 1, 'el tramo se dice una sola vez en la tarjeta (no hay una línea aparte debajo del precio)');
+    assert.match(tarjeta(html, 'Pro'), /Desde S\/\s*132\.09 al mes \+ IGV; desde el departamento 41, S\/\s*3\.33 cada uno\./);
+    assert.match(tarjeta(html, 'Administradora'), /Desde S\/\s*94\.35 al mes \+ IGV; desde el departamento 31, S\/\s*2\.22 cada uno\./);
+    assert.equal((tarjeta(html, 'Pro').match(/desde el departamento 41/g) ?? []).length, 1, 'el tramo se dice una sola vez en la tarjeta (no hay una línea aparte debajo del precio)');
   });
 
   it('con los valores de fábrica (Pro 3.00 y 61 a 2.00; Administradora 2.50 y 61 a 1.70) la tarjeta dice exactamente lo que pidió Miguel', () => {
@@ -108,21 +109,20 @@ describe('precio por tramos en /precios y en las pantallas de planes', () => {
         ? { ...p, precio_por_unidad: '2.50', unidades_minimas: 20, total_minimo_mes: '50.00', tramo_desde: 61, tramo_precio: '1.70' }
         : p));
     const html = enRuta(createElement(Planes, { cat: c, onCalcular: () => undefined }));
-    assert.match(tarjeta(html, 'Pro'), /Desde S\/\s*60\.00 al mes \+ IGV, incluye hasta 20 departamentos; del 21 al 60, S\/\s*3\.00 cada uno; desde el 61, S\/\s*2\.00\./);
-    assert.match(tarjeta(html, 'Administradora'), /Desde S\/\s*50\.00 al mes \+ IGV, incluye hasta 20 departamentos; del 21 al 60, S\/\s*2\.50 cada uno; desde el 61, S\/\s*1\.70\./);
+    assert.match(tarjeta(html, 'Pro'), /Desde S\/\s*60\.00 al mes \+ IGV; desde el departamento 61, S\/\s*2\.00 cada uno\./);
+    assert.match(tarjeta(html, 'Administradora'), /Desde S\/\s*50\.00 al mes \+ IGV; desde el departamento 61, S\/\s*1\.70 cada uno\./);
   });
 
-  it('la frase del tramo con bordes: tramo pegado al precio base, de un solo departamento, sin tramo, sin mínimo y sin precio', async () => {
-    const { despuesDelPrecioBase } = await import('../src/pages/publico/precios/tramo');
+  it('la frase del tramo de la tarjeta: sólo el tramo (desde el departamento N), sin tramo, con un solo campo, desde el 1 o sin precio', async () => {
+    const { tramoDeTarjeta } = await import('../src/pages/publico/precios/tramo');
     const f = (monto: string) => `S/ ${monto}`;
-    const base = cat().planes.find(p => p.clave === 'pro')!; // mínimo 17, precio 7.77
-    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 61, tramo_precio: '2.00' }, 'PEN', f), '; del 18 al 60, S/ 7.77 cada uno; desde el 61, S/ 2.00');
-    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 19, tramo_precio: '2.00' }, 'PEN', f), '; el 18, S/ 7.77 cada uno; desde el 19, S/ 2.00');
-    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 18, tramo_precio: '2.00' }, 'PEN', f), '; desde el 18, S/ 2.00 cada uno');
-    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: null, tramo_precio: null }, 'PEN', f), '; desde el 18, S/ 7.77 cada uno');
-    assert.equal(despuesDelPrecioBase({ ...base, tramo_desde: 61, tramo_precio: null }, 'PEN', f), '; desde el 18, S/ 7.77 cada uno', 'con sólo uno de los dos campos no hay tramo');
-    assert.equal(despuesDelPrecioBase({ ...base, unidades_minimas: null }, 'PEN', f), '');
-    assert.equal(despuesDelPrecioBase({ ...base, precio_por_unidad: null }, 'PEN', f), '');
+    const base = cat().planes.find(p => p.clave === 'pro')!; // precio 7.77
+    assert.equal(tramoDeTarjeta({ ...base, tramo_desde: 61, tramo_precio: '2.00' }, 'PEN', f), '; desde el departamento 61, S/ 2.00 cada uno');
+    assert.equal(tramoDeTarjeta({ ...base, tramo_desde: 2, tramo_precio: '2.00' }, 'PEN', f), '; desde el departamento 2, S/ 2.00 cada uno', 'desde el 2 ya es un tramo');
+    assert.equal(tramoDeTarjeta({ ...base, tramo_desde: null, tramo_precio: null }, 'PEN', f), '', 'sin tramo, nada');
+    assert.equal(tramoDeTarjeta({ ...base, tramo_desde: 61, tramo_precio: null }, 'PEN', f), '', 'con sólo uno de los dos campos no hay tramo');
+    assert.equal(tramoDeTarjeta({ ...base, tramo_desde: 1, tramo_precio: '2.00' }, 'PEN', f), '', 'un tramo desde el 1 no existe (igual que el servidor)');
+    assert.equal(tramoDeTarjeta({ ...base, precio_por_unidad: null }, 'PEN', f), '', 'sin precio en la moneda no hay tramo');
   });
 
   it('Gratis y un plan sin tramo no dicen nada de tramos', () => {

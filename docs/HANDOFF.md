@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Frase de precio: sólo el mínimo en soles, sin «incluye hasta 20 / desde el 21» (Claude Code, Haiku 5.5, delegado por Opus) — push: no
+
+- Pedido de Miguel: no le quedaba claro si el departamento 21 paga 1.50 en Torre Básico. Rama `fix/frase-precio` (sobre origin/main a5ff59d), base de pruebas `house_test_frase`. El cobro NO cambió: cada depto paga el precio del plan y el condominio paga como mínimo `unidades_minimas`. Sólo cambió el texto.
+- **Qué cambia**: tarjetas (`textoTope`): «Desde S/ 30.00 al mes + IGV.» y, con tramo, «; desde el departamento 61, S/ 2.00 cada uno.». Comparativa: «Torre Básico: desde S/ 30.00 al mes por condominio.». FAQ «¿Y si mi edificio tiene pocos departamentos?» y «¿Qué es Básico?» sin «incluye hasta». Calculadora: con ≥ mínimo, «N departamentos × S/ p» (o dos filas por tramo); con < mínimo, «Monto mínimo del plan» y «Tu condominio tiene 15 departamentos: pagas el mínimo de S/ 60.00 al mes.». Manual: filas de planes y «Elige Básico».
+- **Código**: `tramo.ts` quita `despuesDelPrecioBase` y el corte por mínimo en `desglosar`; agrega `tramoDeTarjeta`; `notaDelMinimo(n, minimo, montoMinimo)`; `FilaDesglose` ya no tiene `base`. API y `calculo.ts` sin cambios.
+- **Pruebas**: se ajustaron `precios-ui`, `precios-publico` y `recibo-desglose` a las frases nuevas (sin debilitar aserciones) y se agregó la de «no vuelve incluye hasta / desde el 18 o 21» en toda la página. `precios-ui`, `precios-publico`, `recibo-desglose` y `seo-publico`: 144/144 en verde. `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit`: sin errores.
+- **Gotchas**: `desglosar` con tramo que empieza ≤ al mínimo (no pasa hoy: el tramo es 61) muestra filas con el precio del tramo pero la etiqueta no lo explica. La tarjeta sin `total_minimo_mes` ya no dice nada del mínimo (antes decía «incluye hasta N»).
+- **Suite completa** (`npm test`, base `house_test_frase`): 3423 tests, 3421 pasan, 2 fallan (`permisos.test.ts` «password_hash nunca sale» y `reservas.test.ts` «dos pedidos a la vez»); ambos pasan solos (21/21 y 38/38): intermitentes, no los toca este cambio. `npm run build` sin errores.
+- **Mutaciones**: «desde el 21» de vuelta en la FAQ → rojo (1 fallo) tras cerrar un hueco (la FAQ no estaba en la prueba de página); desglose con +1 centavo por fila → rojo (39 fallos). Restauradas con `cp` + `cmp`.
+- **Pendiente**: que Miguel mire la frase en /precios antes de subir. Push no hecho.
+
 ## 2026-10-31 — Todos los países menos Perú cobran en dólares al tipo de cambio (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel: «corrige los precios para otros paises, que sean en dolares al tipo de cambio» (tipo de cambio «automático editable»; «todos menos Perú»). Rama `feat/precios-usd` (sobre origin/main d109a2c), base de pruebas `house_test_usd`.
