@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-10-31 — Lecturas de agua sólo de la administración (Claude Code, Haiku 5.5, delegado por Opus) — push: no
+
+- Pedido de Miguel: «Las lecturas de agua las realiza el personal de administración no lo hace el tesorero». Rama `fix/agua-solo-admin` (sobre origin/main 1cf592d), base de pruebas `house_test_agua`.
+- **Qué cambia**: todas las rutas de `src/server/routes/agua.ts` (lecturas, plantilla, Excel, borrar, foto GET/PUT/DELETE y `PUT /:id/datos`) pasan de `adminOJunta` a `soloAdmin` (nuevo en `recibos.ts`: admin de su empresa o superadmin). La junta → 403.
+- **Junta sin foto**: el detalle del mantenimiento (vista completa) y la impresión del block (`/consolidado/impresion`) siguen trayendo el bloque `agua` a la junta, pero `foto_url` va en `null` (`sinFotoParaJunta` en `recibos.ts`). Sin esto la junta vería miniaturas rotas (403).
+- **Front**: quitado «Lecturas de agua» del menú de la junta, el enlace de «Pagos por validar» y `src/pages/junta/Agua.tsx` (borrado). `/junta/agua` redirige a «Mi junta»; quitada de `RUTAS_JUNTA` (asistente).
+- **Docs**: `docs/API-CONTRATO.md` (permisos de agua, foto en null para la junta) y `docs/manual/manual-house.json` (sección movida a «Administradora · Recibos»; fila de la junta sin «cargas el agua»; se quitó la imagen de la pantalla de la junta).
+- **Pruebas**: se ajustan `agua-lecturas`, `agua-ui`, `comunicados-ui`, `solo-lectura` y `asistente` (la lista de rutas excluye la redirección `/junta/agua`). Suite completa en `house_test_agua`: 3424/3424 en verde (última corrida). Mutaciones: quitar la junta de `soloAdmin` → 6 pruebas rojas; quitar el filtro de `foto_url` → 2 rojas. Una corrida intermedia tuvo 28 canceladas por un 401 intermitente en `impuesto-pais.test.ts` (pasa aislado 28/28); es de orden entre archivos, no de estos cambios.
+- **Próximos pasos**: Opus revisa, integra y sube (push sólo con OK de Miguel). Revisar a mano en la app que la junta ya no ve la foto ni la pantalla.
+- **Gotchas**: `prisma db push` sin `--skip-generate` regenera el cliente dentro de `node_modules` (enlace al checkout principal). Usar `--skip-generate`. Quedan menciones de «Lecturas de agua» como pantalla de la junta fuera del alcance (`docs/EXCEL-RECIBOS.md`, `docs/marketing/guiones-videos.md`): no tocadas.
+
 ## 2026-10-31 — Frase de precio: sólo el mínimo en soles, sin «incluye hasta 20 / desde el 21» (Claude Code, Haiku 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel: no le quedaba claro si el departamento 21 paga 1.50 en Torre Básico. Rama `fix/frase-precio` (sobre origin/main a5ff59d), base de pruebas `house_test_frase`. El cobro NO cambió: cada depto paga el precio del plan y el condominio paga como mínimo `unidades_minimas`. Sólo cambió el texto.

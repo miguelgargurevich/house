@@ -1,6 +1,6 @@
 import type { ComponentType, SVGProps } from 'react';
 import {
-  BeakerIcon, ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
+  ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
   SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon, ArrowsRightLeftIcon,
@@ -124,7 +124,6 @@ const JUNTA: NavGroup = {
     { to: '/junta/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
     { to: '/junta/pagos', label: 'Pagos por validar', icon: BanknotesIcon },
     { to: '/junta/cierre', label: 'Cierre del mes', icon: CalendarDaysIcon },
-    { to: '/junta/agua', label: 'Lecturas de agua', icon: BeakerIcon },
     { to: '/junta/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
     { to: '/junta/proveedores', label: 'Proveedores', icon: TruckIcon },
   ],

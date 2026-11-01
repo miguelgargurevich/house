@@ -31,7 +31,7 @@
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
-            "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago, cargas el agua y cierras el mes del block",
+            "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
             "Secciones 19 a 24"
           ],
           [
@@ -186,6 +186,21 @@
         "**Imprimir recibos del block** saca el recibo de cada vecino listo para repartir."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-consolidado.jpg"
+    },
+    {
+      "titulo": "Lecturas de agua del recibo",
+      "etiqueta": "Administradora · Recibos",
+      "numerada": [
+        "Abre el recibo del mes y ve a la pestaña **Agua y datos del recibo**.",
+        "Si quieres, anota la **fecha de corte del agua**: sale en el recibo impreso.",
+        "Escribe el **factor** (S/ por m³) y pulsa **Aplicar a todas las filas**.",
+        "Escribe la lectura actual de cada departamento, o pulsa **Descargar plantilla**, llénala y usa **Subir Excel o CSV**.",
+        "Pulsa **Guardar lecturas**."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Las lecturas de agua las carga sólo la administración; la junta del block no las edita. La lectura anterior sale sola de la del mes previo. Si el agua que cobra el recibo no cuadra con la lectura, la fila te avisa. Las lecturas no cambian ningún monto del recibo."
+      }
     },
     {
       "titulo": "Avisar a los vecinos",
@@ -364,22 +379,6 @@
         "Aquí mantienes al día la cuenta, el Yape o el Plin donde pagan tus vecinos. Con **Agregar medio de pago** sumas uno (si tiene QR, súbelo) y con el interruptor lo activas o lo ocultas. Los vecinos lo ven en su recibo y en Mi junta."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-medios.jpg"
-    },
-    {
-      "titulo": "Lecturas de agua",
-      "etiqueta": "Junta directiva",
-      "numerada": [
-        "Entra a **Lecturas de agua** y elige el recibo del mes.",
-        "Si quieres, anota la **fecha de corte** y el **correo del block**: salen en el recibo impreso.",
-        "Escribe el **factor** (S/ por m³) y pulsa **Aplicar a todas las filas**.",
-        "Escribe la lectura actual de cada departamento, o pulsa **Descargar plantilla**, llénala y usa **Subir Excel o CSV**.",
-        "Pulsa **Guardar lecturas**."
-      ],
-      "aviso": {
-        "tipo": "nota",
-        "texto": "La lectura anterior sale sola de la del mes previo. Si el agua que cobra el recibo no cuadra con la lectura, la fila te avisa. Las lecturas no cambian ningún monto del recibo."
-      },
-      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-agua.jpg"
     },
     {
       "titulo": "Cierre del mes del block",

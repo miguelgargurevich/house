@@ -1,7 +1,7 @@
 // Pantallas de lecturas de agua y de datos del recibo: el repo no pinta pantallas en las pruebas, así que se fija con la fuente lo que importa
 // (dónde está cada cosa, a qué ruta habla y los topes del cliente). El comportamiento de la API lo cubren agua-lecturas y recibo-datos.
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 const f = (ruta: string) => readFileSync(`src/pages/${ruta}`, 'utf8');
@@ -68,12 +68,14 @@ describe('datos del recibo en las fichas', () => {
   });
 });
 
-describe('junta: lecturas de agua de su torre', () => {
-  it('hay ruta /junta/agua dentro de RequireJunta y la pantalla de pagos de la junta enlaza a ella', () => {
+describe('junta: sin lecturas de agua (las carga sólo la administración)', () => {
+  it('/junta/agua redirige a Mi junta (sin pantalla), Pagos no enlaza a ella y la pantalla de la junta ya no existe', () => {
     const junta = app.slice(app.indexOf('<RequireJunta />'), app.indexOf('<RequireRole roles={[\'propietario\']}'));
-    assert.match(junta, /path="\/junta\/agua" element=\{<JuntaAgua \/>\}/);
-    assert.match(f('admin/Pagos.tsx'), /junta && <Link to="\/junta\/agua"/);
-    assert.match(f('junta/Agua.tsx'), /<AguaRecibo key=\{reciboId\} reciboId=\{reciboId\}/);
+    assert.match(junta, /path="\/junta\/agua" element=\{<Navigate to="\/junta\/mi-junta" replace \/>\}/);
+    assert.doesNotMatch(app, /JuntaAgua/);
+    assert.doesNotMatch(f('admin/Pagos.tsx'), /\/junta\/agua/);
+    assert.equal(existsSync('src/pages/junta/Agua.tsx'), false);
+    assert.match(f('admin/PeriodoRecibo.tsx'), /<AguaRecibo reciboId=\{reciboId\}/, 'la administración sigue con la pantalla del agua');
   });
 });
 
