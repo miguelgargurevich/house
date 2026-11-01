@@ -11,6 +11,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - Secciones: hero · frase con fichas de interfaz · «Cómo funciona» con deslizador de 4 pasos (recibo, voucher, validación, banco) · control grande «Una junta / Junta por block» · una pantalla por rol · precios vivos (escribes cuántos departamentos y `/api/publico/cotizar` da el total del plan elegido) · preguntas (`<details name>`) · cierre.
 - Capturas en `public/portada/*.webp`, sacadas de `.claude/manual/capturas` (seed Los Libertadores; Miguel enmascarado). Sin testimonios ni cifras de clientes.
 - Textos en `PORTADA` y `preguntasPortada()` (`src/lib/seo/textos.ts`); el HTML para buscadores (`cuerpoPortada(ctx)` en `src/server/seo/paginas.ts`) usa los mismos. `tests/seo-publico.test.ts` comprueba pasos, roles, preguntas y juntas.
+- `.taste-skill/` (salida del inspector de la skill de diseño) va en `.gitignore`: es de trabajo, no se commitea.
 - Verificado: inspector de diseño 0 FAIL (avisos: sin video; el pie de 12 px del marco compartido), claro y oscuro a 1366 y 390 px sin desborde.
 
 ---
