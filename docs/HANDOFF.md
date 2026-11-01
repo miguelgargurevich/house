@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-01 — Coolify: proyecto y apps renombrados a Torre (Claude Code, Opus 5.5) — push: no
+
+- Pedido de Miguel: «Hay que cambiar el nombre en coolify de House a Torre». Proyecto `House` → `Torre`; app `house` → `torre` (uuid `b4goasky4jvdduzpyiless2z`); app `house-ocr` → `torre-ocr` (uuid `m07uar2fuca4qp4pqbgrowwf`). Sólo nombres visibles (vía `php artisan tinker` en el contenedor `coolify`).
+- Gotcha: NO se cambió el alias de red `house-ocr` (lo usa `OCR_DESTINOS_INTERNOS` → `http://house-ocr:5050`) ni el dominio `house.gargurevich.dev`. Para desplegar, usar siempre el uuid.
+
+---
+
 ## 2026-11-01 — Landing completa en la portada `/` (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: «Sí, constrúyela» (convertir la portada fina en una landing completa dentro de la app). Hecho con la skill de diseño (dirección «one motif», paleta y tipografía de Torre).
