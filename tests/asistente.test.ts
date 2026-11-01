@@ -831,7 +831,10 @@ describe('contexto verificado por rol', () => {
     // Pantallas sin sesión (login, registro, precios, verificación del correo, invitación, términos y privacidad): el asistente sólo trabaja con usuarios dentro.
     const PUBLICAS = ['/login', '/registro', '/precios', '/verificar-correo', '/invitacion', '/privacidad', '/terminos'];
     const app = fs.readFileSync('src/App.tsx', 'utf8');
-    const reales = new Set([...app.matchAll(/path="(\/[^"*]+)"/g)].map((m) => m[1]).filter((r) => !PUBLICAS.includes(r)));
+    // Redirecciones (no son pantallas): el asistente no las ofrece; sólo deben seguir redirigiendo.
+    const REDIRECCIONES = ['/junta/agua'];
+    for (const r of REDIRECCIONES) assert.match(app, new RegExp(`path="${r}" element=\\{<Navigate to="[^"]+" replace />\\}`));
+    const reales = new Set([...app.matchAll(/path="(\/[^"*]+)"/g)].map((m) => m[1]).filter((r) => !PUBLICAS.includes(r) && !REDIRECCIONES.includes(r)));
     for (const r of TODAS_LAS_RUTAS) assert.ok(reales.has(r), `${r} no existe en App.tsx`);
     for (const r of reales) assert.ok(TODAS_LAS_RUTAS.includes(r), `${r} existe en App.tsx pero el asistente no lo conoce`);
     assert.ok(RUTAS_JUNTA.every((r) => reales.has(r)));

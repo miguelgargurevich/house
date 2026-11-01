@@ -331,46 +331,39 @@ describe('lecturas: alcance', () => {
     assert.equal((await crudo('PUT', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.adminB, PNG)).status, 404);
   });
 
-  it('la junta de un block sólo alcanza su block: ve y carga el suyo; el de otra torre es 404', async () => {
-    const mio = await llamar(base, 'GET', `/api/recibos/${ids.rOct}/agua`, T.presi1);
-    assert.equal(mio.status, 200, mio.texto);
-    assert.equal(mio.body.items.length, 4);
-    assert.equal((await guardar(T.presi1, ids.rOct, [lect(ids.u804)])).body.guardadas, 1);
-    // la junta del Block 2 no ve ni toca el recibo del Block 1…
-    assert.equal((await llamar(base, 'GET', `/api/recibos/${ids.rOct}/agua`, T.presi2)).status, 404);
-    assert.equal((await guardar(T.presi2, ids.rOct, [lect(ids.u804, { lectura_actual: '1500.000' })])).status, 404);
-    assert.equal((await subir(T.presi2, ids.rOct, hoja([ENC, ['804', '10/09/2026', 1, '10/10/2026', 2, 4.93]]))).status, 404);
-    assert.equal((await crudo('DELETE', `/api/recibos/${ids.rOct}/agua/${ids.u804}`, T.presi2)).status, 404);
-    // …ni cuela un departamento ajeno dentro de su propio recibo
-    const colado = await guardar(T.presi2, ids.rOct2, [lect(ids.u804)]);
-    assert.equal(colado.body.guardadas, 0);
+  it('la junta de un block NO carga el agua: 403 en lista, guardar, importar y quitar, también en su propio block', async () => {
+    for (const t of [T.presi1, T.presi2]) {
+      assert.equal((await llamar(base, 'GET', `/api/recibos/${ids.rOct}/agua`, t)).status, 403);
+      assert.equal((await guardar(t, ids.rOct, [lect(ids.u804, { lectura_actual: '1500.000' })])).status, 403);
+      assert.equal((await subir(t, ids.rOct, hoja([ENC, ['804', '10/09/2026', 1, '10/10/2026', 2, 4.93]]))).status, 403);
+      assert.equal((await crudo('DELETE', `/api/recibos/${ids.rOct}/agua/${ids.u804}`, t)).status, 403);
+    }
     assert.equal((await prisma.lecturaAgua.findFirstOrThrow({ where: { recibo_id: ids.rOct, unidad_id: ids.u804 } })).lectura_actual.toFixed(3), '1430.897', 'la lectura del Block 1 sigue como estaba');
   });
 
-  it('en un recibo general (sin torre) la junta de un block sólo ve y carga los departamentos de SU block', async () => {
-    const lista = await llamar(base, 'GET', `/api/recibos/${ids.rGen}/agua`, T.presi1);
-    assert.equal(lista.status, 200, lista.texto);
-    assert.deepEqual(lista.body.items.map((x: any) => x.unidad.codigo), ['B01-804']); // eslint-disable-line @typescript-eslint/no-explicit-any
-    const r = await guardar(T.presi1, ids.rGen, [lect(ids.u804), lect(ids.u201)]);
-    assert.equal(r.body.guardadas, 1);
-    assert.match(r.body.errores[0].mensaje, /no pertenece a este recibo/);
-    assert.equal(await prisma.lecturaAgua.count({ where: { recibo_id: ids.rGen, unidad_id: ids.u201 } }), 0, 'el departamento de la otra torre no se tocó');
+  it('en un recibo general (sin torre) la junta no ve ni carga nada (403); la administración sí ve las dos torres', async () => {
+    assert.equal((await llamar(base, 'GET', `/api/recibos/${ids.rGen}/agua`, T.presi1)).status, 403);
+    assert.equal((await guardar(T.presi1, ids.rGen, [lect(ids.u804)])).status, 403);
+    assert.equal(await prisma.lecturaAgua.count({ where: { recibo_id: ids.rGen, unidad_id: ids.u804 } }), 0, 'nada se guardó');
     const admin = await llamar(base, 'GET', `/api/recibos/${ids.rGen}/agua`, T.adminA);
     assert.equal(admin.body.items.length, 2, 'la administración sí ve las dos torres');
   });
 
-  it('los residentes no cargan ni leen la lista de lecturas (403)', async () => {
+  it('los residentes y la junta no cargan ni leen la lista de lecturas (403)', async () => {
     assert.equal((await llamar(base, 'GET', `/api/recibos/${ids.rOct}/agua`, T.prop804)).status, 403);
+    assert.equal((await llamar(base, 'GET', `/api/recibos/${ids.rOct}/agua`, T.presi1)).status, 403);
     assert.equal((await guardar(T.prop804, ids.rOct, [lect(ids.u804)])).status, 403);
     assert.equal((await crudo('PUT', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.prop804, PNG)).status, 403);
   });
 });
 
 describe('foto del contómetro', () => {
-  it('sube, la ven el admin, la junta del block y SOLO el dueño del departamento; se puede quitar', async () => {
+  it('sube y la ve sólo la administración; la junta no (403); el dueño, sólo por su ruta de residente; se puede quitar', async () => {
     const sube = await crudo('PUT', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.adminA, PNG);
     assert.equal(sube.status, 200, await sube.clone().text());
-    for (const t of [T.adminA, T.presi1]) {
+    assert.equal((await crudo('GET', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.presi1)).status, 403, 'la junta no ve la foto');
+    assert.equal((await crudo('PUT', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.presi1, PNG)).status, 403, 'ni la sube');
+    for (const t of [T.adminA]) {
       const r = await crudo('GET', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, t);
       assert.equal(r.status, 200);
       assert.equal(r.headers.get('content-type'), 'image/png');
@@ -382,7 +375,7 @@ describe('foto del contómetro', () => {
     assert.deepEqual(Buffer.from(await propia.arrayBuffer()), PNG);
     // otro residente, otra junta, otra empresa: 404, sin revelar que existe
     assert.equal((await crudo('GET', `/api/me/mantenimientos/${ids.rOct}/${ids.u804}/agua/foto`, T.prop805)).status, 404);
-    assert.equal((await crudo('GET', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.presi2)).status, 404);
+    assert.equal((await crudo('GET', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.presi2)).status, 403);
     assert.equal((await crudo('GET', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.adminB)).status, 404);
     // el listado y el detalle no arrastran los bytes
     const lista = await llamar(base, 'GET', `/api/recibos/${ids.rOct}/agua`, T.adminA);
@@ -408,16 +401,34 @@ describe('foto del contómetro', () => {
 });
 
 describe('fecha de corte del agua', () => {
-  it('la fija la administración o la junta de ese block, sale en el detalle del mantenimiento y se puede quitar', async () => {
-    const r = await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.presi1, { fecha_corte_agua: '2026-11-10' });
+  it('la fija sólo la administración (la junta y el residente, 403); sale en el detalle del mantenimiento y se puede quitar', async () => {
+    assert.equal((await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.presi1, { fecha_corte_agua: '2026-12-01' })).status, 403);
+    assert.equal((await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.presi2, { fecha_corte_agua: '2026-12-01' })).status, 403);
+    assert.equal((await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.prop804, { fecha_corte_agua: '2026-12-01' })).status, 403);
+    const r = await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.adminA, { fecha_corte_agua: '2026-11-10' });
     assert.equal(r.status, 200, r.texto);
     const det = await llamar(base, 'GET', `/api/me/mantenimientos/${ids.rOct}/${ids.u804}`, T.prop804);
     assert.equal(det.body.fecha_corte_agua.slice(0, 10), '2026-11-10');
-    assert.equal((await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.presi2, { fecha_corte_agua: '2026-12-01' })).status, 404);
-    assert.equal((await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.prop804, { fecha_corte_agua: '2026-12-01' })).status, 403);
     assert.equal((await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.adminA, { fecha_corte_agua: 'pronto' })).status, 422);
     assert.equal((await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.adminA, { fecha_corte_agua: null })).body.fecha_corte_agua, null);
     await llamar(base, 'PUT', `/api/recibos/${ids.rOct}/datos`, T.adminA, { fecha_corte_agua: '2026-11-10' });
+  });
+
+  it('la junta ve la lectura en el detalle del mantenimiento y en la impresión, pero sin foto (foto_url null); la administración sí', async () => {
+    assert.equal((await crudo('PUT', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.adminA, PNG)).status, 200);
+    const jun = await llamar(base, 'GET', `/api/recibos/${ids.rOct}/mantenimientos/${ids.u804}`, T.presi1);
+    assert.equal(jun.status, 200, jun.texto);
+    assert.ok(jun.body.agua.lectura_actual != null, 'la lectura sí viene (consumo y monto, sin foto)');
+    assert.equal(jun.body.agua.tiene_foto, true);
+    assert.equal(jun.body.agua.foto_url, null, 'la junta no recibe el enlace de la foto');
+    const adm = await llamar(base, 'GET', `/api/recibos/${ids.rOct}/mantenimientos/${ids.u804}`, T.adminA);
+    assert.match(adm.body.agua.foto_url, /\/foto\?v=/);
+    const imp = await llamar(base, 'GET', `/api/recibos/${ids.rOct}/consolidado/impresion`, T.presi1);
+    assert.equal(imp.status, 200, imp.texto);
+    assert.ok(imp.body.recibos.length > 0 && imp.body.recibos.every((d: any) => d.agua === null || d.agua.foto_url === null), 'ninguna foto en la impresión de la junta'); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const impA = await llamar(base, 'GET', `/api/recibos/${ids.rOct}/consolidado/impresion`, T.adminA);
+    assert.ok(impA.body.recibos.some((d: any) => d.agua?.foto_url), 'la administración sí tiene la foto en la impresión'); // eslint-disable-line @typescript-eslint/no-explicit-any
+    await crudo('DELETE', `/api/recibos/${ids.rOct}/agua/${ids.u804}/foto`, T.adminA);
   });
 });
 

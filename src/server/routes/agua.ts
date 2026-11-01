@@ -1,6 +1,7 @@
 /**
  * Datos del recibo de una torre que se cargan aparte del Excel de cargos: lecturas de agua por departamento (a mano o con un Excel/CSV), la foto
- * del contómetro y la fecha de corte del agua. Los hace la administración o la junta del block (alcance: `recibosDe` / `unidadesDe`).
+ * del contómetro y la fecha de corte del agua. Los hace SÓLO la administración (su empresa, y el superadmin): la junta del block no los carga
+ * (ni los lee ni los cambia; 403). Alcance dentro de la administración: `recibosDe` / `unidadesDe`.
  * Se monta en `/api/recibos`, antes del router de recibos.
  */
 import { Prisma } from '@prisma/client';
@@ -13,7 +14,7 @@ import { currentUser } from '../middleware/auth';
 import { aguaDelRecibo, filasDePlantilla, guardarLecturas, importarLecturas, type EntradaLectura } from '../services/agua';
 import { enviarImagen, imagenCruda, verificarImagen } from '../services/imagenes';
 import { fechaSchema, idSchema, parse, parseBody, parseId, z } from '../validation';
-import { adminOJunta, reciboAccesible, recibosDe, unidadesDe } from './recibos';
+import { reciboAccesible, recibosDe, soloAdmin, unidadesDe } from './recibos';
 import { complejoDeRecibo, exigirOperativo } from '../services/comercial/operativo';
 
 export const aguaRouter = Router();
@@ -50,13 +51,13 @@ const lecturaSchema = z
 const lecturasSchema = z.strictObject({ lecturas: z.array(lecturaSchema).min(1, 'Envía al menos una lectura').max(500, 'Máximo 500 lecturas por vez') });
 
 /** Lecturas del recibo: una fila por departamento con la lectura guardada, la precarga de la anterior y el cruce con el agua del recibo. */
-aguaRouter.get('/:id/agua', adminOJunta, async (req, res) => {
+aguaRouter.get('/:id/agua', soloAdmin, async (req, res) => {
   const u = currentUser(req);
   res.json(await aguaDelRecibo(parseId(req), { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u) }));
 });
 
 /** Plantilla Excel con los departamentos del recibo y la lectura y fecha anteriores ya puestas. */
-aguaRouter.get('/:id/agua/plantilla', adminOJunta, async (req, res) => {
+aguaRouter.get('/:id/agua/plantilla', soloAdmin, async (req, res) => {
   const u = currentUser(req);
   const filas = await filasDePlantilla(parseId(req), { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u) });
   res.set({
@@ -68,7 +69,7 @@ aguaRouter.get('/:id/agua/plantilla', adminOJunta, async (req, res) => {
 });
 
 /** Guarda lecturas (crea o reemplaza una por departamento). Lo que no cuadra se devuelve en `errores`; lo demás se guarda. */
-aguaRouter.put('/:id/agua', adminOJunta, async (req, res) => {
+aguaRouter.put('/:id/agua', soloAdmin, async (req, res) => {
   const u = currentUser(req);
   const id = parseId(req);
   const { lecturas } = parseBody(lecturasSchema, req);
@@ -97,7 +98,7 @@ const archivoDeLecturas: RequestHandler = async (req, res, next) => {
 };
 
 /** Carga las lecturas desde un Excel o CSV (plantilla de `GET …/agua/plantilla`). `factor` (opcional) completa las filas que no lo traen. */
-aguaRouter.post('/:id/agua/excel', adminOJunta, archivoDeLecturas, async (req, res) => {
+aguaRouter.post('/:id/agua/excel', soloAdmin, archivoDeLecturas, async (req, res) => {
   const u = currentUser(req);
   const id = parseId(req);
   if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
@@ -113,7 +114,7 @@ aguaRouter.post('/:id/agua/excel', adminOJunta, archivoDeLecturas, async (req, r
 });
 
 /** Quita la lectura de un departamento (y su foto). */
-aguaRouter.delete('/:id/agua/:unidadId', adminOJunta, async (req, res) => {
+aguaRouter.delete('/:id/agua/:unidadId', soloAdmin, async (req, res) => {
   const u = currentUser(req);
   const { id, unidadId } = parse(idsUnidad, req.params);
   await reciboAccesible(req, id, true);
@@ -141,13 +142,13 @@ const cargarLectura: RequestHandler = async (req, res, next) => {
   next();
 };
 
-aguaRouter.get('/:id/agua/:unidadId/foto', adminOJunta, cargarLectura, async (_req, res) => {
+aguaRouter.get('/:id/agua/:unidadId/foto', soloAdmin, cargarLectura, async (_req, res) => {
   const l = await prisma.lecturaAgua.findUnique({ where: { id: res.locals.lecturaId as number }, select: { foto_datos: true, foto_tipo_mime: true, foto_nombre: true } });
   if (!l?.foto_datos || !l.foto_tipo_mime) throw notFound('Foto');
   enviarImagen(res, { datos: l.foto_datos, tipo_mime: l.foto_tipo_mime, nombre: l.foto_nombre });
 });
 
-aguaRouter.put('/:id/agua/:unidadId/foto', adminOJunta, cargarLectura, imagenCruda, async (req, res) => {
+aguaRouter.put('/:id/agua/:unidadId/foto', soloAdmin, cargarLectura, imagenCruda, async (req, res) => {
   const img = verificarImagen(req);
   const l = await prisma.lecturaAgua.update({ where: { id: res.locals.lecturaId as number }, data: { foto_nombre: img.nombre, foto_tipo_mime: img.tipo_mime, foto_datos: img.datos }, select: { id: true, unidad_id: true, recibo_id: true } });
   res.locals.entidad = 'lectura_agua';
@@ -157,7 +158,7 @@ aguaRouter.put('/:id/agua/:unidadId/foto', adminOJunta, cargarLectura, imagenCru
   res.json({ ok: true });
 });
 
-aguaRouter.delete('/:id/agua/:unidadId/foto', adminOJunta, cargarLectura, async (_req, res) => {
+aguaRouter.delete('/:id/agua/:unidadId/foto', soloAdmin, cargarLectura, async (_req, res) => {
   const l = await prisma.lecturaAgua.update({ where: { id: res.locals.lecturaId as number }, data: { foto_nombre: null, foto_tipo_mime: null, foto_datos: null }, select: { id: true, unidad_id: true, recibo_id: true } });
   res.locals.entidad = 'lectura_agua';
   res.locals.entidadId = l.id;
@@ -169,8 +170,8 @@ aguaRouter.delete('/:id/agua/:unidadId/foto', adminOJunta, cargarLectura, async 
 // ---------- Fecha de corte del agua ----------
 const datosSchema = z.strictObject({ fecha_corte_agua: z.preprocess((v) => (v === '' ? null : v), fechaSchema.nullable()) });
 
-/** Fecha de corte del agua del recibo (opcional; `null` la quita). La administración y la junta de ese block. */
-aguaRouter.put('/:id/datos', adminOJunta, async (req, res) => {
+/** Fecha de corte del agua del recibo (opcional; `null` la quita). Sólo la administración. */
+aguaRouter.put('/:id/datos', soloAdmin, async (req, res) => {
   const id = parseId(req);
   const { fecha_corte_agua } = parseBody(datosSchema, req);
   await reciboAccesible(req, id, true);

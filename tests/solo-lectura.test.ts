@@ -109,7 +109,8 @@ describe('solo lectura: la administración no registra nada nuevo (409)', () => 
     await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { cargo_junta: 'presidente' } });
     try {
       bloqueada(await api(T.prop1, 'POST', `/api/recibos/${d.reciboVencidoA.id}/mantenimientos/${d.unidadA1.id}/pagos`, { metodo_pago: 'efectivo' }), MENSAJE_SOLO_LECTURA_VECINO);
-      bloqueada(await api(T.prop1, 'PUT', `/api/recibos/${d.reciboVencidoA.id}/agua`, { lecturas: [lectura(10)] }), MENSAJE_SOLO_LECTURA_VECINO);
+      // la junta ya no carga agua: 403 antes de mirar la solo lectura
+      assert.equal((await api(T.prop1, 'PUT', `/api/recibos/${d.reciboVencidoA.id}/agua`, { lecturas: [lectura(10)] })).status, 403);
       bloqueada(await api(T.prop1, 'POST', '/api/comunicados', { titulo: 'Corte', cuerpo: 'Texto del comunicado de la junta.' }), MENSAJE_SOLO_LECTURA_VECINO);
     } finally {
       await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { cargo_junta: null } });

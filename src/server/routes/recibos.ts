@@ -258,6 +258,15 @@ export const adminOJunta: RequestHandler = (req, _res, next) => {
   if (esAdmin(u) || ambitoJunta(u)) return next();
   throw forbidden();
 };
+/** Sólo la administración (su empresa y el superadmin): lo que la junta no carga ni cambia, p. ej. las lecturas de agua y la fecha de corte. */
+export const soloAdmin: RequestHandler = (req, _res, next) => {
+  if (esAdmin(currentUser(req))) return next();
+  throw forbidden();
+};
+/** La foto del contómetro es sólo de la administración (y del dueño del departamento, por su ruta de residente). A la junta le dejamos la lectura, sin el enlace que daría 403. */
+export function sinFotoParaJunta<T extends { agua: { foto_url: string | null } | null }>(detalle: T, u: AuthUser): T {
+  return esAdmin(u) || !detalle.agua ? detalle : { ...detalle, agua: { ...detalle.agua, foto_url: null } };
+}
 /** Recibos que alcanza: la administración por empresa; la junta, los de su torre (o los del condominio si no tiene torre). */
 export function recibosDe(u: AuthUser): Prisma.ReciboWhereInput {
   if (esAdmin(u)) return scopeRecibos(u);
@@ -405,9 +414,10 @@ router.get('/:id/consolidado/excel', adminOJunta, async (req, res) => {
 /** Para «Imprimir recibos del block»: el recibo de cada departamento (sin su historial de pagos) y el consolidado que va a continuación. */
 router.get('/:id/consolidado/impresion', adminOJunta, async (req, res) => {
   const id = parseId(req);
+  const u = currentUser(req);
   const r = await armarImpresion(id, alcanceConsolidado(req));
-  await registrarAuditoria({ usuario_id: currentUser(req).id, accion: 'imprimir_recibos_block', entidad: 'recibo', entidad_id: id, detalle: { mes: r.consolidado.mes, anio: r.consolidado.anio, block: r.consolidado.block, recibos: r.recibos.length }, ip: ipDe(req) });
-  res.set(SIN_CACHE).json(r);
+  await registrarAuditoria({ usuario_id: u.id, accion: 'imprimir_recibos_block', entidad: 'recibo', entidad_id: id, detalle: { mes: r.consolidado.mes, anio: r.consolidado.anio, block: r.consolidado.block, recibos: r.recibos.length }, ip: ipDe(req) });
+  res.set(SIN_CACHE).json({ ...r, recibos: r.recibos.map((d) => sinFotoParaJunta(d, u)) });
 });
 
 // ---------- Avisar a los vecinos que ya está el recibo (administración, o la junta de su block) ----------
@@ -480,7 +490,7 @@ const idsMant = z.object({ id: idSchema, unidadId: idSchema });
 router.get('/:id/mantenimientos/:unidadId', adminOJunta, async (req, res) => {
   const u = currentUser(req);
   const { id, unidadId } = parse(idsMant, req.params);
-  res.json(await detalleMantenimiento(id, unidadId, { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u), vista: 'completa' }));
+  res.json(sinFotoParaJunta(await detalleMantenimiento(id, unidadId, { reciboWhere: recibosDe(u), unidadWhere: unidadesDe(u), vista: 'completa' }), u));
 });
 
 const pagoMantenimiento = z.strictObject({
@@ -536,7 +546,7 @@ router.post('/:id/mantenimientos/:unidadId/pagos', adminOJunta, voucherOpcional,
     await iniciarEvaluacion(r.pago_id, 'subida').catch((err) => console.error('[evaluacion] no se pudo iniciar', err instanceof Error ? err.name : 'error'));
   }
   // El recibo ya se validó arriba: al cobrar la última unidad deja de tener deuda y `recibosDe` dejaría de alcanzarlo (404 tras haber cobrado).
-  res.status(201).json({ ...r, estado: voucher ? 'por_validar' : 'validado', con_voucher: voucher != null, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
+  res.status(201).json({ ...r, estado: voucher ? 'por_validar' : 'validado', con_voucher: voucher != null, mantenimiento: sinFotoParaJunta(await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }), u) });
 });
 
 const quitarMultaSchema = z.strictObject({ motivo: z.string({ error: 'El motivo es obligatorio' }).trim().min(5, 'Escribe un motivo de al menos 5 caracteres').max(300, 'Máximo 300 caracteres') });
