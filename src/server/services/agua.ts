@@ -17,7 +17,7 @@ import { correoEfectivo, selectCorreoBlock } from './juntas';
 
 const D = Prisma.Decimal;
 
-export interface UnidadAgua { id: number; codigo: string; propietario: string | null }
+export interface UnidadAgua { id: number; codigo: string; /** Block del departamento (para filtrar la tabla); null si no tiene. */ estructura_id: number | null; propietario: string | null }
 
 export interface LecturaVista {
   fecha_anterior: Date;
@@ -85,7 +85,7 @@ async function lecturasPrevias(unidadIds: number[], anio: number, mes: number) {
 async function unidadesDelRecibo(reciboId: number, unidadWhere: Prisma.UnidadWhereInput) {
   return prisma.unidad.findMany({
     where: { AND: [{ reciboConceptoUnidades: { some: { reciboConcepto: { recibo_id: reciboId } } } }, unidadWhere] },
-    select: { id: true, codigo: true, propietario: { select: { nombre: true } } },
+    select: { id: true, codigo: true, estructura_id: true, propietario: { select: { nombre: true } } },
     orderBy: [{ codigo: 'asc' }, { id: 'asc' }],
     take: 2000,
   });
@@ -121,7 +121,7 @@ export async function aguaDelRecibo(reciboId: number, o: { reciboWhere: Prisma.R
     const lectura = l ? vista(l) : null;
     const recibido = aguaRecibo.get(u.id) ?? null;
     return {
-      unidad: { id: u.id, codigo: u.codigo, propietario: u.propietario?.nombre ?? null },
+      unidad: { id: u.id, codigo: u.codigo, estructura_id: u.estructura_id, propietario: u.propietario?.nombre ?? null },
       lectura,
       anterior: previas.get(u.id) ?? null,
       agua_recibo: recibido?.toFixed(2) ?? null,

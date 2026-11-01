@@ -89,3 +89,15 @@ describe('vista del residente', () => {
     assert.match(det, /Contacto de la administración/);
   });
 });
+
+describe('filtro por block en Lecturas de agua y Juntas directivas', () => {
+  it('Lecturas de agua filtra los departamentos de la tabla por block y Juntas filtra las tarjetas', () => {
+    const agua = readFileSync('src/pages/admin/Agua.tsx', 'utf8');
+    assert.match(agua, /<Select label="Block" value=\{torre\}/);
+    assert.match(agua, /<AguaRecibo key=\{reciboId\} reciboId=\{reciboId\} torre=\{torre\} \/>/);
+    const tabla = readFileSync('src/pages/admin/_parts/agua/AguaRecibo.tsx', 'utf8');
+    assert.match(tabla, /filter\(f => !torre \|\| String\(f\.unidad\.estructura_id \?\? ''\) === torre\)/);
+    const juntas = readFileSync('src/pages/admin/Juntas.tsx', 'utf8');
+    assert.match(juntas, /FiltroSelect label=\{`Filtrar por \$\{palabra\}`\}/);
+  });
+});

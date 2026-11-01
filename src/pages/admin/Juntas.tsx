@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
-import { useCondominio } from '../../app/condominio';
+import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useResource } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
-import { Alert, Button, EmptyState, PageHeader, Skeleton } from '../../ui';
+import { Alert, Button, Card, EmptyState, PageHeader, Skeleton, Toolbar } from '../../ui';
+import { FiltroSelect } from './_parts/catalogo/FiltroSelect';
 import { HistorialModal } from './_parts/juntas/HistorialModal';
 import { JuntaCard } from './_parts/juntas/JuntaCard';
 import { JuntaFormModal } from './_parts/juntas/JuntaFormModal';
@@ -38,7 +39,12 @@ export default function Juntas() {
   const hayJuntaDelCondominio = items.some(i => i.estructura === null && i.complejo.id === complejoElegido?.id);
   // Junta única (el condominio sólo tiene la junta de todo el condominio): la pantalla no muestra blocks «Sin junta» a su junta.
   const unica = complejoElegido?.junta_unica === true;
-  const visibles = esJunta && unica ? items.filter(i => i.estructura === null) : items;
+  const [torre, setTorre] = useTorreElegida();
+  // Filtro por block (sólo la administración, con un condominio elegido y más de un block): la junta de todo el condominio sale con «Junta del condominio».
+  const blocksDeJuntas = [...new Map(items.filter(i => i.estructura && i.complejo.id === complejoElegido?.id).map(i => [i.estructura!.id, i.estructura!])).values()];
+  const conFiltro = !esJunta && !!complejoElegido && blocksDeJuntas.length > 1;
+  const base = esJunta && unica ? items.filter(i => i.estructura === null) : items;
+  const visibles = conFiltro && torre ? base.filter(i => (torre === 'condominio' ? i.estructura === null : String(i.estructura?.id ?? '') === torre)) : base;
   // Sin junta de block, la junta de todo el condominio se llama «Junta directiva» (la junta) o «Junta directiva del condominio» (la administración), no «Junta central».
   const sinBlocksConJunta = (complejoId: number) => !items.some(i => i.estructura !== null && i.vigente !== null && i.complejo.id === complejoId);
   const tituloCentralDe = (complejoId: number) => (sinBlocksConJunta(complejoId) ? (esJunta ? 'Junta directiva' : 'Junta directiva del condominio') : undefined);
@@ -61,6 +67,17 @@ export default function Juntas() {
           : undefined}
       />
       {lista.error && <div className="mb-4"><Alert tone="bad">No se pudieron cargar las juntas: {lista.error}</Alert></div>}
+      {conFiltro && (
+        <Card className="mb-4">
+          <Toolbar>
+            <FiltroSelect label={`Filtrar por ${palabra}`} value={torre} onChange={setTorre} className="sm:w-56">
+              <option value="">Todos los {palabra}s</option>
+              {hayJuntaDelCondominio && <option value="condominio">Junta del condominio</option>}
+              {blocksDeJuntas.map(b => <option key={b.id} value={b.id}>{b.nombre ?? `${palabra} ${b.id}`}</option>)}
+            </FiltroSelect>
+          </Toolbar>
+        </Card>
+      )}
       {lista.loading && !lista.data ? (
         <div className="grid gap-4 lg:grid-cols-2"><Skeleton className="h-64 w-full" /><Skeleton className="h-64 w-full" /></div>
       ) : visibles.length === 0 && !lista.error ? (

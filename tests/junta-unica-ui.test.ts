@@ -71,7 +71,7 @@ describe('junta única: las pantallas de la junta', () => {
   it('«Mi junta» de la junta: en junta única sólo la tarjeta de la junta de todo el condominio, titulada «Junta directiva»', () => {
     const s = f('src/pages/admin/Juntas.tsx');
     assert.match(s, /const unica = complejoElegido\?\.junta_unica === true;/);
-    assert.match(s, /const visibles = esJunta && unica \? items\.filter\(i => i\.estructura === null\) : items;/);
+    assert.match(s, /const base = esJunta && unica \? items\.filter\(i => i\.estructura === null\) : items;/);
     assert.match(s, /\{visibles\.map\(f => \(/);
     assert.match(s, /'Junta directiva' : 'Junta directiva del condominio'/);
     assert.match(s, /La junta directiva del condominio con sus miembros|de tu edificio, su correo/);

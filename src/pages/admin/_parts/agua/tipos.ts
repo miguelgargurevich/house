@@ -11,7 +11,7 @@ export interface LecturaGuardada {
 }
 
 export interface FilaAgua {
-  unidad: { id: number; codigo: string; propietario: string | null };
+  unidad: { id: number; codigo: string; estructura_id?: number | null; propietario: string | null };
   lectura: LecturaGuardada | null;
   /** La lectura actual del mes previo de esa unidad: lo que se precarga como «anterior». */
   anterior: { fecha: string; lectura: string; factor: string } | null;

@@ -33,7 +33,8 @@ const TAM_LOTE = 500;
  * carga por Excel/CSV con plantilla, foto del contómetro y el cruce con lo que el recibo cobra por «AGUA DPTO.». La usan la administración
  * (en el periodo) y la junta del block; el servidor limita qué recibo y qué departamentos alcanza cada una.
  */
-export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?: () => void }) {
+/** `torre`: si viene, la tabla muestra sólo los departamentos de ese block (y «Aplicar a todas las filas» se aplica a esos). */
+export function AguaRecibo({ reciboId, onCambio, torre = '' }: { reciboId: number; onCambio?: () => void; torre?: string }) {
   const toast = useToast();
   const { data, loading, error, reload } = useResource<AguaDelRecibo>(`/api/recibos/${reciboId}/agua`);
   const [borr, setBorr] = useState<Record<number, Borrador>>({});
@@ -46,6 +47,7 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
   const [quitar, setQuitar] = useState<FilaAgua | null>(null);
   const archivo = useRef<HTMLInputElement>(null);
 
+  const filas = useMemo(() => (data?.items ?? []).filter(f => !torre || String(f.unidad.estructura_id ?? '') === torre), [data, torre]);
   const inicial = useMemo(() => Object.fromEntries((data?.items ?? []).map(f => [f.unidad.id, inicialDe(f)])) as Record<number, Borrador>, [data]);
   useEffect(() => { setBorr(inicial); setErrores({}); }, [inicial]);
   useEffect(() => { if (data?.factor_sugerido) setFactor(f => f || sinCeros(data.factor_sugerido!)); }, [data]);
@@ -57,7 +59,8 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
   /** El factor de la torre se pone una vez: se copia a todas las filas (las que ya tenían lectura quedan por guardar si el factor cambió). */
   function aplicarFactor() {
     if (!factor.trim()) return;
-    setBorr(b => Object.fromEntries(Object.entries(b).map(([id, x]) => [id, { ...x, fx: factor.trim() }])));
+    const visibles = new Set(filas.map(f => String(f.unidad.id)));
+    setBorr(b => Object.fromEntries(Object.entries(b).map(([id, x]) => [id, visibles.has(id) ? { ...x, fx: factor.trim() } : x])));
   }
 
   async function guardar() {
@@ -174,8 +177,8 @@ export function AguaRecibo({ reciboId, onCambio }: { reciboId: number; onCambio?
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {data.items.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-muted">Este recibo no tiene departamentos.</td></tr>}
-                {data.items.map(f => {
+                {filas.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-muted">{torre ? 'Este recibo no tiene departamentos de ese block.' : 'Este recibo no tiene departamentos.'}</td></tr>}
+                {filas.map(f => {
                   const b = borr[f.unidad.id];
                   if (!b) return null;
                   const sucia = distinta(b, inicial[f.unidad.id]!);
