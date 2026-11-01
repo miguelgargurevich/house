@@ -9,7 +9,7 @@ export interface CondominioOpcion { id: number; nombre: string; empresa: { id: n
  * es de un condominio concreto.
  */
 const RUTAS_CON_CONDOMINIO = [
-  '/admin/dashboard', '/admin/pagos', '/admin/medios-pago', '/admin/morosidad', '/admin/unidades', '/admin/mantenimientos',
+  '/admin/dashboard', '/admin/agua', '/admin/pagos', '/admin/medios-pago', '/admin/morosidad', '/admin/unidades', '/admin/mantenimientos',
   '/admin/comunicados', '/admin/avisos', '/admin/juntas', '/admin/residentes', '/admin/personal', '/admin/proveedores',
 ];
 
