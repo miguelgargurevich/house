@@ -1300,7 +1300,7 @@ model ExtractoBancario {
   complejo_id     Int
   medio_pago_id   Int
   archivo_nombre  String
-  /// Primer y último día de los abonos leídos (null si no hubo ninguno).
+  /// Primer y último día de los movimientos leídos, abonos y salidas (null si no hubo ninguno).
   fecha_desde     DateTime?
   fecha_hasta     DateTime?
   /// Abonos que traía el archivo, cuántos eran nuevos y cuántos ya estaban de un extracto anterior (no se duplican).
@@ -1309,6 +1309,18 @@ model ExtractoBancario {
   filas_repetidas Int                  @default(0)
   /// Suma de los abonos NUEVOS de esta subida.
   total_abonos    Decimal              @default(0)
+  /// Lo mismo para las salidas (cargos): leídas, nuevas y su suma (en positivo).
+  salidas_leidas  Int                  @default(0)
+  salidas_nuevas  Int                  @default(0)
+  total_salidas   Decimal              @default(0)
+  /// Saldo del extracto (null si no trae columna de saldo): el de antes del primer movimiento y el de la última fila; `saldo_cuadra` = false si algún tramo no cuadra.
+  saldo_inicial   Decimal?
+  saldo_final     Decimal?
+  saldo_cuadra    Boolean?
+  /// Avisos de la verificación del saldo, en texto («Entre la fila 7 y la 9 el saldo no cuadra…»); vacío si cuadra o no trae saldo.
+  saldo_avisos    String[]
+  /// Hoja del libro que se leyó (null en un CSV).
+  hoja            String?
   subido_por_id   Int?
   created_at      DateTime             @default(now())
   complejo        ComplejoHabitacional @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
@@ -1319,7 +1331,8 @@ model ExtractoBancario {
   @@index([complejo_id, medio_pago_id])
 }
 
-/// Un abono del banco. Estados: conciliado | por_revisar | sin_pago | ignorado. `huella` evita duplicar al re-subir un extracto que se solapa.
+/// Un movimiento del banco. Estados: conciliado | por_revisar | sin_pago | fuera_periodo | ignorado (abonos) y salida (cargos: no se cruzan con pagos; el monto
+/// va en positivo). `huella` evita duplicar al re-subir un extracto que se solapa.
 model MovimientoBancario {
   id               Int                  @id @default(autoincrement())
   extracto_id      Int
@@ -1341,6 +1354,8 @@ model MovimientoBancario {
   motivo_ignorar   String?
   /// Pagos candidatos (principales) cuando hay varios, de mejor a peor; vacío en los demás estados.
   candidatos       Int[]
+  /// Por qué quedó «por revisar» cuando no es sólo «varios candidatos» (p. ej. «Mismo n.º de operación, otra fecha (05/10 vs 12/10)»); null si no aplica.
+  motivo_revision  String?
   /// true = la administración ya decidió sobre este abono (vinculó, desvinculó o ignoró a mano): el cruce automático no lo vuelve a tocar.
   manual           Boolean              @default(false)
   created_at       DateTime             @default(now())

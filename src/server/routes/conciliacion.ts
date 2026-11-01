@@ -142,6 +142,7 @@ const mapeoSchema = z.object({
   descripcion: columna.nullable(),
   cargo: columna.nullable(),
   operacion: columna.nullable(),
+  saldo: columna.nullable().optional(),
   fila_inicio: z.number({ error: 'Debe ser un número' }).int().min(0).max(500),
 });
 
@@ -162,7 +163,7 @@ conciliacionRouter.post('/cuentas/:cuenta/extractos', subirArchivo, async (req, 
     res.status(200).json(r);
     return;
   }
-  registrar(res, 'importar', r.extracto.id, { medio_pago_id: cuenta.id, extracto_id: r.extracto.id, abonos: r.extracto.filas_leidas, nuevos: r.extracto.filas_nuevas, repetidos: r.extracto.filas_repetidas, total: r.extracto.total_abonos, ...r.cruce });
+  registrar(res, 'importar', r.extracto.id, { medio_pago_id: cuenta.id, extracto_id: r.extracto.id, abonos: r.extracto.filas_leidas, nuevos: r.extracto.filas_nuevas, repetidos: r.extracto.filas_repetidas, total: r.extracto.total_abonos, salidas: r.extracto.salidas_leidas, salidas_nuevas: r.extracto.salidas_nuevas, total_salidas: r.extracto.total_salidas, saldo_cuadra: r.extracto.saldo ? r.extracto.saldo.cuadra : null, ...r.cruce });
   res.status(201).json(r);
 });
 
@@ -177,7 +178,7 @@ conciliacionRouter.post('/cuentas/:cuenta/cruzar', async (req, res) => {
 conciliacionRouter.get('/cuentas/:cuenta/movimientos/:mid/pagos', async (req, res) => {
   const cuenta = await cuentaDe(currentUser(req), idCuenta(req), false);
   const q = parseQuery(z.object({ q: z.string().trim().max(60).optional() }), req);
-  const m = await prisma.movimientoBancario.findFirst({ where: { id: idMovimiento(req), medio_pago_id: cuenta.id }, select: { fecha: true, monto: true } });
+  const m = await prisma.movimientoBancario.findFirst({ where: { id: idMovimiento(req), medio_pago_id: cuenta.id }, select: { fecha: true, monto: true, descripcion: true } });
   if (!m) throw notFound('Movimiento');
   res.json({ items: await buscarPagos(cuenta, m, q.q || undefined) });
 });

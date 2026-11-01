@@ -57,17 +57,19 @@ beforeEach(async () => {
 });
 
 describe('subir un extracto', () => {
-  it('lee el extracto de un banco, guarda sólo los abonos y reporta los totales', async () => {
+  it('lee el extracto de un banco, guarda los abonos y las salidas por separado y reporta los totales', async () => {
     const r = await subir(fixture('bcp.xlsx'), 'bcp.xlsx');
     assert.equal(r.status, 201, r.texto);
     assert.equal(r.body.requiere_mapeo, false);
     assert.deepEqual([r.body.extracto.filas_leidas, r.body.extracto.filas_nuevas, r.body.extracto.filas_repetidas], [5, 5, 0]);
     assert.equal(r.body.extracto.total_abonos, '1687.56');
     assert.deepEqual([r.body.extracto.fecha_desde, r.body.extracto.fecha_hasta], ['2026-10-05', '2026-10-12']);
-    assert.equal(r.body.descartes.cargos, 2);
-    const filas = await prisma.movimientoBancario.findMany({ orderBy: { fecha: 'asc' } });
-    assert.equal(filas.length, 5, 'los cargos no se guardan');
-    assert.ok(filas.every((f) => f.monto.gt(0)));
+    assert.deepEqual([r.body.extracto.salidas_leidas, r.body.extracto.salidas_nuevas, r.body.extracto.total_salidas], [2, 2, '125.50']);
+    assert.deepEqual(r.body.descartes, { sin_fecha: 0, sin_monto: 0 });
+    const filas = await prisma.movimientoBancario.findMany({ orderBy: [{ fecha: 'asc' }, { id: 'asc' }] });
+    assert.equal(filas.length, 7, 'los cargos también se guardan, como salidas');
+    assert.ok(filas.every((f) => f.monto.gt(0)), 'el monto va en positivo; el estado dice si es salida');
+    assert.deepEqual(filas.filter((f) => f.estado === 'salida').map((f) => f.monto.toFixed(2)), ['80.00', '45.50']);
     const extracto = await prisma.extractoBancario.findFirstOrThrow();
     assert.equal(extracto.archivo_nombre, 'bcp.xlsx');
     assert.equal(extracto.subido_por_id, d.adminA.id);
@@ -137,9 +139,9 @@ describe('subir un extracto', () => {
     assert.equal((await subir(fixture('raro.xlsx'), 'raro.xlsx', { fecha: 'x' })).status, 422);
     assert.equal((await subir(Buffer.alloc(0), 'v.csv')).status, 422);
     assert.equal((await subir(Buffer.from([0, 1, 2, 3, 250, 251, 0, 9]), 'roto.xlsx')).status, 422);
-    const soloCargos = await subir(csv([{ fecha: '05/10/2026', monto: -80 }]));
-    assert.equal(soloCargos.status, 422);
-    assert.match(soloCargos.body.error, /ningún abono/);
+    const sinNada = await subir(Buffer.from('Fecha,Descripción,Monto,Nro. Operación\n', 'utf8'));
+    assert.equal(sinNada.status, 422);
+    assert.match(sinNada.body.error, /ningún movimiento/);
     const grande = await subir(Buffer.alloc(6 * 1024 * 1024, 65), 'grande.csv');
     assert.equal(grande.status, 422);
     assert.match(grande.body.error, /pesa más de 5 MB/);
@@ -223,6 +225,7 @@ describe('cruce automático', () => {
   it('la ventana de días: ±3 por defecto y se cambia por cuenta en la base', async () => {
     await crearPago(d, { monto: 150, fecha: '2026-10-08' }); // 3 días después: dentro
     await crearPago(d, { monto: 80, fecha: '2026-10-09' }); // 4 días: fuera
+    await crearPago(d, { monto: 7777, fecha: '2026-10-04' }); // un pago anterior: el 05/10 queda dentro del periodo de los pagos (no es «fuera de período»)
     await subir(csv([{ fecha: '05/10/2026', monto: 150 }, { fecha: '05/10/2026', monto: 80 }]));
     const por = Object.fromEntries((await movimientos()).map((m) => [m.monto, m.estado]));
     assert.deepEqual(por, { '150.00': 'conciliado', '80.00': 'sin_pago' });
@@ -312,8 +315,8 @@ describe('voucher sin abono', () => {
 describe('vincular, desvincular e ignorar', () => {
   it('vincular a mano un abono sin pago con un pago buscado; no se puede vincular dos veces', async () => {
     const p = await crearPago(d, { monto: 140, fecha: '2026-10-05' }); // no coincide en monto: a mano
-    await subir(csv([{ fecha: '05/10/2026', monto: 150 }, { fecha: '06/10/2026', monto: 150 }]));
-    const [m1, m2] = (await movimientos('sin_pago')).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    await subir(csv([{ fecha: '05/10/2026', monto: 150 }, { fecha: '05/10/2026', monto: 150, desc: 'OTRA TRANSFERENCIA DEMO' }]));
+    const [m1, m2] = await movimientos('sin_pago');
     const buscados = (await api(T.adminA, 'GET', `${base_()}/movimientos/${m1!.id}/pagos`)).body.items;
     assert.deepEqual(buscados.map((x: { id: number }) => x.id), [p.id]);
     assert.equal((await api(T.adminA, 'GET', `${base_()}/movimientos/${m1!.id}/pagos?q=${buscados[0].unidad.codigo}`)).body.items.length, 1);
@@ -357,6 +360,7 @@ describe('vincular, desvincular e ignorar', () => {
 
   it('ignorar exige un motivo, se desvincula igual, y un abono conciliado no se ignora sin soltarlo', async () => {
     await crearPago(d, { monto: 150, fecha: '2026-10-05' });
+    await crearPago(d, { monto: 7777, fecha: '2026-10-10' }); // el periodo de los pagos llega al 10/10: el abono del 09/10 no es «fuera de período»
     await subir(csv([{ fecha: '05/10/2026', monto: 150 }, { fecha: '09/10/2026', monto: 3, desc: 'INTERESES' }]));
     const interes = (await movimientos('sin_pago'))[0]!;
     assert.equal((await api(T.adminA, 'POST', `${base_()}/movimientos/${interes.id}/ignorar`, {})).status, 422);
@@ -509,6 +513,7 @@ describe('auditoría', () => {
   it('todas las mutaciones quedan, sin las descripciones de los movimientos', async () => {
     const SECRETO = 'JUAN PEREZ DEMO 1234';
     await crearPago(d, { monto: 150, fecha: '2026-10-05' });
+    await crearPago(d, { monto: 7777, fecha: '2026-10-10' });
     await subir(csv([{ fecha: '05/10/2026', monto: 150, desc: SECRETO }, { fecha: '06/10/2026', monto: 42, desc: SECRETO }]));
     const sin = (await movimientos('sin_pago'))[0]!;
     await api(T.adminA, 'POST', `${base_()}/movimientos/${sin.id}/ignorar`, { motivo: 'Transferencia interna' });

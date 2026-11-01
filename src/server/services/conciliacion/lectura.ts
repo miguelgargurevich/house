@@ -1,6 +1,7 @@
-// Lectura de extractos bancarios (.xlsx, .xls, .csv): detecta la fila de encabezados y las columnas por sinónimos, lee fechas y montos como los exportan
-// BCP, Interbank, BBVA, Scotiabank y BanBif y se queda sólo con los ABONOS. Todo es puro (sin base de datos): el servicio de importación lo usa y las pruebas lo
-// ejercitan con extractos sintéticos. Nunca se guarda el archivo.
+// Lectura de extractos bancarios (.xlsx, .xls, .csv): elige la hoja que es el extracto, detecta la fila de encabezados y las columnas por sinónimos, lee fechas y
+// montos como los exportan BCP, Interbank, BBVA, Scotiabank y BanBif y separa ABONOS (créditos) de SALIDAS (cargos/débitos; una sola columna con signo: los
+// negativos son salidas). Si trae columna de saldo, verifica que saldo anterior ± movimiento = saldo de la fila. Todo es puro (sin base de datos): el servicio de
+// importación lo usa y las pruebas lo ejercitan con extractos sintéticos. Nunca se guarda el archivo.
 import { Prisma } from '@prisma/client';
 import XLSX from 'xlsx';
 import { invalid } from '../../errors';
@@ -11,13 +12,21 @@ export const MAX_FILAS_EXTRACTO = 5000;
 const FILAS_BUSQUEDA_ENCABEZADO = 60;
 export const FILAS_VISTA = 15;
 
-export const CAMPOS = ['fecha', 'descripcion', 'abono', 'cargo', 'operacion'] as const;
+export const CAMPOS = ['fecha', 'descripcion', 'abono', 'cargo', 'operacion', 'saldo'] as const;
 export type Campo = (typeof CAMPOS)[number];
-/** Índice de columna (0 = primera) de cada dato; null = el extracto no lo trae. `fila_inicio`: índice de la primera fila de datos. */
-export interface Mapeo { fecha: number | null; descripcion: number | null; abono: number | null; cargo: number | null; operacion: number | null; fila_inicio: number }
+/**
+ * Índice de columna (0 = primera) de cada dato; null = el extracto no lo trae. `abono` es la columna de abonos o, si no hay columna de cargos, el monto CON SIGNO
+ * (negativo = salida). `saldo` es opcional (los mapeos guardados antes no lo traen). `fila_inicio`: índice de la primera fila de datos.
+ */
+export interface Mapeo { fecha: number | null; descripcion: number | null; abono: number | null; cargo: number | null; operacion: number | null; saldo?: number | null; fila_inicio: number }
 
-export interface AbonoLeido { fila: number; fecha: Date; descripcion: string; monto: Prisma.Decimal; operacion: string | null }
-export interface Descartes { cargos: number; sin_fecha: number; sin_monto: number }
+/** Un movimiento leído. `monto` va SIEMPRE en positivo: si es abono o salida lo dice la lista en la que viene. */
+export interface MovimientoLeido { fila: number; fecha: Date; descripcion: string; monto: Prisma.Decimal; operacion: string | null }
+export type AbonoLeido = MovimientoLeido;
+export type SalidaLeida = MovimientoLeido;
+export interface Descartes { sin_fecha: number; sin_monto: number }
+/** Verificación del saldo del extracto: `inicial` = saldo antes del primer movimiento; `final` = el de la última fila. */
+export interface ResultadoSaldo { inicial: Prisma.Decimal; final: Prisma.Decimal; cuadra: boolean; avisos: string[]; orden: 'asc' | 'desc'; filas: number }
 export interface LecturaExtracto {
   /** true = se reconocieron (o se recibieron) las columnas mínimas: fecha y un monto. */
   reconocido: boolean;
@@ -27,7 +36,12 @@ export interface LecturaExtracto {
   /** Primeras filas del archivo como texto, para elegir columnas a mano. */
   vista: string[][];
   abonos: AbonoLeido[];
+  salidas: SalidaLeida[];
   descartes: Descartes;
+  /** null = el extracto no trae columna de saldo (o no se pudo leer ninguno). */
+  saldo: ResultadoSaldo | null;
+  /** Hoja del libro que se leyó (null en un CSV o cuando se lee una tabla suelta). */
+  hoja: string | null;
 }
 
 type Celda = string | number | boolean | Date | null | undefined;
@@ -44,6 +58,7 @@ const SINONIMOS: Record<Exclude<Campo, 'abono'> | 'abono_dedicado' | 'monto_con_
   abono_dedicado: ['abono', 'abonos', 'monto abono', 'importe abono', 'ingreso', 'ingresos', 'credito', 'creditos', 'haber', 'deposito', 'depositos'],
   monto_con_signo: ['monto', 'importe', 'monto operacion', 'importe operacion', 'monto s', 'importe s', 'valor'],
   cargo: ['cargo', 'cargos', 'monto cargo', 'importe cargo', 'egreso', 'egresos', 'debito', 'debitos', 'debe', 'retiro', 'retiros'],
+  saldo: ['saldo', 'saldo contable', 'saldo disponible', 'saldo final', 'saldo s', 'saldo en cuenta', 'saldo actual', 'saldo del dia'],
   operacion: ['numero operacion', 'numero de operacion', 'nro operacion', 'nro de operacion', 'n operacion', 'n de operacion', 'no operacion', 'num operacion', 'operacion numero', 'operacion nro', 'nro op', 'n op', 'num op', 'nro documento', 'numero documento', 'n documento', 'nro doc', 'n doc', 'documento', 'referencia', 'ref', 'operacion'],
 };
 // Segunda pasada (el encabezado trae más texto que el sinónimo: «Fecha de la operación», «Monto en soles»…).
@@ -53,6 +68,7 @@ const CONTIENE: Record<keyof typeof SINONIMOS, RegExp> = {
   abono_dedicado: /\babonos?\b|\bingresos?\b|\bcreditos?\b|\bhaber\b|\bdepositos?\b/,
   monto_con_signo: /\bmonto\b|\bimporte\b/,
   cargo: /\bcargos?\b|\begresos?\b|\bdebitos?\b|\bdebe\b|\bretiros?\b/,
+  saldo: /\bsaldo\b/,
   operacion: /\boperacion\b|\breferencia\b|\bdocumento\b|\bnro op\b|\bn op\b/,
 };
 
@@ -66,7 +82,7 @@ function buscarColumna(norm: string[], clave: keyof typeof SINONIMOS, usadas: Se
 }
 
 /** Columnas que se reconocen en una fila de encabezados; `null` si la fila no sirve (no trae fecha y un monto). */
-export function reconocerEncabezados(fila: Celda[]): Omit<Mapeo, 'fila_inicio'> | null {
+export function reconocerEncabezados(fila: Celda[]): (Omit<Mapeo, 'fila_inicio' | 'saldo'> & { saldo: number | null }) | null {
   const norm = fila.map(normalizar);
   const usadas = new Set<number>();
   const tomar = (clave: keyof typeof SINONIMOS) => { const i = buscarColumna(norm, clave, usadas); if (i != null) usadas.add(i); return i; };
@@ -78,7 +94,8 @@ export function reconocerEncabezados(fila: Celda[]): Omit<Mapeo, 'fila_inicio'> 
   if (fecha == null || abono == null) return null;
   const descripcion = tomar('descripcion');
   const operacion = tomar('operacion');
-  return { fecha, descripcion, abono, cargo: abonoDedicado != null ? cargo : null, operacion };
+  const saldo = tomar('saldo');
+  return { fecha, descripcion, abono, cargo: abonoDedicado != null ? cargo : null, operacion, saldo };
 }
 
 function detectarEncabezado(filas: Celda[][]): { indice: number; mapeo: Mapeo } | null {
@@ -201,14 +218,23 @@ export function leerCsv(texto: string, maxFilas: number): string[][] {
   return filas;
 }
 
-/** Primera hoja del archivo como tabla de celdas. 422 si no es un archivo que se pueda leer o pasa del tope de filas. */
-export function leerTabla(buffer: Buffer, nombre: string): Celda[][] {
+/** Una hoja se reconoce como «el extracto» también por su nombre («accountDetail» del BCP, «Movimientos», «Detalle»…). */
+const NOMBRE_DE_EXTRACTO = /account ?detail|detalle|movimiento|extracto|estado de cuenta|transaccion|consulta/;
+const MAX_HOJAS = 20;
+
+/**
+ * El archivo como tabla de celdas. En un libro con varias hojas se lee la que es el extracto, no siempre la primera: entre las hojas cuyas columnas se reconocen,
+ * la de nombre tipo extracto («accountDetail», «Movimientos»…) y si no la primera; si ninguna se reconoce, la de nombre tipo extracto o la primera (para mostrar sus
+ * filas y elegir columnas a mano). 422 si no es un archivo que se pueda leer o pasa del tope de filas.
+ */
+export function leerLibro(buffer: Buffer, nombre: string): { filas: Celda[][]; hoja: string | null } {
   if (buffer.length === 0) throw invalid('El archivo está vacío', { archivo: 'Vacío' });
   const esCsv = /\.(csv|txt)$/i.test(nombre);
   // Un Excel de verdad es un ZIP (.xlsx) o un OLE2 (.xls); algunos bancos «exportan a Excel» una tabla HTML o un CSV con extensión .xls: texto, sí; basura binaria, no.
   const binarioConocido = (buffer[0] === 0x50 && buffer[1] === 0x4b) || (buffer[0] === 0xd0 && buffer[1] === 0xcf);
   if (!binarioConocido && buffer.subarray(0, 1024).includes(0)) throw invalid('El archivo no es un Excel ni un CSV válido (.xlsx, .xls o .csv)', { archivo: 'Archivo inválido' });
   let filas: Celda[][];
+  let hoja: string | null = null;
   if (esCsv || (!binarioConocido && !/^\s*</.test(buffer.subarray(0, 256).toString('utf8')))) {
     filas = leerCsv(decodificarCsv(buffer), MAX_FILAS_EXTRACTO + FILAS_BUSQUEDA_ENCABEZADO + 1);
   } else {
@@ -219,28 +245,83 @@ export function leerTabla(buffer: Buffer, nombre: string): Celda[][] {
     } catch {
       throw invalid('El archivo no es un Excel ni un CSV válido (.xlsx, .xls o .csv)', { archivo: 'Archivo inválido' });
     }
-    const hoja = libro.Sheets[libro.SheetNames[0]!];
-    if (!hoja) throw invalid('El archivo no tiene hojas', { archivo: 'Sin hojas' });
-    filas = XLSX.utils.sheet_to_json<Celda[]>(hoja, { header: 1, raw: true, blankrows: false, defval: '' });
+    const tablas = libro.SheetNames.slice(0, MAX_HOJAS).flatMap((n) => {
+      const h = libro.Sheets[n];
+      return h ? [{ nombre: n, filas: XLSX.utils.sheet_to_json<Celda[]>(h, { header: 1, raw: true, blankrows: false, defval: '' }) }] : [];
+    });
+    if (!tablas.length) throw invalid('El archivo no tiene hojas', { archivo: 'Sin hojas' });
+    const porNombre = (t: { nombre: string }) => NOMBRE_DE_EXTRACTO.test(normalizar(t.nombre));
+    const reconocidas = tablas.filter((t) => detectarEncabezado(t.filas) != null);
+    const elegida = reconocidas.find(porNombre) ?? reconocidas[0] ?? tablas.find(porNombre) ?? tablas[0]!;
+    filas = elegida.filas;
+    hoja = elegida.nombre;
   }
   if (filas.length > MAX_FILAS_EXTRACTO + FILAS_BUSQUEDA_ENCABEZADO) throw invalid(`El extracto trae más de ${MAX_FILAS_EXTRACTO} filas: sube un periodo más corto`, { archivo: 'Demasiadas filas' });
-  return filas;
+  return { filas, hoja };
 }
 
-// ---------- Tabla → abonos ----------
+/** El archivo como tabla (sin el nombre de la hoja). */
+export const leerTabla = (buffer: Buffer, nombre: string): Celda[][] => leerLibro(buffer, nombre).filas;
+
+// ---------- Saldo ----------
+export interface FilaDeSaldo { fila: number; dia: number; /** Movimiento con signo (abono +, salida −; 0 si la fila no trae movimiento). */ mov: Prisma.Decimal; saldo: Prisma.Decimal | null }
+const MAX_AVISOS_SALDO = 5;
+
+/**
+ * Verifica fila por fila que saldo anterior ± movimiento = saldo de la fila (al centavo, en Decimal). El banco puede ordenar de más viejo a más nuevo o al revés:
+ * se prueban los dos órdenes y se toma el que menos tramos rompe (a igualdad, el de las fechas). Una fila sin saldo no corta la cadena: su movimiento se acumula
+ * hasta la siguiente fila con saldo. Tras un tramo que no cuadra se sigue desde el saldo de esa fila (un hueco = un aviso, no una cascada). `null` si ninguna fila
+ * trae saldo.
+ */
+export function verificarSaldo(filas: FilaDeSaldo[]): ResultadoSaldo | null {
+  const con = filas.filter((f) => f.saldo != null);
+  if (!con.length) return null;
+  const recorrer = (cronologicas: FilaDeSaldo[]) => {
+    const rotos: { desde: number; hasta: number }[] = [];
+    let base: { fila: number; saldo: Prisma.Decimal } | null = null;
+    let acumulado = new Prisma.Decimal(0);
+    let verificadas = 0;
+    for (const f of cronologicas) {
+      if (base == null) { if (f.saldo != null) base = { fila: f.fila, saldo: f.saldo }; continue; }
+      acumulado = acumulado.plus(f.mov);
+      if (f.saldo == null) continue;
+      verificadas++;
+      if (!base.saldo.plus(acumulado).equals(f.saldo)) rotos.push({ desde: Math.min(base.fila, f.fila), hasta: Math.max(base.fila, f.fila) });
+      base = { fila: f.fila, saldo: f.saldo };
+      acumulado = new Prisma.Decimal(0);
+    }
+    return { rotos, verificadas };
+  };
+  const asc = recorrer(filas);
+  const desc = recorrer([...filas].reverse());
+  const porFechas = filas[0]!.dia > filas[filas.length - 1]!.dia ? 'desc' : 'asc';
+  const orden: 'asc' | 'desc' = asc.rotos.length < desc.rotos.length ? 'asc' : desc.rotos.length < asc.rotos.length ? 'desc' : porFechas;
+  const elegido = orden === 'asc' ? asc : desc;
+  const cronologicas = orden === 'asc' ? filas : [...filas].reverse();
+  const primera = cronologicas.findIndex((f) => f.saldo != null);
+  // Saldo antes del primer movimiento = saldo de la primera fila con saldo menos los movimientos hasta ella.
+  const inicial = cronologicas.slice(0, primera + 1).reduce((s, f) => s.minus(f.mov), cronologicas[primera]!.saldo!);
+  const final = [...cronologicas].reverse().find((f) => f.saldo != null)!.saldo!;
+  const avisos = elegido.rotos.slice(0, MAX_AVISOS_SALDO).map((r) => `Entre la fila ${r.desde} y la ${r.hasta} el saldo no cuadra: puede faltar un movimiento o el archivo está cortado`);
+  if (elegido.rotos.length > MAX_AVISOS_SALDO) avisos.push(`Y ${elegido.rotos.length - MAX_AVISOS_SALDO} tramos más no cuadran.`);
+  return { inicial, final, cuadra: elegido.rotos.length === 0, avisos, orden, filas: elegido.verificadas + 1 };
+}
+
+// ---------- Tabla → movimientos ----------
 function mapeoValido(m: Mapeo, anchoMax: number): boolean {
-  const ok = (i: number | null) => i == null || (Number.isInteger(i) && i >= 0 && i < Math.max(anchoMax, 1));
-  return m.fecha != null && m.abono != null && ok(m.fecha) && ok(m.abono) && ok(m.descripcion) && ok(m.cargo) && ok(m.operacion) && Number.isInteger(m.fila_inicio) && m.fila_inicio >= 0;
+  const ok = (i: number | null | undefined) => i == null || (Number.isInteger(i) && i >= 0 && i < Math.max(anchoMax, 1));
+  return m.fecha != null && m.abono != null && ok(m.fecha) && ok(m.abono) && ok(m.descripcion) && ok(m.cargo) && ok(m.operacion) && ok(m.saldo) && Number.isInteger(m.fila_inicio) && m.fila_inicio >= 0;
 }
 
 /**
- * Lee los abonos de la tabla. Con `mapeo` (el que eligió el administrador o el guardado de la cuenta) se usa ese; sin él, se detecta el encabezado. Un
- * mapeo guardado sólo se usa si la detección automática no reconoce nada.
+ * Lee los abonos y las salidas de la tabla. Con `mapeo` (el que eligió el administrador o el guardado de la cuenta) se usa ese; sin él, se detecta el encabezado.
+ * Un mapeo guardado sólo se usa si la detección automática no reconoce nada. El signo del monto manda: positivo = abono, negativo = salida (en una columna sola);
+ * con columnas de cargo y de abono separadas, lo del cargo es una salida.
  */
 export function leerAbonos(filas: Celda[][], opts: { mapeo?: Mapeo | null; guardado?: Mapeo | null } = {}): LecturaExtracto {
   const ancho = filas.reduce((m, f) => Math.max(m, f.length), 0);
   const vista = filas.slice(0, FILAS_VISTA).map((f) => Array.from({ length: ancho }, (_, i) => textoDe(f[i])));
-  const vacio = (reconocido: boolean, mapeo: Mapeo | null, encabezados: string[]): LecturaExtracto => ({ reconocido, mapeo, encabezados, vista, abonos: [], descartes: { cargos: 0, sin_fecha: 0, sin_monto: 0 } });
+  const vacio = (reconocido: boolean, mapeo: Mapeo | null, encabezados: string[]): LecturaExtracto => ({ reconocido, mapeo, encabezados, vista, abonos: [], salidas: [], descartes: { sin_fecha: 0, sin_monto: 0 }, saldo: null, hoja: null });
 
   let mapeo: Mapeo | null = null;
   let encabezados: string[] = [];
@@ -255,32 +336,39 @@ export function leerAbonos(filas: Celda[][], opts: { mapeo?: Mapeo | null; guard
   if (!encabezados.length && mapeo.fila_inicio > 0) encabezados = (filas[mapeo.fila_inicio - 1] ?? []).map(textoDe);
 
   const abonos: AbonoLeido[] = [];
-  const descartes: Descartes = { cargos: 0, sin_fecha: 0, sin_monto: 0 };
+  const salidas: SalidaLeida[] = [];
+  const descartes: Descartes = { sin_fecha: 0, sin_monto: 0 };
+  const paraSaldo: FilaDeSaldo[] = [];
   for (let i = mapeo.fila_inicio; i < filas.length; i++) {
     const f = filas[i]!;
     const fecha = parsearFecha(f[mapeo.fecha!]);
     if (!fecha) { descartes.sin_fecha++; continue; }
     const valor = parsearMonto(f[mapeo.abono!]);
-    if (valor == null) {
-      // Con columnas de cargo y de abono separadas, una fila de cargo trae el abono vacío: es un cargo, no un error.
-      const cargo = mapeo.cargo != null ? parsearMonto(f[mapeo.cargo]) : null;
-      if (cargo != null && !cargo.isZero()) descartes.cargos++; else descartes.sin_monto++;
+    const cargo = mapeo.cargo != null ? parsearMonto(f[mapeo.cargo]) : null;
+    // Con signo: un abono positivo es abono y uno negativo es una salida. Con columna de cargo aparte, lo que trae el cargo es una salida (sea cual sea su signo).
+    const conSigno = valor != null && !valor.isZero() ? valor : cargo != null && !cargo.isZero() ? cargo.abs().neg() : null;
+    const saldo = mapeo.saldo != null ? parsearMonto(f[mapeo.saldo]) : null;
+    if (conSigno == null) {
+      descartes.sin_monto++;
+      // Una fila sin movimiento pero con saldo («SALDO ANTERIOR») sirve de punto de partida de la verificación.
+      if (saldo != null) paraSaldo.push({ fila: i + 1, dia: fecha.getTime(), mov: new Prisma.Decimal(0), saldo });
       continue;
     }
-    if (valor.lte(0)) { if (valor.isNeg() && !valor.isZero()) descartes.cargos++; else descartes.sin_monto++; continue; }
-    // Positivo = abono (en una columna de abonos o en un monto con signo); negativo o cero = no es un abono.
-    abonos.push({
+    const mov: MovimientoLeido = {
       fila: i + 1,
       fecha,
       descripcion: mapeo.descripcion != null ? textoDe(f[mapeo.descripcion]).replace(/\s+/g, ' ').slice(0, 300) : '',
-      monto: valor,
+      monto: conSigno.abs(),
       operacion: mapeo.operacion != null ? textoOperacion(f[mapeo.operacion]) : null,
-    });
+    };
+    (conSigno.isNeg() ? salidas : abonos).push(mov);
+    paraSaldo.push({ fila: i + 1, dia: fecha.getTime(), mov: conSigno, saldo });
   }
-  return { reconocido: true, mapeo, encabezados, vista, abonos, descartes };
+  return { reconocido: true, mapeo, encabezados, vista, abonos, salidas, descartes, saldo: mapeo.saldo != null ? verificarSaldo(paraSaldo) : null, hoja: null };
 }
 
 /** Lee un archivo completo (el paso que usan las rutas). */
 export function leerExtracto(buffer: Buffer, nombre: string, opts: { mapeo?: Mapeo | null; guardado?: Mapeo | null } = {}): LecturaExtracto {
-  return leerAbonos(leerTabla(buffer, nombre), opts);
+  const { filas, hoja } = leerLibro(buffer, nombre);
+  return { ...leerAbonos(filas, opts), hoja };
 }

@@ -1,10 +1,12 @@
-// Lo que se ve y se hace sobre una cuenta ya importada: resumen, abonos con sus sugerencias, «vouchers sin abono», y vincular / desvincular / ignorar a mano.
+// Lo que se ve y se hace sobre una cuenta ya importada: resumen (abonos, salidas, neto y saldo), movimientos con sus sugerencias, «vouchers sin abono», y
+// vincular / desvincular / ignorar a mano. Las salidas (cargos) sólo se ven: no se vinculan ni se ignoran.
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { conflict, invalid, notFound } from '../../errors';
 import { diaEn } from '../../lib/fechas';
 import { soloPrincipales } from '../mantenimiento';
 import { alcanceDePagos, bloquearCuenta, cruzarEn, sanearCuenta, type CuentaDeConciliacion } from './cruce';
+import { normalizar } from './lectura';
 
 type Tx = Prisma.TransactionClient;
 type Db = Tx | typeof prisma;
@@ -12,7 +14,7 @@ const dec = (v: Prisma.Decimal | number | string | null | undefined) => new Pris
 const dosDecimales = (v: Prisma.Decimal | number | string | null | undefined) => dec(v).toFixed(2);
 const diaISO = (d: Date) => d.toISOString().slice(0, 10);
 
-export const ESTADOS_MOVIMIENTO = ['conciliado', 'por_revisar', 'sin_pago', 'ignorado'] as const;
+export const ESTADOS_MOVIMIENTO = ['conciliado', 'por_revisar', 'sin_pago', 'fuera_periodo', 'ignorado', 'salida'] as const;
 export type EstadoMovimiento = (typeof ESTADOS_MOVIMIENTO)[number];
 
 export interface CuentaCompleta extends CuentaDeConciliacion { moneda: string; zona: string }
@@ -26,16 +28,47 @@ export interface PagoResumen {
   estado_validacion: string;
   unidad: { codigo: string; estructura: string | null } | null;
   pagador: string | null;
+  /** true = el nombre de la glosa del abono coincide con el propietario, el inquilino o quien registró el pago (sólo ordena sugerencias; nunca concilia). */
+  nombre_coincide: boolean;
+}
+
+// ---------- Pista por nombre ----------
+/** Palabras que ponen los bancos en la glosa y no son un nombre. */
+const PALABRAS_DE_BANCO = new Set([
+  'yape', 'plin', 'tran', 'trans', 'transf', 'transfer', 'transferencia', 'trf', 'trx', 'deposito', 'dep', 'pago', 'pagos', 'abono', 'cuota', 'cuotas', 'mantenimiento', 'mant',
+  'banca', 'internet', 'movil', 'app', 'inter', 'bcp', 'bbva', 'interbank', 'scotiabank', 'banbif', 'sol', 'soles', 'depto', 'dpto', 'departamento', 'recibo', 'servicio',
+  'por', 'del', 'las', 'los', 'con', 'sin', 'cta', 'cuenta', 'ahorros', 'cci', 'interbancaria', 'banco', 'desde', 'hacia', 'para', 'comision', 'interes', 'intereses',
+  'efectivo', 'ventanilla', 'agente', 'cajero', 'atm', 'giro', 'envio', 'recibida', 'enviada', 'operacion', 'nro', 'num', 'numero', 'otro', 'otros', 'san',
+]);
+
+/** Las palabras de la glosa que pueden ser un nombre o apellido: sólo letras, sin tildes, de 3 o más letras y que no sean palabras del banco. */
+export function tokensDeNombre(glosa: string): string[] {
+  return [...new Set(normalizar(glosa).split(' ').filter((t) => /^[a-z]{3,}$/.test(t) && !PALABRAS_DE_BANCO.has(t)))];
+}
+
+/** Cuántas palabras de la glosa coinciden con alguna palabra de los nombres (igual, o la de la glosa es el inicio de la del nombre: «CAV» → «Cavero»). */
+export function puntajeNombre(tokens: string[], nombres: (string | null | undefined)[]): number {
+  if (!tokens.length) return 0;
+  const palabras = normalizar(nombres.filter(Boolean).join(' ')).split(' ').filter((t) => t.length >= 3);
+  return tokens.filter((t) => palabras.some((p) => p === t || p.startsWith(t))).length;
 }
 
 const seleccionPago = {
   id: true, monto: true, fecha_pago: true, metodo_pago: true, referencia: true, estado_validacion: true, grupo: true,
   usuario: { select: { nombre: true } },
-  reciboConceptoUnidad: { select: { unidad: { select: { codigo: true, estructura: { select: { nombre: true } } } } } },
+  reciboConceptoUnidad: { select: { unidad: { select: { codigo: true, estructura: { select: { nombre: true } }, propietario: { select: { nombre: true } }, inquilino: { select: { nombre: true } } } } } },
 } satisfies Prisma.PagoSelect;
+
+/** El resumen con los nombres a los que se compara la glosa (no salen de aquí: son datos de personas). */
+type PagoInterno = PagoResumen & { nombres: string[] };
+const publico = ({ nombres, ...p }: PagoInterno, tokens: string[] = []): PagoResumen => ({ ...p, nombre_coincide: puntajeNombre(tokens, nombres) > 0 });
 
 /** Resúmenes de pagos (principales) con su TOTAL de grupo y su fecha como día del condominio. */
 export async function resumenesDePagos(db: Db, ids: number[], zona: string): Promise<Map<number, PagoResumen>> {
+  return new Map([...(await pagosInternos(db, ids, zona))].map(([id, p]) => [id, publico(p)]));
+}
+
+async function pagosInternos(db: Db, ids: number[], zona: string): Promise<Map<number, PagoInterno>> {
   const unicos = [...new Set(ids)];
   if (!unicos.length) return new Map();
   const pagos = await db.pago.findMany({ where: { id: { in: unicos } }, select: seleccionPago });
@@ -53,6 +86,8 @@ export async function resumenesDePagos(db: Db, ids: number[], zona: string): Pro
       estado_validacion: p.estado_validacion,
       unidad: u ? { codigo: u.codigo, estructura: u.estructura?.nombre ?? null } : null,
       pagador: p.usuario?.nombre ?? null,
+      nombre_coincide: false,
+      nombres: [u?.propietario?.nombre, u?.inquilino?.nombre, p.usuario?.nombre].filter((n): n is string => !!n),
     }];
   }));
 }
@@ -62,27 +97,37 @@ const seleccionMovimiento = { include: { vinculado_por: { select: { nombre: true
 type MovimientoConDatos = Prisma.MovimientoBancarioGetPayload<typeof seleccionMovimiento>;
 
 export async function formatearMovimientos(db: Db, filas: MovimientoConDatos[], zona: string) {
-  const pagos = await resumenesDePagos(db, filas.flatMap((m) => [...(m.pago_id != null ? [m.pago_id] : []), ...(m.estado === 'por_revisar' ? m.candidatos : [])]), zona);
-  return filas.map((m) => ({
-    id: m.id,
-    fecha: diaISO(m.fecha),
-    descripcion: m.descripcion,
-    monto: dosDecimales(m.monto),
-    numero_operacion: m.numero_operacion,
-    estado: m.estado as EstadoMovimiento,
-    vinculo: m.vinculo,
-    vinculado_at: m.vinculado_at,
-    vinculado_por: m.vinculado_por?.nombre ?? null,
-    motivo_ignorar: m.motivo_ignorar,
-    pago: m.pago_id != null ? (pagos.get(m.pago_id) ?? null) : null,
-    sugerencias: m.estado === 'por_revisar' ? m.candidatos.map((id) => pagos.get(id)).filter((p): p is PagoResumen => p != null) : [],
-  }));
+  const pagos = await pagosInternos(db, filas.flatMap((m) => [...(m.pago_id != null ? [m.pago_id] : []), ...(m.estado === 'por_revisar' ? m.candidatos : [])]), zona);
+  return filas.map((m) => {
+    // Para lo que está por revisar, los pagos cuyo dueño (o quien lo registró) aparece en la glosa van primero; entre iguales se conserva el orden del cruce.
+    const tokens = m.estado === 'por_revisar' ? tokensDeNombre(m.descripcion) : [];
+    const sugerencias = m.estado === 'por_revisar'
+      ? m.candidatos.map((id) => pagos.get(id)).filter((p): p is PagoInterno => p != null).map((p) => ({ p: publico(p, tokens), puntaje: puntajeNombre(tokens, p.nombres) }))
+        .map((x, i) => ({ ...x, i })).sort((a, b) => b.puntaje - a.puntaje || a.i - b.i).map((x) => x.p)
+      : [];
+    return {
+      id: m.id,
+      fecha: diaISO(m.fecha),
+      descripcion: m.descripcion,
+      monto: dosDecimales(m.monto),
+      numero_operacion: m.numero_operacion,
+      estado: m.estado as EstadoMovimiento,
+      vinculo: m.vinculo,
+      vinculado_at: m.vinculado_at,
+      vinculado_por: m.vinculado_por?.nombre ?? null,
+      motivo_ignorar: m.motivo_ignorar,
+      motivo_revision: m.estado === 'por_revisar' ? m.motivo_revision : null,
+      pago: m.pago_id != null && pagos.has(m.pago_id) ? publico(pagos.get(m.pago_id)!) : null,
+      sugerencias,
+    };
+  });
 }
 
 export async function listarMovimientos(cuenta: CuentaCompleta, f: { estado?: EstadoMovimiento; q?: string; page: number; pageSize: number }) {
   const where: Prisma.MovimientoBancarioWhereInput = {
     medio_pago_id: cuenta.id,
-    ...(f.estado ? { estado: f.estado } : {}),
+    // Sin pedir un estado se ven los abonos; las salidas (cargos) tienen su propia pestaña.
+    estado: f.estado ?? { not: 'salida' },
     ...(f.q ? { OR: [{ descripcion: { contains: f.q, mode: 'insensitive' } }, { numero_operacion: { contains: f.q, mode: 'insensitive' } }, ...(/^\d+([.,]\d{1,2})?$/.test(f.q) ? [{ monto: new Prisma.Decimal(f.q.replace(',', '.')) }] : [])] } : {}),
   };
   // Un abono «conciliado» cuyo pago se borró vuelve a «sin pago» antes de listar (idempotente).
@@ -142,13 +187,16 @@ export async function vouchersSinAbono(cuenta: CuentaCompleta, opts: { limite?: 
 // ---------- Resumen ----------
 export async function resumenDeCuenta(cuenta: CuentaCompleta) {
   await prisma.$transaction((tx) => sanearCuenta(tx, cuenta.id));
-  const [grupos, extractos, sinAbono] = await Promise.all([
+  const [grupos, extractos, sinAbono, ultimoSaldo] = await Promise.all([
     prisma.movimientoBancario.groupBy({ by: ['estado'], where: { medio_pago_id: cuenta.id }, _count: { _all: true }, _sum: { monto: true } }),
     prisma.extractoBancario.findMany({ where: { medio_pago_id: cuenta.id }, select: { fecha_desde: true, fecha_hasta: true } }),
     vouchersSinAbono(cuenta, { limite: 0 }),
+    prisma.extractoBancario.findFirst({ where: { medio_pago_id: cuenta.id, saldo_inicial: { not: null } }, orderBy: [{ created_at: 'desc' }, { id: 'desc' }], select: { id: true, archivo_nombre: true, saldo_inicial: true, saldo_final: true, saldo_cuadra: true, saldo_avisos: true } }),
   ]);
   const de = (e: EstadoMovimiento) => { const g = grupos.find((x) => x.estado === e); return { cantidad: g?._count._all ?? 0, monto: dosDecimales(g?._sum.monto) }; };
-  const todos = ESTADOS_MOVIMIENTO.map(de);
+  const abonos = ESTADOS_MOVIMIENTO.filter((e) => e !== 'salida').map(de);
+  const totalAbonos = { cantidad: abonos.reduce((s, x) => s + x.cantidad, 0), monto: dosDecimales(abonos.reduce((s, x) => s.plus(x.monto), dec(0))) };
+  const salidas = de('salida');
   const desde = extractos.flatMap((e) => (e.fecha_desde ? [e.fecha_desde.getTime()] : []));
   const hasta = extractos.flatMap((e) => (e.fecha_hasta ? [e.fecha_hasta.getTime()] : []));
   return {
@@ -156,11 +204,21 @@ export async function resumenDeCuenta(cuenta: CuentaCompleta) {
     conciliados: de('conciliado'),
     por_revisar: de('por_revisar'),
     sin_pago: de('sin_pago'),
+    fuera_periodo: de('fuera_periodo'),
     ignorados: de('ignorado'),
-    total: { cantidad: todos.reduce((s, x) => s + x.cantidad, 0), monto: dosDecimales(todos.reduce((s, x) => s.plus(x.monto), dec(0))) },
+    /** Todo lo que entró al banco en el periodo de los extractos (cualquier estado). `total` es lo mismo, por compatibilidad. */
+    abonos: totalAbonos,
+    total: totalAbonos,
+    salidas,
+    /** Abonos − salidas del periodo. */
+    neto: dosDecimales(dec(totalAbonos.monto).minus(salidas.monto)),
     vouchers_sin_abono: { cantidad: sinAbono.cantidad, monto: sinAbono.monto },
     extractos: extractos.length,
     rango: desde.length ? { desde: diaISO(new Date(Math.min(...desde))), hasta: diaISO(new Date(Math.max(...hasta))) } : null,
+    /** Verificación del saldo de la última subida cuyo extracto traía saldo; `null` si ninguno lo trae. */
+    saldo: ultimoSaldo
+      ? { extracto_id: ultimoSaldo.id, archivo_nombre: ultimoSaldo.archivo_nombre, inicial: dosDecimales(ultimoSaldo.saldo_inicial), final: dosDecimales(ultimoSaldo.saldo_final), cuadra: ultimoSaldo.saldo_cuadra !== false, avisos: ultimoSaldo.saldo_avisos }
+      : null,
   };
 }
 
@@ -172,7 +230,7 @@ const cargarMovimiento = async (tx: Tx, cuenta: CuentaCompleta, id: number) => {
 };
 
 /** Pagos que se pueden vincular a mano a un abono de la cuenta: del alcance de la cuenta, no rechazados y sin otro abono. Los de monto igual y fecha cercana, primero. */
-export async function buscarPagos(cuenta: CuentaCompleta, movimiento: { fecha: Date; monto: Prisma.Decimal }, q: string | undefined) {
+export async function buscarPagos(cuenta: CuentaCompleta, movimiento: { fecha: Date; monto: Prisma.Decimal; descripcion?: string }, q: string | undefined) {
   const pagos = await prisma.pago.findMany({
     where: {
       AND: [
@@ -186,11 +244,13 @@ export async function buscarPagos(cuenta: CuentaCompleta, movimiento: { fecha: D
     orderBy: { fecha_pago: 'desc' },
     take: q ? 40 : 200,
   });
-  const resumenes = await resumenesDePagos(prisma, pagos.map((p) => p.id), cuenta.zona);
+  const internos = await pagosInternos(prisma, pagos.map((p) => p.id), cuenta.zona);
   const dia = movimiento.fecha.getTime();
-  const lista = [...resumenes.values()].map((p) => ({ p, igual: dec(p.total).equals(movimiento.monto), lejos: Math.abs(Date.parse(`${p.fecha_pago}T00:00:00Z`) - dia) }));
-  lista.sort((a, b) => Number(b.igual) - Number(a.igual) || a.lejos - b.lejos || a.p.id - b.p.id);
-  return lista.slice(0, 20).map((x) => x.p);
+  const tokens = tokensDeNombre(movimiento.descripcion ?? '');
+  // Primero los pagos cuyo dueño (o quien lo registró) aparece en la glosa, luego los de monto igual, luego los de fecha cercana. Sólo ordena: nada se vincula solo.
+  const lista = [...internos.values()].map((p) => ({ p, nombre: puntajeNombre(tokens, p.nombres), igual: dec(p.total).equals(movimiento.monto), lejos: Math.abs(Date.parse(`${p.fecha_pago}T00:00:00Z`) - dia) }));
+  lista.sort((a, b) => b.nombre - a.nombre || Number(b.igual) - Number(a.igual) || a.lejos - b.lejos || a.p.id - b.p.id);
+  return lista.slice(0, 20).map((x) => publico(x.p, tokens));
 }
 
 /** El pago que representa a otro: si es un concepto de un grupo, su principal. */
@@ -206,6 +266,7 @@ export async function vincular(cuenta: CuentaCompleta, movimientoId: number, pag
     await bloquearCuenta(tx, cuenta.id);
     const m = await cargarMovimiento(tx, cuenta, movimientoId);
     if (m.estado === 'conciliado') throw conflict('Este abono ya está conciliado: desvincúlalo primero');
+    if (m.estado === 'salida') throw conflict('Una salida del banco no se vincula con un pago de vecino');
     if (m.estado === 'ignorado') throw conflict('Este abono está ignorado: quítale el «ignorar» (desvincular) antes de vincularlo');
     const principal = await principalDe(tx, pagoId);
     const pago = principal == null ? null : await tx.pago.findFirst({ where: { AND: [{ id: principal }, soloPrincipales, alcanceDePagos(cuenta)] }, select: { id: true, estado_validacion: true, movimientoBancario: { select: { id: true } } } });
@@ -234,6 +295,7 @@ export async function ignorar(cuenta: CuentaCompleta, movimientoId: number, moti
   return prisma.$transaction(async (tx) => {
     await bloquearCuenta(tx, cuenta.id);
     const m = await cargarMovimiento(tx, cuenta, movimientoId);
+    if (m.estado === 'salida') throw conflict('Una salida del banco no se ignora: no entra en la conciliación de pagos');
     if (m.estado === 'conciliado') throw conflict('Este abono está conciliado con un pago: desvincúlalo antes de ignorarlo');
     await tx.movimientoBancario.update({ where: { id: m.id }, data: { estado: 'ignorado', pago_id: null, vinculo: null, manual: true, vinculado_por_id: usuarioId, vinculado_at: new Date(), motivo_ignorar: motivo, candidatos: [] } });
     await cruzarEn(tx, cuenta);

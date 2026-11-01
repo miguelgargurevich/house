@@ -96,10 +96,10 @@ describe('número de operación', () => {
 
 describe('detección de encabezados', () => {
   it('sinónimos de cada banco', () => {
-    assert.deepEqual(reconocerEncabezados(['Fecha', 'Fecha valuta', 'Descripción operación', 'Monto', 'Saldo', 'Sucursal - agencia', 'Operación - Número']), { fecha: 0, descripcion: 2, abono: 3, cargo: null, operacion: 6 });
-    assert.deepEqual(reconocerEncabezados(['Fecha', 'Fecha de proceso', 'Nro. de operación', 'Movimiento', 'Descripción', 'Canal', 'Cargo', 'Abono', 'Saldo contable']), { fecha: 0, descripcion: 4, abono: 7, cargo: 6, operacion: 2 });
-    assert.deepEqual(reconocerEncabezados(['F. Operación', 'F. Valor', 'Código', 'N° Doc.', 'Concepto', 'Importe', 'Oficina']), { fecha: 0, descripcion: 4, abono: 5, cargo: null, operacion: 3 });
-    assert.deepEqual(reconocerEncabezados(['Fecha Operación', 'Fecha Valor', 'Glosa', 'Nro. Operación', 'Cargos', 'Abonos', 'Saldo']), { fecha: 0, descripcion: 2, abono: 5, cargo: 4, operacion: 3 });
+    assert.deepEqual(reconocerEncabezados(['Fecha', 'Fecha valuta', 'Descripción operación', 'Monto', 'Saldo', 'Sucursal - agencia', 'Operación - Número']), { fecha: 0, descripcion: 2, abono: 3, cargo: null, operacion: 6, saldo: 4 });
+    assert.deepEqual(reconocerEncabezados(['Fecha', 'Fecha de proceso', 'Nro. de operación', 'Movimiento', 'Descripción', 'Canal', 'Cargo', 'Abono', 'Saldo contable']), { fecha: 0, descripcion: 4, abono: 7, cargo: 6, operacion: 2, saldo: 8 });
+    assert.deepEqual(reconocerEncabezados(['F. Operación', 'F. Valor', 'Código', 'N° Doc.', 'Concepto', 'Importe', 'Oficina']), { fecha: 0, descripcion: 4, abono: 5, cargo: null, operacion: 3, saldo: null });
+    assert.deepEqual(reconocerEncabezados(['Fecha Operación', 'Fecha Valor', 'Glosa', 'Nro. Operación', 'Cargos', 'Abonos', 'Saldo']), { fecha: 0, descripcion: 2, abono: 5, cargo: 4, operacion: 3, saldo: 6 });
   });
   it('«fecha operación» gana a «fecha valor», aunque venga después; ingresos/créditos/depósitos valen como abono', () => {
     assert.equal(reconocerEncabezados(['Fecha valor', 'Fecha operación', 'Detalle', 'Ingresos'])?.fecha, 1);
@@ -107,7 +107,7 @@ describe('detección de encabezados', () => {
     assert.equal(reconocerEncabezados(['Fecha', 'Detalle', 'Depósitos', 'Retiros'])?.abono, 2);
   });
   it('un encabezado con más texto se reconoce por lo que contiene', () => {
-    assert.deepEqual(reconocerEncabezados(['Fecha de la transacción', 'Descripción del movimiento', 'Monto en soles']), { fecha: 0, descripcion: 1, abono: 2, cargo: null, operacion: null });
+    assert.deepEqual(reconocerEncabezados(['Fecha de la transacción', 'Descripción del movimiento', 'Monto en soles']), { fecha: 0, descripcion: 1, abono: 2, cargo: null, operacion: null, saldo: null });
   });
   it('sin fecha o sin monto no es un encabezado', () => {
     assert.equal(reconocerEncabezados(['Cuenta', 'Titular', 'Saldo']), null);
@@ -118,6 +118,7 @@ describe('detección de encabezados', () => {
     const r = leerAbonos([['Estado de cuenta'], ['Cuenta 000-1'], [], ['Fecha', 'Descripción', 'Abono'], ['05/10/2026', 'UNO', '10.00'], ['TOTAL', '', '10.00']]);
     assert.equal(r.abonos.length, 1);
     assert.equal(r.descartes.sin_fecha, 1);
+    assert.equal(r.salidas.length, 0);
   });
 });
 
@@ -135,7 +136,8 @@ describe('un extracto sintético por banco', () => {
         assert.equal(a.operacion, op);
         assert.equal(a.descripcion.normalize('NFD').replace(/[̀-ͯ]/g, ''), desc);
       });
-      assert.equal(r.descartes.cargos, 2, 'la luz y la comisión son cargos y no entran');
+      assert.deepEqual(r.salidas.map((x) => [dia(x.fecha), x.monto.toFixed(2), x.descripcion]), [['2026-10-06', '80.00', 'PAGO LUZ DEMO'], ['2026-10-08', '45.50', 'COMISION MANTENIMIENTO']], 'la luz y la comisión son salidas (monto en positivo), no abonos');
+      assert.equal(r.descartes.sin_monto, 0);
       assert.ok(r.encabezados.length > 0);
     });
   }
@@ -221,7 +223,7 @@ describe('cruce (puro)', () => {
   const mov = (id: number, monto: string | number, dias = 0, operacion: string | null = null) => ({ id, dia: T + dias * DIA, monto: D(monto), operacion });
   const una = (movs: ReturnType<typeof mov>[], pagos: PagoParaCruce[], ventana = 3) => emparejar(movs, pagos, ventana);
 
-  it('un solo candidato → conciliado', () => assert.deepEqual(una([mov(1, 150)], [pago(10, 150, 1)])[0], { movimientoId: 1, estado: 'conciliado', pagoId: 10, candidatos: [] }));
+  it('un solo candidato → conciliado', () => assert.deepEqual(una([mov(1, 150)], [pago(10, 150, 1)])[0], { movimientoId: 1, estado: 'conciliado', pagoId: 10, candidatos: [], motivo: null }));
   it('varios candidatos → por revisar, el más cercano primero', () => {
     const [d] = una([mov(1, 150)], [pago(10, 150, 3), pago(11, 150, 0), pago(12, 150, -1)]);
     assert.equal(d!.estado, 'por_revisar');
@@ -239,11 +241,11 @@ describe('cruce (puro)', () => {
   });
   it('el número de operación gana entre varios pagos del mismo monto', () => {
     const [d] = una([mov(1, 150, 0, '100234')], [pago(10, 150, 0), pago(11, 150, 2, ['100234']), pago(12, 150, 0)]);
-    assert.deepEqual(d, { movimientoId: 1, estado: 'conciliado', pagoId: 11, candidatos: [] });
+    assert.deepEqual(d, { movimientoId: 1, estado: 'conciliado', pagoId: 11, candidatos: [], motivo: null });
   });
-  it('la operación igual no exige la ventana (con el mismo monto), pero sí el monto', () => {
-    assert.equal(una([mov(1, 150, 0, '100234')], [pago(10, 150, 9, ['100234'])])[0]!.estado, 'conciliado');
+  it('la operación igual necesita también el monto: con otro monto no es candidato', () => {
     assert.equal(una([mov(1, 150, 0, '100234')], [pago(10, 160, 0, ['100234'])])[0]!.estado, 'sin_pago');
+    assert.equal(una([mov(1, 150, 0, '100234')], [pago(10, 160, 9, ['100234'])])[0]!.estado, 'sin_pago');
   });
   it('una operación demasiado corta no es señal', () => {
     const [d] = una([mov(1, 150, 0, '12')], [pago(10, 150, 0, ['12']), pago(11, 150, 1)]);
