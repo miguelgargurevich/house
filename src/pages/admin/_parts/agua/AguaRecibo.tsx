@@ -135,10 +135,11 @@ export function AguaRecibo({ reciboId, onCambio, torre = '' }: { reciboId: numbe
             <h3 className="text-sm font-semibold">Lecturas de agua</h3>
             <p className="text-sm text-muted">La lectura anterior sale de la actual del mes previo. Escribe la actual de cada departamento, o sube el Excel con la plantilla. Si el agua que cobra el recibo no cuadra con la lectura, la fila lo avisa; no cambia ningún monto.</p>
           </div>
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-start gap-3">
+            {/* Los botones bajan lo que mide la etiqueta del campo (20 px + 6 px): quedan a la altura del campo, haya o no texto de ayuda debajo. */}
             <Input label={`Factor (${simbolo} por m³)`} inputMode="decimal" className="w-36" placeholder="Ej. 4.93" value={factor} onChange={e => setFactor(e.target.value)} />
-            <Button variant="secondary" className="mb-6" disabled={!factor.trim()} onClick={aplicarFactor}>Aplicar a todas las filas</Button>
-            <div className="mb-6 ml-auto flex flex-wrap gap-2">
+            <Button variant="secondary" className="mt-[1.625rem]" disabled={!factor.trim()} onClick={aplicarFactor}>Aplicar a todas las filas</Button>
+            <div className="ml-auto flex flex-wrap gap-2 sm:mt-[1.625rem]">
               <Button variant="secondary" icon={<ArrowDownTrayIcon className="h-4 w-4" />} onClick={() => window.location.assign(`/api/recibos/${reciboId}/agua/plantilla`)}>Descargar plantilla</Button>
               <Bloqueable>{b => <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} disabled={b} onClick={() => archivo.current?.click()}>Subir Excel o CSV</Button>}</Bloqueable>
               <Bloqueable>{b => <Button loading={guardando} disabled={cambiadas.length === 0 || b} onClick={() => void guardar()}>Guardar lecturas{cambiadas.length > 0 ? ` (${cambiadas.length})` : ''}</Button>}</Bloqueable>

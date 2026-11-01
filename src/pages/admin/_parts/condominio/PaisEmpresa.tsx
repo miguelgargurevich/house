@@ -22,12 +22,12 @@ export function PaisEmpresa({ empresaId, pais, onCambio }: { empresaId: number; 
   return (
     <section aria-labelledby="pais-empresa" className="mt-6 border-t border-line pt-5">
       <h3 id="pais-empresa" className="mb-3 text-sm font-semibold">País y moneda</h3>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         <Select label="País de la empresa" className="w-full sm:w-64" value={valor} onChange={e => setValor(e.target.value)}
           hint={`Los condominios nuevos nacen en ${paisDe(valor)?.nombre ?? 'ese país'} con ${moneda?.nombre.toLowerCase() ?? 'su moneda'} (${moneda?.codigo}); cada condominio puede cambiar su moneda al crearlo o editarlo.`}>
           {PAISES.map(p => <option key={p.codigo} value={p.codigo}>{p.bandera} {p.nombre}</option>)}
         </Select>
-        <Button variant="secondary" className="mb-6" loading={guardando} disabled={valor === pais} onClick={() => void guardar()}>Guardar país</Button>
+        <Button variant="secondary" className="sm:mt-[1.625rem]" loading={guardando} disabled={valor === pais} onClick={() => void guardar()}>Guardar país</Button>
       </div>
     </section>
   );

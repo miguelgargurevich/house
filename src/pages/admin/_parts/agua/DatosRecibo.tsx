@@ -36,14 +36,14 @@ export function DatosRecibo({ reciboId, recibo, onCambio }: { reciboId: number; 
   const cambioCorreo = (recibo.estructura?.correo_vouchers ?? '') !== correo.trim();
   return (
     <div className="grid gap-5 sm:grid-cols-2">
-      <div className="flex items-end gap-2">
+      <div className="flex items-start gap-2">
         <Input label="Fecha de corte del agua" type="date" className="min-w-0 flex-1" hint="Sale en el recibo impreso. Déjala vacía si no hay corte." value={corte} onChange={e => setCorte(e.target.value)} />
-        <Button variant="secondary" className="mb-6" loading={guardando === 'corte'} disabled={!cambioCorte} onClick={() => void guardarCorte()}>Guardar</Button>
+        <Button variant="secondary" className="mt-[1.625rem]" loading={guardando === 'corte'} disabled={!cambioCorte} onClick={() => void guardarCorte()}>Guardar</Button>
       </div>
       {recibo.estructura ? (
-        <div className="flex items-end gap-2">
+        <div className="flex items-start gap-2">
           <Input label={`Correo del block${recibo.estructura.nombre ? ` (${recibo.estructura.nombre})` : ''}`} type="email" className="min-w-0 flex-1" hint="Al que los vecinos envían su voucher; sale en el recibo. Es el correo de la junta del block." error={errorCorreo} value={correo} onChange={e => setCorreo(e.target.value)} />
-          <Button variant="secondary" className="mb-6" loading={guardando === 'correo'} disabled={!cambioCorreo} onClick={() => void guardarCorreo()}>Guardar</Button>
+          <Button variant="secondary" className="mt-[1.625rem]" loading={guardando === 'correo'} disabled={!cambioCorreo} onClick={() => void guardarCorreo()}>Guardar</Button>
         </div>
       ) : (
         <p className="self-center text-sm text-muted">Este recibo no es de un block: el correo para enviar vouchers se define en cada block.</p>
