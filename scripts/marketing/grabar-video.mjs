@@ -117,6 +117,7 @@ const ESCENAS = {
     { rol: 'admin', url: '/admin/dashboard', accion: async (p) => { await pausa(800); await desplazar(p, 300, 2000); } },
     { rol: 'admin', url: '/admin/recibos', accion: async (p) => { await pausa(500); await desplazar(p, 240); } },
     { rol: 'admin', url: '/admin/pagos', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 260, 2000); } },
+    { rol: 'admin', url: '/admin/conciliacion', accion: async (p) => { await pausa(700); await desplazar(p, 360, 2200); } },
     { rol: 'admin', url: '/admin/medios-pago', accion: async (p) => { await pausa(500); await desplazar(p, 320, 2000); } },
     { rol: 'admin', url: '/admin/morosidad', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 200); } },
     { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
@@ -141,7 +142,6 @@ const ESCENAS = {
     { rol: 'tesorero', url: '/junta/mi-junta', accion: async (p) => { await pausa(500); await desplazar(p, 220); } },
     { rol: 'tesorero', url: '/junta/pagos', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 240); } },
     { rol: 'tesorero', url: '/junta/medios-pago', accion: async (p) => { await pausa(500); await desplazar(p, 220); } },
-    { rol: 'tesorero', url: '/junta/agua', accion: async (p) => { await pausa(500); await desplazar(p, 260); } },
     { rol: 'tesorero', url: '/junta/cierre', accion: async (p) => { await octubre(p); await desplazar(p, 320, 2200); } },
     { rol: 'tesorero', url: '/junta/comunicados', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /nuevo comunicado/i })); await asentar(p); } },
     { rol: null, url: null, cierre: true },
@@ -153,6 +153,11 @@ const ESCENAS = {
     { rol: 'propietario', url: '/propietario/pagos', accion: async (p) => { await tocar(p, p.getByRole('tab', { name: /por concepto/i })); await asentar(p); await desplazar(p, 220); } },
     { rol: 'propietario', url: '/propietario/junta', accion: async (p) => { await pausa(500); await desplazar(p, 260); } },
     { rol: 'propietario', url: '/propietario/proveedores', accion: async (p) => { await pausa(500); await desplazar(p, 200); } },
+    { rol: 'propietario', url: '/propietario/reservas', accion: async (p) => {
+      await p.getByLabel('Área').selectOption({ label: 'Zona de parrillas' }).catch(() => {});
+      await p.getByLabel('Día', { exact: true }).fill('2026-11-01').catch(() => {});
+      await asentar(p); await desplazar(p, 260);
+    } },
     { rol: 'propietario', url: '/propietario/comunicados', accion: async (p) => { await pausa(500); await desplazar(p, 220); } },
     { rol: null, url: null, cierre: true },
   ],

@@ -1,6 +1,6 @@
 # Guiones de los videos de Torre
 
-Versión del 29-oct-2026. Cuatro videos, cada uno en **escritorio (16:9, 1920×1080)** y **celular (9:16, 1080×1920)**.
+Versión del 1-nov-2026 (antes 29-oct). Cuatro videos, cada uno en **escritorio (16:9, 1920×1080)** y **celular (9:16, 1080×1920)**.
 Pantallas reales de Torre en local con el seed de Los Libertadores (datos de prueba, ningún dato real). Narración con la voz
 femenina «Dora» de My Workspace (Kokoro `ef_dora`, elegida por Miguel el 30-oct; antes OpenVoice). Cada escena: lo que se ve → lo que dice la voz. Duración objetivo ≈ 60 s
 (≈ 140 palabras); la del rol administradora ≈ 90 s.
@@ -30,14 +30,15 @@ cada escena cuenta UNA cosa. El cierre de todos: «Torre. Tu condominio, en orde
 | 1 | Resumen de la administradora | Este es tu día a día en Torre: todo el condominio en una sola pantalla. |
 | 2 | Recibos por periodo, con el avance del cobro | Emite el mantenimiento del mes y míralo por block, con cuánto ya se cobró. |
 | 3 | Pagos → revisar un pago con su voucher | Cada pago llega con su voucher: la inteligencia artificial lo revisa y el tesorero confirma que llegó a la cuenta. |
-| 4 | Medios de pago → tarjeta del block con su junta y su cuenta | Cada block tiene su junta y la cuenta donde pagan sus vecinos, siempre al día. |
-| 5 | Morosidad → detalle de los recibos vencidos de un departamento | La morosidad, ordenada: quién debe, cuánto, desde cuándo, y el detalle de cada recibo. |
-| 6 | Comunicados → nuevo comunicado (se escribe el título) | ¿Un corte de agua? Escribe un comunicado y llega a todos tus vecinos. |
-| 7 | Comunicados › Notificaciones | Y aquí ves qué salió por WhatsApp y por correo, y qué hay que reintentar. |
-| 8 | Juntas directivas → Nueva gestión | Cuando cambia la junta, registras la nueva gestión y los permisos pasan solos. |
-| 9 | Cierres del mes → Block 1, octubre | Al cerrar el mes, cada tesorero registra lo que paga, y tú ves el estado de todos los blocks. |
-| 10 | Periodo → Consolidado del block | Y el consolidado del block sale listo para imprimir junto con el recibo de cada vecino, sin armar el Excel a mano. |
-| 11 | Cierre | Torre. Tu condominio, en orden. |
+| 4 | Conciliación bancaria: abonos, salidas, conciliados y vouchers sin abono | Sube el extracto del banco y Torre cruza cada abono con los vouchers: ves qué dinero llegó de verdad y qué voucher no tiene respaldo. |
+| 5 | Medios de pago → tarjeta del block con su junta y su cuenta | Cada block tiene su junta y la cuenta donde pagan sus vecinos, siempre al día. |
+| 6 | Morosidad → detalle de los recibos vencidos de un departamento | La morosidad, ordenada: quién debe, cuánto, desde cuándo, y el detalle de cada recibo. |
+| 7 | Comunicados → nuevo comunicado (se escribe el título) | ¿Un corte de agua? Escribe un comunicado y llega a todos tus vecinos. |
+| 8 | Comunicados › Notificaciones | Y aquí ves qué salió por WhatsApp y por correo, y qué hay que reintentar. |
+| 9 | Juntas directivas → Nueva gestión | Cuando cambia la junta, registras la nueva gestión y los permisos pasan solos. |
+| 10 | Cierres del mes → Block 1, octubre | Al cerrar el mes, cada tesorero registra lo que paga, y tú ves el estado de todos los blocks. |
+| 11 | Periodo → Consolidado del block | Y el consolidado del block sale listo para imprimir junto con el recibo de cada vecino, sin armar el Excel a mano. |
+| 12 | Cierre | Torre. Tu condominio, en orden. |
 
 ## 3. Para la junta directiva (≈ 45 s; tesorera del Block 1)
 
@@ -46,10 +47,9 @@ cada escena cuenta UNA cosa. El cierre de todos: «Torre. Tu condominio, en orde
 | 1 | Mi junta | Si eres de la junta de tu block, Torre te da tu propio espacio. |
 | 2 | Pagos → un pago con su voucher | Ves cada pago de tus vecinos con su voucher, y como tesorero confirmas que el dinero llegó a la cuenta. |
 | 3 | Medios de pago de la junta | Mantienes al día la cuenta donde pagan tus vecinos. |
-| 4 | Lecturas de agua | Cargas las lecturas de agua del block. |
-| 5 | Cierre del mes (octubre) | Al cerrar el mes, registras lo que va a la administración, a la Junta central y a los servicios. |
-| 6 | Comunicados → nuevo comunicado | Y avisas a tus vecinos con un comunicado. |
-| 7 | Cierre | Torre. Tu condominio, en orden. |
+| 4 | Cierre del mes (octubre) | Al cerrar el mes, registras lo que va a la administración, a la Junta central y a los servicios. |
+| 5 | Comunicados → nuevo comunicado | Y avisas a tus vecinos con un comunicado. |
+| 6 | Cierre | Torre. Tu condominio, en orden. |
 
 ## 4. Para el vecino (≈ 40 s, primero celular)
 
@@ -61,8 +61,9 @@ cada escena cuenta UNA cosa. El cierre de todos: «Torre. Tu condominio, en orde
 | 4 | Mi historial → Por concepto | Mira cómo evolucionan tus pagos mes a mes. |
 | 5 | Mi junta | Conoce a la junta de tu block y a la Junta central. |
 | 6 | Proveedores | Encuentra a los proveedores de confianza de tu condominio. |
-| 7 | Comunicados | Y entérate de todo lo que pasa en tu edificio. |
-| 8 | Cierre | Torre. Tu condominio, en orden. |
+| 7 | Reservas → Zona de parrillas, horarios del día | Reserva la parrilla o el salón desde tu celular, viendo qué horas están libres. |
+| 8 | Comunicados | Y entérate de todo lo que pasa en tu edificio. |
+| 9 | Cierre | Torre. Tu condominio, en orden. |
 
 ---
 
