@@ -1,6 +1,6 @@
 // Documentos que leen los rastreadores: robots.txt, sitemap.xml, llms.txt y llms-full.txt. Dinámicos (planes y precios salen de la base).
 import { dinero } from '../../ui/format';
-import { MARCA, MARCA_LARGA, preguntas, textoTope, unidadPrecio } from '../../lib/seo/textos';
+import { MARCA_LARGA, preguntas, textoTope, unidadPrecio } from '../../lib/seo/textos';
 import { VERSION_LEGAL } from '../services/comercial/legal';
 import { FECHA_CONTENIDO, FUNCIONES, LIMITES, PARA_QUIEN, QUE_ES } from './contenido';
 import type { ContextoSeo } from './contexto';
@@ -64,7 +64,7 @@ function paginas(ctx: ContextoSeo): string[] {
 
 export function llmsTxt(ctx: ContextoSeo): string {
   return [
-    `# ${MARCA}`,
+    `# ${MARCA_LARGA}`,
     '',
     `> ${QUE_ES}`,
     '',
@@ -88,7 +88,7 @@ export function llmsTxt(ctx: ContextoSeo): string {
 export function llmsFullTxt(ctx: ContextoSeo): string {
   const contacto = ctx.cfg.legal_correo ? ['', `Contacto de privacidad y consultas: ${ctx.cfg.legal_correo}`] : [];
   return [
-    `# ${MARCA}: documentación completa`,
+    `# ${MARCA_LARGA}: documentación completa`,
     '',
     `> ${QUE_ES}`,
     '',

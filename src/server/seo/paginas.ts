@@ -20,11 +20,11 @@ export const MAX_DESCRIPCION = 160;
 export interface InfoPagina { ruta: RutaPublica; titulo: string; descripcion: string; nombre: string }
 
 const TITULOS: Record<RutaPublica, { titulo: string; nombre: string }> = {
-  '/': { titulo: 'Torre · Administración de condominios en el Perú', nombre: 'Inicio' },
-  '/precios': { titulo: 'Precios de Torre · Planes para condominios', nombre: 'Precios' },
-  '/registro': { titulo: 'Crea tu cuenta gratis · Torre', nombre: 'Crear cuenta' },
-  '/privacidad': { titulo: 'Política de privacidad · Torre', nombre: 'Política de privacidad' },
-  '/terminos': { titulo: 'Términos y condiciones · Torre', nombre: 'Términos y condiciones' },
+  '/': { titulo: 'Torre · Administración de condominios', nombre: 'Inicio' },
+  '/precios': { titulo: 'Precios | Torre · Administración de condominios', nombre: 'Precios' },
+  '/registro': { titulo: 'Crea tu cuenta | Torre · Administración de condominios', nombre: 'Crear cuenta' },
+  '/privacidad': { titulo: 'Privacidad | Torre · Administración de condominios', nombre: 'Política de privacidad' },
+  '/terminos': { titulo: 'Términos | Torre · Administración de condominios', nombre: 'Términos y condiciones' },
 };
 
 /** Descripción de /precios con el precio más bajo de pago del catálogo (si hay); sin catálogo, la genérica. */
@@ -166,7 +166,7 @@ export function construirHead(info: InfoPagina, ctx: ContextoSeo | null, o: Opci
     l.push(`<link rel="alternate" hreflang="es-PE" href="${esc(canonica)}" />`);
     l.push(`<link rel="alternate" hreflang="x-default" href="${esc(canonica)}" />`);
   }
-  l.push(meta('property', 'og:type', 'website'), meta('property', 'og:site_name', MARCA), meta('property', 'og:locale', 'es_PE'), meta('property', 'og:title', info.titulo), meta('property', 'og:description', info.descripcion));
+  l.push(meta('property', 'og:type', 'website'), meta('property', 'og:site_name', MARCA_LARGA), meta('property', 'og:locale', 'es_PE'), meta('property', 'og:title', info.titulo), meta('property', 'og:description', info.descripcion));
   if (canonica) l.push(meta('property', 'og:url', canonica));
   if (imagen) l.push(meta('property', 'og:image', imagen), meta('property', 'og:image:width', '1200'), meta('property', 'og:image:height', '630'), meta('property', 'og:image:alt', MARCA_LARGA));
   l.push(meta('name', 'twitter:card', 'summary_large_image'), meta('name', 'twitter:title', info.titulo), meta('name', 'twitter:description', info.descripcion));

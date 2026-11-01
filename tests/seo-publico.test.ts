@@ -115,7 +115,7 @@ describe('<head> propio de cada ruta pública', () => {
       assert.equal(metaContenido(r.texto, 'og:type', 'property'), 'website');
       assert.equal(metaContenido(r.texto, 'og:image', 'property'), `${URL_CANONICA}/og-torre.png`);
       assert.equal(metaContenido(r.texto, 'og:locale', 'property'), 'es_PE');
-      assert.equal(metaContenido(r.texto, 'og:site_name', 'property'), 'Torre');
+      assert.equal(metaContenido(r.texto, 'og:site_name', 'property'), 'Torre · Administración de condominios');
       assert.equal(metaContenido(r.texto, 'twitter:card'), 'summary_large_image');
       assert.match(r.texto, new RegExp(`<link rel="alternate" hreflang="es-PE" href="${url.replace(/\./g, '\\.')}" />`));
       assert.match(r.texto, new RegExp(`<link rel="alternate" hreflang="x-default" href="${url.replace(/\./g, '\\.')}" />`));
@@ -394,7 +394,7 @@ describe('llms.txt y llms-full.txt', () => {
     const r = await pedir('/llms.txt', { ua: 'ClaudeBot' });
     assert.equal(r.status, 200);
     assert.match(String(r.headers['content-type']), /^text\/plain; charset=utf-8/);
-    assert.match(r.texto, /^# Torre\n\n> .+/);
+    assert.match(r.texto, /^# Torre · Administración de condominios\n\n> .+/);
     assert.match(r.texto, /^## Páginas$/m);
     for (const p of ['/', '/precios', '/registro', '/privacidad', '/terminos', '/llms-full.txt']) assert.ok(r.texto.includes(`](${URL_CANONICA}${p})`), p);
     const cat = await catalogo();
