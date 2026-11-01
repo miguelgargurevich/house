@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-01 — Conciliación v2 en producción; manual v6, videos 2–4 y benchmark al día (Claude Code, Opus 5.5 + Sonnet) — push: sí
+
+- Conciliación v2 (Sonnet) desplegada bd3b94a: operación + fecha (n.º repetido en otra fecha → por revisar), hoja correcta del libro, salidas, saldo, fuera de período y pista por nombre. Lecciones tomadas del cruce de Tesorería del Portal (`CruceDeIngresos.cs`).
+- Manual v6 (mismo enlace): 42 secciones (Conciliación, Áreas comunes y reservas, Reservar un área común, una sola junta, Lecturas de agua desde su menú, tema en el menú). Capturas nuevas en `manual-torre-capturas/` (admin-agua, admin-conciliacion, admin-areas, vecino-reservas, precios).
+- Videos (mismos enlaces en MinIO `videos-torre/`): v2 con escena de conciliación, v3 sin «Lecturas de agua», v4 con reservas. Voces nuevas con Dora; las anteriores en `.claude/videos/<v>/voz-31oct/`.
+- Benchmark (mismo enlace): conciliación «Sí · Pro», diferenciador «conciliación + IA», hechos del 1-nov.
+- Local: Vite reiniciado con `--force` (caché vieja → dos copias de React → «Invalid hook call» en Medios de pago); el backend local corre el código de hoy con remitentes apagados; la base `house` tiene un extracto de prueba subido.
+
+---
+
 ## 2026-11-01 — Conciliación bancaria v2 (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel: completar la conciliación (extracto con fecha, glosa, n.º de operación, cargos/abonos o importe con signo y saldo) con lo aprendido en el cruce de Tesorería del Portal (`CruceDeIngresos.cs`, sólo leído). Rama `feat/conciliacion-v2` (sobre origin/main de898a1), base de pruebas `house_test_conc2`. Esquema ADITIVO (`prisma db push`).
