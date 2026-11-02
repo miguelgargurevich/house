@@ -124,6 +124,7 @@ describe('Superadmin › Precios: tarjeta «Tipo de cambio» y precios en dólar
     assert.match(cuando('2026-10-31T15:00:00.000Z'), /10:00/, '15:00 UTC = 10:00 en Lima');
     assert.equal(cuando(null), '—');
     assert.match(textoDelOrigen(auto), /Leído de open\.er-api\.com el .* Se actualiza solo cada 24 horas/);
+    assert.match(textoDelOrigen({ ...auto, tipo_cambio_fuente: 'sunat.gob.pe' }), /Leído de sunat\.gob\.pe el .* Se actualiza solo cada 24 horas/, 'la fuente principal (SUNAT) se muestra tal cual');
     assert.match(textoDelOrigen(manual), /Fijado a mano el .* La lectura diaria no lo pisa/);
     assert.match(textoDelOrigen(vacio), /Todavía no se leyó/);
   });

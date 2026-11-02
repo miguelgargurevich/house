@@ -1,6 +1,6 @@
 // Todos los países menos Perú pagan la suscripción en dólares (US$) al tipo de cambio: precio en soles ÷ tipo de cambio, redondeado a 2 decimales (también el del
 // tramo); sin tipo de cambio, «Consúltanos». El tipo de cambio es automático (tarea diaria con `fetch` inyectado: ninguna prueba toca la red) y editable (manual
-// no lo pisa la tarea; sólo superadmin; auditado). El script de moneda de cobro es idempotente y NO toca lo ya emitido.
+// no lo pisa la tarea; sólo superadmin; auditado). La fuente es SUNAT (venta; respaldo open.er-api.com). El script de moneda de cobro es idempotente y NO toca lo ya emitido.
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { sembrarCatalogoComercial } from '../src/server/services/comercial/catal
 import { precioEnMoneda, preciosEnDolares, solesADolares, tramoEnMoneda } from '../src/server/services/comercial/impuestos';
 import { ajustarMonedaDeCobro } from '../src/server/services/comercial/monedaCobro';
 import { invalidarComercial } from '../src/server/services/comercial/modulos';
-import { FUENTE_TIPO_CAMBIO, FUENTE_TIPO_CAMBIO_URL, MAX_EDAD_MS, pasadaDeTipoCambio, tipoCambioAutoActivo, tipoCambioDeps, tipoCambioValido } from '../src/server/services/comercial/tipoCambio';
+import { FUENTE_SUNAT, FUENTE_SUNAT_URL, FUENTE_TIPO_CAMBIO, FUENTE_TIPO_CAMBIO_URL, MAX_EDAD_MS, leerTipoCambioDeFuente, pasadaDeTipoCambio, tipoCambioAutoActivo, tipoCambioDeps, tipoCambioValido } from '../src/server/services/comercial/tipoCambio';
 
 const D = Prisma.Decimal;
 const HORA = 3_600_000;
@@ -24,12 +24,34 @@ let d: Datos;
 let T: Record<'super' | 'adminA' | 'prop1', string>;
 
 const original = { fetch: tipoCambioDeps.fetch, ahora: tipoCambioDeps.ahora };
-/** Un `fetch` falso que cuenta las llamadas y responde `cuerpo` (con `estado`); nunca sale a la red. */
-function fuente(cuerpo: unknown, estado = 200) {
+type Resp = [cuerpo: unknown, estado?: number];
+const caida: Resp = [{ result: 'error' }, 500];
+/** Cabeceras con que se pidió cada URL (la última vez). */
+const pedidos = new Map<string, RequestInit>();
+/** Un `fetch` falso que responde según la URL (SUNAT o el respaldo), anota las llamadas y nunca sale a la red. Una URL desconocida revienta. */
+function fuentes(sunat: Resp, respaldo: Resp = caida) {
   const llamadas: string[] = [];
-  tipoCambioDeps.fetch = async (url) => { llamadas.push(url); return new Response(typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo), { status: estado }); };
+  pedidos.clear();
+  tipoCambioDeps.fetch = async (url, init) => {
+    llamadas.push(url);
+    pedidos.set(url, init);
+    if (url !== FUENTE_SUNAT_URL && url !== FUENTE_TIPO_CAMBIO_URL) throw new Error(`URL inesperada en la prueba: ${url}`);
+    const [cuerpo, estado = 200] = url === FUENTE_SUNAT_URL ? sunat : respaldo;
+    return new Response(typeof cuerpo === 'string' ? cuerpo : JSON.stringify(cuerpo), { status: estado });
+  };
   return llamadas;
 }
+/** Sólo el RESPALDO responde `cuerpo` (SUNAT cae con 500). */
+const fuente = (cuerpo: unknown, estado = 200) => fuentes(caida, [cuerpo, estado]);
+/** El día de Lima de `AHORA` menos `dias`, como DD/MM/AAAA (Lima = UTC−5, sin horario de verano). */
+function fechaLima(dias: number, ahora = AHORA) {
+  const f = new Date(ahora.getTime() - 5 * HORA - dias * 24 * HORA);
+  return `${String(f.getUTCDate()).padStart(2, '0')}/${String(f.getUTCMonth() + 1).padStart(2, '0')}/${f.getUTCFullYear()}`;
+}
+/** El texto de SUNAT con la fecha de hace `dias` días, tal como lo publica (con salto de línea al final). */
+const textoSunat = (dias: number, venta: number | string, compra: number | string = '3.1111', ahora = AHORA) => `${fechaLima(dias, ahora)}|${compra}|${venta}|\n`;
+/** SUNAT responde bien (venta `venta`, de hace `dias` días); el respaldo, caído. */
+const sunat = (venta: number | string, dias = 0) => fuentes([textoSunat(dias, venta)]);
 const respuesta = (pen: unknown) => ({ result: 'success', base_code: 'USD', rates: { USD: 1, PEN: pen } });
 const config = () => prisma.configuracionComercial.findUniqueOrThrow({ where: { id: 1 } });
 const fijarEnBase = (tc: string | null, extra: Record<string, unknown> = {}) => prisma.configuracionComercial.update({ where: { id: 1 }, data: { tipo_cambio_usd: tc, tipo_cambio_manual: false, tipo_cambio_at: tc ? new Date(AHORA.getTime() - HORA) : null, tipo_cambio_fuente: tc ? FUENTE_TIPO_CAMBIO : null, ...extra } });
@@ -43,7 +65,7 @@ before(async () => {
 after(async () => { await cerrar(); await prisma.$disconnect(); });
 beforeEach(async () => {
   tipoCambioDeps.ahora = () => AHORA;
-  fuente({ result: 'error' }, 500); // por defecto la fuente no sirve: ninguna prueba depende de ella sin decirlo
+  fuentes(caida, caida); // por defecto ninguna fuente sirve: ninguna prueba depende de ellas sin decirlo
   await prisma.auditoria.deleteMany();
   await prisma.pagoSuscripcion.deleteMany();
   await prisma.suscripcionCondominio.deleteMany();
@@ -218,14 +240,32 @@ describe('el script de moneda de cobro: idempotente, con --seco no escribe', () 
 });
 
 describe('la lectura automática: una pasada de la tarea', () => {
-  it('sin valor: lee de la fuente, guarda valor, fecha y fuente; pide la URL pública sin clave', async () => {
+  it('sin valor: lee de SUNAT (la columna VENTA, no la compra), guarda valor, fecha y fuente; pide la URL pública sin clave y NO toca el respaldo', async () => {
     await fijarEnBase(null);
-    const llamadas = fuente(respuesta(3.7456));
+    const llamadas = fuentes([textoSunat(0, '3.467', '3.458')], [respuesta(3.1), 200]);
     assert.equal(await pasadaDeTipoCambio(), 'actualizado');
-    assert.deepEqual(llamadas, [FUENTE_TIPO_CAMBIO_URL]);
+    assert.deepEqual(llamadas, [FUENTE_SUNAT_URL]);
+    assert.equal(FUENTE_SUNAT_URL, 'https://www.sunat.gob.pe/a/txt/tipoCambio.txt');
+    assert.equal(FUENTE_SUNAT, 'sunat.gob.pe');
     assert.match(FUENTE_TIPO_CAMBIO_URL, /^https:\/\/open\.er-api\.com\/v6\/latest\/USD$/);
+    assert.equal(FUENTE_TIPO_CAMBIO, 'open.er-api.com');
+    assert.equal((pedidos.get(FUENTE_SUNAT_URL)!.headers as Record<string, string>).accept, 'text/plain');
+    assert.ok(pedidos.get(FUENTE_SUNAT_URL)!.signal, 'con tope de tiempo');
     const c = await config();
-    assert.deepEqual([c.tipo_cambio_usd!.toString(), c.tipo_cambio_manual, c.tipo_cambio_fuente, c.tipo_cambio_at!.toISOString()], ['3.7456', false, FUENTE_TIPO_CAMBIO, AHORA.toISOString()]);
+    assert.deepEqual([c.tipo_cambio_usd!.toString(), c.tipo_cambio_manual, c.tipo_cambio_fuente, c.tipo_cambio_at!.toISOString()], ['3.467', false, FUENTE_SUNAT, AHORA.toISOString()]);
+  });
+
+  it('SUNAT caído: usa el respaldo (open.er-api.com), guarda SU fuente y deja el aviso «SUNAT falló (…), uso el respaldo» en el log', async () => {
+    await fijarEnBase(null);
+    const aviso = mock.method(console, 'warn', () => undefined);
+    const llamadas = fuentes(['<html>mantenimiento</html>', 503], [respuesta(3.7456), 200]);
+    assert.equal(await pasadaDeTipoCambio(), 'actualizado');
+    assert.deepEqual(llamadas, [FUENTE_SUNAT_URL, FUENTE_TIPO_CAMBIO_URL]);
+    assert.equal((pedidos.get(FUENTE_TIPO_CAMBIO_URL)!.headers as Record<string, string>).accept, 'application/json');
+    const c = await config();
+    assert.deepEqual([c.tipo_cambio_usd!.toString(), c.tipo_cambio_manual, c.tipo_cambio_fuente], ['3.7456', false, FUENTE_TIPO_CAMBIO]);
+    assert.equal(aviso.mock.callCount(), 1);
+    assert.equal(String(aviso.mock.calls[0].arguments[0]), '[tipo-cambio] SUNAT falló (respondió 503), uso el respaldo');
   });
 
   it('guarda con 4 decimales (3,745678 → 3,7457)', async () => {
@@ -236,7 +276,7 @@ describe('la lectura automática: una pasada de la tarea', () => {
   });
 
   it('con un valor de menos de 24 h no vuelve a leer; con más de 24 h, sí', async () => {
-    const llamadas = fuente(respuesta(3.7));
+    const llamadas = sunat(3.7);
     await fijarEnBase('3.8', { tipo_cambio_at: new Date(AHORA.getTime() - (MAX_EDAD_MS - 60_000)) });
     assert.equal(await pasadaDeTipoCambio(), 'vigente');
     assert.equal(llamadas.length, 0);
@@ -263,9 +303,10 @@ describe('la lectura automática: una pasada de la tarea', () => {
 
   it('si el superadmin lo fija a mano mientras se lee la fuente, esa elección gana (el UPDATE va condicionado a «no manual»)', async () => {
     await fijarEnBase('3.8', { tipo_cambio_at: new Date(AHORA.getTime() - 2 * MAX_EDAD_MS) });
-    tipoCambioDeps.fetch = async () => {
+    tipoCambioDeps.fetch = async (url) => {
+      assert.equal(url, FUENTE_SUNAT_URL);
       await prisma.configuracionComercial.update({ where: { id: 1 }, data: { tipo_cambio_usd: '4.2', tipo_cambio_manual: true, tipo_cambio_fuente: 'manual', tipo_cambio_at: AHORA } });
-      return new Response(JSON.stringify(respuesta(3.5)));
+      return new Response(textoSunat(0, 3.5));
     };
     assert.equal(await pasadaDeTipoCambio(), 'manual');
     assert.deepEqual([(await config()).tipo_cambio_usd!.toString(), (await config()).tipo_cambio_manual], ['4.2', true]);
@@ -285,8 +326,9 @@ describe('la lectura automática: una pasada de la tarea', () => {
     ['la red falla', () => { tipoCambioDeps.fetch = async () => { throw new TypeError('fetch failed'); }; }],
   ];
   for (const [nombre, preparar] of malas) {
-    it(`si falla (${nombre}) deja el último valor, lo registra en el log y no lanza`, async () => {
+    it(`si fallan las dos fuentes (SUNAT caído y el respaldo: ${nombre}) deja el último valor, lo registra en el log y no lanza`, async () => {
       const log = mock.method(console, 'error', () => undefined);
+      mock.method(console, 'warn', () => undefined);
       await fijarEnBase('3.8', { tipo_cambio_at: new Date(AHORA.getTime() - 2 * MAX_EDAD_MS) });
       preparar();
       assert.equal(await pasadaDeTipoCambio(), 'fallo');
@@ -312,6 +354,135 @@ describe('la lectura automática: una pasada de la tarea', () => {
     assert.equal(tipoCambioAutoActivo({ NODE_ENV: 'development', TIPO_CAMBIO_AUTO: 'on' }), true);
     assert.equal(process.env.TIPO_CAMBIO_AUTO, 'off', 'el entorno de pruebas la apaga');
     assert.match(readFileSync('src/server.ts', 'utf8'), /^\s*iniciarTipoCambio\(\);/m);
+  });
+});
+
+describe('SUNAT es la fuente principal; open.er-api.com sólo el respaldo', () => {
+  const fallaSunat: [string, () => string[]][] = [
+    ['HTTP 500', () => fuentes(['error interno', 500], [respuesta(3.71), 200])],
+    ['sin cuerpo', () => fuentes(['', 200], [respuesta(3.71), 200])],
+    ['la red falla', () => { const l: string[] = []; tipoCambioDeps.fetch = async (url) => { l.push(url); if (url === FUENTE_SUNAT_URL) throw new TypeError('fetch failed'); return new Response(JSON.stringify(respuesta(3.71))); }; return l; }],
+    ['formato roto (texto cualquiera)', () => fuentes(['<html>Mantenimiento</html>'], [respuesta(3.71), 200])],
+    ['falta la barra final', () => fuentes([`${fechaLima(0)}|3.458|3.467`], [respuesta(3.71), 200])],
+    ['falta una columna', () => fuentes([`${fechaLima(0)}|3.467|`], [respuesta(3.71), 200])],
+    ['sobra una columna', () => fuentes([`${fechaLima(0)}|3.458|3.467|3.5|`], [respuesta(3.71), 200])],
+    ['coma decimal', () => fuentes([`${fechaLima(0)}|3,458|3,467|`], [respuesta(3.71), 200])],
+    ['fecha con otro orden (AAAA-MM-DD)', () => fuentes([`2026-10-31|3.458|3.467|`], [respuesta(3.71), 200])],
+    ['fecha que no existe (31/02)', () => fuentes([`31/02/2026|3.458|3.467|`], [respuesta(3.71), 200])],
+    ['venta fuera de rango (9,467)', () => fuentes([textoSunat(0, '9.467')], [respuesta(3.71), 200])],
+    ['venta fuera de rango (1,9)', () => fuentes([textoSunat(0, '1.9')], [respuesta(3.71), 200])],
+    ['archivo congelado: la fecha es de hace 8 días', () => fuentes([textoSunat(8, 3.467)], [respuesta(3.71), 200])],
+    ['fecha del futuro lejano', () => fuentes([textoSunat(-10, 3.467)], [respuesta(3.71), 200])],
+  ];
+  for (const [nombre, preparar] of fallaSunat) {
+    it(`si SUNAT falla (${nombre}) usa el respaldo y guarda la fuente open.er-api.com`, async () => {
+      await fijarEnBase('3.8', { tipo_cambio_at: new Date(AHORA.getTime() - 2 * MAX_EDAD_MS) });
+      const aviso = mock.method(console, 'warn', () => undefined);
+      const llamadas = preparar();
+      assert.equal(await pasadaDeTipoCambio(), 'actualizado');
+      assert.deepEqual(llamadas, [FUENTE_SUNAT_URL, FUENTE_TIPO_CAMBIO_URL]);
+      const c = await config();
+      assert.deepEqual([c.tipo_cambio_usd!.toString(), c.tipo_cambio_fuente, c.tipo_cambio_manual], ['3.71', FUENTE_TIPO_CAMBIO, false]);
+      assert.equal(aviso.mock.callCount(), 1);
+      assert.match(String(aviso.mock.calls[0].arguments[0]), /^\[tipo-cambio\] SUNAT falló \([^)]+\), uso el respaldo$/);
+    });
+  }
+
+  it('el aviso del log nunca copia datos de la respuesta de SUNAT', async () => {
+    const aviso = mock.method(console, 'warn', () => undefined);
+    fuentes(['CLAVE-SECRETA-123|3.1|9.9|<script>', 200], [respuesta(3.71), 200]);
+    await leerTipoCambioDeFuente();
+    assert.equal(aviso.mock.callCount(), 1);
+    assert.doesNotMatch(String(aviso.mock.calls[0].arguments[0]), /SECRETA|script|9\.9/);
+  });
+
+  it('SUNAT bien pero el respaldo caído: ni siquiera pide el respaldo; leerTipoCambioDeFuente devuelve valor y fuente', async () => {
+    const llamadas = fuentes([textoSunat(0, '3.4670')]);
+    const lectura = await leerTipoCambioDeFuente();
+    assert.deepEqual([lectura.valor.toString(), lectura.fuente], ['3.467', 'sunat.gob.pe']);
+    assert.deepEqual(llamadas, [FUENTE_SUNAT_URL]);
+  });
+
+  it('tolera espacios y saltos de línea alrededor del texto y redondea la venta a 4 decimales', async () => {
+    fuentes([`  \r\n${fechaLima(0)}|3.458|3.745678|  \r\n`]);
+    assert.equal((await leerTipoCambioDeFuente()).valor.toString(), '3.7457');
+  });
+
+  it('la venta manda aunque la compra sea absurda: sólo la columna venta pasa por el rango', async () => {
+    fuentes([`${fechaLima(0)}|99.999|3.467|`]);
+    assert.equal((await leerTipoCambioDeFuente()).valor.toString(), '3.467');
+  });
+
+  it('antigüedad de la fecha: hoy, hace 3 días (fin de semana largo) y hace 7 se aceptan; hace 8 se rechaza (cae al respaldo)', async () => {
+    mock.method(console, 'warn', () => undefined);
+    for (const dias of [0, 1, 3, 7]) {
+      sunat(3.467, dias);
+      assert.equal((await leerTipoCambioDeFuente()).fuente, FUENTE_SUNAT, `hace ${dias} días`);
+    }
+    fuentes([textoSunat(8, 3.467)], [respuesta(3.71), 200]);
+    assert.equal((await leerTipoCambioDeFuente()).fuente, FUENTE_TIPO_CAMBIO, 'hace 8 días');
+  });
+
+  it('un fin de semana largo de verdad: el viernes publicado y se lee el lunes por la tarde → se guarda con fuente SUNAT', async () => {
+    await fijarEnBase(null);
+    const lunes = new Date('2026-11-02T20:00:00.000Z'); // lunes 15:00 en Lima
+    tipoCambioDeps.ahora = () => lunes;
+    const llamadas = fuentes(['30/10/2026|3.458|3.467|\n']); // viernes
+    assert.equal(await pasadaDeTipoCambio(), 'actualizado');
+    assert.deepEqual(llamadas, [FUENTE_SUNAT_URL]);
+    const c = await config();
+    assert.deepEqual([c.tipo_cambio_usd!.toString(), c.tipo_cambio_fuente], ['3.467', FUENTE_SUNAT]);
+  });
+
+  it('los días se cuentan en hora de Lima, no en UTC: a las 22:00 de Lima del 31-oct (ya 1-nov en UTC) la fecha del 24-oct aún es de hace 7 días', async () => {
+    mock.method(console, 'warn', () => undefined);
+    tipoCambioDeps.ahora = () => new Date('2026-11-01T03:00:00.000Z'); // 31-oct 22:00 en Lima
+    fuentes(['24/10/2026|3.458|3.467|']);
+    assert.equal((await leerTipoCambioDeFuente()).fuente, FUENTE_SUNAT);
+    fuentes(['23/10/2026|3.458|3.467|'], [respuesta(3.71), 200]);
+    assert.equal((await leerTipoCambioDeFuente()).fuente, FUENTE_TIPO_CAMBIO);
+  });
+
+  it('una fecha que no existe se rechaza aunque «rodada» cayera dentro del rango (30/02/2026 sería el 2-mar, o sea hoy)', async () => {
+    mock.method(console, 'warn', () => undefined);
+    tipoCambioDeps.ahora = () => new Date('2026-03-02T15:00:00.000Z');
+    fuentes(['30/02/2026|3.458|3.467|'], [respuesta(3.71), 200]);
+    assert.equal((await leerTipoCambioDeFuente()).fuente, FUENTE_TIPO_CAMBIO);
+    fuentes(['28/02/2026|3.458|3.467|']);
+    assert.equal((await leerTipoCambioDeFuente()).fuente, FUENTE_SUNAT, 'y una fecha real del mismo mes sí entra');
+  });
+
+  it('las dos fuentes caídas: la pasada da «fallo» y queda el valor y la fuente anteriores; leerTipoCambioDeFuente lanza', async () => {
+    const log = mock.method(console, 'error', () => undefined);
+    mock.method(console, 'warn', () => undefined);
+    await fijarEnBase('3.8', { tipo_cambio_at: new Date(AHORA.getTime() - 2 * MAX_EDAD_MS) });
+    const llamadas = fuentes([textoSunat(8, 3.467)], ['sin json', 200]);
+    assert.equal(await pasadaDeTipoCambio(), 'fallo');
+    assert.deepEqual(llamadas, [FUENTE_SUNAT_URL, FUENTE_TIPO_CAMBIO_URL]);
+    const c = await config();
+    assert.deepEqual([c.tipo_cambio_usd!.toString(), c.tipo_cambio_fuente, c.tipo_cambio_at!.toISOString()], ['3.8', FUENTE_TIPO_CAMBIO, new Date(AHORA.getTime() - 2 * MAX_EDAD_MS).toISOString()]);
+    assert.equal(log.mock.callCount(), 1);
+    await assert.rejects(leerTipoCambioDeFuente(), /la fuente/);
+  });
+
+  it('PUT {automatico: true} con SUNAT caído usa el respaldo y guarda SU fuente', async () => {
+    mock.method(console, 'warn', () => undefined);
+    await llamar(base, 'PUT', '/api/comercial/tipo-cambio', T.super, { tipo_cambio: '3.9' });
+    fuentes([textoSunat(8, 3.467)], [respuesta(3.7321), 200]);
+    const r = await llamar(base, 'PUT', '/api/comercial/tipo-cambio', T.super, { automatico: true });
+    assert.equal(r.status, 200, r.texto);
+    assert.deepEqual([r.body.tipo_cambio, r.body.manual, r.body.fuente], ['3.7321', false, FUENTE_TIPO_CAMBIO]);
+  });
+
+  it('PUT {automatico: true} con SUNAT bueno y las dos caídas: 502 y sigue manual (SUNAT con fecha vieja no cuenta)', async () => {
+    mock.method(console, 'error', () => undefined);
+    mock.method(console, 'warn', () => undefined);
+    await llamar(base, 'PUT', '/api/comercial/tipo-cambio', T.super, { tipo_cambio: '3.9' });
+    fuentes([textoSunat(30, 3.467)], caida);
+    const r = await llamar(base, 'PUT', '/api/comercial/tipo-cambio', T.super, { automatico: true });
+    assert.equal(r.status, 502, r.texto);
+    const c = await config();
+    assert.deepEqual([c.tipo_cambio_usd!.toString(), c.tipo_cambio_manual, c.tipo_cambio_fuente], ['3.9', true, 'manual']);
   });
 });
 
@@ -348,11 +519,11 @@ describe('el superadmin ve y edita el tipo de cambio (auditado; sólo superadmin
 
   it('PUT {automatico: true}: vuelve a automático y lo refresca EN ESE MOMENTO; queda auditado', async () => {
     await llamar(base, 'PUT', '/api/comercial/tipo-cambio', T.super, { tipo_cambio: '3.9' });
-    const llamadas = fuente(respuesta(3.7321));
+    const llamadas = sunat(3.7321);
     const r = await llamar(base, 'PUT', '/api/comercial/tipo-cambio', T.super, { automatico: true });
     assert.equal(r.status, 200, r.texto);
-    assert.deepEqual([r.body.tipo_cambio, r.body.manual, r.body.fuente], ['3.7321', false, FUENTE_TIPO_CAMBIO]);
-    assert.equal(llamadas.length, 1);
+    assert.deepEqual([r.body.tipo_cambio, r.body.manual, r.body.fuente], ['3.7321', false, FUENTE_SUNAT]);
+    assert.deepEqual(llamadas, [FUENTE_SUNAT_URL]);
     assert.equal((await planPublico('pro', '?pais=AR')).precio_por_unidad, '0.80');
     const a = await prisma.auditoria.findMany({ where: { entidad: 'tipo_cambio' }, orderBy: { id: 'asc' } });
     assert.deepEqual(a.map((x) => x.detalle), [{ modo: 'manual', anterior: '3.8', nuevo: '3.9' }, { modo: 'automatico', anterior: '3.9', nuevo: '3.7321' }]);
