@@ -96,7 +96,7 @@ export function hechosPrecios(cat: Catalogo | null): string[] {
   return [
     cat ? `Precios en ${monedaDe(cat.moneda)?.plural ?? cat.moneda}` : 'Precios por país',
     impuesto,
-    ...(tope != null ? [`Torre Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos`] : cat ? [`Torre Gratis ${plazoGratisTexto(cat)}`, 'Sin tope de departamentos'] : ['Empiezas gratis']),
+    ...(tope != null ? [`Torre Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos`] : cat ? [`Torre Gratis ${plazoGratisTexto(cat)}`, 'Torre Pro sin tope de departamentos'] : ['Empiezas gratis']),
     'Sin permanencia',
   ];
 }
@@ -115,7 +115,8 @@ export function unidadPrecio(plan: Plan, cat: Catalogo): string | null {
 
 /** El tope de departamentos (Gratis), o el monto mínimo por condominio en soles (Básico, Torre Pro y Torre Administradora): «Desde S/ 30.00 al mes + IGV.» y, con tramo, «; desde el departamento 61, S/ 2.00 cada uno.». `null` si no aplica. */
 export function textoTope(plan: Plan, cat: Catalogo): string | null {
-  if (plan.unidades_maximas != null && plan.unidades_minimas != null) return `Hasta ${plan.unidades_maximas} departamentos por condominio, mínimo ${plan.unidades_minimas} cobrados${plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.`;
+  // Con tope y mínimo (Básico): el tope y el monto mínimo en soles, sin «mínimo N cobrados» (Miguel, 31-oct: se leía como un mínimo de departamentos).
+  if (plan.unidades_maximas != null && plan.unidades_minimas != null) return `Hasta ${plan.unidades_maximas} departamentos por condominio${plan.total_minimo_mes ? ` · desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}` : ''}.`;
   if (plan.unidades_maximas != null) return `Hasta ${plan.unidades_maximas} departamentos por condominio.`;
   // Sólo el monto mínimo en soles: no se dice cuántos departamentos incluye (eso confundía: parecía que el departamento 21 pagaba otro precio).
   if (plan.unidades_minimas != null && plan.total_minimo_mes) return `Desde ${dinero(plan.total_minimo_mes, cat.moneda)} al mes${masImpuesto(cat)}${tramoDeTarjeta(plan, cat.moneda, dinero)}.`;
