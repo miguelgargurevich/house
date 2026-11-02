@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-02 — Torre Básico sin tope (se queda en S/ 2,00) (Claude Code, Opus 5.5) — push: no
+
+- Pedido de Miguel: tras revisar la competencia (OPE, Habitek, OORB…), «quítalo». Básico: S/ 2,00, mínimo 20 (S/ 40), `unidades_maximas: null`, descripción y viñeta «Sin tope de departamentos» como antes del tope. El encabezado de /precios vuelve a «Sin tope de departamentos».
+- Queda del tope de la mañana: `noCabeEnPlan` y el aviso de la portada (sirven si el superadmin pone un tope a mano).
+- Pruebas: plan-basico (51 se ofrece y se crea; 51 × 2,00 = 102,00), comercial-registro, solo-lectura. Suite 3520/3520.
+- Producción (al desplegar): correr `npx tsx scripts/oferta-gratis-pro.ts` en el contenedor nuevo (pone el tope en null y los textos); el precio 2,00 ya está.
+
+---
+
 ## 2026-11-02 — Torre Básico a S/ 2,00 con tope de 50 departamentos (Claude Code, Haiku 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel («hazlo»): Básico S/ 2,00 por departamento (mínimo 20 = S/ 40 sin IGV), tope de 50 por condominio. Pro (S/ 3,00) y Administradora (S/ 2,50) sin cambios. Razón: sin tope, un edificio grande pagaría Básico y dejaría a Pro sin cobrar.

@@ -2,7 +2,7 @@ import type { Plan } from '../catalogo';
 
 type Formato = (monto: string, moneda: string) => string;
 
-/** ¿El condominio con `n` departamentos se pasa del tope del plan (Básico = 50)? Sin tope (`null`) nunca. El servidor no rechaza la cotización: la pantalla lo dice. */
+/** ¿El condominio con `n` departamentos se pasa del tope del plan (hoy ningún plan de pago lo tiene)? Sin tope (`null`) nunca. El servidor no rechaza la cotización: la pantalla lo dice. */
 export const noCabeEnPlan = (p: Pick<Plan, 'unidades_maximas'> | undefined, n: number): boolean => p?.unidades_maximas != null && n > p.unidades_maximas;
 
 /** «S/ X por departamento desde el N»: el tramo de un plan (del catálogo); `null` si el plan no lo tiene. Sin dependencias de la app: se prueba en Node. */

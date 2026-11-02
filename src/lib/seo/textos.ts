@@ -96,7 +96,7 @@ export function hechosPrecios(cat: Catalogo | null): string[] {
   return [
     cat ? `Precios en ${monedaDe(cat.moneda)?.plural ?? cat.moneda}` : 'Precios por país',
     impuesto,
-    ...(tope != null ? [`Torre Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos`] : cat ? [`Torre Gratis ${plazoGratisTexto(cat)}`, 'Torre Pro sin tope de departamentos'] : ['Empiezas gratis']),
+    ...(tope != null ? [`Torre Gratis ${plazoGratisTexto(cat!)}, hasta ${tope} departamentos`] : cat ? [`Torre Gratis ${plazoGratisTexto(cat)}`, 'Sin tope de departamentos'] : ['Empiezas gratis']),
     'Sin permanencia',
   ];
 }

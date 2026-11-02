@@ -22,7 +22,7 @@ export function PreciosVivos({ cat, abierto }: { cat: Catalogo; abierto: boolean
   const n = Math.min(5000, Math.max(1, Math.floor(Number(texto)) || 1));
   const plan = planes.find(p => p.clave === clave) ?? planes[0];
   const gratis = plan ? Number(plan.precio_por_unidad) === 0 : false;
-  // Un plan con tope (Básico, 50) no cotiza a quien ya tiene más: no se pide el total y se dice cuál sigue.
+  // Un plan con tope de departamentos (hoy ninguno de pago; el superadmin puede ponerlo) no cotiza a quien ya tiene más: no se pide el total y se dice cuál sigue.
   const tope = plan?.unidades_maximas ?? null;
   const excede = noCabeEnPlan(plan, n);
   const pro = planes.find(p => p.clave === 'pro');
