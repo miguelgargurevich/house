@@ -19,3 +19,5 @@ vuelve a publicar pasando su contenido a `web_crear` (crea un recurso NUEVO: ano
 - Nota: hubo una publicación intermedia el mismo día (`cmvv9nbz10004f5xdk0dejkks`) con «tú misma» y dos textos que nombraban sólo a la IA; la vigente es `cmvv9urmi000bf5xdkb42hpwt`.
 
 - 1-nov-2026 (6), mismo recurso `cmvvqh1kf000xf5xdaahmr6o5` y mismo archivo: 42 secciones; agrega Conciliación bancaria, Áreas comunes y reservas (admin y vecino), «Si tu edificio tiene una sola junta», Lecturas de agua desde su menú y el tema en el menú del usuario. Se generó con `web_crear` (llamada al endpoint MCP con el JSON del repo), se copió encima del archivo publicado y se borró el recurso nuevo.
+
+- 2-nov-2026 (7), mismo recurso `cmvvqh1kf000xf5xdaahmr6o5` y mismo archivo: Torre Básico S/ 2,00 por departamento, desde S/ 40 al mes, sin tope. Se parchó el HTML publicado en MinIO (sin `web_crear`).

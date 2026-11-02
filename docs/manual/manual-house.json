@@ -1,6 +1,6 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 1-nov-2026 (6)",
+  "kicker": "Manual de usuario · versión del 2-nov-2026 (7)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
@@ -100,7 +100,7 @@
           ],
           [
             "Torre Básico",
-            "S/ 1,50 por departamento al mes, desde S/ 30 al mes por condominio",
+            "S/ 2,00 por departamento al mes, desde S/ 40 al mes por condominio",
             "Sin tope",
             "Lo mismo que Gratis, sin plazo."
           ],
@@ -563,7 +563,7 @@
       ],
       "numerada": [
         "Entra a **Mi plan** (en **Cuenta**, en el menú) o pulsa **Ir a Mi plan** en la banda.",
-        "Elige **Básico** (desde S/ 30 al mes por condominio), **Pro** o **Administradora** y pide el plan del condominio.",
+        "Elige **Básico** (desde S/ 40 al mes por condominio), **Pro** o **Administradora** y pide el plan del condominio.",
         "Paga por transferencia, Yape o Plin con la referencia que te muestra Mi plan.",
         "Cuando confirmamos tu pago, el plan se activa y el condominio vuelve a registrar de inmediato."
       ],
