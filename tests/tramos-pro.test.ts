@@ -207,7 +207,7 @@ describe('API pública con tramo', () => {
 
   it('cotizar de un plan sin tramo (Básico, Gratis) o sin plan: tramo null y 0 departamentos en el tramo', async () => {
     const b = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100&plan=basico')).body;
-    assert.deepEqual([b.total_mes, b.tramo_desde, b.tramo_precio, b.unidades_tramo], ['150.00', null, null, 0]);
+    assert.deepEqual([b.total_mes, b.tramo_desde, b.tramo_precio, b.unidades_tramo], ['200.00', null, null, 0]); // 100 × 2.00
     const s = (await llamar(base, 'GET', '/api/publico/cotizar?unidades=100')).body;
     assert.deepEqual([s.tramo_desde, s.unidades_tramo], [null, 0]);
   });
@@ -314,7 +314,7 @@ describe('Superadmin edita el tramo del plan (validado y auditado)', () => {
 
   it('un plan sin tramo se puede editar como siempre (Básico), y Gratis (precio 0) no admite tramo', async () => {
     assert.equal((await editar('basico', { precio_por_unidad: '1.60' })).status, 200);
-    await editar('basico', { precio_por_unidad: '1.50' });
+    await editar('basico', { precio_por_unidad: '2.00' });
     assert.equal((await editar('gratis', { tramo_desde: 61, tramo_precio: '0.10' })).status, 422);
   });
 

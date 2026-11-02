@@ -217,18 +217,18 @@ describe('solo lectura: lo que sigue permitido', () => {
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.condominios.length, 1);
     const c = r.body.condominios[0];
-    assert.deepEqual([c.complejo_id, c.solo_lectura, iso(Date.parse(c.gratis_hasta)), iso(Date.parse(c.solo_lectura_desde)), c.dias_gratis_restantes, c.basico_desde], [d.complejoA.id, true, iso(HOY() - DIA), iso(HOY()), null, 'S/ 30']);
+    assert.deepEqual([c.complejo_id, c.solo_lectura, iso(Date.parse(c.gratis_hasta)), iso(Date.parse(c.solo_lectura_desde)), c.dias_gratis_restantes, c.basico_desde], [d.complejoA.id, true, iso(HOY() - DIA), iso(HOY()), null, 'S/ 40']);
     assert.deepEqual((await api(T.super, 'GET', '/api/comercial/estado-operativo')).body, { condominios: [] });
     const b = (await api(T.adminB, 'GET', '/api/comercial/estado-operativo')).body.condominios[0];
     assert.deepEqual([b.complejo_id, b.solo_lectura], [d.complejoB.id, false], 'la cortesía de B nunca');
   });
 
-  it('un condominio con más de 50 departamentos también ve la oferta de Básico (sin tope)', async () => {
+  it('un condominio con más de 50 departamentos ya no ofrece Básico en la banda (su tope es 50)', async () => {
     const extra = Array.from({ length: 49 }, (_, i) => ({ codigo: `X-${i}`, tipo: 'Departamento', complejo_id: d.complejoA.id, empresa_id: d.empresaA.id, estado: 'activa' }));
     await prisma.unidad.createMany({ data: extra }); // 2 + 49 = 51
     try {
       const c = (await api(T.adminA, 'GET', '/api/comercial/estado-operativo')).body.condominios[0];
-      assert.equal(c.basico_desde, 'S/ 30'); // 20 × 1.50
+      assert.equal(c.basico_desde, null);
     } finally {
       await prisma.unidad.deleteMany({ where: { codigo: { startsWith: 'X-' } } });
     }

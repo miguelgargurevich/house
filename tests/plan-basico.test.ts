@@ -1,4 +1,4 @@
-// Plan Básico (S/ 1.50 por departamento, mínimo 20, sin tope desde el 30-oct): fila del catálogo (también en una base que ya tenía planes), cotización, tope de 50,
+// Plan Básico (S/ 2.00 por departamento, mínimo 20, tope de 50 desde el 2-nov): fila del catálogo (también en una base que ya tenía planes), cotización, tope de 50,
 // sin módulos de Pro, sin plazo ni solo lectura mientras esté pagado y vigente, y cuenta como plan de pago para el límite de «un condominio gratis».
 import './helpers/env';
 import assert from 'node:assert/strict';
@@ -8,6 +8,7 @@ import { PLANES_SEED, sembrarCatalogoComercial } from '../src/server/services/co
 import { ajustarOfertaGratisPro } from '../src/server/services/comercial/oferta';
 import { invalidarComercial, moduloActivo } from '../src/server/services/comercial/modulos';
 import { hoyLima } from '../src/server/lib/fechas';
+import { noCabeEnPlan } from '../src/pages/publico/precios/tramo';
 
 const DIA = 86_400_000;
 const HOY = () => hoyLima().getTime();
@@ -40,13 +41,13 @@ const unidades = (n: number) => prisma.unidad.createMany({ data: Array.from({ le
 const miPlan = async () => (await llamar(base, 'GET', '/api/comercial/mi-plan', T.adminA)).body.condominios.find((c: { complejo_id: number }) => c.complejo_id === d.complejoA.id);
 
 describe('el catálogo trae Básico', () => {
-  it('con los valores pedidos: S/ 1,50 por departamento, mínimo 20, sin tope, sin módulos de Pro, entre Gratis y Pro', async () => {
+  it('con los valores pedidos: S/ 2,00 por departamento, mínimo 20, tope de 50, sin módulos de Pro, entre Gratis y Pro', async () => {
     const r = await llamar(base, 'GET', '/api/publico/planes');
     assert.deepEqual(r.body.planes.map((p: { clave: string }) => p.clave), ['gratis', 'basico', 'pro', 'administradora']);
     const b = r.body.planes.find((p: { clave: string }) => p.clave === 'basico');
-    // 20 × 1.50 = 30.00 (el mínimo, sin IGV)
-    assert.deepEqual([b.nombre, b.descripcion, b.precio_por_unidad, b.unidades_minimas, b.unidades_maximas, b.modulos_incluidos, b.consultar, b.total_minimo_mes], ['Torre Básico', 'Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.', '1.50', 20, null, [], false, '30.00']);
-    assert.deepEqual(b.caracteristicas, ['Todo lo de Torre Gratis, sin plazo', 'Sin tope de departamentos', 'Vouchers validados a mano', 'Avisos por correo']);
+    // 20 × 2.00 = 40.00 (el mínimo, sin IGV)
+    assert.deepEqual([b.nombre, b.descripcion, b.precio_por_unidad, b.unidades_minimas, b.unidades_maximas, b.modulos_incluidos, b.consultar, b.total_minimo_mes], ['Torre Básico', 'Para edificios de hasta 50 departamentos que no necesitan IA ni WhatsApp.', '2.00', 20, 50, [], false, '40.00']);
+    assert.deepEqual(b.caracteristicas, ['Todo lo de Torre Gratis, sin plazo', 'Hasta 50 departamentos por condominio', 'Vouchers validados a mano', 'Avisos por correo']);
     const fila = await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } });
     assert.deepEqual([fila.visible, fila.orden, fila.igv_incluido, fila.asistente_por_unidad_mes, fila.whatsapp_por_unidad_mes], [true, 2, false, null, null]);
     assert.deepEqual(PLANES_SEED.map((p) => [p.clave, p.orden]), [['gratis', 1], ['basico', 2], ['pro', 3], ['administradora', 4], ['cortesia', 5]]);
@@ -75,7 +76,7 @@ describe('el catálogo trae Básico', () => {
     const primera = await ajustarOfertaGratisPro(prisma);
     assert.ok(primera.some((c) => c.clave === 'gratis' && c.cambios.includes('descripcion')), JSON.stringify(primera));
     assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'gratis' } })).descripcion, 'Torre Gratis por 3 meses, sin tope de departamentos.');
-    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } })).unidades_maximas, null);
+    assert.equal((await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'basico' } })).unidades_maximas, 50, 'el ajuste pone el tope de 50 a Básico');
     assert.deepEqual(await ajustarOfertaGratisPro(prisma), [], 'la segunda corrida no cambia nada');
   });
 
@@ -86,47 +87,76 @@ describe('el catálogo trae Básico', () => {
 });
 
 describe('cotización', () => {
-  it('10 departamentos → S/ 30 (el mínimo); 35 → S/ 52,50; 50 → S/ 75; y con IGV (18 %) 35,40 / 61,95 / 88,50', async () => {
+  it('10 departamentos → S/ 40 (el mínimo); 35 → S/ 70; 50 → S/ 100; y con IGV (18 %) 47,20 / 82,60 / 118,00', async () => {
     const cotizar = async (n: number) => (await llamar(base, 'GET', `/api/publico/cotizar?unidades=${n}&plan=basico`)).body;
-    // 10 → 20 cobrados × 1.50 = 30.00; + IGV 18 % = 35.40
+    // 10 → 20 cobrados × 2.00 = 40.00; + IGV 18 % = 7.20 → 47.20
     const a = await cotizar(10);
-    assert.deepEqual([a.total_mes, a.unidades_cobradas, a.minimo_aplicado, a.total_con_igv_mes], ['30.00', 20, true, '35.40']);
-    // 35 × 1.50 = 52.50; + IGV 9.45 = 61.95
+    assert.deepEqual([a.total_mes, a.unidades_cobradas, a.minimo_aplicado, a.total_con_igv_mes], ['40.00', 20, true, '47.20']);
+    // 35 × 2.00 = 70.00; + IGV 12.60 = 82.60
     const b = await cotizar(35);
-    assert.deepEqual([b.total_mes, b.unidades_cobradas, b.minimo_aplicado, b.total_con_igv_mes], ['52.50', 35, false, '61.95']);
-    // 50 × 1.50 = 75.00; anual 900.00; + IGV 13.50 = 88.50
+    assert.deepEqual([b.total_mes, b.unidades_cobradas, b.minimo_aplicado, b.total_con_igv_mes], ['70.00', 35, false, '82.60']);
+    // 50 × 2.00 = 100.00; anual 1200.00; + IGV 18.00 = 118.00
     const c = await cotizar(50);
-    assert.deepEqual([c.total_mes, c.total_anio, c.total_con_igv_mes], ['75.00', '900.00', '88.50']);
+    assert.deepEqual([c.total_mes, c.total_anio, c.total_con_igv_mes], ['100.00', '1200.00', '118.00']);
   });
 
-  it('Mi plan cotiza lo que ya paga: un condominio de 10 departamentos con Básico paga S/ 30 + IGV', async () => {
+  it('Mi plan cotiza lo que ya paga: un condominio de 10 departamentos con Básico paga S/ 40 + IGV', async () => {
     await unidades(10);
     await ponerBasico();
     const c = await miPlan();
-    // total_mes de Mi plan ya lleva IGV: 30.00 + 5.40 = 35.40
-    assert.deepEqual([c.plan.clave, c.plan.nombre, c.cotizacion.base, c.cotizacion.total_mes, c.unidades_maximas, c.unidades_minimas], ['basico', 'Torre Básico', '30.00', '35.40', null, 20]);
+    // total_mes de Mi plan ya lleva IGV: 40.00 + 7.20 = 47.20
+    assert.deepEqual([c.plan.clave, c.plan.nombre, c.cotizacion.base, c.cotizacion.total_mes, c.unidades_maximas, c.unidades_minimas], ['basico', 'Torre Básico', '40.00', '47.20', 50, 20]);
   });
 });
 
-describe('sin tope de departamentos', () => {
-  it('con 51 departamentos se sigue ofreciendo Básico («desde S/ 30») y se puede pedir', async () => {
+describe('tope de 50 departamentos', () => {
+  it('con 51 departamentos Básico no se ofrece: fuera de planes_disponibles, sin «desde» y pedirlo da 422 sin guardar nada', async () => {
     await unidades(49); // 2 de la siembra + 49 = 51
     const c = await miPlan();
     assert.equal(c.unidades_facturables, 51);
-    // lo mínimo de Básico: 20 × 1.50 = 30
-    assert.deepEqual([c.planes_disponibles.includes('basico'), c.planes_disponibles.includes('pro'), c.basico_desde], [true, true, 'S/ 30']);
+    assert.deepEqual([c.planes_disponibles.includes('basico'), c.planes_disponibles.includes('pro'), c.basico_desde], [false, true, null]);
+    const r = await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, { plan: 'basico' });
+    assert.equal(r.status, 422, r.texto);
+    assert.equal((await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: d.complejoA.id } }))?.solicitud_plan ?? null, null);
+  });
+
+  it('con 50 departamentos Básico sí se ofrece, desde S/ 40 (20 × 2,00), y se puede pedir', async () => {
+    await unidades(48); // 2 + 48 = 50
+    const c = await miPlan();
+    assert.deepEqual([c.unidades_facturables, c.planes_disponibles.includes('basico'), c.basico_desde], [50, true, 'S/ 40']);
     const r = await llamar(base, 'POST', `/api/comercial/mi-plan/${d.complejoA.id}/solicitud`, T.adminA, { plan: 'basico' });
     assert.ok(r.status < 300, r.texto);
     assert.equal((await prisma.suscripcionCondominio.findUnique({ where: { complejo_id: d.complejoA.id } }))?.solicitud_plan, 'basico');
   });
 
-  it('con Básico vigente se crea el departamento 51 (ya no hay LIMITE_UNIDADES) y cotiza S/ 1,50 por cada uno', async () => {
-    await unidades(48);
+  it('con Básico vigente se crea el departamento 50, el 51 da 403 LIMITE_UNIDADES y la cotización son 50 × S/ 2,00 = 100,00', async () => {
+    await unidades(47); // 2 + 47 = 49
     await ponerBasico();
-    const r = await llamar(base, 'POST', '/api/unidades', T.adminA, { codigo: 'BX-51', tipo: 'Departamento', complejo_id: d.complejoA.id });
-    assert.equal(r.status, 201, r.texto);
-    // 51 × 1.50 = 76.50
-    assert.equal((await miPlan()).cotizacion.base, '76.50');
+    const ok = await llamar(base, 'POST', '/api/unidades', T.adminA, { codigo: 'BX-47', tipo: 'Departamento', complejo_id: d.complejoA.id });
+    assert.equal(ok.status, 201, ok.texto);
+    const no = await llamar(base, 'POST', '/api/unidades', T.adminA, { codigo: 'BX-48', tipo: 'Departamento', complejo_id: d.complejoA.id });
+    assert.equal(no.status, 403, no.texto);
+    assert.equal(no.body.code, 'LIMITE_UNIDADES');
+    const c = await miPlan();
+    assert.deepEqual([c.unidades_facturables, c.cotizacion.base], [50, '100.00']);
+  });
+
+  it('si ya hay más de 50 (de antes del tope), Básico no deja agregar más y no borra ni oculta ninguno', async () => {
+    await unidades(49); // 2 + 49 = 51
+    await ponerBasico();
+    const no = await llamar(base, 'POST', '/api/unidades', T.adminA, { codigo: 'BX-49', tipo: 'Departamento', complejo_id: d.complejoA.id });
+    assert.equal(no.status, 403, no.texto);
+    assert.equal(no.body.code, 'LIMITE_UNIDADES');
+    assert.equal((await miPlan()).unidades_facturables, 51);
+  });
+});
+
+describe('aviso del tope en la portada (sin servidor)', () => {
+  it('noCabeEnPlan: Básico no cabe con 51, cabe con 50; sin tope (Pro, Gratis) nunca se pasa', () => {
+    const basico = { unidades_maximas: 50 };
+    assert.deepEqual([noCabeEnPlan(basico, 50), noCabeEnPlan(basico, 51)], [false, true]);
+    assert.equal(noCabeEnPlan({ unidades_maximas: null }, 5000), false);
+    assert.equal(noCabeEnPlan(undefined, 51), false);
   });
 });
 
