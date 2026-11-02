@@ -5,6 +5,7 @@ import { dinero } from '../../../ui/format';
 import { PORTADA, masImpuesto } from '../../../lib/seo/textos';
 import type { Catalogo, Plan } from '../catalogo';
 import { plazoGratisTexto } from '../plazoGratis';
+import { noCabeEnPlan } from '../precios/tramo';
 import { useTotal } from '../precios/useTotal';
 import { Techito } from './Fachada';
 
@@ -21,12 +22,18 @@ export function PreciosVivos({ cat, abierto }: { cat: Catalogo; abierto: boolean
   const n = Math.min(5000, Math.max(1, Math.floor(Number(texto)) || 1));
   const plan = planes.find(p => p.clave === clave) ?? planes[0];
   const gratis = plan ? Number(plan.precio_por_unidad) === 0 : false;
-  const { r } = useTotal(n, plan?.clave ?? null, cat.pais, !!plan && !gratis && !plan.consultar);
+  // Un plan con tope (Básico, 50) no cotiza a quien ya tiene más: no se pide el total y se dice cuál sigue.
+  const tope = plan?.unidades_maximas ?? null;
+  const excede = noCabeEnPlan(plan, n);
+  const pro = planes.find(p => p.clave === 'pro');
+  const { r } = useTotal(n, plan?.clave ?? null, cat.pais, !!plan && !gratis && !plan.consultar && !excede);
   if (!plan) return null;
 
-  const cifra = gratis ? dinero(0, cat.moneda) : r?.total_mes ? dinero(r.total_mes, cat.moneda) : '…';
-  const periodo = gratis ? plazoGratisTexto(cat) : `al mes${masImpuesto(cat)}`;
-  const detalle = gratis
+  const cifra = excede ? `Hasta ${tope}` : gratis ? dinero(0, cat.moneda) : r?.total_mes ? dinero(r.total_mes, cat.moneda) : '…';
+  const periodo = excede ? 'departamentos por condominio' : gratis ? plazoGratisTexto(cat) : `al mes${masImpuesto(cat)}`;
+  const detalle = excede
+    ? `${plan.nombre} llega hasta ${tope} departamentos y tu condominio tiene ${n}. Con ${n} te sirve ${pro?.nombre ?? 'Torre Pro'}, que no tiene tope.`
+    : gratis
     ? `Para ${n} departamentos, sin tarjeta.`
     : plan.precio_por_unidad !== null
       ? `${n} departamentos a ${dinero(plan.precio_por_unidad, cat.moneda)} cada uno${r?.minimo_aplicado ? '; con pocos departamentos pagas el mínimo del plan' : ''}.`
