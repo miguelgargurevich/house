@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-02 — Torre Básico a S/ 2,00 con tope de 50 departamentos (Claude Code, Haiku 5.5, delegado por Opus) — push: no
+
+- Pedido de Miguel («hazlo»): Básico S/ 2,00 por departamento (mínimo 20 = S/ 40 sin IGV), tope de 50 por condominio. Pro (S/ 3,00) y Administradora (S/ 2,50) sin cambios. Razón: sin tope, un edificio grande pagaría Básico y dejaría a Pro sin cobrar.
+- **Backend** (`catalogo.ts`): `UNIDADES_BASICO_MAX = 50`; Básico `precio_por_unidad: '2.00'`, `unidades_maximas: 50`, descripción «Para edificios de hasta 50 departamentos que no necesitan IA ni WhatsApp.», viñeta «Hasta 50 departamentos por condominio». La lógica del tope ya existía (`exigirCupoDeUnidades`, `planes_disponibles`, `basico_desde`); no se tocó.
+- **Frontend**: `tramo.ts` gana `noCabeEnPlan(plan, n)` (pura). `PreciosVivos.tsx` (portada) con más de 50 departamentos y Básico: muestra «Hasta 50 departamentos por condominio», dice que Torre Pro no tiene tope y no pide cotización. `MiPlan.tsx` y el comentario de `Recibo.tsx` dicen «hasta 50». La calculadora ya mostraba el aviso «llega hasta 50» por el catálogo.
+- **Pruebas**: `plan-basico` (cotización recalculada a mano: 40,00 / 70,00 / 100,00, con IGV 47,20 / 82,60 / 118,00; bloque nuevo «tope de 50»: 51 no se ofrece y pedirlo da 422; 50 sí; el 51 da 403 `LIMITE_UNIDADES`; más de 50 de antes no se borran). Ajustadas por el nuevo precio/tope: `comercial-registro`, `comercial-modelo`, `tramos-pro`, `solo-lectura`, `gratis-plazo`.
+- **Verificado**: `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` OK. Suite completa `npm test`: 3522 pruebas, 3521 pasan; la que falla (`prueba-pro.test.ts` «Mi plan marca la prueba…», timeout de 5 s) falla también en la línea base sin cambios y pasa 14/14 al repetir el archivo solo. Mutaciones (archivo copiado y devuelto con `cp` + `cmp`): quitar el tope en el catálogo → 8 pruebas en rojo; `noCabeEnPlan` con `>=` → 1 en rojo.
+- **Próximos pasos (Opus)**: producción no cambia sola. El seed sólo crea lo que falta (`skipDuplicates`), y `ajustarOfertaGratisPro` trae tope, textos y viñetas, pero NO el precio. Hay que poner Básico en 2,00 (Suscripciones › Precios o `PUT /api/comercial/planes/basico/precios/PEN`) y luego correr el ajuste. El precio actual de producción no está verificado.
+- **Gotchas**: `/api/publico/cotizar` NO rechaza más de 50 departamentos (devuelve un total normal); el aviso está en el cliente, con el `unidades_maximas` del catálogo. El precio de Básico que queda en un setup de pruebas debe ser 2,00, no 1,50.
+
+---
+
 ## 2026-11-02 — Tipo de cambio: la fuente pasa a SUNAT, con respaldo (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel: «Sí, cámbiala» (la fuente del tipo de cambio de Torre al .txt oficial de SUNAT). Rama `feat/tipo-cambio-sunat` (sobre origin/main 69e4b71). Sólo backend + docs; sin cambios de esquema ni de precios (`impuestos.ts`).
