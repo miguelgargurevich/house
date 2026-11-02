@@ -4,6 +4,19 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-02 — Tipo de cambio: la fuente pasa a SUNAT, con respaldo (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
+
+- Pedido de Miguel: «Sí, cámbiala» (la fuente del tipo de cambio de Torre al .txt oficial de SUNAT). Rama `feat/tipo-cambio-sunat` (sobre origin/main 69e4b71). Sólo backend + docs; sin cambios de esquema ni de precios (`impuestos.ts`).
+- **Qué cambia** (`src/server/services/comercial/tipoCambio.ts`): fuente principal = `https://www.sunat.gob.pe/a/txt/tipoCambio.txt` (`DD/MM/AAAA|compra|venta|`), columna **venta**; respaldo = `open.er-api.com` (igual que antes) sólo si SUNAT falla (aviso `[tipo-cambio] SUNAT falló (<motivo>), uso el respaldo`, con `console.warn`). `leerTipoCambioDeFuente()` devuelve `{ valor, fuente }` y la pasada y `volverAAutomatico` guardan esa fuente en `tipo_cambio_fuente` (`sunat.gob.pe` | `open.er-api.com` | `manual`). Si fallan las dos: pasada → `fallo` (queda el último valor); volver a automático → 502 y sigue manual.
+- **Validación de SUNAT** (`interpretarTextoSunat`, exportada): texto exactamente `DD/MM/AAAA|número|número|` (se tolera espacio/salto de línea alrededor), fecha real, antigüedad ≤ 7 días en hora de Lima (`Intl` con `America/Lima`), venta 2–6 con 4 decimales (`tipoCambioValido`). Mensajes de error fijos: nunca copian la respuesta al log.
+- **Decisión mía (no estaba en el brief)**: una fecha de MÁS de 3 días en el futuro también se rechaza (`SUNAT_MAX_ADELANTO_DIAS`; el viernes puede traer el lunes). Evita que una fecha basura de 2099 quede como «vigente». Si no te gusta, quita esa línea y la constante.
+- **Decisión**: no se valida el rango de la columna compra (sólo que sea un número con formato); sólo la venta se guarda.
+- **Pruebas**: `tests/multimoneda-usd.test.ts` — el doble de `fetch` ahora responde según la URL (`fuentes(sunat, respaldo)`; `fuente(...)` = sólo el respaldo responde, SUNAT cae con 500; `sunat(venta, dias)`); describe nuevo «SUNAT es la fuente principal…» (14 formas de fallo de SUNAT → respaldo, fecha 3/7/8 días, hora de Lima vs UTC, fin de semana largo, ambas caídas, volver a automático con SUNAT/respaldo/ambas caídas). `tests/comercial-ui.test.ts`: caso «Leído de sunat.gob.pe».
+- **Gotchas**: (a) las pruebas de «la fuente falla» ahora significan «SUNAT caído Y el respaldo malo»; los `console.warn` del aviso se mockean en cada caso. (b) SUNAT sólo publica el día vigente (sin histórico): no hay forma de pedir una fecha. (c) NO usar `POST /cl-at-ittipcam/tcS01Alias/listarTipoCambio` (reCAPTCHA).
+- **Próximos pasos**: tras desplegar, mirar el log de producción: esperar `tipo_cambio_fuente = 'sunat.gob.pe'`; si siempre aparece el aviso «SUNAT falló», revisar si SUNAT bloquea la IP/agente del servidor (el `fetch` de Node no manda `User-Agent` propio). Las pruebas nunca usan red real; aparte, una sola lectura manual desde la Mac (2-nov-2026) con el código nuevo devolvió `3.467 sunat.gob.pe`. Falta confirmarlo desde el servidor de producción.
+
+---
+
 ## 2026-11-01 — Coolify: proyecto y apps renombrados a Torre (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: «Hay que cambiar el nombre en coolify de House a Torre». Proyecto `House` → `Torre`; app `house` → `torre` (uuid `b4goasky4jvdduzpyiless2z`); app `house-ocr` → `torre-ocr` (uuid `m07uar2fuca4qp4pqbgrowwf`). Sólo nombres visibles (vía `php artisan tinker` en el contenedor `coolify`).
