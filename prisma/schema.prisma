@@ -550,6 +550,8 @@ model Notificacion {
   enviada_at     DateTime?
   ref_entidad    String?
   ref_id         Int?
+  /// Instancia de WhatsApp (administradora) por la que salió el mensaje: cuenta contra su tope diario. Nulo en correos y en lo enviado antes de existir.
+  whatsapp_instancia String?
   created_at     DateTime  @default(now())
   usuario        Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
@@ -557,6 +559,7 @@ model Notificacion {
   @@index([estado, programada_para])
   @@index([usuario_id])
   @@index([created_at])
+  @@index([whatsapp_instancia, enviada_at])
 }
 
 /// Cuenta bancaria, Yape/Plin (con QR) o cuenta recaudadora (el vecino paga desde «Pago de servicios» de su banco) donde los vecinos pagan; la define la administradora o la junta del block.
@@ -1086,6 +1089,12 @@ model ConfiguracionComercial {
   tipo_cambio_at         DateTime?
   /// De dónde salió: «manual» o el dominio de la fuente pública (open.er-api.com).
   tipo_cambio_fuente     String?
+  /// Tope diario de WhatsApp de aviso por número (instancia) de la administradora: los enviados hoy (día de Lima). null o 0 = sin tope.
+  whatsapp_tope_diario   Int?     @default(200)
+  /// Pausa mínima (segundos) entre dos WhatsApp de aviso seguidos de la MISMA instancia; el azar cae en [min, max].
+  whatsapp_pausa_min_seg Int      @default(5)
+  /// Pausa máxima (segundos) entre dos WhatsApp de aviso de la misma instancia (≤ 60).
+  whatsapp_pausa_max_seg Int      @default(15)
   updated_at             DateTime @updatedAt
 }
 

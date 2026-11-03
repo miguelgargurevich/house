@@ -28,6 +28,8 @@ export async function ciclo(deps: DepsAvisos = depsReales()) {
     async (tx) => {
       const [{ ok }] = await tx.$queryRaw<{ ok: boolean }[]>(Prisma.sql`SELECT pg_try_advisory_xact_lock(${LOCK_AVISOS}) AS ok`);
       if (!ok) return null;
+      // La pasada de WhatsApp se mide desde el inicio del ciclo: así la transacción (que espera a todo) no se pasa del tope de tiempo.
+      const inicio = deps.ahora().getTime();
       const encoladas = await encolarRecordatorios(deps.ahora());
       // Vencimientos de los planes: un fallo aquí nunca frena los avisos de cobranza.
       const vencimientos = await procesarVencimientos({ ahora: deps.ahora(), deps }).catch((err) => { console.error('[comercial] los vencimientos fallaron:', err instanceof Error ? err.message : 'error'); return null; });
@@ -35,9 +37,10 @@ export async function ciclo(deps: DepsAvisos = depsReales()) {
       const cierres = await encolarCierresPendientes(deps.ahora()).catch((err) => { console.error('[cierres] el recordatorio falló:', err instanceof Error ? err.message : 'error'); return 0; });
       // Y al tesorero central, los blocks que aún no aportan a la Junta central.
       const aportes = await encolarAportesPendientes(deps.ahora()).catch((err) => { console.error('[cierres] el aviso de aportes falló:', err instanceof Error ? err.message : 'error'); return 0; });
-      return { encoladas, ...(await procesarCola(deps)), vencimientos, cierres, aportes };
+      return { encoladas, ...(await procesarCola(deps, 50, inicio)), vencimientos, cierres, aportes };
     },
-    { timeout: 10 * 60_000, maxWait: 10_000 },
+    // 15 min: la pasada de WhatsApp corta a los 10 min (desde el inicio del ciclo) y aún falta el último envío con su pausa (≤ 60 s) y su espera de red (≤ 10 s).
+    { timeout: 15 * 60_000, maxWait: 10_000 },
   );
 }
 

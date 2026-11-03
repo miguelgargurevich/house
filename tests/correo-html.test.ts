@@ -59,6 +59,8 @@ describe('plantillaCorreo', () => {
 describe('enviarCorreo con html', () => {
   const deps = (cuerpos: Record<string, unknown>[]): DepsAvisos => ({
     ahora: () => new Date(),
+    esperar: async () => {},
+    azar: () => 0,
     env: { RESEND_API_KEY: 're_falsa', MAIL_FROM: 'House <house@ejemplo.test>' },
     fetch: (async (_u: string | URL | Request, init?: RequestInit) => { cuerpos.push(JSON.parse(String(init?.body))); return new Response('{}', { status: 200 }); }) as typeof fetch,
   });

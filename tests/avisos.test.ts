@@ -26,6 +26,8 @@ function crearDeps(ahora: Date, env: NodeJS.ProcessEnv, responder: (l: Llamada) 
   const llamadas: Llamada[] = [];
   const deps: DepsAvisos = {
     ahora: () => ahora,
+    esperar: async () => {},
+    azar: () => 0,
     env,
     fetch: (async (url: string | URL | Request, init?: RequestInit) => {
       const l = { url: String(url), init: init ?? {} };
@@ -285,7 +287,8 @@ describe('envío por canal', () => {
     const wa = llamadas.find((l) => l.url.includes('evo'))!;
     assert.equal(wa.url, 'https://evo.ejemplo.test/message/sendText/instancia-falsa', 'sin doble barra');
     assert.equal((wa.init.headers as Record<string, string>).apikey, CLAVE_EVO);
-    assert.deepEqual(JSON.parse(String(wa.init.body)), { number: '51987654321', text: 'Cuerpo de prueba' });
+    // El WhatsApp de aviso lleva el pie para responder SALIR (el correo no).
+    assert.deepEqual(JSON.parse(String(wa.init.body)), { number: '51987654321', text: 'Cuerpo de prueba\n\nSi no quieres recibir estos avisos por WhatsApp, responde SALIR.' });
     for (const n of await notifs()) {
       assert.equal(n.estado, 'enviada');
       assert.equal(n.intentos, 1);

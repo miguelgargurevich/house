@@ -963,7 +963,7 @@ describe('B3 · voucher por foto o PDF', () => {
     await vincular(D.propietario2.id, N.prop2, D.empresaA.id);
     const pago = await prisma.pago.create({ data: { recibo_concepto_unidad_id: D.cargoA2.id, monto: 150, metodo_pago: 'transferencia', estado_validacion: 'por_validar', usuario_id: D.propietario2.id } });
     assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 2, 'correo + WhatsApp');
-    const r = await procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), env: process.env });
+    const r = await procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
     assert.ok(r.enviadas >= 1);
     const aviso = para(N.prop2).at(-1)!;
     assert.equal(aviso.instancia, INST_A);
@@ -973,7 +973,7 @@ describe('B3 · voucher por foto o PDF', () => {
     await prisma.notificacion.deleteMany();
     llamadasEvo.length = 0;
     await encolarAviso('pago_rechazado', D.propietario2.id, { entidad: 'pago', id: pago.id }, { motivo: 'Monto distinto' });
-    await procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), env: process.env });
+    await procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
     assert.deepEqual(enviados().map((e) => e.numero), [N.prop2], 'al número verificado, no al del perfil');
     assert.match(enviados()[0]!.texto, /Monto distinto/);
     // Sin vínculo y sin aviso activo: sólo correo (no cambia nada para quien no usa el bot).

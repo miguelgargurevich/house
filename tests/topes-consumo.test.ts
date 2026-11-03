@@ -200,6 +200,8 @@ describe('WhatsApp pasado el tope: cae a correo, sin llamar al transporte de Wha
   }
   const deps = (): DepsAvisos => ({
     ahora: () => new Date(),
+    esperar: async () => {},
+    azar: () => 0,
     env: { EVOLUTION_URL: 'https://evo.test', EVOLUTION_APIKEY: 'clave-falsa', RESEND_API_KEY: 're_falsa', MAIL_FROM: 'House <h@ejemplo.test>' },
     fetch: (async (url: string | URL | Request) => {
       const u = String(url);

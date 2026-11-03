@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-02 — WhatsApp de aviso anti-baneo: pausa, tope diario, SALIR y pie (Claude Code, Haiku 5.5, delegado por Opus) — push: no
+
+- **Qué se hizo** (rama `feat/whatsapp-antibaneo`, worktree; «hazlo para torre»): (1) pausa al azar entre WhatsApp seguidos de la MISMA instancia (`whatsapp_pausa_min_seg`/`max_seg`, 5–15 s); (2) tope diario por número (`whatsapp_tope_diario`, 200; 0/null = sin tope), día de Lima; lo que pasa del tope queda `pendiente` para mañana 08:00 Lima sin intento; (3) «SALIR»/BAJA/STOP por WhatsApp apaga `aviso_whatsapp` de las personas de ESA empresa con ese número, con o sin vínculo; (4) pie «responde SALIR» en cada WhatsApp de aviso (no en el correo ni en el bot); tope de 10 min por pasada; aviso en WhatsappSync antes de conectar; los 3 ajustes en Precios y validados en el PUT.
+- **Cambio transversal**: `DepsAvisos` gana `esperar` y `azar` (obligatorios). Las pruebas viejas que construyen deps (`avisos`, `bot-*`, `comercial-*`, `topes-consumo`, etc.) sólo agregan `esperar: async () => {}, azar: () => 0`. Única aserción cambiada: `avisos.test.ts` (el WhatsApp ahora lleva el pie).
+- **Decisiones**: la pausa es por instancia (no «consecutivos» globales). `procesarCola` devuelve la misma forma (las aplazadas no se cuentan). SALIR no revoca el vínculo del bot. La pasada se mide desde el inicio del ciclo y la transacción del ciclo sube a 15 min.
+- **Esquema** (aditivo, `db push`): `Notificacion.whatsapp_instancia` (+ índice `[whatsapp_instancia, enviada_at]`); `ConfiguracionComercial` con los 3 campos con `@default`.
+- **Verificado**: `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` OK. Pruebas nuevas `antibaneo-cola`, `antibaneo-salir`, `antibaneo-config` (+ 1 de UI en la de config): 34/34 verdes. Mutaciones (archivo copiado y restaurado con `cp` + `cmp`): sin pausa, tope en UTC, sin tope de tiempo, sin pie, sin tope diario, SALIR sin filtro de empresa (teléfono y vínculo), SALIR fuera del webhook, sin validar min≤max, pausa máx. sin tope de 60 → todas en rojo. Suite completa (`TEST_DATABASE_URL=…house_test_antibaneo npm test`): 3555/3555 en la segunda corrida. En la primera hubo 3 fallos: 1 real (la aserción de `avisos.test.ts` que esperaba el WhatsApp sin pie; corregida) y 2 de tiempo/auditoría que pasan solos (`impuesto-pais`, `oferta-gratis-pro`) y no se repitieron.
+- **Gotchas**: (a) `tests/helpers/env.ts` IGNORA `DATABASE_URL` y usa `TEST_DATABASE_URL`, que por defecto es `house_test`: mis primeras corridas vaciaron `house_test` (no `house`). Correr siempre con `TEST_DATABASE_URL=…house_test_<tema>`. (b) `prisma generate` en un worktree con `node_modules` enlazado escribió el cliente del checkout principal; se restauró con el esquema de `HEAD` y este worktree ya tiene `node_modules` propio (copia de `.prisma` y `@prisma/client`). (c) `npx prisma format` reformatea TODO el esquema: no usarlo. (d) Los WhatsApp enviados antes de esta versión no tienen instancia y no cuentan para el tope de hoy.
+- **Próximos pasos (Opus)**: revisar el diff, integrar en `main` con OK de Miguel. Tras desplegar, correr `prisma db push` (producción) y mirar que `whatsapp_tope_diario` = 200 en la fila de configuración. Decidir si el tope de 200 es el que se quiere.
+
+---
+
 ## 2026-11-02 — Torre Básico sin tope (se queda en S/ 2,00) (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: tras revisar la competencia (OPE, Habitek, OORB…), «quítalo». Básico: S/ 2,00, mínimo 20 (S/ 40), `unidades_maximas: null`, descripción y viñeta «Sin tope de departamentos» como antes del tope. El encabezado de /precios vuelve a «Sin tope de departamentos».

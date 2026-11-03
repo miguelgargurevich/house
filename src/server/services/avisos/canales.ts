@@ -3,14 +3,21 @@ import { normalizarCelular } from './celular';
 export const CANALES = ['email', 'whatsapp'] as const;
 export type Canal = (typeof CANALES)[number];
 
-/** Inyectables para probar sin red ni variables reales. */
+/** Inyectables para probar sin red, sin reloj real y sin esperas de verdad. */
 export interface DepsAvisos {
   fetch: typeof fetch;
   ahora: () => Date;
   env: NodeJS.ProcessEnv;
+  /** Espera real entre dos WhatsApp de la misma instancia (pausa anti-baneo). Las pruebas la reemplazan. */
+  esperar: (ms: number) => Promise<void>;
+  /** Número al azar en [0, 1): de aquí sale cuánto se espera dentro del rango de la configuración. */
+  azar: () => number;
 }
 
-export const depsReales = (): DepsAvisos => ({ fetch: (...a) => fetch(...a), ahora: () => new Date(), env: process.env });
+/** Espera de verdad (el timer no se queda vivo si el proceso se cierra). */
+export const esperarReal = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms).unref());
+
+export const depsReales = (): DepsAvisos => ({ fetch: (...a) => fetch(...a), ahora: () => new Date(), env: process.env, esperar: esperarReal, azar: Math.random });
 
 /** `ok`: enviado · `omitida`: no corresponde enviar (no es un fallo) · `fallo`: se reintenta. El motivo es corto y nunca lleva claves ni la respuesta del proveedor. */
 export type ResultadoEnvio = { resultado: 'ok' } | { resultado: 'omitida'; motivo: string } | { resultado: 'fallo'; motivo: string };
@@ -63,12 +70,16 @@ export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asu
   });
 }
 
-/** WhatsApp por la Evolution API del VPS (`sendText`); el texto es el cuerpo. La instancia es la de la administradora. */
-export async function enviarWhatsapp(deps: DepsAvisos, instancia: string | null, celular: string | null, cuerpo: string): Promise<ResultadoEnvio> {
+/**
+ * WhatsApp por la Evolution API del VPS (`sendText`); el texto es el cuerpo. La instancia es la de la administradora.
+ * `antesDeEnviar` corre justo antes de llamar a la red (cuando ya sabemos que sí sale): ahí va la pausa anti-baneo, para no esperar por un envío que no se hace.
+ */
+export async function enviarWhatsapp(deps: DepsAvisos, instancia: string | null, celular: string | null, cuerpo: string, antesDeEnviar?: () => Promise<void>): Promise<ResultadoEnvio> {
   if (!estadoCanales(deps.env).whatsapp.configurado) return { resultado: 'omitida', motivo: NO_CONFIGURADO };
   if (!instancia?.trim()) return { resultado: 'omitida', motivo: 'Sincronización de WhatsApp no configurada para la administradora' };
   const numero = normalizarCelular(celular);
   if (!numero) return { resultado: 'omitida', motivo: celular ? 'Celular inválido' : 'Sin celular' };
+  await antesDeEnviar?.();
   const base = deps.env.EVOLUTION_URL!.trim().replace(/\/+$/, '');
   return llamar(deps, 'Evolution', `${base}/message/sendText/${encodeURIComponent(instancia.trim())}`, {
     method: 'POST',

@@ -24,7 +24,7 @@ let enviados: Correo[] = [];
 let fallaCorreo = false;
 const ENV = { RESEND_API_KEY: 're_falsa', MAIL_FROM: 'House <house@ejemplo.test>' };
 const depsFalsas = (ahora: () => Date = () => new Date()): DepsAvisos => ({
-  ahora, env: ENV,
+  ahora, env: ENV, esperar: async () => {}, azar: () => 0,
   fetch: (async (_u: string | URL | Request, init?: RequestInit) => {
     if (fallaCorreo) return new Response('{}', { status: 500 });
     const b = JSON.parse(String(init?.body));

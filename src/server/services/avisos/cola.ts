@@ -1,7 +1,9 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db';
 import { ZONA_POR_DEFECTO } from '../../../lib/paises';
-import { diasEntre, hoyEn } from '../../lib/fechas';
+import { diasEntre, hoyEn, medianocheEn } from '../../lib/fechas';
+import { MAX_MENSAJE } from '../canales/evolution';
+import { obtenerConfiguracion } from '../comercial/configuracion';
 import { reciboSegunZona, relojDeCondominios } from '../../lib/zonas';
 import { enviarTelegram } from '../canales/telegram';
 import { MOTIVO_TOPE_WHATSAPP, reservarConsumo } from '../comercial/consumo';
@@ -364,13 +366,44 @@ async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number |
 
 export const MOTIVO_SIN_WHATSAPP = 'Plan sin WhatsApp';
 
+/** Pasada de WhatsApp: si ya lleva más de esto, los WhatsApp que faltan no se toman (quedan pendientes para la siguiente pasada, sin intento). */
+export const TOPE_PASADA_MS = 10 * MIN;
+/** Va al final de cada WhatsApp de aviso (no del correo ni de las respuestas del bot) para que quien no quiera recibirlos lo diga con una palabra. */
+export const PIE_WHATSAPP = '\n\nSi no quieres recibir estos avisos por WhatsApp, responde SALIR.';
+
+/** El cuerpo con el pie. Si es muy largo se recorta para que el pie quepa siempre dentro del límite de un mensaje. */
+export function conPie(cuerpo: string): string {
+  const espacio = MAX_MENSAJE - PIE_WHATSAPP.length;
+  return (cuerpo.length > espacio ? cuerpo.slice(0, espacio) : cuerpo) + PIE_WHATSAPP;
+}
+
+/** Milisegundos de pausa: el azar (de 0 a 1) cae dentro de [min, max] segundos de la configuración. */
+export function pausaMs(cfg: { whatsapp_pausa_min_seg: number; whatsapp_pausa_max_seg: number }, azar: number): number {
+  const min = Math.max(0, cfg.whatsapp_pausa_min_seg);
+  const max = Math.max(min, cfg.whatsapp_pausa_max_seg);
+  return Math.round((min + azar * (max - min)) * 1000);
+}
+
+/** Las 08:00 de mañana en Lima, cuando vuelven a salir los WhatsApp que el tope del día aplazó. Lima no tiene horario de verano: UTC−5 todo el año. */
+export function manana0800Lima(ahora: Date): Date {
+  const h = hoyEn(ZONA_POR_DEFECTO, ahora); // 00:00 UTC del día calendario de Lima
+  return new Date(Date.UTC(h.getUTCFullYear(), h.getUTCMonth(), h.getUTCDate() + 1, 13));
+}
+
+/** WhatsApp de aviso ENVIADOS hoy (día calendario de Lima) por esa instancia. Las respuestas del bot no pasan por aquí: no cuentan. */
+export async function contarEnviadasHoy(instancia: string, ahora: Date): Promise<number> {
+  const h = hoyEn(ZONA_POR_DEFECTO, ahora);
+  const desde = medianocheEn(ZONA_POR_DEFECTO, h.getUTCFullYear(), h.getUTCMonth() + 1, h.getUTCDate());
+  return prisma.notificacion.count({ where: { canal: 'whatsapp', estado: 'enviada', whatsapp_instancia: instancia, enviada_at: { gte: desde } } });
+}
+
 /**
  * Un WhatsApp de aviso cuenta contra el tope mensual de su condominio. Pasado el tope no sale (su fila queda omitida con el motivo y el correo
  * sigue por la suya). Sin condominio (avisos de la plataforma) no hay tope.
  */
-async function enviarWhatsappDeAviso(deps: DepsAvisos, complejoId: number | null, instancia: string | null, celular: string | null, cuerpo: string): Promise<ResultadoEnvio> {
+async function enviarWhatsappDeAviso(deps: DepsAvisos, complejoId: number | null, instancia: string | null, celular: string | null, cuerpo: string, antesDeEnviar?: () => Promise<void>): Promise<ResultadoEnvio> {
   if (complejoId != null && !(await reservarConsumo(complejoId, 'whatsapp', deps.ahora())).permitido) return { resultado: 'omitida', motivo: MOTIVO_TOPE_WHATSAPP };
-  return enviarWhatsapp(deps, instancia, celular, cuerpo);
+  return enviarWhatsapp(deps, instancia, celular, cuerpo, antesDeEnviar);
 }
 
 /**
@@ -378,8 +411,10 @@ async function enviarWhatsappDeAviso(deps: DepsAvisos, complejoId: number | null
  * `programada_para` unos minutos), así dos procesos no mandan el mismo aviso. Los fallos se reintentan con espera
  * creciente (`ESPERA_MIN`) hasta `MAX_INTENTOS`; después quedan en `error` con un motivo corto.
  */
-export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50): Promise<{ enviadas: number; omitidas: number; fallos: number; errores: number }> {
+export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50, inicio = deps.ahora().getTime()): Promise<{ enviadas: number; omitidas: number; fallos: number; errores: number }> {
   const ahora = deps.ahora();
+  const cfg = await obtenerConfiguracion();
+  const tope = cfg.whatsapp_tope_diario;
   const resumen = { enviadas: 0, omitidas: 0, fallos: 0, errores: 0 };
   const pendientes = await prisma.notificacion.findMany({
     where: { estado: 'pendiente', programada_para: { lte: ahora } },
@@ -387,7 +422,20 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
     take: limite,
     include: { usuario: { select: { email: true, telefono: true } } },
   });
+  // Por instancia, en esta pasada: las que ya tuvieron un WhatsApp (la pausa va entre ellos) y cuántos salieron hoy (para el tope).
+  const instanciasUsadas = new Set<string>();
+  const enviadasHoy = new Map<string, number>();
+  const llevaHoy = async (instancia: string) => {
+    let c = enviadasHoy.get(instancia);
+    if (c == null) {
+      c = await contarEnviadasHoy(instancia, deps.ahora());
+      enviadasHoy.set(instancia, c);
+    }
+    return c;
+  };
   for (const n of pendientes) {
+    // Pasada demasiado larga: los WhatsApp que faltan no se toman (siguen pendientes, sin intento). El correo de esta pasada sí sale.
+    if (n.canal === 'whatsapp' && deps.ahora().getTime() - inicio > TOPE_PASADA_MS) continue;
     const tomada = await prisma.notificacion.updateMany({
       where: { id: n.id, estado: 'pendiente', programada_para: n.programada_para },
       data: { programada_para: new Date(ahora.getTime() + ARRENDAMIENTO_MIN * MIN) },
@@ -395,6 +443,7 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
     if (tomada.count === 0) continue;
 
     let r: ResultadoEnvio;
+    let instanciaWa: string | null = null;
     if (n.canal === 'email') {
       r = await enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo);
     } else if (n.canal === 'whatsapp') {
@@ -404,10 +453,23 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
       const permitido = (complejoId == null && n.ref_entidad === 'ia')
         || (await moduloActivo(complejoId, 'whatsapp_avisos'))
         || ((n.tipo === 'pago_validado' || n.tipo === 'pago_rechazado') && (await moduloActivo(complejoId, 'asistente')));
-      // La instancia es la de la administradora que emitió el recibo (no una global).
-      r = permitido
-        ? await enviarWhatsappDeAviso(deps, complejoId, await resolveInstance(n), (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, n.cuerpo)
-        : { resultado: 'omitida', motivo: MOTIVO_SIN_WHATSAPP };
+      if (!permitido) {
+        r = { resultado: 'omitida', motivo: MOTIVO_SIN_WHATSAPP };
+      } else {
+        // La instancia es la de la administradora que emitió el recibo (no una global).
+        const instancia = await resolveInstance(n);
+        // Tope diario por número: si ya salieron todos los de hoy, este aviso queda para mañana a las 08:00 (Lima), sin intento ni omisión.
+        if (instancia && tope != null && tope > 0 && (await llevaHoy(instancia)) >= tope) {
+          await prisma.notificacion.update({ where: { id: n.id }, data: { programada_para: manana0800Lima(deps.ahora()) } });
+          continue;
+        }
+        instanciaWa = instancia;
+        r = await enviarWhatsappDeAviso(deps, complejoId, instancia, (await numeroVinculado(n.usuario_id)) ?? n.usuario.telefono, conPie(n.cuerpo), async () => {
+          // Pausa al azar entre dos WhatsApp seguidos de la MISMA instancia; el primero de cada instancia sale sin esperar.
+          if (instancia && instanciasUsadas.has(instancia)) await deps.esperar(pausaMs(cfg, deps.azar()));
+          if (instancia) instanciasUsadas.add(instancia);
+        });
+      }
     } else if (n.canal === 'telegram') {
       // El bot de Telegram es parte del módulo «Asistente con IA».
       r = (await moduloActivo(await complejoDeAviso(n), 'asistente'))
@@ -418,7 +480,8 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50)
     }
 
     if (r.resultado === 'ok') {
-      await prisma.notificacion.update({ where: { id: n.id }, data: { estado: 'enviada', enviada_at: deps.ahora(), intentos: n.intentos + 1, error: null } });
+      await prisma.notificacion.update({ where: { id: n.id }, data: { estado: 'enviada', enviada_at: deps.ahora(), intentos: n.intentos + 1, error: null, ...(instanciaWa ? { whatsapp_instancia: instanciaWa } : {}) } });
+      if (instanciaWa) enviadasHoy.set(instanciaWa, (enviadasHoy.get(instanciaWa) ?? 0) + 1);
       resumen.enviadas++;
     } else if (r.resultado === 'omitida') {
       await prisma.notificacion.update({ where: { id: n.id }, data: { estado: 'omitida', error: r.motivo, programada_para: n.programada_para } });

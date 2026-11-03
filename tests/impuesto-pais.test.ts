@@ -201,6 +201,8 @@ describe('Mi plan y la solicitud usan el impuesto y la moneda del país del cond
     const enviados: string[] = [];
     const deps: DepsAvisos = {
       ahora: () => new Date(HOY + 17 * 3_600_000), env: { RESEND_API_KEY: 're_falsa', MAIL_FROM: 'House <house@ejemplo.test>' },
+      esperar: async () => {},
+      azar: () => 0,
       fetch: (async (_u: string | URL | Request, init?: RequestInit) => { enviados.push(JSON.parse(String(init?.body)).text); return new Response('{}', { status: 200 }); }) as typeof fetch,
     };
     const original = comercialCorreo.deps;

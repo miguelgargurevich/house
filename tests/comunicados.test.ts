@@ -15,6 +15,8 @@ async function procesar() {
   const llamadas: { url: string; init: RequestInit }[] = [];
   const deps: DepsAvisos = {
     ahora: () => new Date(),
+    esperar: async () => {},
+    azar: () => 0,
     env: ENV_OK,
     fetch: (async (url: string | URL | Request, init?: RequestInit) => { llamadas.push({ url: String(url), init: init ?? {} }); return new Response('{}', { status: 200 }); }) as typeof fetch,
   };

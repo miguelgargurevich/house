@@ -13,7 +13,7 @@ import { horaEn } from '../../lib/fechas';
 import { nombreMes } from '../../lib/periodo';
 import { registrarAuditoria } from '../../middleware/audit';
 import { correoEfectivo, selectCorreoBlock } from '../juntas';
-import { enviarCorreo, type DepsAvisos, type ResultadoEnvio } from './canales';
+import { enviarCorreo, esperarReal, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { ENLACE_APP, dineroTexto } from './plantillas';
 
 export const ACCION_AVISO_VOUCHER = 'avisar_voucher_block';
@@ -24,6 +24,8 @@ export const voucherBlockDeps: DepsAvisos & { esperaReintentoMs: number } = {
   fetch: (...a) => fetch(...a),
   ahora: () => new Date(),
   env: process.env,
+  esperar: esperarReal,
+  azar: Math.random,
   esperaReintentoMs: 3000,
 };
 

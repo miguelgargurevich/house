@@ -1,4 +1,4 @@
-import type { DepsAvisos } from '../avisos/canales';
+import { esperarReal, type DepsAvisos } from '../avisos/canales';
 import { ENLACE_APP } from '../avisos/plantillas';
 
 /**
@@ -9,6 +9,8 @@ export const canalesDeps: DepsAvisos & { urlPublica: () => string } = {
   fetch: (...a) => fetch(...a),
   ahora: () => new Date(),
   env: process.env,
+  esperar: esperarReal,
+  azar: Math.random,
   urlPublica: () => ENLACE_APP,
 };
 

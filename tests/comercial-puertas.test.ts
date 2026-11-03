@@ -190,7 +190,7 @@ describe('módulo «IA que lee y valida vouchers»', () => {
 describe('módulo «Avisos por WhatsApp»', () => {
   const ENV = { RESEND_API_KEY: 're_falsa', MAIL_FROM: 'Casa <a@ejemplo.test>', EVOLUTION_URL: 'https://evo.ejemplo.test', EVOLUTION_APIKEY: 'k-falsa' };
   let llamadas: string[] = [];
-  const deps = (): DepsAvisos => ({ ahora: () => new Date(), env: ENV, fetch: (async (url: string | URL | Request) => { llamadas.push(String(url)); return new Response('{}', { status: 200 }); }) as typeof fetch });
+  const deps = (): DepsAvisos => ({ ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: ENV, fetch: (async (url: string | URL | Request) => { llamadas.push(String(url)); return new Response('{}', { status: 200 }); }) as typeof fetch });
   let reciboId: number;
 
   beforeEach(async () => {

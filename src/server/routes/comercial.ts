@@ -114,6 +114,10 @@ const configSchema = z.object({
   // Verificación de propiedad del sitio (Search Console / Bing Webmaster): sólo el código, que va en una etiqueta `meta` de la portada. Vacío = null = sin etiqueta.
   google_site_verification: codigoVerificacion,
   bing_site_verification: codigoVerificacion,
+  // WhatsApp de aviso (anti-baneo): tope diario por número (null o 0 = sin tope) y pausa al azar entre dos envíos de la misma instancia.
+  whatsapp_tope_diario: z.number().int().min(0, 'Mínimo 0').max(100_000, 'Máximo 100 000').nullable().optional(),
+  whatsapp_pausa_min_seg: z.number().int().min(0, 'Mínimo 0').max(60, 'Máximo 60 s').optional(),
+  whatsapp_pausa_max_seg: z.number().int().min(0, 'Mínimo 0').max(60, 'Máximo 60 s').optional(),
 });
 const listaSchema = listQuerySchema.extend({ estado: z.enum(ESTADOS_SUSCRIPCION).optional(), empresa_id: idSchema.optional() });
 
@@ -423,7 +427,11 @@ comercialRouter.put('/tipo-cambio', superadmin, async (req, res) => {
 
 comercialRouter.put('/configuracion', superadmin, async (req, res) => {
   const body = parseBody(configSchema, req);
-  await obtenerConfiguracion();
+  const actual = await obtenerConfiguracion();
+  // La pausa mínima no puede pasar de la máxima con lo que quedaría guardado: si sólo llega una, vale la otra de la base.
+  const min = body.whatsapp_pausa_min_seg ?? actual.whatsapp_pausa_min_seg;
+  const max = body.whatsapp_pausa_max_seg ?? actual.whatsapp_pausa_max_seg;
+  if (min > max) throw invalid('La pausa mínima no puede ser mayor que la máxima', { whatsapp_pausa_min_seg: 'Debe ser igual o menor que la pausa máxima' });
   const c = await prisma.configuracionComercial.update({ where: { id: 1 }, data: definidos(body) });
   if (body.igv_tasa !== undefined) await reflejarTasaEnPeru(body.igv_tasa); // el IGV de aquí es el de Perú: la tabla de impuestos por país lo sigue
   invalidarComercial();

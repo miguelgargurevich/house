@@ -1060,7 +1060,7 @@ describe('T6 · avisos: el resultado del voucher llega por Telegram', () => {
   const crearPago = () => prisma.pago.create({ data: { recibo_concepto_unidad_id: D.cargoA2.id, monto: 150, metodo_pago: 'transferencia', estado_validacion: 'por_validar', usuario_id: D.propietario2.id } });
   const cola = async () => {
     const { procesarCola } = await import('../src/server/services/avisos');
-    return procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), env: process.env });
+    return procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
   };
 
   it('validado y rechazado llegan al chat VINCULADO (aunque no tenga teléfono ni avisos activos); sin vínculo o revocado, no; los recordatorios no van por Telegram', async () => {

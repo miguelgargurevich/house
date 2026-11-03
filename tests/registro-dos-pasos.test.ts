@@ -15,6 +15,8 @@ interface Correo { para: string; asunto: string; cuerpo: string }
 let enviados: Correo[] = [];
 const depsFalsas = (): DepsAvisos => ({
   ahora: () => comercialDeps.ahora(),
+  esperar: async () => {},
+  azar: () => 0,
   env: { RESEND_API_KEY: 're_falsa', MAIL_FROM: 'House <house@ejemplo.test>' },
   fetch: (async (_url: string | URL | Request, init?: RequestInit) => {
     const b = JSON.parse(String(init?.body));

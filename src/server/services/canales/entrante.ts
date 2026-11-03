@@ -3,6 +3,7 @@ import { esJunta } from '../../lib/junta';
 import { registrarAuditoria } from '../../middleware/audit';
 import { normalizarCelular } from '../avisos/celular';
 import { canalesDeps, enmascarar } from './deps';
+import { darDeBajaWhatsapp, esBajaWhatsapp, TEXTO_BAJA_WHATSAPP } from './baja';
 import { conversarPorCanal } from './conversar';
 import { complejoDelAsistente } from '../comercial/consumo';
 import { descargarMedio, responder } from './evolution';
@@ -115,6 +116,12 @@ export async function atenderMensaje(t: Transporte, e: MensajeEntrante): Promise
   if (nIdentificador > limites.mensajesNumero.tope || nEmpresa > limites.mensajesEmpresa.tope) {
     if (nIdentificador === limites.mensajesNumero.tope + 1) await decir(MSGC.muchos);
     return;
+  }
+
+  // «SALIR» por WhatsApp: apaga los avisos por ese canal a las personas de ESA empresa con ese número. Va antes del vínculo: vale aunque el número no esté vinculado.
+  if (t.canal === 'whatsapp' && t.empresaId != null && !e.medio && esBajaWhatsapp(e.texto)) {
+    await darDeBajaWhatsapp(t.empresaId, t.identificador);
+    return void (await decir(TEXTO_BAJA_WHATSAPP));
   }
 
   const vinculo = await vinculoVigente(t.canal, t.identificador);

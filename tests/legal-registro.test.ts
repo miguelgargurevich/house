@@ -11,6 +11,8 @@ import { comercialDeps } from '../src/server/services/comercial/modulos';
 
 const depsFalsas = (): DepsAvisos => ({
   ahora: () => comercialDeps.ahora(),
+  esperar: async () => {},
+  azar: () => 0,
   env: { RESEND_API_KEY: 're_falsa', MAIL_FROM: 'House <house@ejemplo.test>' },
   fetch: (async () => new Response('{}', { status: 200 })) as typeof fetch,
 });

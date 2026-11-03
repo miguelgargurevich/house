@@ -70,6 +70,8 @@ let T: Record<'super' | 'adminA', string>;
 let enviados: { para: string; asunto: string; cuerpo: string }[] = [];
 const depsFalsas = (): DepsAvisos => ({
   ahora: () => ahoraEn(0),
+  esperar: async () => {},
+  azar: () => 0,
   env: { RESEND_API_KEY: 're_falsa', MAIL_FROM: 'House <house@ejemplo.test>' },
   fetch: (async (_url: string | URL | Request, init?: RequestInit) => {
     const b = JSON.parse(String(init?.body));
