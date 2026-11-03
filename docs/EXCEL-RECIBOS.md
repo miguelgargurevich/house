@@ -36,14 +36,43 @@ Se lee la primera hoja. Las filas vacías se ignoran. El lector (`src/server/lib
 
 ### Filas de datos
 
-1. `BLOCK` — la torre se reconoce por su **número**: `B.1`, `B1`, `B-1`, `BLOCK 1`, `Block 1`, `TORRE 1`, `T1` y `1` son la torre 1. Se busca la estructura del condominio cuyo nombre tenga ese mismo número (`Block 1`, `B.1`, …): debe haber **una sola**; si hay varias o ninguna, advertencia y se salta la fila. Si el condominio no tiene estructuras, la unidad se busca sólo por el número de departamento.
-2. `Dpto.` — número de departamento (`101` o `"101"`). Se busca la unidad de esa torre cuyo código **termine** en ese número (`B01-101`, `B.1-101`, `101`; `B.1-1101` no). Si no existe (o hay varias), advertencia y se salta la fila.
-3. `Apellidos y Nombres` — referencial.
+1. `BLOCK` — la torre se reconoce por su **número**: `B.1`, `B1`, `B-1`, `BLOCK 1`, `Block 1`, `TORRE 1`, `T1` y `1` son la torre 1. Se busca la estructura del condominio cuyo nombre tenga ese mismo número (`Block 1`, `B.1`, …): debe haber **una sola**; si hay varias, advertencia y se salta la fila; si no hay ninguna, el block **se puede crear** (ver «Crear lo que falta»). Si el condominio no tiene estructuras, la unidad se busca sólo por el número de departamento.
+2. `Dpto.` — número de departamento (`101` o `"101"`). Se busca la unidad de esa torre cuyo código **termine** en ese número (`B01-101`, `B.1-101`, `101`; `B.1-1101` no). Si hay varias, advertencia y se salta la fila; si no existe, la unidad **se puede crear** (ver «Crear lo que falta»).
+3. `Apellidos y Nombres` — referencial para los departamentos que ya existen (nunca cambia al propietario); es el nombre del propietario de los que se crean.
 4. Montos de cada concepto. Cada cargo se **redondea a 2 decimales** (half-up) y se guarda como Decimal.
 5. `TOTAL MANT` — se valida: si la suma de los cargos redondeados de la fila difiere de `TOTAL MANT` en más de **S/ 0.05**, advertencia para ese departamento (los cargos se crean igual).
 6. `DEUDA ACUMULADA` y `TOTAL` — referenciales.
 
 Filas sin `BLOCK`/`Dpto.` y la fila `TOTALES` se ignoran (cuentan como «saltadas», sin advertencia).
+
+## Crear lo que falta: blocks, departamentos y propietarios
+
+Para llenar un condominio block por block sin crear 400 departamentos a mano: la administradora sube el Excel de cada block y el sistema crea lo que el condominio aún no tiene. (3-nov, pedido de Miguel: «cómo se llenarían los usuarios, propietarios y demás».)
+
+**Paso 1 — vista previa (no escribe nada).** Se sube el Excel como siempre. Si trae un block o un departamento que el condominio no tiene, la API responde **409** `FALTAN_UNIDADES` y la pantalla muestra, por ejemplo: «Se van a crear el Block 5, 8 pisos, 32 departamentos y 32 propietarios». No se creó nada: ni el recibo, ni los conceptos del archivo, ni un solo usuario.
+
+**Paso 2 — confirmar.** «Crear y cargar el recibo» vuelve a mandar el mismo archivo con `crear_faltantes=true`. En la **misma transacción** del recibo (si algo falla, no queda ni el block ni las unidades) se crea:
+
+| Qué | Cómo queda |
+|---|---|
+| Block | `Estructura` «Block N» (`tipo: block`) del condominio |
+| Pisos | `1..máximo`, donde máximo es el `floor(dpto/100)` más alto de ese block en el Excel (101…804 → 8 pisos). En un block que ya existe sólo se agrega el piso que falte |
+| Departamento | `codigo` `B{NN}-{dpto}` (el block en 2 dígitos: `B05-101`), `tipo: departamento`, `estado: activa`, la empresa y el condominio del condominio, `piso_id` por `floor(dpto/100)` (sin piso si el departamento no es numérico o es menor que 100). `0101` se guarda como `101`; `PH` o `A1` valen como código corto sin piso |
+| Propietario | `rol: propietario`, nombre del Excel (espacios recortados), correo de relleno `b{N}-{dpto}@sin-correo.invalid` (minúsculas), **sin contraseña, sin teléfono, sin empresa** y **sin invitación ni avisos**. Si la fila no trae nombre, la unidad queda sin propietario |
+
+Después sigue exactamente igual que siempre (un recibo por block, mora, avisos de conformidad…). La respuesta trae `creado` con lo que se creó y la pantalla lo resume («Se crearon 1 block (Block 5), 8 pisos, 32 departamentos y 32 propietarios (sin correo ni acceso)»).
+
+**Reglas**
+
+- **Nunca toca lo que ya existe.** Un block, departamento o propietario que ya está no se modifica ni cambia de dueño, aunque el nombre del Excel sea otro (no se avisa de la diferencia: cada mes cambia la forma de escribirlo). Subir otra vez el mismo Excel no duplica nada: sólo reemplaza el recibo.
+- **El correo de relleno no se reutiliza.** Si `b4-101@sin-correo.invalid` ya lo tiene otro usuario (típico: otro condominio con su «Block 4»), el propietario nuevo lleva sufijo: `b4-101-2@…`, `-3`… El usuario existente no se toca ni se liga a esta unidad.
+- **Se salta con advertencia** (y lo demás sigue) una fila cuyo departamento no se puede crear (`10-1`, `0`, `101.5`, más de 6099), cuyo código `B05-101` ya existe fuera de ese block, o cuya unidad existe pero está inactiva.
+- **Sólo en condominios que ya tienen al menos un block.** En uno sin blocks no se crea nada (aunque se pida) y el Excel se empareja sólo por departamento, como siempre.
+- **Cargar sin crear.** `crear_faltantes=false` (botón «Cargar sin crear») salta esas filas con la advertencia de siempre en vez de crearlas: sirve si una fila con el block mal escrito no debe crear un block nuevo.
+- **Topes.** El tope de unidades del plan se aplica igual que al crear una a mano: si no caben, **403** `LIMITE_UNIDADES` ya en la vista previa y no se crea nada. Y como máximo 1000 departamentos y 60 blocks nuevos por subida (422): sube un block a la vez.
+- **Permisos.** Sólo admin o superadmin del condominio; un admin de otra empresa recibe 422 «no existe o no tienes acceso» y no se le revela qué le falta. La auditoría (`crear_desde_excel`) guarda conteos y códigos, nunca nombres ni correos.
+
+Los propietarios así creados no pueden entrar: para darles acceso, la administradora los invita desde Usuarios cuando tenga su correo real (el correo de relleno `….invalid` nunca recibe invitaciones).
 
 ## Reglas de negocio
 
@@ -65,11 +94,11 @@ La columna `MULTA PAGO FUERA DE FECHA(ULTIMO DIA 2 CADA MES)` (cualquier concept
 
 ## Endpoint
 
-`POST /api/recibos/excel` — cuerpo: `multipart/form-data` con campo `archivo` (el `.xlsx`) y `complejo_id`.
+`POST /api/recibos/excel` — cuerpo: `multipart/form-data` con campo `archivo` (el `.xlsx`), `complejo_id` y, opcional, `crear_faltantes` (`true` | `false`; ver «Crear lo que falta»).
 
-Responde 201 con `mora` (ver arriba), `recibo_id` (el de la primera torre), `recibos` (`[{recibo_id, estructura_id, torre, accion: 'creado'|'reemplazado', unidades_procesadas}]`, uno por torre del archivo), `mes`, `anio`, `unidades_procesadas` (todas las torres), `filas_saltadas`, `conceptos` y `advertencias` (lista de textos en español; máximo 100). El mes se lee con «setiembre» o «septiembre».
+Responde 201 con `mora` (ver arriba), `recibo_id` (el de la primera torre), `recibos` (`[{recibo_id, estructura_id, torre, accion: 'creado'|'reemplazado', unidades_procesadas}]`, uno por torre del archivo), `mes`, `anio`, `unidades_procesadas` (todas las torres), `filas_saltadas`, `conceptos`, `advertencias` (lista de textos en español; máximo 100) y, si se crearon blocks o departamentos, `creado` (`{blocks: [{nombre, nuevo, pisos, unidades, propietarios}], totales: {blocks, pisos, unidades, propietarios}}`). El mes se lee con «setiembre» o «septiembre».
 
-Errores: 403 si no eres admin (el rol se revisa antes de recibir el archivo); 422 si falta el archivo o `complejo_id`, el archivo pesa más de 10 MB, no es un Excel válido o no tiene mes/año, fila `BLOCK` ni conceptos, o (condominio con torres) ninguna fila del archivo es de una torre del condominio.
+Errores: 403 si no eres admin (el rol se revisa antes de recibir el archivo) o si crear los departamentos pasa el tope del plan (`LIMITE_UNIDADES`); **409** `FALTAN_UNIDADES` (con `faltantes`) si el Excel trae blocks o departamentos que el condominio no tiene y no mandaste `crear_faltantes` (no se escribió nada); 422 si falta el archivo o `complejo_id`, `crear_faltantes` no es `true`/`false`, el archivo pesa más de 10 MB, no es un Excel válido o no tiene mes/año, fila `BLOCK` ni conceptos, o (condominio con torres) ninguna fila del archivo es de una torre del condominio.
 
 ## Notas
 

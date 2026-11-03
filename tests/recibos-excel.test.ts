@@ -43,9 +43,14 @@ const filasValidas = (): Celda[][] => [
   ['TOTALES', null, null, 347.38, 8.55, 85.53, 0, 0, 0],
 ];
 
-const subir = async (token: string | null, archivo: Buffer | null, complejoId: number | string | null, nombre = 'recibos.xlsx') => {
+/**
+ * `faltantes`: lo que se manda en `crear_faltantes`. Por defecto `'false'` (saltar las filas de blocks o departamentos que no existen, como antes de que el Excel
+ * pudiera crearlos): estas pruebas son del recibo. `null` = no mandarlo (la API da la vista previa si falta algo); `'true'` = crear lo que falte.
+ */
+const subir = async (token: string | null, archivo: Buffer | null, complejoId: number | string | null, nombre = 'recibos.xlsx', faltantes: 'true' | 'false' | null = 'false') => {
   const f = new FormData();
   if (complejoId != null) f.append('complejo_id', String(complejoId));
+  if (faltantes != null) f.append('crear_faltantes', faltantes);
   if (archivo) f.append('archivo', new Blob([new Uint8Array(archivo)]), nombre);
   const r = await fetch(`${base}/api/recibos/excel`, { method: 'POST', headers: cabecerasDeSesion(token), body: f });
   const texto = await r.text();

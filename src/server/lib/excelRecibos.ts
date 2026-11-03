@@ -168,3 +168,35 @@ export function leerConceptos(datos: Fila[], filaBlock: number): ColumnasConcept
   }
   return { primeraFilaDatos: filaNombres + 1, conceptos, columnaTotalMant, duplicados };
 }
+
+// ---------- Crear lo que falta (blocks, departamentos y propietarios) ----------
+// Convenciones de producción (condominio Los Libertadores): block «Block N», unidad «B{NN}-{dpto}», propietario con correo «b{N}-{dpto}@sin-correo.invalid».
+
+/** Tope de pisos de un block (el mismo que `cantidad_pisos` en la ruta de blocks). */
+const MAX_PISOS = 60;
+
+/**
+ * Número de departamento que se puede crear, en su forma canónica, o null. Numérico: 1 a 6099 («0101» → «101»; el piso sería ≤ 60).
+ * Otro código corto (letras y números, hasta 10: «PH», «A1») se acepta en mayúsculas y sin piso. Lo demás («101.5», «10-1», «») no.
+ */
+export function dptoCreable(v: unknown): string | null {
+  const d = normalizarTexto(v);
+  if (/^\d+$/.test(d)) {
+    const n = Number(d);
+    return n >= 1 && n <= MAX_PISOS * 100 + 99 ? String(n) : null;
+  }
+  return /^[A-Za-z0-9]{1,10}$/.test(d) ? d.toUpperCase() : null;
+}
+
+/** Piso de un departamento numérico: «804» → 8. Menor que 100 o no numérico → null (sin piso). */
+export function pisoDeDpto(dpto: string): number | null {
+  if (!/^\d+$/.test(dpto)) return null;
+  const n = Number(dpto);
+  return n >= 100 ? Math.floor(n / 100) : null;
+}
+
+export const nombreDeBlock = (numero: number): string => `Block ${numero}`;
+/** «B05-101»: el block con 2 dígitos (3 si pasa de 99). */
+export const codigoDeUnidad = (numero: number, dpto: string): string => `B${String(numero).padStart(2, '0')}-${dpto}`;
+/** Correo de relleno del propietario importado: nunca existe el buzón (`.invalid` está reservado), así que no recibe invitaciones. */
+export const correoDeRelleno = (numero: number, dpto: string): string => `b${numero}-${dpto}@sin-correo.invalid`.toLowerCase();

@@ -24,11 +24,13 @@ import { armarConsolidado, armarImpresion } from '../services/consolidado';
 import { libroConsolidado, nombreArchivoConsolidado } from '../lib/excelConsolidado';
 import { fechaSchema, idSchema, listQuerySchema, montoSchema, parse, parseBody, parseId, parseOrden, texto, textoOpcional, z } from '../validation';
 import { METODOS_PAGO } from './pagos';
-import { buscarEstructura, codigoEncajaConDpto, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
+import { buscarEstructura, codigoDeUnidad, codigoEncajaConDpto, dptoCreable, indiceFilaBlock, leerCabecera, leerConceptos, limpiarMonto, normalizarTexto, numeroDeTorre, pisoDeDpto, redondearMonto, TOLERANCIA_TOTAL } from '../lib/excelRecibos';
+import { bloquearEstructuras, crearFaltantes, exigirTopes, mensajeFaltantes, resumirFaltantes, type CreadoDelExcel, type UnidadNueva } from '../services/crearFaltantesExcel';
 import multer from 'multer';
 import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
 import XLSX from 'xlsx';
 import { complejoDeRecibo, exigirOperativo } from '../services/comercial/operativo';
+import { exigirCupoDeUnidades } from '../services/comercial/modulos';
 
 const conceptoItem = z.object({ concepto_id: idSchema, monto: montoSchema, es_recargo: z.boolean().optional() });
 
@@ -610,6 +612,30 @@ function leerExcelDeRecibos(buffer: Buffer) {
   return { datos, filaBlock, mes, anio, fechaVencimiento: vencimiento ?? new Date(Date.UTC(anio, mes, 1)) };
 }
 
+/**
+ * `crear_faltantes` del POST /excel: ausente = vista previa (409 `FALTAN_UNIDADES` si el Excel trae blocks o departamentos que el condominio no tiene,
+ * sin escribir nada); `true` = crearlos junto con el recibo; `false` = saltar esas filas con una advertencia (como antes de existir la opción).
+ */
+type ModoFaltantes = 'preguntar' | 'crear' | 'saltar';
+function modoFaltantes(v: unknown): ModoFaltantes {
+  if (v === undefined || v === null || v === '') return 'preguntar';
+  const t = String(v).trim().toLowerCase();
+  if (t === 'true') return 'crear';
+  if (t === 'false') return 'saltar';
+  throw invalid('Datos inválidos: crear_faltantes debe ser true o false', { crear_faltantes: 'Debe ser true o false' });
+}
+
+/** Una fila del Excel ya emparejada con su block y su unidad (existentes, o por crear). */
+interface FilaEmparejada {
+  fila: unknown[];
+  etiqueta: string;
+  /** El block si ya existe; null = sin blocks en el condominio, o el block se crea (entonces `numero` lo identifica). */
+  estructura: { id: number; nombre: string | null } | null;
+  numero: number | null;
+  unidadId: number | null;
+  nueva: UnidadNueva | null;
+}
+
 // El rol se revisa ANTES de multer: un residente no debe hacer que el servidor reciba 10 MB.
 router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   const u = currentUser(req);
@@ -619,6 +645,7 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   await exigirOperativo(complejoId, u);
   const empresa_id = complejo!.empresa_id as number | null;
   if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
+  const modo = modoFaltantes(req.body.crear_faltantes);
 
   const { datos, filaBlock, mes, anio, fechaVencimiento } = leerExcelDeRecibos(req.file.buffer);
 
@@ -632,25 +659,21 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   const hoyDelCondominio = hoyEn((complejo!.zona_horaria as string | undefined) ?? ZONA_POR_DEFECTO); // la emisión es el día de hoy EN el condominio
   const moraPorRecibo: { reciboId: number; torre: string | null; unidades: UnidadConMora[] }[] = [];
 
-  const conceptosMap = new Map<string, number>();
-  for (const { nombre } of columnasConcepto) {
-    let c = await prisma.concepto.findFirst({ where: { nombre, empresa_id, activo: true } });
-    if (!c) {
-      c = await prisma.concepto.create({ data: { nombre, empresa_id, tipo_monto: 'fijo', activo: true } });
-    }
-    conceptosMap.set(nombre, c.id);
-  }
-
   const resultado = await prisma.$transaction(async (tx) => {
     // Cada torre tiene SU recibo: el Excel de un block sólo crea o reemplaza el de ese block y no toca los de las demás torres.
     await bloquearPeriodo(tx, complejoId, mes, anio);
+    await bloquearEstructuras(tx, complejoId);
     let filasSaltadas = 0;
     const estructuras = await tx.estructura.findMany({ where: { complejo_id: complejoId }, select: { id: true, nombre: true } });
-    const unidades = await tx.unidad.findMany({ where: { complejo_id: complejoId, estado: 'activa' }, select: { id: true, codigo: true, estructura_id: true } });
-    // Filas del Excel agrupadas por torre (sin torres en el condominio: un solo grupo, sin torre).
-    const grupos = new Map<number | null, { torre: string | null; cargos: { idx: number; unidadId: number; monto: Prisma.Decimal }[]; unidades: number; unidadIds: Set<number>; multa: Map<number, Prisma.Decimal> }>();
-    const nuevoGrupo = (torre: string | null) => ({ torre, cargos: [], unidades: 0, unidadIds: new Set<number>(), multa: new Map<number, Prisma.Decimal>() });
-    if (!estructuras.length) grupos.set(null, nuevoGrupo(null));
+    const todas = await tx.unidad.findMany({ where: { complejo_id: complejoId }, select: { id: true, codigo: true, estructura_id: true, estado: true } });
+    const unidades = todas.filter((un) => un.estado === 'activa');
+    const codigosUsados = new Set(todas.map((un) => un.codigo.trim().toUpperCase()));
+
+    // 1.º: emparejar cada fila con su block y su unidad. Lo que no existe y se puede crear queda en `nuevas` (sin escribir nada todavía).
+    // Sin blocks en el condominio no se crea nada: el Excel se empareja sólo por departamento, como siempre.
+    const filas: FilaEmparejada[] = [];
+    const nuevas = new Map<string, UnidadNueva>();
+    const tocados = new Map<number, string | null>(); // blocks existentes que alguna fila nombra (aunque su departamento no exista: su recibo se emite igual)
     for (let i = primeraFilaDatos; i < datos.length; i++) {
       const fila = datos[i];
       const block = normalizarTexto(fila[0]);
@@ -658,28 +681,82 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
       if (!block || !dpto || block.toUpperCase() === 'TOTALES') { filasSaltadas++; continue; }
       const etiqueta = `${block} Dpto. ${dpto}`;
       let candidatas = unidades;
-      let estructuraId: number | null = null;
+      let estructura: { id: number; nombre: string | null } | null = null;
+      let numero: number | null = null;
       if (estructuras.length) {
-        const numero = numeroDeTorre(block);
+        numero = numeroDeTorre(block);
         if (numero == null) { advertencias.push(`${etiqueta}: no se entiende el identificador de block «${block}»; se saltó la fila`); filasSaltadas++; continue; }
-        const { estructura, motivo } = buscarEstructura(estructuras, numero);
-        if (!estructura) {
-          advertencias.push(`${etiqueta}: ${motivo === 'varias' ? `hay varios blocks del condominio que coinciden con «${block}»` : `el condominio no tiene el block «${block}»`}; se saltó la fila`);
-          filasSaltadas++;
-          continue;
-        }
-        estructuraId = estructura.id;
-        if (!grupos.has(estructuraId)) grupos.set(estructuraId, nuevoGrupo(estructura.nombre));
-        candidatas = unidades.filter((un) => un.estructura_id === estructura.id);
+        const r = buscarEstructura(estructuras, numero);
+        if (r.motivo === 'varias') { advertencias.push(`${etiqueta}: hay varios blocks del condominio que coinciden con «${block}»; se saltó la fila`); filasSaltadas++; continue; }
+        estructura = r.estructura ?? null;
+        if (estructura) tocados.set(estructura.id, estructura.nombre);
+        candidatas = estructura ? unidades.filter((un) => un.estructura_id === estructura!.id) : [];
       }
-      const grupo = grupos.get(estructuraId)!;
       const coinciden = candidatas.filter((un) => codigoEncajaConDpto(un.codigo, dpto));
-      if (coinciden.length !== 1) {
-        advertencias.push(`${etiqueta}: ${coinciden.length ? 'hay varias unidades que coinciden' : 'no existe la unidad'}; se saltó la fila`);
+      if (coinciden.length === 1) { filas.push({ fila, etiqueta, estructura, numero, unidadId: coinciden[0].id, nueva: null }); continue; }
+      if (coinciden.length > 1) { advertencias.push(`${etiqueta}: hay varias unidades que coinciden; se saltó la fila`); filasSaltadas++; continue; }
+
+      // No existe la unidad (o ni siquiera el block): se crea, salvo que se haya pedido saltarla o no se pueda crear con seguridad.
+      if (!estructuras.length || modo === 'saltar') {
+        advertencias.push(`${etiqueta}: ${estructuras.length && !estructura ? `el condominio no tiene el block «${block}»` : 'no existe la unidad'}; se saltó la fila`);
         filasSaltadas++;
         continue;
       }
-      const unidadId = coinciden[0].id;
+      if (estructura && todas.some((un) => un.estructura_id === estructura!.id && un.estado !== 'activa' && codigoEncajaConDpto(un.codigo, dpto))) {
+        advertencias.push(`${etiqueta}: la unidad existe pero no está activa; se saltó la fila`);
+        filasSaltadas++;
+        continue;
+      }
+      const canonico = dptoCreable(dpto);
+      if (canonico == null) { advertencias.push(`${etiqueta}: «${dpto}» no es un número de departamento que se pueda crear; se saltó la fila`); filasSaltadas++; continue; }
+      const clave = `${numero}|${canonico}`;
+      const nombre = normalizarTexto(fila[2]).slice(0, 120) || null;
+      let nueva = nuevas.get(clave);
+      if (!nueva) {
+        const codigo = codigoDeUnidad(numero!, canonico);
+        if (codigosUsados.has(codigo)) { advertencias.push(`${etiqueta}: ya existe una unidad con el código ${codigo} fuera de ese block; se saltó la fila`); filasSaltadas++; continue; }
+        nueva = { clave, numero: numero!, dpto: canonico, codigo, nombre, estructuraId: estructura?.id ?? null, piso: pisoDeDpto(canonico) };
+        nuevas.set(clave, nueva);
+      } else if (!nueva.nombre && nombre) nueva.nombre = nombre;
+      filas.push({ fila, etiqueta, estructura, numero, unidadId: null, nueva });
+    }
+
+    // 2.º: si faltan blocks o departamentos, mostrar qué se crearía (409, sin escribir nada) o crearlos, siempre dentro de ESTA transacción.
+    let creado: CreadoDelExcel | null = null;
+    if (nuevas.size) {
+      const pisosExistentes = new Map<number, Set<number>>();
+      const idsConNuevas = [...new Set([...nuevas.values()].flatMap((n) => (n.estructuraId == null ? [] : [n.estructuraId])))];
+      if (idsConNuevas.length) {
+        for (const p of await tx.piso.findMany({ where: { estructura_id: { in: idsConNuevas } }, select: { numero: true, estructura_id: true } })) {
+          if (p.numero != null && p.estructura_id != null) pisosExistentes.set(p.estructura_id, (pisosExistentes.get(p.estructura_id) ?? new Set<number>()).add(p.numero));
+        }
+      }
+      const resumen = resumirFaltantes([...nuevas.values()], estructuras, pisosExistentes);
+      exigirTopes(resumen);
+      // Mismo tope de unidades del plan que al crear una a mano (403 LIMITE_UNIDADES): se revisa también en la vista previa, para no pedir confirmar lo que no cabe.
+      await exigirCupoDeUnidades(complejoId, resumen.totales.unidades);
+      if (modo === 'preguntar') return { vistaPrevia: resumen };
+      creado = await crearFaltantes(tx, { complejoId, empresaId: empresa_id, nuevas: [...nuevas.values()], resumen });
+    }
+
+    const conceptosMap = new Map<string, number>();
+    for (const { nombre } of columnasConcepto) {
+      let c = await tx.concepto.findFirst({ where: { nombre, empresa_id, activo: true } });
+      if (!c) c = await tx.concepto.create({ data: { nombre, empresa_id, tipo_monto: 'fijo', activo: true } });
+      conceptosMap.set(nombre, c.id);
+    }
+
+    // 3.º: los cargos por unidad, agrupados por torre (sin torres en el condominio: un solo grupo, sin torre).
+    const grupos = new Map<number | null, { torre: string | null; cargos: { idx: number; unidadId: number; monto: Prisma.Decimal }[]; unidades: number; unidadIds: Set<number>; multa: Map<number, Prisma.Decimal> }>();
+    const nuevoGrupo = (torre: string | null) => ({ torre, cargos: [], unidades: 0, unidadIds: new Set<number>(), multa: new Map<number, Prisma.Decimal>() });
+    if (!estructuras.length) grupos.set(null, nuevoGrupo(null));
+    for (const [id, nombre] of tocados) grupos.set(id, nuevoGrupo(nombre));
+    for (const { fila, etiqueta, estructura: existente, numero, unidadId: unidadExistente, nueva } of filas) {
+      const estructura = existente ?? (numero != null ? creado?.estructuras.get(numero) ?? null : null);
+      const estructuraId = estructura?.id ?? null;
+      if (!grupos.has(estructuraId)) grupos.set(estructuraId, nuevoGrupo(estructura?.nombre ?? null));
+      const grupo = grupos.get(estructuraId)!;
+      const unidadId = unidadExistente ?? creado!.unidades.get(nueva!.clave)!;
       grupo.unidadIds.add(unidadId);
       let suma = new Prisma.Decimal(0);
       for (const { indice: idx } of columnasConcepto) {
@@ -748,8 +825,18 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
       if (mora.aviso) avisosMora.push(g.torre ? `${g.torre}: ${mora.aviso}` : mora.aviso);
       porTorre.push({ recibo_id: reciboId, estructura_id: estructuraId, torre: g.torre, accion: mismo ? 'reemplazado' : 'creado', unidades_procesadas: g.unidades });
     }
-    return { porTorre, avisosMora, unidadesProcesadas: porTorre.reduce((s, r) => s + r.unidades_procesadas, 0), filasSaltadas, conceptosCreados: columnasConcepto.length };
-  });
+    return { porTorre, avisosMora, unidadesProcesadas: porTorre.reduce((s, r) => s + r.unidades_procesadas, 0), filasSaltadas, conceptosCreados: columnasConcepto.length, creado: creado?.resumen ?? null };
+  }, { maxWait: 10_000, timeout: 120_000 });
+
+  // Vista previa: no se escribió nada. El mensaje trae el resumen para la pantalla; `faltantes` el detalle (sólo conteos y códigos, sin nombres de personas).
+  if (resultado.vistaPrevia) {
+    return void res.status(409).json({
+      error: mensajeFaltantes(resultado.vistaPrevia),
+      code: 'FALTAN_UNIDADES',
+      faltantes: resultado.vistaPrevia,
+      advertencias: advertencias.length > MAX_ADVERTENCIAS ? [...advertencias.slice(0, MAX_ADVERTENCIAS), `… y ${advertencias.length - MAX_ADVERTENCIAS} advertencias más`] : advertencias,
+    });
+  }
 
   for (const r of resultado.porTorre) {
     try {
@@ -766,7 +853,11 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
   res.locals.accion = 'crear_desde_excel';
   const mora = informeDeMora(montoMora, moraPorRecibo, complejo!.moneda as string);
   advertencias.push(...resultado.avisosMora);
-  res.locals.auditDetalle = { recibo_ids: resultado.porTorre.map((r) => r.recibo_id), torres: resultado.porTorre.map((r) => r.torre), mes, anio, mora: mora.cantidad };
+  // Lo creado queda en la auditoría sólo como conteos y códigos: nunca nombres ni correos de personas.
+  res.locals.auditDetalle = {
+    recibo_ids: resultado.porTorre.map((r) => r.recibo_id), torres: resultado.porTorre.map((r) => r.torre), mes, anio, mora: mora.cantidad,
+    ...(resultado.creado ? { creado: { ...resultado.creado.totales, blocks_nuevos: resultado.creado.blocks.filter((b) => b.nuevo).map((b) => b.nombre), codigos: resultado.creado.blocks.flatMap((b) => b.unidades) } } : {}),
+  };
   res.status(201).json({
     recibo_id: primero.recibo_id,
     // Un recibo por torre: `recibo_id` es el de la primera; `recibos` trae todos con su torre y lo que se hizo con cada uno.
@@ -777,6 +868,8 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     conceptos: resultado.conceptosCreados,
     // `mora`: a quiénes se les agregó la mora por pago fuera de fecha del mes anterior, con el mensaje listo para mostrar.
     mora,
+    // `creado`: sólo si se pidió `crear_faltantes=true` y faltaba algo: blocks (nuevos o con departamentos nuevos), pisos, departamentos y propietarios creados.
+    ...(resultado.creado ? { creado: resultado.creado } : {}),
     advertencias: advertencias.length > MAX_ADVERTENCIAS ? [...advertencias.slice(0, MAX_ADVERTENCIAS), `… y ${advertencias.length - MAX_ADVERTENCIAS} advertencias más`] : advertencias,
   });
 });

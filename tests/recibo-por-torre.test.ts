@@ -35,6 +35,7 @@ function excel(filas: [string, number, number][], mes = 'Octubre 2026'): Buffer 
 const subir = async (token: string, archivo: Buffer, complejo = complejoId) => {
   const f = new FormData();
   f.append('complejo_id', String(complejo));
+  f.append('crear_faltantes', 'false'); // estas pruebas son del recibo por torre: lo que no existe se salta (crear lo que falta se prueba en excel-crea-blocks)
   f.append('archivo', new Blob([new Uint8Array(archivo)]), 'recibos.xlsx');
   const r = await fetch(`${base}/api/recibos/excel`, { method: 'POST', headers: cabecerasDeSesion(token), body: f });
   const texto = await r.text();

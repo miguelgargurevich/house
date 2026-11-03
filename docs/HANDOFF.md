@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — El Excel de recibos crea los blocks, departamentos y propietarios que faltan (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
+
+- Pedido de Miguel: la administradora llena los demás blocks subiendo el Excel de cada uno, sin crear 416 departamentos a mano. Rama `feat/excel-crea-blocks` (worktree), sin schema ni seeds tocados.
+- `POST /api/recibos/excel` gana `crear_faltantes`: ausente = vista previa (**409 `FALTAN_UNIDADES`**, `faltantes` con conteos y códigos, no escribe NADA); `true` = crea en la MISMA transacción del recibo la Estructura «Block N» + pisos `1..máx`, las Unidades `B{NN}-{dpto}` y los propietarios (`b{N}-{dpto}@sin-correo.invalid`, sin contraseña, `empresa_id: null`, sin invitar); `false` = salta las filas como antes. Servicio nuevo `services/crearFaltantesExcel.ts`; helpers puros en `lib/excelRecibos.ts`; pantalla en `SubirExcelModal.tsx` («Crear y cargar el recibo» / «Cargar sin crear») y `resumenExcel.ts`. Docs: `EXCEL-RECIBOS.md` (sección nueva) y `API-CONTRATO.md`.
+- **Decisiones**: correo de relleno ocupado → sufijo `-2`, `-3`… (nunca se reutiliza al usuario); nunca modifica block/unidad/propietario existente (ni avisa de nombres distintos); tope del plan (`exigirCupoDeUnidades`) ya en la vista previa; máx. 1000 unidades y 60 blocks nuevos por subida; sólo en condominios que ya tienen algún block; unidad inactiva o código existente fuera del block → fila saltada con aviso; admin de otra empresa sigue recibiendo 422 por `assertRef` (como siempre, no 404). La pantalla usa el texto del 409 (`ApiError` no trae el cuerpo; `src/api.ts` fuera de alcance).
+- **Cambio transversal**: los conceptos del Excel ahora se crean DENTRO de la transacción (antes fuera, y quedaban aunque el recibo fallara); la transacción lleva `timeout: 120 s`. Las pruebas viejas de `recibos-excel` que suben filas de blocks/departamentos inexistentes ahora mandan `crear_faltantes=false` (helper `subir`).
+- **Verificado**: `tsc -b` y `tsc -p tests/tsconfig.json --noEmit` limpios. Pruebas nuevas `excel-crea-blocks` (29) y `excel-crea-ui` (7), más ajustes de `crear_faltantes=false` en los helpers de `recibos-excel` y `recibo-por-torre`. Suite completa (`TEST_DATABASE_URL=…house_test_crea`): 3596/3597; la que falla es la conocida (`recibos-excel` «conceptos en 0», `vencido` vs `pendiente`). En una primera corrida hubo además un 500 intermitente en `conformidad-tesorero` (pasa solo y no se repitió). Mutaciones en rojo (archivo copiado y restaurado con `cp` + `cmp`): sin vista previa, saltarse el tope del plan, sin topes por subida, reutilizar propietario (por índice único y con `skipDuplicates`), block creado fuera de la transacción.
+- **Gotchas**: el catálogo no trae tope en Gratis (`unidades_maximas: null`); las pruebas de tope lo fijan con `conTopeGratis`. Hay que correr con `TEST_DATABASE_URL=…house_test_crea`. Falla conocida ajena: `recibos-excel` «conceptos en 0» (`vencido` vs `pendiente` por la fecha).
+- **Próximos pasos**: verificación de Opus (diff + suites), integrar por cherry-pick; push sólo con OK de Miguel. En producción, probar primero con el Excel del Block 2 en vista previa.
+
+---
+
 ## 2026-11-03 — Torre instalable en el celular (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: «necesito que se pueda usar en teléfonos… que se pueda copiar como ícono en el mobile como lo hacemos». Hecho por Opus sin delegar (urgente, presentación del día).

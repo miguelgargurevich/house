@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PaperClipIcon } from '@heroicons/react/24/outline';
 import { useCondominio } from '../../../../app/condominio';
-import { api, errorText, useResource, type Page } from '../../../../api';
+import { ApiError, api, errorText, useResource, type Page } from '../../../../api';
 import { Alert, Button, Card, Modal, useToast } from '../../../../ui';
 import type { Complejo } from './comun';
 import { RevisarMorosos } from './RevisarMorosos';
@@ -18,6 +18,8 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoExcel | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // El Excel trae blocks o departamentos que el condominio aún no tiene: el servidor no creó nada y explica qué crearía; aquí se confirma o se salta.
+  const [faltan, setFaltan] = useState<string | null>(null);
   // Paso previo opcional: ver quién pagó tarde el mes anterior (con la fecha del voucher) con lo que trae el Excel, sin crear nada.
   const [revisando, setRevisando] = useState(false);
   const toast = useToast();
@@ -28,25 +30,30 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
     const f = e.target.files?.[0] ?? null;
     setArchivo(f);
     setError(null);
+    setFaltan(null);
     setResultado(null);
   };
 
-  const subir = async (e?: React.FormEvent) => {
+  // `faltantes`: sin valor, el servidor sólo avisa si falta algo; 'true' crea lo que falta junto con el recibo; 'false' salta esas filas.
+  const subir = async (e?: React.FormEvent, faltantes?: 'true' | 'false') => {
     e?.preventDefault();
     if (!archivo || !complejoId) return;
     setCargando(true);
     setError(null);
+    setFaltan(null);
     setResultado(null);
     const fd = new FormData();
     fd.append('archivo', archivo);
     fd.append('complejo_id', complejoId);
+    if (faltantes) fd.append('crear_faltantes', faltantes);
     try {
       const r = await api<ResultadoExcel>('/api/recibos/excel', { method: 'POST', body: fd });
       setResultado(r);
       toast.ok((r.recibos?.length ?? 1) > 1 ? `${r.recibos!.length} recibos cargados: ${r.unidades_procesadas} departamentos` : `Recibo creado: ${r.unidades_procesadas} departamentos`);
       void onSaved();
     } catch (e) {
-      setError(errorText(e));
+      if (e instanceof ApiError && e.code === 'FALTAN_UNIDADES') setFaltan(e.message);
+      else setError(errorText(e));
     } finally {
       setCargando(false);
     }
@@ -68,7 +75,7 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
       <form onSubmit={subir} className="grid gap-4 sm:grid-cols-2" noValidate>
         <div className="sm:col-span-2">
           <label className="block text-sm font-medium mb-1">Condominio</label>
-          <select className="w-full border border-line rounded px-3 py-2 text-sm bg-surface focus:outline-none focus:border-brand" value={complejoId} onChange={e => setComplejoId(e.target.value)}>
+          <select className="w-full border border-line rounded px-3 py-2 text-sm bg-surface focus:outline-none focus:border-brand" value={complejoId} onChange={e => { setComplejoId(e.target.value); setFaltan(null); }}>
             <option value="">Elige un condominio</option>
             {(complejos.data?.items ?? []).map((c: FilaComplejo) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
@@ -80,11 +87,21 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
           {archivo && <p className="text-xs text-muted mt-1">{archivo.name} · {Math.round(archivo.size / 1024)} KB</p>}
         </div>
         {error && <Alert tone="bad">{error}</Alert>}
+        {faltan && (
+          <div className="sm:col-span-2">
+            <Alert tone="warn">
+              <p className="font-medium">Faltan blocks o departamentos</p>
+              <p className="mt-1">{faltan}</p>
+              <p className="mt-1">Todavía no se creó nada. Si prefieres no crearlos, «Cargar sin crear» salta esas filas.</p>
+            </Alert>
+          </div>
+        )}
         {resumen && resumen.torres.length > 0 && (
           <ul className="sm:col-span-2 list-disc space-y-0.5 pl-5 text-sm" aria-label="Recibos por block">
             {resumen.torres.map(t => <li key={t}>{t}</li>)}
           </ul>
         )}
+        {resumen?.creado && <div className="sm:col-span-2"><Alert tone="info">{resumen.creado}</Alert></div>}
         {resumen?.mora && <div className="sm:col-span-2"><Alert tone="info">{resumen.mora}</Alert></div>}
         {resumen && resumen.advertencias.length > 0 && (
           <div className="sm:col-span-2">
@@ -106,9 +123,18 @@ export function SubirExcelModal({ onClose, onSaved }: { onClose: () => void; onS
         <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={() => { setAbierto(false); onClose(); }} disabled={cargando}>Cancelar</Button>
           <Button variant="secondary" disabled={!archivo || !complejoId || cargando} onClick={() => setRevisando(true)}>Revisar morosos</Button>
-          <Button type="submit" loading={cargando} disabled={!archivo || !complejoId}>
-            <PaperClipIcon className="h-4 w-4 mr-2" /> Subir Excel y crear recibos
-          </Button>
+          {faltan ? (
+            <>
+              <Button variant="secondary" disabled={cargando} onClick={() => void subir(undefined, 'false')}>Cargar sin crear</Button>
+              <Button loading={cargando} onClick={() => void subir(undefined, 'true')}>
+                <PaperClipIcon className="h-4 w-4 mr-2" /> Crear y cargar el recibo
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" loading={cargando} disabled={!archivo || !complejoId}>
+              <PaperClipIcon className="h-4 w-4 mr-2" /> Subir Excel y crear recibos
+            </Button>
+          )}
         </div>
       </form>
       )}
