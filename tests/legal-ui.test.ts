@@ -88,7 +88,7 @@ describe('superadmin: los datos legales se editan en Precios, con su sección', 
 describe('versión legal: la página y el servidor dicen lo mismo', () => {
   it('VERSION_LEGAL de la página = la del servidor (la que se graba en cada cuenta)', () => {
     assert.equal(VERSION_PAGINA, VERSION_SERVIDOR);
-    assert.equal(VERSION_PAGINA, '2026-10-30');
+    assert.equal(VERSION_PAGINA, '2026-11-03');
   });
 });
 

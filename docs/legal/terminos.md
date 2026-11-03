@@ -1,6 +1,6 @@
 # Términos y condiciones de Torre
 
-Versión: 2026-10-30 · Borrador sujeto a revisión legal
+Versión: 2026-11-03 · Borrador sujeto a revisión legal
 
 ## 1. El servicio
 Torre es un servicio en línea de {razon_social} (RUC {ruc}) para administrar edificios y condominios: recibos, pagos, morosidad, comunicados, junta directiva y portal del vecino. Al crear una cuenta o usar Torre aceptas estos términos y la [Política de privacidad](/privacidad).
@@ -29,14 +29,21 @@ No se permite usar Torre para enviar mensajes no deseados, cargar datos de perso
 ## 6. Validación automática de vouchers
 La lectura automática (OCR e inteligencia artificial) es una ayuda: puede equivocarse. La validación final de cada pago queda a cargo del tesorero o la administradora.
 
-## 7. Disponibilidad y responsabilidad
+## 7. Avisos por WhatsApp
+- Los avisos por WhatsApp salen del número que la administradora conecta en Torre. Torre no es un servicio oficial de WhatsApp ni de Meta.
+- Para cuidar ese número, Torre deja una pausa entre mensajes y aplica un tope diario de avisos por número; lo que pasa del tope sale al día siguiente desde las 8:00 (hora de Lima). El tope vigente se ve en la cuenta de la administradora.
+- Cada aviso dice cómo dejar de recibirlos: el vecino responde **SALIR** y no le llegan más avisos por WhatsApp (los demás canales siguen).
+- Torre no garantiza la entrega por WhatsApp. WhatsApp puede limitar o bloquear un número por sus propias reglas; ese riesgo es de quien lo conecta. Recomendamos usar un número con historial de chats, no uno recién creado.
+- El correo es el canal principal de los avisos; WhatsApp es un complemento.
+
+## 8. Disponibilidad y responsabilidad
 Trabajamos para que Torre esté disponible y sus datos respaldados, pero puede haber interrupciones por mantenimiento o fallas de terceros. Torre no responde por decisiones tomadas sobre datos cargados incorrectamente por los usuarios. Nada de esto limita los derechos que te da el Código de Protección y Defensa del Consumidor cuando corresponda.
 
-## 8. Suspensión y baja
+## 9. Suspensión y baja
 Puedes dejar de usar Torre cuando quieras. Podemos suspender una cuenta que incumpla estos términos, avisando antes salvo que haya un riesgo para otros usuarios.
 
-## 9. Cambios
+## 10. Cambios
 Si cambiamos estos términos, publicaremos la nueva versión con su fecha y, si el cambio es importante, te avisaremos.
 
-## 10. Ley aplicable
+## 11. Ley aplicable
 Se rigen por las leyes del Perú. Consultas y reclamos: {correo_privacidad}.

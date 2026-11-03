@@ -1,6 +1,6 @@
 # Política de privacidad de Torre
 
-Versión: 2026-10-30 · Borrador sujeto a revisión legal
+Versión: 2026-11-03 · Borrador sujeto a revisión legal
 
 Esta política explica qué datos personales trata Torre, para qué, con quién los comparte y cómo puedes ejercer tus derechos, según la Ley N.º 29733, Ley de Protección de Datos Personales, y su Reglamento (D.S. N.º 016-2024-JUS).
 

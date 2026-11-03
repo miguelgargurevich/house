@@ -236,7 +236,7 @@ describe('contenido estático dentro de #root', () => {
     assert.ok(priv.includes('Política de privacidad') && priv.includes('1. Quién es el responsable') && priv.includes('Torre Perú S.A.C.') && priv.includes('20601234567'));
     assert.ok(priv.includes('11. Cambios a esta política'));
     const ter = textoPlano(raiz((await pedir('/terminos')).texto));
-    assert.ok(ter.includes('Términos y condiciones') && ter.includes('10. Ley aplicable'));
+    assert.ok(ter.includes('Términos y condiciones') && ter.includes('11. Ley aplicable') && ter.includes('7. Avisos por WhatsApp') && ter.includes('SALIR'));
   });
 
   it('el catálogo se refleja al instante: un plan oculto no sale, y el registro cerrado cambia los enlaces', async () => {

@@ -194,23 +194,34 @@ export function textosTerminos(l: Legal): { intro: ReactNode; secciones: Seccion
         cuerpo: <p>La lectura automática (OCR e inteligencia artificial) es una ayuda: puede equivocarse. La validación final de cada pago queda a cargo del tesorero o la administradora.</p>,
       },
       {
+        id: 'whatsapp',
+        titulo: '7. Avisos por WhatsApp',
+        cuerpo: <ul>
+          <li>Los avisos por WhatsApp salen del número que la administradora conecta en Torre. Torre no es un servicio oficial de WhatsApp ni de Meta.</li>
+          <li>Para cuidar ese número, Torre deja una pausa entre mensajes y aplica un tope diario de avisos por número; lo que pasa del tope sale al día siguiente desde las 8:00 (hora de Lima). El tope vigente se ve en la cuenta de la administradora.</li>
+          <li>Cada aviso dice cómo dejar de recibirlos: el vecino responde <strong>SALIR</strong> y no le llegan más avisos por WhatsApp (los demás canales siguen).</li>
+          <li>Torre no garantiza la entrega por WhatsApp. WhatsApp puede limitar o bloquear un número por sus propias reglas; ese riesgo es de quien lo conecta. Recomendamos usar un número con historial de chats, no uno recién creado.</li>
+          <li>El correo es el canal principal de los avisos; WhatsApp es un complemento.</li>
+        </ul>,
+      },
+      {
         id: 'responsabilidad',
-        titulo: '7. Disponibilidad y responsabilidad',
+        titulo: '8. Disponibilidad y responsabilidad',
         cuerpo: <p>Trabajamos para que Torre esté disponible y sus datos respaldados, pero puede haber interrupciones por mantenimiento o fallas de terceros. Torre no responde por decisiones tomadas sobre datos cargados incorrectamente por los usuarios. Nada de esto limita los derechos que te da el Código de Protección y Defensa del Consumidor cuando corresponda.</p>,
       },
       {
         id: 'baja',
-        titulo: '8. Suspensión y baja',
+        titulo: '9. Suspensión y baja',
         cuerpo: <p>Puedes dejar de usar Torre cuando quieras. Podemos suspender una cuenta que incumpla estos términos, avisando antes salvo que haya un riesgo para otros usuarios.</p>,
       },
       {
         id: 'cambios',
-        titulo: '9. Cambios',
+        titulo: '10. Cambios',
         cuerpo: <p>Si cambiamos estos términos, publicaremos la nueva versión con su fecha y, si el cambio es importante, te avisaremos.</p>,
       },
       {
         id: 'ley',
-        titulo: '10. Ley aplicable',
+        titulo: '11. Ley aplicable',
         cuerpo: <p>Se rigen por las leyes del Perú. Consultas y reclamos: {correo}.</p>,
       },
     ],

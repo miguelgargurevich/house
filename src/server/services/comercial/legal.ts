@@ -3,7 +3,7 @@
 import type { ConfiguracionComercial } from '@prisma/client';
 
 /** Versión de los Términos y de la Política. Se graba en cada cuenta nueva al aceptarlos. La página pública lleva la misma (ver `tests/legal-ui.test.ts`). */
-export const VERSION_LEGAL = '2026-10-30';
+export const VERSION_LEGAL = '2026-11-03';
 
 export interface DatosLegales {
   razon_social: string | null;
