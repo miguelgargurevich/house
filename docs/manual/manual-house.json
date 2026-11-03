@@ -333,6 +333,43 @@
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-nuevo.jpg"
     },
     {
+      "titulo": "Crear usuarios para tu personal",
+      "etiqueta": "Administradora",
+      "parrafos": [
+        "Tu personal (otras administradoras, mantenimiento, limpieza, jardinería y seguridad) entra con su propia cuenta. Cada uno ve sólo lo de su rol."
+      ],
+      "numerada": [
+        "En el menú, entra a **Cuenta › Mi empresa** y abre la pestaña **Personal**.",
+        "Toca **Nuevo personal**.",
+        "Escribe el **nombre completo**, el **correo** y, si quieres, el **teléfono**.",
+        "Elige el **Rol**: Administrador, Seguridad, Mantenimiento, Limpieza o Jardinería.",
+        "En **Trabaja en** elige el condominio, o déjalo vacío si cubre toda la empresa.",
+        "Deja **sin marcar** «Asignar una contraseña ahora» y guarda: le llega un correo de invitación para que cree su contraseña (el enlace vale 7 días)."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Si no le llegó o venció el enlace, en la lista aparece «Invitación pendiente» con un sobre: tócalo para **reenviar la invitación**. Para quitarle el acceso a alguien, usa el tacho de su fila."
+      }
+    },
+    {
+      "titulo": "Propietarios e inquilinos: dar acceso a los vecinos",
+      "etiqueta": "Administradora",
+      "parrafos": [
+        "Al cargar el Excel de un block, los propietarios quedan registrados con su nombre y su departamento, pero **sin correo**: todavía no pueden entrar ni reciben avisos.",
+        "Para darle acceso a un vecino, entra a **Condominios**, abre el condominio y ve a la pestaña **Residentes**:"
+      ],
+      "numerada": [
+        "Busca al vecino y toca **Editar** (o **Nuevo residente** si no está, por ejemplo un inquilino).",
+        "Escribe su **correo** real y su **celular** (para los avisos por WhatsApp).",
+        "En **Departamento** escribe el código de su unidad, por ejemplo B01-101.",
+        "Guarda y toca el sobre de **Reenviar invitación**: le llega el correo para crear su contraseña."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "El presidente, el tesorero y el secretario de cada block se nombran en **Juntas directivas**, eligiéndolos entre los propietarios ya registrados."
+      }
+    },
+    {
       "titulo": "Juntas directivas",
       "etiqueta": "Administradora",
       "parrafos": [
