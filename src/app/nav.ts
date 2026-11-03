@@ -3,7 +3,7 @@ import {
   ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon, ArrowsRightLeftIcon, BeakerIcon,
+  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon, ArrowsRightLeftIcon, BeakerIcon, DocumentChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { CargoJunta, Rol, Usuario } from '../auth/AuthContext';
@@ -15,6 +15,9 @@ export interface NavGroup { label?: string; items: NavItem[] }
 /** Condominios: la lista y, desde la ficha, sus torres, unidades, residentes y recibos. */
 const condominios: NavItem = { to: '/admin/complejos', label: 'Condominios', icon: BuildingStorefrontIcon };
 
+/** El informe del mes para la junta o la asamblea: la ve la administración (en Cobranza) y la junta. */
+const RENDICION: NavItem = { label: 'Rendición del mes', icon: DocumentChartBarIcon, to: '/admin/rendicion' };
+
 /** Cobranza: lo que se emite, se cobra y se fiscaliza. */
 const cobranza: NavItem[] = [
   { to: '/admin/recibos', label: 'Recibos', icon: ReceiptPercentIcon },
@@ -24,6 +27,7 @@ const cobranza: NavItem[] = [
   { to: '/admin/agua', label: 'Lecturas de agua', icon: BeakerIcon },
   { to: '/admin/morosidad', label: 'Morosidad', icon: ExclamationTriangleIcon },
   { to: '/admin/cierres', label: 'Cierres del mes', icon: CalendarDaysIcon },
+  RENDICION,
 ];
 
 /** Operación: el día a día del condominio. */
@@ -125,6 +129,7 @@ const JUNTA: NavGroup = {
     { to: '/junta/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
     { to: '/junta/pagos', label: 'Pagos por validar', icon: BanknotesIcon },
     { to: '/junta/cierre', label: 'Cierre del mes', icon: CalendarDaysIcon },
+    { ...RENDICION, to: '/junta/rendicion' },
     { to: '/junta/comunicados', label: 'Comunicados', icon: MegaphoneIcon },
     { to: '/junta/proveedores', label: 'Proveedores', icon: TruckIcon },
   ],

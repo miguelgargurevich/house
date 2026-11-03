@@ -4,12 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
-## 2026-11-03 — Rendición de cuentas del mes (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/rendicion-mes`) — push: no — EN CURSO
+## 2026-11-03 — Rendición de cuentas del mes (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/rendicion-mes`) — push: no
 
 - **Qué se hizo**: `GET /api/reportes/rendicion` (+ `.xlsx`): ingresos (pagos VALIDADOS con fecha de voucher en el mes, zona del condominio; «del mes / anteriores / adelantado»; por validar aparte y sin sumar; conciliado), egresos de los cierres (`EgresoBlock`, con conformidad), cuadre encadenado, fondos, morosidad y desglose por block. Servicio nuevo `src/server/services/rendicion.ts` (reutiliza `calcularBlocks`/`fondoAl`/`calcularCentral`; sin tablas nuevas). Pantalla `src/pages/admin/Rendicion.tsx` + `_parts/rendicion/` (Excel del servidor, impresión con `ZonaImprimible`). Doc en `docs/API-CONTRATO.md` («Rendición de cuentas del mes»).
 - **Decisiones**: saldo inicial NO se carga: es el acumulado de meses anteriores (parte de 0 en el primer mes con datos; `saldo_inicial_cargado: false`). Egresos por mes de CIERRE (no por fecha de pago). En el condominio completo el aporte a la Junta central es traspaso interno (no se resta) y se suman ingresos/egresos de la Junta central. La junta no ve banco ni conciliación. Módulo `reportes` obligatorio (superadmin exento), la puerta va después del alcance (404 antes que 403).
 - **Pruebas**: `tests/rendicion.test.ts` (33, cifras a mano) y `tests/rendicion-ui.test.ts`; 10 mutaciones en rojo (por validar, fecha de emisión, saldo sin encadenar, sin módulo, UTC, junta/block, sin scopeCargos, grupo conciliado, traspaso, junta ve banco).
-- **Pendiente al escribir esto**: entradas en `nav.ts` y `App.tsx` (admin y junta), suite completa, commits (backend primero). Si ves esto sin commits, la sesión se cayó: `git status` y continúa.
+- **Frontend**: `/admin/rendicion` (Cobranza, justo tras «Cierres del mes») y `/junta/rendicion` (grupo Junta); una sola constante `RENDICION` en `nav.ts`. También hubo que sumar las dos rutas a `src/server/lib/rutasApp.ts` (el test de asistente exige que coincida con `App.tsx`) y ajustar los deepEqual de menú en `tests/comunicados-ui.test.ts` y `tests/torres-fichas-ui.test.ts`.
+- **Verificado**: `tsc -b`, tipos de tests, `npm run build`, eslint de lo nuevo. Suite completa 3 corridas: sólo falla de forma constante `recibos-excel` «conceptos en 0» (conocida); 1 test distinto por corrida (`cierre-central`, `conformidad-tesorero`) falló bajo carga alta de la Mac y pasa solo.
+- **NO verificado**: la pantalla no se vio en navegador (ni 390 px ni oscuro) ni se imprimió/guardó el PDF; Excel sólo se probó releyendo el .xlsx en tests; no se probó con `seed-libertadores` (448 dptos) ni se midió tiempo de respuesta.
+- **Próximos pasos**: mirar la pantalla a 390 px y en oscuro; probar contra el seed grande; si hace falta, cargar un saldo inicial (hoy parte de 0 en el primer mes con datos, sin tabla nueva).
 - **Gotchas**: usar `TEST_DATABASE_URL=…/house_test_rend`. Al agregar «Rendición del mes» al grupo Junta, `tests/comunicados-ui.test.ts:76` (deepEqual del menú) hay que actualizarlo. Las sesiones `excel-crea-blocks` y `estado-cuenta` pueden tocar `nav.ts`/`App.tsx`: conflicto probable en esas líneas al integrar.
 ## 2026-11-03 — Comunicados a la junta, al grupo de WhatsApp del block y a cada vecino sólo si se marca (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 

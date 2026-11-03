@@ -34,6 +34,7 @@ const AdminPagos = lazy(() => import('./pages/admin/Pagos'));
 const AdminCierres = lazy(() => import('./pages/admin/Cierres'));
 const AdminCierresCentral = lazy(() => import('./pages/admin/CierresCentral'));
 const AdminCierresAportes = lazy(() => import('./pages/admin/CierresAportes'));
+const AdminRendicion = lazy(() => import('./pages/admin/Rendicion'));
 const AdminMorosidad = lazy(() => import('./pages/admin/Morosidad'));
 const AdminConciliacion = lazy(() => import('./pages/admin/Conciliacion'));
 const AdminAgua = lazy(() => import('./pages/admin/Agua'));
@@ -125,6 +126,7 @@ export default function App() {
           <Route path="/admin/mantenimientos" element={<AdminMantenimientos />} />
           <Route path="/admin/conceptos" element={<AdminConceptos />} />
           <Route path="/admin/cierres" element={<AdminCierres />} />
+          <Route path="/admin/rendicion" element={<AdminRendicion />} />
           <Route path="/admin/residentes" element={<AdminResidentes />} />
           <Route path="/admin/personal" element={<AdminPersonal />} />
           <Route path="/admin/proveedores" element={<AdminProveedores />} />
@@ -147,6 +149,7 @@ export default function App() {
           <Route path="/junta/medios-pago" element={<AdminMediosPago />} />
           <Route path="/junta/pagos" element={<AdminPagos />} />
           <Route path="/junta/cierre" element={<AdminCierres />} />
+          <Route path="/junta/rendicion" element={<AdminRendicion />} />
           <Route path="/junta/aportes" element={<AdminCierresAportes />} />
           <Route path="/junta/cierre-central" element={<AdminCierresCentral />} />
           {/* Las lecturas de agua las carga sólo la administración: si la junta llega aquí a mano, va a Mi junta. */}
