@@ -364,7 +364,7 @@ export async function rendicionDe(u: AuthUser, q: ConsultaRendicion, ahora: Date
 
   // ---------- Junta central (sólo el condominio completo) ----------
   let central: Awaited<ReturnType<typeof calcularCentral>> | null = null;
-  let centralPrevio = { ingresos: cero(), egresos: cero() };
+  const centralPrevio = { ingresos: cero(), egresos: cero() };
   if (!enBlock) {
     central = await calcularCentral(complejoId, anio, mes);
     const previos = await prisma.movimientoCentral.groupBy({ by: ['tipo'], where: { complejo_id: complejoId, OR: [{ anio: { lt: anio } }, { anio, mes: { lt: mes } }] }, _sum: { monto: true } });
