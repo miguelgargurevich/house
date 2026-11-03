@@ -10,7 +10,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - `ENLACE_APP` (`avisos/plantillas.ts`) pasa a `https://torrecondominios.com`: correos de aviso, mensaje para el grupo de WhatsApp y el correo del voucher al block. `ENLACE_ANTERIOR` (`house.gargurevich.dev`) queda como base de los webhooks (`canalesDeps.urlPublica`) para no re-registrar los ya conectados, y `aTextoWhatsapp` sigue reconociendo los enlaces de los dos dominios.
 - `nombreCondominio()` (`routes/recibos.ts`): el mensaje para el grupo no repite «Condominio» si el nombre ya empieza así.
 - Pruebas: `avisar-recibo` (texto con el dominio nuevo + caso de `nombreCondominio`), `avisos` y `comunicados` (enlace nuevo). Suite 3551/3556: las 4 de enlace se ajustaron y pasan; la 5.ª (`recibos-excel` «conceptos en 0», espera `pendiente` y da `vencido`) falla igual sin este cambio: depende de la fecha de hoy (3-nov), queda por arreglar.
-- Pendiente: el video 1 sigue mostrando el texto viejo hasta regrabarlo.
+- Desplegado 58a52da (OK de Miguel). Video 1 regrabado en escritorio y celular con el texto nuevo y subido a los MISMOS enlaces de MinIO (`videos-torre/`); los anteriores en `.claude/videos/v1/previo-3nov/`. Para grabar se hizo `prisma db push` en la base local `house` (faltaban las columnas del anti-baneo) y se reinició el backend local con `AVISOS_PLANIFICADOR=off` y remitentes vacíos.
 
 ---
 
