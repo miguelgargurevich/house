@@ -121,9 +121,9 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
       </div>
       <h3 className="pt-2 text-sm font-semibold">Avisos por WhatsApp (anti-baneo)</h3>
       <div className="grid gap-4 sm:grid-cols-3">
-        <Input label="Tope diario por número" type="number" min={0} max={100000} hint="Avisos por WhatsApp que sale cada número de una administradora en un día (día de Lima). Lo que pase del tope queda para mañana a las 08:00. 0 = sin tope." {...t('whatsapp_tope_diario')} />
+        <Input label="Tope diario por número" type="number" min={0} max={100000} hint="Cuántos avisos por WhatsApp puede enviar al día el número de cada administradora (día de Lima). Lo que pase del tope queda para mañana a las 08:00. 0 = sin tope." {...t('whatsapp_tope_diario')} />
         <Input label="Pausa mínima entre envíos (segundos)" type="number" min={0} max={60} {...t('whatsapp_pausa_min_seg')} />
-        <Input label="Pausa máxima entre envíos (segundos)" type="number" min={0} max={60} hint="Entre dos WhatsApp de la misma instancia se espera un tiempo al azar dentro de este rango (máximo 60 s)." {...t('whatsapp_pausa_max_seg')} />
+        <Input label="Pausa máxima entre envíos (segundos)" type="number" min={0} max={60} hint="Entre dos WhatsApp del mismo número se espera un tiempo al azar dentro de este rango (máximo 60 s)." {...t('whatsapp_pausa_max_seg')} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Correo para avisos (registros y solicitudes)" type="email" {...t('correo_superadmin')} />
