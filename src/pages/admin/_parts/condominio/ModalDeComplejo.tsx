@@ -27,6 +27,10 @@ export interface FilaComplejo {
   blocks_count?: number;
   /** Mora (en la moneda del condominio) por pago fuera de fecha, en el recibo del mes siguiente; «0.00» = sin mora. */
   mora_monto?: string;
+  /** Tipos de aviso que salen también por WhatsApp (ver `AvisosWhatsapp`). */
+  whatsapp_avisos?: string[];
+  /** Si el plan del condominio trae «Avisos por WhatsApp». */
+  whatsapp_plan?: boolean;
   /** Contrato de administración vigente (desde cuándo la administra su empresa). */
   contrato_vigente?: { id: number; fecha_inicio: string } | null;
   /** Recibo impreso: notas de pago (una por renglón), contacto de la administración y foto de cabecera (URL con su versión). */

@@ -9,6 +9,7 @@ import { useAuth } from '../../auth/AuthContext';
 import {
   Button, Card, ConfirmDialog, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, TabPanel, Tabs, dinero, fechaCorta, useToast,
 } from '../../ui';
+import { AvisosWhatsapp } from './_parts/condominio/AvisosWhatsapp';
 import { ImagenEditable } from './_parts/condominio/ImagenEditable';
 import { TorresDelCondominio } from './_parts/condominio/TorresDelCondominio';
 import { ModalDeComplejo, type FilaComplejo } from './_parts/condominio/ModalDeComplejo';
@@ -124,6 +125,7 @@ export default function CondominioDetalle() {
                   ]}
                 />
               </section>
+              <AvisosWhatsapp key={(c.whatsapp_avisos ?? []).join(',') + String(c.whatsapp_plan)} complejoId={c.id} lista={c.whatsapp_avisos} planWhatsapp={c.whatsapp_plan} onGuardado={() => void complejo.reload()} />
             </div>
           ) : (
             <div className="space-y-3 p-5"><Skeleton className="h-6 w-64" /><Skeleton className="h-20 w-full" /></div>
