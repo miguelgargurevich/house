@@ -142,6 +142,10 @@ describe('API: panel, morosidad y residente', () => {
   });
 
   it('morosidad: filtra por condominio, trae el condominio de cada fila y las cifras son de TODO el filtro (no de la página)', async () => {
+    // El cargo vencido de A2 ya tiene un pago validado por el total (helpers/herramientas): Morosidad lo descuenta y A2 no debe. Se le agrega
+    // otro cargo vencido sin pagar para tener dos unidades morosas y probar que las cifras son de todo el filtro.
+    const rcExtra = await prisma.reciboConcepto.create({ data: { recibo_id: d.reciboVencidoA.id, concepto_id: d.conceptoA.id, monto: 40, orden: 2 } });
+    await prisma.reciboConceptoUnidad.create({ data: { recibo_concepto_id: rcExtra.id, unidad_id: d.unidadA2.id, monto: 40, estado_pago: 'pendiente' } });
     const r = await llamar(base, 'GET', `/api/reportes/morosidad?complejo_id=${d.complejoA.id}&pageSize=1`, T.adminA);
     assert.equal(r.status, 200);
     assert.equal(r.body.items.length, 1);
