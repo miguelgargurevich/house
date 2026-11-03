@@ -8,7 +8,8 @@ import { relojDeCondominios } from '../lib/zonas';
 import { scopeCargos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { complejosConModulo, complejosDe, moduloNoActivo } from '../services/comercial/modulos';
-import { idSchema, listQuerySchema, parse, parseOrden } from '../validation';
+import { libroRendicion, nombreArchivoRendicion, rendicionDe } from '../services/rendicion';
+import { idSchema, listQuerySchema, parse, parseOrden, z } from '../validation';
 
 export const reportesRouter = Router();
 
@@ -83,4 +84,25 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
     : { ...cifras(filas), moneda: monedas[0] ?? MONEDA_POR_DEFECTO };
   const inicio = (q.page - 1) * q.pageSize;
   res.json({ items: filas.slice(inicio, inicio + q.pageSize), total: filas.length, page: q.page, pageSize: q.pageSize, resumen });
+});
+
+// ---------- Rendición de cuentas del mes ----------
+// La ven la administración y la junta (la de un block, sólo el suyo); el servicio autoriza (403/404) y exige el módulo `reportes` (403 MODULO_NO_ACTIVO).
+const mesQuery = z.coerce.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mes de 1 a 12').max(12, 'Mes de 1 a 12');
+const anioQuery = z.coerce.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(2000, 'Año inválido').max(2100, 'Año inválido');
+const rendicionQuery = z.object({ complejo_id: idSchema.optional(), estructura_id: idSchema.optional(), mes: mesQuery.optional(), anio: anioQuery.optional() });
+
+reportesRouter.get('/rendicion', async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  res.json(await rendicionDe(currentUser(req), parse(rendicionQuery, req.query)));
+});
+
+reportesRouter.get('/rendicion.xlsx', async (req, res) => {
+  const r = await rendicionDe(currentUser(req), parse(rendicionQuery, req.query));
+  res.set({
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': `attachment; filename="${nombreArchivoRendicion(r)}"`,
+    'Cache-Control': 'private, no-store',
+  });
+  res.send(libroRendicion(r));
 });
