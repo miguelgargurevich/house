@@ -244,6 +244,12 @@ model Estructura {
   egresosBlock EgresoBlock[]
   /// «Correo del block» al que se envían los vouchers (sale en el recibo impreso).
   correo_vouchers String?
+  /// Grupo de WhatsApp del block (JID `…@g.us`), SIEMPRE elegido de la lista que trae Evolution del número de la empresa: nunca escrito a mano.
+  whatsapp_grupo_jid         String?
+  whatsapp_grupo_nombre      String?
+  /// Último problema al escribir al grupo («El número ya no está en el grupo del Block 3»); null = todo bien.
+  whatsapp_grupo_aviso       String?
+  whatsapp_grupo_aviso_at    DateTime?
 }
 
 model Piso {
@@ -575,6 +581,12 @@ model Comunicado {
   /// Sólo se usan al crear: editar nunca reenvía.
   enviar_correo    Boolean              @default(false)
   enviar_whatsapp  Boolean              @default(false)
+  /// Correo y WhatsApp 1-a-1 a los miembros vigentes de la junta del alcance.
+  enviar_junta     Boolean              @default(false)
+  /// Un mensaje al grupo de WhatsApp de cada block del alcance que tenga grupo.
+  enviar_grupo     Boolean              @default(false)
+  /// Resultado del envío a grupos, por block: `[{ estructura_id, nombre, estado: pendiente|enviado|fallo, motivo?, at? }]`.
+  grupos_resultado Json?
   fijado           Boolean              @default(false)
   archivado_at     DateTime?
   created_at       DateTime             @default(now())

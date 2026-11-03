@@ -114,3 +114,49 @@ export async function responder(instancia: string, numero: string, texto: string
   }
   return salida;
 }
+
+/** JID de un grupo de WhatsApp: dígitos (con un guion en los grupos viejos) y `@g.us`. */
+export const JID_GRUPO = /^\d{5,}(-\d+)?@g\.us$/;
+
+export interface GrupoWhatsapp { jid: string; nombre: string }
+
+/** Los grupos donde está el número de la instancia (sin participantes: la lista puede ser larga). El nombre sale de Evolution, nunca del cliente. */
+export async function listarGrupos(instancia: string): Promise<GrupoWhatsapp[]> {
+  const r = await llamar(`/group/fetchAllGroups/${encodeURIComponent(instancia)}?getParticipants=false`, 'GET');
+  const filas = Array.isArray(r) ? r : [];
+  const grupos: GrupoWhatsapp[] = [];
+  for (const f of filas as Record<string, unknown>[]) {
+    const jid = typeof f?.id === 'string' ? f.id : null;
+    if (!jid || !JID_GRUPO.test(jid)) continue;
+    const nombre = typeof f.subject === 'string' && f.subject.trim() ? f.subject.trim() : 'Grupo sin nombre';
+    grupos.push({ jid, nombre });
+  }
+  return grupos.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+}
+
+/** Sólo dígitos del identificador de un participante (`5199…@s.whatsapp.net`, `…:12@s.whatsapp.net`). */
+const digitosDe = (v: unknown): string | null => (typeof v === 'string' ? v.split('@')[0]!.split(':')[0]!.replace(/\D/g, '') || null : null);
+
+/** Números (sólo dígitos) de los participantes actuales del grupo. Evolution v2 puede traer el número en `id`, `jid` o `phoneNumber`. */
+export async function participantesDeGrupo(instancia: string, jid: string): Promise<string[]> {
+  const r = (await llamar(`/group/findGroupInfos/${encodeURIComponent(instancia)}?groupJid=${encodeURIComponent(jid)}`, 'GET')) as { participants?: unknown } | null;
+  if (!Array.isArray(r?.participants)) throw new EvolutionFallo('error', 200);
+  const numeros = new Set<string>();
+  for (const p of r.participants as Record<string, unknown>[]) for (const campo of [p?.id, p?.jid, p?.phoneNumber]) {
+    const n = digitosDe(campo);
+    if (n) numeros.add(n);
+  }
+  return [...numeros];
+}
+
+/** Texto a un grupo (el JID del grupo va como `number`). Un fallo es corto y nunca lleva la URL ni la clave. */
+export async function enviarAGrupo(instancia: string, jid: string, texto: string): Promise<ResultadoEnvio> {
+  if (!JID_GRUPO.test(jid)) return { resultado: 'omitida', motivo: 'Grupo inválido' };
+  try {
+    await llamar(`/message/sendText/${encodeURIComponent(instancia)}`, 'POST', { number: jid, text: texto });
+    return { resultado: 'ok' };
+  } catch (e) {
+    if (e instanceof EvolutionFallo && e.causa === 'sin_configurar') return { resultado: 'omitida', motivo: 'Canal no configurado' };
+    return { resultado: 'fallo', motivo: e instanceof EvolutionFallo ? (e.causa === 'timeout' ? 'WhatsApp no respondió a tiempo' : e.causa === 'sin_conexion' ? 'Sin conexión con WhatsApp' : `WhatsApp respondió con error${e.estado ? ` ${e.estado}` : ''}`) : 'Error al enviar' };
+  }
+}

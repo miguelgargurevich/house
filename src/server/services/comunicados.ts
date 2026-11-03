@@ -25,17 +25,31 @@ export async function destinatariosDe(c: { complejo_id: number; estructura_id: n
   return [...ids];
 }
 
+/** Miembros vigentes de la junta del alcance: la del block, o (comunicado de todo el condominio) las de todos los blocks y la junta central. */
+export async function miembrosDeJunta(c: { complejo_id: number; estructura_id: number | null }): Promise<number[]> {
+  const juntas = await prisma.juntaDirectiva.findMany({
+    where: { complejo_id: c.complejo_id, hasta: null, ...(c.estructura_id != null ? { estructura_id: c.estructura_id } : {}) },
+    select: { miembros: { select: { usuario_id: true } } },
+  });
+  return [...new Set(juntas.flatMap((j) => j.miembros.map((m) => m.usuario_id)))];
+}
+
 /**
- * Encola el aviso `comunicado` por los canales que pidió el autor, a cada propietario e inquilino alcanzado, respetando sus preferencias
- * (`aviso_email`, `aviso_whatsapp`) como el resto de los avisos. Idempotente por persona y canal: repetir la llamada no duplica nada.
- * Devuelve cuántos avisos se encolaron (no cuántas personas).
+ * Encola el aviso `comunicado` por los canales que pidió el autor, respetando las preferencias de cada persona (`aviso_email`, `aviso_whatsapp`)
+ * como el resto de los avisos:
+ *  - `enviar_correo` / `enviar_whatsapp`: a cada propietario e inquilino alcanzado (`enviar_whatsapp` = «por WhatsApp a cada vecino»);
+ *  - `enviar_junta`: correo y WhatsApp a los miembros vigentes de la junta del alcance (aunque no se pida a los vecinos).
+ * Idempotente por persona y canal: repetir la llamada no duplica nada. Devuelve cuántos avisos se encolaron (no cuántas personas).
  */
-export async function encolarComunicado(c: { id: number; complejo_id: number; estructura_id: number | null; enviar_correo: boolean; enviar_whatsapp: boolean }): Promise<number> {
-  const canales: Canal[] = [];
-  if (c.enviar_correo) canales.push('email');
-  if (c.enviar_whatsapp) canales.push('whatsapp');
-  if (!canales.length) return 0;
+export async function encolarComunicado(c: { id: number; complejo_id: number; estructura_id: number | null; enviar_correo: boolean; enviar_whatsapp: boolean; enviar_junta?: boolean }): Promise<number> {
+  const vecinos: Canal[] = [];
+  if (c.enviar_correo) vecinos.push('email');
+  if (c.enviar_whatsapp) vecinos.push('whatsapp');
+  const porPersona = new Map<number, Set<Canal>>();
+  const sumar = (id: number, canales: readonly Canal[]) => porPersona.set(id, new Set([...(porPersona.get(id) ?? []), ...canales]));
+  if (vecinos.length) for (const id of await destinatariosDe(c)) sumar(id, vecinos);
+  if (c.enviar_junta) for (const id of await miembrosDeJunta(c)) sumar(id, ['email', 'whatsapp']);
   let creados = 0;
-  for (const id of await destinatariosDe(c)) creados += await encolarAviso('comunicado', id, { entidad: 'comunicado', id: c.id }, { canales });
+  for (const [id, canales] of porPersona) creados += await encolarAviso('comunicado', id, { entidad: 'comunicado', id: c.id }, { canales: [...canales] });
   return creados;
 }

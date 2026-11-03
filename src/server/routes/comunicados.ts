@@ -6,6 +6,7 @@ import { ambitoJunta, puedeGestionar } from '../lib/junta';
 import { scopeComplejos, scopeComunicados, scopeNotificaciones } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { procesarPronto } from '../services/avisos';
+import { lanzarEnvioAGrupos, bloquesConGrupo, type ResultadoGrupo } from '../services/canales/grupos';
 import { encolarComunicado, origenDe } from '../services/comunicados';
 import { idSchema, listQuerySchema, parse, parseBody, parseId, texto, z } from '../validation';
 import { exigirOperativo } from '../services/comercial/operativo';
@@ -55,7 +56,12 @@ const crearSchema = z.object({
   titulo: texto(MAX_TITULO),
   cuerpo: texto(MAX_CUERPO),
   enviar_correo: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
+  /** «Por WhatsApp a cada vecino» (1-a-1, por la cola con pausa y tope). Apagado por defecto: es lo más caro. */
   enviar_whatsapp: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
+  /** Correo y WhatsApp a los miembros vigentes de la junta del alcance. La pantalla lo marca por defecto; la API, sólo si lo pides. */
+  enviar_junta: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
+  /** Un mensaje al grupo de WhatsApp de cada block del alcance que tenga grupo elegido. */
+  enviar_grupo: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
   fijado: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
 });
 
@@ -108,7 +114,7 @@ comunicadosRouter.use((req, _res, next) => {
  *     summary: Condominios y blocks donde quien llama puede publicar comunicados
  *     tags: [Comunicados]
  *     responses:
- *       200: { description: "`{ complejos: [{ id, nombre, estructuras }], fijo }`; `fijo` = la junta de un block sólo publica en ese block" }
+ *       200: { description: "`{ complejos: [{ id, nombre, estructuras }], fijo }`; cada block trae `whatsapp_grupo_nombre` (null = sin grupo de WhatsApp) y `whatsapp_grupo_aviso`; `fijo` = la junta de un block sólo publica en ese block" }
  */
 comunicadosRouter.get('/ambitos', async (req, res) => {
   const u = currentUser(req);
@@ -117,7 +123,7 @@ comunicadosRouter.get('/ambitos', async (req, res) => {
     where: junta ? { id: junta.complejo_id } : scopeComplejos(u),
     orderBy: { nombre: 'asc' },
     take: 100,
-    select: { id: true, nombre: true, estructuras: { where: junta?.estructura_id != null ? { id: junta.estructura_id } : {}, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true, tipo: true } } },
+    select: { id: true, nombre: true, estructuras: { where: junta?.estructura_id != null ? { id: junta.estructura_id } : {}, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true, tipo: true, whatsapp_grupo_nombre: true, whatsapp_grupo_aviso: true } } },
   });
   res.json({ complejos, fijo: junta?.estructura_id != null });
 });
@@ -169,23 +175,29 @@ comunicadosRouter.get('/:id', async (req, res) => {
  *     summary: Publica un comunicado (y, si lo pides, lo envía por correo y/o WhatsApp)
  *     tags: [Comunicados]
  *     responses:
- *       201: { description: "El comunicado con `avisos_encolados` (cuántos correos/WhatsApp quedaron en cola, respetando las preferencias de cada vecino)" }
+ *       201: { description: "El comunicado con `avisos_encolados` (cuántos correos/WhatsApp quedaron en cola, respetando las preferencias de cada persona) y `grupos_resultado` (por block con grupo: `pendiente` al responder; luego `enviado` o `fallo` con `motivo`)" }
  *       404: { description: "Condominio o block fuera de tu alcance" }
+ *       422: { description: "`enviar_grupo` sin ningún block con grupo de WhatsApp en el alcance" }
  */
 comunicadosRouter.post('/', async (req, res) => {
   const u = currentUser(req);
   const d = parseBody(crearSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
   await exigirOperativo(ambito.complejo_id, u);
+  // Antes de publicar: pedir el grupo donde no hay ninguno es un error del pedido, no un comunicado a medias.
+  const bloques = d.enviar_grupo ? await bloquesConGrupo(ambito) : [];
+  if (d.enviar_grupo && !bloques.length) throw invalid(ambito.estructura_id != null ? 'Este block no tiene grupo de WhatsApp: la administración lo elige en la ficha del block' : 'Ningún block de este condominio tiene grupo de WhatsApp', { enviar_grupo: 'Sin grupo de WhatsApp' });
+  const pendientes: ResultadoGrupo[] = bloques.map((b) => ({ estructura_id: b.id, nombre: b.nombre, estado: 'pendiente' }));
   const c = await prisma.comunicado.create({
-    data: { ...ambito, titulo: d.titulo, cuerpo: d.cuerpo, autor_id: u.id, enviar_correo: d.enviar_correo, enviar_whatsapp: d.enviar_whatsapp, fijado: d.fijado },
+    data: { ...ambito, titulo: d.titulo, cuerpo: d.cuerpo, autor_id: u.id, enviar_correo: d.enviar_correo, enviar_whatsapp: d.enviar_whatsapp, enviar_junta: d.enviar_junta, enviar_grupo: d.enviar_grupo, ...(pendientes.length ? { grupos_resultado: pendientes as unknown as Prisma.InputJsonValue } : {}), fijado: d.fijado },
     include: incluir,
   });
   const avisos = await encolarComunicado(c);
   if (avisos > 0) procesarPronto();
+  if (pendientes.length) lanzarEnvioAGrupos(c.id);
   res.locals.entidadId = c.id;
   // Sin el texto: la auditoría guarda qué se publicó y dónde, no el contenido.
-  res.locals.auditDetalle = { complejo_id: c.complejo_id, estructura_id: c.estructura_id, titulo: c.titulo, fijado: c.fijado, enviar_correo: c.enviar_correo, enviar_whatsapp: c.enviar_whatsapp, avisos_encolados: avisos };
+  res.locals.auditDetalle = { complejo_id: c.complejo_id, estructura_id: c.estructura_id, titulo: c.titulo, fijado: c.fijado, enviar_correo: c.enviar_correo, enviar_whatsapp: c.enviar_whatsapp, enviar_junta: c.enviar_junta, enviar_grupo: c.enviar_grupo, grupos: pendientes.length, avisos_encolados: avisos };
   res.status(201).json({ ...formatear(c), avisos_encolados: avisos });
 });
 
