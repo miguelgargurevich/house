@@ -104,7 +104,7 @@ describe('plantillas', () => {
       assert.match(cuerpo, /^Hola María,/, tipo);
       assert.match(cuerpo, /octubre de 2026/, tipo);
       assert.match(cuerpo, /S\/ 1,234\.50/, tipo);
-      assert.match(cuerpo, /https:\/\/house\.gargurevich\.dev/, tipo);
+      assert.match(cuerpo, /https:\/\/torrecondominios\.com/, tipo);
       assert.doesNotMatch(cuerpo, /Quispe|undefined|NaN|\{|\}/, tipo);
     }
     assert.match(plantilla('por_vencer', datos).asunto, /vence en 3 días/);
@@ -119,7 +119,7 @@ describe('plantillas', () => {
     assert.match(cuerpo, /^Hola María,/);
     assert.match(cuerpo, /Block 1/);
     assert.match(cuerpo, /Pago a la empresa administradora, Aporte a la Junta central/);
-    assert.match(cuerpo, /https:\/\/house\.gargurevich\.dev/);
+    assert.match(cuerpo, /https:\/\/torrecondominios\.com/);
     assert.doesNotMatch(cuerpo, /Quispe|undefined|NaN|\{|\}/);
   });
 
@@ -127,7 +127,7 @@ describe('plantillas', () => {
     const caida = plantilla('ia_caida', { ...datos, motivo: 'Sin IA disponible desde las 14:32: Gemini 404, Groq 404, OpenRouter sin saldo.' });
     assert.match(caida.cuerpo, /^Hola María,/);
     assert.match(caida.cuerpo, /Gemini 404, Groq 404, OpenRouter sin saldo/);
-    assert.match(caida.cuerpo, /house\.gargurevich\.dev\/superadmin\/llavero/);
+    assert.match(caida.cuerpo, /torrecondominios\.com\/superadmin\/llavero/);
     assert.match(plantilla('ia_restablecida', { ...datos, motivo: 'La IA del asistente se restableció.' }).cuerpo, /se restableció/);
     for (const tipo of ['ia_caida', 'ia_restablecida'] as const) assert.doesNotMatch(plantilla(tipo, datos).cuerpo, /S\/|undefined|\{|\}/);
   });

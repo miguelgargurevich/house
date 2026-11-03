@@ -5,7 +5,9 @@ import { hoyEn } from '../../lib/fechas';
 export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
-export const ENLACE_APP = 'https://house.gargurevich.dev';
+export const ENLACE_APP = 'https://torrecondominios.com';
+/** Dominio anterior: sigue sirviendo la app y los webhooks de WhatsApp/Telegram ya registrados apuntan ahí. */
+export const ENLACE_ANTERIOR = 'https://house.gargurevich.dev';
 
 export interface DatosAviso {
   nombre: string;

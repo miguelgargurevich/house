@@ -564,7 +564,7 @@ describe('comunicados: la plantilla del aviso', () => {
     const { asunto, cuerpo } = plantilla('comunicado', datos);
     assert.equal(asunto, 'Corte de agua');
     assert.match(cuerpo, /^Hola María,\n\nLínea 1\nLínea 2 <b>tal cual<\/b>\n\n/);
-    assert.match(cuerpo, /https:\/\/house\.gargurevich\.dev/);
+    assert.match(cuerpo, /https:\/\/torrecondominios\.com/);
     assert.match(cuerpo, /— Administración de Los Libertadores$/);
     assert.doesNotMatch(cuerpo, /Quispe|undefined|NaN|S\/|vence/);
   });

@@ -1,5 +1,5 @@
 import { esperarReal, type DepsAvisos } from '../avisos/canales';
-import { ENLACE_APP } from '../avisos/plantillas';
+import { ENLACE_ANTERIOR } from '../avisos/plantillas';
 
 /**
  * Inyectables del bot por canal (Evolution, reloj, URL pública de House). Las pruebas los reemplazan: nunca sale nada a la red real.
@@ -11,7 +11,7 @@ export const canalesDeps: DepsAvisos & { urlPublica: () => string } = {
   env: process.env,
   esperar: esperarReal,
   azar: Math.random,
-  urlPublica: () => ENLACE_APP,
+  urlPublica: () => ENLACE_ANTERIOR, // base de los webhooks: no se mueve para no re-registrar los ya conectados
 };
 
 /** Sólo los últimos dígitos: el número es un dato personal (Ley 29733) y no va en claro a ningún log. */

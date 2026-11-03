@@ -455,12 +455,15 @@ router.post('/:id/avisar', adminOJunta, async (req, res) => {
   res.json(r);
 });
 
+/** «Condominio X» sin repetir la palabra si el nombre ya la trae («Condominio Los Libertadores»). */
+export const nombreCondominio = (nombre: string): string => (/^condominio\b/i.test(nombre.trim()) ? nombre.trim() : `Condominio ${nombre}`.trim());
+
 /** Texto listo para el grupo de WhatsApp del block: sin montos ni nombres de vecinos. */
 router.get('/:id/mensaje-grupo', adminOJunta, async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id, true);
   const r = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true } }, estructura: { select: { id: true, nombre: true } } } });
-  const ubicacion = r.estructura ? (r.estructura.nombre ?? `Block ${r.estructura.id}`) : `Condominio ${r.complejo?.nombre ?? ''}`.trim();
+  const ubicacion = r.estructura ? (r.estructura.nombre ?? `Block ${r.estructura.id}`) : nombreCondominio(r.complejo?.nombre ?? '');
   res.json({ texto: mensajeGrupoRecibo({ periodo: periodoTexto(r.mes, r.anio), ubicacion, vencimiento: r.fecha_vencimiento }) });
 });
 

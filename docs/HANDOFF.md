@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Avisos con el dominio de Torre y sin «Condominio Condominio» (Claude Code, Opus 5.5) — push: no
+
+- Pedido de Miguel: «Sí, corrígelo» (visto en el video 1 antes de presentar a administradores). Tarea chica, hecha por Opus sin delegar.
+- `ENLACE_APP` (`avisos/plantillas.ts`) pasa a `https://torrecondominios.com`: correos de aviso, mensaje para el grupo de WhatsApp y el correo del voucher al block. `ENLACE_ANTERIOR` (`house.gargurevich.dev`) queda como base de los webhooks (`canalesDeps.urlPublica`) para no re-registrar los ya conectados, y `aTextoWhatsapp` sigue reconociendo los enlaces de los dos dominios.
+- `nombreCondominio()` (`routes/recibos.ts`): el mensaje para el grupo no repite «Condominio» si el nombre ya empieza así.
+- Pruebas: `avisar-recibo` (texto con el dominio nuevo + caso de `nombreCondominio`), `avisos` y `comunicados` (enlace nuevo). Suite 3551/3556: las 4 de enlace se ajustaron y pasan; la 5.ª (`recibos-excel` «conceptos en 0», espera `pendiente` y da `vencido`) falla igual sin este cambio: depende de la fecha de hoy (3-nov), queda por arreglar.
+- Pendiente: el video 1 sigue mostrando el texto viejo hasta regrabarlo.
+
+---
+
 ## 2026-11-02 — WhatsApp de aviso anti-baneo: pausa, tope diario, SALIR y pie (Claude Code, Haiku 5.5, delegado por Opus) — push: no
 
 - **Qué se hizo** (rama `feat/whatsapp-antibaneo`, worktree; «hazlo para torre»): (1) pausa al azar entre WhatsApp seguidos de la MISMA instancia (`whatsapp_pausa_min_seg`/`max_seg`, 5–15 s); (2) tope diario por número (`whatsapp_tope_diario`, 200; 0/null = sin tope), día de Lima; lo que pasa del tope queda `pendiente` para mañana 08:00 Lima sin intento; (3) «SALIR»/BAJA/STOP por WhatsApp apaga `aviso_whatsapp` de las personas de ESA empresa con ese número, con o sin vínculo; (4) pie «responde SALIR» en cada WhatsApp de aviso (no en el correo ni en el bot); tope de 10 min por pasada; aviso en WhatsappSync antes de conectar; los 3 ajustes en Precios y validados en el PUT.

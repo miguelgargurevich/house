@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import { iniciar, esperar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
 import { encolarAviso } from '../src/server/services/avisos';
 import { sincronizarCargos } from '../src/server/services/juntas';
+import { nombreCondominio } from '../src/server/routes/recibos';
 
 const SIN_CORREO = 'b1-402@sin-correo.invalid';
 const MIN = 60_000;
@@ -169,12 +170,19 @@ describe('mensaje para el grupo de WhatsApp', () => {
   it('dice el periodo, el block, el vencimiento y dónde pagar', async () => {
     const r = await grupo(T.adminA, R.bloque1);
     assert.equal(r.status, 200);
-    assert.equal(r.body.texto, 'Ya está el mantenimiento de setiembre de 2026 del Block 1. Vence el 2 de noviembre. Míralo y págalo con tu voucher en Torre: https://house.gargurevich.dev');
+    assert.equal(r.body.texto, 'Ya está el mantenimiento de setiembre de 2026 del Block 1. Vence el 2 de noviembre. Míralo y págalo con tu voucher en Torre: https://torrecondominios.com');
   });
 
   it('sin block dice el condominio', async () => {
     const r = await grupo(T.adminA, R.vencido);
     assert.match(r.body.texto, /^Ya está el mantenimiento de agosto de 2026 del Condominio Complejo A\. Vence el \d+ de \w+\./);
+  });
+
+  it('nombreCondominio no repite «Condominio» si el nombre ya lo trae', () => {
+    assert.equal(nombreCondominio('Complejo A'), 'Condominio Complejo A');
+    assert.equal(nombreCondominio('Condominio Los Libertadores de Surco'), 'Condominio Los Libertadores de Surco');
+    assert.equal(nombreCondominio('condominio el Bosque '), 'condominio el Bosque');
+    assert.equal(nombreCondominio('Condominios Unidos'), 'Condominio Condominios Unidos');
   });
 
   it('nunca lleva montos ni nombres de vecinos', async () => {
