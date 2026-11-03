@@ -31,6 +31,7 @@ import { complejosRouter } from './routes/complejos';
 import { conceptosRouter } from './routes/conceptos';
 import { dashboardRouter } from './routes/dashboard';
 import { empresasRouter } from './routes/empresas';
+import { estadoCuentaRouter } from './routes/estadoCuenta';
 import { estructurasRouter } from './routes/estructuras';
 import { avisosPersonalesRouter } from './routes/avisosPersonales';
 import { meRouter } from './routes/me';
@@ -121,6 +122,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/medios-pago', mediosPagoRouter);
   api.use('/juntas', juntasRouter);
   api.use('/cierres', cierresRouter);
+  api.use('/estado-cuenta', estadoCuentaRouter);
   api.use('/notificaciones', notificacionesRouter);
   api.use('/comunicados', comunicadosRouter);
   api.use('/dashboard', dashboardRouter);

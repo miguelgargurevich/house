@@ -4,6 +4,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Estado de cuenta (EECC) por departamento, backend (Claude Code, Sonnet 5.5, delegado por Opus) — push: no — EN CURSO (rama `feat/estado-cuenta`)
+
+- **Hecho (backend, sin commitear aún)**: `services/estadoCuenta.ts` (cuenta corriente por recibo: cargo con mora desglosada, pagos por voucher con fecha/n.º de operación/estado, saldo acumulado, saldo anterior, totales; alcance `alcanceEstadoCuenta`; Excel `estadoCuentaXlsx`), `routes/estadoCuenta.ts` (`GET /api/estado-cuenta/unidades/:id` y `…/:id/estado-cuenta.xlsx`, `?desde=&hasta=` `AAAA-MM`), montada en `app.ts` (sólo 2 líneas). Pruebas: `tests/estado-cuenta.test.ts` (26, verdes); 9 mutaciones en rojo (cuenta el rechazado, saldo sin acumular, sin filtrar empresa, junta ve otro block, sin saldo anterior, inquilino por propietario, mora sin desglosar, Excel sin acumulado, ventana ignora `hasta`).
+- **Decisiones**: rechazados se MUESTRAN marcados y no suman; por validar va en `en_revision` (no resta); cada fila es el estado actual del recibo; sin rango = últimos 12 meses con recibo (como «Mi historial») y lo anterior va en `saldo_anterior`; cambio de propietario: la cuenta es de la unidad, la cabecera muestra al dueño actual y el anterior recibe 404; sin módulo de plan (todos los planes).
+- **Gotcha / hallazgo**: Morosidad (`routes/reportes.ts`, no tocado) suma el monto COMPLETO de un cargo vencido aunque tenga un abono parcial validado; el EECC y «Mi historial» lo descuentan. Cuadran exacto salvo con abonos parciales.
+- **Pendiente en esta misma tarea**: suite completa en curso; luego frontend (modal «Estado de cuenta» con hoja imprimible en Unidades, Morosidad y Mi historial; ya borrador en el scratchpad), pruebas de UI/390 px, `docs/API-CONTRATO.md` y commits. Pruebas SIEMPRE con `TEST_DATABASE_URL=…/house_test_eecc`.
 ## 2026-11-03 — El Excel de recibos crea los blocks, departamentos y propietarios que faltan (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - Pedido de Miguel: la administradora llena los demás blocks subiendo el Excel de cada uno, sin crear 416 departamentos a mano. Rama `feat/excel-crea-blocks` (worktree), sin schema ni seeds tocados.
