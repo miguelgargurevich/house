@@ -229,6 +229,18 @@ describe('cuadra EXACTO con «Mi historial» y con Morosidad', () => {
   });
 });
 
+describe('Morosidad descuenta los abonos parciales validados', () => {
+  it('la unidad con un abono parcial (E-1, feb: 60 sobre 100) da la misma deuda vencida en Morosidad que en el estado de cuenta', async () => {
+    const m = (await llamar(base, 'GET', '/api/reportes/morosidad?pageSize=100', T.adminA)).body;
+    const e = (await eecc(T.adminA, E1.id, '?desde=2024-11&hasta=2025-06')).body;
+    const filaM = m.items.find((x: any) => x.unidad.id === E1.id); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.ok(filaM, 'E-1 es morosa');
+    assert.equal(filaM.deuda_total, e.totales.deuda_vencida);
+    const feb = filaM.recibos.find((r: any) => r.anio === 2025 && r.mes === 2); // eslint-disable-line @typescript-eslint/no-explicit-any
+    assert.equal(feb.deuda, '90.00', 'feb: 150 − 60 validados');
+  });
+});
+
 describe('rango de meses', () => {
   it('desde/hasta recortan las filas y el saldo anterior arrastra lo adeudado antes', async () => {
     const b = (await eecc(T.adminA, E1.id, '?desde=2025-02&hasta=2025-04')).body;

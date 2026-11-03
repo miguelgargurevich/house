@@ -32,7 +32,7 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
     where: {
       AND: [scopeCargos(u), filtroEstadoCargo('vencido', reloj), { unidad_id: { not: null } }, ...(conReportes !== null ? [{ unidad: { complejo_id: { in: conReportes } } }] : []), q.q ? { unidad: { codigo: { contains: q.q, mode: 'insensitive' } } } : {}, q.estructura_id !== undefined ? { unidad: { estructura_id: q.estructura_id } } : {}, q.complejo_id !== undefined ? { unidad: { complejo_id: q.complejo_id } } : {}],
     },
-    select: { unidad_id: true, monto: true, reciboConcepto: { select: { recibo: { select: { id: true, mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { zona_horaria: true } } } } } } },
+    select: { unidad_id: true, monto: true, pagos: { where: { estado_validacion: 'validado' }, select: { monto: true } }, reciboConcepto: { select: { recibo: { select: { id: true, mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { zona_horaria: true } } } } } } },
   });
 
   // Por unidad, además del total, sus mantenimientos vencidos (uno por recibo): la pantalla abre el detalle de cada uno.
@@ -40,15 +40,19 @@ reportesRouter.get('/morosidad', requireRole('admin'), async (req, res) => {
   for (const c of cargos) {
     const venc = c.reciboConcepto?.recibo?.fecha_vencimiento;
     const hoy = reloj.hoy(c.reciboConcepto?.recibo?.complejo?.zona_horaria);
+    // La deuda es lo que falta del cargo: un abono parcial ya validado se descuenta (así cuadra con el estado de cuenta y «Mi historial»).
+    const abonado = c.pagos.reduce((s, p) => s.plus(p.monto), new Prisma.Decimal(0));
+    const debe = Prisma.Decimal.max(new Prisma.Decimal(0), new Prisma.Decimal(c.monto).minus(abonado));
+    if (debe.isZero()) continue;
     const acc = porUnidad.get(c.unidad_id!) ?? { deuda: new Prisma.Decimal(0), cargos: 0, maxDias: 0, recibos: new Map() };
-    acc.deuda = acc.deuda.plus(c.monto);
+    acc.deuda = acc.deuda.plus(debe);
     acc.cargos += 1;
     const dias = venc ? diasEntre(venc, hoy) : 0;
     if (venc) acc.maxDias = Math.max(acc.maxDias, dias);
     const r = c.reciboConcepto?.recibo;
     if (r) {
       const m = acc.recibos.get(r.id) ?? { mes: r.mes, anio: r.anio, deuda: new Prisma.Decimal(0), dias };
-      m.deuda = m.deuda.plus(c.monto);
+      m.deuda = m.deuda.plus(debe);
       acc.recibos.set(r.id, m);
     }
     porUnidad.set(c.unidad_id!, acc);
