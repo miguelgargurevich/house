@@ -9,7 +9,7 @@ import type { Column } from '../../../../ui';
 import { FiltroSelect } from '../catalogo/FiltroSelect';
 import { nombreTorre, palabraEstructura } from '../medios/tipos';
 import { ComunicadoModal } from './ComunicadoModal';
-import { alcanceLabel, baseDe, enviosDeComunicado, textoEnvios } from './tipos';
+import { alcanceLabel, baseDe, enviosDeComunicado, textoEnvios, textoGrupos } from './tipos';
 import type { Comunicado } from './tipos';
 import { useAmbitosComunicados } from './useAmbitos';
 import { Bloqueable } from '../../../../app/Bloqueable';
@@ -55,7 +55,8 @@ export function ComunicadosTab() {
           <span>{c.titulo}</span>
         </p>
         <p className="truncate text-xs text-muted">{c.cuerpo.replace(/\s+/g, ' ')}</p>
-        <p className="truncate text-xs text-muted sm:hidden">{alcanceLabel(c)} · {fechaCorta(c.created_at)} · {textoEnvios(c.envios)}</p>
+        <p className="truncate text-xs text-muted sm:hidden">{alcanceLabel(c)} · {fechaCorta(c.created_at)} · {textoEnvios(c.envios)}{textoGrupos(c) ? ` · ${textoGrupos(c)}` : ''}</p>
+        {c.grupos_resultado?.filter(g => g.estado === 'fallo').map(g => <p key={g.estructura_id} className="text-xs text-bad md:hidden">{g.motivo ?? `No se envió al grupo de ${g.nombre}`}</p>)}
       </div>
     ) },
     { key: 'alcance', header: 'Para', hideBelow: 'sm', cell: c => (
@@ -64,6 +65,8 @@ export function ComunicadosTab() {
     { key: 'envios', header: 'Notificaciones', hideBelow: 'md', cell: c => (
       <span className="block">
         <span className="block">{textoEnvios(c.envios)}</span>
+        {textoGrupos(c) && <span className="block">{textoGrupos(c)}</span>}
+        {c.grupos_resultado?.filter(g => g.estado === 'fallo').map(g => <span key={g.estructura_id} className="block max-w-[16rem] text-xs text-bad">{g.motivo ?? `No se envió al grupo de ${g.nombre}`}</span>)}
         {!!c.envios?.total && <Link to={enviosDeComunicado(base, c.id)} className="text-xs font-medium text-brand hover:underline">Ver envíos</Link>}
       </span>
     ) },

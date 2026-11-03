@@ -140,7 +140,7 @@ describe('comunicados: pantalla de gestión (administración y junta)', () => {
 
   it('el modal: condominio, alcance, título, mensaje y «Fijar arriba»; las casillas de envío SÓLO al crear', () => {
     for (const t of ['label="Condominio"', 'label="Para quién"', 'label="Título"', 'label="Mensaje"', 'label="Fijar arriba"']) assert.ok(m.includes(t), t);
-    assert.match(m, /\{nuevo && \(\s*<fieldset[\s\S]*label="Enviar por correo"[\s\S]*label="Enviar por WhatsApp"[\s\S]*<\/fieldset>\s*\)\}/);
+    assert.match(m, /\{nuevo && \(\s*<fieldset[\s\S]*label="Enviar por correo a cada vecino"[\s\S]*label="Por WhatsApp a cada vecino"[\s\S]*<\/fieldset>\s*\)\}/);
     assert.match(m, /maxLength=\{TOPE_TITULO\}/);
     assert.match(m, /maxLength=\{TOPE_CUERPO\}/);
     // Editar sólo manda título, mensaje y fijado: nunca las casillas de envío ni el alcance.

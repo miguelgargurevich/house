@@ -36,7 +36,7 @@ export interface Medio {
 }
 
 export interface Ambitos {
-  complejos: { id: number; nombre: string; estructuras: { id: number; nombre: string | null; tipo?: string }[] }[];
+  complejos: { id: number; nombre: string; estructuras: { id: number; nombre: string | null; tipo?: string; /** Sólo en «Comunicados»: el grupo de WhatsApp elegido para el block (null = sin grupo) y el último problema al escribirle. */ whatsapp_grupo_nombre?: string | null; whatsapp_grupo_aviso?: string | null }[] }[];
   /** La junta de una torre sólo gestiona esa torre (no puede elegir «todo el condominio»). */
   fijo: boolean;
 }

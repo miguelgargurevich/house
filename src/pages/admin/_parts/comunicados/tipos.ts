@@ -11,6 +11,14 @@ export interface Envios {
   omitida: number;
 }
 
+/** Cómo le fue al mensaje de un block a su grupo de WhatsApp. */
+export interface ResultadoGrupo {
+  estructura_id: number;
+  nombre: string;
+  estado: 'pendiente' | 'enviado' | 'fallo';
+  motivo?: string;
+}
+
 /** Un comunicado en la gestión (`/api/comunicados`). */
 export interface Comunicado {
   id: number;
@@ -21,7 +29,11 @@ export interface Comunicado {
   cuerpo: string;
   fijado: boolean;
   enviar_correo: boolean;
+  /** «Por WhatsApp a cada vecino». */
   enviar_whatsapp: boolean;
+  enviar_junta?: boolean;
+  enviar_grupo?: boolean;
+  grupos_resultado?: ResultadoGrupo[] | null;
   archivado_at: string | null;
   created_at: string;
   complejo: { id: number; nombre: string } | null;
@@ -54,10 +66,26 @@ export const baseDe = (pathname: string) => (pathname.startsWith('/junta/') ? '/
 /** La pestaña «Notificaciones» filtrada por un comunicado. */
 export const enviosDeComunicado = (base: string, id: number) => `${base}/avisos?comunicado=${id}`;
 
+/** «Grupo del Block 1: enviado» por block, o null si no se pidió grupo. */
+export function textoGrupos(c: Pick<Comunicado, 'grupos_resultado'>): string | null {
+  const g = c.grupos_resultado;
+  if (!g?.length) return null;
+  const enviados = g.filter(x => x.estado === 'enviado').length;
+  const fallos = g.filter(x => x.estado === 'fallo').length;
+  const partes = [`${enviados} ${enviados === 1 ? 'grupo' : 'grupos'} de WhatsApp`];
+  if (g.some(x => x.estado === 'pendiente')) partes.push('enviando…');
+  if (fallos > 0) partes.push(`${fallos} con error`);
+  return partes.join(' · ');
+}
+
 /** Lo que dice el aviso tras publicar: cuántos correos/WhatsApp quedaron en cola, o por qué ninguno. */
-export function textoPublicado(c: Pick<Comunicado, 'avisos_encolados' | 'enviar_correo' | 'enviar_whatsapp'>): string {
+export function textoPublicado(c: Pick<Comunicado, 'avisos_encolados' | 'enviar_correo' | 'enviar_whatsapp' | 'enviar_junta' | 'enviar_grupo' | 'grupos_resultado'>): string {
   const n = c.avisos_encolados ?? 0;
-  if (n > 0) return `Comunicado publicado. Se encolaron ${n} ${n === 1 ? 'aviso' : 'avisos'} por ${c.enviar_correo && c.enviar_whatsapp ? 'correo y WhatsApp' : c.enviar_correo ? 'correo' : 'WhatsApp'}.`;
-  if (c.enviar_correo || c.enviar_whatsapp) return 'Comunicado publicado. Ningún vecino tiene activado ese canal, así que no se envió ningún aviso.';
+  const grupos = c.grupos_resultado?.length ?? 0;
+  const partes: string[] = [];
+  if (n > 0) partes.push(`se encolaron ${n} ${n === 1 ? 'aviso' : 'avisos'} por ${c.enviar_junta || (c.enviar_correo && c.enviar_whatsapp) ? 'correo y WhatsApp' : c.enviar_correo ? 'correo' : 'WhatsApp'}`);
+  if (grupos > 0) partes.push(`se está enviando ${grupos === 1 ? 'al grupo de WhatsApp del block' : `a ${grupos} grupos de WhatsApp`}`);
+  if (partes.length) return `Comunicado publicado. ${partes[0]![0]!.toUpperCase()}${partes.join(' y ').slice(1)}.`;
+  if (c.enviar_correo || c.enviar_whatsapp || c.enviar_junta) return 'Comunicado publicado. Nadie tiene activado ese canal, así que no se envió ningún aviso.';
   return 'Comunicado publicado';
 }

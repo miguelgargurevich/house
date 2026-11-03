@@ -14,7 +14,10 @@ interface Form {
   titulo: string;
   cuerpo: string;
   enviar_correo: boolean;
+  /** «Por WhatsApp a cada vecino» (1-a-1). */
   enviar_whatsapp: boolean;
+  enviar_junta: boolean;
+  enviar_grupo: boolean;
   fijado: boolean;
 }
 
@@ -33,7 +36,8 @@ const vacio = (inicial: Props['inicial'], ambitos: Ambitos): Form => {
   const complejo = inicial?.complejo_id || (unico ? String(unico.id) : '');
   const bloques = ambitos.complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
   const estructura = ambitos.fijo ? String(bloques[0]?.id ?? '') : /^\d+$/.test(inicial?.estructura_id ?? '') ? inicial!.estructura_id : '';
-  return { complejo_id: complejo, estructura_id: estructura, titulo: '', cuerpo: '', enviar_correo: false, enviar_whatsapp: false, fijado: false };
+  // A la junta, por defecto; al grupo, por defecto si el alcance tiene alguno (el efecto de abajo lo ajusta al cambiar de block); a cada vecino por WhatsApp, nunca.
+  return { complejo_id: complejo, estructura_id: estructura, titulo: '', cuerpo: '', enviar_correo: false, enviar_whatsapp: false, enviar_junta: true, enviar_grupo: false, fijado: false };
 };
 
 /** Crear o editar un comunicado. El condominio, el alcance y las casillas de envío sólo se eligen al crear: editar nunca reenvía. */
@@ -45,7 +49,7 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
     if (comunicado === null) return;
     reset(comunicado === 'nuevo'
       ? vacio(inicial, ambitos)
-      : { complejo_id: String(comunicado.complejo_id), estructura_id: comunicado.estructura_id != null ? String(comunicado.estructura_id) : '', titulo: comunicado.titulo, cuerpo: comunicado.cuerpo, enviar_correo: false, enviar_whatsapp: false, fijado: comunicado.fijado });
+      : { complejo_id: String(comunicado.complejo_id), estructura_id: comunicado.estructura_id != null ? String(comunicado.estructura_id) : '', titulo: comunicado.titulo, cuerpo: comunicado.cuerpo, enviar_correo: false, enviar_whatsapp: false, enviar_junta: false, enviar_grupo: false, fijado: comunicado.fijado });
     // Sólo al abrir: los filtros de la pantalla cambian y no deben pisar lo que se está escribiendo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comunicado]);
@@ -55,6 +59,14 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
   const complejo = ambitos.complejos.find(c => String(c.id) === complejoId);
   const bloques = complejo?.estructuras ?? [];
   const palabra = palabraEstructura(ambitos);
+  const estructuraId = watch('estructura_id');
+  // Los blocks del alcance que tienen grupo de WhatsApp: el elegido, o todos los que tengan si es para todo el condominio.
+  const conGrupo = (estructuraId ? bloques.filter(b => String(b.id) === estructuraId) : bloques).filter(b => !!b.whatsapp_grupo_nombre);
+  const hayGrupo = conGrupo.length > 0;
+  useEffect(() => {
+    // Al elegir otro alcance: «al grupo» se marca solo si hay grupo; si no, se desmarca.
+    if (nuevo) setValue('enviar_grupo', hayGrupo);
+  }, [comunicado, nuevo, hayGrupo, estructuraId, complejoId, setValue]);
 
   async function guardar(v: Form) {
     try {
@@ -63,7 +75,7 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
         const elegido = v.complejo_id || (ambitos.complejos.length === 1 ? String(ambitos.complejos[0]!.id) : '');
         const r = await api<Comunicado>('/api/comunicados', {
           method: 'POST',
-          json: { ...(elegido ? { complejo_id: Number(elegido) } : {}), estructura_id: v.estructura_id ? Number(v.estructura_id) : null, titulo: v.titulo, cuerpo: v.cuerpo, enviar_correo: !!v.enviar_correo, enviar_whatsapp: !!v.enviar_whatsapp, fijado: !!v.fijado },
+          json: { ...(elegido ? { complejo_id: Number(elegido) } : {}), estructura_id: v.estructura_id ? Number(v.estructura_id) : null, titulo: v.titulo, cuerpo: v.cuerpo, enviar_correo: !!v.enviar_correo, enviar_whatsapp: !!v.enviar_whatsapp, enviar_junta: !!v.enviar_junta, enviar_grupo: !!v.enviar_grupo && hayGrupo, fijado: !!v.fijado },
         });
         toast.ok(textoPublicado(r));
       } else if (comunicado) {
@@ -122,8 +134,21 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
         {nuevo && (
           <fieldset className="grid gap-1 sm:col-span-2">
             <legend className="mb-1 text-sm font-medium">Además de verlo en la app</legend>
-            <Interruptor label="Enviar por correo" hint="A los propietarios e inquilinos que tengan los avisos por correo activados." {...register('enviar_correo')} />
-            <Interruptor label="Enviar por WhatsApp" hint="Sólo a quienes activaron WhatsApp y tienen celular, si el plan del condominio lo incluye." {...register('enviar_whatsapp')} />
+            <Interruptor
+              label={estructuraId ? `A la junta del ${palabra.una}` : 'A las juntas del condominio'}
+              hint="Correo y WhatsApp a cada miembro de la junta vigente. Es lo más barato: pocas personas y todas se enteran."
+              {...register('enviar_junta')}
+            />
+            <Interruptor
+              label={`Al grupo de WhatsApp del ${palabra.una}`}
+              disabled={!hayGrupo}
+              hint={hayGrupo
+                ? `Un solo mensaje por ${palabra.una}: ${conGrupo.map(b => `${nombreTorre(b)} → «${b.whatsapp_grupo_nombre}»`).join(', ')}. Lleva el título, un extracto y el enlace a Torre.`
+                : `${estructuraId ? `Este ${palabra.una} aún no tiene grupo` : `Ningún ${palabra.una} tiene grupo`} de WhatsApp. La administración lo elige en la ficha del ${palabra.una} (Condominios › Blocks).`}
+              {...register('enviar_grupo')}
+            />
+            <Interruptor label="Enviar por correo a cada vecino" hint="A los propietarios e inquilinos que tengan los avisos por correo activados." {...register('enviar_correo')} />
+            <Interruptor label="Por WhatsApp a cada vecino" hint="Un mensaje a cada uno, de a poco y con pausas. Gasta la cuota mensual de WhatsApp del condominio: úsalo para lo urgente." {...register('enviar_whatsapp')} />
           </fieldset>
         )}
         <Interruptor label="Fijar arriba" hint="Los comunicados fijados aparecen primero, antes que los más nuevos." className="sm:col-span-2" {...register('fijado')} />
