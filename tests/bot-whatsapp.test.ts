@@ -962,6 +962,8 @@ describe('B3 · voucher por foto o PDF', () => {
     const { encolarAviso, procesarCola } = await import('../src/server/services/avisos');
     await vincular(D.propietario2.id, N.prop2, D.empresaA.id);
     const pago = await prisma.pago.create({ data: { recibo_concepto_unidad_id: D.cargoA2.id, monto: 150, metodo_pago: 'transferencia', estado_validacion: 'por_validar', usuario_id: D.propietario2.id } });
+    // La administración enciende «pago validado» para WhatsApp (por defecto va sólo por correo: ver tests/whatsapp-por-tipo.test.ts).
+    await prisma.complejoHabitacional.update({ where: { id: D.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'pago_validado', 'pago_rechazado'] } });
     assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 2, 'correo + WhatsApp');
     const r = await procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
     assert.ok(r.enviadas >= 1);
@@ -979,5 +981,6 @@ describe('B3 · voucher por foto o PDF', () => {
     // Sin vínculo y sin aviso activo: sólo correo (no cambia nada para quien no usa el bot).
     await prisma.usuario.update({ where: { id: D.propietario1.id }, data: { telefono: '+51 911 111 111', aviso_whatsapp: false } });
     assert.equal(await encolarAviso('pago_validado', D.propietario1.id, { entidad: 'pago', id: pago.id }), 1);
+    await prisma.complejoHabitacional.update({ where: { id: D.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_rechazado', 'cierre_pendiente'] } });
   });
 });

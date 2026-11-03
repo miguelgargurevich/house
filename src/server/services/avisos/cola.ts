@@ -13,6 +13,7 @@ import { moduloActivo } from '../comercial/modulos';
 import { dineroTexto, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
 import { correoSinBuzon } from '../invitaciones';
 import { aportesPendientes, cierrePendiente } from '../cierres/pendientes';
+import { esTipoWhatsappConfigurable } from './whatsappTipos';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
 export const MAX_INTENTOS = 3;
@@ -129,17 +130,31 @@ async function chatVinculado(usuarioId: number): Promise<string | null> {
 }
 
 /**
+ * Lo que la lista de WhatsApp del condominio (`whatsapp_avisos`) deja salir para el aviso: `null` si no se rige por ella (el tipo es de IA o de
+ * comunicado, o el aviso no tiene condominio). Lo usan el envío, la vista previa y `canalesDe`: así las tres cosas miran la misma lista.
+ */
+async function listaWhatsappDe(tipo: string, n: { ref_entidad: string | null; ref_id: number | null }): Promise<readonly string[] | null> {
+  if (!esTipoWhatsappConfigurable(tipo)) return null;
+  const complejoId = await complejoDeAviso(n);
+  if (complejoId == null) return null;
+  const c = await prisma.complejoHabitacional.findUnique({ where: { id: complejoId }, select: { whatsapp_avisos: true } });
+  return c ? c.whatsapp_avisos : null;
+}
+
+/**
  * Por qué canales le llega un aviso a la persona: correo si lo acepta y tiene uno real (un `.invalid` no tiene buzón; no es canal),
  * WhatsApp si lo acepta y tiene celular o un número vinculado, y Telegram sólo para el resultado de un voucher. Lo usan el envío y la vista previa.
+ * `lista` es la de `whatsapp_avisos` del condominio (`null` = no se rige): si el tipo no está en ella, no hay WhatsApp, tampoco al número vinculado.
  */
-async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }): Promise<(Canal | 'telegram')[]> {
+async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }, lista: readonly string[] | null): Promise<(Canal | 'telegram')[]> {
   const canales: (Canal | 'telegram')[] = [];
   if (u.aviso_email && u.email && !correoSinBuzon(u.email)) canales.push('email');
   // Quien vinculó su WhatsApp (verificado) llega a ese número: ahí recibe el resultado del voucher que mandó por el bot aunque no haya activado
   // los avisos por WhatsApp; el resto de avisos sigue respetando su preferencia.
   const vinculado = await numeroVinculado(u.id);
   const resultadoDePago = tipo === 'pago_validado' || tipo === 'pago_rechazado';
-  if ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago)) canales.push('whatsapp');
+  const whatsappPermitido = lista == null || lista.includes(tipo);
+  if (whatsappPermitido && ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago))) canales.push('whatsapp');
   // Telegram: sólo el resultado del voucher, y sólo a quien vinculó su chat (no hay «preferencia» de Telegram: vincular es aceptarlo).
   if (resultadoDePago && (await chatVinculado(u.id))) canales.push('telegram');
   return canales;
@@ -164,7 +179,7 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   const ahora = opts.ahora ?? new Date();
   const u = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true, nombre: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
   if (!u) return 0;
-  const canales = await canalesDe(tipo, u);
+  const canales = await canalesDe(tipo, u, await listaWhatsappDe(tipo, { ref_entidad: ref.entidad, ref_id: ref.id }));
   // `opts.canales` acota (un comunicado puede ir sólo por correo o sólo por WhatsApp); nunca agrega un canal que la persona no aceptó.
   if (opts.canales) for (let i = canales.length - 1; i >= 0; i--) if (!(opts.canales as readonly string[]).includes(canales[i]!)) canales.splice(i, 1);
   if (!canales.length) return 0;
@@ -222,9 +237,10 @@ export async function planAvisoRecibo(reciboId: number): Promise<PlanAvisoRecibo
   const filas = await prisma.notificacion.findMany({ where: { tipo: 'recibo_emitido', ref_entidad: 'recibo', ref_id: reciboId }, select: { usuario_id: true, canal: true, estado: true } });
   const estadoDe = new Map(filas.map((f) => [`${f.usuario_id}:${f.canal}`, f.estado]));
   const plan: PlanAvisoRecibo = { vecinos: usuarios.length, por_correo: 0, por_whatsapp: 0, por_avisar: 0, ya_avisados: 0, sin_canal: 0, personas: [] };
+  const lista = await listaWhatsappDe('recibo_emitido', { ref_entidad: 'recibo', ref_id: reciboId });
   for (const u of usuarios) {
     // `telegram` nunca sale para un recibo emitido (sólo para resultados de voucher), así que se descarta aquí.
-    const canales = (await canalesDe('recibo_emitido', u)).filter((c): c is Canal => c !== 'telegram');
+    const canales = (await canalesDe('recibo_emitido', u, lista)).filter((c): c is Canal => c !== 'telegram');
     if (!canales.length) { plan.sin_canal++; continue; }
     const crear = canales.filter((c) => !estadoDe.has(`${u.id}:${c}`));
     const reintentar = canales.filter((c) => estadoDe.get(`${u.id}:${c}`) === 'error' || estadoDe.get(`${u.id}:${c}`) === 'omitida');
@@ -365,6 +381,8 @@ async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number |
 }
 
 export const MOTIVO_SIN_WHATSAPP = 'Plan sin WhatsApp';
+/** El condominio apagó este tipo para WhatsApp después de encolarlo. */
+export const MOTIVO_APAGADO_WHATSAPP = 'Apagado en el condominio';
 
 /** Pasada de WhatsApp: si ya lleva más de esto, los WhatsApp que faltan no se toman (quedan pendientes para la siguiente pasada, sin intento). */
 export const TOPE_PASADA_MS = 10 * MIN;
@@ -453,8 +471,12 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
       const permitido = (complejoId == null && n.ref_entidad === 'ia')
         || (await moduloActivo(complejoId, 'whatsapp_avisos'))
         || ((n.tipo === 'pago_validado' || n.tipo === 'pago_rechazado') && (await moduloActivo(complejoId, 'asistente')));
+      const lista = await listaWhatsappDe(n.tipo, n);
       if (!permitido) {
         r = { resultado: 'omitida', motivo: MOTIVO_SIN_WHATSAPP };
+      } else if (lista && !lista.includes(n.tipo)) {
+        // La administración apagó este tipo después de encolarlo: no sale ni por WhatsApp ni al número vinculado del bot.
+        r = { resultado: 'omitida', motivo: MOTIVO_APAGADO_WHATSAPP };
       } else {
         // La instancia es la de la administradora que emitió el recibo (no una global).
         const instancia = await resolveInstance(n);

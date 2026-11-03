@@ -7,7 +7,8 @@ import { empresaDe, scopeComplejos } from '../lib/scope';
 import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda, zonaInicial, zonaSchema } from '../lib/paisMoneda';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { exigirPuedeAgregarCondominio } from '../services/comercial/cupo';
-import { comercialDeps } from '../services/comercial/modulos';
+import { comercialDeps, moduloActivo } from '../services/comercial/modulos';
+import { TIPOS_WHATSAPP_CONFIGURABLES } from '../services/avisos/whatsappTipos';
 import { plazoGratisNuevo } from '../services/comercial/plazoGratis';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
@@ -34,6 +35,11 @@ const base = z.object({
   validacion_automatica_ia: z.boolean({ error: 'Debe ser verdadero o falso' }).optional(),
   /** Mora (en la moneda del condominio) que se agrega en el recibo del mes siguiente a quien pagó fuera de fecha; 0 = sin mora (por defecto 20.00). */
   mora_monto: moraSchema.optional(),
+  /** Avisos automáticos que salen también por WhatsApp: sólo tipos de `TIPOS_WHATSAPP_CONFIGURABLES`, sin repetir; lista vacía = ninguno. Sólo admin/superadmin (la junta no). */
+  whatsapp_avisos: z
+    .array(z.enum(TIPOS_WHATSAPP_CONFIGURABLES, { error: 'Tipo de aviso no válido' }))
+    .refine((lista) => new Set(lista).size === lista.length, 'Hay tipos de aviso repetidos')
+    .optional(),
   /** Recibo impreso: notas de pago (una línea por renglón) y contacto de la administración. Todo opcional. */
   notas_pago: textoOpcional(2000),
   admin_nombre: textoOpcional(160),
@@ -59,18 +65,21 @@ const crud = crudRouter({
   format: async (items) => {
     const ids = items.map((c) => c.id as number);
     if (!ids.length) return items;
-    const [unidades, blocks, contratos, imagenes] = await Promise.all([
+    const [unidades, blocks, contratos, imagenes, planWa] = await Promise.all([
       prisma.unidad.groupBy({ by: ['complejo_id'], where: { complejo_id: { in: ids } }, _count: { _all: true } }),
       prisma.estructura.groupBy({ by: ['complejo_id'], where: { complejo_id: { in: ids } }, _count: { _all: true } }),
       prisma.contratoAdministracion.findMany({ where: { complejo_id: { in: ids }, fecha_fin: null }, select: { id: true, complejo_id: true, fecha_inicio: true } }),
       prisma.imagenRecibo.findMany({ where: { complejo_id: { in: ids } }, select: { complejo_id: true, updated_at: true } }),
+      // Si el plan trae «Avisos por WhatsApp»: la ficha lo dice y no deja tocar la lista si no lo trae.
+      Promise.all(ids.map((id) => moduloActivo(id as number, 'whatsapp_avisos'))),
     ]);
+    const conWhatsapp = new Set(ids.filter((_, i) => planWa[i]));
     const img = new Map(imagenes.map((x) => [x.complejo_id, x.updated_at]));
     const v = new Map(contratos.map((x) => [x.complejo_id, x]));
     const u = new Map(unidades.map((x) => [x.complejo_id, x._count._all]));
     const b = new Map(blocks.map((x) => [x.complejo_id, x._count._all]));
     return items.map((c) => ({
-      ...c, unidades_count: u.get(c.id as number) ?? 0, blocks_count: b.get(c.id as number) ?? 0, contrato_vigente: v.get(c.id as number) ?? null,
+      ...c, unidades_count: u.get(c.id as number) ?? 0, blocks_count: b.get(c.id as number) ?? 0, contrato_vigente: v.get(c.id as number) ?? null, whatsapp_plan: conWhatsapp.has(c.id as number),
       cabecera_url: img.has(c.id as number) ? `/api/complejos/${c.id}/cabecera?v=${versionImagen(img.get(c.id as number))}` : null,
     }));
   },

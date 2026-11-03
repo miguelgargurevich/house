@@ -24,6 +24,26 @@ Tres reglas que Miguel pidió el 26-oct-2026 («la fecha de pago se calcula del 
 - «Hoy» y «faltan 2 días» son del calendario de Lima (`America/Lima`, UTC−5 sin horario de verano): a las 00:00:00 de Lima ya cuenta el día nuevo; a las 23:59:59 del día anterior, no.
 - Repetir el planificador (cada 15 min) no duplica: una fila por usuario, canal, tipo y recibo. Los textos dicen el departamento y la torre, piden subir el voucher y avisan de la mora del condominio (si es 0, no la mencionan).
 
+## 2 bis. Qué avisos salen por WhatsApp (lista por condominio)
+
+La administración elige, en la ficha del condominio (sección «Avisos por WhatsApp»), qué avisos automáticos salen **también** por WhatsApp. El correo no cambia. La lista vive en `ComplejoHabitacional.whatsapp_avisos` (`String[]`) y se cambia con `PATCH /api/complejos/:id { whatsapp_avisos }` (admin o superadmin; la junta no). Tipos y textos: `src/server/services/avisos/whatsappTipos.ts`.
+
+| Aviso | Por defecto | Canal |
+|---|---|---|
+| Recibo del mes (`recibo_emitido`) | sí | correo + WhatsApp |
+| Recordatorio 2 días antes (`por_vencer`) | sí | correo + WhatsApp |
+| Vence hoy (`vence_hoy`) | sí | correo + WhatsApp |
+| Venció (`vencido`) | sí | correo + WhatsApp |
+| Pago rechazado (`pago_rechazado`) | sí | correo + WhatsApp (y Telegram si vinculó su chat) |
+| Pago validado (`pago_validado`) | **no** | sólo correo y la app |
+| Cierre del mes pendiente, al tesorero (`cierre_pendiente`) | sí | correo + WhatsApp |
+
+- **Qué no se rige por la lista**: los avisos de la IA (`ia_caida`, `ia_restablecida`, sólo superadmin) y los **comunicados** (el canal lo elige quien publica, al crearlo). Telegram tampoco cambia.
+- **Dónde se aplica**: en `canalesDe` (`services/avisos/cola.ts`), al encolar. Lo mismo que la vista previa de «Avisar a los vecinos» (`planAvisoRecibo`): cuenta exactamente lo que se enviaría. Y **al enviar**: un WhatsApp ya encolado de un tipo que la administración apagó después queda `omitida` con el motivo «Apagado en el condominio» (sin llamar a la API ni gastar cuota).
+- **Número vinculado del bot**: el resultado de un voucher (validado o rechazado) llega al número vinculado aunque la persona no tenga activados los avisos por WhatsApp, pero **sólo si la lista del condominio incluye ese tipo**. Con `pago_validado` apagado, el vinculado no recibe la validación.
+- **Plan**: cada WhatsApp de aviso cuenta para la cuota mensual del plan (`reservarConsumo`) y para el tope diario del número (`whatsapp_tope_diario`, anti-baneo). Si el plan no trae «Avisos por WhatsApp», la ficha lo dice y no deja cambiar la lista; los WhatsApp se omiten con «Plan sin WhatsApp» como siempre.
+- **Condominios existentes**: el `@default` de la columna deja a cada condominio con la lista por defecto al aplicar el esquema (`db push` agrega la columna con ese valor a todas las filas; verificado en la base de pruebas con una fila creada antes del cambio).
+
 ## 3. Mora de S/ 20 en el recibo siguiente
 
 - **Monto por condominio**: `ComplejoHabitacional.mora_monto` (Decimal, 20.00 por defecto, 0 = sin mora). La administración lo edita en la ficha del condominio (`PATCH /api/complejos/:id { mora_monto }`; la junta no).

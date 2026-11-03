@@ -244,8 +244,11 @@ describe('módulo «Avisos por WhatsApp»', () => {
 
   it('el resultado de un voucher por WhatsApp sale si hay asistente (el bot) aunque no haya «Avisos por WhatsApp»', async () => {
     await fijarPlan('gratis', { modulos: ['asistente'], dias: 20 });
+    // Aquí se prueba el permiso por plan: la administración ya encendió «pago validado» para WhatsApp (por defecto va sólo por correo).
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { whatsapp_avisos: ['pago_validado'] } });
     await aviso('whatsapp', 'pago_validado', { entidad: 'recibo', id: reciboId });
     assert.equal((await procesarCola(deps())).enviadas, 1);
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_rechazado', 'cierre_pendiente'] } });
   });
 
   it('un aviso de la plataforma (sin condominio, p. ej. «IA caída») no depende de ningún plan', async () => {
