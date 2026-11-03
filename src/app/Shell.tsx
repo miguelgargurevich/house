@@ -11,6 +11,7 @@ import { useEscritorio, usePanelAbierto } from './asistente/useDock';
 import { Pista } from './Pista';
 import { useBarra } from './useBarra';
 import { BandaSoloLectura } from './BandaSoloLectura';
+import { InstalarApp } from './InstalarApp';
 import { CondominioProvider } from './CondominioProvider';
 import { SoloLecturaProvider } from './SoloLecturaProvider';
 import { SelectorCondominio } from './SelectorCondominio';
@@ -145,6 +146,7 @@ function ShellInterior() {
 
       {/* Hasta 1600 px el contenido ocupa el ancho de la ventana (antes 1152 px: en un monitor de 1920 quedaban tablas con scroll). */}
       <main id="contenido" className="mx-auto w-full max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8">
+        <InstalarApp />
         <Outlet />
       </main>
       </div>

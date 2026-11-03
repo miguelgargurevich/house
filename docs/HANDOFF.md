@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Torre instalable en el celular (Claude Code, Opus 5.5) — push: no
+
+- Pedido de Miguel: «necesito que se pueda usar en teléfonos… que se pueda copiar como ícono en el mobile como lo hacemos». Hecho por Opus sin delegar (urgente, presentación del día).
+- `public/site.webmanifest`: `display` de `browser` a `standalone` (antes, el ícono de inicio abría una pestaña del navegador), `id: "/"`, `start_url: "/login"` (con sesión redirige al inicio de su rol; sin sesión no muestra la portada de marketing).
+- `index.html`: metas `mobile-web-app-capable`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-title` («Torre») y `status-bar-style`.
+- Aviso «Ten Torre en tu celular» (`src/app/InstalarApp.tsx` + `instalar.ts`), arriba del contenido del Shell y sólo por debajo de `lg`: en Android/Chrome, botón «Instalar Torre» (`beforeinstallprompt`, escuchado desde `main.tsx` porque llega antes del login); en Safari de iPhone, «Toca Compartir y luego Agregar a inicio»; nada si ya está instalada, si se descartó (`localStorage` `torre-instalar-descartado`) o en otro navegador.
+- Sin service worker a propósito (no hace falta para instalar y evita servir versiones viejas en caché).
+- Pruebas: `tests/instalar-app.test.ts` (manifest, metas, Shell, `modoInstalar`). Probado en el navegador a 375 px simulando el aviso de Chrome: se ve, sin desborde, y la X lo oculta y lo recuerda.
+
+---
+
 ## 2026-11-03 — Avisos con el dominio de Torre y sin «Condominio Condominio» (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: «Sí, corrígelo» (visto en el video 1 antes de presentar a administradores). Tarea chica, hecha por Opus sin delegar.
