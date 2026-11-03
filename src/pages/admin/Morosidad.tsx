@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { ArrowDownTrayIcon, CheckCircleIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, CheckCircleIcon, ChevronRightIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList, useResource } from '../../api';
 import { simboloDe } from '../../lib/paises';
-import { Badge, Button, Card, DataTable, Modal, PageHeader, Skeleton, StatStrip, dinero, fechaCorta, periodo, sumaPorMoneda } from '../../ui';
+import { Badge, Button, Card, DataTable, IconButton, Modal, PageHeader, Skeleton, StatStrip, dinero, fechaCorta, periodo, sumaPorMoneda } from '../../ui';
 import type { Column } from '../../ui';
 import { descargarCSV } from './_parts/cobranza/csv';
 import { hoyISO } from './_parts/cobranza/comun';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { AvisoModulo } from '../shared/_parts/AvisoModulo';
+import { EstadoCuentaModal } from '../shared/estado-cuenta/EstadoCuentaModal';
 import { MantenimientoAdminModal } from './_parts/mantenimientos/MantenimientoAdminModal';
 
 type Ref = { id?: number; codigo?: string; nombre?: string } | string | null | undefined;
@@ -38,6 +39,7 @@ export default function Morosidad() {
   // Clic en una unidad: con un solo mes vencido abre su detalle; con varios, primero la lista de meses.
   const [elegida, setElegida] = useState<Moroso | null>(null);
   const [detalle, setDetalle] = useState<{ reciboId: number; unidadId: number } | null>(null);
+  const [estadoCuenta, setEstadoCuenta] = useState<{ id: number; codigo: string } | null>(null);
   function abrir(m: Moroso) {
     const unidadId = idUnidad(m);
     if (unidadId == null || !m.recibos?.length) return;
@@ -81,7 +83,20 @@ export default function Morosidad() {
     { key: 'deuda', header: 'Deuda', align: 'right', cell: m => <span className="num font-medium">{dinero(m.deuda_total, m.moneda)}</span> },
     { key: 'meses', header: 'Meses vencidos', align: 'right', hideBelow: 'md', cell: m => <span className="num">{m.recibos?.length ?? '—'}</span> },
     { key: 'atraso', header: 'Atraso', cell: m => <Badge tone={m.dias_max_atraso >= 30 ? 'bad' : 'warn'}>{m.dias_max_atraso} {m.dias_max_atraso === 1 ? 'día' : 'días'}</Badge> },
-    { key: 'ver', header: '', align: 'right', cell: () => <ChevronRightIcon className="ml-auto h-4 w-4 text-muted" aria-hidden="true" /> },
+    { key: 'ver', header: '', align: 'right', cell: m => {
+      const id = idUnidad(m);
+      return (
+        <div className="flex items-center justify-end gap-1">
+          {id != null && (
+            // El clic no debe abrir también el detalle del mes (la fila entera es tocable).
+            <span onClick={ev => ev.stopPropagation()}>
+              <IconButton label={`Estado de cuenta de la unidad ${texto(m.unidad)}`} onClick={() => setEstadoCuenta({ id, codigo: texto(m.unidad) })}><DocumentTextIcon className="h-4 w-4" /></IconButton>
+            </span>
+          )}
+          <ChevronRightIcon className="h-4 w-4 text-muted" aria-hidden="true" />
+        </div>
+      );
+    } },
   ];
 
   // Los reportes son del plan Pro: sin él el servidor responde 403 (MODULO_NO_ACTIVO) y se muestra el aviso con el enlace a Mi plan, no un error.
@@ -151,6 +166,7 @@ export default function Morosidad() {
           </ul>
         )}
       </Modal>
+      <EstadoCuentaModal unidades={estadoCuenta ? [estadoCuenta] : []} unidadId={estadoCuenta?.id ?? null} onClose={() => setEstadoCuenta(null)} />
       {detalle && <MantenimientoAdminModal reciboId={detalle.reciboId} unidadId={detalle.unidadId} onClose={() => setDetalle(null)} onCambio={() => { void list.reload(); void cifras.reload(); }} />}
     </>
   );

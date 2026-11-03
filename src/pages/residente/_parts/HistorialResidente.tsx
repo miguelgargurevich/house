@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { ChartBarIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../../api';
-import { Card, EmptyState, ErrorState, PageHeader, Skeleton, TabPanel, Tabs } from '../../../ui';
+import { Button, Card, EmptyState, ErrorState, PageHeader, Skeleton, TabPanel, Tabs } from '../../../ui';
+import { EstadoCuentaModal } from '../../shared/estado-cuenta/EstadoCuentaModal';
 import { PagosResidente } from './PagosResidente';
 import { VistaAcumulado } from './HistorialAcumulado';
 import { VistaAgua, VistaPuntualidad } from './HistorialAguaPuntualidad';
@@ -27,6 +28,7 @@ export function HistorialResidente() {
   const [pestana, setPestana] = useState<Pestana>('resumen');
   const [unidad, setUnidad] = useState('');
   const [anio, setAnio] = useState('');
+  const [estadoCuenta, setEstadoCuenta] = useState(false);
   const sp = new URLSearchParams();
   if (unidad) sp.set('unidad_id', unidad);
   if (anio) sp.set('anio', anio);
@@ -37,7 +39,10 @@ export function HistorialResidente() {
 
   return (
     <>
-      <PageHeader title="Mi historial" description="Cómo evolucionan tus pagos por concepto y acumulados, tu agua y tu puntualidad, con tus pagos al final." />
+      <PageHeader title="Mi historial"
+        description="Cómo evolucionan tus pagos por concepto y acumulados, tu agua y tu puntualidad, con tus pagos al final."
+        actions={data && data.unidades.length > 0 && <Button variant="secondary" icon={<DocumentTextIcon className="h-4 w-4" />} onClick={() => setEstadoCuenta(true)}>Estado de cuenta</Button>}
+      />
       <div className="mb-6 max-w-full">
         <Tabs<Pestana> value={pestana} onChange={setPestana} idBase="historial" label="Secciones de tu historial" items={[...VISTAS.map(({ id, label }) => ({ id, label })), { id: 'pagos', label: 'Pagos' }]} />
       </div>
@@ -63,6 +68,13 @@ export function HistorialResidente() {
       <TabPanel idBase="historial" id="pagos" value={pestana}>
         <PagosResidente />
       </TabPanel>
+
+      {/* Con una unidad elegida arriba se abre ésa; con varias, la primera y el selector del modal para cambiar. */}
+      <EstadoCuentaModal
+        unidades={(data?.unidades ?? []).map(u => ({ id: u.id, codigo: u.codigo }))}
+        unidadId={estadoCuenta && data && data.unidades.length > 0 ? Number(unidad) || data.unidades[0]!.id : null}
+        onClose={() => setEstadoCuenta(false)}
+      />
     </>
   );
 }
