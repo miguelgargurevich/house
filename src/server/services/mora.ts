@@ -16,6 +16,7 @@ import { periodoTexto } from '../lib/periodo';
 import { formatoDinero } from '../../lib/paises';
 import { fechaTexto } from './avisos/plantillas';
 import { moduloActivo } from './comercial/modulos';
+import { PAGO_VIGENTE } from '../lib/pagoVigente';
 
 type Tx = Prisma.TransactionClient;
 
@@ -92,7 +93,7 @@ export async function evaluarMora(tx: Tx, o: { complejoId: number; estructuraId:
   if (hoyEn(zona, moraDeps.ahora()).getTime() <= vence) return { ...vacio, aunNoVence: true };
   const cargos = await tx.reciboConceptoUnidad.findMany({
     where: { unidad_id: { in: o.unidadIds }, reciboConcepto: { recibo_id: anterior.id } },
-    select: { unidad_id: true, monto: true, estado_pago: true, fecha_pago: true, pagos: { where: { estado_validacion: { not: 'rechazado' } }, select: { id: true, grupo: true, grupo_principal: true, monto: true, fecha_pago: true, fecha_origen: true, estado_validacion: true } } },
+    select: { unidad_id: true, monto: true, estado_pago: true, fecha_pago: true, pagos: { where: PAGO_VIGENTE, select: { id: true, grupo: true, grupo_principal: true, monto: true, fecha_pago: true, fecha_origen: true, estado_validacion: true } } },
   });
   const tarde = new Set<number>();
   const detalle = new Map<number, DetalleMoraUnidad>(o.unidadIds.map((id) => [id, { estado: 'sin_deuda', deuda: '0.00', pagos: [], revisar: false }]));

@@ -54,6 +54,7 @@ model Usuario {
   complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
   pagosValidados    Pago[]                 @relation("PagoValidador")
   pagosConformes    Pago[]                 @relation("PagoConformidad")
+  pagosAnulados     Pago[]                 @relation("PagoAnulador")
   comprobantesSubidos ArchivoComprobante[]
   aviso_email       Boolean                @default(true)
   aviso_whatsapp    Boolean                @default(false)
@@ -406,6 +407,11 @@ model Pago {
   conformidad_at            DateTime?
   conformidad_por_id        Int?
   conformidad_por           Usuario?              @relation("PagoConformidad", fields: [conformidad_por_id], references: [id], onDelete: SetNull)
+  /// Anulación de un pago ya validado (`estado_validacion = 'anulado'`): quién, cuándo y por qué. El pago no se borra; deja de contar en todo. Ver `services/anulacionPago.ts`.
+  anulado_at                DateTime?
+  anulado_por_id            Int?
+  motivo_anulacion          String?
+  anulado_por               Usuario?              @relation("PagoAnulador", fields: [anulado_por_id], references: [id], onDelete: SetNull)
   comprobante               ArchivoComprobante?
   validado_por_ia           Boolean               @default(false)
   evaluacion                EvaluacionComprobante?

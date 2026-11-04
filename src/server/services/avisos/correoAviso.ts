@@ -13,6 +13,7 @@ const BOTON: Record<TipoAviso, string> = {
   vencido: 'Regularizar mi pago',
   pago_validado: 'Ver mis pagos',
   pago_rechazado: 'Revisar y volver a enviar mi pago',
+  pago_anulado: 'Ver mis recibos',
   comunicado: 'Ver el comunicado',
   cierre_pendiente: 'Abrir el cierre',
   recordatorio_deuda: 'Pagar y subir mi voucher',
@@ -111,6 +112,16 @@ function contenido(tipo: TipoAviso, d: DatosAviso, asunto: string, cuerpo: strin
         boton,
       };
     }
+    case 'pago_anulado':
+      return {
+        ...base,
+        parrafos: [hola, `La administración anuló tu pago de ${d.periodo}. Tu recibo volvió a quedar pendiente. Si crees que es un error, comunícate con la administración.`],
+        resumen: {
+          total: { etiqueta: 'Pago anulado', valor: d.monto, alerta: true },
+          filas: [...filasDeUnidades(d), { etiqueta: 'Periodo', valor: d.periodo }, ...(d.concepto ? [{ etiqueta: 'Concepto', valor: d.concepto }] : []), ...(d.motivo ? [{ etiqueta: 'Motivo', valor: d.motivo, alerta: true }] : [])],
+        },
+        boton,
+      };
     case 'comunicado':
       return { ...base, titulo: d.titulo ?? asunto, parrafos: [hola, ...(d.texto ?? '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)], boton };
     case 'cierre_pendiente':

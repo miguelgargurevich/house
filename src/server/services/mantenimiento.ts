@@ -120,7 +120,7 @@ const includeDetalle = {
   cargos: {
     include: {
       reciboConcepto: { select: { orden: true, es_recargo: true, concepto: { select: { id: true, nombre: true } } } },
-      pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'asc' }] as Prisma.PagoOrderByWithRelationInput[], include: { comprobante: { select: selectComprobante }, evaluacion: { select: selectEvaluacion }, validado_por: { select: { id: true, nombre: true } }, conformidad_por: { select: { id: true, nombre: true } }, usuario: { select: { id: true, nombre: true } } } },
+      pagos: { orderBy: [{ fecha_pago: 'desc' }, { id: 'asc' }] as Prisma.PagoOrderByWithRelationInput[], include: { comprobante: { select: selectComprobante }, evaluacion: { select: selectEvaluacion }, validado_por: { select: { id: true, nombre: true } }, anulado_por: { select: { id: true, nombre: true } }, conformidad_por: { select: { id: true, nombre: true } }, usuario: { select: { id: true, nombre: true } } } },
     },
   },
 } as const;
@@ -178,6 +178,10 @@ export interface PagoDeMantenimiento {
   fecha_origen: string;
   estado_validacion: string;
   motivo_rechazo: string | null;
+  /** Sólo si el pago se anuló: cuándo y por qué (el vecino lo ve; quién lo anuló sólo lo ve la administración). */
+  anulado_at: Date | null;
+  motivo_anulacion: string | null;
+  anulado_por?: { id: number; nombre: string } | null;
   validado_por_ia: boolean;
   registrado_por: { id: number; nombre: string } | null;
   comprobante: unknown;
@@ -229,9 +233,9 @@ export async function detalleMantenimiento(reciboId: number, unidadId: number, o
     const vista = o.vista === 'completa' ? base : conVistaResidente(base);
     return {
       id: p.id, grupo: p.grupo, suelto, monto: monto.toFixed(2), conceptos, metodo_pago: p.metodo_pago, referencia: p.referencia, fecha_pago: p.fecha_pago, fecha_origen: p.fecha_origen,
-      estado_validacion: p.estado_validacion, motivo_rechazo: p.motivo_rechazo, validado_por_ia: p.validado_por_ia,
+      estado_validacion: p.estado_validacion, motivo_rechazo: p.motivo_rechazo, anulado_at: p.anulado_at, motivo_anulacion: p.motivo_anulacion, validado_por_ia: p.validado_por_ia,
       registrado_por: p.usuario ?? null, comprobante: p.comprobante, evaluacion: vista.evaluacion,
-      ...(o.vista === 'completa' ? { conformidad: formatearConformidad(p), tesorero_registrado: tesorero } : {}),
+      ...(o.vista === 'completa' ? { conformidad: formatearConformidad(p), tesorero_registrado: tesorero, anulado_por: p.anulado_por ?? null } : {}),
     };
   };
   for (const c of cargos) {

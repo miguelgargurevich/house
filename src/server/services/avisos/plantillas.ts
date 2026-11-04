@@ -2,7 +2,7 @@ import { formatoDinero } from '../../../lib/paises';
 import { nombreMes, periodoTexto } from '../../lib/periodo';
 import { hoyEn } from '../../lib/fechas';
 
-export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente', 'recordatorio_deuda'] as const;
+export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'pago_anulado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente', 'recordatorio_deuda'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
 export const ENLACE_APP = 'https://torrecondominios.com';
@@ -29,7 +29,7 @@ export interface DatosAviso {
   dias?: number;
   /** Mora (ya formateada, p. ej. `S/ 20` o `US$ 20`) que se agrega al recibo del mes siguiente si no se paga a tiempo. Sin ella, el recordatorio no la menciona. */
   mora?: string;
-  /** Motivo del rechazo (`pago_rechazado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
+  /** Motivo del rechazo (`pago_rechazado`) o de la anulación (`pago_anulado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
   motivo?: string;
   /** Condominio del recibo: firma el mensaje. */
   condominio?: string | null;
@@ -77,7 +77,7 @@ export function rutaDeAviso(tipo: TipoAviso, rol: string | null | undefined, cen
   const residente = rol === 'propietario' || rol === 'inquilino' ? `/${rol}` : null;
   switch (tipo) {
     case 'recibo_emitido': case 'por_vencer': case 'vence_hoy': case 'vencido': case 'recordatorio_deuda': return residente ? `${residente}/cargos` : '';
-    case 'pago_validado': case 'pago_rechazado': return residente ? `${residente}/pagos` : '';
+    case 'pago_validado': case 'pago_rechazado': case 'pago_anulado': return residente ? `${residente}/pagos` : '';
     case 'comunicado': return residente ? `${residente}/comunicados` : rol === 'admin' ? '/admin/comunicados' : '';
     case 'cierre_pendiente': return central ? '/junta/cierre-central' : '/junta/cierre';
     case 'ia_caida': case 'ia_restablecida': return '/superadmin/llavero';
@@ -172,6 +172,11 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
       return {
         asunto: `No pudimos validar tu pago de ${d.periodo}`,
         cuerpo: `${hola}\n\nNo pudimos validar tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Revisa el detalle y vuelve a enviar tu comprobante.\n\n${departamentos(d)}${cierre(d)}`,
+      };
+    case 'pago_anulado':
+      return {
+        asunto: `Anulamos tu pago de ${d.periodo}`,
+        cuerpo: `${hola}\n\nLa administración anuló tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Tu recibo volvió a quedar pendiente. Si crees que es un error, comunícate con la administración; si necesitas pagarlo, súbenos tu comprobante.\n\n${departamentos(d)}${cierre(d)}`,
       };
     case 'ia_caida':
       return {

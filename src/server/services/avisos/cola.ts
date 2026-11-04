@@ -61,8 +61,8 @@ const laPaga = (usuarioId: number): Prisma.UnidadWhereInput => ({
   ],
 });
 
-/** Resultado de un voucher. Nunca salen por WhatsApp; el validado no se encola (el vecino lo ve en «Mis recibos») y el rechazado sólo sale por correo. */
-export const RESULTADOS_PAGO: readonly string[] = ['pago_validado', 'pago_rechazado'];
+/** Resultado de un voucher. Nunca salen por WhatsApp; el validado no se encola (el vecino lo ve en «Mis recibos») y el rechazado y el anulado sólo salen por correo. */
+export const RESULTADOS_PAGO: readonly string[] = ['pago_validado', 'pago_rechazado', 'pago_anulado'];
 
 export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number } | { entidad: `deuda:${string}`; id: number } | { entidad: `cierre:${string}`; id: number } | { entidad: `cierre-central:${string}`; id: number };
 
@@ -138,6 +138,35 @@ async function cargarDatosBase(tipo: TipoAviso, usuario: { id: number; nombre: s
     const p = anio && mes ? await cierrePendiente(ref.id, anio, mes) : null;
     if (!p) return null;
     return { datos: { nombre: usuario.nombre, periodo: p.periodo, monto: '', vencimiento: '', concepto: p.lineas.join(', '), bloque: p.bloque, condominio: p.condominio } };
+  }
+  // Pago anulado: dice lo que se anuló de verdad (todo el grupo del mantenimiento, con el monto de cada concepto), no el cargo de una sola fila.
+  if (tipo === 'pago_anulado' && ref.entidad === 'pago') {
+    const p = await prisma.pago.findUnique({ where: { id: ref.id }, select: { id: true, grupo: true } });
+    if (!p) return null;
+    const filas = await prisma.pago.findMany({
+      where: p.grupo != null ? { grupo: p.grupo } : { id: p.id },
+      orderBy: { id: 'asc' },
+      select: { monto: true, reciboConceptoUnidad: { select: { unidad: { select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } } } },
+    });
+    const primero = filas[0]?.reciboConceptoUnidad;
+    const recibo = primero?.reciboConcepto?.recibo;
+    if (!primero || !recibo) return null;
+    const moneda = primero.unidad?.complejo?.moneda;
+    const total = filas.reduce((s, f) => s.plus(f.monto), new Prisma.Decimal(0));
+    const conceptos = filas.flatMap((f) => (f.reciboConceptoUnidad?.reciboConcepto?.concepto?.nombre ? [{ nombre: f.reciboConceptoUnidad.reciboConcepto.concepto.nombre, monto: dineroTexto(f.monto, moneda) }] : []));
+    return {
+      datos: {
+        nombre: usuario.nombre,
+        periodo: periodoTexto(recibo.mes, recibo.anio),
+        concepto: conceptos.map((c) => c.nombre).join(', ') || undefined,
+        conceptos,
+        monto: dineroTexto(total, moneda),
+        vencimiento: fechaTexto(recibo.fecha_vencimiento),
+        vence: recibo.fecha_vencimiento,
+        condominio: primero.unidad?.complejo?.nombre ?? null,
+        departamentos: primero.unidad ? [{ codigo: primero.unidad.codigo, torre: primero.unidad.estructura?.nombre ?? null }] : [],
+      },
+    };
   }
   if (ref.entidad === 'cargo' || ref.entidad === 'pago') {
     const cargoId = ref.entidad === 'cargo' ? ref.id : (await prisma.pago.findUnique({ where: { id: ref.id }, select: { recibo_concepto_unidad_id: true } }))?.recibo_concepto_unidad_id;
@@ -250,7 +279,7 @@ export async function canalesDe(tipo: TipoAviso, u: { id: number; email: string 
   if (tipo === 'pago_validado') return [];
   const canales: Canal[] = [];
   if (u.aviso_email && u.email && !correoSinBuzon(u.email)) canales.push('email');
-  if (tipo === 'pago_rechazado') return canales;
+  if (tipo === 'pago_rechazado' || tipo === 'pago_anulado') return canales;
   const whatsappPermitido = lista == null || lista.includes(tipo);
   if (whatsappPermitido && u.aviso_whatsapp && (u.telefono?.trim() || (await numeroVinculado(u.id)))) canales.push('whatsapp');
   return canales;
@@ -552,7 +581,7 @@ async function enviarCorreoDeAviso(deps: DepsAvisos, n: { tipo: string; asunto: 
     const ref = n.ref_entidad != null && n.ref_id != null ? ({ entidad: n.ref_entidad, id: n.ref_id } as RefAviso) : null;
     const cargado = ref ? await cargarDatos(tipo, { id: n.usuario_id, nombre: n.usuario.nombre, rol: n.usuario.rol }, ref, deps.ahora()) : null;
     // El motivo del rechazo sólo vive en el texto guardado: se toma de ahí para que el correo y el texto digan lo mismo.
-    const motivo = tipo === 'pago_rechazado' ? /Motivo: ([\s\S]*?)\n\nRevisa el detalle/.exec(n.cuerpo)?.[1] : undefined;
+    const motivo = tipo === 'pago_rechazado' ? /Motivo: ([\s\S]*?)\n\nRevisa el detalle/.exec(n.cuerpo)?.[1] : tipo === 'pago_anulado' ? /Motivo: ([\s\S]*?)\n\nTu recibo volvió/.exec(n.cuerpo)?.[1] : undefined;
     const datos = cargado ? { ...cargado.datos, ...(motivo ? { motivo } : {}) } : null;
     // Marca de la empresa que escribe (sólo con `marca_propia` activa): cabecera con su logo, nombre y color. Si no se puede leer, el correo sale con la cara de Torre.
     const marca = ref ? await empresaDeAviso(ref).then(marcaParaCorreo).catch(() => null) : null;

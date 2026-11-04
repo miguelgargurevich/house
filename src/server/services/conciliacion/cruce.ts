@@ -163,7 +163,7 @@ export const bloquearCuenta = (tx: Tx, medioId: number): Promise<number> => tx.$
 
 /**
  * Deja la cuenta coherente antes de cruzar: un abono «conciliado» cuyo pago ya no existe (se borró) vuelve a `sin_pago`, y uno conciliado SOLO con un pago que
- * luego se rechazó se suelta (lo vinculado a mano se respeta: la administración lo decidió).
+ * luego se rechazó o se anuló se suelta (lo vinculado a mano se respeta: la administración lo decidió).
  */
 export async function sanearCuenta(tx: Tx, medioId: number): Promise<void> {
   await tx.movimientoBancario.updateMany({
@@ -171,7 +171,7 @@ export async function sanearCuenta(tx: Tx, medioId: number): Promise<void> {
     data: { estado: 'sin_pago', vinculo: null, vinculado_por_id: null, vinculado_at: null, manual: false, candidatos: [], motivo_revision: null },
   });
   await tx.movimientoBancario.updateMany({
-    where: { medio_pago_id: medioId, estado: 'conciliado', vinculo: 'automatico', pago: { estado_validacion: 'rechazado' } },
+    where: { medio_pago_id: medioId, estado: 'conciliado', vinculo: 'automatico', pago: { estado_validacion: { in: ['rechazado', 'anulado'] } } },
     data: { estado: 'sin_pago', pago_id: null, vinculo: null, vinculado_por_id: null, vinculado_at: null, candidatos: [], motivo_revision: null },
   });
 }

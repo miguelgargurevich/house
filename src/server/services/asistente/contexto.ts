@@ -84,7 +84,7 @@ const ROL_TEXTO: Record<Rol, string> = {
   jardineria: 'Personal de jardinería',
 };
 const CARGO_TEXTO: Record<string, string> = { presidente: 'Presidente', tesorero: 'Tesorero', secretario: 'Secretario', vocal: 'Vocal' };
-const ESTADO_PAGO: Record<string, string> = { validado: 'validado', por_validar: 'en revisión', rechazado: 'rechazado' };
+const ESTADO_PAGO: Record<string, string> = { validado: 'validado', por_validar: 'en revisión', rechazado: 'rechazado', anulado: 'anulado (no cuenta como pagado)' };
 
 /** Texto libre que viene de la base (nombres, títulos): sin saltos de línea ni caracteres de control y acotado, para que no inyecte instrucciones. */
 // eslint-disable-next-line no-control-regex -- justamente se buscan caracteres de control

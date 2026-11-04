@@ -37,6 +37,7 @@ const TIPO: Record<string, string> = {
   vencido: 'Vencido',
   pago_validado: 'Pago validado',
   pago_rechazado: 'Pago rechazado',
+  pago_anulado: 'Pago anulado',
   ia_caida: 'IA sin servicio',
   ia_restablecida: 'IA restablecida',
   comunicado: 'Comunicado',

@@ -74,7 +74,7 @@ const cargosEn = (e: Ubicacion): Prisma.ReciboConceptoUnidadWhereInput => (e.con
 const pagosEn = (e: Ubicacion): Prisma.PagoWhereInput => (e.condominio_id || e.estructura_id ? { reciboConceptoUnidad: { unidad: unidadEn(e) } } : {});
 
 const ESTADOS_CARGO = ['pagado', 'pendiente', 'vencido', 'en_revision'] as const;
-const ESTADOS_PAGO = ['por_validar', 'validado', 'rechazado'] as const;
+const ESTADOS_PAGO = ['por_validar', 'validado', 'rechazado', 'anulado'] as const;
 
 const selectCargo = {
   id: true,
@@ -463,7 +463,7 @@ export const pagos = defineHerramienta({
   nombre: 'pagos',
   descripcion:
     'Pagos registrados (con o sin comprobante): monto, fecha, método, estado de validación, unidad y block. Úsala para «¿qué pagos llegaron esta semana?», «pagos rechazados» o «pagos de la A-101». ' +
-    'Estados: por_validar, validado, rechazado. Fechas AAAA-MM-DD (hora de Lima). Ejemplo: {"estado":"validado","desde":"2026-10-01","hasta":"2026-10-15"}.',
+    'Estados: por_validar, validado, rechazado, anulado (un pago validado que la administración anuló: no cuenta como pagado). Fechas AAAA-MM-DD (hora de Lima). Ejemplo: {"estado":"validado","desde":"2026-10-01","hasta":"2026-10-15"}.',
   entrada: z.strictObject({
     estado: z.enum(ESTADOS_PAGO).optional(),
     metodo: textoCorto(30).optional().describe('transferencia, yape, plin, efectivo…'),

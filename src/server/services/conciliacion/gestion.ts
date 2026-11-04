@@ -272,6 +272,7 @@ export async function vincular(cuenta: CuentaCompleta, movimientoId: number, pag
     const pago = principal == null ? null : await tx.pago.findFirst({ where: { AND: [{ id: principal }, soloPrincipales, alcanceDePagos(cuenta)] }, select: { id: true, estado_validacion: true, movimientoBancario: { select: { id: true } } } });
     if (!pago) throw notFound('Pago');
     if (pago.estado_validacion === 'rechazado') throw invalid('Un pago rechazado no se concilia con un abono', { pago_id: 'Pago rechazado' });
+    if (pago.estado_validacion === 'anulado') throw invalid('Un pago anulado no se concilia con un abono', { pago_id: 'Pago anulado' });
     if (pago.movimientoBancario) throw conflict('Ese pago ya está conciliado con otro abono');
     await tx.movimientoBancario.update({ where: { id: m.id }, data: { estado: 'conciliado', pago_id: pago.id, vinculo: 'manual', manual: true, vinculado_por_id: usuarioId, vinculado_at: new Date(), motivo_ignorar: null, candidatos: [] } });
     await cruzarEn(tx, cuenta); // lo que sugería este pago a otros abonos se recalcula
