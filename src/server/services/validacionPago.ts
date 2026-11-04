@@ -1,7 +1,24 @@
 /** Cierre de un pago por validar (validado o rechazado), compartido por la validación manual y la automática de la IA. */
+import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { conflict } from '../errors';
 import { encolarAviso, pagadoresDe } from './avisos';
+
+/**
+ * Deja el cargo según sus pagos: pagado si lo VALIDADO lo cubre, en revisión si hay un pago por validar, pendiente en otro caso.
+ * Un pago rechazado o anulado no cuenta (sólo se suman los `validado` y se miran los `por_validar`).
+ */
+export async function sincronizarCargo(tx: Prisma.TransactionClient, cargoId: number) {
+  const cargo = await tx.reciboConceptoUnidad.findUnique({ where: { id: cargoId }, select: { monto: true } });
+  if (!cargo) return;
+  const { _sum } = await tx.pago.aggregate({ where: { recibo_concepto_unidad_id: cargoId, estado_validacion: 'validado' }, _sum: { monto: true } });
+  const pagado = new Prisma.Decimal(_sum.monto ?? 0).gte(cargo.monto);
+  const porValidar = !pagado && (await tx.pago.count({ where: { recibo_concepto_unidad_id: cargoId, estado_validacion: 'por_validar' } })) > 0;
+  await tx.reciboConceptoUnidad.update({
+    where: { id: cargoId },
+    data: pagado ? { estado_pago: 'pagado', fecha_pago: new Date() } : { estado_pago: porValidar ? 'en_revision' : 'pendiente', fecha_pago: null },
+  });
+}
 
 export interface Cierre {
   pagoId: number;
@@ -66,10 +83,10 @@ export async function cerrarPago(c: Cierre): Promise<void> {
 }
 
 /**
- * Avisa del resultado. Un pago validado NO avisa: el vecino lo ve en «Mis recibos». Un rechazo sale sólo por correo, a quien registró el pago
+ * Avisa del resultado. Un pago validado NO avisa: el vecino lo ve en «Mis recibos». Un rechazo o una anulación salen sólo por correo, a quien registró el pago
  * o, si no hay, a quien paga la unidad (su responsable de pago; sin personas cargadas, el inquilino o, si no tiene, el propietario). Es idempotente por pago (lo resuelve `encolarAviso`) y nunca rompe la validación.
  */
-export async function avisarResultado(pagoId: number, estado: 'validado' | 'rechazado', motivo?: string | null): Promise<void> {
+export async function avisarResultado(pagoId: number, estado: 'validado' | 'rechazado' | 'anulado', motivo?: string | null): Promise<void> {
   if (estado === 'validado') return;
   try {
     const p = await prisma.pago.findUnique({
@@ -80,7 +97,7 @@ export async function avisarResultado(pagoId: number, estado: 'validado' | 'rech
     const u = p.reciboConceptoUnidad?.unidad;
     const destinatario = p.usuario_id ?? (u ? (await pagadoresDe([u])).get(u.id) ?? null : null);
     if (destinatario == null) return;
-    await encolarAviso('pago_rechazado', destinatario, { entidad: 'pago', id: pagoId }, { motivo: motivo ?? undefined });
+    await encolarAviso(estado === 'anulado' ? 'pago_anulado' : 'pago_rechazado', destinatario, { entidad: 'pago', id: pagoId }, { motivo: motivo ?? undefined });
   } catch (err) {
     console.error('[avisos] no se pudo encolar el aviso del pago', pagoId, err instanceof Error ? err.name : 'error');
   }

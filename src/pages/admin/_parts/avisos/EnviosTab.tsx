@@ -37,10 +37,13 @@ const TIPO: Record<string, string> = {
   vencido: 'Vencido',
   pago_validado: 'Pago validado',
   pago_rechazado: 'Pago rechazado',
+  pago_anulado: 'Pago anulado',
   ia_caida: 'IA sin servicio',
   ia_restablecida: 'IA restablecida',
   comunicado: 'Comunicado',
   cierre_pendiente: 'Cierre del mes pendiente',
+  recordatorio_deuda: 'Recordatorio de deuda',
+  recibo_anulado: 'Recibo anulado',
 };
 const CANAL = { email: 'Correo', whatsapp: 'WhatsApp' } as const;
 const ESTADO: Record<Estado, { tone: Tone; label: string }> = {

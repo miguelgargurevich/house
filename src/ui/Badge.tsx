@@ -30,6 +30,7 @@ const estados: Record<string, { tone: Tone; label: string }> = {
   por_validar: { tone: 'warn', label: 'Por validar' },
   validado: { tone: 'ok', label: 'Validado' },
   rechazado: { tone: 'bad', label: 'Rechazado' },
+  anulado: { tone: 'neutral', label: 'Anulado' },
   emitido: { tone: 'info', label: 'Emitido' },
   activa: { tone: 'ok', label: 'Activa' },
   activo: { tone: 'ok', label: 'Activo' },

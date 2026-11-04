@@ -1,11 +1,11 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 4-nov-2026 (10)",
+  "kicker": "Manual de usuario · versión del 4-nov-2026 (14)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
     "torrecondominios.com",
-    "Versión 3-nov-2026",
+    "Versión 4-nov-2026",
     "Español · Perú"
   ],
   "descripcion": "Manual de Torre por roles (administradora, junta, propietario, inquilino, personal) con capturas de datos de prueba. Corte: 4-nov-2026.",
@@ -15,7 +15,8 @@
       "etiqueta": "Para empezar",
       "parrafos": [
         "Torre ordena la cobranza del condominio: la administración emite el mantenimiento de cada mes, cada vecino lo ve en su celular y lo paga subiendo su voucher, y la junta de su block confirma que el dinero llegó a la cuenta.",
-        "Lo que ves al entrar depende de tu rol. Busca el tuyo en la tabla y salta a su parte del manual."
+        "Lo que ves al entrar depende de tu rol. Busca el tuyo en la tabla y salta a su parte del manual.",
+        "Cada opción del menú tiene su **video corto** con la pantalla real: míralos en [Torre en video](https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html)."
       ],
       "tabla": {
         "columnas": [
@@ -27,27 +28,32 @@
           [
             "Administradora",
             "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-            "Secciones 07 a 32"
+            "Secciones 07 a 38"
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
             "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
-            "Secciones 33 a 40"
+            "Secciones 39 a 46"
           ],
           [
             "Propietario",
             "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-            "Secciones 41 a 49"
+            "Secciones 47 a 55"
           ],
           [
             "Inquilino",
             "Lo mismo que el propietario, para el departamento que alquilas",
-            "Sección 50"
+            "Sección 56"
           ],
           [
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
-            "Secciones 51 y 52"
+            "Secciones 57 y 58"
+          ],
+          [
+            "Superadmin (soporte de Torre)",
+            "Ves Torre como la ve otra persona para darle soporte, con motivo y en la auditoría",
+            "Sección 59"
           ],
           [
             "Todavía no tienes cuenta",
@@ -114,7 +120,7 @@
             "Torre Administradora",
             "S/ 2,50 por departamento al mes, desde S/ 50 al mes por condominio",
             "Sin tope",
-            "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen."
+            "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen y marca propia: tu logo, tu nombre y tu color."
           ]
         ]
       },
@@ -243,21 +249,59 @@
       "titulo": "Avisar a los vecinos",
       "etiqueta": "Administradora · Recibos",
       "parrafos": [
-        "Cuando el recibo está emitido, avisa a todos con un clic."
+        "Cuando el recibo está emitido, avisa a todos con un clic. El aviso va al **grupo de WhatsApp de cada block** (un solo mensaje para todos los de ese block) y a cada vecino **por correo**."
       ],
       "numerada": [
         "En el recibo, pulsa **Avisar a los vecinos**.",
-        "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular).",
-        "Pulsa **Enviar aviso**.",
-        "Para el grupo de WhatsApp del block, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo allí. Ese mensaje no lleva montos ni nombres. Si prefieres publicar en tus grupos desde Torre, usa un comunicado (ver «Comunicados»)."
+        "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular). Ahí mismo ves si el block tiene su grupo de WhatsApp.",
+        "Pulsa **Enviar aviso**. El mensaje al grupo del block sale solo: no hace falta copiarlo ni pegarlo.",
+        "Si quieres repetirlo a mano, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo en el grupo. Ese mensaje no lleva montos ni nombres."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg",
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Un recibo de un block sin grupo de WhatsApp sólo le llega por correo. Asígnale su grupo en WhatsApp › Mis grupos."
+      }
+    },
+    {
+      "titulo": "Anular un recibo",
+      "etiqueta": "Administradora · Recibos",
+      "parrafos": [
+        "Si emitiste un recibo con el mes o los montos equivocados, anúlalo y emítelo de nuevo. Anular **quita los cargos de todos los departamentos de ese block** y deja libre el mes. También se va la mora que la emisión le agregó. Funciona igual si el recibo vino de un Excel."
+      ],
+      "numerada": [
+        "Abre el recibo (Recibos › el mes) y pulsa **Anular recibo**.",
+        "Lee la línea del efecto: «Se quitan los cargos de 32 departamentos y podrás emitir octubre de 2026 de nuevo».",
+        "Escribe el **motivo** (queda en la auditoría con todo lo que se quitó). Deja marcada **Avisar a los vecinos** si quieres que les llegue «Se anuló el recibo de octubre de 2026 de B01-804 (Block 1). Si ya lo viste, ignóralo; te llegará el correcto». Al grupo de WhatsApp no se envía nada.",
+        "Pulsa **Anular recibo** y vuelve a emitir el mes desde Recibos."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Un recibo con pagos no se puede anular: si hay un pago por validar o validado, anúlalo o recházalo primero en Pagos. Los pagos rechazados y las lecturas de agua del recibo se van con él (los pagos rechazados quedan en la auditoría); las lecturas de agua tendrás que volver a cargarlas."
+      }
+    },
+    {
+      "titulo": "Corregir el cargo de un departamento",
+      "etiqueta": "Administradora · Recibos",
+      "parrafos": [
+        "Si el monto de un solo departamento está mal, no hace falta anular el recibo: corrige ese cargo o quítalo. El vecino no recibe aviso, porque es una corrección."
+      ],
+      "numerada": [
+        "Abre el recibo, busca el departamento y ábrelo.",
+        "En **Detalle por concepto** pulsa **Corregir cargos**.",
+        "Escribe el monto nuevo del concepto, o marca **Quitar este cargo** para que el vecino ya no lo deba.",
+        "Escribe el **motivo** y pulsa **Guardar cambio**. Queda en la auditoría con el monto anterior, el nuevo y tu nombre."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El monto no puede quedar por debajo de lo que el vecino ya pagó, y un cargo con pagos no se puede quitar: anula o rechaza ese pago primero en Pagos."
+      }
     },
     {
       "titulo": "Pagos: cómo se valida cada uno",
       "etiqueta": "Administradora · Pagos",
       "parrafos": [
-        "Cada fila es el pago de un mantenimiento completo, siempre con su voucher. Las pestañas separan **Por validar**, **Validados** y **Rechazados**. En cada pago ves si tiene voucher, qué leyó del voucher (el OCR o la IA) y si el tesorero ya confirmó.",
+        "Cada fila es el pago de un mantenimiento completo, siempre con su voucher. Las pestañas separan **Por validar**, **Validados**, **Rechazados** y **Anulados**. En cada pago ves si tiene voucher, qué leyó del voucher (el OCR o la IA) y si el tesorero ya confirmó.",
         "Para revisar uno, pulsa **Revisar**: ves el voucher, el método y la referencia, y decides **Validar pago** o **Rechazar**. Con **Registrar pago** cargas los que recibes por fuera (transferencia, Yape, Plin, efectivo o tarjeta)."
       ],
       "aviso": {
@@ -265,6 +309,32 @@
         "texto": "Un pago **no se valida sin el check del tesorero del block**: él confirma que el dinero llegó a la cuenta. Si el block no tiene tesorero, o el pago lo registró el propio tesorero, basta con la lectura automática del voucher (OCR o IA) o con la revisión de la administración."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-pago-detalle.jpg"
+    },
+    {
+      "titulo": "Anular un pago ya validado",
+      "etiqueta": "Administradora · Pagos",
+      "parrafos": [
+        "Si validaste un pago por error (por ejemplo, **un pago duplicado**), ya no hace falta pedir que lo borren: entra a **Pagos**, abre la pestaña **Validados**, pulsa **Ver** y luego **Anular pago**.",
+        "Torre te pide el **motivo** (de 5 a 200 caracteres; por ejemplo, «Pago duplicado») y te dice qué va a pasar: el recibo del departamento vuelve a quedar pendiente y el vecino recibe un aviso por correo. Al confirmar con **Anular**, el pago deja de contar como cobrado en el resumen, la rendición, el cierre del mes y el estado de cuenta.",
+        "El pago **no se borra**: queda en la pestaña **Anulados**, con quién lo anuló, cuándo y el motivo. El vecino puede volver a registrar su pago de ese recibo. Si el pago era de un mantenimiento completo, se anulan todos sus conceptos a la vez."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Sólo la administración puede anular; la junta ve los pagos anulados pero no los anula. Un pago **por validar** no se anula: se rechaza. Si el cierre del mes de ese block ya tiene todos sus pagos registrados, Torre te pide **reabrir el mes primero** (en Junta › Cierre del mes, quita el registro de las líneas) y recién entonces podrás anular."
+      }
+    },
+    {
+      "titulo": "Volver a revisar un pago rechazado",
+      "etiqueta": "Administradora · Pagos",
+      "parrafos": [
+        "Si rechazaste un pago por error (por ejemplo, **el abono sí llegó a la cuenta**), no hace falta pedirle al vecino que pague otra vez: entra a **Pagos**, abre la pestaña **Rechazados**, pulsa **Ver** y luego **Volver a revisar**.",
+        "Torre te pide el **motivo** (de 5 a 200 caracteres; por ejemplo, «Lo rechacé por error, el abono sí llegó») y te dice qué va a pasar: el pago vuelve a **Por validar** y el recibo del departamento queda en revisión. Al confirmar, el pago aparece en la pestaña **Por validar** y lo revisas como siempre. Si era el pago de un mantenimiento completo, vuelven todos sus conceptos a la vez.",
+        "El motivo del rechazo anterior y quién lo había rechazado **no se pierden**: quedan en la auditoría, junto con tu motivo. Si el tesorero ya había dado su check, hay que pedírselo otra vez: tras un rechazo, el check se limpia."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Sólo la administración puede volver a revisar; la junta no. El botón se apaga y te explica por qué cuando **el vecino ya subió otro voucher** de ese mantenimiento (revisa ese pago en lugar de este), cuando el recibo ya no existe o cuando el cierre del mes de ese block está registrado por completo (quita antes el registro de sus líneas en Junta › Cierre del mes). El vecino no recibe un aviso por reabrir: cuando valides o rechaces de nuevo, le llega el aviso de siempre."
+      }
     },
     {
       "titulo": "Medios de pago y validación con IA",
@@ -306,9 +376,29 @@
       "etiqueta": "Administradora",
       "parrafos": [
         "Las unidades con mantenimientos vencidos, de mayor a menor deuda, con los meses vencidos y los días de atraso. Arriba ves la deuda vencida total, cuántas unidades están morosas y el mayor atraso. La deuda ya descuenta los abonos parciales: si un vecino pagó una parte, ves sólo lo que falta.",
-        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. En cada fila, el ícono de documento abre su **Estado de cuenta** (ver «Estado de cuenta de un departamento»). **Exportar CSV** baja la lista."
+        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. En cada fila, el ícono de documento abre su **Estado de cuenta** (ver «Estado de cuenta de un departamento»). **Exportar CSV** baja la lista. Marca departamentos para mandarles un recordatorio de deuda (ver «Recordar a los morosos»)."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-morosidad-detalle.jpg"
+    },
+    {
+      "titulo": "Recordar a los morosos",
+      "etiqueta": "Administradora",
+      "parrafos": [
+        "Si hoy vence un pago o un departamento sigue sin pagar, puedes mandarle un recordatorio desde **Morosidad**, sin configurar nada: marcas los departamentos y Torre arma el mensaje con lo que debe cada uno.",
+        "El recordatorio le llega sólo al **responsable de pago** de cada departamento (no a toda la familia), por correo, por WhatsApp o por ambos. A un mismo departamento se le recuerda **una vez al día**."
+      ],
+      "numerada": [
+        "Entra a **Cobranza › Morosidad**. Si quieres, filtra por condominio o block.",
+        "Marca la casilla de cada departamento que quieres recordar, o **Marcar todos los de esta página**.",
+        "Pulsa **Enviar recordatorio**.",
+        "Elige **Correo**, **WhatsApp** o ambos. Torre te muestra, sin enviar nada todavía, cuántos responsables recibirán el aviso, cuántos por correo y por WhatsApp, cuántos no tienen un canal activo, cuántos ya recibieron un recordatorio hoy y lo que queda de la cuota mensual de WhatsApp del condominio.",
+        "Lee el texto: cada responsable verá su nombre, lo que debe su departamento y el enlace para pagar. Pulsa **Enviar**.",
+        "En **Comunicados**, pestaña **Notificaciones**, ves qué salió y qué quedó pendiente."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El WhatsApp gasta la cuota del mes y cuenta para el tope diario del número: lo que no entre se omite o sale mañana. Si el vecino paga antes de que salga el mensaje, no se le envía. Un departamento sin deuda vencida no recibe nada."
+      }
     },
     {
       "titulo": "Estado de cuenta de un departamento",
@@ -397,16 +487,17 @@
       ],
       "numerada": [
         "Entra a **Comunicados** y pulsa **Nuevo comunicado**.",
-        "En **Para quién** elige todo el condominio o un block.",
+        "En **Para quién** elige todo el condominio, un block o **Departamentos elegidos**.",
+        "Si elegiste **Departamentos elegidos**, escoge el block (o todo el condominio), busca por código o titular y marca los departamentos con las casillas; **Marcar todos** y **Quitar marcas** actúan sobre los que se ven. El aviso sale sólo a las personas de esos departamentos que reciben comunicados, y sólo ellos lo ven en su pantalla. En este caso no hay opción de junta ni de grupos de WhatsApp.",
         "Escribe el título y el mensaje (hasta 4.000 caracteres).",
-        "En **Además de verlo en la app** marca lo que necesites: **A la junta del block** (o **A las juntas del condominio**), **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino**.",
-        "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo.",
+        "En **Además de verlo en la app** marca lo que necesites. A la junta (**A la junta del block** o **A las juntas del condominio**) va apagado: úsalo sólo si es urgente, porque gasta un mensaje por persona. **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino** también van apagados.",
+        "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo. **Los comunicados van a los grupos**: es lo que recomendamos para casi todo.",
         "Decide si queda **Fijar arriba** y pulsa **Publicar**.",
         "En la pestaña **Notificaciones** ves qué salió por correo y por WhatsApp, qué está pendiente y qué tuvo error. Si un grupo quedó pendiente por el tope diario, pulsa **Reintentar**."
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Lo más barato es avisar a la junta: son pocas personas y todas se enteran. El WhatsApp a cada vecino gasta la cuota del mes: úsalo para lo urgente. Cada mensaje a un grupo también cuenta para el tope diario del número."
+        "texto": "Regla de Torre: lo general va a los grupos de WhatsApp (un mensaje por grupo) y lo personal va directo (un mensaje por persona). Con departamentos elegidos el aviso es sólo para esos vecinos: sirve para un trabajo en un piso o para avisar a unos pocos. Cada mensaje a un grupo cuenta para el tope diario del número."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-grupos.jpg"
     },
@@ -414,7 +505,8 @@
       "titulo": "WhatsApp: conecta tu número y mira cuántos mensajes salen",
       "etiqueta": "Administradora · Operación · Torre Pro",
       "parrafos": [
-        "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes."
+        "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes. Regla de Torre: lo general va a los grupos de WhatsApp (un mensaje por grupo) y lo personal va directo (un mensaje por persona).",
+        "Un condominio de 14 blocks con 32 departamentos cada uno (448 en total): antes, el recibo de cada mes mandaba 448 WhatsApp directos el día de emisión; ahora manda 14, uno a cada grupo de block. En un mes de avisos completo, baja de unos 1.000 WhatsApp a unos 510."
       ],
       "numerada": [
         "En **Operación**, entra a **WhatsApp**.",
@@ -460,7 +552,8 @@
       "titulo": "Mis grupos: elige dónde publicar",
       "etiqueta": "Administradora · Operación · Torre Pro",
       "parrafos": [
-        "Torre no crea grupos: usa los que ya tiene tu número. Tú eliges cuáles se pueden usar y a quién representa cada uno."
+        "Torre no crea grupos: usa los que ya tiene tu número. Tú eliges cuáles se pueden usar y a quién representa cada uno.",
+        "Cada block necesita su grupo: el aviso del recibo y los comunicados de ese block salen ahí. Arriba de la lista verás cuántos blocks ya tienen grupo, por ejemplo «Grupos de blocks: 13 de 14. Falta: Block 9»."
       ],
       "numerada": [
         "En **WhatsApp**, baja a **Mis grupos** y pulsa **Traer mis grupos**. Puede tardar hasta 30 segundos: no cierres la pantalla.",
@@ -471,7 +564,7 @@
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Si un grupo dice «Ya no estás en este grupo», tu número salió de él y no se podrá publicar ahí. Para cambiar a quién representa un grupo, usa **Cambiar a quién representa**."
+        "texto": "Si un grupo dice «Ya no estás en este grupo», tu número salió de él y no se podrá publicar ahí. Para cambiar a quién representa un grupo, usa **Cambiar a quién representa**. Si falta un block, su recibo sólo llega por correo hasta que le asignes su grupo."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-whatsapp-grupos.jpg"
     },
@@ -479,17 +572,17 @@
       "titulo": "Avisos por WhatsApp del condominio",
       "etiqueta": "Administradora · Condominios · Torre Pro",
       "parrafos": [
-        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia."
+        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia. El aviso del recibo va al grupo de cada block. En los blocks que aún no tienen grupo, Torre lo manda directo a cada departamento, solo: no tienes que cambiar nada mientras asignas los grupos."
       ],
       "numerada": [
         "Entra a **Condominios** y abre el condominio.",
         "Baja a **Avisos por WhatsApp**.",
-        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**.",
+        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**. Deja **Recibo del mes** sin marcar: así el recibo va al grupo en los blocks que lo tienen y directo en los que no. Márcalo sólo si quieres el directo también en los blocks con grupo (gasta un mensaje por departamento).",
         "Pulsa **Guardar avisos por WhatsApp**."
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número."
+        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número. El recibo va directo sólo a los blocks sin grupo."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-condominio-avisos.jpg"
     },
@@ -617,6 +710,30 @@
       }
     },
     {
+      "titulo": "Tu marca: logo, nombre y color",
+      "etiqueta": "Administradora · Cuenta · Torre Administradora",
+      "parrafos": [
+        "Con tu marca, Torre se ve como tu administración: tu logo y tu nombre arriba del menú, tu color en los botones y en los correos, y tu nombre en la cabecera del recibo y del estado de cuenta. Tu personal y tus vecinos ven tu marca; Torre queda en pequeño, como «con Torre».",
+        "Entra a **Cuenta › Mi empresa**, pestaña **Datos**, y baja hasta **Tu marca**:"
+      ],
+      "numerada": [
+        "Pulsa **Subir imagen** y elige tu logo (JPG, PNG o WebP, hasta 2 MB). El logo está disponible en todos los planes.",
+        "Escribe tu **nombre comercial**, hasta 60 caracteres. Si lo dejas vacío, Torre usa tu razón social.",
+        "Elige tu **color** con el selector o escribe su código, por ejemplo #0057B8; los dos campos van juntos. Para volver al color de Torre pulsa **Volver al verde de Torre**.",
+        "Mira **Así se verá**: un botón, el encabezado del menú y la cabecera de un recibo cambian mientras eliges. Si el color es muy claro, Torre lo oscurece un poco para que el texto se lea y te lo dice: «Lo oscurecimos un poco para que el texto se lea».",
+        "Pulsa **Guardar mi marca**. Tu pantalla cambia al instante; tu personal y tus vecinos la ven la próxima vez que entren o recarguen."
+      ],
+      "bullets": [
+        "**En la app**: tu logo (o la inicial de tu nombre en un cuadro de tu color) y tu nombre arriba del menú, tu color en botones y enlaces, y tu nombre en la pestaña del navegador. El inicio de sesión sigue siendo de Torre.",
+        "**En el recibo y el estado de cuenta**: tu logo y tu nombre con una franja de tu color arriba; al pie, tu razón social con su RUC y «con Torre». La franja también sale al imprimir.",
+        "**En los correos**: los avisos de cobro y recordatorios, los comunicados, los resultados de pago y las invitaciones llevan tu logo, tu nombre y tu color, y cierran con «Enviado con Torre». El correo sigue saliendo de avisos@torrecondominios.com, pero el nombre visible es «Tu nombre comercial vía Torre»."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El nombre y el color vienen con **Torre Pro** y **Torre Administradora**: basta con que uno de tus condominios tenga uno de esos planes. Con otro plan puedes dejarlos listos; se guardan y se activan solos cuando pases de plan, y mientras tanto Torre se ve con su verde y tu razón social. Si pasas a Torre Pro o Torre Administradora desde **Mi plan**, no tienes que volver a cargar nada."
+      }
+    },
+    {
       "titulo": "Mi junta",
       "etiqueta": "Junta directiva",
       "parrafos": [
@@ -729,7 +846,8 @@
       "etiqueta": "Propietario",
       "parrafos": [
         "El mantenimiento de cada mes de tu departamento, separado en **Por pagar**, **Vencidos**, **En revisión** y **Pagados**.",
-        "Con **Ver detalle** ves el total, el número de recibo, el vencimiento, el saldo y cada concepto con su monto. **Ver / imprimir recibo** abre el recibo completo, con la cuenta donde pagar."
+        "Con **Ver detalle** ves el total, el número de recibo, el vencimiento, el saldo y cada concepto con su monto. **Ver / imprimir recibo** abre el recibo completo, con la cuenta donde pagar.",
+        "Si la administración **anula** uno de tus pagos (por ejemplo, porque estaba duplicado), el recibo vuelve a aparecer como pendiente y te llega un correo con el motivo. En **Mis pagos** lo ves marcado como **Anulado**; si aún debes el recibo, puedes volver a pagarlo con tu voucher."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-detalle.jpg"
     },
@@ -832,6 +950,24 @@
         "En **Inicio** ves tu condominio asignado. En **Unidades** buscas por código y ves el propietario y el inquilino de cada una antes de autorizar una visita."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/seguridad-inicio.jpg"
+    },
+    {
+      "titulo": "Entrar como otra persona (soporte)",
+      "etiqueta": "Superadmin · Usuarios del sistema",
+      "parrafos": [
+        "Si eres **superadmin** y alguien no ve su recibo o no encuentra una opción, puedes ver Torre exactamente como la ve esa persona: administración, personal, junta o vecino. Sirve también para cuentas importadas por Excel que no tienen contraseña.",
+        "Entra a **Usuarios del sistema** y abre la pestaña **Entrar como**:"
+      ],
+      "numerada": [
+        "Busca a la persona por nombre, correo o celular. Puedes filtrar entre vecinos y personal.",
+        "Pulsa **Entrar como** y escribe el **motivo** (de 5 a 200 caracteres). Es obligatorio y queda guardado.",
+        "Torre se recarga en el inicio de su rol. Arriba aparece una barra de color ámbar que dice como quién estás, su rol y cuántos minutos quedan. La barra no se puede cerrar.",
+        "Para terminar, pulsa **Volver a mi cuenta** en la barra. La sesión dura 30 minutos como máximo y nunca más de lo que le quede a tu propia sesión; si vence, tendrás que iniciar sesión otra vez."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Mientras estás dentro **no puedes** cambiar la contraseña, el correo ni el celular de esa persona, crear ni revocar sus tokens de API, tocar sus sesiones, vincular su WhatsApp ni abrir su asistente. No puedes entrar como otro superadmin ni encadenar una entrada dentro de otra. Todo lo demás sí se puede. Lo que hagas queda en **Auditoría** con el nombre de la persona y el tuyo, y en la pestaña **Entrar como** de Auditoría ves quién entró, a quién, por qué, cuándo empezó y cómo terminó."
+      }
     },
     {
       "titulo": "Mi condominio está en solo lectura",

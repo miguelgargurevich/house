@@ -10,8 +10,11 @@ import { periodoDe, mesSiguienteTexto, topeDelMes } from '../comercial/consumo';
 /** Motivo con el que un mensaje a un grupo queda pendiente cuando el número ya mandó todos los de hoy. */
 export const MOTIVO_TOPE_DIARIO = 'Tope diario alcanzado';
 
-/** Los desgloses por tipo del contador. `grupo` son los mensajes a grupos de los comunicados; lo demás es la cola 1-a-1. */
-export const TIPOS_CONTADOR = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'comunicado', 'cierre_pendiente', 'grupo', 'otros'] as const;
+/**
+ * Los desgloses por tipo del contador. `grupo` son los mensajes a grupos de los comunicados; los del recibo a los grupos cuentan como `recibo_emitido`
+ * (un mismo recibo, por correo, WhatsApp directo o grupo). Lo demás es la cola 1-a-1; `otros` queda para lo que no tiene nombre propio.
+ */
+export const TIPOS_CONTADOR = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'comunicado', 'cierre_pendiente', 'recordatorio_deuda', 'grupo', 'otros'] as const;
 export type TipoContador = (typeof TIPOS_CONTADOR)[number];
 export type PorTipo = Record<TipoContador, number>;
 
@@ -25,10 +28,13 @@ export async function cupoDiario(instancia: string, ahora: Date): Promise<{ tope
   return tope != null && tope > 0 ? { tope, enviadas, alcanzado: enviadas >= tope } : { tope: null, enviadas, alcanzado: false };
 }
 
-/** Un mensaje a un grupo que terminó (`enviado` o `fallo`): el enviado cuenta para el tope diario y los dos salen en el contador. Un fallo al guardar nunca tumba el envío. */
-export async function registrarEnvioGrupo(d: { empresa_id: number; instancia: string; complejo_id: number; comunicado_id: number; grupo_id: number | null; estado: 'enviado' | 'fallo'; motivo?: string; ahora: Date }): Promise<void> {
+/**
+ * Un mensaje a un grupo que terminó (`enviado` o `fallo`): el enviado cuenta para el tope diario y los dos salen en el contador. Lleva el comunicado
+ * o el recibo que lo originó (uno de los dos). Un fallo al guardar nunca tumba el envío.
+ */
+export async function registrarEnvioGrupo(d: { empresa_id: number; instancia: string; complejo_id: number; comunicado_id: number | null; recibo_id?: number | null; grupo_id: number | null; estado: 'enviado' | 'fallo'; motivo?: string; ahora: Date }): Promise<void> {
   try {
-    await prisma.envioGrupoWhatsapp.create({ data: { empresa_id: d.empresa_id, instancia: d.instancia, complejo_id: d.complejo_id, comunicado_id: d.comunicado_id, grupo_id: d.grupo_id, estado: d.estado, motivo: d.motivo?.slice(0, 200) ?? null, at: d.ahora } });
+    await prisma.envioGrupoWhatsapp.create({ data: { empresa_id: d.empresa_id, instancia: d.instancia, complejo_id: d.complejo_id, comunicado_id: d.comunicado_id, recibo_id: d.recibo_id ?? null, grupo_id: d.grupo_id, estado: d.estado, motivo: d.motivo?.slice(0, 200) ?? null, at: d.ahora } });
   } catch (e) {
     console.error('[whatsapp] no se pudo anotar el envío al grupo:', e instanceof Error ? e.message : 'error');
   }
@@ -106,7 +112,8 @@ export async function usoWhatsapp(empresa: { id: number; whatsapp_instance: stri
     const por = vacioPorTipo();
     const filas = instancias.length ? await prisma.notificacion.groupBy({ by: ['tipo'], where: { canal: 'whatsapp', estado: 'enviada', whatsapp_instancia: { in: instancias }, enviada_at: { gte: desdeFecha } }, _count: { _all: true } }) : [];
     for (const f of filas) por[tipoDe(f.tipo)] += f._count._all;
-    por.grupo = await prisma.envioGrupoWhatsapp.count({ where: { empresa_id: empresa.id, estado: 'enviado', at: { gte: desdeFecha } } });
+    por.grupo = await prisma.envioGrupoWhatsapp.count({ where: { empresa_id: empresa.id, estado: 'enviado', recibo_id: null, at: { gte: desdeFecha } } });
+    por.recibo_emitido += await prisma.envioGrupoWhatsapp.count({ where: { empresa_id: empresa.id, estado: 'enviado', recibo_id: { not: null }, at: { gte: desdeFecha } } });
     return por;
   };
   const [porTipoHoy, porTipoMes, consumos, topes, avisos, gruposFallidos, comunicadosConGrupos] = await Promise.all([

@@ -7,6 +7,7 @@ import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { isProduction, parseCorsOrigins } from './config';
 import { auditoria } from './middleware/audit';
+import { contextoImpersonacion, soloSesionPropia } from './services/impersonacion/contexto';
 import { authenticate } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { crearLimitadores, limitarSegunSesion, type RateLimitOptions } from './middleware/rateLimit';
@@ -15,6 +16,7 @@ import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
 import { areasComunesRouter } from './routes/areasComunes';
 import { auditoriaRouter } from './routes/auditoria';
+import { impersonacionRouter } from './routes/impersonacion';
 import { juntasRouter } from './routes/juntas';
 import { llaveroRouter } from './routes/llavero';
 import { mcpRouter } from './routes/mcp';
@@ -41,12 +43,14 @@ import { mediosPagoMeRouter, mediosPagoRouter } from './routes/mediosPago';
 import { notificacionesRouter } from './routes/notificaciones';
 import { pagosRouter } from './routes/pagos';
 import { publicoRouter } from './routes/publico';
+import { marcaPublicaRouter } from './services/marca/rutaPublica';
 import { comercialRouter } from './routes/comercial';
 import { conciliacionRouter } from './routes/conciliacion';
 import { pisosRouter } from './routes/pisos';
 import { proveedoresRouter } from './routes/proveedores';
 import { reciboConceptosRouter } from './routes/reciboConceptos';
 import { recibosRouter } from './routes/recibos';
+import { recordatoriosRouter } from './routes/recordatorios';
 import { reportesRouter } from './routes/reportes';
 import { reservasRouter } from './routes/reservas';
 import { tareasRouter } from './routes/tareas';
@@ -110,16 +114,19 @@ export function createApp(opts: AppOptions = {}) {
   api.get('/health', (_req, res) => { res.json({ ok: true }); }); // público: healthcheck del contenedor
   api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // tramo público: inicio de sesión
   api.use('/auth/invitacion', invitacionRouter(limiters.invitacion)); // tramo público: el enlace del correo de invitación
+  api.use('/publico/marca', marcaPublicaRouter()); // tramo público: el logo de la empresa para los correos (con firma; sólo logos de empresa)
   api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion })); // tramo público: planes, registro y verificación del correo
   api.use(limitarSegunSesion(authenticate, limiters.apiAnonimo, limiters.apiUsuario));
   api.use(auditoria);
+  api.use(contextoImpersonacion); // sesión prestada («Entrar como»): la auditoría de segundo plano también lleva al superadmin
   api.use('/auth', sesionRouter);
-  api.use('/ai-chat', aiChatRouter(limiters.ai)); // el límite por usuario sólo cuenta los mensajes (POST), no las lecturas
+  api.use('/impersonacion', impersonacionRouter);
+  api.use('/ai-chat', soloSesionPropia, aiChatRouter(limiters.ai)); // el límite por usuario sólo cuenta los mensajes (POST), no las lecturas
   api.use('/llavero', llaveroRouter(limiters.llavero));
   api.use('/me/tokens-api', tokensApiRouter); // antes de /me: tokens de API (MCP) del propio usuario
   api.use('/me/avisos', avisosPersonalesRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me/medios-pago', mediosPagoMeRouter); // antes de /me: ruta propia, sin tocar me.ts
-  api.use('/me/canales', canalesMeRouter); // antes de /me: vincular el WhatsApp propio
+  api.use('/me/canales', soloSesionPropia, canalesMeRouter); // antes de /me: vincular el WhatsApp propio
   api.use('/me', meRouter(limiters.password));
   api.use('/medios-pago', mediosPagoRouter);
   api.use('/juntas', juntasRouter);
@@ -129,6 +136,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/comunicados', comunicadosRouter);
   api.use('/dashboard', dashboardRouter);
   api.use('/reportes', reportesRouter);
+  api.use('/recordatorios', recordatoriosRouter);
   api.use('/conciliacion', conciliacionRouter);
   api.use('/usuarios', usuariosRouter);
   api.use('/empresas', empresasRouter);

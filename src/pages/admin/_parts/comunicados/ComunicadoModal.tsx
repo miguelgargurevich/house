@@ -7,13 +7,16 @@ import { Button, Input, Modal, Select, Textarea, useToast } from '../../../../ui
 import { Interruptor } from '../catalogo/Interruptor';
 import { nombreTorre, palabraEstructura } from '../medios/tipos';
 import { textoDestino } from '../whatsapp/tipos';
-import { TOPE_CUERPO, TOPE_TITULO, alcanceLabel, baseDe, textoPublicado } from './tipos';
+import { ElegirDepartamentos } from './ElegirDepartamentos';
+import { ELEGIDOS, TOPE_CUERPO, TOPE_TITULO, alcanceLabel, baseDe, textoPublicado } from './tipos';
 import type { Ambitos, Comunicado } from './tipos';
 
 interface Form {
   complejo_id: string;
-  /** '' = todo el condominio. */
+  /** '' = todo el condominio; `ELEGIDOS` = «Departamentos elegidos». */
   estructura_id: string;
+  /** Con «Departamentos elegidos»: el block de donde se eligen ('' = todo el condominio). La junta de un block no lo ve: es el suyo. */
+  bloque_elegidos: string;
   titulo: string;
   cuerpo: string;
   enviar_correo: boolean;
@@ -38,8 +41,8 @@ const vacio = (inicial: Props['inicial'], ambitos: Ambitos): Form => {
   const complejo = inicial?.complejo_id || (unico ? String(unico.id) : '');
   const bloques = ambitos.complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
   const estructura = ambitos.fijo ? String(bloques[0]?.id ?? '') : /^\d+$/.test(inicial?.estructura_id ?? '') ? inicial!.estructura_id : '';
-  // A la junta, por defecto; los grupos de WhatsApp vienen marcados según el alcance (abajo); a cada vecino por WhatsApp, nunca.
-  return { complejo_id: complejo, estructura_id: estructura, titulo: '', cuerpo: '', enviar_correo: false, enviar_whatsapp: false, enviar_junta: true, fijado: false };
+  // Los comunicados van a los grupos de WhatsApp (marcados según el alcance, abajo). A la junta, sólo si es urgente: gasta un mensaje por persona.
+  return { complejo_id: complejo, estructura_id: estructura, bloque_elegidos: '', titulo: '', cuerpo: '', enviar_correo: false, enviar_whatsapp: false, enviar_junta: false, fijado: false };
 };
 
 /** Crear o editar un comunicado. El condominio, el alcance y las casillas de envío sólo se eligen al crear: editar nunca reenvía. */
@@ -51,7 +54,7 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
     if (comunicado === null) return;
     reset(comunicado === 'nuevo'
       ? vacio(inicial, ambitos)
-      : { complejo_id: String(comunicado.complejo_id), estructura_id: comunicado.estructura_id != null ? String(comunicado.estructura_id) : '', titulo: comunicado.titulo, cuerpo: comunicado.cuerpo, enviar_correo: false, enviar_whatsapp: false, enviar_junta: false, fijado: comunicado.fijado });
+      : { complejo_id: String(comunicado.complejo_id), estructura_id: comunicado.estructura_id != null ? String(comunicado.estructura_id) : '', bloque_elegidos: '', titulo: comunicado.titulo, cuerpo: comunicado.cuerpo, enviar_correo: false, enviar_whatsapp: false, enviar_junta: false, fijado: comunicado.fijado });
     // Sólo al abrir: los filtros de la pantalla cambian y no deben pisar lo que se está escribiendo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [comunicado]);
@@ -62,11 +65,18 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
   const bloques = complejo?.estructuras ?? [];
   const palabra = palabraEstructura(ambitos);
   const estructuraId = watch('estructura_id');
+  // «Departamentos elegidos»: el aviso va sólo a los vecinos de los que marques (sin junta ni grupos). La junta de un block elige dentro de SU block.
+  const elegidos = estructuraId === ELEGIDOS;
+  const bloqueElegidos = watch('bloque_elegidos') ?? '';
+  const estructuraEfectiva = elegidos ? (ambitos.fijo ? String(bloques[0]?.id ?? '') : bloqueElegidos) : estructuraId;
+  const [unidadesSel, setUnidadesSel] = useState<number[]>([]);
+  // Otro condominio o block: la lista cambia y lo marcado ya no vale.
+  useEffect(() => { setUnidadesSel([]); }, [complejoId, estructuraEfectiva, comunicado]);
   // Los grupos de WhatsApp en uso de este condominio (la junta de un block sólo recibe los de su block). Vienen marcados los que representan al
   // block elegido, o a todo el condominio; las juntas y otros se marcan a mano.
   const esAdmin = baseDe(useLocation().pathname) === '/admin';
   const grupos = useMemo(() => complejo?.grupos ?? [], [complejo]);
-  const sugeridos = useMemo(() => grupos.filter(g => esSugerido(g, estructuraId ? Number(estructuraId) : null)).map(g => g.id), [grupos, estructuraId]);
+  const sugeridos = useMemo(() => (elegidos ? [] : grupos.filter(g => esSugerido(g, estructuraId ? Number(estructuraId) : null)).map(g => g.id)), [grupos, estructuraId, elegidos]);
   const [gruposSel, setGruposSel] = useState<number[]>([]);
   const claveSugeridos = sugeridos.join(',');
   useEffect(() => {
@@ -82,9 +92,13 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
       if (nuevo) {
         // Con un solo condominio no hay selector; con la junta de un block el selector de alcance va bloqueado (la API fuerza su block).
         const elegido = v.complejo_id || (ambitos.complejos.length === 1 ? String(ambitos.complejos[0]!.id) : '');
+        if (elegidos && unidadesSel.length === 0) { toast.error('Marca al menos un departamento'); return; }
         const r = await api<Comunicado>('/api/comunicados', {
           method: 'POST',
-          json: { ...(elegido ? { complejo_id: Number(elegido) } : {}), estructura_id: v.estructura_id ? Number(v.estructura_id) : null, titulo: v.titulo, cuerpo: v.cuerpo, enviar_correo: !!v.enviar_correo, enviar_whatsapp: !!v.enviar_whatsapp, enviar_junta: !!v.enviar_junta, ...(gruposSel.length ? { enviar_grupo: true, grupos: gruposSel } : {}), fijado: !!v.fijado },
+          json: elegidos
+            // Departamentos elegidos: sólo a sus vecinos (la API no admite junta ni grupos con ellos).
+            ? { ...(elegido ? { complejo_id: Number(elegido) } : {}), estructura_id: estructuraEfectiva ? Number(estructuraEfectiva) : null, unidades: unidadesSel, titulo: v.titulo, cuerpo: v.cuerpo, enviar_correo: !!v.enviar_correo, enviar_whatsapp: !!v.enviar_whatsapp, fijado: !!v.fijado }
+            : { ...(elegido ? { complejo_id: Number(elegido) } : {}), estructura_id: v.estructura_id ? Number(v.estructura_id) : null, titulo: v.titulo, cuerpo: v.cuerpo, enviar_correo: !!v.enviar_correo, enviar_whatsapp: !!v.enviar_whatsapp, enviar_junta: !!v.enviar_junta, ...(gruposSel.length ? { enviar_grupo: true, grupos: gruposSel } : {}), fijado: !!v.fijado },
         });
         toast.ok(textoPublicado(r));
       } else if (comunicado) {
@@ -102,7 +116,7 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
       onClose={onClose}
       size="lg"
       title={nuevo ? 'Nuevo comunicado' : 'Editar comunicado'}
-      description={nuevo ? 'Lo verán en su pantalla los propietarios e inquilinos del alcance que elijas.' : 'Los cambios se ven al instante. Editar no vuelve a enviar avisos por correo ni WhatsApp.'}
+      description={nuevo ? (elegidos ? 'Lo verán en su pantalla sólo los vecinos de los departamentos que marques.' : 'Lo verán en su pantalla los propietarios e inquilinos del alcance que elijas.') : 'Los cambios se ven al instante. Editar no vuelve a enviar avisos por correo ni WhatsApp.'}
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={isSubmitting} onClick={handleSubmit(guardar)}>{nuevo ? 'Publicar' : 'Guardar cambios'}</Button></>}
     >
       <form onSubmit={handleSubmit(guardar)} className="grid gap-4 sm:grid-cols-2" noValidate>
@@ -117,13 +131,25 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
             <Select
               label="Para quién"
               hint={ambitos.fijo ? `Como junta de un ${palabra.una}, publicas sólo para ese ${palabra.una}.` : undefined}
-              disabled={ambitos.fijo}
               className={ambitos.complejos.length > 1 ? '' : 'sm:col-span-2'}
               {...register('estructura_id')}
             >
               {!ambitos.fijo && <option value="">Todo el condominio</option>}
               {bloques.map(b => <option key={b.id} value={b.id}>{nombreTorre(b)}</option>)}
+              <option value={ELEGIDOS}>Departamentos elegidos</option>
             </Select>
+            {elegidos && !ambitos.fijo && (
+              <Select label={`De qué ${palabra.una} los eliges`} className="sm:col-span-2" {...register('bloque_elegidos')}>
+                <option value="">Todo el condominio</option>
+                {bloques.map(b => <option key={b.id} value={b.id}>{nombreTorre(b)}</option>)}
+              </Select>
+            )}
+            {elegidos && (
+              <div className="sm:col-span-2">
+                <p className="mb-1 text-sm font-medium">Departamentos que lo reciben</p>
+                <ElegirDepartamentos complejoId={complejoId} estructuraId={estructuraEfectiva} value={unidadesSel} onChange={setUnidadesSel} />
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-muted sm:col-span-2">
@@ -142,19 +168,23 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
         />
         {nuevo && (
           <fieldset className="grid gap-1 sm:col-span-2">
-            <legend className="mb-1 text-sm font-medium">Además de verlo en la app</legend>
-            <Interruptor
-              label={estructuraId ? `A la junta del ${palabra.una}` : 'A las juntas del condominio'}
-              hint="Correo y WhatsApp a cada miembro de la junta vigente. Es lo más barato: pocas personas y todas se enteran."
-              {...register('enviar_junta')}
-            />
+            <legend className="mb-1 text-sm font-medium">{elegidos ? 'Avisarles además por' : 'Además de verlo en la app'}</legend>
+            {!elegidos && (
+              <Interruptor
+                label={estructuraId ? `A la junta del ${palabra.una}` : 'A las juntas del condominio'}
+                hint="Correo y WhatsApp a cada miembro de la junta vigente, uno por persona. Úsalo si es urgente: el grupo ya lo recibe."
+                {...register('enviar_junta')}
+              />
+            )}
             <Interruptor label="Enviar por correo a cada vecino" hint="A los propietarios e inquilinos que tengan los avisos por correo activados." {...register('enviar_correo')} />
             <Interruptor label="Por WhatsApp a cada vecino" hint="Un mensaje a cada uno, de a poco y con pausas. Gasta la cuota mensual de WhatsApp del condominio: úsalo para lo urgente." {...register('enviar_whatsapp')} />
+            {elegidos && <p className="text-xs text-muted">Sólo lo ven en su pantalla, y reciben el aviso, los vecinos de los departamentos marcados que reciben comunicados. No va a la junta ni a los grupos de WhatsApp.</p>}
           </fieldset>
         )}
-        {nuevo && (
+        {nuevo && !elegidos && (
           <fieldset className="grid gap-2 sm:col-span-2">
             <legend className="mb-1 text-sm font-medium">A los grupos de WhatsApp</legend>
+            <p className="text-xs text-muted">Los comunicados van a los grupos. Directo a la junta o a cada vecino, sólo si es urgente: gasta un mensaje por persona.</p>
             {grupos.length === 0 ? (
               <p className="text-sm text-muted">
                 {estructuraId ? `Este ${palabra.una} aún no tiene` : 'Este condominio aún no tiene'} grupos de WhatsApp en uso. La administración los elige en «WhatsApp» › Mis grupos.{' '}

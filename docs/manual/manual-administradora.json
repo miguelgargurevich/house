@@ -5,17 +5,18 @@
   "diseno": "manual",
   "meta": [
     "torrecondominios.com",
-    "Versión 3-nov-2026",
+    "Versión 4-nov-2026",
     "Español · Perú"
   ],
-  "descripcion": "Manual de Torre para la administradora, con capturas de datos de prueba. Corte: 3-nov-2026.",
+  "descripcion": "Manual de Torre para la administradora, con capturas de datos de prueba. Corte: 4-nov-2026.",
   "secciones": [
     {
       "titulo": "Lo que haces en Torre",
       "etiqueta": "Para empezar",
       "parrafos": [
         "Como administradora, tú ordenas el condominio: das acceso a tu personal y a los vecinos, emites los recibos de cada mes, validas los pagos, sigues la morosidad y avisas por correo y WhatsApp.",
-        "Empieza por tu equipo y por los vecinos. Después sigue el orden de tu menú: Cobranza, Operación y Cuenta."
+        "Empieza por tu equipo y por los vecinos. Después sigue el orden de tu menú: Cobranza, Operación y Cuenta.",
+        "Cada opción del menú tiene su **video corto** con la pantalla real: míralos en [Torre en video](https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html)."
       ],
       "tabla": {
         "columnas": [
@@ -40,12 +41,16 @@
             "Condominios › Unidades › Personas del departamento"
           ],
           [
+            "Poner mi logo, mi nombre y mi color",
+            "Cuenta › Mi empresa › Tu marca"
+          ],
+          [
             "Emitir el mes o subir el Excel de un block",
             "Cobranza › Recibos"
           ],
           [
             "Validar pagos y ver quién debe",
-            "Cobranza › Pagos y Morosidad"
+            "Cobranza › Pagos y Morosidad (con «Enviar recordatorio»)"
           ],
           [
             "Entregar el informe del mes a la junta",
@@ -115,7 +120,7 @@
             "Torre Administradora",
             "S/ 2,50 por departamento al mes, desde S/ 50 al mes por condominio",
             "Sin tope",
-            "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen."
+            "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen y marca propia: tu logo, tu nombre y tu color."
           ]
         ]
       },
@@ -322,15 +327,19 @@
       "titulo": "Avisar a los vecinos",
       "etiqueta": "Administradora · Recibos",
       "parrafos": [
-        "Cuando el recibo está emitido, avisa a todos con un clic."
+        "Cuando el recibo está emitido, avisa a todos con un clic. El aviso va al **grupo de WhatsApp de cada block** (un solo mensaje para todos los de ese block) y a cada vecino **por correo**."
       ],
       "numerada": [
         "En el recibo, pulsa **Avisar a los vecinos**.",
-        "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular).",
-        "Pulsa **Enviar aviso**.",
-        "Para el grupo de WhatsApp del block, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo allí. Ese mensaje no lleva montos ni nombres. Si prefieres publicar en tus grupos desde Torre, usa un comunicado (ver «Comunicados»)."
+        "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular). Ahí mismo ves si el block tiene su grupo de WhatsApp.",
+        "Pulsa **Enviar aviso**. El mensaje al grupo del block sale solo: no hace falta copiarlo ni pegarlo.",
+        "Si quieres repetirlo a mano, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo en el grupo. Ese mensaje no lleva montos ni nombres."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg",
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Un recibo de un block sin grupo de WhatsApp sólo le llega por correo. Asígnale su grupo en WhatsApp › Mis grupos."
+      }
     },
     {
       "titulo": "Pagos: cómo se valida cada uno",
@@ -385,9 +394,29 @@
       "etiqueta": "Administradora",
       "parrafos": [
         "Las unidades con mantenimientos vencidos, de mayor a menor deuda, con los meses vencidos y los días de atraso. Arriba ves la deuda vencida total, cuántas unidades están morosas y el mayor atraso. La deuda ya descuenta los abonos parciales: si un vecino pagó una parte, ves sólo lo que falta.",
-        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. En cada fila, el ícono de documento abre su **Estado de cuenta** (ver «Estado de cuenta de un departamento»). **Exportar CSV** baja la lista."
+        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. En cada fila, el ícono de documento abre su **Estado de cuenta** (ver «Estado de cuenta de un departamento»). **Exportar CSV** baja la lista. Marca departamentos para mandarles un recordatorio de deuda (ver «Recordar a los morosos»)."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-morosidad-detalle.jpg"
+    },
+    {
+      "titulo": "Recordar a los morosos",
+      "etiqueta": "Administradora",
+      "parrafos": [
+        "Si hoy vence un pago o un departamento sigue sin pagar, puedes mandarle un recordatorio desde **Morosidad**, sin configurar nada: marcas los departamentos y Torre arma el mensaje con lo que debe cada uno.",
+        "El recordatorio le llega sólo al **responsable de pago** de cada departamento (no a toda la familia), por correo, por WhatsApp o por ambos. A un mismo departamento se le recuerda **una vez al día**."
+      ],
+      "numerada": [
+        "Entra a **Cobranza › Morosidad**. Si quieres, filtra por condominio o block.",
+        "Marca la casilla de cada departamento que quieres recordar, o **Marcar todos los de esta página**.",
+        "Pulsa **Enviar recordatorio**.",
+        "Elige **Correo**, **WhatsApp** o ambos. Torre te muestra, sin enviar nada todavía, cuántos responsables recibirán el aviso, cuántos por correo y por WhatsApp, cuántos no tienen un canal activo, cuántos ya recibieron un recordatorio hoy y lo que queda de la cuota mensual de WhatsApp del condominio.",
+        "Lee el texto: cada responsable verá su nombre, lo que debe su departamento y el enlace para pagar. Pulsa **Enviar**.",
+        "En **Comunicados**, pestaña **Notificaciones**, ves qué salió y qué quedó pendiente."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El WhatsApp gasta la cuota del mes y cuenta para el tope diario del número: lo que no entre se omite o sale mañana. Si el vecino paga antes de que salga el mensaje, no se le envía. Un departamento sin deuda vencida no recibe nada."
+      }
     },
     {
       "titulo": "Estado de cuenta de un departamento",
@@ -476,16 +505,17 @@
       ],
       "numerada": [
         "Entra a **Comunicados** y pulsa **Nuevo comunicado**.",
-        "En **Para quién** elige todo el condominio o un block.",
+        "En **Para quién** elige todo el condominio, un block o **Departamentos elegidos**.",
+        "Si elegiste **Departamentos elegidos**, escoge el block (o todo el condominio), busca por código o titular y marca los departamentos con las casillas; **Marcar todos** y **Quitar marcas** actúan sobre los que se ven. El aviso sale sólo a las personas de esos departamentos que reciben comunicados, y sólo ellos lo ven en su pantalla. En este caso no hay opción de junta ni de grupos de WhatsApp.",
         "Escribe el título y el mensaje (hasta 4.000 caracteres).",
-        "En **Además de verlo en la app** marca lo que necesites: **A la junta del block** (o **A las juntas del condominio**), **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino**.",
-        "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo.",
+        "En **Además de verlo en la app** marca lo que necesites. A la junta (**A la junta del block** o **A las juntas del condominio**) va apagado: úsalo sólo si es urgente, porque gasta un mensaje por persona. **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino** también van apagados.",
+        "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo. **Los comunicados van a los grupos**: es lo que recomendamos para casi todo.",
         "Decide si queda **Fijar arriba** y pulsa **Publicar**.",
         "En la pestaña **Notificaciones** ves qué salió por correo y por WhatsApp, qué está pendiente y qué tuvo error. Si un grupo quedó pendiente por el tope diario, pulsa **Reintentar**."
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Lo más barato es avisar a la junta: son pocas personas y todas se enteran. El WhatsApp a cada vecino gasta la cuota del mes: úsalo para lo urgente. Cada mensaje a un grupo también cuenta para el tope diario del número."
+        "texto": "Regla de Torre: lo general va a los grupos de WhatsApp (un mensaje por grupo) y lo personal va directo (un mensaje por persona). Con departamentos elegidos el aviso es sólo para esos vecinos: sirve para un trabajo en un piso o para avisar a unos pocos. Cada mensaje a un grupo cuenta para el tope diario del número."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-grupos.jpg"
     },
@@ -493,7 +523,8 @@
       "titulo": "WhatsApp: conecta tu número y mira cuántos mensajes salen",
       "etiqueta": "Administradora · Operación · Torre Pro",
       "parrafos": [
-        "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes."
+        "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes. Regla de Torre: lo general va a los grupos de WhatsApp (un mensaje por grupo) y lo personal va directo (un mensaje por persona).",
+        "Un condominio de 14 blocks con 32 departamentos cada uno (448 en total): antes, el recibo de cada mes mandaba 448 WhatsApp directos el día de emisión; ahora manda 14, uno a cada grupo de block. En un mes de avisos completo, baja de unos 1.000 WhatsApp a unos 510."
       ],
       "numerada": [
         "En **Operación**, entra a **WhatsApp**.",
@@ -539,7 +570,8 @@
       "titulo": "Mis grupos: elige dónde publicar",
       "etiqueta": "Administradora · Operación · Torre Pro",
       "parrafos": [
-        "Torre no crea grupos: usa los que ya tiene tu número. Tú eliges cuáles se pueden usar y a quién representa cada uno."
+        "Torre no crea grupos: usa los que ya tiene tu número. Tú eliges cuáles se pueden usar y a quién representa cada uno.",
+        "Cada block necesita su grupo: el aviso del recibo y los comunicados de ese block salen ahí. Arriba de la lista verás cuántos blocks ya tienen grupo, por ejemplo «Grupos de blocks: 13 de 14. Falta: Block 9»."
       ],
       "numerada": [
         "En **WhatsApp**, baja a **Mis grupos** y pulsa **Traer mis grupos**. Puede tardar hasta 30 segundos: no cierres la pantalla.",
@@ -550,7 +582,7 @@
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Si un grupo dice «Ya no estás en este grupo», tu número salió de él y no se podrá publicar ahí. Para cambiar a quién representa un grupo, usa **Cambiar a quién representa**."
+        "texto": "Si un grupo dice «Ya no estás en este grupo», tu número salió de él y no se podrá publicar ahí. Para cambiar a quién representa un grupo, usa **Cambiar a quién representa**. Si falta un block, su recibo sólo llega por correo hasta que le asignes su grupo."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-whatsapp-grupos.jpg"
     },
@@ -558,17 +590,17 @@
       "titulo": "Avisos por WhatsApp del condominio",
       "etiqueta": "Administradora · Condominios · Torre Pro",
       "parrafos": [
-        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia."
+        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia. El aviso del recibo va al grupo de cada block. En los blocks que aún no tienen grupo, Torre lo manda directo a cada departamento, solo: no tienes que cambiar nada mientras asignas los grupos."
       ],
       "numerada": [
         "Entra a **Condominios** y abre el condominio.",
         "Baja a **Avisos por WhatsApp**.",
-        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**.",
+        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**. Deja **Recibo del mes** sin marcar: así el recibo va al grupo en los blocks que lo tienen y directo en los que no. Márcalo sólo si quieres el directo también en los blocks con grupo (gasta un mensaje por departamento).",
         "Pulsa **Guardar avisos por WhatsApp**."
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número."
+        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número. El recibo va directo sólo a los blocks sin grupo."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-condominio-avisos.jpg"
     },
@@ -615,6 +647,30 @@
       "aviso": {
         "tipo": "nota",
         "texto": "**Gratis incluye un condominio.** Mientras tengas uno en Gratis (o en la prueba de Pro), no puedes crear otro. Para agregarlo, pasa el que ya tienes a un plan de pago."
+      }
+    },
+    {
+      "titulo": "Tu marca: logo, nombre y color",
+      "etiqueta": "Administradora · Cuenta · Torre Administradora",
+      "parrafos": [
+        "Con tu marca, Torre se ve como tu administración: tu logo y tu nombre arriba del menú, tu color en los botones y en los correos, y tu nombre en la cabecera del recibo y del estado de cuenta. Tu personal y tus vecinos ven tu marca; Torre queda en pequeño, como «con Torre».",
+        "Entra a **Cuenta › Mi empresa**, pestaña **Datos**, y baja hasta **Tu marca**:"
+      ],
+      "numerada": [
+        "Pulsa **Subir imagen** y elige tu logo (JPG, PNG o WebP, hasta 2 MB). El logo está disponible en todos los planes.",
+        "Escribe tu **nombre comercial**, hasta 60 caracteres. Si lo dejas vacío, Torre usa tu razón social.",
+        "Elige tu **color** con el selector o escribe su código, por ejemplo #0057B8; los dos campos van juntos. Para volver al color de Torre pulsa **Volver al verde de Torre**.",
+        "Mira **Así se verá**: un botón, el encabezado del menú y la cabecera de un recibo cambian mientras eliges. Si el color es muy claro, Torre lo oscurece un poco para que el texto se lea y te lo dice: «Lo oscurecimos un poco para que el texto se lea».",
+        "Pulsa **Guardar mi marca**. Tu pantalla cambia al instante; tu personal y tus vecinos la ven la próxima vez que entren o recarguen."
+      ],
+      "bullets": [
+        "**En la app**: tu logo (o la inicial de tu nombre en un cuadro de tu color) y tu nombre arriba del menú, tu color en botones y enlaces, y tu nombre en la pestaña del navegador. El inicio de sesión sigue siendo de Torre.",
+        "**En el recibo y el estado de cuenta**: tu logo y tu nombre con una franja de tu color arriba; al pie, tu razón social con su RUC y «con Torre». La franja también sale al imprimir.",
+        "**En los correos**: los avisos de cobro y recordatorios, los comunicados, los resultados de pago y las invitaciones llevan tu logo, tu nombre y tu color, y cierran con «Enviado con Torre». El correo sigue saliendo de avisos@torrecondominios.com, pero el nombre visible es «Tu nombre comercial vía Torre»."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El nombre y el color vienen con **Torre Pro** y **Torre Administradora**: basta con que uno de tus condominios tenga uno de esos planes. Con otro plan puedes dejarlos listos; se guardan y se activan solos cuando pases de plan, y mientras tanto Torre se ve con su verde y tu razón social. Si pasas a Torre Pro o Torre Administradora desde **Mi plan**, no tienes que volver a cargar nada."
       }
     },
     {

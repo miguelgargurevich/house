@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../db';
 import { invalid } from '../errors';
 import { currentUser } from '../middleware/auth';
+import { exigirSesionPropia } from '../services/impersonacion/contexto';
 import { formatearCelular, normalizarCelular } from '../services/avisos/celular';
 import { MOTIVO_SIN_WHATSAPP } from '../services/avisos/cola';
 import { parseBody, z } from '../validation';
@@ -86,6 +87,8 @@ avisosPersonalesRouter.put('/', async (req, res) => {
       data.telefono = formatearCelular(n);
     }
   }
+  // El celular es de la persona: entrando como ella se pueden ver y ajustar los avisos, pero no cambiar el número.
+  if (data.telefono !== undefined && data.telefono !== (await prisma.usuario.findUniqueOrThrow({ where: { id: u.id }, select: { telefono: true } })).telefono) exigirSesionPropia(req);
   if (body.aviso_whatsapp) {
     const telefono = data.telefono !== undefined ? data.telefono : (await prisma.usuario.findUniqueOrThrow({ where: { id: u.id }, select: { telefono: true } })).telefono;
     if (!normalizarCelular(telefono)) throw invalid('Datos inválidos: telefono: para recibir WhatsApp necesitas un celular válido', { telefono: 'Necesitas un celular válido para WhatsApp' });

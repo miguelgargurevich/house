@@ -8,6 +8,7 @@ import { prisma } from '../db';
 import { HttpError, invalid } from '../errors';
 import { contrasenaIgualACorreo, MENSAJE_PASSWORD_CORREO } from '../validation';
 import { plantillaCorreo } from './avisos/correoHtml';
+import { empresaDeUsuario, marcaParaCorreo } from './marca/servicio';
 import { comercialDeps } from './comercial/modulos';
 import { correoA, enlace, enmascarar, obtenerConfiguracion } from './comercial/configuracion';
 
@@ -49,7 +50,7 @@ export type EstadoInvitacion =
 export async function invitarUsuario(usuarioId: number, porUsuarioId: number | null): Promise<EstadoInvitacion> {
   const u = await prisma.usuario.findUnique({
     where: { id: usuarioId },
-    select: { id: true, nombre: true, email: true, rol: true, password_hash: true, empresa: { select: { nombre: true } }, complejo: { select: { nombre: true } } },
+    select: { id: true, nombre: true, email: true, rol: true, empresa_id: true, password_hash: true, empresa: { select: { nombre: true } }, complejo: { select: { nombre: true } } },
   });
   if (!u || u.password_hash != null) throw new HttpError(409, 'Esta persona ya tiene contraseña');
   if (correoSinBuzon(u.email)) return { estado: 'sin_correo' };
@@ -70,13 +71,16 @@ export async function invitarUsuario(usuarioId: number, porUsuarioId: number | n
   const donde = u.complejo?.nombre ?? u.empresa?.nombre;
   const quien = por?.nombre ?? 'Tu administración';
   const intro = `${quien} te dio acceso a Torre como ${rolEnFrase(u.rol)}${donde ? ` de ${donde}` : ''}. Crea tu contraseña para entrar.`;
+  // Con la marca propia de su empresa activa, el marco del correo lleva su logo, nombre y color (la invitación sigue siendo a Torre: el pie dice «Enviado con Torre»).
+  const marca = await empresaDeUsuario(u).then(marcaParaCorreo).catch(() => null);
   const { html, texto } = plantillaCorreo({
+    marca,
     titulo: 'Te invitaron a Torre',
     parrafos: [`Hola ${u.nombre}:`, intro, `El enlace sirve una sola vez y vence en ${DIAS_INVITACION} días.`],
     boton: { texto: 'Crear mi contraseña', url: link },
     pie: 'Si no esperabas este correo, ignóralo: no pasa nada y nadie entra a tu cuenta sin crear una contraseña.',
   });
-  const r = await correoA(u.email, 'Te invitaron a Torre', texto, undefined, html).catch(() => ({ resultado: 'fallo' as const, motivo: 'No se pudo enviar el correo' }));
+  const r = await correoA(u.email, 'Te invitaron a Torre', texto, undefined, html, marca?.nombre).catch(() => ({ resultado: 'fallo' as const, motivo: 'No se pudo enviar el correo' }));
   if (r.resultado !== 'ok') {
     await prisma.tokenInvitacion.deleteMany({ where: { id: fila.id } });
     return { estado: 'no_enviada', motivo: r.motivo };

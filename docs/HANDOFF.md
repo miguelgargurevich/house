@@ -4,6 +4,82 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Volver a revisar un pago rechazado (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/revertir-rechazo`) — push: no
+
+- **Pedido de Miguel**: «acciones que la pantalla no deja deshacer» → «3. Revertir un rechazo: el pago vuelve a "Por validar"» → «Sí, esos tres».
+- **Qué hay**:
+  - `POST /api/pagos/:id/reabrir {motivo 5–200}` (sólo admin/superadmin; junta/vecino 403; otra empresa 404) y `GET /api/pagos/:id/reapertura` (`{puede, motivo}`: apaga y explica el botón). Lógica `reabrirPago`/`puedeReabrirse` en `services/anulacionPago.ts` (comparte `exigirMesAbierto` con anular, ahora con el verbo como parámetro).
+  - Todo el grupo `rechazado` → `por_validar`; se limpian `motivo_rechazo`, `validado_at/por`, `validado_por_ia` y la conformidad del tesorero; cargos a `en_revision` (`sincronizarCargo`) en una transacción con `FOR UPDATE` sobre los cargos.
+  - Auditoría `reabrir` con `{motivo, monto, pagos, grupo, rechazo_anterior{motivo, por_id, por_nombre, por_ia, at, conformidad_por_id, conformidad_at}}`.
+  - Pantalla: «Volver a revisar» en el detalle de un pago rechazado (`ValidarPagoModal`, `ReabrirPagoModal`, `reabrir.ts`, `useReapertura.ts`); al confirmar pasa a la pestaña «Por validar». Manual versión 14 (63 secciones) y `docs/API-CONTRATO.md`.
+- **Decisiones**:
+  - **La conformidad del tesorero se limpia** al reabrir (tras un rechazo el abono se vuelve a mirar; el tesorero la da otra vez, o aplica la excepción de siempre). Queda en la auditoría. Si prefieres conservarla, es quitar dos campos del `updateMany`.
+  - 409 si: otro pago vigente (`por_validar`/`validado`) en algún cargo; cargo `pagado` sin pago vigente (dato antiguo); cargo sin recibo; mes con el cierre registrado por completo (misma regla que anular). Un pago sin cargo sale 404 por el alcance de la ruta (el servicio también lo rechaza con 409).
+  - Sin aviso nuevo al vecino. Los `pago_rechazado` pendientes (o en `error`) pasan a `omitida` («Pago reabierto»).
+- **Gotcha**: `Notificacion` es única por (usuario, canal, tipo, referencia). Sin cambiar la referencia de los `pago_rechazado` viejos, un segundo rechazo tras reabrir no avisaría (`encolarAviso` usa `skipDuplicates`). Al reabrir, TODOS los de esos pagos (enviados o no) pasan a `ref_entidad = 'reabierto:<ms>'`; conservan su texto. Un reintento manual de una `omitida` desde Envíos la volvería a mandar (acción explícita del admin).
+- **Residual razonado, SIN prueba de carrera**: si el vecino sube un voucher nuevo justo mientras se reabre, su chequeo de saldo ya pasó (el rechazado no contaba) y el INSERT espera el `FOR UPDATE`; podrían quedar dos pagos `por_validar` del mismo cargo. La administración vería ambos y validaría uno.
+- **Pruebas**: `tests/reabrir-pago.test.ts` (24, base `house_test_revertir`) y `tests/reabrir-pago-ui.test.ts` (módulo puro + estructura + manual). Suite completa: 4275/4276; falla sólo `recibos-excel` «conceptos en 0» (conocida). La prueba de rangos del manual (`corregir-recibos-ui`) venía fallando en este `main` (la rama de «Anular pago» sumó una sección sin ajustar los rangos): quedó corregida con la v14. Mutaciones, todas en rojo: la junta puede reabrir, se reabre con otro pago vigente, el cargo no pasa a revisión, la auditoría sin rechazo anterior, el aviso pendiente sigue saliendo; más: no liberar la referencia del aviso, no limpiar la conformidad, «vigente» = sólo validado, ignorar el cierre del mes, reabrir un no rechazado.
+- **NO verificado**: las pantallas (botón apagado y explicado, modal a 375 px, claro/oscuro) no se vieron en un navegador: sólo pruebas de módulo y de fuente, tipos y `npm run build`.
+- **Próximos**: mirar el detalle de un pago rechazado en el navegador; decidir si «Cargo quitado/corregido» también debe avisar; subir la rama (hay que subir antes la base: `feat/anular-pago` y `feat/corregir-recibos` ya están en este `main` local).
+
+## 2026-11-04 — Anular recibo y corregir el cargo de un departamento (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/corregir-recibos`) — push: no
+
+- **Pedido de Miguel**: revisión de «acciones que la pantalla no deja deshacer» → «1. Anular recibo emitido: reabre el mes para emitirlo de nuevo. 2. Corregir o quitar el cargo de un departamento.» → «Sí, esos tres» (el tercero, revertir un rechazo, va en otra tarea; «Anular pago» lo hace `feat/anular-pago`).
+- **Qué hay**:
+  - `POST /api/recibos/:id/anular {motivo (5–200), avisar}` y `GET /api/recibos/:id/anulacion` (el efecto y si se puede: lo usa el modal y apaga el botón). Servicio `services/correccionRecibos.ts`.
+  - `POST /api/recibo-concepto-unidades/:id/corregir {monto, motivo}` y `.../quitar {motivo}` (en `routes/cargos.ts`; el PUT/DELETE genérico sigue ahí, sin motivo, y ninguna pantalla lo usa).
+  - Aviso `recibo_anulado` (tipo nuevo del catálogo, `plantillas.ts`; se encola en `cola.ts` con `encolarReciboAnulado`). Etiqueta en `EnviosTab`.
+  - Pantalla: «Anular recibo» en el periodo (`PeriodoRecibo`, `AnularReciboModal`) y «Corregir cargos» en el recibo del departamento (`MantenimientoAdminModal`, `CorregirCargosModal`); lógica pura en `_parts/recibos/correccion.ts`.
+  - Manual versión 13 (61 secciones): «Anular un recibo» y «Corregir el cargo de un departamento»; rangos de la tabla inicial ajustados. Contrato en `docs/API-CONTRATO.md`.
+- **DECISIÓN: (a) borrar, no (b) marcar `anulado`.** Marcarlo obligaba a excluir el recibo de cada cálculo que mira recibos o cargos: medí unos 50 archivos de `src/server` (dashboard, reportes, estado de cuenta, rendición, cierres, asistente, avisos/recordatorios, morosidad, Excel, mora…), muchos fuera de «Permitidos». Un solo sitio olvidado y el vecino debería plata que no debe: es dinero. Borrado, ninguna consulta tiene que saber que existió, y lo que se pierde queda en la auditoría (`detalle`: motivo, recibo, conceptos, montos por departamento, pagos retirados con su comprobante sólo como metadatos, lecturas de agua). Costo: no se puede «des-anular»; hay que emitir de nuevo.
+  - Se va con el recibo: conceptos, cargos, **la mora de la emisión** (es un `ReciboConcepto` + cargos de ESE recibo: al emitir de nuevo se recalcula una sola vez, probado) y las **lecturas de agua** (`LecturaAgua` cae por `onDelete: Cascade`; pierden su foto del contómetro: el modal lo dice).
+  - **Pagos rechazados / `anulado` colgando de un cargo se BORRAN con él** tras dejarlos completos en la auditoría (monto, fecha, método, referencia, `motivo_rechazo`, quién y cuándo, metadatos del comprobante). Alternativas descartadas: dejar el pago con `recibo_concepto_unidad_id = NULL` (el `SetNull` por defecto de Prisma lo deja invisible para `scopePagos` y con riesgo en cada consulta que asume cargo) y el precedente de `quitarMulta` (cargo en S/ 0 que seguiría contando como moroso). **Lo que sí se pierde de verdad: los bytes del voucher de un pago rechazado** (la auditoría guarda nombre, tipo, tamaño y sha256, no el archivo).
+  - «Pago vigente» = lista POSITIVA `estado_validacion IN ('validado','por_validar')` (`ESTADOS_PAGO_VIGENTE`), más un cargo `pagado`/`en_revision` aunque no tenga fila de `Pago` (dato antiguo). Así el `anulado` que traerá `feat/anular-pago` no cuenta como dinero. No toqué `pagos.ts`, `validacionPago.ts` ni Pagos; sólo importo `sincronizarCargo` de `routes/pagos.ts`.
+  - Concurrencia: se toma el mismo candado por periodo de la emisión (`bloquearPeriodo`) y `SELECT … FOR UPDATE` sobre los cargos; un pago que entre a la vez (toma `FOR KEY SHARE` por la FK) termina antes o falla. NO tiene prueba de carrera (sólo está razonado).
+  - Los avisos pendientes del recibo, de sus cargos y de sus pagos pasan a `omitida` («Recibo anulado») para que no salga «ya está tu recibo» de un recibo que no existe.
+- **Aviso `recibo_anulado`**: referencia `ref_entidad = 'anulado:<año>-<mes>:<id del recibo>'`, `ref_id` = la unidad: el recibo ya no existe cuando el aviso sale, así que nada se lee de él (periodo de la referencia, departamento de la unidad). El id del recibo, distinto en cada emisión, evita que la fila única (usuario, canal, tipo, referencia) se coma el segundo aviso si el mismo mes se anula dos veces. Sólo a quien paga cada unidad (`pagadoresDe`, igual que `recibo_emitido`), respetando `aviso_email`/`aviso_whatsapp`; no es configurable por condominio (como `comunicado`/`recordatorio_deuda`). Nada al grupo de WhatsApp.
+- **Corregir cargo**: el monto nuevo no baja de lo pagado vigente (409); si se sube sobre lo pagado, el cargo vuelve a `pendiente` (por `sincronizarCargo`). El total del recibo no se guarda en ningún lado (se suma de los cargos): no hay nada que recalcular. `ReciboConcepto.monto` (el de la plantilla del concepto) no cambia. Sin aviso al vecino (**propuesta**: si lo quieres, un `cargo_corregido` aparte; no lo construí).
+- **Pruebas**: `tests/corregir-recibos.test.ts` (28, backend, base `house_test_corregir`) y `tests/corregir-recibos-ui.test.ts` (15). Suite completa: 4212 pruebas, 4211 en verde; falla sólo la conocida `recibos-excel` «conceptos en 0» (fecha). `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` limpios. `tests/avisos.test.ts` excluye `recibo_anulado` del chequeo genérico de plantillas (no lleva monto, como `recordatorio_deuda`). Mutaciones: 12 del backend y 5 de la pantalla, todas en rojo (restauradas con `cp` + `cmp`).
+- **Gotchas**: (1) cada cambio de «Corregir cargos» es una llamada aparte (el endpoint es por cargo): si uno falla, los anteriores ya se guardaron y el modal lo dice. (2) Las pantallas NO se vieron en un navegador: sólo pruebas de lógica y de cableado. (3) `docs/manual/manual-administradora.json` no se tocó (no estaba en «Permitidos»): conviene añadirle las dos secciones; y `docs/manual/README.md` no registra la versión 13. (4) Las lecturas de agua con foto se pierden al anular. (5) Si ya existe el recibo del mes siguiente y se anula el anterior, la mora que aquel ya trae (calculada con éste) se queda: es un cargo suyo.
+- **Próximos**: mirar los dos modales en el navegador (claro/oscuro, 375 px); decidir el aviso al corregir un cargo; el tercero de la lista de Miguel (revertir un rechazo) y «Anular pago» están en otras ramas; publicar el manual (versión 13).
+## 2026-11-04 — Anular pago (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/anular-pago`) — push: no
+
+- **Pedido de Miguel**: quitar un pago ya VALIDADO desde la pantalla (hoy sólo se borraba por la API) → «Anular pago».
+- **Backend (hecho)**: `POST /api/pagos/:id/anular {motivo 5–200}` (admin/superadmin; junta → 403; otra empresa → 404; sólo `validado`, el resto 409). No borra: `estado_validacion='anulado'` + `anulado_at/anulado_por_id/motivo_anulacion` (aditivo en `Pago`) en TODO el grupo, y `sincronizarCargo` reabre el recibo, en una transacción. Auditoría `anular`/`pago` con motivo, monto y n.º de filas. Aviso `pago_anulado` (sólo correo, como `pago_rechazado`; respeta `aviso_email`). Código: `services/anulacionPago.ts`, `lib/pagoVigente.ts` (`PAGO_VIGENTE`, `esPagoVigente`), `sincronizarCargo` movida a `services/validacionPago.ts`.
+- **Decisión cierre del mes**: el «cierre» es el registro de lo que la junta pagó (`EgresoBlock`). Si el mes del recibo tiene TODAS sus líneas registradas (y al menos una), anular da 409 «El mes ya está cerrado… reábrelo» (se reabre quitando el registro: `DELETE /api/cierres/lineas/:id`). Cierre incompleto → no bloquea. El cobrado del cierre sale de `estado_pago` de los cargos, así que se recalcula solo.
+- **Usos de `estado_validacion` revisados**: los `not: 'rechazado'` pasaron a `PAGO_VIGENTE` (`routes/pagos.ts` saldo, `mora.ts`, `revisionMora.ts` ×4); los de lista blanca (`validado`/`por_validar`: dashboard, rendición, cruce y gestión de conciliación, mantenimiento, historial, lib/mantenimientos, consumo, deudaVencida, asistente, comprobantes, validacionAutomatica) excluyen el anulado solos. Conciliación: un abono automático enlazado a un pago anulado se suelta (`sanearCuenta`) y no se vincula uno anulado. Estado de cuenta: `anulado` es estado propio (se muestra, no suma, `pagos_anulados`). Herramientas del asistente: filtro y estado `anulado`.
+- **Pantalla** (admin › Pagos, y `/junta/pagos` que es la misma): pestaña **Anulados** (quién, cuándo, motivo); en «Detalle del pago» de un validado, botón «Anular pago» (sólo `puedeValidar`: admin/superadmin) → `AnularPagoModal` (motivo con contador, ejemplo «Pago duplicado», qué pasa) → toast, recarga la lista y el detalle queda ya anulado. Reglas puras en `_parts/cobranza/anular.ts`. El vecino ve «Anulado» con el motivo (no quién anuló) en Mis pagos y en el detalle; el estado de cuenta lo muestra «Anulado (no suma)». Manual: sección nueva «Anular un pago ya validado» (versión 13) y párrafo en «Mis recibos». Contrato: viñeta nueva junto a `PATCH /api/pagos/:id/validacion`.
+- **Pruebas**: `tests/anular-pago.test.ts` (22, backend) y `tests/anular-pago-ui.test.ts` (9, pantalla) en `house_test_anular`. Mutaciones: 15 de backend y 7 de pantalla, todas en rojo.
+- **Próximos**: mirar la pantalla en el navegador (claro/oscuro, 375 px) — no se probó con navegador; decidir si el consumo de plan debe seguir contando un voucher anulado (hoy no lo cuenta); si hace falta, captura nueva para el manual (la sección nueva no lleva imagen).
+- **Gotchas**: `sincronizarCargo` ahora vive en `services/validacionPago.ts` (`routes/pagos.ts` la reexporta); el limitador de login (429) obliga a iniciar sesión una sola vez por archivo; `src/` no se edita mientras corre la suite (los `*-ui.test.ts` leen el código).
+
+---
+
+## 2026-11-04 — «Entrar como» para el superadmin (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/entrar-como`) — push: no
+
+- **Pedido de Miguel**: «necesito el impersonar para mí que soy el superadmin. Ya hice un impersonar en el Portal de Dealers, revisa» → propuesta de Opus → «hazlo».
+- **Qué hay**: `POST /api/impersonacion {usuario_id, motivo}` abre una sesión PRESTADA (30 min o lo que quede a la real, lo menor); `POST /api/impersonacion/salir` la cierra y devuelve la sesión real SIN alargarla; `GET /api/impersonacion` es el historial. `GET /api/auth/me` trae `impersonando`. Barra fija ámbar con «Volver a mi cuenta» (`src/app/BarraImpersonacion.tsx`), pestaña **Usuarios del sistema › Entrar como** (busca a cualquiera y pide el motivo) y **Auditoría › Entrar como** (historial). Contrato en `docs/API-CONTRATO.md`; sección 55 del manual (versión 12). Código: `src/server/services/impersonacion/{contexto,cierre,servicio}.ts`, `routes/impersonacion.ts`, `src/auth/impersonacion*.ts`.
+- **Decisiones**:
+  - **La sesión real se vuelve a abrir con una cookie auxiliar** `house_sesion_real` (httpOnly, `Path=/api/impersonacion`, misma vigencia): en la base la sesión sólo tiene el hash del token, así que no se puede «restaurar» sin el token. Sin esa cookie `salir` da 401: una sesión prestada robada no abre la cuenta del superadmin. (Alternativa descartada: rotar el token de la real al salir; con la prestada robada daría la cuenta del superadmin.)
+  - **Auditoría con los dos: columnas** `Auditoria.impersonador_id` e `impersonacion_id` (no en `detalle`, que los handlers pisan; permite filtrar). Cada fila hecha en sesión prestada lleva `usuario_id` = objetivo; también las que un servicio escribe por su cuenta o en segundo plano (`AsyncLocalStorage`, `contextoImpersonacion` montado tras `auditoria` en `app.ts`). Inicio/fin: `impersonar_inicio` / `impersonar_fin`, actor = superadmin, `res.locals.sinAuditoria` evita la fila automática duplicada.
+  - **El fin siempre queda registrado** (hueco del Portal): `cerrarTerminadas` cierra toda `Impersonacion` abierta cuya sesión prestada venció/se revocó/quedó inactiva, con la hora real; corre al listar, al revocar sesiones de un usuario y en `limpiarSesiones` ANTES de borrar. `Impersonacion.expira_at` (no estaba en el pedido) guarda el tope para eso.
+  - En cada petición con sesión prestada se revalida (`validarSesionPrestada`): el objetivo no puede haber pasado a superadmin, el superadmin sigue siéndolo y su sesión real sigue abierta; si no, 401 y la entrada se cierra `revocada`.
+  - **Bloqueado en sesión prestada** (`exigirSesionPropia`, 403 «No disponible mientras ves Torre como otra persona»): Mi perfil (`PUT /me`, `/me/password`, celular en `/me/avisos`), `PUT /usuarios/:id` sobre la propia cuenta con password/email/telefono, tokens de API (POST/DELETE), sesiones y logout, historial de impersonación. AÑADIDOS por criterio (no estaban en el pedido): todo `/api/ai-chat` (las conversaciones son sólo de su dueño) y todo `/api/me/canales` (vincular WhatsApp/Telegram es tomar la cuenta). En pantalla el asistente no se abre y «Cerrar sesión» pasa a «Volver a mi cuenta». Los Términos no tienen ruta con sesión (sólo el registro público): nada que bloquear.
+  - «Usuarios del sistema» lista SÓLO superadmins, a quienes no se puede entrar: por eso la pestaña «Entrar como» busca a cualquiera (`GET /api/usuarios` sin `tipo`), sin tocar `PersonasLista`.
+- **Archivos fuera de «Permitidos»** que hubo que tocar (mínimo): `src/server/routes/auditoria.ts` (incluye `impersonador`), `src/server/routes/avisosPersonales.ts` (celular), `tests/entrar-como*.test.ts` (nuevos).
+- **Pruebas**: `tests/entrar-como.test.ts` (36, backend) y `tests/entrar-como-ui.test.ts` (14). Base `house_test_entrar`. Mutaciones backend (17) y de pantalla (9) todas en rojo; la `4b` (quitar `impersonador_id` del middleware pero dejar el contexto) es equivalente: el `AsyncLocalStorage` lo cubre.
+- **Gotchas**: (1) con la sesión real revocada, la prestada ya cae en `authenticate`, así que `salir` por HTTP nunca llega a restaurar: el caso «real revocada → no restaura» se prueba también contra el servicio. (2) `limitarSegunSesion` envuelve a `authenticate`: por eso el contexto de auditoría se pone en un middleware aparte (un `enterWith` dentro de `authenticate` no llega a los handlers). (3) Las pantallas (barra a 375 px, modo oscuro, modal) NO se vieron en un navegador: sólo pruebas de render a HTML y de cableado.
+- **Próximos**: mirar la barra y el modal en el navegador (claro/oscuro, 375 px); decidir si «Entrar como» también debe ofrecerse desde la ficha de la empresa y del condominio (hoy sólo desde Usuarios del sistema); publicar el manual (versión 12).
+
+---
+
+## 2026-11-04 — Instagram de Torre en la web (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «en el landing podríamos incluir las redes; por ahora sólo Instagram». `ConfiguracionComercial.url_instagram` (por defecto @torreadministracioncondominios; editable en Superadmin › Precios; sólo https de instagram.com; vacío = no se muestra) → `redes.instagram` en el catálogo público → pie de todas las páginas públicas (`Marco.tsx`, ícono propio porque Heroicons no trae logos) y `sameAs` en los datos para buscadores (`seo/paginas.ts`). Prueba `tests/redes-publico.test.ts`.
+- Instagram creado hoy por Miguel: @torreadministracioncondominios (profesional, foto de la torre, bio «Por Ing. Miguel F. Gargurevich», enlace a la web). El publicador automático va en My Workspace (sesión propuesta), con los pilares 40/30/20/10.
+
+---
+
 ## 2026-11-04 — Videos de onboarding: v7 «Empieza con Torre» (administración) y v8 «Bienvenido a Torre» (vecinos) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: «esas recomendaciones me suenan a onboarding … un video para administradores y otro para usuarios»; propuesta de Opus aceptada.
@@ -26,6 +102,78 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
   - El modal de comunicados y el de morosidad se recorren con el cursor SOBRE el diálogo (`bajarEnDialogo`), si no el título sale de cuadro.
   - Morosidad: el botón dice «Enviar a N departamentos»; el video sólo lo señala y cancela.
   - La sesión de la junta venció: `grabar-video.mjs` vuelve a iniciar sesión (una vez).
+## 2026-11-04 — Recibo directo automático por block (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «¿el paso 3 hay que hacerlo manual?» → «así debe ser»: el directo del recibo lo decide Torre por block. `listaWhatsappDe` (avisos/cola.ts): para `recibo_emitido` de un recibo, si su block NO tiene grupo usable (`reciboTieneGrupo` en canales/cobertura.ts) agrega `recibo_emitido` a la lista → sale directo; con grupo, sólo si el condominio lo marca (ahora significa «también directo aunque el block tenga grupo»). Lo usan la cola, la vista previa y el envío.
+- Migración única `migracionReciboAutomatico` (`ConfiguracionComercial.migracion_recibo_auto_at`): quita `recibo_emitido` de TODOS los condominios (VRANY lo tenía por el defecto viejo; si no, al asignar grupos le llegaría doble). Corre antes de `migracionRecordatorioGrupos`.
+- Textos: rótulo «Recibo del mes: también directo…», ayuda de Avisos del condominio, aviso de cobertura («le llegará por WhatsApp directo…») y manual. Pruebas en `recibos-grupos` (block con y sin grupo en el mismo condominio, migración) y ajustes en `whatsapp-por-tipo`. Suite 4116/4117 (fecha).
+- Ya no hay «paso 3»: Melina sólo conecta el número y asigna los grupos.
+
+---
+
+## 2026-11-04 — Producción limpia para VRANY: sin el WhatsApp de Miguel (Claude Code, Opus 5.5) — operación en prod, sin código
+
+- Miguel: «es mi WhatsApp el que sincronicé para pruebas … hagamos las pruebas en local y dejamos prod para Melina y VRANY».
+- En prod: «Family values» quitado de uso ANTES del deploy de grupos (la migración vio a VRANY sin grupos y no apagó el recibo directo); `logout` de la instancia `house_empresa_1` en Evolution (estado `close`); `EmpresaAdministradora` 1 sin `whatsapp_instance`/`whatsapp_token`; borrados sus 53 `GrupoWhatsapp` (los grupos personales de Miguel). El historial (`EnvioGrupoWhatsapp`, notificaciones) se dejó.
+- Mientras no se vincule el número de VRANY, los avisos de VRANY salen sólo por correo.
+- Pasos para Melina: WhatsApp › «Sincronizar mi número» con el número de la administración → «Traer mis grupos» → asignar los 14 grupos de block → apagar «Recibo emitido» directo en Avisos del condominio.
+- Las pruebas de WhatsApp van en local con el Evolution falso (`.claude/worktrees/evo-falso.mjs`).
+
+---
+
+## 2026-11-04 — Grupos de WhatsApp por block: el recibo va al grupo, lo personal va directo (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/grupos-estrategia`) — push: no
+
+- **Pedido de Miguel**: los avisos generales van a los grupos (14 blocks → 14 grupos), no a cada departamento. Regla: WhatsApp a grupos para lo general; directo sólo para lo personal. El correo no cambia.
+- **Qué se hizo**:
+  - Recibo al grupo de su block (o del condominio si el recibo no es de block), al emitir (API y Excel) y al avisar. Reusa el camino de los comunicados a grupos (`enviarUno`). Va en segundo plano.
+  - Idempotente por recibo y grupo: `EnvioGrupoWhatsapp.recibo_id` (columna nueva).
+  - `recibo_emitido` sale de `WHATSAPP_POR_DEFECTO` y del default de `whatsapp_avisos` en el schema. Migración única (`migracion_grupos_recibo_at`): sólo condominios con grupos pierden el recibo directo.
+  - Cobertura (`services/canales/cobertura.ts`): «Grupos de blocks: 13 de 14. Falta: Block 9» en «Mis grupos»; aviso en «Avisar a los vecinos» y en la respuesta de emitir si el block no tiene grupo. Endpoint `GET /api/whatsapp/cobertura/:id` (404 otra empresa).
+  - Comunicados: «A las juntas» desmarcado por defecto, con texto de ayuda nuevo.
+  - Contador: `recordatorio_deuda` con su nombre; el recibo a grupos cuenta en «Recibo del mes».
+  - Manual (house, administradora, junta) y `docs/API-CONTRATO.md`.
+- **Próximos**:
+  1. Mirar en el navegador «Mis grupos», «Avisar a los vecinos», «Nuevo comunicado» y «Avisos del condominio» (no se vieron).
+  2. Decidir si `cobranza/EmitirReciboModal.tsx` queda: lo toqué para mostrar el aviso de block sin grupo al emitir, pero ese archivo NO está en la lista de permitidos del brief. Si no se aprueba, se revierte y el aviso queda sólo en la API.
+  3. Republicar el manual web y los PDF por rol.
+- **Decisiones**:
+  - El recibo directo viene apagado también en condominios nuevos sin grupos (así lo pidió el brief). Consecuencia: sin grupos no hay WhatsApp del recibo hasta asignar grupos o encenderlo; la cobertura lo dice.
+  - Un grupo con el tope diario alcanzado no se anota, y un «Avisar» posterior lo intenta de nuevo.
+  - `grupo` en la respuesta de «Avisar» es el estado antes de salir (el envío es en segundo plano).
+- **Gotchas**:
+  - Hay que cambiar el default de `whatsapp_avisos` en el schema además de la constante, o los condominios nuevos siguen con el recibo directo.
+  - Las pruebas que dependían del recibo directo por defecto ahora fijan la lista de antes (`avisar-recibo`, `avisos`, `cobranza-pagador`, `whatsapp-mis-grupos`, `whatsapp-por-tipo`, `whatsapp-uso`).
+  - Pruebas nuevas: `recibos-grupos` (13). Base `house_test_grupos`; Evolution y Resend falsos.
+  - Suite completa: 4115 pruebas, 4113 en verde. Fallan 2, ninguna por este cambio: `recibos-excel` «conceptos en 0» (fecha, conocida) y `seo-publico` «la plantilla real de index.html» (index.html no cambió en esta rama).
+  - Mutaciones en rojo (y restauradas con cp + cmp): recibo directo por defecto; mismo recibo dos veces al mismo grupo; migración que quita el directo sin grupos; cobertura sin filtro de empresa (404 roto).
+  - Las pruebas del Excel ahora filtran los avisos «no tiene grupo de WhatsApp» (`sinAvisoGrupo`): el Excel los devuelve en `advertencias`.
+## 2026-11-04 — Ícono: la torre un 20 % más grande (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «cuando lo copia al dock es muy pequeña la torre en comparación al logo». La torre se dibuja con escala 1,2 sobre las medidas base en `IconoTorre.tsx` (`TORRE_ESCALA`), `favicon.svg`, los PNG (`iconos-torre.py`, `ESCALA`; maskable 1,02 = lo máximo dentro de la zona segura) y el cierre de los videos. `og-torre.png` regenerado.
+- Gotcha: el Dock de macOS y los celulares guardan el ícono de la app instalada; hay que quitar la app y volver a instalarla para ver el nuevo.
+
+---
+
+## 2026-11-04 — Avisos a departamentos elegidos y recordatorio a los morosos (Claude Code, Sonnet 5.5, rama `feat/avisos-elegidos`) — push: no
+
+Pedido de Miguel: «¿si la administradora quiere enviar un aviso el día del vencimiento y el depa no ha pagado… o un comunicado a algunos depas por WhatsApp, seleccionando el depa del block?» → «Sí, agrégalo».
+
+- **Comunicados a «Departamentos elegidos»**: `Comunicado.unidades Int[]` (aditivo; vacío = todo el alcance). El aviso «a cada vecino» (correo/WhatsApp) sale SÓLO a las personas de esas unidades (`destinatariosDe` filtrado por unidad: «Recibe comunicados», preferencias) y sólo esos vecinos lo ven en `GET /api/me/comunicados` (`comunicadoDeUnidades` ahora recibe el `id` de cada unidad del residente). Unidad de otro block/condominio/empresa = 404 sin crear ni enviar nada (la junta de un block sólo alcanza el SUYO); con elegidos no hay junta ni grupos (422). `GET /api/comunicados/departamentos` da la lista (código + titular) para marcar. Pantalla: «Para quién › Departamentos elegidos» (`ElegirDepartamentos.tsx`, con buscador, marcar todos / quitar marcas, filas de 44 px); la junta de un block también la ve y elige dentro de su block.
+- **Recordatorio a los morosos**: `POST /api/recordatorios/deuda` (`routes/recordatorios.ts`, `services/recordatorios/deuda.ts`; sólo admin/superadmin: Morosidad no existe para la junta). Sin `confirmar` es vista previa y no encola nada; con `confirmar` encola `recordatorio_deuda` (tipo nuevo: texto, correo con diseño y marca) SÓLO al responsable de pago (`pagadoresDe`) de cada unidad que debe, respetando preferencias. Idempotente por unidad y día de Lima, también entre canales (`ref_entidad = 'deuda:<día>'`, `ref_id = unidad`). Cuenta para el tope diario y la cuota mensual de WhatsApp (por la cola de siempre). Si la unidad paga antes de que salga, la fila queda `omitida` («Ya no tiene deuda vencida»). La deuda vencida sale del MISMO código que Morosidad (`services/recordatorios/deudaVencida.ts`; `reportes.ts` lo usa, comportamiento idéntico). Pantalla: Morosidad con casillas, «Marcar todos los de esta página» y «Enviar recordatorio» (`morosidad/RecordatorioDeudaModal.tsx`: canales, vista previa con los números y la cuota de WhatsApp, texto y «Enviar»).
+- Auditoría con cantidades e ids de departamento (nunca nombres, correos, celulares ni montos). Manual: «Comunicados» (departamentos elegidos) y sección nueva «Recordar a los morosos» en `manual-house.json` (58 secciones; rangos de la tabla inicial ajustados) y `manual-administradora.json` (37); «Comunicados de la junta» en `manual-junta.json`; versión «4-nov-2026». `docs/API-CONTRATO.md`: sección al final.
+- Tocados fuera de la lista de Permitidos, por necesidad (mínimo): `routes/me.ts` (una palabra: `id: true` en el `select` de las unidades del residente, para filtrar por unidad) y `pages/admin/_parts/avisos/EnviosTab.tsx` (una etiqueta: una prueba existente exige una por cada tipo de aviso). No toqué `marca/avisos.ts`: la empresa de un aviso `deuda:` se resuelve con un envoltorio en `cola.ts`.
+- **Próximos**: (1) mirar las dos pantallas en el navegador a 375 px (no se pudo: no se lanza Chromium); (2) republicar manual web y PDF de la administradora; (3) `services/canales/uso.ts` (contador de WhatsApp) no ubica por condominio los avisos `deuda:` que están EN COLA (los ya enviados sí cuentan por la instancia y por `reservarConsumo`): añadir `deuda` a `complejosDeAvisos` si se quiere que «en cola» los muestre; (4) los avisos `recordatorio_deuda` caen en «otros» del desglose por tipo del contador.
+- **Decisiones**: un aviso por unidad (no por persona): quien paga dos unidades marcadas recibe dos mensajes. «Ya recibió hoy» cuenta cualquier fila del día aunque haya quedado en error/omitida (no hay reenvío el mismo día). El día es el de Lima, como la cuota mensual. La vista previa es un POST con `confirmar:false` y deja una fila de auditoría `vista_previa_recordar_deuda`.
+- **Gotchas**: las pruebas del recordatorio usan la base `house_test_avisos` y `fetch` falso (Resend/Evolution); `tests/avisos.test.ts` excluye `recordatorio_deuda` del chequeo genérico de plantillas (no dice un solo periodo). Pruebas nuevas: `comunicados-elegidos` (17), `recordatorios-deuda` (21), `avisos-elegidos-ui` (21). Suite completa al cerrar: 4094 pruebas, 4093 en verde; falla sólo la conocida `recibos-excel` «conceptos en 0» (depende de la fecha). Mutaciones: 13 del backend y 5 de la UI, todas en rojo. `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` limpios. **Las pantallas NO se vieron en un navegador.**
+## 2026-11-04 — «Manual y videos» en el menú de la cuenta (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «¿el manual está disponible en la aplicación también?» → sólo en el menú de la cuenta (NO un «Ver video» por pantalla: lo descartó).
+- `ConfiguracionComercial.url_manual` (por defecto el manual publicado; editable en Superadmin › Precios; vacío = la opción no aparece; sólo https). `GET /api/comercial/manual` (cualquier usuario con sesión). `src/app/manual.ts` (`anclaDelManual`: admin, junta de block, Junta central, propietario, inquilino, personal) y `MenuUsuario.tsx` («Manual y videos», pestaña nueva). Prueba `tests/manual-menu.test.ts`.
+- El manual publicado tiene anclas estables `#rol-<rol>` y `#<id>` de `manual-videos.json` (`manual-con-videos.py`, marcador `ANCLA::`). Republicado en el mismo archivo.
+
+---
+
+## 2026-11-04 — Videos del manual: «Tu marca» regrabado y «Ten Torre en tu celular» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: que Torre tenga su versión para descargar al celular (como Portal de Dealers) y que el manual lo mencione con su video.
 - **Qué se hizo**:
@@ -39,6 +187,12 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
   - En macOS `Ctrl+A` no selecciona todo en un campo: usar `fill('')`.
   - Las voces se pidieron con `audio_generar` (`ef_dora`); la respuesta dice `provider: kokoro`. Conviene oírlas antes de publicar.
 - **Próximos (Opus)**: subir los dos mp4 (escritorio y celular) a MinIO/My Workspace y regenerar el manual con la nueva sección «Ten Torre en tu celular» (ya está en `manual-videos.json`).
+## 2026-11-04 — Ícono nuevo: la torre con ventanas (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «el ícono es una casa (quedó de House), ahora se llama Torre» → eligió la opción A (torre con ventanas, 2 × 3 ventanas y puerta).
+- `src/ui/IconoTorre.tsx` (un solo componente, colores del tema: toma la marca propia) en `Shell`, `Login` y `publico/Marco`. `public/favicon.svg` y los PNG (192, 512, maskable 192/512, apple-touch 180, favicon 16/32) con `scripts/marketing/iconos-torre.py` (PIL, supermuestreo). `og-torre.png` con `scripts/seo/generar-imagenes.mjs` (lee el favicon.svg; ese script también reescribe 3 íconos: corre `iconos-torre.py` DESPUÉS). Cierre de los videos (`grabar-video.mjs`) con la torre. Prueba en `tests/instalar-app.test.ts` (ya no queda la casa).
+- Antes (mismo día): íconos maskable, favicons PNG y `sizes` del apple-touch, comparado con el Portal de Dealers (que salió de Torre).
+- Gotcha: los videos ya publicados (1–6 y los del manual) siguen con la casa en el cierre; los del manual no tienen cierre de marca.
 
 ---
 
@@ -62,6 +216,48 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Manual con videos: título, modo claro e índice por rol (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «cambia el título … le falta scroll al menú lateral, hazlo modo claro». `scripts/marketing/manual-con-videos.py`: título «Torre · Administración de condominios», `tema: verde` (el de la cuenta es oscuro) y modo claro fijo (`data-esquema="claro"` y el script de la plantilla ya no lo quita), índice lateral con `max-height` + `overflow-y:auto` y rótulos por rol (`<payload>.grupos.json`).
+- Pendiente: regenerar con `web_crear` y publicar encima del mismo archivo (`cmw289vue004z12k19g1ab7gd`) cuando Haiku termine los videos de WhatsApp, Comunicados y «Tu marca».
+- Gotcha: un HTML en `.claude/` se ve en el navegador local por Vite (`http://localhost:5173/.claude/…`); por `file://` el panel lo muestra como captura estática.
+
+---
+
+## 2026-11-04 — Marca integrada y vista en local; manual con videos publicado (Claude Code, Opus 5.5) — push: no
+
+- Marca propia integrada en main (Sonnet + ajustes de Opus). Regla final: la marca se ACTIVA sólo si el plan la trae (Pro, Administradora, Cortesía) Y la empresa personalizó nombre comercial o color; sólo con el plan, Torre se ve como siempre (app, correos y firmas). `services/marca/servicio.ts` (`marcaDeEmpresa`, `marcaParaCorreo`); prueba en `seguridad.test.ts`.
+- Visto en local a 375 px (claro y oscuro): «Tu marca» con vista previa, menú, título de pestaña y gráficos con el color. En la base local `house` quedó «Urbana Condominios» #1d4ed8 en Gestión Urbana SAC (dato de prueba).
+- Manual con videos: `scripts/marketing/manual-con-videos.py`; recurso `cmw289vue004z12k19g1ab7gd`; 60 `<video>` a MinIO `videos-torre/manual/`. OCR (Tesseract, ahora con español `spa`) sobre 129 cuadros: sin datos reales.
+- Los 5 manuales por rol enlazan «Torre en video» en su primera sección (falta republicar web y PDF).
+- Próximos: deploy; republicar manual web y PDF; video de «Tu marca»; lanzar «avisos a departamentos elegidos» (brief listo en `.claude/worktrees/brief-avisos-elegidos.md`, después del push porque `preparar` parte de origin/main).
+
+---
+
+## 2026-11-04 — Marca propia: también en Pro y Cortesía, migración y firma de WhatsApp (Claude Code, Opus 5.5, revisando lo de Sonnet) — push: no
+
+- Miguel: «en el plan pro también inclúyelo» y «el rebranding por empresa en todo incluyendo correos». `marca_propia` ahora va en Pro, Administradora y Cortesía (`catalogo.ts`); Básico y Gratis no. El logo sigue en todos.
+- Producción: el catálogo sembrado NO toca planes existentes (`createMany skipDuplicates`). `migracionMarca` (en `comercial/migracion.ts`, marca `ConfiguracionComercial.migracion_marca_at`) suma la capacidad UNA vez a Pro, Administradora y Cortesía al arrancar; si el superadmin se la quita a un plan, no vuelve. VRANY está en Cortesía → la verá activa.
+- Firma de los avisos en texto (WhatsApp y respaldo del correo): `— Administración de <condominio> · <nombre comercial>` con la marca activa (`plantillas.ts` `firma`, dato `empresa` que llena `cargarDatos` en `cola.ts`).
+- Textos de pantalla y manual: «Disponible desde el plan Torre Pro».
+- Pruebas: `tests/marca-planes-firma.test.ts` (firma y migración) y ajustes en `marca-api` y `oferta-gratis-pro` (Básico es el plan sin marca).
+- Pendiente: verla en el navegador (375 px, claro y oscuro), un correo real en Gmail, el video de la sección «Tu marca».
+
+---
+
+## 2026-11-04 — Marca propia de la empresa: logo, nombre comercial y color (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
+
+- **Pedido de Miguel**: «necesito poder customizar el logo y el nombre … y color (con color picker) y salga en sus recibos y asi torre pueda customizarse» + «considera el rebranding por empresa en TODO incluyendo correos». Rama `feat/marca-empresa` (sobre `8611d61`), commits sin push.
+- **Modelo** (aditivo, `prisma db push`): `EmpresaAdministradora.nombre_comercial` (≤ 60) y `color_marca` (`#RRGGBB`, null = verde de Torre). **Capacidad `marca_propia`** («Marca propia: color y nombre») SÓLO en el plan Administradora; una empresa la tiene si al menos uno de sus condominios la tiene activa. Sin ella se guarda igual, pero app, recibo y correos usan el verde de Torre y la razón social; el logo va en todos los planes. Detalle en `docs/API-CONTRATO.md`.
+- **Backend**: `src/lib/marca.ts` (`paletaDeMarca`, compartida con el cliente: oklch, contraste real WCAG ≥ 4.5 de `--on-brand` sobre `--brand` en claro y oscuro y de la marca sobre `--brand-soft`; si no llega baja la L y devuelve `ajustado: true`; el verde de Torre sale idéntico a `index.css`), `services/marca/` (`servicio`, `firma`, `rutaPublica`, `avisos`, `tipos`), `marca` en login y `GET /api/auth/me` (`{empresa_id, razon_social, nombre, logo_url, color, activa}`), `PUT /api/empresas/:id` con `nombre_comercial`/`color_marca` (admin de su empresa o superadmin; otra empresa 404; color inválido 422), `GET …/logo` ahora también para el personal, correos con marca (`plantillaCorreo({marca})`; remitente «<Nombre comercial> vía Torre», dirección igual).
+- **Logo público de los correos**: `GET /api/publico/marca/:id/logo?f=<firma>&v=<versión>`. La firma es un HMAC del **id** con `JWT_SECRET` (no de la versión: un correo viejo muestra el logo vigente); no se puede recorrer ids; sólo sirve `ImagenRecibo.empresa_id` (nunca cabecera de condominio ni contómetro); todo fallo es la misma 404. Si se rota `JWT_SECRET`, los logos de correos ya enviados dejan de verse (queda el nombre).
+- **Frontend**: `Shell` da la marca por contexto (`src/app/marca/`), la aplica con `useLayoutEffect` en un `<style>` (`html:root` y `html.dark`; no en el `style` de `<html>`, que pisaría el oscuro), título «<nombre> · con Torre» y favicon = logo; menú con logo/inicial + nombre y «con Torre» al pie. Mi empresa y la ficha del superadmin: «Tu marca» (`pages/admin/_parts/marca/`: logo, nombre, `<input type="color">` + hex sincronizados, vista previa en vivo, aviso de contraste, «Volver al verde de Torre», aviso del plan con enlace a Mi plan). Recibo, estado de cuenta, rendición y consolidado: cabecera con logo, nombre y franja de color (`print-color-adjust: exact`); pie con razón social + RUC y «con Torre». La marca del usuario sólo se aplica a un documento si es la de la empresa del documento.
+- **Dónde dice «Torre» de cara a una empresa — qué cambia y qué no**. *Cambia con marca activa*: encabezado y pie del menú, pestaña y favicon, colores del tema, recibo, estado de cuenta, rendición, título del consolidado, todos los correos de aviso e invitaciones (cabecera, franja, botón, pie «Enviado con Torre», nombre visible del remitente). *Se queda como Torre (decidido)*: login, invitación, registro y páginas públicas; «Asistente de Torre»; banda de solo lectura, Mi plan y textos de planes; ErrorBoundary; **aviso de instalar y manifest/ícono PWA** (la app instalada se llama Torre; cambiarlo exigiría un manifest por empresa); bots de WhatsApp/Telegram; correos de la plataforma (registro, planes, IA). **NO hecho: firma de los WhatsApp** («— Administración de <condominio>» sigue nombrando al condominio, no cambió a nombre comercial: requería `plantillas.ts`, fuera de lo permitido, y quitaría el nombre del condominio; decide Miguel). Cierres: no tienen hoja imprimible. Excel exportados: sin cabecera de marca.
+- **Manual**: sección «Tu marca: logo, nombre y color» en `manual-house.json` (57 secciones, rangos corridos +1, versión 11, fila de Administradora en «Planes y precios») y `manual-administradora.json` (36). Sin imagen; el video lo graba Opus. `docs/manual/README.md` no se actualizó (no permitido).
+- **Archivos FUERA de lo permitido que hubo que tocar** (necesarios): `src/server/app.ts` (1 línea: montar la ruta pública), `services/avisos/cola.ts` y `services/invitaciones.ts` (pasar la marca al correo), `src/auth/AuthContext.tsx` (guardar `marca` del login). Pruebas existentes ajustadas por contrato nuevo: `seguridad` (login trae `marca`), `oferta-gratis-pro` (Administradora trae `marca_propia`), `agua-ui` (logo ahora en «Tu marca»), `recibo-impreso-ui` (logo en la cabecera).
+- **Pruebas**: `marca-paleta` (21), `marca-api` (32), `marca-ui` (21). Mutaciones en rojo (restauradas con `cp`+`cmp`): `/auth/me` con la marca de otra empresa, color sin validar, ruta pública que entrega cualquier `ImagenRecibo`, `paletaDeMarca` sin ajuste de contraste. **Suite completa** (`npm test`, base `house_test_marca`): 4031 pruebas, 4029 verdes; los 2 rojos: el conocido `recibos-excel` «conceptos en 0» (fecha) y `voucher-obligatorio` «validar un pago con voucher» (flake de carga; pasa solo 16/16). `tsc -b`, `tsc -p tests/tsconfig.json` y `npm run build` limpios.
+- **Gotchas**: (1) tras desplegar: `prisma db push` y `npx tsx scripts/oferta-gratis-pro.ts` (pone `marca_propia` en el plan Administradora de una base existente; la Cortesía NO la trae: para ver la marca hay que poner el condominio en plan Administradora). (2) Un residente con departamentos en dos empresas ve la marca de la del primero (menor id). (3) Comentarios OpenAPI con `{ }` sin comillas rompen el YAML de swagger (pasó y se corrigió). (4) La auditoría se escribe tras responder: `juntas` «queda en la auditoría» puede fallar una vez bajo carga y pasa sola.
+- **Próximos pasos**: ver «Tu marca» y el menú en el navegador a 375 px, claro y oscuro (NO se vio en pantalla); decidir la firma de los WhatsApp; video de la sección; actualizar `docs/manual/README.md` y republicar manual/PDF; probar un correo real con logo en Gmail (imágenes bloqueadas y modo oscuro).
 ## 2026-11-04 — Videos del manual: uno por opción del menú de cada rol (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: «un video de cada sección (opción del menú) por cada usuario, y el manual lo debe mencionar; versión HTML del manual con sus videos para pasársela a Melina». Aquí sólo los VIDEOS y su lista; el HTML y la publicación los hace Opus.
@@ -76,6 +272,11 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Límites / no verificado**: WhatsApp se grabó en «Número no vinculado» (sin Evolution en local: no se vio el contador ni Mis grupos); «Ver pagos» de Mi plan, «Ver voucher», «Pagar mantenimiento»→«Enviar pago», «Registrar pago» y los botones de la junta sólo se señalan, no se probaron en cámara; «Cobrado este mes S/ 0,00» en el Resumen es lo que dice el seed local (no hay pagos en noviembre); el inquilino no tiene video propio (Valentina no tiene recibos por pagar: su «Mis recibos» sale vacío), ni jardinería (existe `jardineria@prueba.house`, pero la pantalla es la misma que la de limpieza); fechas del navegador en mm/dd/aaaa y «Choose File» en inglés (Chromium sin locale del sistema); las sesiones de Mi perfil muestran muchos «Chrome en macOS».
 - **Gotchas**: el login bloquea (429) tras ~10–15 intentos en 15 min: nunca explores con un login por página (se guardan sesiones por rol en `.claude/videos/sesiones/`). Si cambias el texto de una escena hay que regenerar su voz (`--voz` deja la lista) y regrabar ese video. Los .mp4/.wav/.webm viven en `.claude/videos/` (fuera de git).
 - **Próximos (Opus)**: subir los mp4 a MinIO/My Workspace, armar el manual HTML con `manual-videos.json`, decidir qué hacer con la Rendición de la junta (arreglar la pantalla o dejar el alterno).
+## 2026-11-04 — Contador de WhatsApp: el tope es por día (Claude Code, Opus 5.5) — push: no
+
+- Miguel no entendía si el «0 de 200» era diario, semanal o mensual. Es el tope POR DÍA del número (`ConfiguracionComercial.whatsapp_tope_diario`, 200 en prod; antibaneo), distinto de la cuota mensual por condominio del plan (Cortesía: sin tope; Pro: 6 por dpto/mes).
+- `ContadorWhatsapp.tsx`: título «Enviados hoy · tope por día» y ayuda `ayudaTopeDiario` (en `whatsapp/tipos.ts`); la sección del mes dice «lo que incluye su plan». Prueba en `tests/whatsapp-grupos-ui.test.ts` (mutación en rojo).
+- Gotcha: con 448 dptos el aviso del recibo por WhatsApp tarda ~3 días con tope 200 (el correo sale el mismo día). El tope lo cambia el superadmin en Precios; recomendado ≤ 300–500.
 
 ---
 

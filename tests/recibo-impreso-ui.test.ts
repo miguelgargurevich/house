@@ -67,8 +67,9 @@ describe('recibo imprimible: los bloques de la primera cara del impreso, en su o
     const h = html(completo());
     assert.match(h, /<img[^>]+src="\/api\/complejos\/1\/cabecera\?v=1"/, 'foto de cabecera');
     assert.match(h, /<img[^>]+src="\/api\/recibos\/2\/agua\/1\/foto\?v=1"/, 'foto del contómetro');
-    assert.match(h, /<img[^>]+src="\/api\/empresas\/1\/logo\?v=1"/, 'logo al pie');
-    assert.ok(h.lastIndexOf('/api/empresas/1/logo') > h.lastIndexOf('CORREO ELECTRÓNICO ADM'), 'el logo va al final');
+    assert.match(h, /<img[^>]+src="\/api\/empresas\/1\/logo\?v=1"/, 'logo en la cabecera');
+    assert.ok(h.indexOf('/api/empresas/1/logo') < h.indexOf('CONDOMINIO LOS LIBERTADORES DE SURCO'), 'el logo va arriba, antes del condominio');
+    assert.ok(h.lastIndexOf('con Torre') > h.lastIndexOf('CORREO ELECTRÓNICO ADM'), 'el pie conserva «con Torre» al final');
   });
 
   it('los 9 conceptos con su monto y la línea de multa en 0.00 aunque el departamento no la deba', () => {

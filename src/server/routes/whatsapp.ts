@@ -4,6 +4,7 @@ import { prisma } from '../db';
 import { invalid, notFound } from '../errors';
 import type { AuthUser } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
+import { coberturaDeCondominios } from '../services/canales/cobertura';
 import { canalesDeps } from '../services/canales/deps';
 import { EvolutionFallo } from '../services/canales/evolution';
 import { migrarGruposDeEstructuras, sincronizarGrupos } from '../services/canales/misGrupos';
@@ -235,7 +236,27 @@ async function leerMisGrupos(empresa: { id: number; whatsapp_instance: string | 
 router.get('/grupos', requireRole('admin', 'superadmin'), async (req, res) => {
   const empresa = await empresaDelAdmin(req.user as AuthUser);
   if (!empresa) return res.status(400).json({ error: 'El usuario no está vinculado a una empresa administradora' });
-  res.json(await leerMisGrupos(empresa));
+  const mis = await leerMisGrupos(empresa);
+  res.json({ ...mis, cobertura: await coberturaDeCondominios(mis.condominios) });
+});
+
+/**
+ * @openapi
+ * /api/whatsapp/cobertura/{id}:
+ *   get:
+ *     summary: Qué blocks de un condominio tienen su grupo de WhatsApp (y cuáles no)
+ *     tags: [WhatsApp]
+ *     responses:
+ *       200: { description: "`{ complejo_id, nombre, bloques: { total, con_grupo, faltan: [{ estructura_id, nombre, motivo: sin_grupo|ya_no_esta }] }, condominio_con_grupo }`. Sólo lee la base." }
+ *       404: { description: "El condominio no es de tu empresa" }
+ */
+router.get('/cobertura/:id', requireRole('admin', 'superadmin'), async (req, res) => {
+  const empresa = await empresaDelAdmin(req.user as AuthUser);
+  if (!empresa) return res.status(400).json({ error: 'El usuario no está vinculado a una empresa administradora' });
+  const complejo = await prisma.complejoHabitacional.findFirst({ where: { id: parseId(req), empresa_id: empresa.id }, select: { id: true, nombre: true } });
+  if (!complejo) throw notFound('Condominio');
+  const [cobertura] = await coberturaDeCondominios([complejo]);
+  res.json(cobertura);
 });
 
 /**
@@ -258,7 +279,8 @@ router.post('/grupos/sincronizar', requireRole('admin', 'superadmin'), async (re
   res.locals.entidad = 'grupo_whatsapp';
   res.locals.accion = 'sincronizar';
   res.locals.auditDetalle = resumen;
-  res.json({ ...(await leerMisGrupos(empresa)), resumen });
+  const mis = await leerMisGrupos(empresa);
+  res.json({ ...mis, cobertura: await coberturaDeCondominios(mis.condominios), resumen });
 });
 
 const usoSchema = z.strictObject({

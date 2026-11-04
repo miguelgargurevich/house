@@ -14,6 +14,8 @@ import { exigirOperativo } from '../services/comercial/operativo';
 
 const MAX_TITULO = 120;
 const MAX_CUERPO = 4000;
+const MAX_UNIDADES = 500;
+const MAX_LISTA_DEPARTAMENTOS = 2000;
 
 const incluir = {
   complejo: { select: { id: true, nombre: true } },
@@ -65,6 +67,11 @@ const crearSchema = z.object({
   enviar_grupo: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
   /** Ids de «Mis grupos» (en uso) donde se publica. Si vienen, `enviar_grupo` se da por hecho. La junta de un block sólo puede elegir los de SU block. */
   grupos: z.array(idSchema, { error: 'Debe ser una lista de grupos' }).max(50, 'Máximo 50 grupos').optional(),
+  /**
+   * «Departamentos elegidos»: ids de unidades de ESE condominio (y block, si lo hay). Con ellos, el aviso «a cada vecino» (correo y WhatsApp) sólo sale a las personas
+   * de esas unidades y sólo ellas lo ven en su app. No se combina con la junta ni con los grupos de WhatsApp. Una unidad fuera de tu alcance es 404 y no se envía nada.
+   */
+  unidades: z.array(idSchema, { error: 'Debe ser una lista de departamentos' }).max(MAX_UNIDADES, `Máximo ${MAX_UNIDADES} departamentos`).optional(),
   fijado: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
 });
 
@@ -97,6 +104,19 @@ async function resolverAmbito(u: AuthUser, complejoId: number | undefined, estru
   const estructura = estructuraId ?? null;
   if (estructura != null && !(await prisma.estructura.findFirst({ where: { id: estructura, complejo_id: complejoId }, select: { id: true } }))) throw notFound('Block');
   return { complejo_id: complejoId, estructura_id: estructura };
+}
+
+/**
+ * Los departamentos elegidos, comprobados DENTRO del ámbito del comunicado: del condominio y, si lo hay, del block (la junta de un block ya viene forzada a SU block).
+ * Uno que no existe, de otro condominio, de otro block o de otra empresa es 404 y el comunicado no se crea ni se envía. Con departamentos no hay junta ni grupos.
+ */
+async function resolverUnidades(ambito: { complejo_id: number; estructura_id: number | null }, d: { unidades?: number[]; enviar_junta: boolean; enviar_grupo: boolean; grupos?: number[] }): Promise<number[]> {
+  const ids = [...new Set(d.unidades ?? [])];
+  if (!ids.length) return [];
+  if (d.enviar_junta || d.enviar_grupo || d.grupos?.length) throw invalid('Con departamentos elegidos el aviso va sólo a sus vecinos: no se combina con la junta ni con los grupos de WhatsApp', { unidades: 'No se combina con la junta ni con los grupos' });
+  const halladas = await prisma.unidad.count({ where: { id: { in: ids }, complejo_id: ambito.complejo_id, ...(ambito.estructura_id != null ? { estructura_id: ambito.estructura_id } : {}) } });
+  if (halladas !== ids.length) throw notFound('Departamento');
+  return ids.sort((a, b) => a - b);
 }
 
 /**
@@ -152,6 +172,34 @@ comunicadosRouter.get('/ambitos', async (req, res) => {
 
 /**
  * @openapi
+ * /api/comunicados/departamentos:
+ *   get:
+ *     summary: Departamentos que se pueden elegir para un comunicado (código y titular), dentro del alcance de quien llama
+ *     tags: [Comunicados]
+ *     parameters:
+ *       - { in: query, name: complejo_id, schema: { type: integer }, description: "obligatorio para la administración; la junta usa su condominio" }
+ *       - { in: query, name: estructura_id, schema: { type: integer }, description: "block; la junta de un block siempre queda en el suyo" }
+ *     responses:
+ *       200: { description: "`{ items: [{ id, codigo, estructura: { id, nombre }|null, titular }], total, truncado }` por código; hasta 2000" }
+ *       404: { description: "Condominio o block fuera de tu alcance" }
+ */
+comunicadosRouter.get('/departamentos', async (req, res) => {
+  const u = currentUser(req);
+  const q = parse(z.object({ complejo_id: idSchema.optional(), estructura_id: idSchema.optional() }), req.query);
+  const ambito = await resolverAmbito(u, q.complejo_id, q.estructura_id ?? null);
+  const where: Prisma.UnidadWhereInput = { complejo_id: ambito.complejo_id, ...(ambito.estructura_id != null ? { estructura_id: ambito.estructura_id } : {}) };
+  const [total, rows] = await Promise.all([
+    prisma.unidad.count({ where }),
+    prisma.unidad.findMany({ where, take: MAX_LISTA_DEPARTAMENTOS, select: { id: true, codigo: true, estructura: { select: { id: true, nombre: true } }, propietario: { select: { nombre: true } }, inquilino: { select: { nombre: true } } } }),
+  ]);
+  const items = rows
+    .map((x) => ({ id: x.id, codigo: x.codigo, estructura: x.estructura, titular: x.propietario?.nombre ?? x.inquilino?.nombre ?? null }))
+    .sort((a, b) => a.codigo.localeCompare(b.codigo, 'es', { numeric: true }) || a.id - b.id);
+  res.json({ items, total, truncado: total > items.length });
+});
+
+/**
+ * @openapi
  * /api/comunicados:
  *   get:
  *     summary: Lista de comunicados dentro del alcance (administradora o junta)
@@ -161,7 +209,7 @@ comunicadosRouter.get('/ambitos', async (req, res) => {
  *       - { in: query, name: estructura_id, schema: { type: string }, description: "id del block o `ninguna` (todo el condominio)" }
  *       - { in: query, name: archivados, schema: { type: boolean }, description: "por omisión sólo los publicados" }
  *     responses:
- *       200: { description: "`{ items, total, page, pageSize }`; fijados primero, luego los más nuevos. Cada item trae `envios` `{ total, pendiente, enviada, error, omitida }` (correo y WhatsApp, dentro de tu alcance; todo en 0 = sólo se publicó en pantalla)" }
+ *       200: { description: "`{ items, total, page, pageSize }`; fijados primero, luego los más nuevos. Cada item trae `unidades` (ids de los departamentos elegidos; vacío = todo el alcance) con `departamentos` (`{ id, codigo }`) y `envios` `{ total, pendiente, enviada, error, omitida }` (correo y WhatsApp, dentro de tu alcance; todo en 0 = sólo se publicó en pantalla)" }
  *       403: { description: "No es administradora ni presidente/tesorero de la junta" }
  */
 comunicadosRouter.get('/', async (req, res) => {
@@ -181,7 +229,10 @@ comunicadosRouter.get('/', async (req, res) => {
     prisma.comunicado.findMany({ where, orderBy: [{ fijado: 'desc' }, { created_at: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize, include: incluir }),
   ]);
   const envios = await enviosDe(u, rows.map((c) => c.id));
-  res.json({ items: rows.map((c) => ({ ...formatear(c), envios: envios.get(c.id) })), total, page: q.page, pageSize: q.pageSize });
+  // Los comunicados a «departamentos elegidos» dicen cuáles (código), en UNA consulta por página.
+  const elegidos = [...new Set(rows.flatMap((c) => c.unidades))];
+  const codigos = new Map((elegidos.length ? await prisma.unidad.findMany({ where: { id: { in: elegidos } }, select: { id: true, codigo: true } }) : []).map((x) => [x.id, x.codigo]));
+  res.json({ items: rows.map((c) => ({ ...formatear(c), envios: envios.get(c.id), departamentos: c.unidades.flatMap((id) => (codigos.has(id) ? [{ id, codigo: codigos.get(id)! }] : [])) })), total, page: q.page, pageSize: q.pageSize });
 });
 
 comunicadosRouter.get('/:id', async (req, res) => {
@@ -198,18 +249,20 @@ comunicadosRouter.get('/:id', async (req, res) => {
  *     tags: [Comunicados]
  *     responses:
  *       201: { description: "El comunicado con `avisos_encolados` (cuántos correos/WhatsApp quedaron en cola, respetando las preferencias de cada persona) y `grupos_resultado` (por block con grupo: `pendiente` al responder; luego `enviado` o `fallo` con `motivo`)" }
- *       404: { description: "Condominio o block fuera de tu alcance" }
- *       422: { description: "`enviar_grupo` sin ningún block con grupo de WhatsApp en el alcance" }
+ *       404: { description: "Condominio, block o algún departamento elegido (`unidades`) fuera de tu alcance: no se crea ni se envía nada" }
+ *       422: { description: "`enviar_grupo` sin ningún block con grupo de WhatsApp en el alcance; o `unidades` combinado con la junta o los grupos" }
  */
 comunicadosRouter.post('/', async (req, res) => {
   const u = currentUser(req);
   const d = parseBody(crearSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
   await exigirOperativo(ambito.complejo_id, u);
+  // Antes de publicar: un departamento que no es de este ámbito es 404 (y no se crea ni se envía nada).
+  const unidades = await resolverUnidades(ambito, d);
   // Antes de publicar: pedir un grupo que no existe (o que no es tuyo) es un error del pedido, no un comunicado a medias.
   const pendientes = await resolverGrupos(u, ambito, d);
   const c = await prisma.comunicado.create({
-    data: { ...ambito, titulo: d.titulo, cuerpo: d.cuerpo, autor_id: u.id, enviar_correo: d.enviar_correo, enviar_whatsapp: d.enviar_whatsapp, enviar_junta: d.enviar_junta, enviar_grupo: pendientes.length > 0, ...(pendientes.length ? { grupos_resultado: pendientes as unknown as Prisma.InputJsonValue } : {}), fijado: d.fijado },
+    data: { ...ambito, unidades, titulo: d.titulo, cuerpo: d.cuerpo, autor_id: u.id, enviar_correo: d.enviar_correo, enviar_whatsapp: d.enviar_whatsapp, enviar_junta: d.enviar_junta, enviar_grupo: pendientes.length > 0, ...(pendientes.length ? { grupos_resultado: pendientes as unknown as Prisma.InputJsonValue } : {}), fijado: d.fijado },
     include: incluir,
   });
   const avisos = await encolarComunicado(c);
@@ -217,7 +270,7 @@ comunicadosRouter.post('/', async (req, res) => {
   if (pendientes.length) lanzarEnvioAGrupos(c.id);
   res.locals.entidadId = c.id;
   // Sin el texto: la auditoría guarda qué se publicó y dónde, no el contenido.
-  res.locals.auditDetalle = { complejo_id: c.complejo_id, estructura_id: c.estructura_id, titulo: c.titulo, fijado: c.fijado, enviar_correo: c.enviar_correo, enviar_whatsapp: c.enviar_whatsapp, enviar_junta: c.enviar_junta, enviar_grupo: c.enviar_grupo, grupos: pendientes.length, grupos_ids: pendientes.map((g) => g.grupo_id), avisos_encolados: avisos };
+  res.locals.auditDetalle = { complejo_id: c.complejo_id, estructura_id: c.estructura_id, titulo: c.titulo, fijado: c.fijado, enviar_correo: c.enviar_correo, enviar_whatsapp: c.enviar_whatsapp, enviar_junta: c.enviar_junta, enviar_grupo: c.enviar_grupo, grupos: pendientes.length, grupos_ids: pendientes.map((g) => g.grupo_id), departamentos: unidades.length, departamentos_ids: unidades, avisos_encolados: avisos };
   res.status(201).json({ ...formatear(c), avisos_encolados: avisos });
 });
 

@@ -144,8 +144,8 @@ export const misRecibos = defineHerramienta({
 
 export const misPagos = defineHerramienta({
   nombre: 'mis_pagos',
-  descripcion: 'Los pagos registrados para las unidades de la persona que escribe: monto, fecha, método y estado (por_validar = en revisión, validado, rechazado; con el motivo si lo rechazaron). Úsala para «¿ya me validaron el pago?». Ejemplo: {"estado":"por_validar"}.',
-  entrada: z.strictObject({ estado: z.enum(['por_validar', 'validado', 'rechazado']).optional(), ...paginacion }),
+  descripcion: 'Los pagos registrados para las unidades de la persona que escribe: monto, fecha, método y estado (por_validar = en revisión, validado, rechazado; con el motivo si lo rechazaron, o anulado = la administración lo anuló y NO cuenta como pagado). Úsala para «¿ya me validaron el pago?». Ejemplo: {"estado":"por_validar"}.',
+  entrada: z.strictObject({ estado: z.enum(['por_validar', 'validado', 'rechazado', 'anulado']).optional(), ...paginacion }),
   roles: RESIDENTE,
   solo_lectura: true,
   async ejecutar(u, e) {

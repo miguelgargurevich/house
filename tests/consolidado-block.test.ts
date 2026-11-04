@@ -120,6 +120,9 @@ after(async () => {
 const consolidado = async (token: string, id = rOct1.id) => llamar(base, 'GET', `/api/recibos/${id}/consolidado`, token);
 const fila = (b: any, codigo: string) => b.filas.find((f: any) => f.codigo === codigo); // eslint-disable-line @typescript-eslint/no-explicit-any
 
+/** Los avisos «block sin grupo de WhatsApp» los prueba recibos-grupos.test.ts; aquí se compara el resto de las advertencias. */
+const sinAvisoGrupo = (lista: string[]) => lista.filter((a) => !/grupo de WhatsApp/.test(a));
+
 describe('consolidado del block: los números', () => {
   it('trae las columnas del recibo en su orden (la multa incluida) y una fila por departamento del block, con su propietario', async () => {
     const r = await consolidado(T.adminA);
@@ -348,7 +351,7 @@ describe('consolidado del block: el Excel descargado', () => {
     assert.equal(x.status, 200);
     const r2 = await subir(x.buffer);
     assert.equal(r2.status, 201, r2.texto);
-    assert.deepEqual(r2.body.advertencias, [], 'el Excel descargado no genera advertencias');
+    assert.deepEqual(sinAvisoGrupo(r2.body.advertencias), [], 'el Excel descargado no genera advertencias');
     assert.equal(r2.body.recibos[0].accion, 'reemplazado');
     assert.equal(r2.body.recibos[0].unidades_procesadas, 2);
     assert.deepEqual(await cargos(r2.body.recibo_id), antes, 'los mismos cargos, por departamento y concepto');

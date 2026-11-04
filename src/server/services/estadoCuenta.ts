@@ -9,7 +9,7 @@
  *    unidad fuera de él es 404, igual que una inexistente.
  *  - Cada fila es el ESTADO ACTUAL del recibo (no «como estaba» el día de cada pago): los pagos se listan con su fecha, el saldo es el de hoy.
  *  - Sólo suman los pagos VALIDADOS. Los «por validar» se muestran y van en `en_revision` (no son deuda ni están cobrados). Los RECHAZADOS se
- *    muestran en la lista de pagos marcados «rechazado» (el vecino ve que se intentó) pero NO suman en ninguna cifra.
+ *    muestran en la lista de pagos marcados «rechazado» (el vecino ve que se intentó) pero NO suman en ninguna cifra. Igual los ANULADOS (un pago validado que la administración anuló).
  *  - La mora es un cargo más del recibo (concepto «multa»/«mora»): va dentro del cargo y se desglosa en `mora`.
  *  - El saldo deudor es lo que aún se puede pagar (cargo − cobrado − en revisión): igual que `deuda_actual` de «Mi historial».
  *  - Cambio de propietario: la cuenta es de la UNIDAD (la deuda la sigue); la cabecera muestra al propietario e inquilino ACTUALES.
@@ -34,7 +34,7 @@ const dec = (v: Prisma.Decimal.Value | null | undefined) => new D(v ?? 0);
 /** Meses con recibo que se muestran cuando no se pide un rango (como «Mi historial»). */
 export const MESES_POR_DEFECTO = 12;
 
-export type EstadoPagoEECC = 'validado' | 'por_validar' | 'rechazado';
+export type EstadoPagoEECC = 'validado' | 'por_validar' | 'rechazado' | 'anulado';
 
 export interface PagoEECC {
   /** Id del pago (el principal de su grupo); `null` si es un pago registrado sin detalle de voucher. */
@@ -91,6 +91,8 @@ export interface TotalesEECC {
   deuda_vencida: string;
   /** Pagos rechazados en el rango: se muestran pero no suman. */
   pagos_rechazados: number;
+  /** Pagos anulados en el rango: se muestran pero no suman. */
+  pagos_anulados: number;
 }
 
 export interface EstadoCuenta {
@@ -205,7 +207,7 @@ export async function estadoCuentaUnidad(alcance: Prisma.UnidadWhereInput, unida
     g.conceptos.set(nombre, { orden: previo?.orden ?? c.reciboConcepto?.orden ?? 0, monto: (previo?.monto ?? dec(0)).plus(c.monto) });
     // Un voucher del mantenimiento son varios `Pago` (uno por cargo) con el mismo `grupo`: se muestra UNO, con la suma. Cada estado va aparte.
     for (const p of c.pagos) {
-      const estado: EstadoPagoEECC = p.estado_validacion === 'validado' || p.estado_validacion === 'por_validar' ? p.estado_validacion : 'rechazado';
+      const estado: EstadoPagoEECC = p.estado_validacion === 'validado' || p.estado_validacion === 'por_validar' || p.estado_validacion === 'anulado' ? p.estado_validacion : 'rechazado';
       const k = `${p.grupo ?? `p${p.id}`}|${estado}`;
       const previoPago = g.pagos.get(k);
       const op = operacionDe(p.referencia, p.evaluacion?.extraido);
@@ -239,6 +241,7 @@ export async function estadoCuentaUnidad(alcance: Prisma.UnidadWhereInput, unida
   let acumulado = saldoAnterior;
   let cargado = dec(0), mora = dec(0), pagado = dec(0), enRevision = dec(0);
   let rechazados = 0;
+  let anulados = 0;
   const filas: FilaEECC[] = enRango.map((g) => {
     const cuenta = cuentas.get(g)!;
     const conceptos = [...g.conceptos.entries()].sort((a, b) => a[1].orden - b[1].orden).map(([concepto, v]) => ({ concepto, monto: v.monto, es_mora: esConceptoMora(concepto) }));
@@ -259,6 +262,7 @@ export async function estadoCuentaUnidad(alcance: Prisma.UnidadWhereInput, unida
     }
     pagos.sort((a, b) => (a.fecha ?? '9999').localeCompare(b.fecha ?? '9999') || (a.id ?? 0) - (b.id ?? 0));
     rechazados += pagos.filter((p) => p.estado === 'rechazado').length;
+    anulados += pagos.filter((p) => p.estado === 'anulado').length;
 
     return {
       recibo_id: g.recibo_id,
@@ -301,6 +305,7 @@ export async function estadoCuentaUnidad(alcance: Prisma.UnidadWhereInput, unida
       meses_vencidos: vencidos.length,
       deuda_vencida: vencidos.reduce((a, g) => a.plus(cuentas.get(g)!.saldo), dec(0)).toFixed(2),
       pagos_rechazados: rechazados,
+      pagos_anulados: anulados,
     },
     filas,
   };
@@ -311,7 +316,7 @@ const dma = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice
 const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const mesTexto = (f: { anio: number; mes: number }) => `${mayuscula(nombreMes(f.mes))} ${f.anio}`;
 const ESTADOS_MES: Record<string, string> = { pagado: 'Pagado', en_revision: 'En revisión', parcial: 'Pago parcial', vencido: 'Vencido', pendiente: 'Por pagar' };
-const ESTADOS_PAGO: Record<EstadoPagoEECC, string> = { validado: 'Validado', por_validar: 'Por validar', rechazado: 'Rechazado (no suma)' };
+const ESTADOS_PAGO: Record<EstadoPagoEECC, string> = { validado: 'Validado', por_validar: 'Por validar', rechazado: 'Rechazado (no suma)', anulado: 'Anulado (no suma)' };
 /** Los montos van como número de Excel (con 2 decimales) para que se puedan sumar; el servidor no hace cuentas con ellos. */
 const num = (v: string) => Number(v);
 
@@ -340,6 +345,7 @@ export function estadoCuentaXlsx(e: EstadoCuenta): Buffer {
     ['Meses vencidos', t.meses_vencidos],
     [`Deuda vencida (${s})`, num(t.deuda_vencida)],
     ['Pagos rechazados (no suman)', t.pagos_rechazados],
+    ['Pagos anulados (no suman)', t.pagos_anulados],
   ]);
   resumen['!cols'] = [{ wch: 32 }, { wch: 34 }];
 

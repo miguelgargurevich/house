@@ -70,6 +70,7 @@ export const decimalAString = (v: Prisma.Decimal | number | string | null | unde
 export const includePago = {
   usuario: { select: { id: true, nombre: true } },
   validado_por: { select: { id: true, nombre: true } },
+  anulado_por: { select: { id: true, nombre: true } },
   conformidad_por: { select: { id: true, nombre: true } },
   comprobante: { select: selectComprobante },
   evaluacion: { select: selectEvaluacion },
@@ -89,13 +90,13 @@ type PagoConIncludes = Prisma.PagoGetPayload<{ include: typeof includePago }>;
  * (residente) sólo un estado simple; `'completa'` es para quien valida (admin y junta) y trae alertas, extraído y comprobaciones.
  */
 export function formatearPago(p: PagoConIncludes, vista: 'residente' | 'completa' = 'residente') {
-  const { reciboConceptoUnidad: c, conformidad_por, ...conCruda } = p;
+  const { reciboConceptoUnidad: c, conformidad_por, anulado_por, ...conCruda } = p;
   const completo = sinConformidadCruda(conCruda);
   const resto = vista === 'completa' ? completo : conVistaResidente(completo);
   return {
     ...resto,
-    // La conformidad del tesorero es de quien valida (admin y junta); el residente no la ve.
-    ...(vista === 'completa' ? { conformidad: formatearConformidad({ conformidad_at: p.conformidad_at, conformidad_por }) } : {}),
+    // La conformidad del tesorero es de quien valida (admin y junta); el residente no la ve. Quién anuló un pago también es de la administración y la junta: el vecino ve el motivo y la fecha, no a la persona.
+    ...(vista === 'completa' ? { conformidad: formatearConformidad({ conformidad_at: p.conformidad_at, conformidad_por }), anulado_por } : {}),
     unidad: c?.unidad ?? null,
     moneda: c?.unidad?.complejo?.moneda ?? MONEDA_POR_DEFECTO,
     concepto: c?.reciboConcepto?.concepto ?? null,

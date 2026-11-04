@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowDownTrayIcon, CheckCircleIcon, ChevronRightIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowDownTrayIcon, CheckCircleIcon, ChevronRightIcon, DocumentTextIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList, useResource } from '../../api';
 import { simboloDe } from '../../lib/paises';
@@ -11,6 +11,8 @@ import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
 import { AvisoModulo } from '../shared/_parts/AvisoModulo';
 import { EstadoCuentaModal } from '../shared/estado-cuenta/EstadoCuentaModal';
 import { MantenimientoAdminModal } from './_parts/mantenimientos/MantenimientoAdminModal';
+import { RecordatorioDeudaModal } from './_parts/morosidad/RecordatorioDeudaModal';
+import { Bloqueable } from '../../app/Bloqueable';
 
 type Ref = { id?: number; codigo?: string; nombre?: string } | string | null | undefined;
 
@@ -47,6 +49,10 @@ export default function Morosidad() {
     else setElegida(m);
   }
   const [torre, setTorre] = useTorreElegida();
+  // Los departamentos marcados para el recordatorio de deuda (id → código). Sobreviven al cambio de página; cambiar de condominio o block los limpia.
+  const [marcadas, setMarcadas] = useState<Map<number, string>>(new Map());
+  const [recordando, setRecordando] = useState(false);
+  useEffect(() => { setMarcadas(new Map()); }, [complejo, torre]);
   // Las torres son las del condominio elegido (con varios condominios, «Block 1» se repite: el selector las rotula con su condominio).
   const params = { complejo_id: complejo || undefined, estructura_id: torre || undefined };
   const list = useList<Moroso>('/api/reportes/morosidad', { pageSize: 100, params });
@@ -64,6 +70,16 @@ export default function Morosidad() {
   const esperando = list.loading && list.items.length === 0;
   const hint = parcial ? 'Sólo las filas cargadas' : undefined;
 
+  // «Marcar todos los de esta página»: sólo las filas con id de unidad que se ven; las marcadas en otras páginas se conservan.
+  const filasMarcables = list.items.flatMap(m => { const id = idUnidad(m); return id != null ? [{ id, codigo: texto(m.unidad) }] : []; });
+  const marcadasEnPagina = filasMarcables.filter(f => marcadas.has(f.id)).length;
+  const todasEnPagina = filasMarcables.length > 0 && marcadasEnPagina === filasMarcables.length;
+  const cabeceraRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (cabeceraRef.current) cabeceraRef.current.indeterminate = marcadasEnPagina > 0 && !todasEnPagina; }, [marcadasEnPagina, todasEnPagina]);
+  const alternar = (id: number, codigo: string) => setMarcadas(prev => { const n = new Map(prev); if (n.has(id)) n.delete(id); else n.set(id, codigo); return n; });
+  const alternarPagina = () => setMarcadas(prev => { const n = new Map(prev); for (const f of filasMarcables) { if (todasEnPagina) n.delete(f.id); else n.set(f.id, f.codigo); } return n; });
+  const MAX_RECORDATORIO = 500;
+
   function exportar() {
     // Una sola moneda: «Deuda (S/)»; varias: «Deuda» y una columna «Moneda» (el CSV no mezcla monedas bajo un mismo rótulo).
     const monedas = [...new Set(list.items.map(m => m.moneda))];
@@ -76,6 +92,12 @@ export default function Morosidad() {
   }
 
   const columns: Column<Moroso>[] = [
+    { key: 'elegir', header: '', cell: m => {
+      const id = idUnidad(m);
+      return id == null ? null : (
+        <input type="checkbox" className="h-5 w-5 accent-brand" aria-label={`Marcar la unidad ${texto(m.unidad)} para el recordatorio`} checked={marcadas.has(id)} onChange={() => alternar(id, texto(m.unidad))} />
+      );
+    } },
     { key: 'unidad', header: 'Unidad', cell: m => <span className="font-medium">{texto(m.unidad) || '—'}</span> },
     { key: 'complejo', header: 'Condominio', hideBelow: 'md', cell: m => m.complejo?.nombre ?? '—' },
     { key: 'torre', header: 'Block', hideBelow: 'sm', cell: m => m.estructura?.nombre ?? '—' },
@@ -129,6 +151,20 @@ export default function Morosidad() {
       />
       <Card>
         <SelectoresUbicacion torre={torre} onTorre={setTorre} envoltura="toolbar" />
+        {list.items.length > 0 && (
+          <div className="tabla-celda flex flex-col gap-2 border-b border-line py-3 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm sm:min-h-0">
+              <input ref={cabeceraRef} type="checkbox" className="h-5 w-5 accent-brand" checked={todasEnPagina} onChange={alternarPagina} />
+              <span className="font-medium">Marcar todos los de esta página</span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="num text-sm text-muted" aria-live="polite">{marcadas.size === 0 ? 'Ninguno marcado' : `${marcadas.size} ${marcadas.size === 1 ? 'marcado' : 'marcados'}`}</span>
+              {marcadas.size > 0 && <Button variant="secondary" onClick={() => setMarcadas(new Map())}>Quitar marcas</Button>}
+              <Bloqueable>{b => <Button icon={<PaperAirplaneIcon className="h-4 w-4" />} disabled={marcadas.size === 0 || marcadas.size > MAX_RECORDATORIO || b} onClick={() => setRecordando(true)}>Enviar recordatorio</Button>}</Bloqueable>
+            </div>
+            {marcadas.size > MAX_RECORDATORIO && <p className="text-xs text-bad sm:basis-full">Puedes recordar a {MAX_RECORDATORIO} departamentos a la vez: quita algunas marcas.</p>}
+          </div>
+        )}
         <DataTable
           caption={`Unidades morosas al ${fechaCorta(new Date())}`}
           columns={columns}
@@ -166,6 +202,7 @@ export default function Morosidad() {
           </ul>
         )}
       </Modal>
+      <RecordatorioDeudaModal unidades={recordando ? [...marcadas].map(([id, codigo]) => ({ id, codigo })) : null} onClose={() => setRecordando(false)} onEnviado={() => setMarcadas(new Map())} />
       <EstadoCuentaModal unidades={estadoCuenta ? [estadoCuenta] : []} unidadId={estadoCuenta?.id ?? null} onClose={() => setEstadoCuenta(null)} />
       {detalle && <MantenimientoAdminModal reciboId={detalle.reciboId} unidadId={detalle.unidadId} onClose={() => setDetalle(null)} onCambio={() => { void list.reload(); void cifras.reload(); }} />}
     </>

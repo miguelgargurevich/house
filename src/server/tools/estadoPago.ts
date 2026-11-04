@@ -13,7 +13,7 @@ import { alcanceGestion } from './gestion';
 import { cortar, dato, defineHerramienta, fechaDia, idPositivo, instante, monto, nombreCorto, paginacion, pagina, periodoDe, periodoSchema, respuesta, textoCorto } from './base';
 import { unidadesPropias } from './residente';
 
-const ESTADOS_PAGO = ['por_validar', 'validado', 'rechazado'] as const;
+const ESTADOS_PAGO = ['por_validar', 'validado', 'rechazado', 'anulado'] as const;
 
 const TEXTO_ESTADO_RESIDENTE: Record<EstadoResidente, string> = {
   evaluando: 'La IA todavía está leyendo el comprobante.',
@@ -41,7 +41,7 @@ const selectEstado = {
 export const estadoDePago = defineHerramienta({
   nombre: 'estado_de_pago',
   descripcion:
-    'En qué quedó el pago de un mantenimiento: estado (por_validar = en revisión, validado, rechazado, con el motivo si lo rechazaron), si tiene voucher (comprobante) y, si la IA lo evaluó, qué leyó (monto, fecha, medio, destinatario, últimos dígitos del destino) y su veredicto, confianza y motivo. ' +
+    'En qué quedó el pago de un mantenimiento: estado (por_validar = en revisión, validado, rechazado, con el motivo si lo rechazaron, o anulado = lo anuló la administración y NO cuenta como pagado), si tiene voucher (comprobante) y, si la IA lo evaluó, qué leyó (monto, fecha, medio, destinatario, últimos dígitos del destino) y su veredicto, confianza y motivo. ' +
     'Úsala para «¿ya validaron mi pago de octubre?», «¿por qué rechazaron el pago de la B01-804?» o «¿qué leyó la IA del voucher?». Cada fila es el pago del mantenimiento completo (el monto es el total del grupo). ' +
     'El residente sólo ve sus pagos y un estado simple de la IA; la junta, los de su ámbito; la administración, los de su empresa. Nunca devuelve el archivo del voucher. Ejemplo: {"unidad":"B01-804","periodo":"2026-10"}.',
   entrada: z.strictObject({

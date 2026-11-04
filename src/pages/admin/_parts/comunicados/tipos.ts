@@ -42,6 +42,10 @@ export interface Comunicado {
   estructura: { id: number; nombre: string | null } | null;
   autor: { id: number; nombre: string } | null;
   origen: 'administracion' | 'junta';
+  /** «Departamentos elegidos»: ids de las unidades a las que va dirigido. Vacío = todo el alcance. */
+  unidades?: number[];
+  /** Sólo en el listado: el código de cada departamento elegido. */
+  departamentos?: { id: number; codigo: string }[];
   /** Sólo en la respuesta de crear: cuántos correos/WhatsApp quedaron en cola. */
   avisos_encolados?: number;
   /** Sólo en el listado: sus envíos dentro de tu alcance. */
@@ -51,7 +55,23 @@ export interface Comunicado {
 export const TOPE_TITULO = 120;
 export const TOPE_CUERPO = 4000;
 
-export const alcanceLabel = (c: Pick<Comunicado, 'estructura'>) => (c.estructura ? (c.estructura.nombre?.trim() || `Block ${c.estructura.id}`) : 'Todo el condominio');
+/** Valor de «Para quién» que significa «Departamentos elegidos» (no es un id de block). */
+export const ELEGIDOS = 'elegidos';
+
+/** «Block 1», «Todo el condominio» o, con departamentos elegidos, «3 departamentos elegidos · Block 1». */
+export const alcanceLabel = (c: Pick<Comunicado, 'estructura'> & Partial<Pick<Comunicado, 'unidades'>>) => {
+  const donde = c.estructura ? (c.estructura.nombre?.trim() || `Block ${c.estructura.id}`) : 'Todo el condominio';
+  const n = c.unidades?.length ?? 0;
+  return n > 0 ? `${n} ${n === 1 ? 'departamento elegido' : 'departamentos elegidos'} · ${donde}` : donde;
+};
+
+/** Los códigos de los departamentos elegidos, para la lista: «A-101, A-103 y 2 más»; null si el comunicado es de todo el alcance. */
+export function codigosElegidos(c: Pick<Comunicado, 'departamentos'>, max = 4): string | null {
+  const d = c.departamentos ?? [];
+  if (d.length === 0) return null;
+  const vistos = d.slice(0, max).map(x => x.codigo).join(', ');
+  return d.length > max ? `${vistos} y ${d.length - max} más` : vistos;
+}
 
 /** «3 enviados · 1 con error», o «Sin envíos» si sólo se publicó en pantalla. */
 export function textoEnvios(e: Envios | undefined): string {
@@ -90,13 +110,15 @@ export function textoGrupos(c: Pick<Comunicado, 'grupos_resultado'>): string | n
 export const motivoDeGrupo = (g: ResultadoGrupo): string => g.motivo ?? `No se envió al grupo «${g.nombre}»`;
 
 /** Lo que dice el aviso tras publicar: cuántos correos/WhatsApp quedaron en cola, o por qué ninguno. */
-export function textoPublicado(c: Pick<Comunicado, 'avisos_encolados' | 'enviar_correo' | 'enviar_whatsapp' | 'enviar_junta' | 'enviar_grupo' | 'grupos_resultado'>): string {
+export function textoPublicado(c: Pick<Comunicado, 'avisos_encolados' | 'enviar_correo' | 'enviar_whatsapp' | 'enviar_junta' | 'enviar_grupo' | 'grupos_resultado'> & Partial<Pick<Comunicado, 'unidades'>>): string {
+  const nDep = c.unidades?.length ?? 0;
+  const publicado = nDep > 0 ? `Comunicado publicado para ${nDep} ${nDep === 1 ? 'departamento' : 'departamentos'}` : 'Comunicado publicado';
   const n = c.avisos_encolados ?? 0;
   const grupos = c.grupos_resultado?.length ?? 0;
   const partes: string[] = [];
   if (n > 0) partes.push(`se encolaron ${n} ${n === 1 ? 'aviso' : 'avisos'} por ${c.enviar_junta || (c.enviar_correo && c.enviar_whatsapp) ? 'correo y WhatsApp' : c.enviar_correo ? 'correo' : 'WhatsApp'}`);
   if (grupos > 0) partes.push(`se está enviando ${grupos === 1 ? 'al grupo de WhatsApp' : `a ${grupos} grupos de WhatsApp`}`);
-  if (partes.length) return `Comunicado publicado. ${partes[0]![0]!.toUpperCase()}${partes.join(' y ').slice(1)}.`;
-  if (c.enviar_correo || c.enviar_whatsapp || c.enviar_junta) return 'Comunicado publicado. Nadie tiene activado ese canal, así que no se envió ningún aviso.';
-  return 'Comunicado publicado';
+  if (partes.length) return `${publicado}. ${partes[0]![0]!.toUpperCase()}${partes.join(' y ').slice(1)}.`;
+  if (c.enviar_correo || c.enviar_whatsapp || c.enviar_junta) return `${publicado}. Nadie tiene activado ese canal, así que no se envió ningún aviso.`;
+  return publicado;
 }

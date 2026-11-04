@@ -13,6 +13,7 @@ import { periodoTexto } from '../lib/periodo';
 import { ZONA_POR_DEFECTO } from '../../lib/paises';
 import { diaCalendario } from './fechaVoucher';
 import { esConceptoMora, evaluarMora, motivoMora, type DetalleMoraUnidad } from './mora';
+import { esPagoVigente, PAGO_VIGENTE } from '../lib/pagoVigente';
 
 // ---------- 1. Vista previa de morosos ----------
 export interface TorreAEvaluar { estructuraId: number | null; torre: string | null; unidades: number[] }
@@ -60,8 +61,8 @@ export async function vistaDeMora(o: { complejoId: number; mes: number; anio: nu
 export interface MultaQuitada { monto: string; codigo: string; cargos: number }
 
 /**
- * Quita la(s) línea(s) de multa de un departamento en un recibo. Sólo si ninguna está pagada, en revisión ni tiene pagos (un pago rechazado no cuenta).
- * Sin pagos la línea se borra; con pagos rechazados queda en 0.00 con el motivo, para no dejar esos pagos sin cargo. Todo o nada; 409 si no hay multa o ya se cobró.
+ * Quita la(s) línea(s) de multa de un departamento en un recibo. Sólo si ninguna está pagada, en revisión ni tiene pagos (un pago rechazado o anulado no cuenta).
+ * Sin pagos la línea se borra; con pagos rechazados o anulados queda en 0.00 con el motivo, para no dejar esos pagos sin cargo. Todo o nada; 409 si no hay multa o ya se cobró.
  */
 export async function quitarMulta(o: { reciboId: number; unidadId: number; motivo: string }): Promise<MultaQuitada> {
   return prisma.$transaction(async (tx) => {
@@ -74,12 +75,12 @@ export async function quitarMulta(o: { reciboId: number; unidadId: number; motiv
     for (const m of multas) {
       if (m.estado_pago === 'pagado') throw conflict('La multa ya está pagada: no se puede quitar');
       if (m.estado_pago === 'en_revision' || m.pagos.some((p) => p.estado_validacion === 'por_validar')) throw conflict('La multa tiene un pago en revisión: valídalo o recházalo primero');
-      if (m.pagos.some((p) => p.estado_validacion !== 'rechazado')) throw conflict('La multa ya tiene pagos registrados: no se puede quitar');
+      if (m.pagos.some((p) => esPagoVigente(p.estado_validacion))) throw conflict('La multa ya tiene pagos registrados: no se puede quitar');
     }
     let total = new Prisma.Decimal(0);
     for (const m of multas) {
       // Atómico: si alguien la cobró mientras tanto, la condición ya no se cumple y no se toca.
-      const abierta = { OR: [{ estado_pago: null }, { estado_pago: { notIn: ['pagado', 'en_revision'] } }], pagos: { none: { estado_validacion: { not: 'rechazado' } } } } satisfies Prisma.ReciboConceptoUnidadWhereInput;
+      const abierta = { OR: [{ estado_pago: null }, { estado_pago: { notIn: ['pagado', 'en_revision'] } }], pagos: { none: PAGO_VIGENTE } } satisfies Prisma.ReciboConceptoUnidadWhereInput;
       const r = m.pagos.length === 0
         ? await tx.reciboConceptoUnidad.deleteMany({ where: { id: m.id, ...abierta } })
         : await tx.reciboConceptoUnidad.updateMany({ where: { id: m.id, ...abierta }, data: { monto: 0, observaciones: `Multa quitada: ${o.motivo}` } });
@@ -107,11 +108,11 @@ const ORIGENES_CONFIABLES = ['voucher', 'manual'];
 /**
  * Para cada pago: si, según la fecha de su voucher, el departamento pagó a tiempo el recibo del pago y aun así tiene la multa de ese recibo en el recibo
  * del mes siguiente, todavía sin cobrar, devuelve el aviso. «Pagó a tiempo» = el veredicto de `evaluarMora` (el de la emisión) sobre ese recibo.
- * Sin multa por quitar (pagada, en revisión, ya quitada) no hay aviso. El pago rechazado no cuenta. Una consulta por lote; el cálculo sólo para quien ya tiene multa.
+ * Sin multa por quitar (pagada, en revisión, ya quitada) no hay aviso. El pago rechazado o anulado no cuenta. Una consulta por lote; el cálculo sólo para quien ya tiene multa.
  */
 export async function avisosDeMulta(pagos: PagoParaAviso[]): Promise<Map<number, AvisoMulta>> {
   const salida = new Map<number, AvisoMulta>();
-  const candidatos = pagos.filter((p) => p.estado_validacion !== 'rechazado' && ORIGENES_CONFIABLES.includes(p.fecha_origen) && p.recibo_id != null && p.unidad_id != null);
+  const candidatos = pagos.filter((p) => esPagoVigente(p.estado_validacion) && ORIGENES_CONFIABLES.includes(p.fecha_origen) && p.recibo_id != null && p.unidad_id != null);
   if (candidatos.length === 0) return salida;
   const recibos = new Map((await prisma.recibo.findMany({
     where: { id: { in: [...new Set(candidatos.map((p) => p.recibo_id!))] } },
@@ -131,7 +132,7 @@ export async function avisosDeMulta(pagos: PagoParaAviso[]): Promise<Map<number,
       AND: [
         { OR: [...pares.values()].map(({ recibo, unidadId }) => ({ unidad_id: unidadId, reciboConcepto: { recibo: { complejo_id: recibo.complejo_id, estructura_id: recibo.estructura_id, ...siguiente(recibo) } } })) },
         { OR: [{ estado_pago: null }, { estado_pago: { notIn: ['pagado', 'en_revision'] } }] },
-        { pagos: { none: { estado_validacion: { not: 'rechazado' } } } },
+        { pagos: { none: PAGO_VIGENTE } },
         { monto: { gt: 0 } },
       ],
     },

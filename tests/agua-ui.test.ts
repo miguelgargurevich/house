@@ -53,12 +53,14 @@ describe('datos del recibo en las fichas', () => {
     assert.match(torres, /correo_vouchers: v\.correo_vouchers\.trim\(\) \|\| null/);
     assert.match(torres, /Correo del block para vouchers/);
   });
-  it('ficha de la empresa (superadmin): logo', () => {
-    assert.match(f('superadmin/EmpresaDetalle.tsx'), /<ImagenEditable titulo="Logo de la empresa"[^>]*ruta=\{`\/api\/empresas\/\$\{e\.id\}\/logo`\}/);
+  // El logo vive ahora en «Tu marca» (`SeccionMarca`), que usan las dos fichas.
+  it('ficha de la empresa (superadmin): logo, dentro de «Tu marca»', () => {
+    assert.match(f('superadmin/EmpresaDetalle.tsx'), /<SeccionMarca [^>]*empresa=\{e\}/);
+    assert.match(f('admin/_parts/marca/SeccionMarca.tsx'), /<ImagenEditable titulo="Logo"[^>]*ruta=\{`\/api\/empresas\/\$\{empresa\.id\}\/logo`\}/);
   });
 
-  it('Mi empresa: logo', () => {
-    assert.match(f('admin/Configuracion.tsx'), /<ImagenEditable titulo="Logo de la empresa"[^>]*ruta=\{`\/api\/empresas\/\$\{data\.id\}\/logo`\}/);
+  it('Mi empresa: logo, dentro de «Tu marca»', () => {
+    assert.match(f('admin/Configuracion.tsx'), /<SeccionMarca [^>]*empresa=\{data\}/);
   });
   it('las imágenes se validan en el cliente con el mismo tope y tipos que el servidor (2 MB, JPG/PNG/WebP)', () => {
     const img = f('shared/_parts/imagenes.ts');

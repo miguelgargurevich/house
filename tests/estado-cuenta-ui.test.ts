@@ -25,7 +25,7 @@ const fila = (mes: number, extra: Record<string, unknown> = {}) => ({
 const datos = (extra: Partial<EstadoCuenta> = {}): EstadoCuenta => ({
   unidad: { id: 1, codigo: 'E-1', tipo: 'Departamento' }, estructura: { id: 1, nombre: 'Block 1' }, condominio: { id: 1, nombre: 'Condominio Prueba' }, administradora: 'Empresa A',
   propietario: 'Elena Dueña', inquilino: 'Iván Inquilino', moneda: 'PEN', zona_horaria: 'America/Lima', fecha_corte: '2026-11-03', desde: '2025-01', hasta: '2025-03',
-  totales: { cargado: '470.00', mora: '20.00', pagado: '150.00', en_revision: '170.00', saldo_anterior: '40.00', saldo_deudor: '190.00', meses_vencidos: 1, deuda_vencida: '150.00', pagos_rechazados: 1 },
+  totales: { cargado: '470.00', mora: '20.00', pagado: '150.00', en_revision: '170.00', saldo_anterior: '40.00', saldo_deudor: '190.00', meses_vencidos: 1, deuda_vencida: '150.00', pagos_rechazados: 1, pagos_anulados: 0 },
   filas: [
     fila(1, { saldo_acumulado: '40.00' }),
     fila(2, { estado: 'en_revision', cargo: '170.00', mora: '20.00', pagado: '0.00', en_revision: '170.00', saldo: '0.00', saldo_acumulado: '40.00', por_concepto: [{ concepto: 'Mantenimiento', monto: '150.00', es_mora: false }, { concepto: 'Multa por pago fuera de fecha', monto: '20.00', es_mora: true }], pagos: [{ id: 2, fecha: '2025-02-15', operacion: 'OP-777', metodo: null, monto: '170.00', estado: 'por_validar', sin_detalle: false }] }),

@@ -4,7 +4,7 @@ import { api, errorText, useResource } from '../../../../api';
 import { DESTINOS_GRUPO, ROTULO_DESTINO, type DestinoGrupo } from '../../../../server/services/canales/gruposTipos';
 import { Alert, Badge, Button, Card, CardBody, CardHeader, EmptyState, Select, SearchBox, Skeleton, useToast } from '../../../../ui';
 import { Interruptor } from '../catalogo/Interruptor';
-import { filtrarGrupos, textoDestino, textoSincronizado } from './tipos';
+import { filtrarGrupos, textoCobertura, textoDestino, textoSincronizado } from './tipos';
 import type { CondominioConBlocks, GrupoGuardado, MisGrupos as Datos } from './tipos';
 
 const nombreBlock = (e: { id: number; nombre: string | null }) => e.nombre?.trim() || `Block ${e.id}`;
@@ -144,6 +144,16 @@ export function MisGrupos() {
         {!actual ? (datos.loading ? <Skeleton className="h-24 w-full" /> : null) : (
           <>
             <p className="text-xs text-muted">{textoSincronizado(actual.sincronizado_at)} · {grupos.length} {grupos.length === 1 ? 'grupo' : 'grupos'} · {enUso} en uso</p>
+            {(actual.cobertura ?? []).map(c => {
+              const t = textoCobertura(c);
+              if (!t) return null;
+              return (
+                <div key={c.complejo_id} className="grid gap-1 text-sm">
+                  <p className="font-medium">{c.nombre}: {t.resumen}</p>
+                  {t.falta && <Alert tone="bad">{t.falta}</Alert>}
+                </div>
+              );
+            })}
             {grupos.length === 0 ? (
               <EmptyState title="Aún no tienes grupos guardados" description="Toca «Traer mis grupos» para ver aquí los grupos de WhatsApp donde está tu número." />
             ) : (

@@ -12,9 +12,14 @@ import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
 import { dineroTexto, enlaceDeAviso, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
 import { correoDeAviso } from './correoAviso';
+import { empresaDeAviso as empresaDeAvisoBase } from '../marca/avisos';
+import { marcaParaCorreo } from '../marca/servicio';
 import { correoSinBuzon } from '../invitaciones';
 import { aportesPendientes, cierrePendiente } from '../cierres/pendientes';
 import { esTipoWhatsappConfigurable } from './whatsappTipos';
+import { reciboTieneGrupo } from '../canales/cobertura';
+import { filtroEstadoCargo } from '../../lib/cargos';
+import { acumularDeuda, SELECT_DEUDA } from '../recordatorios/deudaVencida';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
 export const MAX_INTENTOS = 3;
@@ -56,10 +61,35 @@ const laPaga = (usuarioId: number): Prisma.UnidadWhereInput => ({
   ],
 });
 
-/** Resultado de un voucher. Nunca salen por WhatsApp; el validado no se encola (el vecino lo ve en «Mis recibos») y el rechazado sólo sale por correo. */
-export const RESULTADOS_PAGO: readonly string[] = ['pago_validado', 'pago_rechazado'];
+/** Resultado de un voucher. Nunca salen por WhatsApp; el validado no se encola (el vecino lo ve en «Mis recibos») y el rechazado y el anulado sólo salen por correo. */
+export const RESULTADOS_PAGO: readonly string[] = ['pago_validado', 'pago_rechazado', 'pago_anulado'];
 
-export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number } | { entidad: `cierre:${string}`; id: number } | { entidad: `cierre-central:${string}`; id: number };
+export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number } | { entidad: `deuda:${string}`; id: number } | { entidad: `anulado:${string}`; id: number } | { entidad: `cierre:${string}`; id: number } | { entidad: `cierre-central:${string}`; id: number };
+
+/**
+ * Recordatorio de deuda a mano (`deuda:<AAAA-MM-DD>`, id = la unidad): el día de Lima va en la referencia, de modo que a una unidad se le recuerda una sola vez por día
+ * (la fila es única por persona, canal, tipo y referencia). La empresa, el condominio y la instancia de WhatsApp salen de la unidad.
+ */
+export const refDeuda = (dia: string, unidadId: number): RefAviso => ({ entidad: `deuda:${dia}`, id: unidadId });
+const esDeuda = (entidad: string) => entidad.startsWith('deuda:');
+
+/**
+ * Aviso de recibo anulado (`anulado:<año>-<mes>:<id del recibo>`, id = la unidad). El recibo ya no existe cuando el aviso sale, así que NADA se lee de él: el periodo
+ * viaja en la referencia y el departamento sale de la unidad. El id del recibo (distinto en cada emisión) hace única la fila si el mismo mes se anula dos veces.
+ */
+export const refAnulado = (anio: number, mes: number, reciboId: number, unidadId: number): RefAviso => ({ entidad: `anulado:${anio}-${mes}:${reciboId}`, id: unidadId });
+const esAnulado = (entidad: string) => entidad.startsWith('anulado:');
+/** Avisos cuyo `ref_id` es una unidad: de ella salen el condominio, la empresa y la instancia de WhatsApp. */
+const esDeUnidad = (entidad: string) => esDeuda(entidad) || esAnulado(entidad);
+
+/** La empresa de la que habla el aviso (para la marca): igual que `empresaDeAviso` de la marca, más el recordatorio de deuda (por su unidad). */
+async function empresaDeAviso(ref: { entidad: string; id: number }): Promise<number | null> {
+  if (esDeUnidad(ref.entidad)) {
+    const un = await prisma.unidad.findUnique({ where: { id: ref.id }, select: { empresa_id: true, complejo: { select: { empresa_id: true } } } });
+    return un?.complejo?.empresa_id ?? un?.empresa_id ?? null;
+  }
+  return empresaDeAvisoBase(ref);
+}
 
 interface Cargado {
   datos: Parameters<typeof plantilla>[1];
@@ -68,7 +98,10 @@ interface Cargado {
 /** Reúne lo que lleva el mensaje. `null` si no hay nada que avisar a ese usuario (cargos ya pagados, recibo borrado…). Agrega el enlace a la pantalla que corresponde al rol de quien lo recibe. */
 async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: string; rol?: string | null }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
   const c = await cargarDatosBase(tipo, usuario, ref, ahora);
-  return c ? { datos: { ...c.datos, enlace: enlaceDeAviso(tipo, usuario.rol, c.datos.central) } } : null;
+  if (!c) return null;
+  // Con la marca propia activa, la firma del texto (WhatsApp y correo en texto) suma el nombre comercial de la empresa que escribe.
+  const marca = ref.entidad === 'ia' ? null : await empresaDeAviso(ref).then(marcaParaCorreo).catch(() => null);
+  return { datos: { ...c.datos, enlace: enlaceDeAviso(tipo, usuario.rol, c.datos.central), ...(marca ? { empresa: marca.nombre } : {}) } };
 }
 
 async function cargarDatosBase(tipo: TipoAviso, usuario: { id: number; nombre: string }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
@@ -79,6 +112,34 @@ async function cargarDatosBase(tipo: TipoAviso, usuario: { id: number; nombre: s
     const c = await prisma.comunicado.findUnique({ where: { id: ref.id }, select: { titulo: true, cuerpo: true, archivado_at: true, complejo: { select: { nombre: true } } } });
     if (!c || c.archivado_at) return null;
     return { datos: { nombre: usuario.nombre, periodo: '', monto: '', vencimiento: '', titulo: c.titulo, texto: c.cuerpo, condominio: c.complejo?.nombre ?? null } };
+  }
+  // Recordatorio de deuda (`deuda:<día>`, id = unidad): lo que la unidad debe HOY, vencido y sin abonos validados, por recibo (la misma cifra de «Morosidad»).
+  if (esDeuda(ref.entidad)) {
+    const reloj = await relojDeCondominios(ahora);
+    const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { AND: [filtroEstadoCargo('vencido', reloj), { unidad_id: ref.id }] }, select: SELECT_DEUDA });
+    const deuda = acumularDeuda(cargos, reloj).get(ref.id);
+    const un = await prisma.unidad.findUnique({ where: { id: ref.id }, select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true } } } });
+    if (!deuda || !un) return null;
+    const moneda = un.complejo?.moneda;
+    const recibos = [...deuda.recibos.values()].sort((a, b) => a.anio - b.anio || a.mes - b.mes);
+    return {
+      datos: {
+        nombre: usuario.nombre,
+        periodo: '',
+        monto: dineroTexto(deuda.deuda, moneda),
+        vencimiento: '',
+        conceptos: recibos.map((r) => ({ nombre: `Mantenimiento de ${periodoTexto(r.mes, r.anio)}`, monto: dineroTexto(r.deuda, moneda) })),
+        condominio: un.complejo?.nombre ?? null,
+        departamentos: [{ codigo: un.codigo, torre: un.estructura?.nombre ?? null }],
+      },
+    };
+  }
+  // Recibo anulado (`anulado:<año>-<mes>:<recibo>`, id = unidad): el recibo ya no existe; sólo el periodo (de la referencia) y el departamento.
+  if (esAnulado(ref.entidad)) {
+    const [anio, mes] = ref.entidad.slice('anulado:'.length).split(':')[0]!.split('-').map(Number);
+    const un = await prisma.unidad.findUnique({ where: { id: ref.id }, select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true } } } });
+    if (!anio || !mes || !un) return null;
+    return { datos: { nombre: usuario.nombre, periodo: periodoTexto(mes, anio), monto: '', vencimiento: '', condominio: un.complejo?.nombre ?? null, departamentos: [{ codigo: un.codigo, torre: un.estructura?.nombre ?? null }] } };
   }
   // Cierre de la Junta central (`cierre-central:<año>-<mes>`, id = condominio): los blocks que aún no aportan.
   if (ref.entidad.startsWith('cierre-central:')) {
@@ -93,6 +154,35 @@ async function cargarDatosBase(tipo: TipoAviso, usuario: { id: number; nombre: s
     const p = anio && mes ? await cierrePendiente(ref.id, anio, mes) : null;
     if (!p) return null;
     return { datos: { nombre: usuario.nombre, periodo: p.periodo, monto: '', vencimiento: '', concepto: p.lineas.join(', '), bloque: p.bloque, condominio: p.condominio } };
+  }
+  // Pago anulado: dice lo que se anuló de verdad (todo el grupo del mantenimiento, con el monto de cada concepto), no el cargo de una sola fila.
+  if (tipo === 'pago_anulado' && ref.entidad === 'pago') {
+    const p = await prisma.pago.findUnique({ where: { id: ref.id }, select: { id: true, grupo: true } });
+    if (!p) return null;
+    const filas = await prisma.pago.findMany({
+      where: p.grupo != null ? { grupo: p.grupo } : { id: p.id },
+      orderBy: { id: 'asc' },
+      select: { monto: true, reciboConceptoUnidad: { select: { unidad: { select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true } } } }, reciboConcepto: { select: { concepto: { select: { nombre: true } }, recibo: { select: { mes: true, anio: true, fecha_vencimiento: true } } } } } } },
+    });
+    const primero = filas[0]?.reciboConceptoUnidad;
+    const recibo = primero?.reciboConcepto?.recibo;
+    if (!primero || !recibo) return null;
+    const moneda = primero.unidad?.complejo?.moneda;
+    const total = filas.reduce((s, f) => s.plus(f.monto), new Prisma.Decimal(0));
+    const conceptos = filas.flatMap((f) => (f.reciboConceptoUnidad?.reciboConcepto?.concepto?.nombre ? [{ nombre: f.reciboConceptoUnidad.reciboConcepto.concepto.nombre, monto: dineroTexto(f.monto, moneda) }] : []));
+    return {
+      datos: {
+        nombre: usuario.nombre,
+        periodo: periodoTexto(recibo.mes, recibo.anio),
+        concepto: conceptos.map((c) => c.nombre).join(', ') || undefined,
+        conceptos,
+        monto: dineroTexto(total, moneda),
+        vencimiento: fechaTexto(recibo.fecha_vencimiento),
+        vence: recibo.fecha_vencimiento,
+        condominio: primero.unidad?.complejo?.nombre ?? null,
+        departamentos: primero.unidad ? [{ codigo: primero.unidad.codigo, torre: primero.unidad.estructura?.nombre ?? null }] : [],
+      },
+    };
   }
   if (ref.entidad === 'cargo' || ref.entidad === 'pago') {
     const cargoId = ref.entidad === 'cargo' ? ref.id : (await prisma.pago.findUnique({ where: { id: ref.id }, select: { recibo_concepto_unidad_id: true } }))?.recibo_concepto_unidad_id;
@@ -186,7 +276,13 @@ async function listaWhatsappDe(tipo: string, n: { ref_entidad: string | null; re
   const complejoId = await complejoDeAviso(n);
   if (complejoId == null) return null;
   const c = await prisma.complejoHabitacional.findUnique({ where: { id: complejoId }, select: { whatsapp_avisos: true } });
-  return c ? c.whatsapp_avisos : null;
+  if (!c) return null;
+  // Recibo del mes: va al grupo del block. Por WhatsApp directo a cada departamento sólo si su block NO tiene grupo (así nadie se queda sin aviso
+  // mientras se asignan los grupos) o si el condominio lo fuerza (`recibo_emitido` en la lista = «también directo aunque el block tenga grupo»).
+  if (tipo === 'recibo_emitido' && n.ref_entidad === 'recibo' && n.ref_id != null && !c.whatsapp_avisos.includes('recibo_emitido')) {
+    if (!(await reciboTieneGrupo(n.ref_id))) return [...c.whatsapp_avisos, 'recibo_emitido'];
+  }
+  return c.whatsapp_avisos;
 }
 
 /**
@@ -195,11 +291,11 @@ async function listaWhatsappDe(tipo: string, n: { ref_entidad: string | null; re
  * `lista` es la de `whatsapp_avisos` del condominio (`null` = no se rige): si el tipo no está en ella, no hay WhatsApp, tampoco al número vinculado.
  * Los resultados de pago nunca salen por WhatsApp ni por Telegram: el validado no sale por ningún canal y el rechazado sólo por correo.
  */
-async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }, lista: readonly string[] | null): Promise<Canal[]> {
+export async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }, lista: readonly string[] | null): Promise<Canal[]> {
   if (tipo === 'pago_validado') return [];
   const canales: Canal[] = [];
   if (u.aviso_email && u.email && !correoSinBuzon(u.email)) canales.push('email');
-  if (tipo === 'pago_rechazado') return canales;
+  if (tipo === 'pago_rechazado' || tipo === 'pago_anulado') return canales;
   const whatsappPermitido = lista == null || lista.includes(tipo);
   if (whatsappPermitido && u.aviso_whatsapp && (u.telefono?.trim() || (await numeroVinculado(u.id)))) canales.push('whatsapp');
   return canales;
@@ -253,6 +349,20 @@ async function usuariosDelRecibo(reciboId: number): Promise<number[]> {
 export async function encolarReciboEmitido(reciboId: number, opts: { ahora?: Date } = {}): Promise<number> {
   let creadas = 0;
   for (const id of await usuariosDelRecibo(reciboId)) creadas += await encolarAviso('recibo_emitido', id, { entidad: 'recibo', id: reciboId }, opts);
+  return creadas;
+}
+
+/**
+ * Al anular un recibo: «se anuló el recibo de <mes> de <depto>» a quien paga cada unidad que tenía cargo en él (el mismo criterio que `recibo_emitido`).
+ * Se llama con las unidades que anotó la anulación, porque el recibo ya no existe. Respeta las preferencias de cada persona; nunca va al grupo de WhatsApp.
+ */
+export async function encolarReciboAnulado(a: { reciboId: number; mes: number; anio: number; unidades: { id: number; propietario_id: number | null; inquilino_id: number | null }[] }, opts: { ahora?: Date } = {}): Promise<number> {
+  const pagadores = await pagadoresDe(a.unidades);
+  let creadas = 0;
+  for (const u of a.unidades) {
+    const pagador = pagadores.get(u.id);
+    if (pagador != null) creadas += await encolarAviso('recibo_anulado', pagador, refAnulado(a.anio, a.mes, a.reciboId, u.id), opts);
+  }
   return creadas;
 }
 
@@ -382,6 +492,10 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
     const c = await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo: { select: { empresa: { select: { whatsapp_instance: true } } } } } });
     return c?.complejo?.empresa?.whatsapp_instance ?? null;
   }
+  if (esDeUnidad(n.ref_entidad)) {
+    const un = await prisma.unidad.findUnique({ where: { id: n.ref_id }, select: { complejo: { select: { empresa: { select: { whatsapp_instance: true } } } } } });
+    return un?.complejo?.empresa?.whatsapp_instance ?? null;
+  }
   if (n.ref_entidad.startsWith('cierre-central:')) {
     const c = await prisma.complejoHabitacional.findUnique({ where: { id: n.ref_id }, select: { empresa: { select: { whatsapp_instance: true } } } });
     return c?.empresa?.whatsapp_instance ?? null;
@@ -415,6 +529,7 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
 async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number | null }): Promise<number | null> {
   if (!n.ref_entidad || n.ref_id == null) return null;
   if (n.ref_entidad === 'comunicado') return (await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
+  if (esDeUnidad(n.ref_entidad)) return (await prisma.unidad.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   if (n.ref_entidad.startsWith('cierre-central:')) return n.ref_id;
   if (n.ref_entidad.startsWith('cierre:')) return (await prisma.estructura.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   if (n.ref_entidad === 'recibo') return (await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
@@ -428,6 +543,9 @@ async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number |
 }
 
 export const MOTIVO_SIN_WHATSAPP = 'Plan sin WhatsApp';
+const TIPO_RECORDATORIO_DEUDA = 'recordatorio_deuda';
+/** El departamento pagó (o se saldó) antes de que saliera el recordatorio de deuda. */
+export const MOTIVO_YA_AL_DIA = 'Ya no tiene deuda vencida';
 /** El condominio apagó este tipo para WhatsApp después de encolarlo. */
 export const MOTIVO_APAGADO_WHATSAPP = 'Apagado en el condominio';
 /** Un resultado de pago sólo sale por correo (queda así también un pendiente que se encoló antes de este cambio). */
@@ -493,10 +611,13 @@ async function enviarCorreoDeAviso(deps: DepsAvisos, n: { tipo: string; asunto: 
     const ref = n.ref_entidad != null && n.ref_id != null ? ({ entidad: n.ref_entidad, id: n.ref_id } as RefAviso) : null;
     const cargado = ref ? await cargarDatos(tipo, { id: n.usuario_id, nombre: n.usuario.nombre, rol: n.usuario.rol }, ref, deps.ahora()) : null;
     // El motivo del rechazo sólo vive en el texto guardado: se toma de ahí para que el correo y el texto digan lo mismo.
-    const motivo = tipo === 'pago_rechazado' ? /Motivo: ([\s\S]*?)\n\nRevisa el detalle/.exec(n.cuerpo)?.[1] : undefined;
+    const motivo = tipo === 'pago_rechazado' ? /Motivo: ([\s\S]*?)\n\nRevisa el detalle/.exec(n.cuerpo)?.[1] : tipo === 'pago_anulado' ? /Motivo: ([\s\S]*?)\n\nTu recibo volvió/.exec(n.cuerpo)?.[1] : undefined;
     const datos = cargado ? { ...cargado.datos, ...(motivo ? { motivo } : {}) } : null;
-    html = correoDeAviso(tipo, datos, { asunto: n.asunto, cuerpo: n.cuerpo, rol: n.usuario.rol }).html;
-    condominio = datos?.condominio ?? null;
+    // Marca de la empresa que escribe (sólo con `marca_propia` activa): cabecera con su logo, nombre y color. Si no se puede leer, el correo sale con la cara de Torre.
+    const marca = ref ? await empresaDeAviso(ref).then(marcaParaCorreo).catch(() => null) : null;
+    html = correoDeAviso(tipo, datos, { asunto: n.asunto, cuerpo: n.cuerpo, rol: n.usuario.rol }, marca).html;
+    // El nombre visible del remitente dice quién escribe: «<Nombre comercial> vía Torre» con marca, «<Condominio> vía Torre» sin ella (la dirección no cambia).
+    condominio = marca?.nombre ?? datos?.condominio ?? null;
   } catch {
     // Sin HTML el correo sale igual, en texto: lo importante es que el vecino se entere.
     html = undefined;
@@ -539,6 +660,13 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
       data: { programada_para: new Date(ahora.getTime() + ARRENDAMIENTO_MIN * MIN) },
     });
     if (tomada.count === 0) continue;
+
+    // Un recordatorio de deuda ya no corresponde si el departamento se puso al día entre que se encoló y ahora (un WhatsApp puede esperar su turno un rato).
+    if (n.tipo === TIPO_RECORDATORIO_DEUDA && n.ref_entidad && n.ref_id != null && !(await cargarDatos(n.tipo, { id: n.usuario_id, nombre: n.usuario.nombre, rol: n.usuario.rol }, { entidad: n.ref_entidad, id: n.ref_id } as RefAviso, ahora))) {
+      await prisma.notificacion.update({ where: { id: n.id }, data: { estado: 'omitida', error: MOTIVO_YA_AL_DIA, programada_para: n.programada_para } });
+      resumen.omitidas++;
+      continue;
+    }
 
     let r: ResultadoEnvio;
     let instanciaWa: string | null = null;

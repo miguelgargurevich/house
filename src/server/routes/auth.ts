@@ -8,7 +8,11 @@ import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser } from '../middleware/auth';
 import { MENSAJE_LOGIN_BLOQUEADO, type BloqueoCuenta } from '../middleware/rateLimit';
 import { juntaUnicaDeUsuario } from '../lib/juntaUnica';
+import { exigirSesionPropia } from '../services/impersonacion/contexto';
+import { estadoDeImpersonacion } from '../services/impersonacion/servicio';
 import { aceptarInvitacion, datosDeInvitacion } from '../services/invitaciones';
+import { marcaDeUsuario } from '../services/marca/servicio';
+import { MARCA_TORRE, type MarcaEmpresa } from '../services/marca/tipos';
 import { borrarCookie, crearSesion, listarActivas, ponerCookie, revocarDeUsuario, revocarPropia } from '../services/sesiones';
 import { emailSchema, parse, parseBody, passwordSchema, z } from '../validation';
 
@@ -38,6 +42,11 @@ const usuarioPublico = {
   estructura_id: true,
 } as const;
 
+/** La marca que ve este usuario (la de SU empresa). Un fallo al leerla nunca impide entrar: queda la de Torre, que no revela nada de ninguna empresa. */
+async function marcaSegura(u: { id: number; rol: string | null; empresa_id: number | null }): Promise<MarcaEmpresa> {
+  try { return await marcaDeUsuario(u); } catch (e) { console.error('[marca] no se pudo leer la marca:', e instanceof Error ? e.message : 'error'); return MARCA_TORRE; }
+}
+
 /**
  * @openapi
  * /api/auth/login:
@@ -55,7 +64,7 @@ const usuarioPublico = {
  *               email: { type: string }
  *               password: { type: string }
  *     responses:
- *       200: { description: "{ user, csrf } + Set-Cookie house_sesion" }
+ *       200: { description: "{ user, csrf, marca } + Set-Cookie house_sesion; `marca` trae nombre, logo_url, color y activa de la empresa del usuario" }
  *       401: { description: Credenciales inválidas }
  *       429: { description: Demasiados intentos }
  */
@@ -81,7 +90,7 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));
     ponerCookie(res, token);
     await registrarAuditoria({ usuario_id: user.id, accion: 'login', entidad: 'usuario', entidad_id: user.id, ip: ipDe(req) });
-    res.json({ user, csrf });
+    res.json({ user, csrf, marca: await marcaSegura(usuario) });
   });
   return authRouter;
 }
@@ -155,7 +164,7 @@ export const sesionRouter = Router();
  *     tags: [Auth]
  *     security: [{ cookieAuth: [] }]
  *     responses:
- *       200: { description: Usuario actual (sin hash de contraseña) más `csrf` de la sesión vigente }
+ *       200: { description: "Usuario actual (sin hash de contraseña) más `csrf` de la sesión vigente, `marca` (nombre, logo_url, color y activa de SU empresa) e `impersonando` (`{ por: { id, nombre }, motivo, expira_at }` en una sesión prestada de «Entrar como»; si no, null)" }
  *       401: { description: Sin sesión }
  */
 sesionRouter.get('/me', async (req, res) => {
@@ -165,7 +174,9 @@ sesionRouter.get('/me', async (req, res) => {
   const { estructura, ...usuario } = cargado ?? { estructura: null };
   // `junta_unica`: la junta del usuario está en un condominio con una sola junta (sin blocks con junta). Se lee de la base en cada llamada.
   const junta_unica = cargado ? await juntaUnicaDeUsuario(cargado) : false;
-  res.json({ ...usuario, estructura_nombre: estructura?.nombre ?? null, junta_unica, csrf: req.sesion?.csrf });
+  // `impersonando`: sólo en una sesión prestada («Entrar como»); la pantalla pinta la barra fija con esto.
+  const impersonando = u.impersonador_id && req.sesion ? await estadoDeImpersonacion({ impersonacion_id: u.impersonacion_id ?? null, expira_at: req.sesion.expira_at }) : null;
+  res.json({ ...usuario, estructura_nombre: estructura?.nombre ?? null, junta_unica, marca: await marcaSegura(u), csrf: req.sesion?.csrf, impersonando });
 });
 
 /**
@@ -178,6 +189,7 @@ sesionRouter.get('/me', async (req, res) => {
  *       204: { description: Sesión cerrada }
  */
 sesionRouter.post('/logout', async (req, res) => {
+  exigirSesionPropia(req); // en una sesión prestada se sale con «Volver a mi cuenta» (POST /api/impersonacion/salir)
   await revocarPropia(currentUser(req).id, req.sesion!.id);
   borrarCookie(res);
   res.locals.entidad = 'sesion';
@@ -196,6 +208,7 @@ sesionRouter.post('/logout', async (req, res) => {
  *       200: { description: "[{ id, ip, user_agent, creada, ultimo_uso, actual }]" }
  */
 sesionRouter.get('/sesiones', async (req, res) => {
+  exigirSesionPropia(req);
   const filas = await listarActivas(currentUser(req).id);
   res.json(filas.map((s) => ({ id: s.id, ip: s.ip, user_agent: s.user_agent, creada: s.created_at, ultimo_uso: s.ultimo_uso_at, actual: s.id === req.sesion!.id })));
 });
@@ -210,6 +223,7 @@ sesionRouter.get('/sesiones', async (req, res) => {
  *       200: { description: "{ cerradas }" }
  */
 sesionRouter.post('/sesiones/cerrar-otras', async (req, res) => {
+  exigirSesionPropia(req);
   const r = await revocarDeUsuario(currentUser(req).id, req.sesion!.id);
   res.locals.entidad = 'sesion';
   res.locals.accion = 'cerrar_otras';
@@ -229,6 +243,7 @@ sesionRouter.post('/sesiones/cerrar-otras', async (req, res) => {
  *       404: { description: No existe o no es tuya }
  */
 sesionRouter.delete('/sesiones/:id', async (req, res) => {
+  exigirSesionPropia(req);
   const { id } = parse(z.object({ id: z.string().min(1).max(64) }), req.params);
   if (!(await revocarPropia(currentUser(req).id, id))) throw notFound();
   if (id === req.sesion!.id) borrarCookie(res);

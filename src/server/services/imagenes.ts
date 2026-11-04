@@ -27,15 +27,15 @@ export function verificarImagen(req: Request): ImagenVerificada {
   return { nombre: sanearNombre(req.header('x-nombre-archivo'), declarado as TipoComprobante), tipo_mime: declarado, tamano: cuerpo.length, datos: cuerpo };
 }
 
-/** Responde la imagen en línea, sin que el navegador la interprete como otra cosa ni la guarde en cachés compartidas. */
-export function enviarImagen(res: Response, img: { datos: Uint8Array; tipo_mime: string; nombre: string | null }) {
+/** Responde la imagen en línea, sin que el navegador la interprete como otra cosa. Por defecto no se guarda en cachés compartidas (`cache` lo cambia: sólo el logo público de los correos). */
+export function enviarImagen(res: Response, img: { datos: Uint8Array; tipo_mime: string; nombre: string | null }, cache = 'private, no-cache') {
   res.set({
     'Content-Type': img.tipo_mime,
     'Content-Length': String(img.datos.length),
     'Content-Disposition': dispositionInline(img.nombre ?? 'imagen'),
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': 'sandbox',
-    'Cache-Control': 'private, no-cache',
+    'Cache-Control': cache,
   });
   res.status(200).end(Buffer.from(img.datos));
 }

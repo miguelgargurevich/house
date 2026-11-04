@@ -1,7 +1,8 @@
 // El correo de cada aviso con diseño: título, tarjeta con lo importante, tabla de conceptos completa, botón y pie. Usa el layout común de
 // `correoHtml.ts`; el asunto y el texto plano (respaldo) salen de `plantillas.ts`, así que HTML y texto dicen lo mismo.
 // Lo que viene de la base (nombre, conceptos, comunicado) se escapa en `plantillaCorreo`; aquí sólo se pasa texto plano.
-import { plantillaCorreo, type FilaResumen, type PlantillaCorreo } from './correoHtml';
+import type { MarcaCorreo } from '../marca/tipos';
+import { PIE_TORRE, plantillaCorreo, type FilaResumen, type PlantillaCorreo } from './correoHtml';
 import { ENLACE_APP, avisoMora, cuando, enlaceDeAviso, fechaLarga, plantilla, primerNombre, type DatosAviso, type TipoAviso } from './plantillas';
 
 const COBRO: readonly TipoAviso[] = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido'];
@@ -12,8 +13,11 @@ const BOTON: Record<TipoAviso, string> = {
   vencido: 'Regularizar mi pago',
   pago_validado: 'Ver mis pagos',
   pago_rechazado: 'Revisar y volver a enviar mi pago',
+  pago_anulado: 'Ver mis recibos',
   comunicado: 'Ver el comunicado',
   cierre_pendiente: 'Abrir el cierre',
+  recordatorio_deuda: 'Pagar y subir mi voucher',
+  recibo_anulado: 'Abrir Torre',
   ia_caida: 'Abrir el llavero de IA',
   ia_restablecida: 'Abrir el llavero de IA',
 };
@@ -45,7 +49,7 @@ function piePagina(tipo: TipoAviso, d: DatosAviso): string[] {
     quien,
     'Recibes este correo porque tienes activados los avisos por correo en tu cuenta de Torre.',
     `Para dejar de recibirlo, apaga «Avisos por correo» en Mi perfil › Celular y avisos: ${ENLACE_APP}/perfil`,
-    'Torre · Administración de condominios',
+    PIE_TORRE,
   ];
 }
 
@@ -87,6 +91,15 @@ function contenido(tipo: TipoAviso, d: DatosAviso, asunto: string, cuerpo: strin
   }
 
   switch (tipo) {
+    case 'recordatorio_deuda':
+      return {
+        ...base,
+        parrafos: [hola, 'Te escribimos para recordarte que tienes un saldo vencido en tu mantenimiento. Paga y sube tu voucher desde Torre; si ya pagaste, avísanos para revisarlo.'],
+        previa: `Saldo vencido ${d.monto}.`,
+        resumen: { total: { etiqueta: 'Saldo vencido', valor: d.monto, alerta: true }, filas: filasDeUnidades(d) },
+        ...(d.conceptos?.length ? { tabla: { titulo: 'Lo que está vencido', filas: d.conceptos.map((c) => ({ concepto: c.nombre, monto: c.monto })), total: { concepto: 'Total', monto: d.monto } } } : {}),
+        boton,
+      };
     case 'pago_validado':
     case 'pago_rechazado': {
       const rechazado = tipo === 'pago_rechazado';
@@ -100,6 +113,16 @@ function contenido(tipo: TipoAviso, d: DatosAviso, asunto: string, cuerpo: strin
         boton,
       };
     }
+    case 'pago_anulado':
+      return {
+        ...base,
+        parrafos: [hola, `La administración anuló tu pago de ${d.periodo}. Tu recibo volvió a quedar pendiente. Si crees que es un error, comunícate con la administración.`],
+        resumen: {
+          total: { etiqueta: 'Pago anulado', valor: d.monto, alerta: true },
+          filas: [...filasDeUnidades(d), { etiqueta: 'Periodo', valor: d.periodo }, ...(d.concepto ? [{ etiqueta: 'Concepto', valor: d.concepto }] : []), ...(d.motivo ? [{ etiqueta: 'Motivo', valor: d.motivo, alerta: true }] : [])],
+        },
+        boton,
+      };
     case 'comunicado':
       return { ...base, titulo: d.titulo ?? asunto, parrafos: [hola, ...(d.texto ?? '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)], boton };
     case 'cierre_pendiente':
@@ -113,14 +136,15 @@ function contenido(tipo: TipoAviso, d: DatosAviso, asunto: string, cuerpo: strin
  * Asunto, texto plano y HTML de un aviso. `datos` salen de `cargarDatos` (la base, al enviar); `null` si ya no se pueden rehacer. `guardado` es el
  * asunto y el texto de la notificación: el texto plano es ése (el mismo de `plantilla()` al encolar), así que quien lo lee sin HTML recibe lo mismo.
  * Con `datos` en `null`, y siempre en los avisos de la IA (su motivo sólo vive en el texto guardado), el HTML se arma con ese texto.
+ * `marca`: la de la empresa que escribe, sólo si tiene la marca propia activa (cabecera con su logo, nombre y color; pie «Enviado con Torre»).
  */
-export function correoDeAviso(tipo: TipoAviso, datos: DatosAviso | null, guardado?: { asunto: string; cuerpo: string; rol?: string | null }): { asunto: string; texto: string; html: string } {
+export function correoDeAviso(tipo: TipoAviso, datos: DatosAviso | null, guardado?: { asunto: string; cuerpo: string; rol?: string | null }, marca?: MarcaCorreo | null): { asunto: string; texto: string; html: string } {
   const d: DatosAviso = datos ?? { nombre: '', periodo: '', monto: '', vencimiento: '' };
   const p = plantilla(tipo, d);
   const asunto = guardado?.asunto ?? p.asunto;
   const texto = guardado?.cuerpo ?? p.cuerpo;
   const completo = datos != null && tipo !== 'ia_caida' && tipo !== 'ia_restablecida';
   const conEnlace = d.enlace ? d : { ...d, enlace: enlaceDeAviso(tipo, guardado?.rol) };
-  const { html } = plantillaCorreo(contenido(tipo, conEnlace, asunto, texto, completo));
+  const { html } = plantillaCorreo({ ...contenido(tipo, conEnlace, asunto, texto, completo), marca: marca ?? null });
   return { asunto, texto, html };
 }

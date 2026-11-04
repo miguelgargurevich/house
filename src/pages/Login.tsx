@@ -6,14 +6,15 @@ import { HOME, useAuth } from '../auth/AuthContext';
 import { Alert, Button, Input } from '../ui';
 import { api, ApiError, errorText } from '../api';
 import PanelLogin from './_login/PanelLogin';
+import { IconoTorre } from '../ui/IconoTorre';
 
 const DEMO = [
-  ['Superadmin', 'miguel.gargurevich@admin.com', 'admin1234'],
-  ['Administradora', 'ana.lopez@gestionurbana.com', 'admin1234'],
-  ['Propietario', 'javier.castro@prop.com', 'prop1234'],
-  ['Inquilino', 'valentina.ruiz@inq.com', 'inq1234'],
-  ['Mantenimiento', 'maria.fernandez@gestionurbana.com', 'mtto1234'],
-  ['Seguridad', 'pedro.sanchez@gestionurbana.com', 'seg1234'],
+  ['Superadmin', 'miguel.gargurevich@admin.example', 'admin1234'],
+  ['Administradora', 'ana.lopez@administradorademo.example', 'admin1234'],
+  ['Propietario', 'javier.castro@prop.example', 'prop1234'],
+  ['Inquilino', 'valentina.ruiz@inq.example', 'inq1234'],
+  ['Mantenimiento', 'maria.fernandez@administradorademo.example', 'mtto1234'],
+  ['Seguridad', 'pedro.sanchez@administradorademo.example', 'seg1234'],
   ['Limpieza', 'limpieza@prueba.house', 'pers1234'],
   ['Tesorero', 'patricia.alarcon.9@prueba.house', 'prop1234'],
   ['Tesorero central', 'gustavo.cruz.4@prueba.house', 'prop1234'],
@@ -61,10 +62,7 @@ export default function Login() {
       <main className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5 font-semibold tracking-tight">
-            <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
-              <rect width="32" height="32" rx="8" className="fill-brand" />
-              <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            </svg>
+            <IconoTorre className="h-8 w-8" />
             <span className="text-xl">Torre</span>
           </div>
           <h1 className="text-2xl font-semibold">Ingresa a tu cuenta</h1>

@@ -56,6 +56,7 @@ export function SeguimientoVoucher({ reciboId, unidadId, pagoId, inicial, onList
       {fase === 'revisando' && <Alert tone="info"><span className="flex items-center gap-2" role="status"><Spinner />Pago registrado: la IA lo está revisando…</span></Alert>}
       {fase === 'pagado' && <Alert tone="ok">{pago?.validado_por_ia ? 'Pago registrado y validado automáticamente por la IA: el mantenimiento quedó pagado.' : 'Pago registrado: el mantenimiento quedó pagado.'}</Alert>}
       {fase === 'en_revision' && <Alert tone="warn">Pago registrado: queda en revisión. {motivoEnRevision(pago, agotado)} Ábrelo en el historial de pagos para validarlo o rechazarlo.</Alert>}
+      {fase === 'anulado' && <Alert tone="warn">Este pago fue anulado{pago?.motivo_anulacion ? `: ${pago.motivo_anulacion}` : ''}. El mantenimiento volvió a quedar pendiente.</Alert>}
       {fase === 'rechazado' && <Alert tone="bad">El pago fue rechazado{pago?.motivo_rechazo ? `: ${pago.motivo_rechazo}` : ''}.</Alert>}
       {pago && (
         <EvaluacionPanel evaluacion={pago.evaluacion} montoEsperado={detalle.total} moneda={detalle.moneda} validadoPorIA={pago.validado_por_ia} puedeReevaluar={false} reevaluando={false} onReevaluar={() => undefined} fase={agotado ? 'agotada' : faseDeEspera(consultasHechas * INTERVALO_SEGUIMIENTO_MS)} />

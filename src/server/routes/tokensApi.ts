@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { notFound } from '../errors';
 import { currentUser } from '../middleware/auth';
+import { exigirSesionPropia } from '../services/impersonacion/contexto';
 import { DIAS_MAXIMOS, DIAS_POR_DEFECTO, MAX_TOKENS_ACTIVOS, crearToken, listarTokens, revocarToken } from '../services/tokensApi';
 import { parseBody, texto, z } from '../validation';
 
@@ -23,6 +24,7 @@ tokensApiRouter.get('/', async (req, res) => {
 });
 
 tokensApiRouter.post('/', async (req, res) => {
+  exigirSesionPropia(req);
   const { nombre, dias } = parseBody(crearSchema, req);
   const t = await crearToken(currentUser(req), nombre, dias);
   res.locals.auditDetalle = { nombre, dias: dias ?? DIAS_POR_DEFECTO, prefijo: t.prefijo }; // nunca el token
@@ -30,6 +32,7 @@ tokensApiRouter.post('/', async (req, res) => {
 });
 
 tokensApiRouter.delete('/:id', async (req, res) => {
+  exigirSesionPropia(req);
   const id = String(req.params.id).slice(0, 40);
   if (!(await revocarToken(currentUser(req).id, id))) throw notFound('Token');
   res.locals.accion = 'revocar';

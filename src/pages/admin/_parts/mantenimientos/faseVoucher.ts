@@ -1,12 +1,13 @@
 // Lógica pura (sin React ni red) del seguimiento de un pago registrado con voucher: en qué fase está y por qué quedó en revisión.
 
-export type FaseVoucher = 'revisando' | 'pagado' | 'en_revision' | 'rechazado';
+export type FaseVoucher = 'revisando' | 'pagado' | 'en_revision' | 'rechazado' | 'anulado';
 
 /** Lo mínimo del pago principal (de `GET /api/recibos/:id/mantenimientos/:unidadId`, vista completa) que decide la fase. */
 export interface PagoSeguimiento {
-  estado_validacion: 'por_validar' | 'validado' | 'rechazado';
+  estado_validacion: 'por_validar' | 'validado' | 'rechazado' | 'anulado';
   validado_por_ia: boolean;
   motivo_rechazo: string | null;
+  motivo_anulacion?: string | null;
   evaluacion: { estado: string; veredicto?: string | null; resumen?: string | null; error?: string | null } | null;
 }
 
@@ -27,6 +28,7 @@ export function faseVoucher(p: PagoSeguimiento | null, lecturasTerminadas: numbe
   if (!p) return agotado ? 'en_revision' : 'revisando';
   if (p.estado_validacion === 'validado') return 'pagado';
   if (p.estado_validacion === 'rechazado') return 'rechazado';
+  if (p.estado_validacion === 'anulado') return 'anulado';
   const ev = p.evaluacion;
   if (!ev || !terminada(ev)) return agotado ? 'en_revision' : 'revisando';
   return ev.estado === 'completada' && ev.veredicto === 'coincide' && lecturasTerminadas < 2 && !agotado ? 'revisando' : 'en_revision';

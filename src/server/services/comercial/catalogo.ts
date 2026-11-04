@@ -11,8 +11,12 @@ export const esModulo = (c: string): c is ModuloClave => (MODULOS as readonly st
  * exportes y la conciliación bancaria. `PlanComercial.modulos_incluidos` guarda estas claves; Gratis no trae ninguna.
  */
 export const CAPACIDADES = [...MODULOS, 'mora_automatica', 'reportes', 'conciliacion'] as const;
-export type CapacidadClave = (typeof CAPACIDADES)[number];
-export const esCapacidad = (c: string): c is CapacidadClave => (CAPACIDADES as readonly string[]).includes(c);
+/** Marca propia (color y nombre comercial de la empresa en la app, el recibo y los correos): la traen Pro, Administradora y Cortesía (Miguel, 4-nov: «en el plan pro también inclúyelo»). El logo va en todos los planes. */
+export const CAPACIDAD_MARCA = 'marca_propia' as const;
+/** Todas las claves de capacidad que existen. */
+export const TODAS_LAS_CAPACIDADES = [...CAPACIDADES, CAPACIDAD_MARCA] as const;
+export type CapacidadClave = (typeof TODAS_LAS_CAPACIDADES)[number];
+export const esCapacidad = (c: string): c is CapacidadClave => (TODAS_LAS_CAPACIDADES as readonly string[]).includes(c);
 
 /** Torre Gratis no tiene tope de departamentos desde el 30-oct (Miguel: que un condominio de varias torres lo pruebe completo); el plazo de 3 meses es el límite. */
 export const UNIDADES_PRO_MIN = 20;
@@ -49,11 +53,11 @@ export const PLANES_SEED = [
     caracteristicas: [...CARACTERISTICAS_GRATIS] },
   { clave: 'basico', nombre: 'Torre Básico', descripcion: 'Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.', precio_por_unidad: '2.00', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: ['Todo lo de Torre Gratis, sin plazo', 'Sin tope de departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },
-  { clave: 'pro', nombre: 'Torre Pro', descripcion: 'Todo Torre, sin tope de departamentos.', precio_por_unidad: '3.00', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
-    caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes', 'Conciliación bancaria'] },
-  { clave: 'administradora', nombre: 'Torre Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+  { clave: 'pro', nombre: 'Torre Pro', descripcion: 'Todo Torre, sin tope de departamentos.', precio_por_unidad: '3.00', modulos_incluidos: [...CAPACIDADES, CAPACIDAD_MARCA] as string[], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
+    caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes', 'Conciliación bancaria', 'Marca propia: tu logo, nombre y color'] },
+  { clave: 'administradora', nombre: 'Torre Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES, CAPACIDAD_MARCA] as string[], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
     caracteristicas: ['Todo lo de Torre Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
-  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES], visible: false, orden: 5, unidades_maximas: null as number | null, unidades_minimas: null as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
+  { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES, CAPACIDAD_MARCA] as string[], visible: false, orden: 5, unidades_maximas: null as number | null, unidades_minimas: null as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
 ] as const;
 
 /** Moneda en la que está escrito `PlanComercial.precio_por_unidad`; las demás monedas llevan su precio en `PrecioPlanMoneda`. */
@@ -90,3 +94,6 @@ export async function sembrarCatalogoComercial(db: Cliente): Promise<void> {
   const cfg = await db.configuracionComercial.findUnique({ where: { id: CONFIGURACION_ID }, select: { igv_tasa: true } });
   await db.impuestoPais.createMany({ data: impuestosSeed(cfg?.igv_tasa), skipDuplicates: true });
 }
+
+/** Planes que traen la marca propia: a los que ya existían en la base se les suma una sola vez (`migracionMarca`). */
+export const PLANES_CON_MARCA = ['pro', 'administradora', 'cortesia'] as const;

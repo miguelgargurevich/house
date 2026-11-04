@@ -62,7 +62,7 @@ describe('vista móvil', () => {
   it('cerrar sesión pide confirmación (el botón queda bajo el usuario y un clic de más sacaba de la app)', () => {
     const s = fuente('src/app/Shell.tsx');
     assert.match(s, /<MenuUsuario user=\{user\} onSalir=\{\(\) => setConfirmarSalida\(true\)\} \/>/);
-    assert.match(s, /<ConfirmDialog open=\{confirmarSalida\}.*onConfirm=\{salir\}.*title="¿Cerrar sesión\?"/);
+    assert.match(s, /<ConfirmDialog open=\{confirmarSalida\}.*onConfirm=\{salir\}.*title=\{user\.impersonando \? '¿Volver a tu cuenta\?' : '¿Cerrar sesión\?'\}/);
     assert.doesNotMatch(s, /<button onClick=\{salir\}/);
   });
 

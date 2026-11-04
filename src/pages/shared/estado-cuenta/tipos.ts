@@ -1,6 +1,6 @@
 /** La respuesta de `GET /api/estado-cuenta/unidades/:id` (ver docs/API-CONTRATO.md). Los montos llegan como texto con 2 decimales. */
 export type EstadoMes = 'pagado' | 'en_revision' | 'parcial' | 'vencido' | 'pendiente';
-export type EstadoPago = 'validado' | 'por_validar' | 'rechazado';
+export type EstadoPago = 'validado' | 'por_validar' | 'rechazado' | 'anulado';
 
 export interface PagoEstadoCuenta {
   id: number | null;
@@ -41,6 +41,7 @@ export interface TotalesEstadoCuenta {
   meses_vencidos: number;
   deuda_vencida: string;
   pagos_rechazados: number;
+  pagos_anulados: number;
 }
 
 export interface EstadoCuenta {
@@ -63,7 +64,7 @@ export interface EstadoCuenta {
 export interface UnidadElegible { id: number; codigo: string }
 
 export const ESTADO_MES: Record<EstadoMes, string> = { pagado: 'Pagado', en_revision: 'En revisión', parcial: 'Pago parcial', vencido: 'Vencido', pendiente: 'Por pagar' };
-export const ESTADO_PAGO: Record<EstadoPago, string> = { validado: 'Validado', por_validar: 'Por validar', rechazado: 'Rechazado (no suma)' };
+export const ESTADO_PAGO: Record<EstadoPago, string> = { validado: 'Validado', por_validar: 'Por validar', rechazado: 'Rechazado (no suma)', anulado: 'Anulado (no suma)' };
 
 /** Rangos que ofrece la pantalla; el servidor acepta cualquier `desde`/`hasta` (`AAAA-MM`). */
 export type RangoEstadoCuenta = 'ultimos' | 'anio' | 'anio_pasado' | 'todo';

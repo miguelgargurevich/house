@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { esSugerido } from '../src/server/services/canales/gruposTipos';
-import { ORDEN_TIPOS, ROTULO_TIPO, filtrarGrupos, porcentajeDeTope, textoDestino, textoSincronizado, textoTope, tonoDeTope } from '../src/pages/admin/_parts/whatsapp/tipos';
+import { ORDEN_TIPOS, ROTULO_TIPO, ayudaTopeDiario, filtrarGrupos, porcentajeDeTope, textoDestino, textoSincronizado, textoTope, tonoDeTope } from '../src/pages/admin/_parts/whatsapp/tipos';
 import type { CondominioConBlocks, GrupoGuardado } from '../src/pages/admin/_parts/whatsapp/tipos';
 
 const f = (ruta: string) => readFileSync(ruta, 'utf8');
@@ -29,13 +29,13 @@ describe('contador: cálculos y textos', () => {
   });
 
   it('todos los tipos del servidor tienen su nombre en español', () => {
-    assert.deepEqual([...ORDEN_TIPOS].sort(), ['cierre_pendiente', 'comunicado', 'grupo', 'otros', 'por_vencer', 'recibo_emitido', 'vence_hoy', 'vencido']);
+    assert.deepEqual([...ORDEN_TIPOS].sort(), ['cierre_pendiente', 'comunicado', 'grupo', 'otros', 'por_vencer', 'recibo_emitido', 'recordatorio_deuda', 'vence_hoy', 'vencido']);
     for (const t of ORDEN_TIPOS) assert.ok(ROTULO_TIPO[t].length > 3);
   });
 
   it('la pantalla usa la API de uso, con barras para el tope de hoy y la cuota de cada condominio, y sin mostrar identificadores', () => {
     assert.match(contador, /useResource<UsoWhatsapp>\('\/api\/whatsapp\/uso'\)/);
-    assert.match(contador, /<Medidor titulo="Enviados hoy"/);
+    assert.match(contador, /<Medidor titulo=\{d\.hoy\.tope != null \? 'Enviados hoy · tope por día' : 'Enviados hoy'\}/);
     assert.match(contador, /d\.mes\.condominios\.map/);
     assert.match(contador, /label=\{`Cuota mensual de \$\{c\.nombre\}`\}/);
     assert.match(contador, /mañana: hoy se alcanzó el tope diario/);
@@ -112,5 +112,15 @@ describe('pantalla WhatsApp: fuente', () => {
 
   it('apagar un grupo que aún no estaba guardado sólo cierra el editor (no llama al servidor)', () => {
     assert.match(misGrupos, /if \(g\.en_uso\) void enviar\(\{ en_uso: false \}[^;]*; else setEditando\(false\)/);
+  });
+});
+
+describe('el contador explica que el tope es por día (Miguel, 4-nov: «que tipo de limite es semanal diario o al mes .. no queda claro»)', () => {
+  it('con tope dice «por día», el número, que lo que pase sale mañana y que no es el del mes; sin tope, que no hay tope por día', () => {
+    const con = ayudaTopeDiario(200);
+    assert.match(con, /tope por día/);
+    assert.match(con, /Lo que pase de 200 sale mañana desde las 8:00/);
+    assert.match(con, /No es el límite del mes/);
+    assert.match(ayudaTopeDiario(null), /no tiene tope por día/);
   });
 });

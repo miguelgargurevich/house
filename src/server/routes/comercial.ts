@@ -5,7 +5,7 @@ import { forbidden, invalid, notFound } from '../errors';
 import { empresaDe, scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDA_COBRO_EXTRANJERO, decimalesDe, monedaEnPlural } from '../../lib/paises';
-import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
+import { TODAS_LAS_CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
 import { puedeAgregarCondominio } from '../services/comercial/cupo';
 import { crearPrimerCondominio } from '../services/comercial/primerCondominio';
 import { usoDelMes } from '../services/comercial/consumo';
@@ -19,7 +19,7 @@ import { fechaSchema, idSchema, listQuerySchema, parse, parseBody, parseQuery, t
 
 const precio = z.union([z.number(), z.string()], { error: 'Precio inválido' }).transform((v) => String(v).trim()).pipe(z.string().regex(/^\d{1,6}(\.\d{1,4})?$/, 'Precio inválido (máx. 4 decimales)'));
 const moduloEnum = z.enum(MODULOS, { error: `Módulo inválido (${MODULOS.join(', ')})` });
-const capacidadEnum = z.enum(CAPACIDADES, { error: `Capacidad inválida (${CAPACIDADES.join(', ')})` });
+const capacidadEnum = z.enum(TODAS_LAS_CAPACIDADES, { error: `Capacidad inválida (${TODAS_LAS_CAPACIDADES.join(', ')})` });
 const claveParams = z.object({ clave: z.string().min(1).max(40) });
 const complejoParams = z.object({ complejoId: idSchema });
 
@@ -64,7 +64,7 @@ const planSchema = z.object({
   nombre: texto(80).optional(),
   descripcion: textoOpcional(300),
   precio_por_unidad: precio.optional(),
-  modulos_incluidos: z.array(capacidadEnum).max(CAPACIDADES.length).optional(),
+  modulos_incluidos: z.array(capacidadEnum).max(TODAS_LAS_CAPACIDADES.length).optional(),
   unidades_maximas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
   unidades_minimas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
   /** Precio por tramos: desde qué número de departamento rige `tramo_precio` (61 = los primeros 60 al precio normal). Van juntos; null en los dos = precio único. */
@@ -125,6 +125,10 @@ const configSchema = z.object({
   invitaciones_por_dia: z.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mínimo 1').max(5000, 'Máximo 5 000').optional(),
   // Asistente por WhatsApp: apagado (por defecto), el número sólo atiende «SALIR».
   whatsapp_bot_activo: z.boolean().optional(),
+  // Instagram de Torre (pie de las páginas públicas y `sameAs`): sólo una dirección https de instagram.com; vacío = null = no se muestra.
+  url_instagram: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(200, 'Máximo 200 caracteres').url('Escribe una dirección completa').regex(/^https:\/\/(www\.)?instagram\.com\//, 'Usa una dirección https://www.instagram.com/…').nullish()),
+  // Manual con videos: una dirección https (vacío = null = el menú no muestra «Manual y videos»).
+  url_manual: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(500, 'Máximo 500 caracteres').url('Escribe una dirección completa').startsWith('https://', 'Usa una dirección https').nullish()),
 });
 const listaSchema = listQuerySchema.extend({ estado: z.enum(ESTADOS_SUSCRIPCION).optional(), empresa_id: idSchema.optional() });
 
@@ -158,6 +162,13 @@ comercialRouter.get('/mi-plan', requireRole('admin'), async (req, res) => {
   // Cada condominio trae cuánto va del mes (topes y vouchers) para la pantalla y el Resumen.
   const usos = await Promise.all(condominios.map((c) => usoDelMes(c.complejo_id)));
   res.json({ condominios: condominios.map((c, i) => ({ ...c, uso: usos[i] })), pagar, catalogo, puede_agregar_condominio: puede });
+});
+
+/** @openapi
+ * /api/comercial/manual:
+ *   get: { summary: "Dirección del manual de usuario con videos (la abre «Manual y videos» del menú de la cuenta); cualquier usuario con sesión", tags: [Comercial], security: [{ cookieAuth: [] }], responses: { 200: { description: "{ url: string | null }" } } } */
+comercialRouter.get('/manual', async (_req, res) => {
+  res.json({ url: (await obtenerConfiguracion()).url_manual ?? null });
 });
 
 /** @openapi

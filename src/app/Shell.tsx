@@ -11,18 +11,35 @@ import { useEscritorio, usePanelAbierto } from './asistente/useDock';
 import { Pista } from './Pista';
 import { useBarra } from './useBarra';
 import { BandaSoloLectura } from './BandaSoloLectura';
+import { BarraImpersonacion } from './BarraImpersonacion';
+import { volverAMiCuenta } from '../auth/impersonacion';
 import { InstalarApp } from './InstalarApp';
 import { CondominioProvider } from './CondominioProvider';
 import { SoloLecturaProvider } from './SoloLecturaProvider';
 import { SelectorCondominio } from './SelectorCondominio';
+import { MARCA_TORRE, inicialDeMarca } from '../lib/marca';
+import { ImagenRecibo } from '../pages/shared/mantenimiento/ImagenRecibo';
+import { MarcaContext, useMarca } from './marca/contexto';
+import { MarcaTema } from './marca/MarcaTema';
+import { IconoTorre } from '../ui/IconoTorre';
 
+/** Encabezado del menú: la marca de la empresa (logo o su inicial y su nombre) si la tiene activa; si no, la de Torre. */
 function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
+  const marca = useMarca();
+  if (marca.activa) {
+    return (
+      <span className="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight">
+        {marca.logo_url
+          ? <ImagenRecibo src={marca.logo_url} alt="" className="h-7 w-auto max-w-[2.75rem] shrink-0 rounded object-contain" />
+          : <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded bg-brand text-sm font-bold text-on-brand">{inicialDeMarca(marca.nombre)}</span>}
+        {!soloMarca && <span className="truncate" title={marca.nombre}>{marca.nombre}</span>}
+        {soloMarca && <span className="sr-only">{marca.nombre}</span>}
+      </span>
+    );
+  }
   return (
     <span className="flex items-center gap-2.5 font-semibold tracking-tight">
-      <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" aria-hidden="true">
-        <rect width="32" height="32" rx="8" className="fill-brand" />
-        <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
+      <IconoTorre className="h-7 w-7 shrink-0" />
       {!soloMarca && 'Torre'}
     </span>
   );
@@ -34,7 +51,13 @@ const linkRiel = '!justify-center !gap-0 !px-0';
 /** El condominio elegido arriba lo comparten todas las pantallas: el estado vive fuera, con la sesión (`key`) para no heredar el de otro usuario. */
 export function Shell() {
   const { user } = useAuth();
-  return <CondominioProvider key={user?.id ?? 0}><SoloLecturaProvider><ShellInterior /></SoloLecturaProvider></CondominioProvider>;
+  const marca = user?.marca ?? MARCA_TORRE;
+  return (
+    <MarcaContext.Provider value={marca}>
+      <MarcaTema marca={marca} />
+      <CondominioProvider key={user?.id ?? 0}><SoloLecturaProvider><ShellInterior /></SoloLecturaProvider></CondominioProvider>
+    </MarcaContext.Provider>
+  );
 }
 
 function ShellInterior() {
@@ -47,11 +70,13 @@ function ShellInterior() {
   const chat = usePanelAbierto(user?.id ?? 0, escritorio);
   const barra = useBarra(escritorio);
   const { sinCondominios } = useCondominio();
+  const marca = useMarca();
 
   useEffect(() => { setMenu(false); }, [loc.pathname]);
   if (!user) return null;
 
-  const salir = () => { logout(); nav('/login', { replace: true }); };
+  // En una sesión prestada no hay «cerrar sesión» propia: se vuelve a la cuenta del superadmin.
+  const salir = () => { if (user.impersonando) { void volverAMiCuenta().catch(() => undefined); return; } logout(); nav('/login', { replace: true }); };
 
   /** `riel`: sólo iconos (escritorio colapsado). El cajón del celular siempre se pinta con textos. */
   const sidebar = (riel: boolean, escritorioBarra: boolean) => (
@@ -97,6 +122,8 @@ function ShellInterior() {
           </div>
         ))}
       </nav>
+      {/* La plataforma sigue siendo Torre: con la marca de la empresa activa queda en pequeño al pie del menú. */}
+      {marca.activa && !riel && <p className="shrink-0 border-t border-line px-5 py-3 text-xs text-muted">con Torre</p>}
     </div>
   );
 
@@ -126,6 +153,8 @@ function ShellInterior() {
 
       <div className="min-w-0 flex-1" inert={chat.abierto && !escritorio}>
       <div className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur">
+      {/* «Entrar como»: mientras el superadmin ve Torre como otra persona, la barra va arriba de todo y no se puede cerrar. */}
+      <BarraImpersonacion />
       <header className="flex h-14 items-center justify-between gap-2 px-4 lg:px-8">
         <div className="flex items-center gap-2 lg:hidden">
           <IconButton label="Abrir menú" onClick={() => setMenu(true)}><Bars3Icon className="h-5 w-5" /></IconButton>
@@ -134,7 +163,8 @@ function ShellInterior() {
         {/* En escritorio el condominio va a la izquierda de la barra; en el celular no cabe junto al resto y baja a su propia fila. */}
         <div className="hidden min-w-0 lg:block"><SelectorCondominio /></div>
         <div className="ml-auto flex items-center gap-1">
-          <IconButton label={chat.abierto ? 'Cerrar asistente' : 'Abrir asistente'} aria-pressed={chat.abierto} onClick={chat.alternar} className={chat.abierto ? '!text-brand' : undefined}><SparklesIcon className="h-5 w-5" /></IconButton>
+          {/* Las conversaciones del asistente son de su dueño: entrando como otra persona no se abren. */}
+          {!user.impersonando && <IconButton label={chat.abierto ? 'Cerrar asistente' : 'Abrir asistente'} aria-pressed={chat.abierto} onClick={chat.alternar} className={chat.abierto ? '!text-brand' : undefined}><SparklesIcon className="h-5 w-5" /></IconButton>}
           <span className="mx-1 h-6 w-px bg-line" aria-hidden="true" />
           <MenuUsuario user={user} onSalir={() => setConfirmarSalida(true)} />
         </div>
@@ -151,9 +181,9 @@ function ShellInterior() {
       </main>
       </div>
 
-      <Assistant open={chat.abierto} onClose={chat.cerrar} escritorio={escritorio} barra={barra.ancho} />
+      {!user.impersonando && <Assistant open={chat.abierto} onClose={chat.cerrar} escritorio={escritorio} barra={barra.ancho} />}
       {/* Un clic de más en «Cerrar sesión» sacaba de la app: se confirma antes de salir. */}
-      <ConfirmDialog open={confirmarSalida} onClose={() => setConfirmarSalida(false)} onConfirm={salir} title="¿Cerrar sesión?" message="Tendrás que volver a ingresar con tu correo y tu contraseña." confirmLabel="Cerrar sesión" />
+      <ConfirmDialog open={confirmarSalida} onClose={() => setConfirmarSalida(false)} onConfirm={salir} title={user.impersonando ? '¿Volver a tu cuenta?' : '¿Cerrar sesión?'} message={user.impersonando ? 'Dejas de ver Torre como esa persona y vuelves a tu cuenta de superadmin.' : 'Tendrás que volver a ingresar con tu correo y tu contraseña.'} confirmLabel={user.impersonando ? 'Volver a mi cuenta' : 'Cerrar sesión'} />
     </div>
   );
 }

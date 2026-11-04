@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 import { dinero, fechaCorta } from '../../../../ui';
+import { useMarca } from '../../../../app/marca/contexto';
+import { CabeceraMarca } from '../../../shared/mantenimiento/cabeceraMarca';
+import { cabeceraSoloConMarca } from '../../../shared/mantenimiento/cabeceraDocumento';
 import type { Rendicion } from './tipos';
 import { estadoLineaEgreso, textoDiferencia, textoPct, tituloRendicion } from './vista';
 
@@ -31,6 +34,8 @@ export function HojaImprimible({ r }: { r: Rendicion }) {
   const dif = c.extracto ? textoDiferencia(c.extracto, d) : null;
   return (
     <article className="text-xs leading-snug text-black">
+      {/* Con la marca propia activa: logo, nombre comercial y franja de color de la administradora arriba del documento. */}
+      <CabeceraMarca c={cabeceraSoloConMarca(useMarca())} />
       <header>
         <p className="text-[10px] uppercase tracking-widest">Rendición de cuentas</p>
         <h1 className="text-xl font-semibold">{r.complejo.nombre}</h1>

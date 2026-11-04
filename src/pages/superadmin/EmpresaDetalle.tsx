@@ -6,7 +6,7 @@ import {
   Badge, Button, Card, ConfirmDialog, DataTable, DefinitionList, ErrorState, PageHeader, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, fechaCorta, useToast,
 } from '../../ui';
 import type { Column } from '../../ui';
-import { ImagenEditable } from '../admin/_parts/condominio/ImagenEditable';
+import { SeccionMarca } from '../admin/_parts/marca/SeccionMarca';
 import PersonasLista from '../admin/_parts/personas/PersonasLista';
 import { ModalDeEmpresa, type FilaEmpresa } from './_parts/ModalDeEmpresa';
 
@@ -22,6 +22,9 @@ const esVista = (v: string | null): v is Vista => VISTAS.some(x => x.id === v);
 interface Empresa extends FilaEmpresa {
   fecha_inicio: string | null;
   logo_url?: string | null;
+  nombre_comercial?: string | null;
+  color_marca?: string | null;
+  marca_activa?: boolean;
 }
 
 interface Complejo {
@@ -123,10 +126,7 @@ export default function EmpresaDetalle() {
                   { label: 'Inicio de operaciones', value: e.fecha_inicio ? fechaCorta(e.fecha_inicio) : null },
                 ]}
               />
-              <section aria-labelledby="logo-empresa" className="mt-6 border-t border-line pt-5">
-                <h3 id="logo-empresa" className="mb-3 text-sm font-semibold">Recibo impreso</h3>
-                <ImagenEditable titulo="Logo de la empresa" ayuda="Sale al pie de cada recibo de mantenimiento. JPG, PNG o WebP, hasta 2 MB." url={e.logo_url ?? null} ruta={`/api/empresas/${e.id}/logo`} onCambio={() => void empresa.reload()} />
-              </section>
+              <SeccionMarca key={`${e.id}-${e.nombre_comercial ?? ''}-${e.color_marca ?? ''}`} empresa={e} comoSuperadmin onCambio={() => void empresa.reload()} />
             </div>
           ) : (
             <div className="space-y-3 p-5"><Skeleton className="h-6 w-64" /><Skeleton className="h-20 w-full" /></div>

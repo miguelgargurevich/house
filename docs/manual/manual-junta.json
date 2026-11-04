@@ -5,17 +5,18 @@
   "diseno": "manual",
   "meta": [
     "torrecondominios.com",
-    "Versión 3-nov-2026",
+    "Versión 4-nov-2026",
     "Español · Perú"
   ],
-  "descripcion": "Manual de Torre para la junta directiva de cada block, con capturas de datos de prueba. Corte: 3-nov-2026.",
+  "descripcion": "Manual de Torre para la junta directiva de cada block, con capturas de datos de prueba. Corte: 4-nov-2026.",
   "secciones": [
     {
       "titulo": "Lo que haces en Torre",
       "etiqueta": "Para empezar",
       "parrafos": [
         "Si eres de la junta de tu block, tu menú tiene un grupo propio: **Junta**. Desde ahí confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago, cierras el mes, presentas la rendición y avisas a tus vecinos.",
-        "Además eres vecino: tu parte como propietario (recibos, pagos, historial) está en el manual del vecino."
+        "Además eres vecino: tu parte como propietario (recibos, pagos, historial) está en el manual del vecino.",
+        "Cada opción del menú tiene su **video corto** con la pantalla real: míralos en [Torre en video](https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html)."
       ]
     },
     {
@@ -138,7 +139,8 @@
       "numerada": [
         "En el grupo **Junta**, entra a **Comunicados** y pulsa **Nuevo comunicado**.",
         "Escribe el título y el mensaje.",
-        "En **Además de verlo en la app** marca si va **A la junta del block**, **por correo** o **por WhatsApp a cada vecino**. Si tu administración eligió grupos de WhatsApp para tu block, también los ves ahí.",
+        "Si el aviso es sólo para algunos vecinos, en **Para quién** elige **Departamentos elegidos**: marca, de tu block, los departamentos que lo recibirán (busca por código o titular). Sólo esos vecinos lo reciben y lo ven; en ese caso no hay junta ni grupos.",
+        "En **Además de verlo en la app** marca, sólo si es urgente, **A la junta del block**, **por correo** o **por WhatsApp a cada vecino**: van apagados por defecto, porque gastan un mensaje por persona. Los comunicados van a los grupos de WhatsApp de tu block, que tu administración elige.",
         "Pulsa **Publicar**."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-comunicado-nuevo.jpg"

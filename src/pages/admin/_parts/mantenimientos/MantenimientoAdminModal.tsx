@@ -12,6 +12,7 @@ import { METODOS } from '../cobranza/comun';
 import { multaQuitable } from '../cobranza/morosos';
 import { puedeValidar } from '../cobranza/conformidad';
 import { QuitarMultaModal } from '../cobranza/QuitarMultaModal';
+import { CorregirCargosModal } from '../recibos/CorregirCargosModal';
 import { ValidarPagoModal } from '../cobranza/ValidarPagoModal';
 import type { PagoRevisable } from '../cobranza/ValidarPagoModal';
 import { FormPagoMantenimiento } from './FormPagoMantenimiento';
@@ -49,6 +50,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
   const [imprimiendo, setImprimiendo] = useState(false);
   const [pago, setPago] = useState<PagoRevisable | null>(null);
   const [quitandoMulta, setQuitandoMulta] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState(false);
   const { user } = useAuth();
   const d = data && data.recibo_id === reciboId && data.unidad_id === unidadId ? data : null;
 
@@ -58,7 +60,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
     if (!d) return;
     setPago({
       id: p.id, fecha_pago: p.fecha_pago, monto: p.monto, moneda: d.moneda, metodo_pago: p.metodo_pago, referencia: p.referencia, estado_validacion: p.estado_validacion,
-      motivo_rechazo: p.motivo_rechazo, validado_at: null, comprobante: p.comprobante, unidad: { codigo: d.unidad.codigo }, concepto: { nombre: p.conceptos.join(', ') },
+      motivo_rechazo: p.motivo_rechazo, anulado_at: p.anulado_at, motivo_anulacion: p.motivo_anulacion, anulado_por: p.anulado_por, validado_at: null, comprobante: p.comprobante, unidad: { codigo: d.unidad.codigo }, concepto: { nombre: p.conceptos.join(', ') },
       usuario: p.registrado_por, evaluacion: p.evaluacion as PagoRevisable['evaluacion'], validado_por_ia: p.validado_por_ia,
       conformidad: p.conformidad, tesorero_registrado: p.tesorero_registrado, conformidad_exencion: p.conformidad_exencion, aviso_multa: p.aviso_multa, // sólo los trae la vista de la administración
       mantenimiento: p.suelto ? null : { titulo: d.titulo, total: p.monto, conceptos: p.conceptos.length },
@@ -129,6 +131,12 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
                   <Button size="sm" variant="secondary" onClick={() => setQuitandoMulta(true)}>Quitar la multa</Button>
                 </div>
               )}
+              {puedeValidar(user) && d.conceptos.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted">¿Un monto está mal? Corrígelo o quita el cargo, con motivo.</p>
+                  <Bloqueable>{b => <Button size="sm" variant="secondary" disabled={b} onClick={() => setCorrigiendo(true)}>Corregir cargos</Button>}</Bloqueable>
+                </div>
+              )}
             </section>
             <section aria-labelledby="pagos-adm">
               <h3 id="pagos-adm" className="mb-2 text-sm font-semibold">Pagos de este mantenimiento</h3>
@@ -154,6 +162,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
       </Modal>
       <ValidarPagoModal pago={pago} onClose={() => setPago(null)} onRevisado={tras} />
       {quitandoMulta && multa && d && <QuitarMultaModal reciboId={reciboId} unidadId={unidadId} codigo={d.unidad.codigo} monto={multa.monto} moneda={d.moneda} onClose={() => setQuitandoMulta(false)} onQuitada={tras} />}
+      {corrigiendo && d && <CorregirCargosModal codigo={d.unidad.codigo} moneda={d.moneda} cargos={d.conceptos} onClose={() => setCorrigiendo(false)} onCorregido={tras} />}
       {imprimiendo && d && <ReciboImprimible detalle={d} onClose={() => setImprimiendo(false)} />}
     </>
   );

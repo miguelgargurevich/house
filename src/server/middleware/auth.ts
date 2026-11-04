@@ -2,6 +2,7 @@ import type { Request, RequestHandler } from 'express';
 import type { Rol } from '../config';
 import { prisma } from '../db';
 import { HttpError, forbidden } from '../errors';
+import { validarSesionPrestada } from '../services/impersonacion/servicio';
 import { buscarSesionActiva, igualesEnTiempoConstante, leerCookie, origenPermitido } from '../services/sesiones';
 
 export interface AuthUser {
@@ -14,13 +15,16 @@ export interface AuthUser {
   cargo_junta: string | null;
   /** Block al que pertenece el cargo; null = todo su condominio. */
   estructura_id: number | null;
+  /** Sólo en una sesión PRESTADA («Entrar como»): el superadmin que la abrió y la entrada a la que pertenece. */
+  impersonador_id?: number | null;
+  impersonacion_id?: string | null;
 }
 
 declare module 'express-serve-static-core' {
   interface Request {
     user?: AuthUser;
     /** Sesión vigente (sólo tras `authenticate`). */
-    sesion?: { id: string; csrf: string };
+    sesion?: { id: string; csrf: string; expira_at: Date };
   }
 }
 
@@ -49,8 +53,13 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
     const csrf = req.get('x-csrf-token');
     if (!csrf || !igualesEnTiempoConstante(csrf, sesion.csrf_token)) throw forbidden('Falta o no coincide el token CSRF. Recarga la página e inténtalo de nuevo');
   }
-  req.user = { id: u.id, email: u.email, rol: u.rol as Rol, empresa_id: u.empresa_id, complejo_id: u.complejo_id, cargo_junta: u.cargo_junta, estructura_id: u.estructura_id };
-  req.sesion = { id: sesion.id, csrf: sesion.csrf_token };
+  // Sesión prestada: sigue valiendo sólo mientras el superadmin siga siendo superadmin y su sesión real siga abierta, y el objetivo no sea superadmin.
+  if (sesion.impersonador_id && !(await validarSesionPrestada(sesion, u.rol))) throw new HttpError(401, SIN_SESION);
+  req.user = {
+    id: u.id, email: u.email, rol: u.rol as Rol, empresa_id: u.empresa_id, complejo_id: u.complejo_id, cargo_junta: u.cargo_junta, estructura_id: u.estructura_id,
+    ...(sesion.impersonador_id ? { impersonador_id: sesion.impersonador_id, impersonacion_id: sesion.impersonacion_id } : {}),
+  };
+  req.sesion = { id: sesion.id, csrf: sesion.csrf_token, expira_at: sesion.expira_at };
   next();
 };
 

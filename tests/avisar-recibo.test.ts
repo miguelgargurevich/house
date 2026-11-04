@@ -25,6 +25,9 @@ const grupo = (t: string | null, id: number) => llamar(base, 'GET', `/api/recibo
 const avisosDelRecibo = (id: number) => prisma.notificacion.findMany({ where: { tipo: 'recibo_emitido', ref_entidad: 'recibo', ref_id: id }, orderBy: { id: 'asc' } });
 
 /** La auditoría se escribe justo después de responder: espera a que haya `n` envíos y mueve todos 3 minutos atrás, como si hubiera pasado el plazo. */
+/** La respuesta sin el estado del grupo de WhatsApp (ese lo prueban los tests de grupos): aquí se compara el aviso a vecinos de siempre. */
+const sinGrupo = (cuerpo: Record<string, unknown>) => Object.fromEntries(Object.entries(cuerpo).filter(([k]) => k !== 'grupo'));
+
 async function pasarPlazo(reciboId: number, n: number) {
   await esperar(async () => ((await prisma.auditoria.count({ where: { accion: 'avisar_vecinos', entidad: 'recibo', entidad_id: reciboId } })) >= n ? true : null));
   await prisma.auditoria.updateMany({ where: { accion: 'avisar_vecinos', entidad: 'recibo', entidad_id: reciboId }, data: { created_at: new Date(Date.now() - 3 * MIN) } });
@@ -32,6 +35,8 @@ async function pasarPlazo(reciboId: number, n: number) {
 
 before(async () => {
   d = await sembrar();
+  // La lista de antes del cambio (el recibo sale también directo por WhatsApp): estas pruebas son del mecanismo, no del defecto.
+  await prisma.complejoHabitacional.updateMany({ data: { whatsapp_avisos: ["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"] } });
   const hash = await bcrypt.hash(PASSWORD, 4);
   // Block 1 con A-101 (propietario 1 e inquilino 1). El recibo «vencido» sin block tiene cargos de A-101 y A-102 (propietario 2).
   const b1 = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'Block', complejo_id: d.complejoA.id } });
@@ -74,7 +79,8 @@ describe('vista previa', () => {
   it('cuenta a quien paga, por correo y por WhatsApp; el correo .invalid cuenta como sin canal; el propietario de una unidad con inquilino no cuenta', async () => {
     const r = await avisar(T.adminA, R.vencido);
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { vecinos: 2, por_correo: 1, por_whatsapp: 1, por_avisar: 1, ya_avisados: 0, sin_canal: 1, espera_segundos: 0 });
+    assert.deepEqual(sinGrupo(r.body), { vecinos: 2, por_correo: 1, por_whatsapp: 1, por_avisar: 1, ya_avisados: 0, sin_canal: 1, espera_segundos: 0 });
+    assert.equal(r.body.grupo.situacion, 'sin_grupo', 'un recibo de todo el condominio sin grupo lo dice');
   });
 
   it('no trae nombres ni datos de contacto, sólo conteos', async () => {
@@ -87,7 +93,7 @@ describe('envío', () => {
   it('encola un aviso por canal a quien lo tiene y no crea nada para quien no tiene canal', async () => {
     const r = await avisar(T.adminA, R.vencido, 'POST');
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { encolados: 1, ya_avisados: 0, sin_canal: 1 });
+    assert.deepEqual(sinGrupo(r.body), { encolados: 1, ya_avisados: 0, sin_canal: 1 });
     const filas = await avisosDelRecibo(R.vencido);
     assert.deepEqual(filas.map((f) => `${f.usuario_id}:${f.canal}:${f.estado}`).sort(), [`${U.inq1}:email:pendiente`, `${U.inq1}:whatsapp:pendiente`].sort());
   });
@@ -106,7 +112,7 @@ describe('envío', () => {
     await pasarPlazo(R.vencido, 2);
     const r = await avisar(T.adminA, R.vencido, 'POST');
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { encolados: 0, ya_avisados: 1, sin_canal: 1 });
+    assert.deepEqual(sinGrupo(r.body), { encolados: 0, ya_avisados: 1, sin_canal: 1 });
     assert.equal((await avisosDelRecibo(R.vencido)).length, 2, 'sigue habiendo dos avisos, ninguno nuevo');
   });
 
@@ -116,8 +122,8 @@ describe('envío', () => {
     await pasarPlazo(R.vencido, 3);
     const r = await avisar(T.adminA, R.vencido, 'POST');
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { encolados: 1, ya_avisados: 0, sin_canal: 1 });
-    const wa = await prisma.notificacion.findFirst({ where: { ref_entidad: 'recibo', ref_id: R.vencido, usuario_id: U.inq1, canal: 'whatsapp' } });
+    assert.deepEqual(sinGrupo(r.body), { encolados: 1, ya_avisados: 0, sin_canal: 1 });
+    const wa =await prisma.notificacion.findFirst({ where: { ref_entidad: 'recibo', ref_id: R.vencido, usuario_id: U.inq1, canal: 'whatsapp' } });
     assert.equal(wa?.estado, 'pendiente');
     assert.equal(wa?.intentos, 0);
     assert.equal(wa?.error, null);
@@ -137,7 +143,7 @@ describe('envío', () => {
     const a = await prisma.auditoria.findFirst({ where: { accion: 'avisar_vecinos', entidad: 'recibo', entidad_id: R.vencido }, orderBy: { id: 'asc' } });
     assert.ok(a, 'hay una fila de auditoría');
     assert.equal(a!.usuario_id, d.adminA.id);
-    assert.deepEqual(a!.detalle, { mes: 8, anio: 2026, encolados: 1, ya_avisados: 0, sin_canal: 1 });
+    assert.deepEqual(a!.detalle, { mes: 8, anio: 2026, encolados: 1, ya_avisados: 0, sin_canal: 1, grupo: 'sin_grupo' });
     assert.ok(!JSON.stringify(a!.detalle).includes('@'));
   });
 });

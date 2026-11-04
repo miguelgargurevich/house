@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeftIcon, MegaphoneIcon, PrinterIcon } from '@heroicons/react/24/outline';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeftIcon, MegaphoneIcon, NoSymbolIcon, PrinterIcon } from '@heroicons/react/24/outline';
 import { useResource } from '../../api';
 import { Button, Card, ErrorState, PageHeader, SearchBox, Select, Skeleton, StatStrip, StatusBadge, TabPanel, Tabs, Toolbar, dinero, fechaCorta, tituloRecibo } from '../../ui';
+import { Bloqueable } from '../../app/Bloqueable';
 import { AguaRecibo } from './_parts/agua/AguaRecibo';
 import { ConsolidadoBlock } from './_parts/consolidado/ConsolidadoBlock';
 import { ImprimirRecibosBlock } from './_parts/consolidado/ImprimirRecibosBlock';
+import { AnularReciboModal } from './_parts/recibos/AnularReciboModal';
 import { AvisarVecinosModal } from './_parts/recibos/AvisarVecinosModal';
+import { motivoNoSePuedeAnular, type ResumenAnulacion } from './_parts/recibos/correccion';
 import { BloquesPeriodo } from './_parts/mantenimientos/BloquesPeriodo';
 import type { BlockResumen } from './_parts/mantenimientos/BloquesPeriodo';
 import { MantenimientoAdminModal } from './_parts/mantenimientos/MantenimientoAdminModal';
@@ -43,8 +46,11 @@ function useDebounced<T>(valor: T, ms = 300): T {
 export default function PeriodoRecibo() {
   const { id } = useParams();
   const reciboId = Number(id);
+  const navigate = useNavigate();
   const periodoDb = useResource<Periodo>(`/api/recibos/${reciboId}?sin_cargos=1`);
   const bloques = useResource<{ agrupado: boolean; blocks: BlockResumen[] }>(`/api/recibos/${reciboId}/blocks`);
+  // Qué haría «Anular recibo» y si se puede (con pagos vigentes no): el botón lo explica.
+  const anulacion = useResource<ResumenAnulacion>(Number.isInteger(reciboId) && reciboId > 0 ? `/api/recibos/${reciboId}/anulacion` : null);
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState('');
   const [block, setBlock] = useState('');
@@ -53,6 +59,7 @@ export default function PeriodoRecibo() {
   const [recargar, setRecargar] = useState(0);
   const [avisando, setAvisando] = useState(false);
   const [imprimiendo, setImprimiendo] = useState(false);
+  const [anulando, setAnulando] = useState(false);
   const qFinal = useDebounced(q.trim());
 
   const p = periodoDb.data;
@@ -78,8 +85,9 @@ export default function PeriodoRecibo() {
           <PageHeader
             title={titulo}
             description={p ? `${p.complejo?.nombre ?? ''} · emitido el ${fechaCorta(p.fecha_emision)} · vence el ${fechaCorta(p.fecha_vencimiento)}` : undefined}
-            actions={p ? <><StatusBadge estado={p.estado} /><Button variant="secondary" icon={<PrinterIcon className="h-4 w-4" />} onClick={() => setImprimiendo(true)}>Imprimir recibos del block</Button><Button variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} onClick={() => setAvisando(true)}>Avisar a los vecinos</Button></> : undefined}
+            actions={p ? <><StatusBadge estado={p.estado} /><Button variant="secondary" icon={<PrinterIcon className="h-4 w-4" />} onClick={() => setImprimiendo(true)}>Imprimir recibos del block</Button><Button variant="secondary" icon={<MegaphoneIcon className="h-4 w-4" />} onClick={() => setAvisando(true)}>Avisar a los vecinos</Button><Bloqueable>{b => <Button variant="secondary" className="text-bad" icon={<NoSymbolIcon className="h-4 w-4" />} disabled={b || !anulacion.data || !anulacion.data.puede} title={motivoNoSePuedeAnular(anulacion.data) ?? undefined} onClick={() => setAnulando(true)}>Anular recibo</Button>}</Bloqueable></> : undefined}
           />
+          {anulacion.data && !anulacion.data.puede && <p className="mb-3 text-sm text-muted">{motivoNoSePuedeAnular(anulacion.data)}.</p>}
           <StatStrip
             stats={[
               { label: 'Emitido', value: t ? dinero(t.monto, p?.moneda) : <Skeleton className="h-7 w-28" /> },
@@ -141,6 +149,7 @@ export default function PeriodoRecibo() {
       </TabPanel>
 
       {avisando && <AvisarVecinosModal reciboId={reciboId} titulo={titulo} onClose={() => setAvisando(false)} />}
+      {anulando && <AnularReciboModal reciboId={reciboId} titulo={titulo} resumen={anulacion.data} onClose={() => setAnulando(false)} onAnulado={() => navigate('/admin/recibos', { replace: true })} />}
       {imprimiendo && <ImprimirRecibosBlock reciboId={reciboId} titulo={titulo} bloques={blocksElegibles} onClose={() => setImprimiendo(false)} />}
 
       {viendo && (
@@ -148,7 +157,7 @@ export default function PeriodoRecibo() {
           reciboId={viendo.recibo_id}
           unidadId={viendo.unidad_id}
           onClose={() => setViendo(null)}
-          onCambio={() => { setRecargar(n => n + 1); void periodoDb.reload(); void bloques.reload(); }}
+          onCambio={() => { setRecargar(n => n + 1); void periodoDb.reload(); void bloques.reload(); void anulacion.reload(); }}
         />
       )}
     </>

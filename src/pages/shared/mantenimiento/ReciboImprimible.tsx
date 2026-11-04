@@ -2,6 +2,9 @@ import { PrinterIcon } from '@heroicons/react/24/outline';
 import type { ReactNode } from 'react';
 import { simboloDe } from '../../../lib/paises';
 import { Button, Modal, cx, fechaCorta, nombreDelMes } from '../../../ui';
+import { useMarca } from '../../../app/marca/contexto';
+import { CabeceraMarca, PieConTorre } from './cabeceraMarca';
+import { cabeceraDeDocumento } from './cabeceraDocumento';
 import { fechaLarga, fechaNumerica, lineasDeNotas, monto2 } from './formato';
 import { ImagenRecibo } from './ImagenRecibo';
 import { cuentaBancaria } from './tipos';
@@ -176,9 +179,12 @@ export function ReciboArticulo({ d }: { d: DetalleMantenimiento }) {
     c?.admin_correo ? `CORREO ELECTRÓNICO ADM: ${c.admin_correo}` : null,
   ].filter((x): x is string => x !== null);
   const hayCajas = d.medios_pago.length > 0;
+  const cabecera = cabeceraDeDocumento(useMarca(), { empresaId: d.empresa?.id, razonSocial: d.empresa?.nombre, logoUrl: d.empresa?.logo_url });
 
   return (
     <article aria-label={`Recibo de mantenimiento ${d.numero}`} className="mx-auto w-full max-w-[44rem] space-y-3 bg-white p-3 text-[11px] leading-snug text-neutral-900 sm:p-4 sm:text-xs print:max-w-none print:space-y-1.5 print:p-0 print:text-[10px]">
+      {/* Logo y nombre de la administradora (el comercial y una franja de su color, si tiene la marca propia activa). */}
+      <CabeceraMarca c={cabecera} />
       <header className={cx('grid gap-3 print:gap-2', c?.cabecera_url ? 'sm:grid-cols-[2fr_3fr]' : '')}>
         {c?.cabecera_url && (
           <div className={cx('overflow-hidden', linea)}>
@@ -239,13 +245,11 @@ export function ReciboArticulo({ d }: { d: DetalleMantenimiento }) {
         {contacto.map(x => <li key={x}>{x}</li>)}
       </ul>
 
-      {(d.empresa?.logo_url || d.empresa?.nombre) && (
-        <footer className="break-inside-avoid pt-1">
-          {d.empresa.logo_url
-            ? <ImagenRecibo src={d.empresa.logo_url} alt={`Logo de ${d.empresa.nombre}`} className="h-12 w-auto max-w-[14rem] object-contain object-left print:h-10" />
-            : <p className="font-bold uppercase">{d.empresa.nombre}{d.empresa.ruc && <span className="num font-normal"> · RUC {d.empresa.ruc}</span>}</p>}
-        </footer>
-      )}
+      <footer className="break-inside-avoid space-y-0.5 pt-1">
+        {/* La razón social con su RUC (dato legal) va siempre al pie, aunque arriba salga el nombre comercial. */}
+        {d.empresa?.nombre && (d.empresa.ruc || cabecera.nombre !== d.empresa.nombre) && <p className="font-bold uppercase">{d.empresa.nombre}{d.empresa.ruc && <span className="num font-normal"> · RUC {d.empresa.ruc}</span>}</p>}
+        <PieConTorre />
+      </footer>
     </article>
   );
 }

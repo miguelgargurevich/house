@@ -2,7 +2,7 @@ import { formatoDinero } from '../../../lib/paises';
 import { nombreMes, periodoTexto } from '../../lib/periodo';
 import { hoyEn } from '../../lib/fechas';
 
-export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente'] as const;
+export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'pago_anulado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente', 'recordatorio_deuda', 'recibo_anulado'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
 export const ENLACE_APP = 'https://torrecondominios.com';
@@ -29,10 +29,12 @@ export interface DatosAviso {
   dias?: number;
   /** Mora (ya formateada, p. ej. `S/ 20` o `US$ 20`) que se agrega al recibo del mes siguiente si no se paga a tiempo. Sin ella, el recordatorio no la menciona. */
   mora?: string;
-  /** Motivo del rechazo (`pago_rechazado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
+  /** Motivo del rechazo (`pago_rechazado`) o de la anulación (`pago_anulado`) o detalle del estado de la IA (`ia_caida`, `ia_restablecida`). */
   motivo?: string;
   /** Condominio del recibo: firma el mensaje. */
   condominio?: string | null;
+  /** Nombre comercial de la empresa administradora, sólo con la marca propia activa: se suma a la firma («— Administración de <condominio> · <empresa>»). */
+  empresa?: string | null;
   /** Sólo `comunicado`: el título (es el asunto) y el texto plano que escribió la administración o la junta. */
   titulo?: string;
   texto?: string;
@@ -74,8 +76,8 @@ export function fechaLarga(f: Date): string {
 export function rutaDeAviso(tipo: TipoAviso, rol: string | null | undefined, central?: boolean): string {
   const residente = rol === 'propietario' || rol === 'inquilino' ? `/${rol}` : null;
   switch (tipo) {
-    case 'recibo_emitido': case 'por_vencer': case 'vence_hoy': case 'vencido': return residente ? `${residente}/cargos` : '';
-    case 'pago_validado': case 'pago_rechazado': return residente ? `${residente}/pagos` : '';
+    case 'recibo_emitido': case 'por_vencer': case 'vence_hoy': case 'vencido': case 'recordatorio_deuda': case 'recibo_anulado': return residente ? `${residente}/cargos` : '';
+    case 'pago_validado': case 'pago_rechazado': case 'pago_anulado': return residente ? `${residente}/pagos` : '';
     case 'comunicado': return residente ? `${residente}/comunicados` : rol === 'admin' ? '/admin/comunicados' : '';
     case 'cierre_pendiente': return central ? '/junta/cierre-central' : '/junta/cierre';
     case 'ia_caida': case 'ia_restablecida': return '/superadmin/llavero';
@@ -103,7 +105,7 @@ export function fechaTextoEn(f: Date, zona: string): string {
 }
 
 export const primerNombre = (n: string) => n.trim().split(/\s+/)[0] || 'vecino';
-const firma = (d: DatosAviso) => `— Administración${d.condominio ? ` de ${d.condominio}` : ' de tu condominio'}`;
+const firma = (d: DatosAviso) => `— Administración${d.condominio ? ` de ${d.condominio}` : ' de tu condominio'}${d.empresa && d.empresa !== d.condominio ? ` · ${d.empresa}` : ''}`;
 const enlaceDe = (d: DatosAviso) => d.enlace ?? ENLACE_APP;
 const cierre = (d: DatosAviso) => `Entra a ${enlaceDe(d)}.\n\n${firma(d)}`;
 /** El vencimiento para decirlo en una frase: «lunes 2 de noviembre» (o `dd/mm/aaaa` si no tenemos el día). */
@@ -155,6 +157,18 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
         asunto: `Tu recibo de ${d.periodo} está vencido`,
         cuerpo: `${hola}\n\nTu recibo de ${d.periodo} venció el ${venceEl(d)} y aún tienes pendiente ${d.monto}. Regulariza tu pago cuanto antes para evitar recargos.\n\n${departamentos(d)}${detalle(d)}${cierre(d)}`,
       };
+    case 'recordatorio_deuda':
+      // Lo manda la administración a mano (Morosidad › «Enviar recordatorio»): dice lo que se debe hoy, por departamento, y dónde pagarlo.
+      return {
+        asunto: `Recordatorio: tienes ${d.monto} pendientes de pago`,
+        cuerpo: `${hola}\n\nTe escribimos para recordarte que tienes un saldo vencido de ${d.monto} en tu mantenimiento.\n\n${departamentos(d)}${detalle(d)}Paga y sube tu voucher desde ${enlaceDe(d)}. Si ya pagaste, avísanos para revisarlo.\n\n${firma(d)}`,
+      };
+    case 'recibo_anulado':
+      // La administración anuló el recibo (lo emitió mal) y lo emitirá de nuevo: no hay nada que pagar de éste.
+      return {
+        asunto: `Se anuló tu recibo de ${d.periodo}`,
+        cuerpo: `${hola}\n\nSe anuló el recibo de ${d.periodo}${d.departamentos?.length === 1 ? ` de ${d.departamentos[0]!.codigo}${d.departamentos[0]!.torre ? ` (${d.departamentos[0]!.torre})` : ''}` : ''}. Si ya lo viste, ignóralo; te llegará el correcto.\n\n${firma(d)}`,
+      };
     case 'pago_validado':
       return {
         asunto: `Validamos tu pago de ${d.periodo}`,
@@ -164,6 +178,11 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
       return {
         asunto: `No pudimos validar tu pago de ${d.periodo}`,
         cuerpo: `${hola}\n\nNo pudimos validar tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Revisa el detalle y vuelve a enviar tu comprobante.\n\n${departamentos(d)}${cierre(d)}`,
+      };
+    case 'pago_anulado':
+      return {
+        asunto: `Anulamos tu pago de ${d.periodo}`,
+        cuerpo: `${hola}\n\nLa administración anuló tu pago de ${d.monto}${por} (${d.periodo}). ${d.motivo ? `Motivo: ${d.motivo}\n\n` : ''}Tu recibo volvió a quedar pendiente. Si crees que es un error, comunícate con la administración; si necesitas pagarlo, súbenos tu comprobante.\n\n${departamentos(d)}${cierre(d)}`,
       };
     case 'ia_caida':
       return {

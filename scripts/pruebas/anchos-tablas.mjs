@@ -9,8 +9,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('/opt/homebrew/lib/node_modules/playwright');
 const APP = process.env.APP_URL ?? 'http://localhost:5173', S = process.argv[2], salida = process.argv[3] ?? 'anchos.json', REINICIAR = process.env.REINICIAR_BACKEND;
 const ROLES = [
-  ['admin', 'ana.lopez@gestionurbana.com', 'admin1234', ['/admin/dashboard','/admin/complejos','/admin/condominios/4','/admin/recibos','/admin/recibos/26','/admin/pagos','/admin/medios-pago','/admin/morosidad','/admin/cierres','/admin/unidades','/admin/residentes','/admin/personal','/admin/mantenimientos','/admin/conceptos','/admin/comunicados','/admin/avisos','/admin/juntas','/admin/proveedores','/admin/configuracion','/admin/mi-plan']],
-  ['superadmin', 'miguel.gargurevich@admin.com', 'admin1234', ['/superadmin/empresas','/superadmin/usuarios','/superadmin/auditoria','/superadmin/suscripciones','/superadmin/llavero']],
+  ['admin', 'ana.lopez@administradorademo.example', 'admin1234', ['/admin/dashboard','/admin/complejos','/admin/condominios/4','/admin/recibos','/admin/recibos/26','/admin/pagos','/admin/medios-pago','/admin/morosidad','/admin/cierres','/admin/unidades','/admin/residentes','/admin/personal','/admin/mantenimientos','/admin/conceptos','/admin/comunicados','/admin/avisos','/admin/juntas','/admin/proveedores','/admin/configuracion','/admin/mi-plan']],
+  ['superadmin', 'miguel.gargurevich@admin.example', 'admin1234', ['/superadmin/empresas','/superadmin/usuarios','/superadmin/auditoria','/superadmin/suscripciones','/superadmin/llavero']],
   ['tesorera', 'patricia.alarcon.9@prueba.house', 'prop1234', ['/junta/pagos','/junta/cierre','/junta/agua','/junta/avisos','/junta/proveedores','/junta/comunicados','/propietario/cargos','/propietario/pagos']],
   ['central', 'gustavo.cruz.4@prueba.house', 'prop1234', ['/junta/aportes','/junta/cierre-central']],
 ];

@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, csrfStore, setUnauthorizedHandler } from '../api';
+import type { MarcaUsuario } from '../lib/marca';
+import type { Impersonando } from './impersonacion-lib';
 
 export type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad' | 'limpieza' | 'jardineria';
 
@@ -27,6 +29,10 @@ export interface Usuario {
   estructura_nombre?: string | null;
   /** Su junta es la ÚNICA del condominio (sólo junta directiva, sin blocks con junta): el menú y las pantallas no hablan de blocks ni de «Junta central». Lo calcula el servidor. */
   junta_unica?: boolean;
+  /** Marca de SU empresa (nombre, logo y color; `activa` con Torre Pro, Administradora o Cortesía). Superadmin y sin empresa: Torre. */
+  marca?: MarcaUsuario;
+  /** Sólo en una sesión prestada («Entrar como»): quién entró, por qué y cuándo termina. Null o ausente = sesión propia. */
+  impersonando?: Impersonando | null;
 }
 
 interface AuthState {
@@ -77,10 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [olvidar, refresh]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const r = await api<{ user: Usuario; csrf: string }>('/api/auth/login', { method: 'POST', json: { email, password } });
+    const r = await api<{ user: Usuario; csrf: string; marca?: MarcaUsuario }>('/api/auth/login', { method: 'POST', json: { email, password } });
     csrfStore.set(r.csrf);
-    setUser(r.user);
-    return r.user;
+    const user = { ...r.user, marca: r.marca };
+    setUser(user);
+    return user;
   }, []);
 
   const value = useMemo(() => ({ user, loading, login, logout, refresh }), [user, loading, login, logout, refresh]);

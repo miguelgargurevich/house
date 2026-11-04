@@ -1,12 +1,14 @@
+import { Router } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { invalid } from '../errors';
+import { invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, includeCargo, type EstadoCargo } from '../lib/cargos';
 import { relojDeCondominios } from '../lib/zonas';
 import { scopeCargos, scopeCargosEscritura, scopeReciboConceptosEscritura, scopeUnidades } from '../lib/scope';
-import type { AuthUser } from '../middleware/auth';
-import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
-import { complejoDeUnidad, exigirOperativo } from '../services/comercial/operativo';
+import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
+import { fechaSchema, idSchema, montoSchema, parseBody, parseId, textoOpcional, z } from '../validation';
+import { complejoDeCargo, complejoDeUnidad, exigirOperativo } from '../services/comercial/operativo';
+import { corregirCargo, quitarCargo } from '../services/correccionRecibos';
 
 const base = z.object({
   recibo_concepto_id: idSchema,
@@ -41,7 +43,9 @@ async function validarRefs(d: Record<string, unknown>, user: AuthUser, existing?
   return d;
 }
 
-export const cargosRouter = crudRouter({
+const router = Router();
+
+const crud = crudRouter({
   entidad: 'cargo',
   delegate: prisma.reciboConceptoUnidad,
   readRoles: ['admin'],
@@ -75,3 +79,47 @@ export const cargosRouter = crudRouter({
   format: (items) => items.map((c) => formatearCargo(c)),
 });
 
+
+// ---------- Corregir o quitar el cargo de UN departamento (sólo la administración; con motivo y auditado) ----------
+// El PUT/DELETE genérico de arriba no pide motivo ni mira los pagos: la pantalla usa estas dos rutas.
+const motivoSchema = z.string({ error: 'El motivo es obligatorio' }).trim().min(5, 'Escribe un motivo de al menos 5 caracteres').max(300, 'Máximo 300 caracteres');
+const corregirSchema = z.strictObject({ monto: montoSchema, motivo: motivoSchema });
+const quitarSchema = z.strictObject({ motivo: motivoSchema });
+
+/** El cargo, sólo si lo alcanza quien administra el condominio hoy (otra empresa, o la administradora anterior: 404). */
+async function cargoEscribible(req: Parameters<typeof currentUser>[0]) {
+  const u = currentUser(req);
+  const id = parseId(req);
+  const c = await prisma.reciboConceptoUnidad.findFirst({ where: { AND: [{ id }, scopeCargosEscritura(u)] }, select: { id: true } });
+  if (!c) throw notFound('Cargo');
+  await exigirOperativo(await complejoDeCargo(id), u);
+  return id;
+}
+
+/** Cambia el monto de un cargo. No puede quedar por debajo de lo ya pagado (validado o por validar): 409. El estado del cargo se recalcula con sus pagos. */
+router.post('/:id/corregir', requireRole('admin'), async (req, res) => {
+  const id = await cargoEscribible(req);
+  const { monto, motivo } = parseBody(corregirSchema, req);
+  const r = await corregirCargo({ cargoId: id, monto, motivo });
+  res.locals.accion = 'corregir_cargo';
+  res.locals.entidad = 'cargo';
+  res.locals.entidadId = id;
+  res.locals.auditDetalle = { recibo_id: r.recibo_id, mes: r.mes, anio: r.anio, codigo: r.codigo, concepto: r.concepto, monto_anterior: r.monto_anterior, monto_nuevo: r.monto_nuevo, estado: r.estado, motivo };
+  res.json({ ...r, motivo });
+});
+
+/** Quita el cargo de un departamento: el vecino ya no lo debe. 409 si tiene pagos vigentes. Un pago rechazado se va con el cargo y queda en la auditoría. */
+router.post('/:id/quitar', requireRole('admin'), async (req, res) => {
+  const id = await cargoEscribible(req);
+  const { motivo } = parseBody(quitarSchema, req);
+  const r = await quitarCargo({ cargoId: id, motivo });
+  res.locals.accion = 'quitar_cargo';
+  res.locals.entidad = 'cargo';
+  res.locals.entidadId = id;
+  res.locals.auditDetalle = { recibo_id: r.recibo_id, mes: r.mes, anio: r.anio, codigo: r.codigo, concepto: r.concepto, monto_anterior: r.monto_anterior, monto_nuevo: null, pagos_retirados: r.pagos_retirados ?? [], motivo };
+  res.json({ ...r, motivo });
+});
+
+router.use(crud);
+
+export { router as cargosRouter };

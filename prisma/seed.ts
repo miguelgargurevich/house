@@ -34,10 +34,10 @@ async function main() {
 
   // Empresas administradoras reales
   const empresasArr = [
-    { nombre: 'Gestión Urbana SAC', ruc: '20123456789', direccion: 'Av. Javier Prado 1234, Lima', telefono: '012345678', email: 'contacto@gestionurbana.com', representante_legal: 'Rosa Benavides', estado: 'activa' },
-    { nombre: 'Edifica Perú S.A.', ruc: '20456789123', direccion: 'Calle Los Laureles 456, Miraflores', telefono: '014567890', email: 'info@edificaperu.com', representante_legal: 'Juan Espinoza', estado: 'activa' },
-    { nombre: 'Condominios Modernos SRL', ruc: '20567891234', direccion: 'Jr. Amazonas 789, San Isidro', telefono: '016789012', email: 'admin@condominiosmodernos.com', representante_legal: 'Patricia León', estado: 'activa' },
-    { nombre: 'Residenciales del Sur', ruc: '20678912345', direccion: 'Av. Benavides 321, Surco', telefono: '017890123', email: 'contacto@residencialesdelsur.com', representante_legal: 'Carlos Paredes', estado: 'activa' },
+    { nombre: 'Administradora Demo SAC', ruc: '20123456789', direccion: 'Av. Javier Prado 1234, Lima', telefono: '012345678', email: 'contacto@administradorademo.example', representante_legal: 'Rosa Benavides', estado: 'activa' },
+    { nombre: 'Edifica Perú S.A.', ruc: '20456789123', direccion: 'Calle Los Laureles 456, Miraflores', telefono: '014567890', email: 'info@edificaperu.example', representante_legal: 'Juan Espinoza', estado: 'activa' },
+    { nombre: 'Condominios Modernos SRL', ruc: '20567891234', direccion: 'Jr. Amazonas 789, San Isidro', telefono: '016789012', email: 'admin@condominiosmodernos.example', representante_legal: 'Patricia León', estado: 'activa' },
+    { nombre: 'Residenciales del Sur', ruc: '20678912345', direccion: 'Av. Benavides 321, Surco', telefono: '017890123', email: 'contacto@residencialesdelsur.example', representante_legal: 'Carlos Paredes', estado: 'activa' },
   ];
   let empresasDb: EmpresaAdministradora[] = [];
   for (const empresa of empresasArr) {
@@ -48,49 +48,49 @@ async function main() {
   // Usuarios reales (crear uno por uno para obtener IDs)
   const usuariosData = [
     // Superadmins globales
-    { nombre: 'Miguel Gargurevich', email: 'miguel.gargurevich@admin.com', telefono: '987654321', rol: 'superadmin', password: 'admin1234' },
-    { nombre: 'Lucía Torres', email: 'lucia.torres@admin.com', telefono: '987654322', rol: 'superadmin', password: 'admin1234' },
-    { nombre: 'Carlos Rivas', email: 'carlos.rivas@admin.com', telefono: '987654323', rol: 'superadmin', password: 'admin1234' },
+    { nombre: 'Miguel Gargurevich', email: 'miguel.gargurevich@admin.example', telefono: '987654321', rol: 'superadmin', password: 'admin1234' },
+    { nombre: 'Lucía Torres', email: 'lucia.torres@admin.example', telefono: '987654322', rol: 'superadmin', password: 'admin1234' },
+    { nombre: 'Carlos Rivas', email: 'carlos.rivas@admin.example', telefono: '987654323', rol: 'superadmin', password: 'admin1234' },
     // Personal por empresa (más usuarios por empresa)
-    // Gestión Urbana SAC
-    { nombre: 'Ana López', email: 'ana.lopez@gestionurbana.com', telefono: '987654324', rol: 'admin', password: 'admin1234', empresa: 0 },
-    { nombre: 'Pedro Sánchez', email: 'pedro.sanchez@gestionurbana.com', telefono: '987654325', rol: 'seguridad', password: 'seg1234', empresa: 0 },
-    { nombre: 'María Fernández', email: 'maria.fernandez@gestionurbana.com', telefono: '987654326', rol: 'mantenimiento', password: 'mtto1234', empresa: 0 },
-    { nombre: 'Laura Gutiérrez', email: 'laura.gutierrez@gestionurbana.com', telefono: '987654350', rol: 'admin', password: 'admin1234', empresa: 0 },
-    { nombre: 'Ricardo Peña', email: 'ricardo.pena@gestionurbana.com', telefono: '987654351', rol: 'seguridad', password: 'seg1234', empresa: 0 },
-    { nombre: 'Silvia Torres', email: 'silvia.torres@gestionurbana.com', telefono: '987654352', rol: 'mantenimiento', password: 'mtto1234', empresa: 0 },
+    // Administradora Demo SAC
+    { nombre: 'Ana López', email: 'ana.lopez@administradorademo.example', telefono: '987654324', rol: 'admin', password: 'admin1234', empresa: 0 },
+    { nombre: 'Pedro Sánchez', email: 'pedro.sanchez@administradorademo.example', telefono: '987654325', rol: 'seguridad', password: 'seg1234', empresa: 0 },
+    { nombre: 'María Fernández', email: 'maria.fernandez@administradorademo.example', telefono: '987654326', rol: 'mantenimiento', password: 'mtto1234', empresa: 0 },
+    { nombre: 'Laura Gutiérrez', email: 'laura.gutierrez@administradorademo.example', telefono: '987654350', rol: 'admin', password: 'admin1234', empresa: 0 },
+    { nombre: 'Ricardo Peña', email: 'ricardo.pena@administradorademo.example', telefono: '987654351', rol: 'seguridad', password: 'seg1234', empresa: 0 },
+    { nombre: 'Silvia Torres', email: 'silvia.torres@administradorademo.example', telefono: '987654352', rol: 'mantenimiento', password: 'mtto1234', empresa: 0 },
     // Edifica Perú S.A.
-    { nombre: 'Sonia Paredes', email: 'sonia.paredes@edificaperu.com', telefono: '987654328', rol: 'admin', password: 'admin1234', empresa: 1 },
-    { nombre: 'Raúl Torres', email: 'raul.torres@edificaperu.com', telefono: '987654329', rol: 'seguridad', password: 'seg1234', empresa: 1 },
-    { nombre: 'Patricia León', email: 'patricia.leon@edificaperu.com', telefono: '987654330', rol: 'mantenimiento', password: 'mtto1234', empresa: 1 },
-    { nombre: 'Alfredo Díaz', email: 'alfredo.diaz@edificaperu.com', telefono: '987654354', rol: 'admin', password: 'admin1234', empresa: 1 },
-    { nombre: 'Mónica Vera', email: 'monica.vera@edificaperu.com', telefono: '987654355', rol: 'seguridad', password: 'seg1234', empresa: 1 },
-    { nombre: 'Esteban Bravo', email: 'esteban.bravo@edificaperu.com', telefono: '987654356', rol: 'mantenimiento', password: 'mtto1234', empresa: 1 },
+    { nombre: 'Sonia Paredes', email: 'sonia.paredes@edificaperu.example', telefono: '987654328', rol: 'admin', password: 'admin1234', empresa: 1 },
+    { nombre: 'Raúl Torres', email: 'raul.torres@edificaperu.example', telefono: '987654329', rol: 'seguridad', password: 'seg1234', empresa: 1 },
+    { nombre: 'Patricia León', email: 'patricia.leon@edificaperu.example', telefono: '987654330', rol: 'mantenimiento', password: 'mtto1234', empresa: 1 },
+    { nombre: 'Alfredo Díaz', email: 'alfredo.diaz@edificaperu.example', telefono: '987654354', rol: 'admin', password: 'admin1234', empresa: 1 },
+    { nombre: 'Mónica Vera', email: 'monica.vera@edificaperu.example', telefono: '987654355', rol: 'seguridad', password: 'seg1234', empresa: 1 },
+    { nombre: 'Esteban Bravo', email: 'esteban.bravo@edificaperu.example', telefono: '987654356', rol: 'mantenimiento', password: 'mtto1234', empresa: 1 },
     // Condominios Modernos SRL
-    { nombre: 'Jorge Medina', email: 'jorge.medina@condominiosmodernos.com', telefono: '987654332', rol: 'admin', password: 'admin1234', empresa: 2 },
-    { nombre: 'Luis Vargas', email: 'luis.vargas@condominiosmodernos.com', telefono: '987654333', rol: 'seguridad', password: 'seg1234', empresa: 2 },
-    { nombre: 'Elena Salas', email: 'elena.salas@condominiosmodernos.com', telefono: '987654334', rol: 'mantenimiento', password: 'mtto1234', empresa: 2 },
-    { nombre: 'Natalia Cueva', email: 'natalia.cueva@condominiosmodernos.com', telefono: '987654358', rol: 'admin', password: 'admin1234', empresa: 2 },
-    { nombre: 'Hugo Ponce', email: 'hugo.ponce@condominiosmodernos.com', telefono: '987654359', rol: 'seguridad', password: 'seg1234', empresa: 2 },
-    { nombre: 'Rocío Díaz', email: 'rocio.diaz@condominiosmodernos.com', telefono: '987654360', rol: 'mantenimiento', password: 'mtto1234', empresa: 2 },
+    { nombre: 'Jorge Medina', email: 'jorge.medina@condominiosmodernos.example', telefono: '987654332', rol: 'admin', password: 'admin1234', empresa: 2 },
+    { nombre: 'Luis Vargas', email: 'luis.vargas@condominiosmodernos.example', telefono: '987654333', rol: 'seguridad', password: 'seg1234', empresa: 2 },
+    { nombre: 'Elena Salas', email: 'elena.salas@condominiosmodernos.example', telefono: '987654334', rol: 'mantenimiento', password: 'mtto1234', empresa: 2 },
+    { nombre: 'Natalia Cueva', email: 'natalia.cueva@condominiosmodernos.example', telefono: '987654358', rol: 'admin', password: 'admin1234', empresa: 2 },
+    { nombre: 'Hugo Ponce', email: 'hugo.ponce@condominiosmodernos.example', telefono: '987654359', rol: 'seguridad', password: 'seg1234', empresa: 2 },
+    { nombre: 'Rocío Díaz', email: 'rocio.diaz@condominiosmodernos.example', telefono: '987654360', rol: 'mantenimiento', password: 'mtto1234', empresa: 2 },
     // Residenciales del Sur
-    { nombre: 'Patricia León', email: 'patricia.leon@residencialesdelsur.com', telefono: '987654336', rol: 'admin', password: 'admin1234', empresa: 3 },
-    { nombre: 'Carlos Paredes', email: 'carlos.paredes@residencialesdelsur.com', telefono: '987654337', rol: 'seguridad', password: 'seg1234', empresa: 3 },
-    { nombre: 'Rosa Benavides', email: 'rosa.benavides@residencialesdelsur.com', telefono: '987654338', rol: 'mantenimiento', password: 'mtto1234', empresa: 3 },
-    { nombre: 'Andrea Salazar', email: 'andrea.salazar@residencialesdelsur.com', telefono: '987654362', rol: 'admin', password: 'admin1234', empresa: 3 },
-    { nombre: 'Mario Rivas', email: 'mario.rivas@residencialesdelsur.com', telefono: '987654363', rol: 'seguridad', password: 'seg1234', empresa: 3 },
-    { nombre: 'Verónica Paz', email: 'veronica.paz@residencialesdelsur.com', telefono: '987654364', rol: 'mantenimiento', password: 'mtto1234', empresa: 3 },
+    { nombre: 'Patricia León', email: 'patricia.leon@residencialesdelsur.example', telefono: '987654336', rol: 'admin', password: 'admin1234', empresa: 3 },
+    { nombre: 'Carlos Paredes', email: 'carlos.paredes@residencialesdelsur.example', telefono: '987654337', rol: 'seguridad', password: 'seg1234', empresa: 3 },
+    { nombre: 'Rosa Benavides', email: 'rosa.benavides@residencialesdelsur.example', telefono: '987654338', rol: 'mantenimiento', password: 'mtto1234', empresa: 3 },
+    { nombre: 'Andrea Salazar', email: 'andrea.salazar@residencialesdelsur.example', telefono: '987654362', rol: 'admin', password: 'admin1234', empresa: 3 },
+    { nombre: 'Mario Rivas', email: 'mario.rivas@residencialesdelsur.example', telefono: '987654363', rol: 'seguridad', password: 'seg1234', empresa: 3 },
+    { nombre: 'Verónica Paz', email: 'veronica.paz@residencialesdelsur.example', telefono: '987654364', rol: 'mantenimiento', password: 'mtto1234', empresa: 3 },
     // Propietarios e inquilinos (sin empresa)
-    { nombre: 'Javier Castro', email: 'javier.castro@prop.com', telefono: '987654340', rol: 'propietario', password: 'prop1234' },
-    { nombre: 'Sofía Ramírez', email: 'sofia.ramirez@prop.com', telefono: '987654341', rol: 'propietario', password: 'prop1234' },
-    { nombre: 'Gabriel Medina', email: 'gabriel.medina@prop.com', telefono: '987654342', rol: 'propietario', password: 'prop1234' },
-    { nombre: 'Valentina Ruiz', email: 'valentina.ruiz@inq.com', telefono: '987654343', rol: 'inquilino', password: 'inq1234' },
-    { nombre: 'Martín Herrera', email: 'martin.herrera@inq.com', telefono: '987654344', rol: 'inquilino', password: 'inq1234' },
-    { nombre: 'Camila Paredes', email: 'camila.paredes@inq.com', telefono: '987654345', rol: 'inquilino', password: 'inq1234' },
-    { nombre: 'Lucas Bravo', email: 'lucas.bravo@inq.com', telefono: '987654346', rol: 'inquilino', password: 'inq1234' },
-    { nombre: 'Daniela Soto', email: 'daniela.soto@prop.com', telefono: '987654347', rol: 'propietario', password: 'prop1234' },
-    { nombre: 'Emilia Torres', email: 'emilia.torres@prop.com', telefono: '987654348', rol: 'propietario', password: 'prop1234' },
-    { nombre: 'Tomás Ríos', email: 'tomas.rios@inq.com', telefono: '987654349', rol: 'inquilino', password: 'inq1234' },
+    { nombre: 'Javier Castro', email: 'javier.castro@prop.example', telefono: '987654340', rol: 'propietario', password: 'prop1234' },
+    { nombre: 'Sofía Ramírez', email: 'sofia.ramirez@prop.example', telefono: '987654341', rol: 'propietario', password: 'prop1234' },
+    { nombre: 'Gabriel Medina', email: 'gabriel.medina@prop.example', telefono: '987654342', rol: 'propietario', password: 'prop1234' },
+    { nombre: 'Valentina Ruiz', email: 'valentina.ruiz@inq.example', telefono: '987654343', rol: 'inquilino', password: 'inq1234' },
+    { nombre: 'Martín Herrera', email: 'martin.herrera@inq.example', telefono: '987654344', rol: 'inquilino', password: 'inq1234' },
+    { nombre: 'Camila Paredes', email: 'camila.paredes@inq.example', telefono: '987654345', rol: 'inquilino', password: 'inq1234' },
+    { nombre: 'Lucas Bravo', email: 'lucas.bravo@inq.example', telefono: '987654346', rol: 'inquilino', password: 'inq1234' },
+    { nombre: 'Daniela Soto', email: 'daniela.soto@prop.example', telefono: '987654347', rol: 'propietario', password: 'prop1234' },
+    { nombre: 'Emilia Torres', email: 'emilia.torres@prop.example', telefono: '987654348', rol: 'propietario', password: 'prop1234' },
+    { nombre: 'Tomás Ríos', email: 'tomas.rios@inq.example', telefono: '987654349', rol: 'inquilino', password: 'inq1234' },
   ];
 
   // ...el resto del código permanece igual...
@@ -228,7 +228,7 @@ async function main() {
           const apellido = apellidos[residenteIdx % apellidos.length];
           u = {
             nombre: `${nombre} ${apellido}`,
-            email: sinTildes(`${nombre.toLowerCase()}.${apellido.toLowerCase()}${residenteIdx}@mail.com`),
+            email: sinTildes(`${nombre.toLowerCase()}.${apellido.toLowerCase()}${residenteIdx}@mail.example`),
             telefono: `9${(residenteIdx + 10000000).toString().padStart(8, '0')}`,
             rol,
             password: `${rol}1234`,

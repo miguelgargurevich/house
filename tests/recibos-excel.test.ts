@@ -85,11 +85,14 @@ const estadoDelRecibo = async () => {
   return { recibos, cargos, monto };
 };
 
+/** Los avisos «block sin grupo de WhatsApp» los prueba recibos-grupos.test.ts; aquí se compara el resto de las advertencias. */
+const sinAvisoGrupo = (lista: string[]) => lista.filter((a) => !/grupo de WhatsApp/.test(a));
+
 describe('POST /api/recibos/excel: lo que crea', () => {
   it('crea el recibo, los conceptos en orden y los cargos por unidad con sus montos exactos', async () => {
     const r = await subir(T.adminA, aXlsx(filasValidas()), d.complejoA.id);
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, {
+    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined, advertencias: sinAvisoGrupo(r.body.advertencias) }, {
       recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 3, filas_saltadas: 3, conceptos: 3, mora: SIN_MORA,
       advertencias: ['B.1 Dpto. 999: no existe la unidad; se saltó la fila', 'B.9 Dpto. 101: el condominio no tiene el block «B.9»; se saltó la fila'],
     });
@@ -217,7 +220,7 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
   it('crea el recibo de octubre 2026 con vencimiento 2026-11-02, los 11 conceptos normalizados y sus cargos con montos redondeados', async () => {
     const r = await subir(T.adminA, readFileSync('docs/ejemplos/block-1-octubre.xlsx'), complejoId, 'block-1-octubre.xlsx');
     assert.equal(r.status, 201, r.texto);
-    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined }, { recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 32, filas_saltadas: 1, conceptos: 11, mora: SIN_MORA, advertencias: [] });
+    assert.deepEqual({ ...r.body, recibo_id: undefined, recibos: undefined, advertencias: sinAvisoGrupo(r.body.advertencias) }, { recibo_id: undefined, recibos: undefined, mes: 10, anio: 2026, unidades_procesadas: 32, filas_saltadas: 1, conceptos: 11, mora: SIN_MORA, advertencias: [] });
 
     const rec = await prisma.recibo.findFirstOrThrow({ where: { complejo_id: complejoId, mes: 10, anio: 2026 }, include: { reciboConceptos: { orderBy: { orden: 'asc' }, include: { concepto: true } } } });
     assert.equal(rec.fecha_vencimiento.toISOString(), '2026-11-02T00:00:00.000Z');
@@ -266,7 +269,7 @@ describe('POST /api/recibos/excel: el ejemplo real de docs/ejemplos', () => {
     assert.equal(r.status, 201, r.texto);
     assert.equal(r.body.unidades_procesadas, 31);
     assert.equal(r.body.filas_saltadas, 2);
-    assert.deepEqual(r.body.advertencias, ['B.1 Dpto. 804: no existe la unidad; se saltó la fila']);
+    assert.deepEqual(sinAvisoGrupo(r.body.advertencias), ['B.1 Dpto. 804: no existe la unidad; se saltó la fila']);
   });
 });
 
@@ -578,6 +581,6 @@ describe('POST /api/recibos/excel: condominio sin torres', () => {
     const r = await subir(T.adminA, aXlsx(filas), c.id);
     assert.equal(r.status, 201, r.texto);
     assert.equal(r.body.unidades_procesadas, 2);
-    assert.deepEqual(r.body.advertencias, []);
+    assert.deepEqual(sinAvisoGrupo(r.body.advertencias), []);
   });
 });

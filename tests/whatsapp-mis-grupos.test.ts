@@ -85,6 +85,8 @@ let T: Record<'super' | 'adminA' | 'adminB' | 'adminSin' | 'prop1' | 'presi1', s
 
 before(async () => {
   d = await sembrar();
+  // La lista de antes del cambio (el recibo sale también directo por WhatsApp): estas pruebas son del mecanismo, no del defecto.
+  await prisma.complejoHabitacional.updateMany({ data: { whatsapp_avisos: ["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"] } });
   e1 = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'Block', complejo_id: d.complejoA.id } });
   e2 = await prisma.estructura.create({ data: { nombre: 'Block 2', tipo: 'Block', complejo_id: d.complejoA.id } });
   eB = await prisma.estructura.create({ data: { nombre: 'Block B', tipo: 'Block', complejo_id: d.complejoB.id } });

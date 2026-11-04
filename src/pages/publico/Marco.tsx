@@ -3,16 +3,25 @@ import { Link } from 'react-router-dom';
 import { cx } from '../../ui';
 import { pieMarco } from '../../lib/seo/textos';
 import { useCatalogo } from './catalogo';
+import { IconoTorre } from '../../ui/IconoTorre';
 
 export function Logo() {
   return (
     <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="Torre, inicio">
-      <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
-        <rect width="32" height="32" rx="8" className="fill-brand" />
-        <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
+      <IconoTorre className="h-8 w-8" />
       <span className="text-xl">Torre</span>
     </Link>
+  );
+}
+
+/** Ícono de Instagram (trazo, del color del texto). Heroicons no tiene logos de marcas. */
+function IconoInstagram({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 
@@ -41,6 +50,14 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false }: { chi
           <Link to="/privacidad" className="underline-offset-2 hover:text-ink hover:underline">Privacidad</Link>
           <span aria-hidden="true">·</span>
           <Link to="/terminos" className="underline-offset-2 hover:text-ink hover:underline">Términos</Link>
+          {data?.redes?.instagram && (
+            <>
+              <span aria-hidden="true">·</span>
+              <a href={data.redes.instagram} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 underline-offset-2 hover:text-ink hover:underline">
+                <IconoInstagram className="h-3.5 w-3.5" /> Instagram
+              </a>
+            </>
+          )}
         </nav>
       </footer>
     </div>

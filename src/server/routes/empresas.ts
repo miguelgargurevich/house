@@ -6,6 +6,8 @@ import { paisSchema } from '../lib/paisMoneda';
 import { scopeEmpresas, unidadesDeUsuario } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
+import { HEX_COLOR } from '../../lib/marca';
+import { empresaTieneMarcaPropia } from '../services/marca/servicio';
 import { emailSchema, fechaSchema, parseId, telefonoSchema, texto, textoOpcional, z } from '../validation';
 
 const base = z.object({
@@ -20,6 +22,10 @@ const base = z.object({
   estado: texto(30).optional(),
   /** País por defecto de sus condominios nuevos (catálogo `src/lib/paises.ts`). */
   pais: paisSchema.optional(),
+  /** Marca propia (capacidad `marca_propia` de Pro y Administradora): se guarda con cualquier plan, pero sólo se muestra con la capacidad. */
+  nombre_comercial: textoOpcional(60),
+  /** `#RRGGBB` o null (= verde de Torre). Se guarda en minúsculas. */
+  color_marca: z.preprocess((v) => (v === '' ? null : v), z.string().regex(HEX_COLOR, 'Usa un color hex de 6 dígitos, por ejemplo #007565').transform((v) => v.toLowerCase()).nullish()),
 });
 
 // El admin sólo lee y edita SU empresa (el scope lo limita); crear y borrar empresas es del superadmin.
@@ -38,11 +44,15 @@ const crud = crudRouter({
   omit: { whatsapp_token: true },
   createSchema: base,
   updateSchema: base.partial(),
-  // `logo_url`: el logo del recibo impreso (los bytes viven en `ImagenRecibo`; aquí sólo si existe).
+  // `logo_url`: el logo del recibo impreso (los bytes viven en `ImagenRecibo`; aquí sólo si existe). `marca_activa`: la empresa tiene la capacidad `marca_propia`.
   format: async (items) => {
     const imagenes = await prisma.imagenRecibo.findMany({ where: { empresa_id: { in: items.map((e) => e.id as number) } }, select: { empresa_id: true, updated_at: true } });
     const img = new Map(imagenes.map((x) => [x.empresa_id, x.updated_at]));
-    return items.map((e) => ({ ...e, logo_url: img.has(e.id as number) ? `/api/empresas/${e.id}/logo?v=${versionImagen(img.get(e.id as number))}` : null }));
+    return Promise.all(items.map(async (e) => ({
+      ...e,
+      logo_url: img.has(e.id as number) ? `/api/empresas/${e.id}/logo?v=${versionImagen(img.get(e.id as number))}` : null,
+      marca_activa: await empresaTieneMarcaPropia(e.id as number),
+    })));
   },
 });
 
@@ -56,8 +66,11 @@ async function empresaDeAdmin(req: Parameters<typeof currentUser>[0]) {
   return id;
 }
 
-/** La ven la administración y los residentes cuyo condominio (o cuyo recibo) es de esa empresa: el logo sale en su recibo. */
-router.get('/:id/logo', requireRole('admin', 'propietario', 'inquilino'), async (req, res) => {
+/**
+ * La ven la administración y el personal de esa empresa (el logo sale en el menú) y los residentes cuyo condominio (o cuyo recibo) es de esa
+ * empresa: el logo sale en su recibo y en el menú. Otra empresa → 404.
+ */
+router.get('/:id/logo', requireRole('admin', 'propietario', 'inquilino', 'seguridad', 'mantenimiento', 'limpieza', 'jardineria'), async (req, res) => {
   const u = currentUser(req);
   const id = parseId(req);
   const acceso = u.rol === 'propietario' || u.rol === 'inquilino'
@@ -65,7 +78,7 @@ router.get('/:id/logo', requireRole('admin', 'propietario', 'inquilino'), async 
         where: {
           AND: [
             unidadesDeUsuario(u.id),
-            { OR: [{ complejo: { empresa_id: id } }, { reciboConceptoUnidades: { some: { reciboConcepto: { recibo: { empresa_id: id } } } } }] },
+            { OR: [{ complejo: { empresa_id: id } }, { empresa_id: id }, { reciboConceptoUnidades: { some: { reciboConcepto: { recibo: { empresa_id: id } } } } }] },
           ],
         },
         select: { id: true },

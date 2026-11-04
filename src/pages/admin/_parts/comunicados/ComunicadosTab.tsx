@@ -9,7 +9,7 @@ import type { Column } from '../../../../ui';
 import { FiltroSelect } from '../catalogo/FiltroSelect';
 import { nombreTorre, palabraEstructura } from '../medios/tipos';
 import { ComunicadoModal } from './ComunicadoModal';
-import { alcanceLabel, baseDe, enviosDeComunicado, gruposPendientes, motivoDeGrupo, textoEnvios, textoGrupos } from './tipos';
+import { alcanceLabel, baseDe, codigosElegidos, enviosDeComunicado, gruposPendientes, motivoDeGrupo, textoEnvios, textoGrupos } from './tipos';
 import type { Comunicado } from './tipos';
 import { useAmbitosComunicados } from './useAmbitos';
 import { Bloqueable } from '../../../../app/Bloqueable';
@@ -70,7 +70,7 @@ export function ComunicadosTab() {
       </div>
     ) },
     { key: 'alcance', header: 'Para', hideBelow: 'sm', cell: c => (
-      <span className="tabla-texto-largo block"><span className="block">{alcanceLabel(c)}</span>{complejos.length > 1 && <span className="block text-xs text-muted">{c.complejo?.nombre}</span>}</span>
+      <span className="tabla-texto-largo block"><span className="block">{alcanceLabel(c)}</span>{codigosElegidos(c) && <span className="block text-xs text-muted">{codigosElegidos(c)}</span>}{complejos.length > 1 && <span className="block text-xs text-muted">{c.complejo?.nombre}</span>}</span>
     ) },
     { key: 'envios', header: 'Notificaciones', hideBelow: 'md', cell: c => (
       <span className="block">

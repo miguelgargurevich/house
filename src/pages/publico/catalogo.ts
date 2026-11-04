@@ -33,6 +33,8 @@ export interface Catalogo {
   /** Los países abiertos a contratar: lo que ofrece el selector. */
   paises: PaisAbierto[];
   planes: Plan[]; modulos: Modulo[]; registro_abierto: boolean;
+  /** Redes de Torre para el pie (null = no se muestra). */
+  redes?: { instagram: string | null };
   /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
   dias_gratis: number | null;
 }

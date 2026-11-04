@@ -8,7 +8,7 @@ import type { Rol } from '../../../../auth/AuthContext';
 export interface ConformidadPago { at: string; por: { nombre: string } }
 
 export interface DatosConformidad {
-  estado_validacion: 'por_validar' | 'validado' | 'rechazado';
+  estado_validacion: 'por_validar' | 'validado' | 'rechazado' | 'anulado';
   /** `undefined` = el servidor no la trajo (no se sabe); `null` = el tesorero aún no la da. */
   conformidad?: ConformidadPago | null;
   /** ¿El block del pago tiene un tesorero que pueda darla? */

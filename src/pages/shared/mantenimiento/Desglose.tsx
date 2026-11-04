@@ -47,6 +47,7 @@ export function HistorialPagos({ pagos, onVer, moneda }: { pagos: PagoMantenimie
               <span className="block truncate text-xs text-muted">
                 {p.suelto ? `Pago del concepto ${p.conceptos.join(', ')}` : `Pago del mantenimiento completo`}
                 {p.estado_validacion === 'rechazado' && p.motivo_rechazo ? ` · Motivo: ${p.motivo_rechazo}` : ''}
+                {p.estado_validacion === 'anulado' ? ` · Anulado${p.anulado_at ? ` el ${fechaCorta(p.anulado_at)}` : ''}${p.motivo_anulacion ? `: ${p.motivo_anulacion}` : ''}` : ''}
               </span>
             </span>
             <span className="flex shrink-0 flex-col items-end gap-1">

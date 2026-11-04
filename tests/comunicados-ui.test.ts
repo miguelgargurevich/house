@@ -147,10 +147,11 @@ describe('comunicados: pantalla de gestión (administración y junta)', () => {
     assert.match(m, /method: 'PUT', json: \{ titulo: v\.titulo, cuerpo: v\.cuerpo, fijado: v\.fijado \}/);
   });
 
-  it('la junta de un block no elige «todo el condominio»: el alcance va bloqueado en su block (`fijo`)', () => {
-    assert.match(m, /disabled=\{ambitos\.fijo\}/);
+  it('la junta de un block no elige «todo el condominio»: el alcance es su block (`fijo`); lo único distinto que puede elegir son «Departamentos elegidos» de SU block', () => {
     assert.match(m, /\{!ambitos\.fijo && <option value="">Todo el condominio<\/option>\}/);
     assert.match(m, /ambitos\.fijo \? String\(bloques\[0\]\?\.id \?\? ''\)/);
+    // Con elegidos la junta no ve el selector de block: la lista sale de su block (la API además lo fuerza).
+    assert.match(m, /const estructuraEfectiva = elegidos \? \(ambitos\.fijo \? String\(bloques\[0\]\?\.id \?\? ''\)/);
   });
 
   it('al publicar el aviso dice cuántos avisos se encolaron', () => {

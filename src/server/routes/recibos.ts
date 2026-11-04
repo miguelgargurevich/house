@@ -15,7 +15,10 @@ import { scopeComplejos, scopeConceptos, scopeRecibos, scopeRecibosEscritura, sc
 import { bloquearPeriodo, recibosDelPeriodo } from '../services/reciboUnico';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
-import { avisarReciboEmitido, encolarReciboEmitido, mensajeGrupoRecibo, planAvisoRecibo, procesarPronto } from '../services/avisos';
+import { avisarReciboEmitido, encolarReciboAnulado, encolarReciboEmitido, planAvisoRecibo, procesarPronto } from '../services/avisos';
+import { anularRecibo, resumenDeAnulacion } from '../services/correccionRecibos';
+import { avisoSinGrupo, gruposDelRecibo, textoGrupoRecibo } from '../services/canales/cobertura';
+import { lanzarAvisoReciboAGrupos } from '../services/canales/grupos';
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { agregarMora, esConceptoMora, informeDeMora, montoDeMoraAplicable, type InformeMora, type UnidadConMora } from '../services/mora';
@@ -122,6 +125,17 @@ async function planDeEmision(tx: Prisma.TransactionClient, complejoId: number, e
  * Emite el recibo del periodo: uno por torre (o el de la torre pedida), cada uno con sus conceptos y un cargo por cada unidad activa DE ESA
  * torre, todo en una sola transacción. Si alguno de esos recibos ya existe, no se crea ninguno (409 con la torre en el mensaje).
  */
+/**
+ * El aviso del recibo va también al grupo de WhatsApp de su block (o del condominio), en segundo plano. Si el recibo no tiene grupo (o el número ya
+ * no está en él), devuelve el aviso para quien emite: sólo le llegará por correo. Nunca duplica: el grupo que ya recibió este recibo se salta.
+ */
+async function avisoAGruposDelRecibo(reciboId: number): Promise<string | null> {
+  const g = await gruposDelRecibo(reciboId);
+  if (!g) return null;
+  if (g.listos.length) lanzarAvisoReciboAGrupos(reciboId);
+  return avisoSinGrupo(g);
+}
+
 async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser): Promise<{ ids: number[]; mora: InformeMora; avisosMora: string[] }> {
   const complejo = await assertRef(prisma.complejoHabitacional, d.complejo_id, scopeComplejos(user), 'complejo_id');
   await exigirOperativo(d.complejo_id, user);
@@ -185,16 +199,19 @@ async function emitirRecibos(d: z.infer<typeof createSchema>, user: AuthUser): P
     }
     return creados;
   });
-  // Avisos al propietario e inquilino de cada unidad con cargo. Un fallo aquí nunca debe deshacer la emisión.
+  // Avisos al propietario e inquilino de cada unidad con cargo, y el aviso al grupo de WhatsApp de su block. Un fallo aquí nunca debe deshacer la emisión.
+  const avisosGrupo: string[] = [];
   for (const id of emitidos) {
     try {
       await encolarReciboEmitido(id);
       procesarPronto();
+      const aviso = await avisoAGruposDelRecibo(id);
+      if (aviso) avisosGrupo.push(aviso);
     } catch (err) {
       console.error('[avisos] no se pudieron encolar los avisos del recibo', id, err instanceof Error ? err.message : 'error');
     }
   }
-  return { ids: emitidos, mora: informeDeMora(montoMora, moraPorRecibo, complejo!.moneda as string), avisosMora };
+  return { ids: emitidos, mora: informeDeMora(montoMora, moraPorRecibo, complejo!.moneda as string), avisosMora: [...avisosMora, ...avisosGrupo] };
 }
 
 const crud = crudRouter({
@@ -433,15 +450,21 @@ async function esperaAviso(reciboId: number, ahora = new Date()): Promise<number
   return ultimo ? Math.ceil((ultimo.created_at.getTime() + ESPERA_AVISO_MIN * 60_000 - ahora.getTime()) / 1000) : 0;
 }
 
-/** Vista previa: cuántos vecinos lo recibirían por correo y por WhatsApp, y cuántos no tienen canal. Sólo conteos: sin nombres ni contactos. */
+/** Cómo va el grupo de WhatsApp del recibo (su block, o el del condominio): sin JID ni nombre de grupo. `aviso` es lo que falta, si falta algo. */
+async function resumenGrupoRecibo(reciboId: number) {
+  const g = await gruposDelRecibo(reciboId);
+  return g ? { destino: g.destino, ubicacion: g.ubicacion, situacion: g.situacion, aviso: avisoSinGrupo(g) } : null;
+}
+
+/** Vista previa: cuántos vecinos lo recibirían por correo y por WhatsApp, cuántos no tienen canal, y el grupo de su block. Sólo conteos: sin nombres ni contactos. */
 router.get('/:id/avisar', adminOJunta, async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id, true);
   const plan = await planAvisoRecibo(id);
-  res.json({ vecinos: plan.vecinos, por_correo: plan.por_correo, por_whatsapp: plan.por_whatsapp, por_avisar: plan.por_avisar, ya_avisados: plan.ya_avisados, sin_canal: plan.sin_canal, espera_segundos: await esperaAviso(id) });
+  res.json({ vecinos: plan.vecinos, por_correo: plan.por_correo, por_whatsapp: plan.por_whatsapp, por_avisar: plan.por_avisar, ya_avisados: plan.ya_avisados, sin_canal: plan.sin_canal, espera_segundos: await esperaAviso(id), grupo: await resumenGrupoRecibo(id) });
 });
 
-/** Encola «ya está tu recibo» a cada vecino que aún no lo tiene. Nunca duplica; un segundo envío dentro de 2 minutos es 409. */
+/** Encola «ya está tu recibo» a cada vecino que aún no lo tiene, y lo manda al grupo de su block. Nunca duplica; un segundo envío dentro de 2 minutos es 409. */
 router.post('/:id/avisar', adminOJunta, async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id, true);
@@ -450,23 +473,24 @@ router.post('/:id/avisar', adminOJunta, async (req, res) => {
   if (espera > 0) throw conflict(`Ya avisaste a los vecinos de este recibo hace un momento. Vuelve a intentarlo en ${espera} s.`);
   const { mes, anio } = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true } });
   const r = await avisarReciboEmitido(id);
+  const grupo = await resumenGrupoRecibo(id);
+  // Lo que falta al grupo del block (ninguno, o el que aún no recibió este recibo) sale en segundo plano; `grupo.aviso` dice si no hay a quién.
+  if (grupo?.situacion === 'listo') lanzarAvisoReciboAGrupos(id);
   res.locals.accion = 'avisar_vecinos';
   res.locals.entidad = 'recibo';
   res.locals.entidadId = id;
-  res.locals.auditDetalle = { mes, anio, ...r };
-  res.json(r);
+  res.locals.auditDetalle = { mes, anio, ...r, grupo: grupo?.situacion ?? null };
+  res.json({ ...r, grupo });
 });
 
-/** «Condominio X» sin repetir la palabra si el nombre ya la trae («Condominio Los Libertadores»). */
-export const nombreCondominio = (nombre: string): string => (/^condominio\b/i.test(nombre.trim()) ? nombre.trim() : `Condominio ${nombre}`.trim());
+export { nombreCondominio } from '../services/canales/cobertura';
 
 /** Texto listo para el grupo de WhatsApp del block: sin montos ni nombres de vecinos. */
 router.get('/:id/mensaje-grupo', adminOJunta, async (req, res) => {
   const id = parseId(req);
   await reciboAccesible(req, id, true);
   const r = await prisma.recibo.findUniqueOrThrow({ where: { id }, select: { mes: true, anio: true, fecha_vencimiento: true, complejo: { select: { nombre: true } }, estructura: { select: { id: true, nombre: true } } } });
-  const ubicacion = r.estructura ? (r.estructura.nombre ?? `Block ${r.estructura.id}`) : nombreCondominio(r.complejo?.nombre ?? '');
-  res.json({ texto: mensajeGrupoRecibo({ periodo: periodoTexto(r.mes, r.anio), ubicacion, vencimiento: r.fecha_vencimiento }) });
+  res.json({ texto: textoGrupoRecibo(r) });
 });
 
 const mantQuery = listQuerySchema.extend({
@@ -573,6 +597,52 @@ router.post('/:id/mantenimientos/:unidadId/quitar-multa', requireRole('admin'), 
   res.locals.entidadId = id;
   res.locals.auditDetalle = { unidad_id: unidadId, codigo: r.codigo, monto: r.monto, motivo, mes, anio };
   res.json({ monto_quitado: r.monto, motivo, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
+});
+
+// ---------- Anular un recibo emitido (sólo la administración) ----------
+const anularSchema = z.strictObject({
+  motivo: z.string({ error: 'El motivo es obligatorio' }).trim().min(5, 'Escribe un motivo de al menos 5 caracteres').max(200, 'Máximo 200 caracteres'),
+  /** Avisar a los vecinos (correo y WhatsApp directo según sus preferencias) que el recibo se anuló. Nunca al grupo de WhatsApp. */
+  avisar: z.boolean({ error: 'avisar debe ser true o false' }).default(false),
+});
+
+/** Qué haría «Anular recibo» (departamentos y cargos que se quitan, pagos rechazados que se llevaría, lecturas de agua) y si se puede: lo usa el modal. Sólo lee. */
+router.get('/:id/anulacion', requireRole('admin'), async (req, res) => {
+  const id = parseId(req);
+  await reciboAccesible(req, id, true);
+  const r = await resumenDeAnulacion(id);
+  if (!r) throw notFound();
+  res.json(r);
+});
+
+/**
+ * Anula el recibo: lo borra con sus conceptos y cargos (y la mora que la emisión le agregó) y deja LIBRE el periodo de ese block para emitirlo otra vez.
+ * Sólo si ningún cargo tiene dinero vigente (pago validado o por validar, o estado pagado / en revisión): si lo tiene, 409. Los pagos rechazados se llevan consigo
+ * y quedan, con todo su detalle, en la auditoría junto con la foto completa del recibo (montos por departamento). Con `avisar: true` se encola `recibo_anulado`
+ * a quien paga cada unidad con cargo; al grupo de WhatsApp no sale nada. Sólo la administración del condominio (no la junta, no la administradora anterior).
+ */
+router.post('/:id/anular', requireRole('admin'), async (req, res) => {
+  const u = currentUser(req);
+  const id = parseId(req);
+  await reciboAccesible(req, id, true);
+  await exigirOperativo(await complejoDeRecibo(id), u);
+  const { motivo, avisar } = parseBody(anularSchema, req);
+  const r = await anularRecibo({ reciboId: id, motivo });
+  // El recibo ya no existe: el aviso se arma con lo que la anulación anotó. Un fallo aquí nunca debe deshacer la anulación.
+  let avisados = 0;
+  if (avisar) {
+    try {
+      avisados = await encolarReciboAnulado({ reciboId: r.recibo_id, mes: r.mes, anio: r.anio, unidades: r.unidades });
+      procesarPronto();
+    } catch (err) {
+      console.error('[avisos] no se pudieron encolar los avisos de la anulación del recibo', id, err instanceof Error ? err.message : 'error');
+    }
+  }
+  res.locals.accion = 'anular';
+  res.locals.entidad = 'recibo';
+  res.locals.entidadId = id;
+  res.locals.auditDetalle = { ...(r.foto as Record<string, Prisma.InputJsonValue>), avisar, avisos_encolados: avisados };
+  res.json({ recibo_id: id, mes: r.mes, anio: r.anio, periodo: periodoTexto(r.mes, r.anio), torre: r.torre, departamentos: r.unidades.length, cargos: r.cargos, total: r.total, avisar, avisados });
 });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -842,6 +912,8 @@ router.post('/excel', requireRole('admin'), subirArchivo, async (req, res) => {
     try {
       await encolarReciboEmitido(r.recibo_id);
       procesarPronto();
+      const aviso = await avisoAGruposDelRecibo(r.recibo_id);
+      if (aviso) resultado.avisosMora.push(aviso);
     } catch (err) {
       console.error('[avisos] no se pudieron encolar los avisos del recibo', r.recibo_id, err instanceof Error ? err.message : 'error');
     }

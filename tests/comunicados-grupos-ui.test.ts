@@ -10,8 +10,8 @@ const torres = f('src/pages/admin/_parts/condominio/TorresDelCondominio.tsx');
 const tab = f('src/pages/admin/_parts/comunicados/ComunicadosTab.tsx');
 
 describe('comunicado nuevo: junta, grupos y vecinos', () => {
-  it('a la junta va marcado por defecto; a cada vecino por WhatsApp, NO', () => {
-    assert.match(modal, /enviar_correo: false, enviar_whatsapp: false, enviar_junta: true, fijado: false/);
+  it('a la junta va DESMARCADA por defecto (sólo si es urgente); a cada vecino por WhatsApp, NO', () => {
+    assert.match(modal, /enviar_correo: false, enviar_whatsapp: false, enviar_junta: false, fijado: false/);
     assert.match(modal, /label=\{estructuraId \? `A la junta del \$\{palabra\.una\}` : 'A las juntas del condominio'\}/);
     assert.match(modal, /label="Por WhatsApp a cada vecino"[^>]*\{\.\.\.register\('enviar_whatsapp'\)\}/);
   });

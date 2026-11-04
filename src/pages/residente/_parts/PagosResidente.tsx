@@ -65,7 +65,9 @@ export function PagosResidente() {
             ? (p.validado_por_ia ? 'Pago validado automáticamente por la inteligencia artificial.' : 'Pago validado por la administración.')
             : p.estado_validacion === 'rechazado'
               ? `Pago rechazado: ${p.motivo_rechazo ?? 'sin motivo indicado'}.`
-              : 'Pago registrado por el residente; está en revisión y queda sujeto a la validación del administrador.'}
+              : p.estado_validacion === 'anulado'
+                ? `Pago anulado por la administración${p.anulado_at ? ` el ${fechaCorta(p.anulado_at)}` : ''}: ${p.motivo_anulacion ?? 'sin motivo indicado'}. No cuenta como pagado.`
+                : 'Pago registrado por el residente; está en revisión y queda sujeto a la validación del administrador.'}
         </p>
       </>
     );
@@ -156,6 +158,7 @@ export function PagosResidente() {
         {ver && <div>{comprobante(ver)}</div>}
         {ver && <ZonaImprimible><h2 className="mb-4 text-lg font-semibold">Comprobante de pago · Torre</h2>{comprobante(ver)}</ZonaImprimible>}
         {estadoIA && <div className="mt-4 print:hidden"><EstadoEvaluacion estado={estadoIA} /></div>}
+        {ver?.estado_validacion === 'anulado' && <div className="mt-4 print:hidden"><Alert tone="warn">La administración anuló este pago: {ver.motivo_anulacion ?? 'sin motivo indicado'}. Tu recibo volvió a quedar pendiente; si ya pagaste, escríbele a la administración o sube tu comprobante desde Mis recibos.</Alert></div>}
         {ver?.estado_validacion === 'rechazado' && <div className="mt-4 print:hidden"><Alert tone="bad">Tu pago fue rechazado: {ver.motivo_rechazo ?? 'sin motivo indicado'}. Vuelve a pagar el mantenimiento desde Mis recibos.</Alert></div>}
         {ver?.comprobante && (
           <div className="mt-5 print:hidden">

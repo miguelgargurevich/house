@@ -188,7 +188,7 @@ describe('cuenta corriente: cargos, pagos, mora y saldo acumulado', () => {
     const t = (await eecc(T.adminA, E1.id)).body.totales;
     assert.deepEqual(t, {
       cargado: '1140.00', mora: '20.00', pagado: '210.00', en_revision: '170.00', saldo_anterior: '0.00', saldo_deudor: '760.00',
-      meses_vencidos: 6, deuda_vencida: '760.00', pagos_rechazados: 1,
+      meses_vencidos: 6, deuda_vencida: '760.00', pagos_rechazados: 1, pagos_anulados: 0,
     });
   });
 

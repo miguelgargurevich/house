@@ -1,20 +1,24 @@
 import { Prisma } from '@prisma/client';
+import type { RequestHandler } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { conflict, invalid } from '../errors';
+import { conflict, invalid, notFound } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
 import { formatoDinero } from '../../lib/paises';
 import { conTesoreroRegistrado } from '../lib/conformidad';
 import { esJunta } from '../lib/junta';
 import { conResumenDeGrupo, soloPrincipales } from '../services/mantenimiento';
 import { conAvisoMulta } from '../services/revisionMora';
+import { sincronizarCargo } from '../services/validacionPago';
 import { scopeCargosEscritura, scopePagos, scopePagosEscritura, scopePagosJunta, scopeUsuarios } from '../lib/scope';
-import type { AuthUser } from '../middleware/auth';
-import { fechaSchema, idSchema, montoSchema, textoOpcional, z } from '../validation';
+import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
+import { fechaSchema, idSchema, montoSchema, parseBody, parseId, textoOpcional, z } from '../validation';
 import { complejoDeCargo, exigirOperativo } from '../services/comercial/operativo';
+import { anularPago, MOTIVO_ANULACION_MAX, MOTIVO_ANULACION_MIN, MOTIVO_REAPERTURA_MAX, MOTIVO_REAPERTURA_MIN, puedeReabrirse, reabrirPago } from '../services/anulacionPago';
+import { PAGO_VIGENTE } from '../lib/pagoVigente';
 
 export const METODOS_PAGO = ['transferencia', 'yape', 'plin', 'efectivo', 'tarjeta'] as const;
-export const ESTADOS_VALIDACION = ['por_validar', 'validado', 'rechazado'] as const;
+export const ESTADOS_VALIDACION = ['por_validar', 'validado', 'rechazado', 'anulado'] as const;
 
 const base = z.object({
   recibo_concepto_unidad_id: idSchema,
@@ -26,29 +30,15 @@ const base = z.object({
   observaciones: textoOpcional(500),
 });
 
-/**
- * Deja el cargo según sus pagos: pagado si lo VALIDADO lo cubre, en revisión si hay un pago por validar,
- * pendiente en otro caso. Un pago rechazado no cuenta.
- */
-export async function sincronizarCargo(tx: Prisma.TransactionClient, cargoId: number) {
-  const cargo = await tx.reciboConceptoUnidad.findUnique({ where: { id: cargoId }, select: { monto: true } });
-  if (!cargo) return;
-  const { _sum } = await tx.pago.aggregate({ where: { recibo_concepto_unidad_id: cargoId, estado_validacion: 'validado' }, _sum: { monto: true } });
-  const pagado = new Prisma.Decimal(_sum.monto ?? 0).gte(cargo.monto);
-  const porValidar = !pagado && (await tx.pago.count({ where: { recibo_concepto_unidad_id: cargoId, estado_validacion: 'por_validar' } })) > 0;
-  await tx.reciboConceptoUnidad.update({
-    where: { id: cargoId },
-    data: pagado ? { estado_pago: 'pagado', fecha_pago: new Date() } : { estado_pago: porValidar ? 'en_revision' : 'pendiente', fecha_pago: null },
-  });
-}
+export { sincronizarCargo };
 
 async function validarRefs(d: Record<string, unknown>, user: AuthUser) {
   if (d.recibo_concepto_unidad_id != null) {
     const cargo = await assertRef(prisma.reciboConceptoUnidad, d.recibo_concepto_unidad_id as number, scopeCargosEscritura(user), 'recibo_concepto_unidad_id');
     if (d.monto != null) {
       const moneda = (await prisma.reciboConceptoUnidad.findUnique({ where: { id: cargo!.id as number }, select: { reciboConcepto: { select: { recibo: { select: { complejo: { select: { moneda: true } } } } } } } }))?.reciboConcepto?.recibo?.complejo?.moneda;
-      // Un pago por validar ya reclama su monto; uno rechazado no.
-      const { _sum } = await prisma.pago.aggregate({ where: { recibo_concepto_unidad_id: cargo!.id as number, estado_validacion: { not: 'rechazado' } }, _sum: { monto: true } });
+      // Un pago por validar ya reclama su monto y uno validado ya lo cubre; uno rechazado o anulado no cuenta (el vecino puede volver a pagar).
+      const { _sum } = await prisma.pago.aggregate({ where: { AND: [{ recibo_concepto_unidad_id: cargo!.id as number }, PAGO_VIGENTE] }, _sum: { monto: true } });
       const saldo = new Prisma.Decimal(cargo!.monto as Prisma.Decimal).minus(_sum.monto ?? 0);
       if (saldo.lte(0)) throw conflict(cargo!.estado_pago === 'en_revision' ? 'Este cargo tiene un pago en revisión: valídalo o recházalo primero' : 'Este cargo ya está pagado');
       if (new Prisma.Decimal(d.monto as string).gt(saldo)) {
@@ -122,4 +112,68 @@ export const pagosRouter = crudRouter({
     }
     if (cargos.size) await prisma.$transaction(async (tx) => { for (const id of cargos) await sincronizarCargo(tx, id); });
   },
+});
+
+// ---------- Anular un pago ya validado ----------
+const anularSchema = z.object({
+  motivo: z.string({ error: 'El motivo es obligatorio' }).trim().min(MOTIVO_ANULACION_MIN, `Escribe un motivo de al menos ${MOTIVO_ANULACION_MIN} caracteres`).max(MOTIVO_ANULACION_MAX, `Máximo ${MOTIVO_ANULACION_MAX} caracteres`),
+});
+
+/**
+ * Anula un pago VALIDADO (y todo su grupo): el recibo vuelve a quedar por pagar y el vecino recibe un aviso. Sólo la administración (la junta no, igual que no borra);
+ * otra empresa → 404. No borra nada: queda quién, cuándo y por qué, y la auditoría guarda el motivo y el monto.
+ */
+pagosRouter.post('/:id/anular', requireRole('admin'), async (req, res) => {
+  const u = currentUser(req);
+  const id = parseId(req);
+  const pago = await prisma.pago.findFirst({ where: { AND: [{ id }, scopePagosEscritura(u)] }, select: { id: true, recibo_concepto_unidad_id: true } });
+  if (!pago) throw notFound();
+  const { motivo } = parseBody(anularSchema, req);
+  await exigirOperativo(await complejoDeCargo(pago.recibo_concepto_unidad_id), u);
+  const r = await anularPago(pago.id, u.id, motivo);
+  res.locals.entidad = 'pago';
+  res.locals.accion = 'anular';
+  res.locals.entidadId = r.id;
+  res.locals.auditDetalle = { motivo, monto: r.monto, pagos: r.pagos, ...(r.grupo ? { grupo: r.grupo } : {}) };
+  const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: r.id }, include: includePago });
+  res.json((await conAvisoMulta(await conTesoreroRegistrado(await conResumenDeGrupo([formatearPago(actualizado, 'completa')]))))[0]);
+});
+
+// ---------- Volver a revisar un pago rechazado ----------
+const reabrirSchema = z.object({
+  motivo: z.string({ error: 'El motivo es obligatorio' }).trim().min(MOTIVO_REAPERTURA_MIN, `Escribe un motivo de al menos ${MOTIVO_REAPERTURA_MIN} caracteres`).max(MOTIVO_REAPERTURA_MAX, `Máximo ${MOTIVO_REAPERTURA_MAX} caracteres`),
+});
+
+/** El pago (de la empresa del admin) o 404; con el cargo, para el aviso de «sin operar» del condominio. */
+async function pagoDeLaEmpresa(req: Parameters<RequestHandler>[0]) {
+  const u = currentUser(req);
+  const pago = await prisma.pago.findFirst({ where: { AND: [{ id: parseId(req) }, scopePagosEscritura(u)] }, select: { id: true, recibo_concepto_unidad_id: true } });
+  if (!pago) throw notFound();
+  return { u, pago };
+}
+
+/**
+ * ¿Se puede volver a revisar este pago? `{ puede, motivo }` (motivo = por qué no, con el texto del 409): la pantalla lo usa para apagar el botón y explicarlo.
+ * Misma regla de alcance que reabrir (admin de la empresa; otra empresa → 404).
+ */
+pagosRouter.get('/:id/reapertura', requireRole('admin'), async (req, res) => {
+  const { pago } = await pagoDeLaEmpresa(req);
+  res.json(await puedeReabrirse(pago.id));
+});
+
+/**
+ * Vuelve a revisar un pago RECHAZADO (y todo su grupo): queda por validar y el recibo en revisión. Sólo la administración (la junta no); otra empresa → 404. El motivo es
+ * obligatorio y la auditoría guarda el rechazo anterior (motivo, quién, cuándo). No avisa al vecino: cuando se valide o se rechace de nuevo, le llega el aviso de siempre.
+ */
+pagosRouter.post('/:id/reabrir', requireRole('admin'), async (req, res) => {
+  const { u, pago } = await pagoDeLaEmpresa(req);
+  const { motivo } = parseBody(reabrirSchema, req);
+  await exigirOperativo(await complejoDeCargo(pago.recibo_concepto_unidad_id), u);
+  const r = await reabrirPago(pago.id);
+  res.locals.entidad = 'pago';
+  res.locals.accion = 'reabrir';
+  res.locals.entidadId = r.id;
+  res.locals.auditDetalle = { motivo, monto: r.monto, pagos: r.pagos, ...(r.grupo ? { grupo: r.grupo } : {}), rechazo_anterior: r.rechazo_anterior };
+  const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: r.id }, include: includePago });
+  res.json((await conAvisoMulta(await conTesoreroRegistrado(await conResumenDeGrupo([formatearPago(actualizado, 'completa')]))))[0]);
 });

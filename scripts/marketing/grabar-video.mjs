@@ -19,8 +19,8 @@ const SALIDA = join(BASE, formato);
 
 /** Cuentas de prueba LOCALES (las del botón de desarrollo del login; nunca de producción). */
 const CUENTAS = {
-  admin: ['ana.lopez@gestionurbana.com', 'admin1234'],
-  propietario: ['javier.castro@prop.com', 'prop1234'],
+  admin: ['ana.lopez@administradorademo.example', 'admin1234'],
+  propietario: ['javier.castro@prop.example', 'prop1234'],
   tesorero: ['patricia.alarcon.9@prueba.house', 'prop1234'], // tesorera del Block 1 en el seed
   // Los videos del manual (m-…) usan además las cuentas de los demás roles: están en videos-manual.mjs.
   ...CUENTAS_MANUAL,
@@ -377,7 +377,7 @@ const CIERRE = `<!doctype html><meta charset="utf-8"><style>
   .l{width:84px;height:84px;border-radius:20px;background:#f0fdfa;display:grid;place-items:center}
   p{font-size:40px;margin:36px 0 0;opacity:.95} small{display:block;margin-top:22px;font-size:26px;opacity:.75}
   @media (max-aspect-ratio:1/1){.m{font-size:52px}p{font-size:34px}}
-</style><div class="c"><div class="m"><span class="l"><svg viewBox="0 0 32 32" width="56" height="56"><path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" stroke="#0f766e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg></span>Torre</div>
+</style><div class="c"><div class="m"><span class="l"><svg viewBox="0 0 32 32" width="56" height="56"><g transform="translate(16 16) scale(1.2) translate(-16 -16)"><rect x="10" y="5.5" width="12" height="21" rx="1.6" fill="none" stroke="#0f766e" stroke-width="2.2"/><g fill="#0f766e"><rect x="13" y="9.5" width="2.2" height="2.2"/><rect x="16.8" y="9.5" width="2.2" height="2.2"/><rect x="13" y="13.8" width="2.2" height="2.2"/><rect x="16.8" y="13.8" width="2.2" height="2.2"/><rect x="13" y="18.1" width="2.2" height="2.2"/><rect x="16.8" y="18.1" width="2.2" height="2.2"/><rect x="14.6" y="21.6" width="2.8" height="4.9"/></g></g></svg></span>Torre</div>
 <p>Tu condominio, en orden.</p><small>torrecondominios.com</small></div>`;
 
 async function grabar() {

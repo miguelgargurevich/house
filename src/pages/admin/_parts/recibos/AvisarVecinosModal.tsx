@@ -3,6 +3,15 @@ import { Link, useLocation } from 'react-router-dom';
 import { api, errorText, useResource } from '../../../../api';
 import { Alert, Button, Modal, Skeleton, Textarea, useToast } from '../../../../ui';
 
+/** Cómo va el grupo de WhatsApp del recibo (su block, o el del condominio). Sin nombre de grupo ni número. */
+interface GrupoRecibo {
+  destino: 'block' | 'condominio';
+  ubicacion: string;
+  situacion: 'sin_grupo' | 'ya_no_esta' | 'listo' | 'enviado';
+  /** Lo que falta, con el nombre del block («El Block 9 no tiene grupo de WhatsApp…»). `null` si todo está bien. */
+  aviso: string | null;
+}
+
 /** Vista previa del aviso: sólo conteos, nunca nombres ni datos de contacto. */
 interface Vista {
   vecinos: number;
@@ -12,6 +21,7 @@ interface Vista {
   ya_avisados: number;
   sin_canal: number;
   espera_segundos: number;
+  grupo: GrupoRecibo | null;
 }
 
 /** Lo que dejó el envío en cola. */
@@ -19,6 +29,15 @@ interface Resultado {
   encolados: number;
   ya_avisados: number;
   sin_canal: number;
+  grupo: GrupoRecibo | null;
+}
+
+/** Una línea sobre el grupo del block: va sola (el aviso sale), o dice qué falta. */
+function TextoGrupo({ grupo }: { grupo: GrupoRecibo | null }) {
+  if (!grupo) return null;
+  if (grupo.aviso) return <Alert tone="warn">{grupo.aviso}</Alert>;
+  if (grupo.situacion === 'enviado') return <p className="text-sm text-muted">El grupo de WhatsApp de {grupo.ubicacion} ya recibió este recibo.</p>;
+  return <p className="text-sm text-ink">Además, el aviso va al grupo de WhatsApp de {grupo.ubicacion}: un solo mensaje para todos.</p>;
 }
 
 interface Props {
@@ -99,6 +118,7 @@ export function AvisarVecinosModal({ reciboId, titulo, onClose }: Props) {
               </p>
               {v.ya_avisados > 0 && <p className="text-sm text-muted">{v.ya_avisados} ya lo tienen en cola o ya se les envió.</p>}
               {v.por_avisar === 0 && espera === 0 && <p className="text-sm text-muted">No hay nadie nuevo a quien avisar.</p>}
+              <TextoGrupo grupo={v.grupo} />
             </>
           ) : null}
           {espera > 0 && <Alert tone="warn">Ya avisaste de este recibo hace poco. Podrás volver a enviarlo en {espera} s.</Alert>}
@@ -106,6 +126,7 @@ export function AvisarVecinosModal({ reciboId, titulo, onClose }: Props) {
           {resultado && (
             <Alert tone="ok">
               <p>Quedaron en cola {resultado.encolados} {resultado.encolados === 1 ? 'vecino' : 'vecinos'}. Se envían en unos minutos.</p>
+              {resultado.grupo?.aviso ? <p className="mt-1">{resultado.grupo.aviso}</p> : resultado.grupo?.situacion === 'listo' && <p className="mt-1">El mensaje al grupo de WhatsApp de {resultado.grupo.ubicacion} sale en unos minutos.</p>}
               <Link to={`${location.pathname.startsWith('/junta') ? '/junta' : '/admin'}/avisos?tipo=recibo_emitido`} className="mt-1 inline-block font-medium underline">Ver en Comunicados › Notificaciones</Link>
             </Alert>
           )}
@@ -113,7 +134,7 @@ export function AvisarVecinosModal({ reciboId, titulo, onClose }: Props) {
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-ink">Mensaje para el grupo de WhatsApp</h3>
-          <p className="text-sm text-muted">Va sin montos ni nombres: es para el grupo del block.</p>
+          <p className="text-sm text-muted">El aviso ya va solo al grupo de tu block. Copia este mensaje sólo si quieres repetirlo a mano. Va sin montos ni nombres.</p>
           {grupo.error ? (
             <Alert tone="bad">{grupo.error}</Alert>
           ) : (

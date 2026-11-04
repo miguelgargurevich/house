@@ -1,6 +1,24 @@
 import { ROTULO_DESTINO, type DestinoGrupo } from '../../../../server/services/canales/gruposTipos';
 
-export type PorTipo = Record<'recibo_emitido' | 'por_vencer' | 'vence_hoy' | 'vencido' | 'comunicado' | 'cierre_pendiente' | 'grupo' | 'otros', number>;
+export type PorTipo = Record<'recibo_emitido' | 'por_vencer' | 'vence_hoy' | 'vencido' | 'comunicado' | 'cierre_pendiente' | 'recordatorio_deuda' | 'grupo' | 'otros', number>;
+
+/** La cobertura de grupos de un condominio (`GET /api/whatsapp/grupos` → `cobertura`). Espejo de `services/canales/cobertura.ts` (ese archivo lee la base: no se importa aquí). */
+export interface CoberturaCondominio {
+  complejo_id: number;
+  nombre: string;
+  bloques: { total: number; con_grupo: number; faltan: { estructura_id: number; nombre: string; motivo: 'sin_grupo' | 'ya_no_esta' }[] };
+  condominio_con_grupo: boolean;
+}
+
+/** Lo que dice «Mis grupos» de un condominio: «13 de 14 blocks con grupo» y, si falta, cuáles. `null` si el condominio no tiene blocks. */
+export function textoCobertura(c: CoberturaCondominio): { resumen: string; falta: string | null } | null {
+  if (!c.bloques.total) return null;
+  const faltan = c.bloques.faltan;
+  const falta = faltan.length
+    ? `Falta: ${faltan.map(f => (f.motivo === 'ya_no_esta' ? `${f.nombre} (tu número ya no está en su grupo)` : f.nombre)).join(', ')}`
+    : null;
+  return { resumen: `Grupos de blocks: ${c.bloques.con_grupo} de ${c.bloques.total}`, falta };
+}
 
 /** `GET /api/whatsapp/uso`. */
 export interface UsoWhatsapp {
@@ -34,6 +52,8 @@ export interface MisGrupos {
   sincronizado_at: string | null;
   grupos: GrupoGuardado[];
   condominios: CondominioConBlocks[];
+  /** Un renglón por condominio: cuántos blocks tienen su grupo. */
+  cobertura?: CoberturaCondominio[];
   /** Sólo en la respuesta de «Traer mis grupos». */
   resumen?: { nuevos: number; actualizados: number; ya_no_estan: number; quitados: number };
 }
@@ -46,6 +66,7 @@ export const ROTULO_TIPO: Record<keyof PorTipo, string> = {
   vencido: 'Venció',
   comunicado: 'Comunicado a cada vecino',
   cierre_pendiente: 'Cierre del mes pendiente',
+  recordatorio_deuda: 'Recordatorio de deuda',
   grupo: 'Mensajes a grupos',
   otros: 'Otros',
 };
@@ -86,4 +107,10 @@ export function textoDestino(g: Pick<GrupoGuardado, 'destino' | 'complejo_id' | 
 export function textoSincronizado(iso: string | null): string {
   if (!iso) return 'Aún no has traído tus grupos';
   return `Traídos el ${new Date(iso).toLocaleString('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })}`;
+}
+
+/** Explicación del tope diario: es por DÍA y por número (no del mes), y lo que pasa sale al día siguiente. */
+export function ayudaTopeDiario(tope: number | null): string {
+  if (tope == null) return 'Tu número no tiene tope por día. Los mensajes igual salen de a poco, con pausas entre cada uno.';
+  return `Es el tope por día de tu número, para cuidarlo de un bloqueo de WhatsApp. Lo que pase de ${tope} sale mañana desde las 8:00 (hora de Lima). No es el límite del mes: ese va abajo, por condominio.`;
 }

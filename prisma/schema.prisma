@@ -44,12 +44,17 @@ model Usuario {
   clavesIntegracion ClaveIntegracion[]
   gatewaysCreados   GatewayIA[]            @relation("GatewaysCreados")
   sesiones          Sesion[]
+  /// «Entrar como» (sólo superadmin): las que hizo como superadmin y las que sufrió como objetivo.
+  impersonacionesHechas   Impersonacion[] @relation("ImpersonadorDe")
+  impersonacionesRecibidas Impersonacion[] @relation("ImpersonadoPor")
+  auditoriasImpersonadas  Auditoria[]     @relation("AuditoriaImpersonador")
   empresa_id        Int?
   empresa           EmpresaAdministradora? @relation(fields: [empresa_id], references: [id])
   complejo_id       Int?
   complejo          ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id])
   pagosValidados    Pago[]                 @relation("PagoValidador")
   pagosConformes    Pago[]                 @relation("PagoConformidad")
+  pagosAnulados     Pago[]                 @relation("PagoAnulador")
   comprobantesSubidos ArchivoComprobante[]
   aviso_email       Boolean                @default(true)
   aviso_whatsapp    Boolean                @default(false)
@@ -107,6 +112,9 @@ model EmpresaAdministradora {
   whatsapp_token      String?
   /// País (ISO 3166-1 alfa-2, `src/lib/paises.ts`) que se propone a sus condominios nuevos.
   pais                String                 @default("PE")
+  /// Marca propia (plan Torre Administradora, capacidad `marca_propia`): nombre con el que se presenta ante sus vecinos y color `#RRGGBB`. Null = razón social y verde de Torre.
+  nombre_comercial    String?
+  color_marca         String?
   /// Cuenta de la empresa administradora a la que el tesorero de cada block paga el concepto de administración (cierre del mes). Todo opcional.
   cuenta_banco        String?
   cuenta_tipo         String?
@@ -160,7 +168,7 @@ model ComplejoHabitacional {
   /// Mora (en la moneda del condominio) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
   mora_monto  Decimal @default(20.00)
   /// Avisos automáticos que salen también por WhatsApp (además del correo), por tipo: `TIPOS_WHATSAPP_CONFIGURABLES` en `src/server/services/avisos/whatsappTipos.ts`. Cada WhatsApp cuenta para la cuota del plan y el tope diario del número. Los avisos de la IA y los comunicados no se rigen por esta lista. Los resultados de pago (validado, rechazado) nunca salen por WhatsApp.
-  whatsapp_avisos String[] @default(["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"])
+  whatsapp_avisos String[] @default(["vence_hoy", "vencido", "cierre_pendiente"])
   /// Recibo impreso: notas de pago (texto libre, una línea por renglón) y contacto de la administración. Todo opcional: si falta, el bloque se omite.
   notas_pago    String?
   admin_nombre  String?
@@ -399,6 +407,11 @@ model Pago {
   conformidad_at            DateTime?
   conformidad_por_id        Int?
   conformidad_por           Usuario?              @relation("PagoConformidad", fields: [conformidad_por_id], references: [id], onDelete: SetNull)
+  /// Anulación de un pago ya validado (`estado_validacion = 'anulado'`): quién, cuándo y por qué. El pago no se borra; deja de contar en todo. Ver `services/anulacionPago.ts`.
+  anulado_at                DateTime?
+  anulado_por_id            Int?
+  motivo_anulacion          String?
+  anulado_por               Usuario?              @relation("PagoAnulador", fields: [anulado_por_id], references: [id], onDelete: SetNull)
   comprobante               ArchivoComprobante?
   validado_por_ia           Boolean               @default(false)
   evaluacion                EvaluacionComprobante?
@@ -427,8 +440,13 @@ model Auditoria {
   ip         String?
   created_at DateTime @default(now())
   usuario    Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  /// Hecha desde una sesión prestada («Entrar como»): el superadmin que la hizo (`usuario_id` es el objetivo) y la entrada a la que pertenece.
+  impersonador_id  Int?
+  impersonacion_id String?
+  impersonador     Usuario? @relation("AuditoriaImpersonador", fields: [impersonador_id], references: [id], onDelete: SetNull)
 
   @@index([entidad, accion])
+  @@index([impersonador_id])
   @@index([usuario_id])
   @@index([created_at])
 }
@@ -534,9 +552,37 @@ model Sesion {
   ultimo_uso_at DateTime  @default(now())
   expira_at     DateTime
   revocada_at   DateTime?
+  /// Sesión PRESTADA («Entrar como»): el superadmin que la abrió y la `Impersonacion` a la que pertenece. Sin FK a propósito: `limpiarSesiones` borra filas viejas.
+  impersonador_id  Int?
+  impersonacion_id String?
 
   @@index([usuario_id])
   @@index([expira_at])
+}
+
+/// «Entrar como»: un superadmin ve Torre como otra persona (soporte). Un registro por entrada; se cierra al salir, al vencer o al revocarse la sesión prestada.
+model Impersonacion {
+  id                 String    @id @default(cuid())
+  superadmin_id      Int?
+  usuario_id         Int?
+  motivo             String
+  inicio_at          DateTime  @default(now())
+  /// Tope de la sesión prestada (el menor entre 30 min y lo que le quedaba a la sesión real). Sirve para cerrarla con la hora correcta si vence sola.
+  expira_at          DateTime
+  fin_at             DateTime?
+  /// salir | vencio | revocada
+  fin_motivo         String?
+  ip                 String?
+  user_agent         String?
+  sesion_real_id     String?
+  sesion_prestada_id String?
+  superadmin         Usuario?  @relation("ImpersonadorDe", fields: [superadmin_id], references: [id], onDelete: SetNull)
+  usuario            Usuario?  @relation("ImpersonadoPor", fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@index([fin_at])
+  @@index([inicio_at])
+  @@index([superadmin_id])
+  @@index([usuario_id])
 }
 
 model ArchivoComprobante {
@@ -587,6 +633,8 @@ model Comunicado {
   complejo_id      Int
   /// null = todo el condominio; si no, un block/torre de ese condominio.
   estructura_id    Int?
+  /// «Departamentos elegidos»: ids de las unidades a las que va dirigido. Vacío = todo el alcance (condominio o block), como siempre. Con ids, sólo las personas de esas unidades lo reciben y lo ven.
+  unidades         Int[]                @default([])
   titulo           String
   cuerpo           String
   autor_id         Int?
@@ -1092,6 +1140,16 @@ model ConfiguracionComercial {
   migracion_gratis_at    DateTime?
   /// Cuándo se dejaron en «cortesía» los condominios que ya existían al estrenar la capa comercial (una sola vez; ver services/comercial/migracion.ts).
   migracion_cortesia_at  DateTime?
+  /// Cuándo se sumó la capacidad `marca_propia` a los planes Pro, Administradora y Cortesía que ya existían (una sola vez; ver services/comercial/migracion.ts).
+  migracion_marca_at     DateTime?
+  /// Cuándo se quitó el recibo del WhatsApp directo a los condominios que ya tenían grupos de WhatsApp (una sola vez; ver services/comercial/migracion.ts).
+  migracion_grupos_recibo_at DateTime?
+  /// Cuándo se quitó `recibo_emitido` de la lista de WhatsApp directo de todos los condominios (una sola vez): desde entonces el directo del recibo es automático por block (sólo en los blocks sin grupo) y marcarlo significa «también en los blocks con grupo».
+  migracion_recibo_auto_at DateTime?
+  /// Manual de usuario con videos (página pública de My Workspace): lo abre «Manual y videos» del menú de la cuenta, en la sección del rol. null = no se muestra.
+  url_manual             String?  @default("https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html")
+  /// Instagram de Torre: sale en el pie de las páginas públicas y en `sameAs` de los datos para buscadores. null = no se muestra.
+  url_instagram          String?  @default("https://www.instagram.com/torreadministracioncondominios/")
   pago_titular           String?
   pago_banco             String?
   pago_cuenta            String?
@@ -1487,6 +1545,8 @@ model EnvioGrupoWhatsapp {
   instancia    String
   complejo_id  Int
   comunicado_id Int?
+  /// El recibo que se avisó al grupo (null en los mensajes de comunicados). Con él, un recibo no se manda dos veces al mismo grupo.
+  recibo_id    Int?
   grupo_id     Int?
   estado       String
   motivo       String?
@@ -1495,6 +1555,7 @@ model EnvioGrupoWhatsapp {
 
   @@index([instancia, estado, at])
   @@index([empresa_id, at])
+  @@index([recibo_id, grupo_id])
 }
 
 /// Persona de un departamento (propietario, copropietario, cónyuge, familiar, inquilino u otro). La administradora decide quién tiene acceso a Torre

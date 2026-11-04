@@ -7,7 +7,7 @@ import { useAuth } from '../../auth/AuthContext';
 import {
   Button, Card, CardBody, CardHeader, DefinitionList, EmptyState, ErrorState, Input, Modal, PageHeader, Skeleton, StatusBadge, TabPanel, Tabs, TelefonoInput, useToast,
 } from '../../ui';
-import { ImagenEditable } from './_parts/condominio/ImagenEditable';
+import { SeccionMarca } from './_parts/marca/SeccionMarca';
 import { PaisEmpresa } from './_parts/condominio/PaisEmpresa';
 import PersonasLista from './_parts/personas/PersonasLista';
 
@@ -32,6 +32,10 @@ interface Empresa {
   logo_url?: string | null;
   /** País (ISO 3166-1) de la empresa: el de sus condominios nuevos. */
   pais?: string;
+  /** Marca propia: nombre comercial y color (`#RRGGBB`); `marca_activa` = la empresa tiene el plan Torre Administradora. */
+  nombre_comercial?: string | null;
+  color_marca?: string | null;
+  marca_activa?: boolean;
 }
 interface Form { nombre: string; ruc: string; direccion: string; telefono: string; email: string; representante_legal: string }
 
@@ -120,10 +124,7 @@ export default function Configuracion() {
                   { label: 'Dirección', value: data.direccion },
                 ]}
               />
-              <section aria-labelledby="logo-empresa" className="mt-6 border-t border-line pt-5">
-                <h3 id="logo-empresa" className="mb-3 text-sm font-semibold">Recibo impreso</h3>
-                <ImagenEditable titulo="Logo de la empresa" ayuda="Sale al pie de cada recibo de mantenimiento. JPG, PNG o WebP, hasta 2 MB." url={data.logo_url ?? null} ruta={`/api/empresas/${data.id}/logo`} onCambio={() => void reload()} />
-              </section>
+              <SeccionMarca key={`${data.id}-${data.nombre_comercial ?? ''}-${data.color_marca ?? ''}`} empresa={data} onCambio={() => void reload()} />
               <PaisEmpresa key={data.pais} empresaId={data.id} pais={data.pais ?? 'PE'} onCambio={() => void reload()} />
             </CardBody>
           )}

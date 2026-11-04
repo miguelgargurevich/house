@@ -97,6 +97,7 @@ function organizacion(ctx: ContextoSeo): Json {
     name: MARCA,
     ...(cfg.legal_razon_social ? { legalName: cfg.legal_razon_social } : {}),
     ...(cfg.legal_correo ? { email: cfg.legal_correo } : {}),
+    ...(cfg.url_instagram ? { sameAs: [cfg.url_instagram] } : {}),
   };
 }
 

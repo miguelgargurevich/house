@@ -3,7 +3,7 @@
 // No pone ni quita tramos de precio: eso lo decide el superadmin en Suscripciones › Precios. Precios y estado de las suscripciones no se tocan
 // (Los Libertadores sigue en cortesía).
 import type { PrismaClient } from '@prisma/client';
-import { CAPACIDADES, CARACTERISTICAS_GRATIS_ANTERIORES, PLANES_SEED, sembrarCatalogoComercial } from './catalogo';
+import { TODAS_LAS_CAPACIDADES, CARACTERISTICAS_GRATIS_ANTERIORES, PLANES_SEED, sembrarCatalogoComercial } from './catalogo';
 import { invalidarComercial } from './modulos';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,8 +30,9 @@ export async function ajustarOfertaGratisPro(db: Cliente, opts: { seco?: boolean
     if (fila.unidades_minimas !== seed.unidades_minimas) { cambios.push(`unidades_minimas ${fila.unidades_minimas ?? '—'} → ${seed.unidades_minimas ?? '—'}`); data.unidades_minimas = seed.unidades_minimas; }
     if (fila.asistente_por_unidad_mes !== seed.asistente_por_unidad_mes) { cambios.push(`asistente_por_unidad_mes ${fila.asistente_por_unidad_mes ?? '—'} → ${seed.asistente_por_unidad_mes ?? '—'}`); data.asistente_por_unidad_mes = seed.asistente_por_unidad_mes; }
     if (fila.whatsapp_por_unidad_mes !== seed.whatsapp_por_unidad_mes) { cambios.push(`whatsapp_por_unidad_mes ${fila.whatsapp_por_unidad_mes ?? '—'} → ${seed.whatsapp_por_unidad_mes ?? '—'}`); data.whatsapp_por_unidad_mes = seed.whatsapp_por_unidad_mes; }
-    // Gratis no trae nada; el resto trae todas las capacidades (se conserva el orden de las que ya tenía y se agregan las que faltan).
-    const quiere = seed.modulos_incluidos.length ? [...fila.modulos_incluidos.filter((m) => (CAPACIDADES as readonly string[]).includes(m)), ...CAPACIDADES.filter((c) => !fila.modulos_incluidos.includes(c))] : [];
+    // Gratis no trae nada; el resto trae las capacidades de su plan (las de Pro y `marca_propia` en Pro, Administradora y Cortesía): se conserva el orden de las que
+    // ya tenía y se agregan las que faltan. Lo que el superadmin agregó a mano no se quita.
+    const quiere = seed.modulos_incluidos.length ? [...fila.modulos_incluidos.filter((m) => (TODAS_LAS_CAPACIDADES as readonly string[]).includes(m)), ...(seed.modulos_incluidos as readonly string[]).filter((c) => !fila.modulos_incluidos.includes(c))] : [];
     if (!igual(fila.modulos_incluidos, quiere)) { cambios.push(`modulos_incluidos → ${quiere.join(', ') || '(ninguno)'}`); data.modulos_incluidos = quiere; }
     if (fila.nombre !== seed.nombre && fila.nombre === NOMBRES_DE_FABRICA[seed.clave]) { cambios.push(`nombre ${fila.nombre} → ${seed.nombre}`); data.nombre = seed.nombre; }
     if (fila.descripcion !== seed.descripcion) { cambios.push('descripcion'); data.descripcion = seed.descripcion; }
