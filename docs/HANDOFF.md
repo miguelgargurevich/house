@@ -21,6 +21,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 ## 2026-11-03 — Sin emojis en la interfaz (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: «no uses emojis, usa react icons» y «revisa si hay más así». Barrido de `src/`, `public/` e `index.html` por caracteres emoji/✓: en pantalla sólo quedaban el ✅ de `WhatsappSync.tsx` (lo cambia el que integre `whatsapp-grupos-contador`, que edita ese archivo) y el «✓» de texto de Pagos.
+- `WhatsappSync.tsx`: el ✅ pasó a `CheckCircleIcon` (`text-ok`) al integrar `whatsapp-grupos-contador`. Barrido final: ningún emoji fuera de comentarios en `src/`.
 - `conformidad.ts`: «Voucher subido» / «Tesorero: confirmó» en vez de ✓; `Pagos.tsx`: lo hecho lleva `CheckIcon` (Heroicons) con el texto para lector de pantalla. `ai-system-prompt.txt` dice lo mismo. `tests/conformidad-tesorero-ui.test.ts` ajustado + caso nuevo. Los ✓ que quedan en `src/` son comentarios.
 
 ---

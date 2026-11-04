@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, errorText } from '../../api';
 import { Alert, Button, Card } from '../../ui';
-import { QrCodeIcon, LinkIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, QrCodeIcon, LinkIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { ContadorWhatsapp } from './_parts/whatsapp/ContadorWhatsapp';
 import { MisGrupos } from './_parts/whatsapp/MisGrupos';
 
@@ -95,7 +95,7 @@ export default function WhatsappSync() {
         <div className="mb-8">
           <p className="text-lg font-medium">
             {status === 'connected'
-              ? '✅ WhatsApp vinculado correctamente'
+              ? <span className="inline-flex items-center gap-2"><CheckCircleIcon className="h-6 w-6 text-ok" aria-hidden="true" />WhatsApp vinculado correctamente</span>
               : status === 'connecting'
                 ? 'Esperando escaneo del código QR...'
                 : 'Número no vinculado'}
