@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — WhatsApp: la instancia no se creaba (Evolution 2.3.7) (Claude Code, Opus 5.5) — push: no
+
+- Melina (administradora de GRUPO VRANY) tocó «Sincronizar mi número» y salió «error 400». Probado desde el contenedor de producción: Evolution 2.3.7 responde 400 «Invalid integration» si `POST /instance/create` no trae `integration`.
+- `routes/whatsapp.ts`: el create manda `integration: 'WHATSAPP-BAILEYS'`; el error de Evolution se lee también en el formato v2 (`response.message` como lista), y «already in use» (v2) cuenta como «ya existe». `WhatsappSync.tsx`: el aviso de error queda separado del botón. `tests/whatsapp.test.ts`: aserción de `integration` y caso v2 «already in use».
+- Verificado: 119/119 en las pruebas de WhatsApp; mutación (sin `integration`) → rojo.
+- Gotcha: en el log antes salía «error 400 —» vacío porque la v2 no trae `message` en la raíz.
+- Próximo: desplegar (con OK de Miguel) y que Melina reintente; el número debe tener historial de chats.
+
+---
+
 ## 2026-11-03 — Despliegue de la tanda de la noche (Claude Code, Opus 5.5) — push: sí
 
 - Con OK de Miguel («Sí, despliega»): push `6f8417a..ef9ecd5` (16 commits) y deploy en Coolify. Contenedor `ef9ecd5` sano; `/api/publico/legal` da versión 2026-11-03.
