@@ -204,15 +204,18 @@ describe('Avisos: departamento y torre en el mensaje', () => {
   });
 
   it('el aviso real de un recibo de torre nombra el departamento y la torre', async () => {
-    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { aviso_email: true } });
-    await prisma.notificacion.deleteMany({ where: { usuario_id: d.propietario1.id } });
+    // Quien paga A-101 es el inquilino (el propietario no recibe el aviso de cobro de esa unidad).
+    await prisma.usuario.update({ where: { id: d.inquilino1.id }, data: { aviso_email: true } });
+    await prisma.notificacion.deleteMany({ where: { usuario_id: d.inquilino1.id } });
     assert.ok((await encolarReciboEmitido(recibo1.id)) >= 1);
-    const n = await prisma.notificacion.findFirstOrThrow({ where: { usuario_id: d.propietario1.id, ref_id: recibo1.id }, orderBy: { id: 'desc' } });
+    const n = await prisma.notificacion.findFirstOrThrow({ where: { usuario_id: d.inquilino1.id, ref_id: recibo1.id }, orderBy: { id: 'desc' } });
     assert.match(n.cuerpo, /Departamento: A-101 \(Block 1\)\./);
     assert.match(n.cuerpo, /— Administración de Complejo A/);
   });
 
   it('un vecino con departamentos en DOS torres dentro de un mismo recibo viejo recibe un solo aviso que los separa (no los fusiona)', async () => {
+    // Una misma persona paga las dos torres: propietario 1 es inquilino de A-101 y de A-102.
+    await prisma.unidad.update({ where: { id: d.unidadA1.id }, data: { inquilino_id: d.propietario1.id } });
     await prisma.unidad.update({ where: { id: d.unidadA2.id }, data: { inquilino_id: d.propietario1.id } });
     try {
       const general = await prisma.recibo.create({ data: { empresa_id: d.empresaA.id, complejo_id: d.complejoA.id, mes: 5, anio: 2026, fecha_emision: new Date(), fecha_vencimiento: new Date(Date.now() + 5 * DIA), estado: 'emitido' } });
@@ -226,6 +229,7 @@ describe('Avisos: departamento y torre en el mensaje', () => {
       assert.match(n.cuerpo, /- A-102 \(Block 2\): S\/ 70\.00/);
       assert.match(n.cuerpo, /Total a pagar: S\/ 120\.00/);
     } finally {
+      await prisma.unidad.update({ where: { id: d.unidadA1.id }, data: { inquilino_id: d.inquilino1.id } });
       await prisma.unidad.update({ where: { id: d.unidadA2.id }, data: { inquilino_id: null } });
     }
   });

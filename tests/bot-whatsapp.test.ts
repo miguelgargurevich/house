@@ -958,29 +958,23 @@ describe('B3 · voucher por foto o PDF', () => {
     assert.match(ultimoPara(N.prop2)!, /sólo entiendo texto/);
   });
 
-  it('el resultado llega por WhatsApp al número VINCULADO: validado y rechazado, aunque no tenga teléfono ni avisos activos', async () => {
+  it('un resultado de voucher NO sale por WhatsApp, ni al número vinculado: el validado no se encola y el rechazado sólo va por correo', async () => {
     const { encolarAviso, procesarCola } = await import('../src/server/services/avisos');
     await vincular(D.propietario2.id, N.prop2, D.empresaA.id);
-    const pago = await prisma.pago.create({ data: { recibo_concepto_unidad_id: D.cargoA2.id, monto: 150, metodo_pago: 'transferencia', estado_validacion: 'por_validar', usuario_id: D.propietario2.id } });
-    // La administración enciende «pago validado» para WhatsApp (por defecto va sólo por correo: ver tests/whatsapp-por-tipo.test.ts).
-    await prisma.complejoHabitacional.update({ where: { id: D.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'pago_validado', 'pago_rechazado'] } });
-    assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 2, 'correo + WhatsApp');
-    const r = await procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
-    assert.ok(r.enviadas >= 1);
-    const aviso = para(N.prop2).at(-1)!;
-    assert.equal(aviso.instancia, INST_A);
-    assert.match(aviso.texto, /Validamos tu pago/);
-    // Con teléfono distinto en el perfil, manda el verificado.
     await prisma.usuario.update({ where: { id: D.propietario2.id }, data: { telefono: '+51 900 000 123', aviso_whatsapp: true } });
-    await prisma.notificacion.deleteMany();
-    llamadasEvo.length = 0;
-    await encolarAviso('pago_rechazado', D.propietario2.id, { entidad: 'pago', id: pago.id }, { motivo: 'Monto distinto' });
-    await procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
-    assert.deepEqual(enviados().map((e) => e.numero), [N.prop2], 'al número verificado, no al del perfil');
-    assert.match(enviados()[0]!.texto, /Monto distinto/);
-    // Sin vínculo y sin aviso activo: sólo correo (no cambia nada para quien no usa el bot).
-    await prisma.usuario.update({ where: { id: D.propietario1.id }, data: { telefono: '+51 911 111 111', aviso_whatsapp: false } });
-    assert.equal(await encolarAviso('pago_validado', D.propietario1.id, { entidad: 'pago', id: pago.id }), 1);
-    await prisma.complejoHabitacional.update({ where: { id: D.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_rechazado', 'cierre_pendiente'] } });
+    const pago = await prisma.pago.create({ data: { recibo_concepto_unidad_id: D.cargoA2.id, monto: 150, metodo_pago: 'transferencia', estado_validacion: 'por_validar', usuario_id: D.propietario2.id } });
+    const deps = (): Parameters<typeof procesarCola>[0] => ({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
+    assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 0, 'validado: ningún canal');
+    assert.equal(await encolarAviso('pago_rechazado', D.propietario2.id, { entidad: 'pago', id: pago.id }, { motivo: 'Monto distinto' }), 1, 'rechazado: sólo correo');
+    await procesarCola(deps());
+    assert.deepEqual(enviados(), [], 'ningún WhatsApp, ni al número vinculado ni al del perfil');
+    // Un rechazo por WhatsApp que quedó pendiente de antes del cambio no sale: queda omitido.
+    await prisma.notificacion.create({ data: { usuario_id: D.propietario2.id, canal: 'whatsapp', tipo: 'pago_rechazado', asunto: 'Pago rechazado', cuerpo: 'Tu pago fue rechazado.', estado: 'pendiente', programada_para: new Date(Date.now() - 60_000), ref_entidad: 'pago', ref_id: pago.id } });
+    await procesarCola(deps());
+    const viejo = await prisma.notificacion.findFirstOrThrow({ where: { canal: 'whatsapp', tipo: 'pago_rechazado' } });
+    assert.equal(viejo.estado, 'omitida');
+    assert.equal(viejo.error, 'Los resultados de pago sólo van por correo');
+    assert.deepEqual(enviados(), []);
+    await prisma.complejoHabitacional.update({ where: { id: D.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente'] } });
   });
 });

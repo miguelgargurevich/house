@@ -25,6 +25,17 @@ const MIN = 60_000;
 /** Pendiente = sin pagar y sin comprobante en revisión (`en_revision`) ni `pagado`. */
 const cargoPendiente: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: 'pendiente' }] };
 
+/** Quien paga una unidad: el inquilino si lo tiene; si no, el propietario. Los avisos de cobro sólo le llegan a esa persona. */
+export function quienPaga(u: { propietario_id: number | null; inquilino_id: number | null }): number | null {
+  return u.inquilino_id ?? u.propietario_id ?? null;
+}
+
+/** Las unidades que paga una persona: aquellas de las que es inquilino, y las de las que es propietario y no tienen inquilino. */
+const laPaga = (usuarioId: number): Prisma.UnidadWhereInput => ({ OR: [{ inquilino_id: usuarioId }, { inquilino_id: null, propietario_id: usuarioId }] });
+
+/** Resultado de un voucher. Nunca salen por WhatsApp; el validado no se encola (el vecino lo ve en «Mis recibos») y el rechazado sólo sale por correo. */
+export const RESULTADOS_PAGO: readonly string[] = ['pago_validado', 'pago_rechazado'];
+
 export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number } | { entidad: `cierre:${string}`; id: number } | { entidad: `cierre-central:${string}`; id: number };
 
 interface Cargado {
@@ -85,7 +96,7 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
     where: {
       AND: [
         { reciboConcepto: { recibo_id: ref.id } },
-        { unidad: { OR: [{ propietario_id: usuario.id }, { inquilino_id: usuario.id }] } },
+        { unidad: laPaga(usuario.id) },
         soloPendientes ? cargoPendiente : {},
       ],
     },
@@ -142,21 +153,18 @@ async function listaWhatsappDe(tipo: string, n: { ref_entidad: string | null; re
 }
 
 /**
- * Por qué canales le llega un aviso a la persona: correo si lo acepta y tiene uno real (un `.invalid` no tiene buzón; no es canal),
- * WhatsApp si lo acepta y tiene celular o un número vinculado, y Telegram sólo para el resultado de un voucher. Lo usan el envío y la vista previa.
+ * Por qué canales le llega un aviso a la persona: correo si lo acepta y tiene uno real (un `.invalid` no tiene buzón; no es canal) y WhatsApp si lo
+ * acepta y tiene celular o un número vinculado. Lo usan el envío y la vista previa.
  * `lista` es la de `whatsapp_avisos` del condominio (`null` = no se rige): si el tipo no está en ella, no hay WhatsApp, tampoco al número vinculado.
+ * Los resultados de pago nunca salen por WhatsApp ni por Telegram: el validado no sale por ningún canal y el rechazado sólo por correo.
  */
-async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }, lista: readonly string[] | null): Promise<(Canal | 'telegram')[]> {
-  const canales: (Canal | 'telegram')[] = [];
+async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }, lista: readonly string[] | null): Promise<Canal[]> {
+  if (tipo === 'pago_validado') return [];
+  const canales: Canal[] = [];
   if (u.aviso_email && u.email && !correoSinBuzon(u.email)) canales.push('email');
-  // Quien vinculó su WhatsApp (verificado) llega a ese número: ahí recibe el resultado del voucher que mandó por el bot aunque no haya activado
-  // los avisos por WhatsApp; el resto de avisos sigue respetando su preferencia.
-  const vinculado = await numeroVinculado(u.id);
-  const resultadoDePago = tipo === 'pago_validado' || tipo === 'pago_rechazado';
+  if (tipo === 'pago_rechazado') return canales;
   const whatsappPermitido = lista == null || lista.includes(tipo);
-  if (whatsappPermitido && ((u.aviso_whatsapp && (u.telefono?.trim() || vinculado)) || (vinculado && resultadoDePago))) canales.push('whatsapp');
-  // Telegram: sólo el resultado del voucher, y sólo a quien vinculó su chat (no hay «preferencia» de Telegram: vincular es aceptarlo).
-  if (resultadoDePago && (await chatVinculado(u.id))) canales.push('telegram');
+  if (whatsappPermitido && u.aviso_whatsapp && (u.telefono?.trim() || (await numeroVinculado(u.id)))) canales.push('whatsapp');
   return canales;
 }
 
@@ -169,8 +177,8 @@ async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null;
  *  - `{ entidad: 'cargo', id }`  → un cargo (`ReciboConceptoUnidad.id`);
  *  - `{ entidad: 'ia', id }`     → `ia_caida` / `ia_restablecida` (sólo superadmin; `id` distingue cada episodio; el detalle va en `opts.motivo`);
  *  - `{ entidad: 'comunicado', id }` → `comunicado` (el título y el texto del comunicado; se avisa una vez por persona y canal aunque se edite);
- *  - `{ entidad: 'pago', id }`   → `pago_validado` / `pago_rechazado` de ESE pago (los datos salen de su cargo; cada pago avisa una vez,
- *    aunque el mismo cargo se rechace, se vuelva a pagar y se rechace de nuevo).
+ *  - `{ entidad: 'pago', id }`   → `pago_rechazado` de ESE pago, sólo por correo (los datos salen de su cargo; cada pago avisa una vez,
+ *    aunque el mismo cargo se rechace, se vuelva a pagar y se rechace de nuevo). `pago_validado` no se encola: no sale por ningún canal.
  * `opts.motivo` es el motivo de un rechazo y va en el mensaje. `opts.canales` limita los canales (por defecto, los que la persona aceptó).
  *
  * Nunca envía en línea: la notificación queda `pendiente` y la procesa `procesarCola`. Devuelve cuántas creó.
@@ -193,14 +201,17 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   return r.count;
 }
 
-/** Vecinos de un recibo: propietario o inquilino de cada unidad con cargo en él. */
+/** A quién le llega el aviso de cobro de un recibo: quien paga cada unidad con cargo en él (el inquilino si lo hay; si no, el propietario). */
 async function usuariosDelRecibo(reciboId: number): Promise<number[]> {
   const unidades = await prisma.unidad.findMany({
     where: { reciboConceptoUnidades: { some: { reciboConcepto: { recibo_id: reciboId } } } },
     select: { propietario_id: true, inquilino_id: true },
   });
   const usuarios = new Set<number>();
-  for (const u of unidades) for (const id of [u.propietario_id, u.inquilino_id]) if (id != null) usuarios.add(id);
+  for (const u of unidades) {
+    const pagador = quienPaga(u);
+    if (pagador != null) usuarios.add(pagador);
+  }
   return [...usuarios];
 }
 
@@ -239,8 +250,7 @@ export async function planAvisoRecibo(reciboId: number): Promise<PlanAvisoRecibo
   const plan: PlanAvisoRecibo = { vecinos: usuarios.length, por_correo: 0, por_whatsapp: 0, por_avisar: 0, ya_avisados: 0, sin_canal: 0, personas: [] };
   const lista = await listaWhatsappDe('recibo_emitido', { ref_entidad: 'recibo', ref_id: reciboId });
   for (const u of usuarios) {
-    // `telegram` nunca sale para un recibo emitido (sólo para resultados de voucher), así que se descarta aquí.
-    const canales = (await canalesDe('recibo_emitido', u, lista)).filter((c): c is Canal => c !== 'telegram');
+    const canales = await canalesDe('recibo_emitido', u, lista);
     if (!canales.length) { plan.sin_canal++; continue; }
     const crear = canales.filter((c) => !estadoDe.has(`${u.id}:${c}`));
     const reintentar = canales.filter((c) => estadoDe.get(`${u.id}:${c}`) === 'error' || estadoDe.get(`${u.id}:${c}`) === 'omitida');
@@ -305,7 +315,9 @@ export async function encolarRecordatorios(ahora: Date): Promise<number> {
     for (const c of cargos) {
       const recibo = c.reciboConcepto?.recibo_id;
       if (recibo == null) continue;
-      for (const usuario of [c.unidad?.propietario_id, c.unidad?.inquilino_id]) if (usuario != null) pares.set(`${usuario}:${recibo}`, { usuario, recibo });
+      // Sólo quien paga la unidad: el propietario de una unidad con inquilino no recibe recordatorios de ella.
+      const pagador = c.unidad ? quienPaga(c.unidad) : null;
+      if (pagador != null) pares.set(`${pagador}:${recibo}`, { usuario: pagador, recibo });
     }
     if (!pares.size) continue;
     // Quien ya tiene este aviso para ese recibo se salta sin volver a armar el mensaje.
@@ -383,6 +395,8 @@ async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number |
 export const MOTIVO_SIN_WHATSAPP = 'Plan sin WhatsApp';
 /** El condominio apagó este tipo para WhatsApp después de encolarlo. */
 export const MOTIVO_APAGADO_WHATSAPP = 'Apagado en el condominio';
+/** Un resultado de pago sólo sale por correo (queda así también un pendiente que se encoló antes de este cambio). */
+export const MOTIVO_SOLO_CORREO = 'Los resultados de pago sólo van por correo';
 
 /** Pasada de WhatsApp: si ya lleva más de esto, los WhatsApp que faltan no se toman (quedan pendientes para la siguiente pasada, sin intento). */
 export const TOPE_PASADA_MS = 10 * MIN;
@@ -464,13 +478,13 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
     let instanciaWa: string | null = null;
     if (n.canal === 'email') {
       r = await enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo);
+    } else if (n.canal === 'whatsapp' && RESULTADOS_PAGO.includes(n.tipo)) {
+      r = { resultado: 'omitida', motivo: MOTIVO_SOLO_CORREO };
     } else if (n.canal === 'whatsapp') {
       // Sin el módulo «Avisos por WhatsApp» el aviso se omite (el correo sigue). Los avisos de la plataforma (sin condominio) no dependen de un plan.
-      // El resultado de un voucher mandado por el bot (pago validado/rechazado) también sale si el condominio tiene el asistente, que es quien lo trae.
       const complejoId = await complejoDeAviso(n);
       const permitido = (complejoId == null && n.ref_entidad === 'ia')
-        || (await moduloActivo(complejoId, 'whatsapp_avisos'))
-        || ((n.tipo === 'pago_validado' || n.tipo === 'pago_rechazado') && (await moduloActivo(complejoId, 'asistente')));
+        || (await moduloActivo(complejoId, 'whatsapp_avisos'));
       const lista = await listaWhatsappDe(n.tipo, n);
       if (!permitido) {
         r = { resultado: 'omitida', motivo: MOTIVO_SIN_WHATSAPP };
@@ -493,8 +507,10 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
         });
       }
     } else if (n.canal === 'telegram') {
-      // El bot de Telegram es parte del módulo «Asistente con IA».
-      r = (await moduloActivo(await complejoDeAviso(n), 'asistente'))
+      // El bot de Telegram es parte del módulo «Asistente con IA». Un resultado de pago no sale por Telegram (sólo correo).
+      r = RESULTADOS_PAGO.includes(n.tipo)
+        ? { resultado: 'omitida', motivo: MOTIVO_SOLO_CORREO }
+        : (await moduloActivo(await complejoDeAviso(n), 'asistente'))
         ? await enviarTelegram(deps, await chatVinculado(n.usuario_id), n.cuerpo)
         : { resultado: 'omitida', motivo: 'Plan sin asistente' };
     } else {

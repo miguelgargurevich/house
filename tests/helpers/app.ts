@@ -93,6 +93,10 @@ const DIA = 86_400_000;
 /** Datos mínimos y deterministas: dos empresas, sus usuarios, unidades, cargos vencidos y pendientes. */
 export async function sembrar() {
   await vaciarBase();
+  // El asistente de WhatsApp viene APAGADO de fábrica (producción); las pruebas del bot lo encienden aquí, como lo tenía el número antes.
+  // Las que prueban el número apagado lo apagan en su propio `beforeEach`.
+  await prisma.configuracionComercial.update({ where: { id: 1 }, data: { whatsapp_bot_activo: true } });
+  invalidarComercial();
   const hash = await bcrypt.hash(PASSWORD, 4);
   const usuario = (nombre: string, email: string, rol: string, extra: Record<string, unknown> = {}) =>
     prisma.usuario.create({ data: { nombre, email, rol, password_hash: hash, ...extra } });

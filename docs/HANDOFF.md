@@ -4,6 +4,19 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Cobro a quien paga, resultados de pago sólo por correo y asistente de WhatsApp apagado (Claude Code, Haiku 5.5, delegado por Opus) — push: no
+
+- **Pedido de Miguel**: quitar el recordatorio de 2 días antes de la lista por defecto (gasta mensajes); avisos de cobro sólo a quien paga, por WhatsApp y correo; los resultados de pago sin WhatsApp; sin asistente por WhatsApp (sólo «SALIR»). Rama `feat/whatsapp-por-tipo` (worktree), commits sin push.
+- **Qué se hizo**: `whatsapp_avisos` por defecto = `recibo_emitido, vence_hoy, vencido, cierre_pendiente`; tipos configurables = los 5 de cobranza (sin `pago_validado` ni `pago_rechazado`). **Quien paga** (`quienPaga`, `services/avisos/cola.ts`): inquilino si hay, si no propietario; lo usan `usuariosDelRecibo`, `encolarRecordatorios`, la vista previa de «Avisar a los vecinos» y `cargarDatos` (sólo suma cargos que esa persona paga). `pago_validado` no se encola (`canalesDe` devuelve `[]`). `pago_rechazado` sólo correo, a quien registró el pago o, si no hay, a quien paga (`avisarResultado`). Pendientes de WhatsApp/Telegram de resultados de pago se omiten con «Los resultados de pago sólo van por correo». Nuevo `ConfiguracionComercial.whatsapp_bot_activo` (Boolean, `@default(false)`), editable en Precios y en el PUT; con el número apagado, `atenderMensaje` sólo procesa «SALIR» y descarta lo demás antes de responder (Telegram no cambia).
+- **Docs**: `docs/COBRANZA.md` (§2 ter nuevo: quién recibe; tabla de canales) y `docs/API-CONTRATO.md` (disparadores, avisos, lista por defecto, `whatsapp_bot_activo`).
+- **Pruebas**: nuevas `tests/cobranza-pagador.test.ts`, `tests/resultados-pago.test.ts`, `tests/bot-whatsapp-apagado.test.ts`. `sembrar()` enciende el asistente para que las pruebas del bot sigan igual; las del número apagado lo apagan en su `beforeEach`.
+- **Estado (3-nov, final)**: `tsc -b` y `tsc -p tests/tsconfig.json` OK. Suite completa (`TEST_DATABASE_URL=…house_test_wtipo npm test`): 3608/3609; el único fallo es `recibos-excel` «conceptos en 0» (depende de la fecha: `vencido` en vez de `pendiente`; no es de este cambio). Pruebas nuevas: `cobranza-pagador` (quién paga), `resultados-pago` (validado sin aviso; rechazado sólo correo), `bot-whatsapp-apagado` (número apagado y el ajuste en Precios). Mutaciones, todas en rojo y restauradas con `cp` + `cmp`: propietario con inquilino recibe el aviso (6 pruebas), pago validado se encola (4), rechazado sale por WhatsApp (5), bot apagado responde (6), bot apagado ignora SALIR (2).
+- **Reducción de cobertura (decidida)**: en `bot-telegram` quité los casos de reintento de envío de Telegram y de bot bloqueado (403): cubrían resultados de pago por Telegram, que ya no se producen. El envío por Telegram sigue en `procesarCola`; hoy no hay productor de avisos por Telegram.
+- **Próximos pasos**: corregir las pruebas viejas, correr la suite completa (`TEST_DATABASE_URL=…house_test_wtipo`), mutaciones de las 5 reglas, commit. Decidir con Miguel si el asistente de WhatsApp queda apagado en producción (el default lo apaga al desplegar, en todos los condominios).
+- **Gotchas**: (a) el `@default` sólo aplica a condominios nuevos: las listas guardadas con `pago_rechazado` quedan con un valor sin efecto; `por_vencer` queda donde esté. (b) Con `zsh`, `grep --include=*.ts` sin comillas falla por el glob: usar `--include='*.ts'`. (c) Comprobar el destinatario con `quienPaga`, no con `propietario_id`/`inquilino_id` a mano.
+
+---
+
 ## 2026-11-03 — Avisos por WhatsApp elegidos por condominio (Claude Code, Haiku 5.5, delegado por Opus) — push: no
 
 - **Pedido de Miguel** (con 448 departamentos el tope diario de 200 por número aprieta): «la administración elige qué tipos de aviso van por WhatsApp» → «sí, hazlo». Rama `feat/whatsapp-por-tipo` (worktree), commits sin push.

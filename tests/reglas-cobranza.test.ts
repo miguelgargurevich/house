@@ -336,6 +336,8 @@ describe('recordatorios: por_vencer (2 días antes) y vence_hoy (el día), sin v
 
   beforeEach(async () => {
     await prisma.notificacion.deleteMany();
+    // «2 días antes» no viene en la lista por defecto de WhatsApp: en estas pruebas la administración lo enciende.
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'cierre_pendiente'] } });
     // Los escenarios de las pruebas anteriores no deben recibir avisos en esta.
     const delEscenario = { reciboConcepto: { recibo: { estructura: { nombre: { startsWith: 'B.7' } } } } };
     await prisma.reciboConceptoUnidad.deleteMany({ where: delEscenario });

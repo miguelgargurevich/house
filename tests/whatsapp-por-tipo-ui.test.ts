@@ -12,18 +12,18 @@ const MODAL = f('src/pages/admin/_parts/condominio/ModalDeComplejo.tsx');
 const RUTA = f('src/server/routes/complejos.ts');
 
 describe('lista de tipos que la administración puede activar', () => {
-  it('son los siete de WhatsApp, con los nombres que pidió la administración', () => {
-    assert.deepEqual([...TIPOS_WHATSAPP_CONFIGURABLES], ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'cierre_pendiente']);
+  it('son los cinco de cobranza, con los nombres que pidió la administración (los resultados de pago no van por WhatsApp)', () => {
+    assert.deepEqual([...TIPOS_WHATSAPP_CONFIGURABLES], ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'cierre_pendiente']);
     assert.deepEqual(
       TIPOS_WHATSAPP_CONFIGURABLES.map((t) => ROTULO_WHATSAPP[t]),
-      ['Recibo del mes', 'Recordatorio 2 días antes', 'Vence hoy', 'Venció', 'Pago validado', 'Pago rechazado', 'Cierre del mes pendiente (al tesorero)'],
+      ['Recibo del mes', 'Recordatorio 2 días antes', 'Vence hoy', 'Venció', 'Cierre del mes pendiente (al tesorero)'],
     );
   });
 
-  it('por defecto va todo menos pago validado (que sale sólo por correo y en la app)', () => {
-    assert.ok(!WHATSAPP_POR_DEFECTO.includes('pago_validado'));
-    assert.equal(WHATSAPP_POR_DEFECTO.length, TIPOS_WHATSAPP_CONFIGURABLES.length - 1);
-    for (const t of ['ia_caida', 'ia_restablecida', 'comunicado']) assert.equal(esTipoWhatsappConfigurable(t), false, t);
+  it('por defecto va todo menos el recordatorio de 2 días antes (gasta mensajes) y los resultados de pago no son configurables', () => {
+    assert.deepEqual([...WHATSAPP_POR_DEFECTO], ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente']);
+    assert.ok(!WHATSAPP_POR_DEFECTO.includes('por_vencer'));
+    for (const t of ['pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado']) assert.equal(esTipoWhatsappConfigurable(t), false, t);
   });
 });
 

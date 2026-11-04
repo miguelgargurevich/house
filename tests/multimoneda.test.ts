@@ -299,8 +299,8 @@ describe('textos del servidor con el símbolo de la moneda', () => {
 
   it('aviso por un cargo de un condominio en dólares: «US$ 90.00»; el de soles sigue en «S/»', async () => {
     await prisma.notificacion.deleteMany();
-    assert.equal(await encolarAviso('pago_validado', d.propietarioB.id, { entidad: 'cargo', id: d.cargoB1.id }), 1);
-    assert.equal(await encolarAviso('pago_validado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 1);
+    assert.equal(await encolarAviso('pago_rechazado', d.propietarioB.id, { entidad: 'cargo', id: d.cargoB1.id }, { motivo: 'Voucher ilegible' }), 1);
+    assert.equal(await encolarAviso('pago_rechazado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }, { motivo: 'Voucher ilegible' }), 1);
     const n = await prisma.notificacion.findMany({ orderBy: { id: 'asc' } });
     assert.match(n[0]!.cuerpo, /US\$ 90\.00/);
     assert.ok(!/S\//.test(n[0]!.cuerpo), n[0]!.cuerpo);

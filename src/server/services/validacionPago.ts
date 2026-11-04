@@ -1,7 +1,7 @@
 /** Cierre de un pago por validar (validado o rechazado), compartido por la validación manual y la automática de la IA. */
 import { prisma } from '../db';
 import { conflict } from '../errors';
-import { encolarAviso } from './avisos';
+import { encolarAviso, quienPaga } from './avisos';
 
 export interface Cierre {
   pagoId: number;
@@ -66,10 +66,11 @@ export async function cerrarPago(c: Cierre): Promise<void> {
 }
 
 /**
- * Avisa del resultado a quien registró el pago y al propietario/inquilino de la unidad (sin repetir personas),
- * respetando sus preferencias (lo resuelve `encolarAviso`). Es idempotente por pago y nunca rompe la validación.
+ * Avisa del resultado. Un pago validado NO avisa: el vecino lo ve en «Mis recibos». Un rechazo sale sólo por correo, a quien registró el pago
+ * o, si no hay, a quien paga la unidad (el inquilino, o el propietario si no tiene). Es idempotente por pago (lo resuelve `encolarAviso`) y nunca rompe la validación.
  */
 export async function avisarResultado(pagoId: number, estado: 'validado' | 'rechazado', motivo?: string | null): Promise<void> {
+  if (estado === 'validado') return;
   try {
     const p = await prisma.pago.findUnique({
       where: { id: pagoId },
@@ -77,10 +78,9 @@ export async function avisarResultado(pagoId: number, estado: 'validado' | 'rech
     });
     if (!p) return;
     const u = p.reciboConceptoUnidad?.unidad;
-    const destinatarios = new Set<number>();
-    for (const id of [p.usuario_id, u?.propietario_id, u?.inquilino_id]) if (id != null) destinatarios.add(id);
-    const tipo = estado === 'validado' ? 'pago_validado' : 'pago_rechazado';
-    for (const id of destinatarios) await encolarAviso(tipo, id, { entidad: 'pago', id: pagoId }, { motivo: motivo ?? undefined });
+    const destinatario = p.usuario_id ?? (u ? quienPaga(u) : null);
+    if (destinatario == null) return;
+    await encolarAviso('pago_rechazado', destinatario, { entidad: 'pago', id: pagoId }, { motivo: motivo ?? undefined });
   } catch (err) {
     console.error('[avisos] no se pudo encolar el aviso del pago', pagoId, err instanceof Error ? err.name : 'error');
   }

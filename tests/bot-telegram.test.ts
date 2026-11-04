@@ -1056,61 +1056,41 @@ describe('T5 · voucher por foto o documento', () => {
 const sha256bytes = (b: Buffer) => createHash('sha256').update(b).digest('hex');
 
 // =====================================================================================================================
-describe('T6 · avisos: el resultado del voucher llega por Telegram', () => {
+describe('T6 · avisos: los resultados de pago NO van por Telegram', () => {
   const crearPago = () => prisma.pago.create({ data: { recibo_concepto_unidad_id: D.cargoA2.id, monto: 150, metodo_pago: 'transferencia', estado_validacion: 'por_validar', usuario_id: D.propietario2.id } });
   const cola = async () => {
     const { procesarCola } = await import('../src/server/services/avisos');
     return procesarCola({ fetch: (u, i) => fetch(u, i), ahora: () => new Date(), esperar: async () => {}, azar: () => 0, env: process.env });
   };
 
-  it('validado y rechazado llegan al chat VINCULADO (aunque no tenga teléfono ni avisos activos); sin vínculo o revocado, no; los recordatorios no van por Telegram', async () => {
+  it('validado no encola nada; rechazado sale sólo por correo aunque el chat esté vinculado; un recordatorio tampoco va por Telegram', async () => {
     const { encolarAviso } = await import('../src/server/services/avisos');
     await activarBot();
     llamadasTg.length = 0;
     const pago = await crearPago();
-    // Sin vínculo: sólo correo.
-    assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 1);
-    await prisma.notificacion.deleteMany();
     await vincular(D.propietario2.id, C.prop2, D.empresaA.id);
-    assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 2, 'correo + Telegram');
-    const r = await cola();
-    assert.ok(r.enviadas >= 1);
-    assert.match(ultimoPara(C.prop2)!, /Validamos tu pago/);
-    assert.equal((await prisma.notificacion.findFirstOrThrow({ where: { canal: 'telegram' } })).estado, 'enviada');
-    // Rechazado, con el motivo.
-    await prisma.notificacion.deleteMany();
-    llamadasTg.length = 0;
-    await encolarAviso('pago_rechazado', D.propietario2.id, { entidad: 'pago', id: pago.id }, { motivo: 'Monto distinto' });
+    assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 0, 'validado: ningún canal');
+    assert.equal(await encolarAviso('pago_rechazado', D.propietario2.id, { entidad: 'pago', id: pago.id }, { motivo: 'Monto distinto' }), 1, 'rechazado: sólo correo');
+    assert.deepEqual((await prisma.notificacion.findMany({ where: { ref_entidad: 'pago', ref_id: pago.id }, select: { canal: true } })).map((f) => f.canal), ['email']);
     await cola();
-    assert.match(ultimoPara(C.prop2)!, /Monto distinto/);
-    // Un recordatorio no es el resultado de un voucher: no va por Telegram.
+    assert.ok(!ultimoPara(C.prop2), 'Telegram no recibió nada del resultado');
+    // Un recordatorio no va por Telegram.
     await prisma.notificacion.deleteMany();
-    await prisma.usuario.update({ where: { id: D.propietario2.id }, data: { aviso_whatsapp: false } });
-    const n = await encolarAviso('recibo_emitido', D.propietario2.id, { entidad: 'cargo', id: D.cargoA2.id });
-    assert.equal(await prisma.notificacion.count({ where: { canal: 'telegram' } }), 0, `creó ${n}`);
-    // Revocado: ya no.
-    await prisma.notificacion.deleteMany();
-    await prisma.canalVinculado.updateMany({ where: { usuario_id: D.propietario2.id }, data: { revocado_at: new Date(), clave_vigente: null, clave_usuario: null } });
-    assert.equal(await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id }), 1);
+    await encolarAviso('recibo_emitido', D.propietario2.id, { entidad: 'cargo', id: D.cargoA2.id });
+    assert.equal(await prisma.notificacion.count({ where: { canal: 'telegram' } }), 0);
   });
 
-  it('con el bot pausado el aviso se omite (no se reintenta); si Telegram falla se reintenta; si el usuario bloqueó el bot (403) se omite', async () => {
-    const { encolarAviso } = await import('../src/server/services/avisos');
+  it('un resultado de pago que quedó pendiente por Telegram de antes del cambio no se envía: queda omitido con su motivo', async () => {
     await activarBot();
     await vincular(D.propietario2.id, C.prop2, D.empresaA.id);
+    llamadasTg.length = 0;
     const pago = await crearPago();
-    await encolarAviso('pago_validado', D.propietario2.id, { entidad: 'pago', id: pago.id });
-    await prisma.notificacion.updateMany({ where: { canal: 'email' }, data: { estado: 'omitida' } });
-    fallan.add('sendMessage');
+    const n = await prisma.notificacion.create({ data: { usuario_id: D.propietario2.id, canal: 'telegram', tipo: 'pago_rechazado', asunto: 'Pago rechazado', cuerpo: 'Tu pago fue rechazado.', estado: 'pendiente', programada_para: new Date(Date.now() - 60_000), ref_entidad: 'pago', ref_id: pago.id } });
     await cola();
-    const n = await prisma.notificacion.findFirstOrThrow({ where: { canal: 'telegram' } });
-    assert.equal(n.estado, 'pendiente');
-    assert.equal(n.intentos, 1);
-    assert.ok(!(n.error ?? '').includes(TOKEN.split(':')[1]!), n.error ?? '');
-    await llamar(base, 'PATCH', '/api/llavero/telegram', T.super, { habilitado: false });
-    await prisma.notificacion.update({ where: { id: n.id }, data: { programada_para: new Date(Date.now() - 1000) } });
-    await cola();
-    assert.equal((await prisma.notificacion.findUniqueOrThrow({ where: { id: n.id } })).estado, 'omitida');
+    const fila = await prisma.notificacion.findUniqueOrThrow({ where: { id: n.id } });
+    assert.equal(fila.estado, 'omitida');
+    assert.equal(fila.error, 'Los resultados de pago sólo van por correo');
+    assert.ok(!ultimoPara(C.prop2), 'no se llamó a Telegram');
   });
 });
 

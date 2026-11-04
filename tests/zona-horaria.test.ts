@@ -311,9 +311,9 @@ describe('avisos programados: cada condominio con su «hoy»', () => {
     const aDos = await cargoEn(d.complejoA, d.unidadA2.id, '2026-12-12'); //  Lima: faltan 2 días → por_vencer
     const bDos = await cargoEn(d.complejoB, d.unidadB1.id, '2026-12-12', 11); // Madrid: falta 1 día → nada (con la hora de Lima sería por_vencer)
     hechas.push(aHoy.recibo.id, bHoy.recibo.id, aDos.recibo.id, bDos.recibo.id);
-    assert.equal(await encolarRecordatorios(X), 4, 'prop1 + inq1 (vence_hoy), prop2 (por_vencer), propB (vencido)');
+    assert.equal(await encolarRecordatorios(X), 3, 'inq1 paga A-101 (vence_hoy), prop2 (por_vencer), propB (vencido); prop1 no paga A-101');
     const porRecibo = (id: number) => notifs().then((n) => n.filter((x) => x.ref_id === id).map((x) => `${x.tipo}:${x.usuario_id}`).sort());
-    assert.deepEqual(await porRecibo(aHoy.recibo.id), [`vence_hoy:${d.propietario1.id}`, `vence_hoy:${d.inquilino1.id}`].sort());
+    assert.deepEqual(await porRecibo(aHoy.recibo.id), [`vence_hoy:${d.inquilino1.id}`]);
     assert.deepEqual(await porRecibo(bHoy.recibo.id), [`vencido:${d.propietarioB.id}`]);
     assert.deepEqual(await porRecibo(aDos.recibo.id), [`por_vencer:${d.propietario2.id}`]);
     assert.deepEqual(await porRecibo(bDos.recibo.id), [], 'en Madrid todavía no toca el recordatorio de 2 días');

@@ -141,16 +141,16 @@ describe('recibo emitido', () => {
       conceptos: [{ concepto_id: d.conceptoA.id, monto: 100 }, { concepto_id: d.conceptoA.id, monto: 50.5 }],
     });
     assert.equal(r.status, 201, r.texto);
-    // Unidades A-101 (prop1 + inq1) y A-102 (prop2): tres usuarios, un correo cada uno.
+    // Unidades A-101 (inq1 la paga; prop1 no) y A-102 (prop2 la paga, sin inquilino): dos personas, un correo cada una.
     const todas = await notifs({ ref_id: r.body.id });
-    assert.equal(todas.length, 3);
-    assert.deepEqual(todas.map((n) => n.usuario_id).sort(), [d.propietario1.id, d.propietario2.id, d.inquilino1.id].sort());
+    assert.equal(todas.length, 2);
+    assert.deepEqual(todas.map((n) => n.usuario_id).sort(), [d.propietario2.id, d.inquilino1.id].sort());
     assert.ok(todas.every((n) => n.canal === 'email' && n.tipo === 'recibo_emitido' && n.estado === 'pendiente' && n.ref_entidad === 'recibo'));
-    const de1 = todas.find((n) => n.usuario_id === d.propietario1.id)!;
+    const de1 = todas.find((n) => n.usuario_id === d.inquilino1.id)!;
     assert.match(de1.cuerpo, /Total a pagar: S\/ 150\.50/, 'suma de los dos conceptos de su unidad');
     assert.match(de1.asunto, /noviembre de 2026/);
     assert.equal(await encolarReciboEmitido(r.body.id), 0, 'repetir no duplica');
-    assert.equal((await notifs({ ref_id: r.body.id })).length, 3);
+    assert.equal((await notifs({ ref_id: r.body.id })).length, 2);
   });
 
   it('un fallo al encolar no deshace la emisión del recibo', async () => {
@@ -174,14 +174,14 @@ describe('recibo emitido', () => {
     }
   });
 
-  it('respeta preferencias, correo y celular: WhatsApp sólo con la opción activa y celular', async () => {
-    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { aviso_whatsapp: true, telefono: '987654321' } });
-    await prisma.usuario.update({ where: { id: d.inquilino1.id }, data: { aviso_email: false } }); // sin ningún canal
-    await prisma.usuario.update({ where: { id: d.propietario2.id }, data: { aviso_whatsapp: true } }); // quiere WhatsApp pero no tiene celular
+  it('respeta preferencias, correo y celular: WhatsApp sólo con la opción activa y celular; quien no paga, nada', async () => {
+    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { aviso_whatsapp: true, telefono: '987654321' } }); // no paga A-101: no recibe nada
+    await prisma.usuario.update({ where: { id: d.inquilino1.id }, data: { aviso_whatsapp: true, telefono: '933333333' } }); // paga A-101: correo y WhatsApp
+    await prisma.usuario.update({ where: { id: d.propietario2.id }, data: { aviso_whatsapp: true } }); // paga A-102: quiere WhatsApp pero no tiene celular
     const creadas = await encolarReciboEmitido(d.reciboVencidoA.id);
     const todas = await notifs();
     assert.equal(creadas, 3);
-    assert.deepEqual(todas.map((n) => `${n.usuario_id}:${n.canal}`).sort(), [`${d.propietario1.id}:email`, `${d.propietario1.id}:whatsapp`, `${d.propietario2.id}:email`].sort());
+    assert.deepEqual(todas.map((n) => `${n.usuario_id}:${n.canal}`).sort(), [`${d.inquilino1.id}:email`, `${d.inquilino1.id}:whatsapp`, `${d.propietario2.id}:email`].sort());
   });
 });
 
@@ -191,14 +191,14 @@ describe('recordatorios por fecha (reloj inyectado)', () => {
   it('por_vencer: sale exactamente 2 días antes (ni 3 ni 1), y repetir el planificador no duplica', async () => {
     assert.equal(await encolarRecordatorios(new Date(ref() - 3 * DIA + 12 * 3600_000)), 0, '3 días antes aún no');
     const dos = new Date(ref() - 2 * DIA + 12 * 3600_000);
-    assert.equal(await encolarRecordatorios(dos), 2, 'propietario e inquilino de A-101');
+    assert.equal(await encolarRecordatorios(dos), 1, 'sólo quien paga A-101 (el inquilino; el propietario no)');
     const n = await notifs();
-    assert.ok(n.every((x) => x.tipo === 'por_vencer' && x.ref_id === d.reciboFuturoA.id));
+    assert.ok(n.every((x) => x.tipo === 'por_vencer' && x.ref_id === d.reciboFuturoA.id && x.usuario_id === d.inquilino1.id));
     assert.match(n[0]!.asunto, /vence en 2 días/);
     assert.equal(await encolarRecordatorios(dos), 0);
     assert.equal(await encolarRecordatorios(new Date(dos.getTime() + 2 * MIN)), 0);
     assert.equal(await encolarRecordatorios(new Date(ref() - DIA + 12 * 3600_000)), 0, 'a 1 día ya no sale otro por_vencer');
-    assert.equal((await notifs()).length, 2);
+    assert.equal((await notifs()).length, 1);
   });
 
   it('vencido: al día siguiente del vencimiento; no antes', async () => {
@@ -208,7 +208,7 @@ describe('recordatorios por fecha (reloj inyectado)', () => {
     await prisma.notificacion.deleteMany();
     await encolarRecordatorios(new Date(venc + DIA + 12 * 3600_000));
     const n = await notifs({ tipo: 'vencido', ref_id: d.reciboVencidoA.id });
-    assert.equal(n.length, 3, 'A-101 (propietario e inquilino) y A-102');
+    assert.equal(n.length, 2, 'quien paga A-101 (inq1) y quien paga A-102 (prop2); el propietario de A-101 no');
     assert.equal((await notifs({ tipo: 'vencido', ref_id: d.reciboB.id })).length, 1, 'y el recibo de la empresa B, por separado');
     assert.match(n[0]!.cuerpo, /Tu recibo de agosto de 2026 venció el /);
     assert.equal(await encolarRecordatorios(new Date(venc + DIA + 13 * 3600_000)), 0, 'repetir no duplica');
@@ -228,7 +228,7 @@ describe('recordatorios por fecha (reloj inyectado)', () => {
     try {
       assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + 12 * 3600_000)), 0);
       assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + DIA + 12 * 3600_000)), 0, 'a 1 día no hay por_vencer');
-      assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + 2 * DIA + 12 * 3600_000)), 2, 'el día del vencimiento: vence_hoy');
+      assert.equal(await encolarRecordatorios(new Date(hoy.getTime() + 2 * DIA + 12 * 3600_000)), 1, 'el día del vencimiento: vence_hoy, sólo para quien paga A-101');
       assert.ok((await notifs()).every((x) => x.tipo === 'vence_hoy'));
     } finally {
       await prisma.recibo.update({ where: { id: d.reciboFuturoA.id }, data: { fecha_emision: new Date(hoy.getTime() - 60 * DIA), fecha_vencimiento: d.reciboFuturoA.fecha_vencimiento } });
@@ -237,15 +237,15 @@ describe('recordatorios por fecha (reloj inyectado)', () => {
 });
 
 describe('eventos de pago: encolarAviso exportado', () => {
-  it('pago_validado y pago_rechazado salen de un cargo, con su monto y concepto', async () => {
-    assert.equal(await encolarAviso('pago_validado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 1);
-    assert.equal(await encolarAviso('pago_rechazado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 1);
-    assert.equal(await encolarAviso('pago_validado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 0, 'idempotente');
-    const [v, r] = await notifs();
-    assert.match(v!.cuerpo, /Validamos tu pago de S\/ 150\.00 por Mantenimiento/);
+  it('pago_validado no se encola nunca; pago_rechazado sale sólo por correo, con su monto y concepto', async () => {
+    assert.equal(await encolarAviso('pago_validado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 0, 'validado: ningún canal');
+    assert.equal(await encolarAviso('pago_rechazado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 1, 'rechazado: sólo correo');
+    assert.equal(await encolarAviso('pago_rechazado', d.propietario1.id, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 0, 'idempotente');
+    const [r] = await notifs();
+    assert.equal(r!.canal, 'email');
     assert.match(r!.cuerpo, /No pudimos validar tu pago de S\/ 150\.00/);
-    assert.equal(await encolarAviso('pago_validado', 999_999, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 0, 'usuario inexistente');
-    assert.equal(await encolarAviso('pago_validado', d.propietario1.id, { entidad: 'cargo', id: 999_999 }), 0, 'cargo inexistente');
+    assert.equal(await encolarAviso('pago_rechazado', 999_999, { entidad: 'cargo', id: d.cargoVencidoA1.id }), 0, 'usuario inexistente');
+    assert.equal(await encolarAviso('pago_rechazado', d.propietario1.id, { entidad: 'cargo', id: 999_999 }), 0, 'cargo inexistente');
   });
 });
 

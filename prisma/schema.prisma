@@ -152,8 +152,8 @@ model ComplejoHabitacional {
   validacion_automatica_ia Boolean @default(false)
   /// Mora (en la moneda del condominio) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
   mora_monto  Decimal @default(20.00)
-  /// Avisos automáticos que salen también por WhatsApp (además del correo), por tipo: `TIPOS_WHATSAPP_CONFIGURABLES` en `src/server/services/avisos/whatsappTipos.ts`. Cada WhatsApp cuenta para la cuota del plan y el tope diario del número. Los avisos de la IA y los comunicados no se rigen por esta lista.
-  whatsapp_avisos String[] @default(["recibo_emitido", "por_vencer", "vence_hoy", "vencido", "pago_rechazado", "cierre_pendiente"])
+  /// Avisos automáticos que salen también por WhatsApp (además del correo), por tipo: `TIPOS_WHATSAPP_CONFIGURABLES` en `src/server/services/avisos/whatsappTipos.ts`. Cada WhatsApp cuenta para la cuota del plan y el tope diario del número. Los avisos de la IA y los comunicados no se rigen por esta lista. Los resultados de pago (validado, rechazado) nunca salen por WhatsApp.
+  whatsapp_avisos String[] @default(["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"])
   /// Recibo impreso: notas de pago (texto libre, una línea por renglón) y contacto de la administración. Todo opcional: si falta, el bloque se omite.
   notas_pago    String?
   admin_nombre  String?
@@ -1109,6 +1109,8 @@ model ConfiguracionComercial {
   whatsapp_pausa_min_seg Int      @default(5)
   /// Pausa máxima (segundos) entre dos WhatsApp de aviso de la misma instancia (≤ 60).
   whatsapp_pausa_max_seg Int      @default(15)
+  /// Asistente por WhatsApp (chat, voucher por foto, menú y vincular). Apagado, el número sólo atiende «SALIR» y no responde nada más. Telegram no se rige por esto.
+  whatsapp_bot_activo    Boolean  @default(false)
   updated_at             DateTime @updatedAt
 }
 

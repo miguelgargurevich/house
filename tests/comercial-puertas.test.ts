@@ -242,13 +242,12 @@ describe('módulo «Avisos por WhatsApp»', () => {
     assert.equal((await procesarCola(deps())).omitidas, 1);
   });
 
-  it('el resultado de un voucher por WhatsApp sale si hay asistente (el bot) aunque no haya «Avisos por WhatsApp»', async () => {
+  it('un resultado de voucher por WhatsApp no sale ni con el asistente encendido: queda omitido con su motivo, sin llamar a la API', async () => {
     await fijarPlan('gratis', { modulos: ['asistente'], dias: 20 });
-    // Aquí se prueba el permiso por plan: la administración ya encendió «pago validado» para WhatsApp (por defecto va sólo por correo).
-    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { whatsapp_avisos: ['pago_validado'] } });
-    await aviso('whatsapp', 'pago_validado', { entidad: 'recibo', id: reciboId });
-    assert.equal((await procesarCola(deps())).enviadas, 1);
-    await prisma.complejoHabitacional.update({ where: { id: d.complejoA.id }, data: { whatsapp_avisos: ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_rechazado', 'cierre_pendiente'] } });
+    await aviso('whatsapp', 'pago_rechazado', { entidad: 'recibo', id: reciboId });
+    assert.equal((await procesarCola(deps())).omitidas, 1);
+    assert.equal((await estados()).whatsapp.error, 'Los resultados de pago sólo van por correo');
+    assert.ok(!llamadas.some((u) => u.includes('/message/sendText/')), 'ningún WhatsApp salió');
   });
 
   it('un aviso de la plataforma (sin condominio, p. ej. «IA caída») no depende de ningún plan', async () => {
@@ -258,13 +257,13 @@ describe('módulo «Avisos por WhatsApp»', () => {
     assert.notEqual((await estados()).whatsapp.error, 'Plan sin WhatsApp', 'no se omite por plan (si no sale es por la instancia, como siempre)');
   });
 
-  it('el bot de Telegram (resultado de voucher) sin asistente se omite', async () => {
-    await fijarPlan('gratis');
+  it('un resultado de voucher por Telegram no se envía, aunque tenga chat vinculado: queda omitido con su motivo', async () => {
+    await fijarPlan('gratis', { modulos: ['asistente'], dias: 20 });
     await prisma.canalVinculado.create({ data: { usuario_id: d.propietario1.id, canal: 'telegram', identificador: '7001', empresa_id: d.empresaA.id, verificado_at: new Date(), clave_vigente: 'telegram:7001', clave_usuario: `${d.propietario1.id}:telegram` } });
-    await aviso('telegram', 'pago_validado', { entidad: 'recibo', id: reciboId });
+    await aviso('telegram', 'pago_rechazado', { entidad: 'recibo', id: reciboId });
     const r = await procesarCola(deps());
     assert.equal(r.omitidas, 1);
-    assert.equal((await estados()).telegram.error, 'Plan sin asistente');
+    assert.equal((await estados()).telegram.error, 'Los resultados de pago sólo van por correo');
     await prisma.canalVinculado.deleteMany();
   });
 });

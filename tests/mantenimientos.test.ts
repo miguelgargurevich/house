@@ -2,7 +2,7 @@ import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import bcrypt from 'bcrypt';
-import { cabecerasDeSesion, darCortesia, esperar, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
+import { cabecerasDeSesion, darCortesia, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
 import { hoyLima } from '../src/server/lib/fechas';
 import { rutaPermitida } from '../src/server/lib/rutasApp';
 import {
@@ -273,17 +273,20 @@ describe('pagar el mantenimiento completo (residente)', () => {
     assert.deepEqual(grupo.map((p) => Number(p.monto)), [40, 40, 15]);
   });
 
-  it('el aviso de resultado se manda una vez por grupo (al pago principal)', async () => {
+  it('validar el mantenimiento completo no avisa; el rechazo se manda una vez por grupo (al pago principal, sólo por correo)', async () => {
     const m = await mantenimiento(d.unidadA1);
     const r = await pagarMant(T.prop1, m);
     assert.equal((await validar(T.adminA, r.body.pago_id)).status, 200);
-    await esperar(async () => (await prisma.notificacion.count({ where: { tipo: 'pago_validado' } })) > 0);
-    const pagos = await pagosDe(m);
-    await avisarResultado(pagos[0].id, 'validado'); // idempotente
-    const avisos = await prisma.notificacion.findMany({ where: { tipo: 'pago_validado' } });
+    assert.equal(await prisma.notificacion.count({ where: { tipo: 'pago_validado' } }), 0, 'validado: ningún aviso');
+    const otro = await mantenimiento(d.unidadA2);
+    const rr = await pagarMant(T.prop2, otro);
+    assert.equal((await validar(T.adminA, rr.body.pago_id, { estado: 'rechazado', motivo: 'Voucher ilegible' })).status, 200);
+    const pagos = await pagosDe(otro);
+    await avisarResultado(pagos[0].id, 'rechazado', 'Voucher ilegible'); // idempotente
+    const avisos = await prisma.notificacion.findMany({ where: { tipo: 'pago_rechazado' } });
     const refs = new Set(avisos.map((a) => `${a.usuario_id}:${a.ref_id}`));
     assert.equal(refs.size, avisos.length, 'sin repetidos');
-    assert.ok(avisos.every((a) => a.ref_id === pagos[0].id), 'el aviso apunta al pago principal');
+    assert.ok(avisos.every((a) => a.ref_id === pagos[0].id && a.canal === 'email'), 'el aviso apunta al pago principal y sale por correo');
   });
 });
 

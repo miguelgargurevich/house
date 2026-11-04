@@ -13,7 +13,7 @@ interface Config {
   legal_razon_social: string | null; legal_ruc: string | null; legal_domicilio: string | null; legal_correo: string | null;
   google_site_verification: string | null; bing_site_verification: string | null;
   tipo_cambio_usd: string | null; tipo_cambio_manual: boolean; tipo_cambio_at: string | null; tipo_cambio_fuente: string | null;
-  whatsapp_tope_diario: number | null; whatsapp_pausa_min_seg: number; whatsapp_pausa_max_seg: number;
+  whatsapp_tope_diario: number | null; whatsapp_pausa_min_seg: number; whatsapp_pausa_max_seg: number; whatsapp_bot_activo: boolean;
 }
 interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config; impuestos: ImpuestoPais[]; precios_moneda: PrecioMoneda[]; precios_usd: PrecioUsd[] }
 
@@ -125,6 +125,7 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
         <Input label="Pausa mínima entre envíos (segundos)" type="number" min={0} max={60} {...t('whatsapp_pausa_min_seg')} />
         <Input label="Pausa máxima entre envíos (segundos)" type="number" min={0} max={60} hint="Entre dos WhatsApp del mismo número se espera un tiempo al azar dentro de este rango (máximo 60 s)." {...t('whatsapp_pausa_max_seg')} />
       </div>
+      <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-[oklch(var(--brand))]" checked={f.whatsapp_bot_activo} onChange={e => setF(x => ({ ...x, whatsapp_bot_activo: e.target.checked }))} /><span>Asistente por WhatsApp activo<span className="block text-muted">Apagado, el número sólo atiende «SALIR» (dar de baja los avisos) y no responde nada más: ni consultas, ni menú, ni vincular, ni vouchers por foto. Telegram no cambia.</span></span></label>
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Correo para avisos (registros y solicitudes)" type="email" {...t('correo_superadmin')} />
         <Input label="URL pública (enlaces de los correos)" placeholder="https://house.gargurevich.dev" hint="Es el dominio canónico del sitio: también arma los enlaces canónicos, el sitemap y llms.txt. Sin barra final." {...t('url_publica')} />

@@ -823,8 +823,8 @@ describe('validación automática', () => {
     const aud = await prisma.auditoria.findFirstOrThrow({ where: { accion: 'validar', entidad: 'pago', entidad_id: pagoId } });
     assert.equal(aud.usuario_id, null);
     assert.deepEqual(aud.detalle, { por: 'ia', veredicto: 'coincide', confianza: 1, sin_conformidad: 'sin_tesorero' }, 'el condominio de la prueba no tiene tesorero: basta la IA');
-    const avisos = await prisma.notificacion.findMany({ where: { tipo: 'pago_validado', ref_entidad: 'pago', ref_id: pagoId } });
-    assert.deepEqual(avisos.map((a) => a.usuario_id).sort(), [d.propietario1.id, d.inquilino1.id].sort());
+    // Validado por la IA: no hay aviso (el vecino lo ve en «Mis recibos»).
+    assert.deepEqual(await prisma.notificacion.findMany({ where: { tipo: 'pago_validado', ref_entidad: 'pago', ref_id: pagoId } }), []);
     const vista = await llamar(base, 'GET', '/api/me/pagos?pageSize=100', T.prop1); // la fecha del pago es la del voucher (sólo el día): ordena por detrás de los pagos con hora
     const mio = vista.body.items.find((x: { id: number }) => x.id === pagoId);
     assert.equal(mio.validado_por_ia, true);
@@ -1101,56 +1101,53 @@ describe('auditoría sin contenido', () => {
 describe('avisos al residente por la validación', () => {
   const avisosDe = (pagoId: number, tipo: string) => prisma.notificacion.findMany({ where: { tipo, ref_entidad: 'pago', ref_id: pagoId }, orderBy: { id: 'asc' } });
 
-  it('validar a mano avisa a quien registró el pago y al inquilino/propietario de la unidad, una sola vez cada uno', async () => {
+  it('validar a mano no encola ningún aviso: el vecino lo ve en «Mis recibos» (ni correo, ni WhatsApp, ni Telegram)', async () => {
     const { pagoId } = await pagoConComprobante({ inquilinoId: d.inquilino1.id });
     assert.equal((await validar(T.adminA, pagoId)).status, 200);
-    const avisos = await avisosDe(pagoId, 'pago_validado');
-    assert.deepEqual(avisos.map((a) => a.usuario_id).sort(), [d.propietario1.id, d.inquilino1.id].sort());
-    assert.ok(avisos.every((a) => a.canal === 'email' && a.estado === 'pendiente'));
-    assert.match(avisos[0]!.cuerpo, /Validamos tu pago/);
-    // Repetir no duplica: la segunda validación es 409 y reenviar el aviso es idempotente.
+    assert.deepEqual(await prisma.notificacion.findMany({ where: { ref_entidad: 'pago', ref_id: pagoId } }), []);
+    // Repetir no crea nada: la segunda validación es 409 y reenviar el resultado tampoco.
     assert.equal((await validar(T.adminA, pagoId)).status, 409);
     await avisarResultado(pagoId, 'validado');
-    assert.equal((await avisosDe(pagoId, 'pago_validado')).length, 2);
+    assert.equal((await avisosDe(pagoId, 'pago_validado')).length, 0);
   });
 
-  it('rechazar avisa con el motivo; el mismo cargo rechazado dos veces avisa las dos', async () => {
+  it('rechazar avisa sólo por correo a quien registró el pago (aunque lo pague el inquilino), con el motivo; el mismo cargo rechazado dos veces avisa las dos', async () => {
     const { pagoId, cargo } = await pagoConComprobante({ inquilinoId: d.inquilino1.id });
     const rechazo = await validar(T.adminA, pagoId, { estado: 'rechazado', motivo: 'El monto no coincide con el recibo' });
     assert.equal(rechazo.status, 200);
     const avisos = await avisosDe(pagoId, 'pago_rechazado');
-    assert.equal(avisos.length, 2);
+    assert.deepEqual(avisos.map((a) => [a.usuario_id, a.canal]), [[d.propietario1.id, 'email']]);
     assert.ok(avisos.every((a) => a.cuerpo.includes('Motivo: El monto no coincide con el recibo')));
     assert.equal((await avisosDe(pagoId, 'pago_validado')).length, 0);
     // Repago del mismo cargo y segundo rechazo: llega su propio aviso (el primero no lo tapa).
     const otro = await pagar(T.prop1, cargo.id);
     assert.equal((await validar(T.adminA, otro, { estado: 'rechazado', motivo: 'Sigue sin verse el depósito' })).status, 200);
-    assert.equal((await avisosDe(otro, 'pago_rechazado')).length, 2);
+    assert.equal((await avisosDe(otro, 'pago_rechazado')).length, 1);
   });
 
-  it('respeta las preferencias: sin correo ni WhatsApp activos, no se encola nada para esa persona', async () => {
-    await prisma.usuario.update({ where: { id: d.inquilino1.id }, data: { aviso_email: false, aviso_whatsapp: false } });
+  it('respeta las preferencias: si quien registró no tiene correo activo, el rechazo no se encola para esa persona', async () => {
+    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { aviso_email: false, aviso_whatsapp: false } });
     try {
       const { pagoId } = await pagoConComprobante({ inquilinoId: d.inquilino1.id });
-      await validar(T.adminA, pagoId);
-      assert.deepEqual((await avisosDe(pagoId, 'pago_validado')).map((a) => a.usuario_id), [d.propietario1.id]);
+      await validar(T.adminA, pagoId, { estado: 'rechazado', motivo: 'Voucher ilegible' });
+      assert.deepEqual(await avisosDe(pagoId, 'pago_rechazado'), []);
     } finally {
-      await prisma.usuario.update({ where: { id: d.inquilino1.id }, data: { aviso_email: true } });
+      await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { aviso_email: true } });
     }
   });
 
-  it('si quien registró es el mismo propietario y no hay inquilino, llega un solo aviso', async () => {
+  it('si quien registró es quien paga (sin inquilino), llega un solo aviso del rechazo', async () => {
     const { pagoId } = await pagoConComprobante();
-    await validar(T.adminA, pagoId);
-    assert.equal((await avisosDe(pagoId, 'pago_validado')).length, 1);
+    await validar(T.adminA, pagoId, { estado: 'rechazado', motivo: 'Voucher ilegible' });
+    assert.equal((await avisosDe(pagoId, 'pago_rechazado')).length, 1);
   });
 
-  it('la validación automática también avisa', async () => {
+  it('la validación automática tampoco avisa: el vecino lo ve en «Mis recibos»', async () => {
     await claves('openai');
     await configurar(d.complejoA.id, true);
     const { pagoId } = await evaluado({ inquilinoId: d.inquilino1.id });
     assert.equal((await pagoDb(pagoId)).validado_por_ia, true);
-    assert.equal((await avisosDe(pagoId, 'pago_validado')).length, 2);
+    assert.equal((await avisosDe(pagoId, 'pago_validado')).length, 0);
   });
 
   it('un pago registrado por el admin (ya validado) no genera aviso de validación', async () => {

@@ -18,11 +18,21 @@ Tres reglas que Miguel pidió el 26-oct-2026 («la fecha de pago se calcula del 
 
 ## 2. Recordatorios: exactamente dos por recibo y unidad sin voucher
 
-- `por_vencer`: **2 días antes** del vencimiento. `vence_hoy`: **el día del vencimiento**. Cada uno por correo y por WhatsApp, y sólo a quien tenga ese canal activo **con un correo o un celular real**: sin correo/celular el aviso no sale (en Los Libertadores los 32 propietarios del Block 1 tienen correo PROVISIONAL, así que hoy no les llega nada; hay que cargar sus datos reales).
+- `por_vencer`: **2 días antes** del vencimiento. `vence_hoy`: **el día del vencimiento**. Cada uno por correo y, si la lista del condominio lo incluye, por WhatsApp (`por_vencer` no viene en la lista por defecto: cada WhatsApp gasta cuota y tope). Sólo a quien tenga ese canal activo **con un correo o un celular real**: sin correo/celular el aviso no sale (en Los Libertadores los 32 propietarios del Block 1 tienen correo PROVISIONAL, así que hoy no les llega nada; hay que cargar sus datos reales). Y sólo a **quien paga la unidad** (§2 ter).
 - Sólo a las unidades **sin voucher**: si el cargo está `en_revision` (subió voucher) o `pagado`, no se manda. Un pago rechazado devuelve el cargo a `pendiente` (los recordatorios pendientes todavía pueden salir, pero nunca se repite uno ya enviado).
 - `vencido` sigue como estaba (venció ayer, hasta 3 días atrás). Un recibo emitido el mismo día no recibe recordatorios ese día: ya se avisó al emitirlo. Un recibo emitido a 2 días o menos de vencer sólo recibe `vence_hoy`.
 - «Hoy» y «faltan 2 días» son del calendario de Lima (`America/Lima`, UTC−5 sin horario de verano): a las 00:00:00 de Lima ya cuenta el día nuevo; a las 23:59:59 del día anterior, no.
 - Repetir el planificador (cada 15 min) no duplica: una fila por usuario, canal, tipo y recibo. Los textos dicen el departamento y la torre, piden subir el voucher y avisan de la mora del condominio (si es 0, no la mencionan).
+
+## 2 ter. Quién recibe el aviso de cobro
+
+Los avisos de cobro de una unidad (`recibo_emitido`, `por_vencer`, `vence_hoy`, `vencido`) van **sólo a quien paga**: el **inquilino** si la unidad tiene inquilino; si no, el **propietario**. El otro no los recibe, ni por correo ni por WhatsApp, aunque esté en la unidad. La regla es `quienPaga` (`services/avisos/cola.ts`) y se aplica en:
+
+- al emitir el recibo (`encolarReciboEmitido`) y en los recordatorios (`encolarRecordatorios`);
+- la vista previa y el envío de «Avisar a los vecinos» (`planAvisoRecibo`), así que los conteos cuadran con lo que se encola;
+- los datos del mensaje: `cargarDatos` sólo suma los cargos que esa persona paga, así que un aviso nunca habla de una unidad que no paga.
+
+Los **comunicados** no cambian: van a todos los vecinos del condominio.
 
 ## 2 bis. Qué avisos salen por WhatsApp (lista por condominio)
 
@@ -31,18 +41,20 @@ La administración elige, en la ficha del condominio (sección «Avisos por What
 | Aviso | Por defecto | Canal |
 |---|---|---|
 | Recibo del mes (`recibo_emitido`) | sí | correo + WhatsApp |
-| Recordatorio 2 días antes (`por_vencer`) | sí | correo + WhatsApp |
+| Recordatorio 2 días antes (`por_vencer`) | **no** (la administración lo enciende) | correo + WhatsApp, si se enciende |
 | Vence hoy (`vence_hoy`) | sí | correo + WhatsApp |
 | Venció (`vencido`) | sí | correo + WhatsApp |
-| Pago rechazado (`pago_rechazado`) | sí | correo + WhatsApp (y Telegram si vinculó su chat) |
-| Pago validado (`pago_validado`) | **no** | sólo correo y la app |
 | Cierre del mes pendiente, al tesorero (`cierre_pendiente`) | sí | correo + WhatsApp |
+| Pago rechazado (`pago_rechazado`) | no se configura: **siempre** | **sólo correo** (ni WhatsApp, ni Telegram, ni al número vinculado) |
+| Pago validado (`pago_validado`) | no se configura: **nunca se avisa** | ninguno: el vecino lo ve en «Mis recibos» |
 
 - **Qué no se rige por la lista**: los avisos de la IA (`ia_caida`, `ia_restablecida`, sólo superadmin) y los **comunicados** (el canal lo elige quien publica, al crearlo). Telegram tampoco cambia.
 - **Dónde se aplica**: en `canalesDe` (`services/avisos/cola.ts`), al encolar. Lo mismo que la vista previa de «Avisar a los vecinos» (`planAvisoRecibo`): cuenta exactamente lo que se enviaría. Y **al enviar**: un WhatsApp ya encolado de un tipo que la administración apagó después queda `omitida` con el motivo «Apagado en el condominio» (sin llamar a la API ni gastar cuota).
-- **Número vinculado del bot**: el resultado de un voucher (validado o rechazado) llega al número vinculado aunque la persona no tenga activados los avisos por WhatsApp, pero **sólo si la lista del condominio incluye ese tipo**. Con `pago_validado` apagado, el vinculado no recibe la validación.
+- **Número vinculado del bot**: sólo recibe WhatsApp de aviso cuando la persona tiene activados los avisos por WhatsApp (`aviso_whatsapp`) y la lista del condominio incluye el tipo. Ya no recibe resultados de pago: el rechazo va sólo por correo.
+- **Resultados de pago**: `pago_validado` no se encola. `pago_rechazado` sale sólo por correo, a quien registró el pago o, si no hay, a quien paga la unidad (§2 ter). Un resultado de pago que quedó pendiente por WhatsApp o Telegram antes de este cambio se omite con «Los resultados de pago sólo van por correo».
+- **Asistente por WhatsApp**: es otra cosa. Los avisos salen aunque el asistente esté apagado (`whatsapp_bot_activo`: el número de la administradora sólo manda; no conversa). Con el asistente apagado, el número sólo atiende «SALIR» (§ ajustes en `docs/API-CONTRATO.md`).
 - **Plan**: cada WhatsApp de aviso cuenta para la cuota mensual del plan (`reservarConsumo`) y para el tope diario del número (`whatsapp_tope_diario`, anti-baneo). Si el plan no trae «Avisos por WhatsApp», la ficha lo dice y no deja cambiar la lista; los WhatsApp se omiten con «Plan sin WhatsApp» como siempre.
-- **Condominios existentes**: el `@default` de la columna deja a cada condominio con la lista por defecto al aplicar el esquema (`db push` agrega la columna con ese valor a todas las filas; verificado en la base de pruebas con una fila creada antes del cambio).
+- **Condominios existentes**: el `@default` aplica sólo a los condominios NUEVOS. Las listas ya guardadas no se tocan: si alguna trae `pago_validado` o `pago_rechazado`, esos valores ya no tienen efecto (no son tipos configurables; no salen por WhatsApp de todos modos). `por_vencer` sigue siendo configurable, así que una lista guardada que lo trae lo sigue enviando.
 
 ## 3. Mora de S/ 20 en el recibo siguiente
 

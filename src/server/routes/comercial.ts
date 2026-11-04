@@ -118,6 +118,8 @@ const configSchema = z.object({
   whatsapp_tope_diario: z.number().int().min(0, 'Mínimo 0').max(100_000, 'Máximo 100 000').nullable().optional(),
   whatsapp_pausa_min_seg: z.number().int().min(0, 'Mínimo 0').max(60, 'Máximo 60 s').optional(),
   whatsapp_pausa_max_seg: z.number().int().min(0, 'Mínimo 0').max(60, 'Máximo 60 s').optional(),
+  // Asistente por WhatsApp: apagado (por defecto), el número sólo atiende «SALIR».
+  whatsapp_bot_activo: z.boolean().optional(),
 });
 const listaSchema = listQuerySchema.extend({ estado: z.enum(ESTADOS_SUSCRIPCION).optional(), empresa_id: idSchema.optional() });
 

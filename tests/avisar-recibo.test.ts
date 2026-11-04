@@ -37,9 +37,10 @@ before(async () => {
   const b1 = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'Block', complejo_id: d.complejoA.id } });
   const b2 = await prisma.estructura.create({ data: { nombre: 'Block 2', tipo: 'Block', complejo_id: d.complejoA.id } });
   await prisma.unidad.update({ where: { id: d.unidadA1.id }, data: { estructura_id: b1.id } });
-  // Canales a la medida: propietario 1 correo y WhatsApp; inquilino 1 sólo correo; propietario 2 sólo un correo sin buzón (`.invalid`).
+  // Canales a la medida: quien PAGA A-101 es el inquilino 1 (correo y WhatsApp); el propietario 1 no paga esa unidad y no recibe el aviso;
+  // propietario 2 (paga A-102) sólo tiene un correo sin buzón (`.invalid`).
   await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { aviso_email: true, aviso_whatsapp: true, telefono: '+51 987 654 321' } });
-  await prisma.usuario.update({ where: { id: d.inquilino1.id }, data: { aviso_email: true, aviso_whatsapp: false, telefono: null } });
+  await prisma.usuario.update({ where: { id: d.inquilino1.id }, data: { aviso_email: true, aviso_whatsapp: true, telefono: '+51 933 333 333' } });
   await prisma.usuario.update({ where: { id: d.propietario2.id }, data: { email: SIN_CORREO, aviso_email: true, aviso_whatsapp: false, telefono: null } });
   // Presidentes de la junta de cada block (cada uno vive en su block).
   const presidente = async (nombre: string, email: string, codigo: string, estructura_id: number) => {
@@ -70,10 +71,10 @@ after(async () => {
 });
 
 describe('vista previa', () => {
-  it('cuenta por correo y por WhatsApp, y el correo .invalid cuenta como sin canal', async () => {
+  it('cuenta a quien paga, por correo y por WhatsApp; el correo .invalid cuenta como sin canal; el propietario de una unidad con inquilino no cuenta', async () => {
     const r = await avisar(T.adminA, R.vencido);
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { vecinos: 3, por_correo: 2, por_whatsapp: 1, por_avisar: 2, ya_avisados: 0, sin_canal: 1, espera_segundos: 0 });
+    assert.deepEqual(r.body, { vecinos: 2, por_correo: 1, por_whatsapp: 1, por_avisar: 1, ya_avisados: 0, sin_canal: 1, espera_segundos: 0 });
   });
 
   it('no trae nombres ni datos de contacto, sólo conteos', async () => {
@@ -86,9 +87,9 @@ describe('envío', () => {
   it('encola un aviso por canal a quien lo tiene y no crea nada para quien no tiene canal', async () => {
     const r = await avisar(T.adminA, R.vencido, 'POST');
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { encolados: 2, ya_avisados: 0, sin_canal: 1 });
+    assert.deepEqual(r.body, { encolados: 1, ya_avisados: 0, sin_canal: 1 });
     const filas = await avisosDelRecibo(R.vencido);
-    assert.deepEqual(filas.map((f) => `${f.usuario_id}:${f.canal}:${f.estado}`).sort(), [`${U.inq1}:email:pendiente`, `${U.prop1}:email:pendiente`, `${U.prop1}:whatsapp:pendiente`].sort());
+    assert.deepEqual(filas.map((f) => `${f.usuario_id}:${f.canal}:${f.estado}`).sort(), [`${U.inq1}:email:pendiente`, `${U.inq1}:whatsapp:pendiente`].sort());
   });
 
   it('un segundo envío dentro de los 2 minutos es 409 y no crea nada', async () => {
@@ -98,25 +99,25 @@ describe('envío', () => {
     const r = await avisar(T.adminA, R.vencido, 'POST');
     assert.equal(r.status, 409);
     assert.match(r.body.error, /Vuelve a intentarlo en \d+ s\./);
-    assert.equal((await avisosDelRecibo(R.vencido)).length, 3);
+    assert.equal((await avisosDelRecibo(R.vencido)).length, 2);
   });
 
   it('pasado el plazo, repetir el envío no duplica: 0 encolados y todos ya avisados', async () => {
     await pasarPlazo(R.vencido, 2);
     const r = await avisar(T.adminA, R.vencido, 'POST');
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { encolados: 0, ya_avisados: 2, sin_canal: 1 });
-    assert.equal((await avisosDelRecibo(R.vencido)).length, 3, 'sigue habiendo tres avisos, ninguno nuevo');
+    assert.deepEqual(r.body, { encolados: 0, ya_avisados: 1, sin_canal: 1 });
+    assert.equal((await avisosDelRecibo(R.vencido)).length, 2, 'sigue habiendo dos avisos, ninguno nuevo');
   });
 
   it('lo que falló se vuelve a poner en cola; lo pendiente o enviado no se toca', async () => {
-    await prisma.notificacion.updateMany({ where: { ref_entidad: 'recibo', ref_id: R.vencido, usuario_id: U.prop1, canal: 'whatsapp' }, data: { estado: 'error', intentos: 3, error: 'Fallo de prueba' } });
+    await prisma.notificacion.updateMany({ where: { ref_entidad: 'recibo', ref_id: R.vencido, usuario_id: U.inq1, canal: 'whatsapp' }, data: { estado: 'error', intentos: 3, error: 'Fallo de prueba' } });
     await prisma.notificacion.updateMany({ where: { ref_entidad: 'recibo', ref_id: R.vencido, usuario_id: U.inq1, canal: 'email' }, data: { estado: 'enviada' } });
     await pasarPlazo(R.vencido, 3);
     const r = await avisar(T.adminA, R.vencido, 'POST');
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { encolados: 1, ya_avisados: 1, sin_canal: 1 });
-    const wa = await prisma.notificacion.findFirst({ where: { ref_entidad: 'recibo', ref_id: R.vencido, usuario_id: U.prop1, canal: 'whatsapp' } });
+    assert.deepEqual(r.body, { encolados: 1, ya_avisados: 0, sin_canal: 1 });
+    const wa = await prisma.notificacion.findFirst({ where: { ref_entidad: 'recibo', ref_id: R.vencido, usuario_id: U.inq1, canal: 'whatsapp' } });
     assert.equal(wa?.estado, 'pendiente');
     assert.equal(wa?.intentos, 0);
     assert.equal(wa?.error, null);
@@ -136,7 +137,7 @@ describe('envío', () => {
     const a = await prisma.auditoria.findFirst({ where: { accion: 'avisar_vecinos', entidad: 'recibo', entidad_id: R.vencido }, orderBy: { id: 'asc' } });
     assert.ok(a, 'hay una fila de auditoría');
     assert.equal(a!.usuario_id, d.adminA.id);
-    assert.deepEqual(a!.detalle, { mes: 8, anio: 2026, encolados: 2, ya_avisados: 0, sin_canal: 1 });
+    assert.deepEqual(a!.detalle, { mes: 8, anio: 2026, encolados: 1, ya_avisados: 0, sin_canal: 1 });
     assert.ok(!JSON.stringify(a!.detalle).includes('@'));
   });
 });

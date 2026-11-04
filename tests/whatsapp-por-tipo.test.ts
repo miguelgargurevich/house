@@ -11,7 +11,7 @@ import { invalidarComercial } from '../src/server/services/comercial/modulos';
 // la vista previa de «Avisar a los vecinos», el envío de un pendiente cuyo tipo se apagó después, y la API que la cambia.
 // Nada sale de verdad: `fetch` es un doble y el envío se mide por las llamadas.
 
-const DEFECTO = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_rechazado', 'cierre_pendiente'];
+const DEFECTO = ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente'];
 const ENV_OK: NodeJS.ProcessEnv = {
   RESEND_API_KEY: 're_CLAVE-FALSA-NO-REAL',
   MAIL_FROM: 'Casa <avisos@ejemplo.test>',
@@ -80,32 +80,32 @@ beforeEach(async () => {
 });
 
 describe('lista por defecto', () => {
-  it('un condominio nuevo nace con la lista por defecto (todo menos pago_validado)', async () => {
+  it('un condominio nuevo nace con la lista por defecto (sin el recordatorio de 2 días antes)', async () => {
     const c = await prisma.complejoHabitacional.findUniqueOrThrow({ where: { id: D.complejoA.id }, select: { whatsapp_avisos: true } });
     assert.deepEqual([...c.whatsapp_avisos].sort(), [...DEFECTO].sort());
   });
 
-  it('recibo emitido sale por correo y WhatsApp; pago validado sólo por correo', async () => {
-    await encolarAviso('recibo_emitido', D.propietario1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
-    await encolarAviso('pago_validado', D.propietario1.id, { entidad: 'cargo', id: D.cargoVencidoA1.id });
-    assert.deepEqual(await canalesDeFilas(D.propietario1.id, 'recibo_emitido'), ['email', 'whatsapp']);
-    assert.deepEqual(await canalesDeFilas(D.propietario1.id, 'pago_validado'), ['email']);
+  it('recibo emitido sale por correo y WhatsApp; por_vencer, apagado por defecto, sólo por correo (a quien paga: el inquilino de A-101)', async () => {
+    await encolarAviso('recibo_emitido', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
+    await encolarAviso('por_vencer', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'recibo_emitido'), ['email', 'whatsapp']);
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'por_vencer'), ['email']);
   });
 });
 
 describe('la administración elige la lista', () => {
-  it('quitar vence_hoy: no se encola por WhatsApp, el correo sí; los demás recordatorios siguen', async () => {
-    await listaA(DEFECTO.filter((t) => t !== 'vence_hoy'));
-    await encolarAviso('vence_hoy', D.propietario1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
-    await encolarAviso('por_vencer', D.propietario1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
-    assert.deepEqual(await canalesDeFilas(D.propietario1.id, 'vence_hoy'), ['email']);
-    assert.deepEqual(await canalesDeFilas(D.propietario1.id, 'por_vencer'), ['email', 'whatsapp']);
+  it('quitar vence_hoy: no se encola por WhatsApp, el correo sí; encender por_vencer lo hace salir por WhatsApp', async () => {
+    await listaA([...DEFECTO.filter((t) => t !== 'vence_hoy'), 'por_vencer']);
+    await encolarAviso('vence_hoy', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
+    await encolarAviso('por_vencer', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'vence_hoy'), ['email']);
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'por_vencer'), ['email', 'whatsapp']);
   });
 
-  it('encender pago_validado: ahora también sale por WhatsApp', async () => {
-    await listaA([...DEFECTO, 'pago_validado']);
-    await encolarAviso('pago_validado', D.propietario1.id, { entidad: 'cargo', id: D.cargoVencidoA1.id });
-    assert.deepEqual(await canalesDeFilas(D.propietario1.id, 'pago_validado'), ['email', 'whatsapp']);
+  it('un resultado de pago nunca sale por WhatsApp, aunque la lista tenga todos los demás avisos', async () => {
+    await listaA(['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'cierre_pendiente']);
+    await encolarAviso('pago_rechazado', D.propietario1.id, { entidad: 'cargo', id: D.cargoVencidoA1.id }, { motivo: 'Voucher ilegible' });
+    assert.deepEqual(await canalesDeFilas(D.propietario1.id, 'pago_rechazado'), ['email']);
   });
 
   it('la lista de un condominio no afecta a otro (B conserva la suya)', async () => {
@@ -122,20 +122,17 @@ describe('número vinculado del bot', () => {
     await prisma.canalVinculado.create({ data: { usuario_id: D.inquilino1.id, canal: 'whatsapp', identificador: '944444444', empresa_id: D.empresaA.id, verificado_at: new Date() } });
   };
 
-  it('el rechazo del voucher llega al número vinculado si la lista lo incluye; la validación, no si está apagada', async () => {
+  it('el rechazo del voucher NO llega al número vinculado: sólo correo, aunque la lista tenga todo', async () => {
     await vincularInq1();
-    await listaA(['pago_rechazado']);
-    await encolarAviso('pago_rechazado', D.inquilino1.id, { entidad: 'cargo', id: D.cargoVencidoA1.id }, { motivo: 'Voucher ilegible' });
-    await encolarAviso('pago_validado', D.inquilino1.id, { entidad: 'cargo', id: D.cargoVencidoA1.id });
-    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'pago_rechazado'), ['email', 'whatsapp'], 'rechazo permitido → llega al vinculado');
-    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'pago_validado'), ['email'], 'validación apagada → sólo el correo, el vinculado no recibe nada');
-  });
-
-  it('con la lista sin pago_rechazado, el número vinculado tampoco recibe el rechazo (sólo el correo)', async () => {
-    await vincularInq1();
-    await listaA(['recibo_emitido']);
+    await listaA(['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'cierre_pendiente']);
     await encolarAviso('pago_rechazado', D.inquilino1.id, { entidad: 'cargo', id: D.cargoVencidoA1.id }, { motivo: 'Voucher ilegible' });
     assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'pago_rechazado'), ['email']);
+  });
+
+  it('la validación no se encola a nadie, ni al número vinculado', async () => {
+    await vincularInq1();
+    assert.equal(await encolarAviso('pago_validado', D.inquilino1.id, { entidad: 'cargo', id: D.cargoVencidoA1.id }), 0);
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'pago_validado'), []);
   });
 });
 
@@ -199,11 +196,11 @@ describe('API: PATCH /api/complejos/:id { whatsapp_avisos }', () => {
   const ruta = () => `/api/complejos/${D.complejoA.id}`;
 
   it('el admin del condominio guarda una lista válida y la devuelve', async () => {
-    const r = await llamar(base, 'PATCH', ruta(), T.adminA, { whatsapp_avisos: ['vence_hoy', 'pago_validado'] });
+    const r = await llamar(base, 'PATCH', ruta(), T.adminA, { whatsapp_avisos: ['vence_hoy', 'por_vencer'] });
     assert.equal(r.status, 200, JSON.stringify(r.body));
-    assert.deepEqual(r.body.whatsapp_avisos, ['vence_hoy', 'pago_validado']);
+    assert.deepEqual(r.body.whatsapp_avisos, ['vence_hoy', 'por_vencer']);
     const guardada = await prisma.complejoHabitacional.findUniqueOrThrow({ where: { id: D.complejoA.id }, select: { whatsapp_avisos: true } });
-    assert.deepEqual(guardada.whatsapp_avisos, ['vence_hoy', 'pago_validado']);
+    assert.deepEqual(guardada.whatsapp_avisos, ['vence_hoy', 'por_vencer']);
   });
 
   it('lista vacía = ningún aviso automático por WhatsApp (válido)', async () => {
@@ -212,8 +209,8 @@ describe('API: PATCH /api/complejos/:id { whatsapp_avisos }', () => {
     assert.deepEqual(r.body.whatsapp_avisos, []);
   });
 
-  it('rechaza tipos que no se configuran (IA, comunicado, uno inventado), repetidos y un valor que no es lista → 422', async () => {
-    for (const malo of [['ia_caida'], ['comunicado'], ['tipo_inventado'], ['vence_hoy', 'vence_hoy'], 'vence_hoy']) {
+  it('rechaza tipos que no se configuran (resultados de pago, IA, comunicado, uno inventado), repetidos y un valor que no es lista → 422', async () => {
+    for (const malo of [['pago_validado'], ['pago_rechazado'], ['ia_caida'], ['comunicado'], ['tipo_inventado'], ['vence_hoy', 'vence_hoy'], 'vence_hoy']) {
       const r = await llamar(base, 'PATCH', ruta(), T.adminA, { whatsapp_avisos: malo });
       assert.equal(r.status, 422, JSON.stringify(malo) + ' → ' + JSON.stringify(r.body));
     }

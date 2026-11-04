@@ -157,8 +157,9 @@ describe('IA + tesorero: valida solo cuando se cumplen las dos', () => {
     assert.equal(aud.length, 1);
     assert.equal(aud[0]!.usuario_id, null);
     assert.deepEqual(aud[0]!.detalle, { por: 'ia', veredicto: 'coincide', confianza: 1, tesorero: ids.tesor1 });
+    // Un pago validado no avisa: el vecino lo ve en «Mis recibos».
     const avisos = await prisma.notificacion.findMany({ where: { tipo: 'pago_validado', ref_entidad: 'pago', ref_id: pagoId } });
-    assert.deepEqual(avisos.map((a) => a.usuario_id).sort(), [d.propietario1.id, d.inquilino1.id].sort());
+    assert.deepEqual(avisos, []);
   });
 
   it('tesorero primero, IA después: la conformidad sola NO valida; al terminar la evaluación el pago queda validado', async () => {

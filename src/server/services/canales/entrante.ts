@@ -6,6 +6,7 @@ import { canalesDeps, enmascarar } from './deps';
 import { darDeBajaWhatsapp, esBajaWhatsapp, TEXTO_BAJA_WHATSAPP } from './baja';
 import { conversarPorCanal } from './conversar';
 import { complejoDelAsistente } from '../comercial/consumo';
+import { obtenerConfiguracion } from '../comercial/configuracion';
 import { descargarMedio, responder } from './evolution';
 import { comandoDe } from './formato';
 import { cargarAuthUser, perteneceAEmpresa } from './identidad';
@@ -108,6 +109,16 @@ export async function reclamarMensaje(instancia: string, mensajeId: string): Pro
 export async function atenderMensaje(t: Transporte, e: MensajeEntrante): Promise<void> {
   const MSGC = mensajes(t.canal);
   const decir = (texto: string, opts?: { complejoId?: number | null }) => t.responder(texto, opts).catch(() => undefined);
+
+  // WhatsApp con el asistente apagado (`whatsapp_bot_activo`): el número no conversa. Sólo «SALIR» tiene efecto (baja de los avisos de esa empresa);
+  // cualquier otro mensaje se descarta SIN responder: ni vínculo, ni menú, ni «muchos mensajes». Telegram no se rige por esto.
+  if (t.canal === 'whatsapp' && !(await obtenerConfiguracion()).whatsapp_bot_activo) {
+    if (t.empresaId != null && !e.medio && esBajaWhatsapp(e.texto)) {
+      await darDeBajaWhatsapp(t.empresaId, t.identificador);
+      await decir(TEXTO_BAJA_WHATSAPP);
+    }
+    return;
+  }
 
   // Límites por identificador y por empresa: pasado el tope se avisa UNA vez por ventana y se descarta el resto.
   // Con empresa conocida de antemano (WhatsApp) se mide aquí; en Telegram la empresa sale del vínculo y se mide al resolverlo.
