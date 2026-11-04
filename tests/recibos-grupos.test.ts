@@ -45,7 +45,7 @@ let d: Datos;
 let T: Record<'adminA' | 'adminB', string>;
 let e1: { id: number }, e2: { id: number }, e3: { id: number };
 let unidadA3: { id: number };
-let g1: { id: number }, g2: { id: number };
+let g1: { id: number };
 let prop2Telefono = '';
 
 /** Un recibo de un block con un cargo a una unidad (la que paga, según `pagadoresDe`). */
@@ -80,7 +80,7 @@ before(async () => {
   prop2Telefono = '987654321';
   await prisma.usuario.update({ where: { id: d.propietario2.id }, data: { telefono: prop2Telefono, aviso_whatsapp: true } });
   g1 = await prisma.grupoWhatsapp.create({ data: { empresa_id: d.empresaA.id, jid: G1, nombre: 'Vecinos Block 1', en_uso: true, destino: 'block', complejo_id: d.complejoA.id, estructura_id: e1.id } });
-  g2 = await prisma.grupoWhatsapp.create({ data: { empresa_id: d.empresaA.id, jid: G2, nombre: 'Vecinos Block 2', en_uso: true, destino: 'block', complejo_id: d.complejoA.id, estructura_id: e2.id } });
+  await prisma.grupoWhatsapp.create({ data: { empresa_id: d.empresaA.id, jid: G2, nombre: 'Vecinos Block 2', en_uso: true, destino: 'block', complejo_id: d.complejoA.id, estructura_id: e2.id } });
   ({ base, cerrar } = await iniciar({ rateLimits: { api: 100_000, login: 100_000 } }));
   T = { adminA: await login(base, 'admin.a@test.pe'), adminB: await login(base, 'admin.b@test.pe') };
   canalesDeps.env = { ...process.env, EVOLUTION_URL: 'https://evo.ejemplo.test', EVOLUTION_APIKEY: 'evo-CLAVE-FALSA-NO-REAL' };
@@ -245,7 +245,7 @@ describe('comunicados: la junta sólo con enviar_junta', () => {
 describe('cobertura de grupos por block', () => {
   it('14 blocks con grupo en 13: «13 de 14», y el que falta se nombra; el número de otra empresa no cuenta', async () => {
     const c = await prisma.complejoHabitacional.create({ data: { nombre: 'Complejo C', tipo: 'Edificio', empresa_id: d.empresaA.id } });
-    const blocks: { id: number; nombre: string }[] = [];
+    const blocks: { id: number; nombre: string | null }[] = [];
     for (let i = 1; i <= 14; i++) blocks.push(await prisma.estructura.create({ data: { nombre: `Block ${i}`, tipo: 'Block', complejo_id: c.id } }));
     for (const b of blocks.filter((x) => x.nombre !== 'Block 9')) {
       await prisma.grupoWhatsapp.create({ data: { empresa_id: d.empresaA.id, jid: `120363000000${b.id}@g.us`, nombre: `Vecinos ${b.nombre}`, en_uso: true, destino: 'block', complejo_id: c.id, estructura_id: b.id } });
