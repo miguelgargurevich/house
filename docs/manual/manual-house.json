@@ -28,32 +28,32 @@
           [
             "Administradora",
             "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-            "Secciones 07 a 36"
+            "Secciones 07 a 37"
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
             "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
-            "Secciones 37 a 44"
+            "Secciones 38 a 45"
           ],
           [
             "Propietario",
             "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-            "Secciones 45 a 53"
+            "Secciones 46 a 54"
           ],
           [
             "Inquilino",
             "Lo mismo que el propietario, para el departamento que alquilas",
-            "Sección 54"
+            "Sección 55"
           ],
           [
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
-            "Secciones 55 y 56"
+            "Secciones 56 y 57"
           ],
           [
             "Superadmin (soporte de Torre)",
             "Ves Torre como la ve otra persona para darle soporte, con motivo y en la auditoría",
-            "Sección 57"
+            "Sección 58"
           ],
           [
             "Todavía no tienes cuenta",
