@@ -64,5 +64,14 @@ sobre la app LOCAL (seed de Los Libertadores; ningún dato real). Los .mp4/.wav/
   de mentira; no envía nada). Preparación: `whatsapp_instance='local_6'` en la empresa 6 y el backend del checkout principal con `EVOLUTION_URL=http://localhost:18089`,
   `EVOLUTION_APIKEY` cualquiera, `AVISOS_PLANIFICADOR=off` y `RESEND_API_KEY=` vacío. `--preparar` deja 3 grupos «en uso» (Vecinos Block 1, Junta Block 1 y Grupo personal 30).
   Al terminar: `whatsapp_instance=null` en la empresa 6, borrar sus `GrupoWhatsapp`, backend sin `EVOLUTION_URL`, y detener el falso. Nunca pulses Enviar ni Publicar.
-- **«Tu marca»** (`m-admin-marca`, opción «Tu marca (en Mi empresa)»): escribe un nombre y un color de prueba, sin guardar. Requiere `main` (la función no está en la rama del worktree).
+- **«Tu marca»** (`m-admin-marca`, opción «Tu marca (en Mi empresa)», 38,3 s, 5 escenas): escribe el nombre «Demo Condominios» y el color `#1d4ed8`, pulsa «Guardar mi marca»
+  y muestra el menú con la marca; al final quita el nombre, pulsa «Volver al verde de Torre» y guarda. Por eso **la empresa 6 queda con `nombre_comercial` y `color_marca` en
+  `null`** (si una grabación se corta, ponlos en `null` a mano). Requiere `main` (la función no está en la rama del worktree). Las escenas recargan la página: lo que una
+  escena escribe hay que volver a escribirlo en la siguiente.
+- **«Ten Torre en tu celular»** (`m-todos-instalar`, formato **celular 9:16**, 31,2 s, `formato: "celular"` en `manual-videos.json`, id `todos.instalar`, primera entrada):
+  el aviso «Ten Torre en tu celular» / «Instalar Torre» sale sólo dentro de la app, en pantallas chicas y sin instalar (`src/app/InstalarApp.tsx`). En Android se
+  despacha el evento `beforeinstallprompt` en la página (en Playwright no llega solo); el diálogo nativo del sistema NO se ve en el video: se dice con la voz y se señala
+  el botón. En iPhone se usa el userAgent de Safari en iPhone (`UA_IPHONE`, campo `ua` de la escena) y se señala «Agregar a inicio». Se graba con
+  `node scripts/marketing/grabar-video.mjs m-todos-instalar celular` y se monta con `montar-video.sh m-todos-instalar celular` (`grabar-manual.sh` ya toma el formato de
+  cada video con `videos-manual.mjs --formato <id>`). Revisión 4-nov-2026: cuadros correctos (login, aviso Android, «Ahora no», texto de iPhone); OCR sin datos reales.
 - **Pendiente**: en los videos de comunicados, las escenas 2 y 3 del modal desplazan el campo «Para quién» y el título fuera de cuadro (sólo se ven los envíos y los grupos).

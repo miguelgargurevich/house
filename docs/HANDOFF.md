@@ -4,6 +4,23 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Videos del manual: «Tu marca» regrabado y «Ten Torre en tu celular» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel**: que Torre tenga su versión para descargar al celular (como Portal de Dealers) y que el manual lo mencione con su video.
+- **Qué se hizo**:
+  - Regrabado `m-admin-marca` («Tu marca», 38,3 s, 5 escenas): ahora guarda una marca de prueba («Demo Condominios», `#1d4ed8`), muestra el menú con ella y termina con «Volver al verde de Torre» y guardar.
+  - Nuevo `m-todos-instalar` («Ten Torre en tu celular», **celular 9:16**, 31,2 s, 4 escenas): aviso «Instalar Torre» en Android (con «Ahora no») y «Compartir › Agregar a inicio» en iPhone. Va como primera entrada de `manual-videos.json` (id `todos.instalar`, `formato: "celular"`).
+  - `videos-manual.mjs`: el formato sale del video (`formato`, `--formato <id>`); `grabar-video.mjs` acepta `ua` por escena; `grabar-manual.sh` graba cada video en su formato.
+- **Resultado**: OCR (Melina, Loayza, gmail, Gargurevich, celulares reales) sin datos en los cuadros revisados; cuadros a ojo correctos.
+- **Empresa 6**: `nombre_comercial` y `color_marca` quedaron en `null` (verificado en la base `house`).
+- **Gotchas**:
+  - Cada escena carga la página de nuevo: lo que una escena escribe, la siguiente debe volver a escribirlo.
+  - En macOS `Ctrl+A` no selecciona todo en un campo: usar `fill('')`.
+  - Las voces se pidieron con `audio_generar` (`ef_dora`); la respuesta dice `provider: kokoro`. Conviene oírlas antes de publicar.
+- **Próximos (Opus)**: subir los dos mp4 (escritorio y celular) a MinIO/My Workspace y regenerar el manual con la nueva sección «Ten Torre en tu celular» (ya está en `manual-videos.json`).
+
+---
+
 ## 2026-11-04 — Videos del manual: WhatsApp, comunicados y «Tu marca» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: revisar que los videos muestren las últimas opciones de WhatsApp (contador, Mis grupos, avisos del condominio), comunicados (junta, correo, WhatsApp, grupos) y la opción nueva «Tu marca».

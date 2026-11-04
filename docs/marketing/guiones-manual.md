@@ -1,6 +1,6 @@
 # Guiones de los videos del manual de Torre
 
-Un video corto (15–40 s) por opción del menú de cada rol, sólo **escritorio (16:9)**. 44 videos distintos; los que comparten pantalla se reusan
+Un video corto (15–40 s) por opción del menú de cada rol, en **escritorio (16:9)**; «Ten Torre en tu celular» va en **celular (9:16)**. 45 videos distintos; los que comparten pantalla se reusan
 (el inquilino usa los del propietario, jardinería los de limpieza, «Mi perfil» es uno solo). Se generan con `scripts/marketing/videos-manual.mjs --guiones`
 (este archivo se regenera; el texto vive en ese módulo). Voz «Dora» de My Workspace (`ef_dora`); método en `docs/marketing/guiones-videos.md` y `docs/manual/README.md`.
 
@@ -188,7 +188,7 @@ Los datos de tu administradora y las cuentas de tu equipo.
 | 1 | Mi empresa › Datos: razón social, RUC, contacto y logo del recibo | Mi empresa reúne los datos de tu administradora tal como salen en los recibos y comunicados: razón social, RUC, contacto y logo. |
 | 2 | Pestaña «Personal»: las cuentas del equipo | En la pestaña Personal creas las cuentas de tu equipo, como seguridad o mantenimiento, y cada persona ve sólo lo de su rol. |
 
-## `m-admin-marca` — Tu marca (Administradora) · 31,9 s
+## `m-admin-marca` — Tu marca (Administradora) · 38,3 s
 
 El logo, el nombre comercial y el color de tu administradora: así se ven Torre y sus recibos para tus vecinos.
 
@@ -197,7 +197,8 @@ El logo, el nombre comercial y el color de tu administradora: así se ven Torre 
 | 1 | Mi empresa › Datos, sección «Tu marca»: logo, nombre comercial, color y vista previa | Tu marca es el logo, el nombre comercial y el color de tu administradora. Salen en el menú de la app, en el recibo y en los correos de tus vecinos. |
 | 2 | Se escribe un nombre comercial de prueba y la vista previa lo muestra (no se guarda) | Escribe el nombre comercial con el que te presentas. Si lo dejas vacío, se usa tu razón social. La vista previa cambia al instante. |
 | 3 | Se escribe un color de prueba (#1d4ed8) y la vista previa cambia (no se guarda) | Elige el color con el selector o escribe su código, por ejemplo 1d4ed8. Así se verá tu marca en la app. |
-| 4 | Se señala «Guardar mi marca» y se pulsa «Volver al verde de Torre» (no se guarda) | Volver al verde de Torre devuelve el color de siempre. Nada cambia hasta que tocas Guardar mi marca. |
+| 4 | Se pulsa «Guardar mi marca» y, en el menú, «Resumen»: el nombre y el color ya salen en la app | Guarda tu marca y Torre la aplica en toda la app. En el menú ya aparecen tu nombre y tu color. |
+| 5 | De vuelta en Mi empresa: se quita el nombre, se pulsa «Volver al verde de Torre» y se guarda | Para volver al verde de Torre, pulsa Volver al verde de Torre y guarda. Torre vuelve a verse como siempre. |
 
 ## `m-admin-mi-plan` — Mi plan (Administradora) · 16,7 s
 
@@ -416,3 +417,14 @@ Tus datos, tu contraseña, tus sesiones abiertas y tu celular para recibir aviso
 |---|---|---|
 | 1 | Mi perfil: datos personales y contraseña | En Mi perfil cambias tu nombre y tu contraseña. Tu correo y tu rol los gestiona tu administración. |
 | 2 | Se baja a «Sesiones activas» y «Celular y avisos» | Más abajo ves los dispositivos donde tienes la sesión abierta, y en Celular y avisos registras tu celular para recibir los avisos. |
+
+## `m-todos-instalar` — Ten Torre en tu celular (Propietario) · 31,2 s
+
+Cómo agregar Torre a la pantalla de inicio de tu celular: en Android, con el aviso Instalar Torre, y en iPhone, desde Safari.
+
+| # | En pantalla | Voz |
+|---|---|---|
+| 1 | Inicio de sesión en el celular | Torre también funciona en tu celular. Puedes agregarla a tu pantalla de inicio y abrirla como una app, sin la barra del navegador. |
+| 2 | Android: aparece el aviso «Ten Torre en tu celular» y se señala «Instalar Torre» | En Android, el aviso Instalar Torre aparece arriba. Tócalo: tu celular te pide confirmar y Torre queda en tu pantalla de inicio. |
+| 3 | Android: se señala «Ahora no», que quita el aviso de ese celular | Si no quieres instalarla ahora, toca Ahora no. Ese aviso no vuelve a salir en este celular. |
+| 4 | iPhone (Safari): el aviso explica «Compartir» y «Agregar a inicio»; se señala el texto | En iPhone, Torre se instala desde Safari. Toca el botón Compartir, y luego Agregar a inicio. Torre queda con su ícono, como cualquier app. |

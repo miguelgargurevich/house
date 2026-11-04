@@ -1,5 +1,18 @@
 [
   {
+    "id": "todos.instalar",
+    "rol": "todos",
+    "rol_nombre": "Todos",
+    "menu": "Ten Torre en tu celular",
+    "ruta": "/login",
+    "video": "m-todos-instalar",
+    "titulo": "Ten Torre en tu celular",
+    "descripcion": "Cómo agregar Torre a la pantalla de inicio de tu celular: en Android, con el aviso Instalar Torre, y en iPhone, desde Safari.",
+    "formato": "celular",
+    "archivo": ".claude/videos/m-todos-instalar/torre-m-todos-instalar-celular.mp4",
+    "duracion_s": 31.2
+  },
+  {
     "id": "admin.resumen",
     "rol": "admin",
     "rol_nombre": "Administradora",
@@ -237,7 +250,7 @@
     "titulo": "Tu marca",
     "descripcion": "El logo, el nombre comercial y el color de tu administradora: así se ven Torre y sus recibos para tus vecinos.",
     "archivo": ".claude/videos/m-admin-marca/torre-m-admin-marca-escritorio.mp4",
-    "duracion_s": 31.9
+    "duracion_s": 38.3
   },
   {
     "id": "admin.mi-plan",
