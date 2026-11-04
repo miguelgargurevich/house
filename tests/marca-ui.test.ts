@@ -157,7 +157,7 @@ describe('recibo impreso con marca', () => {
 describe('estado de cuenta con marca', () => {
   const estado = (administradora: string | null): EstadoCuenta => ({
     unidad: { id: 1, codigo: 'E-1', tipo: 'Departamento' }, estructura: null, condominio: { id: 1, nombre: 'Condominio Prueba' }, administradora, propietario: 'Elena', inquilino: null, moneda: 'PEN', zona_horaria: 'America/Lima', fecha_corte: '2026-11-03', desde: null, hasta: null,
-    totales: { cargado: '0.00', mora: '0.00', pagado: '0.00', en_revision: '0.00', saldo_anterior: '0.00', saldo_deudor: '0.00', meses_vencidos: 0, deuda_vencida: '0.00', pagos_rechazados: 0 }, filas: [],
+    totales: { cargado: '0.00', mora: '0.00', pagado: '0.00', en_revision: '0.00', saldo_anterior: '0.00', saldo_deudor: '0.00', meses_vencidos: 0, deuda_vencida: '0.00', pagos_rechazados: 0, pagos_anulados: 0 }, filas: [],
   });
   const marcaSobreEstado = (marca: MarcaUsuario | null, adm: string | null) => conMarca(marca, createElement(EstadoCuentaHoja, { e: estado(adm) }));
 

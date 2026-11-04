@@ -1,7 +1,7 @@
 import type { ComprobanteMeta } from '../../shared/comprobantes';
 import type { EvaluacionResidente } from '../../shared/evaluacion';
 
-export type EstadoValidacion = 'por_validar' | 'validado' | 'rechazado';
+export type EstadoValidacion = 'por_validar' | 'validado' | 'rechazado' | 'anulado';
 export type Metodo = 'transferencia' | 'yape' | 'plin' | 'efectivo' | 'tarjeta';
 
 export interface PagoResidente {
@@ -15,6 +15,9 @@ export interface PagoResidente {
   observaciones?: string | null;
   estado_validacion: EstadoValidacion;
   motivo_rechazo: string | null;
+  /** Sólo si la administración anuló el pago: cuándo y por qué (quién lo anuló no sale al vecino). */
+  anulado_at?: string | null;
+  motivo_anulacion?: string | null;
   validado_at: string | null;
   comprobante: ComprobanteMeta | null;
   /** Sólo un estado simple: el detalle de la IA es de la junta y la administración. */

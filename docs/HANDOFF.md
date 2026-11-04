@@ -4,6 +4,19 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Anular pago (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/anular-pago`) — push: no
+
+- **Pedido de Miguel**: quitar un pago ya VALIDADO desde la pantalla (hoy sólo se borraba por la API) → «Anular pago».
+- **Backend (hecho)**: `POST /api/pagos/:id/anular {motivo 5–200}` (admin/superadmin; junta → 403; otra empresa → 404; sólo `validado`, el resto 409). No borra: `estado_validacion='anulado'` + `anulado_at/anulado_por_id/motivo_anulacion` (aditivo en `Pago`) en TODO el grupo, y `sincronizarCargo` reabre el recibo, en una transacción. Auditoría `anular`/`pago` con motivo, monto y n.º de filas. Aviso `pago_anulado` (sólo correo, como `pago_rechazado`; respeta `aviso_email`). Código: `services/anulacionPago.ts`, `lib/pagoVigente.ts` (`PAGO_VIGENTE`, `esPagoVigente`), `sincronizarCargo` movida a `services/validacionPago.ts`.
+- **Decisión cierre del mes**: el «cierre» es el registro de lo que la junta pagó (`EgresoBlock`). Si el mes del recibo tiene TODAS sus líneas registradas (y al menos una), anular da 409 «El mes ya está cerrado… reábrelo» (se reabre quitando el registro: `DELETE /api/cierres/lineas/:id`). Cierre incompleto → no bloquea. El cobrado del cierre sale de `estado_pago` de los cargos, así que se recalcula solo.
+- **Usos de `estado_validacion` revisados**: los `not: 'rechazado'` pasaron a `PAGO_VIGENTE` (`routes/pagos.ts` saldo, `mora.ts`, `revisionMora.ts` ×4); los de lista blanca (`validado`/`por_validar`: dashboard, rendición, cruce y gestión de conciliación, mantenimiento, historial, lib/mantenimientos, consumo, deudaVencida, asistente, comprobantes, validacionAutomatica) excluyen el anulado solos. Conciliación: un abono automático enlazado a un pago anulado se suelta (`sanearCuenta`) y no se vincula uno anulado. Estado de cuenta: `anulado` es estado propio (se muestra, no suma, `pagos_anulados`). Herramientas del asistente: filtro y estado `anulado`.
+- **Pantalla** (admin › Pagos, y `/junta/pagos` que es la misma): pestaña **Anulados** (quién, cuándo, motivo); en «Detalle del pago» de un validado, botón «Anular pago» (sólo `puedeValidar`: admin/superadmin) → `AnularPagoModal` (motivo con contador, ejemplo «Pago duplicado», qué pasa) → toast, recarga la lista y el detalle queda ya anulado. Reglas puras en `_parts/cobranza/anular.ts`. El vecino ve «Anulado» con el motivo (no quién anuló) en Mis pagos y en el detalle; el estado de cuenta lo muestra «Anulado (no suma)». Manual: sección nueva «Anular un pago ya validado» (versión 13) y párrafo en «Mis recibos». Contrato: viñeta nueva junto a `PATCH /api/pagos/:id/validacion`.
+- **Pruebas**: `tests/anular-pago.test.ts` (22, backend) y `tests/anular-pago-ui.test.ts` (9, pantalla) en `house_test_anular`. Mutaciones: 15 de backend y 7 de pantalla, todas en rojo.
+- **Próximos**: mirar la pantalla en el navegador (claro/oscuro, 375 px) — no se probó con navegador; decidir si el consumo de plan debe seguir contando un voucher anulado (hoy no lo cuenta); si hace falta, captura nueva para el manual (la sección nueva no lleva imagen).
+- **Gotchas**: `sincronizarCargo` ahora vive en `services/validacionPago.ts` (`routes/pagos.ts` la reexporta); el limitador de login (429) obliga a iniciar sesión una sola vez por archivo; `src/` no se edita mientras corre la suite (los `*-ui.test.ts` leen el código).
+
+---
+
 ## 2026-11-04 — «Entrar como» para el superadmin (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/entrar-como`) — push: no
 
 - **Pedido de Miguel**: «necesito el impersonar para mí que soy el superadmin. Ya hice un impersonar en el Portal de Dealers, revisa» → propuesta de Opus → «hazlo».

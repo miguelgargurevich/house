@@ -38,9 +38,9 @@ describe('voucher: ampliar para leerlo', () => {
 });
 
 describe('detalle del recibo del vecino: «Ver mi voucher»', () => {
-  it('sale sólo si hay un pago con voucher y prefiere el que está en revisión', () => {
+  it('sale sólo si hay un pago con voucher y prefiere el que está en revisión y luego uno no anulado', () => {
     assert.match(DETALLE, /const conVoucher = d \? d\.pagos\.filter\(p => p\.comprobante\) : \[\];/);
-    assert.match(DETALLE, /conVoucher\.find\(p => p\.estado_validacion === 'por_validar'\) \?\? conVoucher\[0\] \?\? null/);
+    assert.match(DETALLE, /conVoucher\.find\(p => p\.estado_validacion === 'por_validar'\) \?\? conVoucher\.find\(p => p\.estado_validacion !== 'anulado'\) \?\? conVoucher\[0\] \?\? null/);
     assert.match(DETALLE, /\{ultimo && <Button[\s\S]*?onClick=\{\(\) => verVoucher\(ultimo\.id\)\}>Ver mi voucher<\/Button>\}/);
   });
   it('también se abre tocando el pago en la lista, y muestra el voucher con su visor', () => {

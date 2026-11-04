@@ -15,18 +15,20 @@ import { ValidarPagoModal } from './_parts/cobranza/ValidarPagoModal';
 import type { PagoRevisable } from './_parts/cobranza/ValidarPagoModal';
 import { Bloqueable } from '../../app/Bloqueable';
 
-type Pestana = 'por_validar' | 'validado' | 'rechazado';
+type Pestana = 'por_validar' | 'validado' | 'rechazado' | 'anulado';
 
 const PESTANAS: { id: Pestana; label: string }[] = [
   { id: 'por_validar', label: 'Por validar' },
   { id: 'validado', label: 'Validados' },
   { id: 'rechazado', label: 'Rechazados' },
+  { id: 'anulado', label: 'Anulados' },
 ];
 
 const TEXTOS: Record<Pestana, { stat: string; tone: 'ok' | 'warn' | 'bad'; vacio: string; vacioDesc: string }> = {
   por_validar: { stat: 'Por validar en esta página', tone: 'warn', vacio: 'No hay pagos por validar', vacioDesc: 'Cuando un vecino registre el pago de su mantenimiento, aparecerá aquí para que lo revises.' },
   validado: { stat: 'Cobrado en esta página', tone: 'ok', vacio: 'No hay pagos validados', vacioDesc: 'Los pagos que valides o registres tú aparecerán aquí.' },
   rechazado: { stat: 'Rechazado en esta página', tone: 'bad', vacio: 'No hay pagos rechazados', vacioDesc: 'Los pagos que rechaces quedarán aquí con su motivo.' },
+  anulado: { stat: 'Anulado en esta página', tone: 'warn', vacio: 'No hay pagos anulados', vacioDesc: 'Los pagos validados que anules quedarán aquí con quién los anuló, cuándo y el motivo. No cuentan como cobrados.' },
 };
 
 type PagoFila = PagoRevisable;
@@ -102,9 +104,15 @@ export default function Pagos() {
       <span className="flex flex-col items-start gap-1">
         <StatusBadge estado={p.estado_validacion} />
         {p.validado_por_ia && <Badge tone="brand">{p.conformidad ? 'Validado por IA + tesorero' : 'Validado por IA'}</Badge>}
+        {pestana === 'anulado' && (
+          <span className="block max-w-xs text-xs leading-5 text-muted">
+            <span className="block">Anulado{p.anulado_at ? ` el ${fechaCorta(p.anulado_at)}` : ''}{p.anulado_por ? ` por ${p.anulado_por.nombre}` : ''}</span>
+            <span className="block break-words">Motivo: {p.motivo_anulacion ?? 'sin motivo indicado'}</span>
+          </span>
+        )}
         {pestana === 'por_validar'
           ? <EstadoRevision pago={p} />
-          : (() => { const c = insigniaConformidad(p); return c && <Badge tone={c.tone}>{c.label}</Badge>; })()}
+          : pestana !== 'anulado' && (() => { const c = insigniaConformidad(p); return c && <Badge tone={c.tone}>{c.label}</Badge>; })()}
         {p.aviso_multa && <Badge tone="warn">Multa por quitar</Badge>}
         {marcas[p.id] && <Badge tone="ok">{textoMarca(marcas[p.id]!, fechaCorta)}</Badge>}
       </span>

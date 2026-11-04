@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
 import { api, errorText } from '../../../../api';
 import { useAuth } from '../../../../auth/AuthContext';
 import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, dinero, fechaCorta, useToast } from '../../../../ui';
@@ -15,6 +15,9 @@ import type { ConformidadPago, ExencionConformidad } from './conformidad';
 import { metodoLabel } from './comun';
 import type { AvisoMulta } from './morosos';
 import { QuitarMultaModal } from './QuitarMultaModal';
+import { AnularPagoModal } from './AnularPagoModal';
+import type { PagoAnuladoRespuesta } from './AnularPagoModal';
+import { puedeAnular } from './anular';
 import { textoMarca, useMarcasConciliacion } from '../conciliacion/marcas';
 
 export interface PagoRevisable {
@@ -28,8 +31,12 @@ export interface PagoRevisable {
   metodo_pago: string | null;
   referencia: string | null;
   observaciones?: string | null;
-  estado_validacion: 'por_validar' | 'validado' | 'rechazado';
+  estado_validacion: 'por_validar' | 'validado' | 'rechazado' | 'anulado';
   motivo_rechazo: string | null;
+  /** Sólo si el pago se anuló: cuándo, quién y por qué (el pago no se borra). */
+  anulado_at?: string | null;
+  anulado_por?: { id?: number; nombre: string } | null;
+  motivo_anulacion?: string | null;
   validado_at: string | null;
   validado_por?: { nombre: string } | null;
   comprobante: ComprobanteMeta | null;
@@ -59,9 +66,13 @@ interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: (
  * llegó a la cuenta»), salvo que nadie pueda darlo (block sin tesorero, o pago del propio tesorero: ahí se avisa y queda anotado); la junta sólo lo revisa,
  * y su tesorero da o quita la conformidad.
  */
-export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
+export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado }: Props) {
   const toast = useToast();
   const { user } = useAuth();
+  // «Anular pago»: tras anular, el detalle se muestra ya anulado sin esperar a que la lista se recargue (la fila de la lista es la de antes de abrirlo).
+  const [anulando, setAnulando] = useState(false);
+  const [anulado, setAnulado] = useState<(PagoAnuladoRespuesta & { id: number }) | null>(null);
+  const pago: PagoRevisable | null = pagoProp && anulado && anulado.id === pagoProp.id ? { ...pagoProp, ...anulado } : pagoProp;
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [errorMotivo, setErrorMotivo] = useState<string | undefined>();
@@ -86,7 +97,7 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
   // Si el condominio tiene la IA de vouchers se sabe al abrir (sin pedir una evaluación): sin ella, el panel ofrece pasar a Torre Pro.
   const capacidadIA = useCapacidadIA(pago?.unidad?.complejo?.id ?? null);
 
-  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinCheck(false); setQuitandoMulta(false); setMultaQuitada(false); }, [pago?.id]);
+  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinCheck(false); setQuitandoMulta(false); setMultaQuitada(false); setAnulando(false); setAnulado(null); }, [pagoProp?.id]);
 
   /** Sube el voucher y sigue la evaluación de la IA; el pago no cambia de estado aquí (sólo la IA o quien valida). */
   async function adjuntar(archivo: File) {
@@ -191,7 +202,14 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
               <Button loading={enviando === 'validado'} disabled={enviando !== null || sinVoucher || bloqueadoPorCheck} aria-describedby={sinVoucher ? 'motivo-sin-voucher' : bloqueadoPorCheck ? 'motivo-sin-check' : undefined} onClick={() => (validaSinCheck ? setConfirmandoSinCheck(true) : void revisar('validado'))}>Validar pago</Button>
             </>
           )
-        ) : <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+            {pago && puedeAnular(user, estadoPago ?? pago.estado_validacion) && (
+              <Button variant="secondary" className="border-bad/40 text-bad hover:bg-bad/10" icon={<NoSymbolIcon className="h-4 w-4" />} onClick={() => setAnulando(true)}>Anular pago</Button>
+            )}
+          </>
+        )
       }
     >
       {pago && (
@@ -251,6 +269,11 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
           )}
 
           {pago.estado_validacion === 'rechazado' && <Alert tone="bad">Motivo del rechazo: {pago.motivo_rechazo ?? 'sin motivo indicado'}</Alert>}
+          {pago.estado_validacion === 'anulado' && (
+            <Alert tone="warn">
+              Pago anulado{pago.anulado_at ? ` el ${fechaCorta(pago.anulado_at)}` : ''}{pago.anulado_por ? ` por ${pago.anulado_por.nombre}` : ''}. No cuenta como pagado. Motivo: {pago.motivo_anulacion ?? 'sin motivo indicado'}
+            </Alert>
+          )}
 
           <section aria-label="Comprobante">
             <h3 className="mb-2 text-sm font-medium">
@@ -313,6 +336,16 @@ export function ValidarPagoModal({ pago, onClose, onRevisado }: Props) {
         </div>
       )}
     </Modal>
+    {anulando && pago && (
+      <AnularPagoModal
+        pagoId={pago.id}
+        codigo={pago.unidad?.codigo}
+        monto={pago.mantenimiento?.total ?? pago.monto}
+        moneda={pago.moneda}
+        onClose={() => setAnulando(false)}
+        onAnulado={r => { setAnulado({ ...r, id: pago.id }); onRevisado(); }}
+      />
+    )}
     {quitandoMulta && pago?.aviso_multa && (
       <QuitarMultaModal
         reciboId={pago.aviso_multa.recibo_id}

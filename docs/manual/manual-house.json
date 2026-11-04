@@ -1,6 +1,6 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 4-nov-2026 (12)",
+  "kicker": "Manual de usuario · versión del 4-nov-2026 (13)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
@@ -267,7 +267,7 @@
       "titulo": "Pagos: cómo se valida cada uno",
       "etiqueta": "Administradora · Pagos",
       "parrafos": [
-        "Cada fila es el pago de un mantenimiento completo, siempre con su voucher. Las pestañas separan **Por validar**, **Validados** y **Rechazados**. En cada pago ves si tiene voucher, qué leyó del voucher (el OCR o la IA) y si el tesorero ya confirmó.",
+        "Cada fila es el pago de un mantenimiento completo, siempre con su voucher. Las pestañas separan **Por validar**, **Validados**, **Rechazados** y **Anulados**. En cada pago ves si tiene voucher, qué leyó del voucher (el OCR o la IA) y si el tesorero ya confirmó.",
         "Para revisar uno, pulsa **Revisar**: ves el voucher, el método y la referencia, y decides **Validar pago** o **Rechazar**. Con **Registrar pago** cargas los que recibes por fuera (transferencia, Yape, Plin, efectivo o tarjeta)."
       ],
       "aviso": {
@@ -275,6 +275,19 @@
         "texto": "Un pago **no se valida sin el check del tesorero del block**: él confirma que el dinero llegó a la cuenta. Si el block no tiene tesorero, o el pago lo registró el propio tesorero, basta con la lectura automática del voucher (OCR o IA) o con la revisión de la administración."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-pago-detalle.jpg"
+    },
+    {
+      "titulo": "Anular un pago ya validado",
+      "etiqueta": "Administradora · Pagos",
+      "parrafos": [
+        "Si validaste un pago por error (por ejemplo, **un pago duplicado**), ya no hace falta pedir que lo borren: entra a **Pagos**, abre la pestaña **Validados**, pulsa **Ver** y luego **Anular pago**.",
+        "Torre te pide el **motivo** (de 5 a 200 caracteres; por ejemplo, «Pago duplicado») y te dice qué va a pasar: el recibo del departamento vuelve a quedar pendiente y el vecino recibe un aviso por correo. Al confirmar con **Anular**, el pago deja de contar como cobrado en el resumen, la rendición, el cierre del mes y el estado de cuenta.",
+        "El pago **no se borra**: queda en la pestaña **Anulados**, con quién lo anuló, cuándo y el motivo. El vecino puede volver a registrar su pago de ese recibo. Si el pago era de un mantenimiento completo, se anulan todos sus conceptos a la vez."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Sólo la administración puede anular; la junta ve los pagos anulados pero no los anula. Un pago **por validar** no se anula: se rechaza. Si el cierre del mes de ese block ya tiene todos sus pagos registrados, Torre te pide **reabrir el mes primero** (en Junta › Cierre del mes, quita el registro de las líneas) y recién entonces podrás anular."
+      }
     },
     {
       "titulo": "Medios de pago y validación con IA",
@@ -786,7 +799,8 @@
       "etiqueta": "Propietario",
       "parrafos": [
         "El mantenimiento de cada mes de tu departamento, separado en **Por pagar**, **Vencidos**, **En revisión** y **Pagados**.",
-        "Con **Ver detalle** ves el total, el número de recibo, el vencimiento, el saldo y cada concepto con su monto. **Ver / imprimir recibo** abre el recibo completo, con la cuenta donde pagar."
+        "Con **Ver detalle** ves el total, el número de recibo, el vencimiento, el saldo y cada concepto con su monto. **Ver / imprimir recibo** abre el recibo completo, con la cuenta donde pagar.",
+        "Si la administración **anula** uno de tus pagos (por ejemplo, porque estaba duplicado), el recibo vuelve a aparecer como pendiente y te llega un correo con el motivo. En **Mis pagos** lo ves marcado como **Anulado**; si aún debes el recibo, puedes volver a pagarlo con tu voucher."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-detalle.jpg"
     },

@@ -75,8 +75,12 @@ export interface PagoMantenimiento {
   fecha_pago: string;
   /** De dónde salió la fecha: la del voucher que leyó la IA, la declarada (sin leer), una fecha leída que no se aplicó o corregida a mano. */
   fecha_origen?: FechaOrigen;
-  estado_validacion: 'por_validar' | 'validado' | 'rechazado';
+  estado_validacion: 'por_validar' | 'validado' | 'rechazado' | 'anulado';
   motivo_rechazo: string | null;
+  /** Sólo si el pago se anuló: cuándo y por qué; quién lo anuló lo ve sólo la administración. */
+  anulado_at?: string | null;
+  motivo_anulacion?: string | null;
+  anulado_por?: { id: number; nombre: string } | null;
   validado_por_ia: boolean;
   registrado_por: { id: number; nombre: string } | null;
   comprobante: ComprobanteMeta | null;

@@ -36,7 +36,7 @@ function Bloque({ f, moneda }: { f: FilaEstadoCuenta; moneda: string }) {
           {f.pagos.length > 0 && (
             <ul className="mt-0.5 space-y-0.5">
               {f.pagos.map((p, i) => (
-                <li key={`${p.id ?? 'sd'}-${i}`} className={cx(p.estado === 'rechazado' && 'text-neutral-500')}>
+                <li key={`${p.id ?? 'sd'}-${i}`} className={cx((p.estado === 'rechazado' || p.estado === 'anulado') && 'text-neutral-500')}>
                   <span className="num">{p.fecha ? fechaNumerica(p.fecha) : 'Sin fecha'}</span>
                   {p.operacion && <> · Op. <span className="num">{p.operacion}</span></>}
                   {p.sin_detalle && <> · Registrado sin voucher</>}
@@ -133,6 +133,7 @@ export function EstadoCuentaHoja({ e }: { e: EstadoCuenta }) {
         <li>Los pagos «por validar» no restan hasta que la administración los valide{Number(t.en_revision) > 0 && <>: hoy hay <span className="num">{s} {m(t.en_revision)}</span> en revisión</>}.</li>
         {Number(t.mora) > 0 && <li>La mora (<span className="num">{s} {m(t.mora)}</span>) ya está incluida en el cargo del mes.</li>}
         {t.pagos_rechazados > 0 && <li>Los pagos rechazados se muestran pero no se cuentan.</li>}
+        {t.pagos_anulados > 0 && <li>Los pagos anulados por la administración se muestran pero no se cuentan.</li>}
       </ul>
       <footer className="break-inside-avoid pt-1"><PieConTorre /></footer>
     </article>

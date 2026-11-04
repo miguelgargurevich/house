@@ -20,7 +20,7 @@ export function DetalleMantenimientoModal({ mant, onClose, onPagar }: Props) {
   // El voucher que se ve: el que el vecino eligió en la lista de pagos o, con «Ver mi voucher», el del último pago (el de en revisión primero).
   const [voucherId, setVoucherId] = useState<number | null>(null);
   const conVoucher = d ? d.pagos.filter(p => p.comprobante) : [];
-  const ultimo = conVoucher.find(p => p.estado_validacion === 'por_validar') ?? conVoucher[0] ?? null;
+  const ultimo = conVoucher.find(p => p.estado_validacion === 'por_validar') ?? conVoucher.find(p => p.estado_validacion !== 'anulado') ?? conVoucher[0] ?? null;
   const voucher = d?.pagos.find(p => p.id === voucherId) ?? null;
   const verVoucher = (id: number) => {
     setVoucherId(id);
