@@ -19,9 +19,11 @@ VENTANAS = [(13, 9.5), (16.8, 9.5), (13, 13.8), (16.8, 13.8), (13, 18.1), (16.8,
 VENTANA = 2.2
 PUERTA = (14.6, 21.6, 2.8, 4.9)
 SS = 8  # supermuestreo
+# La torre se dibuja un 20 % más grande que las medidas base (Miguel, 4-nov: en el Dock se veía chica al lado de los demás íconos).
+ESCALA = 1.2
 
 
-def dibujar(lado, *, esquinas=True, escala=1.0, trazo=2.0):
+def dibujar(lado, *, esquinas=True, escala=ESCALA, trazo=2.0):
     """Ícono de `lado` px. `escala` < 1 achica la torre dentro del cuadro (maskable). `trazo` en unidades de 32."""
     n = lado * SS
     im = Image.new('RGBA', (n, n), (0, 0, 0, 0))
@@ -55,8 +57,9 @@ def svg():
     ventanas = ''.join(f'<rect x="{vx}" y="{vy}" width="{VENTANA}" height="{VENTANA}" rx="0.4" fill="#fff"/>' for vx, vy in VENTANAS)
     px, py, pw, ph = PUERTA
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0f766e"/>'
+            f'<g transform="translate(16 16) scale({ESCALA}) translate(-16 -16)">'
             f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="none" stroke="#fff" stroke-width="2"/>{ventanas}'
-            f'<rect x="{px}" y="{py}" width="{pw}" height="{ph}" fill="#fff"/></svg>\n')
+            f'<rect x="{px}" y="{py}" width="{pw}" height="{ph}" fill="#fff"/></g></svg>\n')
 
 
 if __name__ == '__main__':
@@ -66,7 +69,7 @@ if __name__ == '__main__':
     dibujar(192).save('public/icon-192.png')
     dibujar(512).save('public/icon-512.png')
     dibujar(180, esquinas=False).convert('RGB').save('public/apple-touch-icon.png')
-    # Maskable: la zona segura es un círculo de radio 40 %; la torre (21 de alto) al 72 % entra holgada.
-    dibujar(192, esquinas=False, escala=0.72).convert('RGB').save('public/icon-maskable-192.png')
-    dibujar(512, esquinas=False, escala=0.72).convert('RGB').save('public/icon-maskable-512.png')
+    # Maskable: la zona segura es un círculo de radio 40 % (12,8 de 32); la media diagonal de la torre es ~12,1 × escala: hasta 1,05 entra entera.
+    dibujar(192, esquinas=False, escala=1.02).convert('RGB').save('public/icon-maskable-192.png')
+    dibujar(512, esquinas=False, escala=1.02).convert('RGB').save('public/icon-maskable-512.png')
     print('íconos de Torre generados en public/')

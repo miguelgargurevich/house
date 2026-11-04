@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Ícono: la torre un 20 % más grande (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «cuando lo copia al dock es muy pequeña la torre en comparación al logo». La torre se dibuja con escala 1,2 sobre las medidas base en `IconoTorre.tsx` (`TORRE_ESCALA`), `favicon.svg`, los PNG (`iconos-torre.py`, `ESCALA`; maskable 1,02 = lo máximo dentro de la zona segura) y el cierre de los videos. `og-torre.png` regenerado.
+- Gotcha: el Dock de macOS y los celulares guardan el ícono de la app instalada; hay que quitar la app y volver a instalarla para ver el nuevo.
+
+---
+
 ## 2026-11-04 — Avisos a departamentos elegidos y recordatorio a los morosos (Claude Code, Sonnet 5.5, rama `feat/avisos-elegidos`) — push: no
 
 Pedido de Miguel: «¿si la administradora quiere enviar un aviso el día del vencimiento y el depa no ha pagado… o un comunicado a algunos depas por WhatsApp, seleccionando el depa del block?» → «Sí, agrégalo».

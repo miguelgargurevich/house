@@ -15,14 +15,20 @@ export const TORRE_ICONO = {
   puerta: { x: 14.6, y: 21.6, width: 2.8, height: 4.9 },
 } as const;
 
+/** La torre se dibuja un 20 % más grande que las medidas base (Miguel, 4-nov: en el Dock se veía chica). */
+export const TORRE_ESCALA = 1.2;
+
 export function IconoTorre({ className }: { className?: string }) {
   const { torre, ventanas, ventana, puerta } = TORRE_ICONO;
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
       <rect width="32" height="32" rx="8" className="fill-brand" />
-      <rect {...torre} fill="none" className="stroke-on-brand" strokeWidth="2" />
-      {ventanas.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width={ventana} height={ventana} rx="0.4" className="fill-on-brand" />)}
-      <rect {...puerta} className="fill-on-brand" />
+      {/* Un 20 % más grande que las medidas base, como los íconos de instalar (`ESCALA` en iconos-torre.py). */}
+      <g transform={`translate(16 16) scale(${TORRE_ESCALA}) translate(-16 -16)`}>
+        <rect {...torre} fill="none" className="stroke-on-brand" strokeWidth="2" />
+        {ventanas.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width={ventana} height={ventana} rx="0.4" className="fill-on-brand" />)}
+        <rect {...puerta} className="fill-on-brand" />
+      </g>
     </svg>
   );
 }
