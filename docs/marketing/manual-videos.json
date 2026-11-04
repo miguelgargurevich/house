@@ -44,9 +44,9 @@
     "ruta": "/admin/recibos",
     "video": "m-admin-recibos",
     "titulo": "Recibos",
-    "descripcion": "Emite el mantenimiento de cada mes, o sube el Excel del block, y mira cuánto se cobró de cada recibo.",
+    "descripcion": "Emite el mantenimiento de cada mes, o sube el Excel del block. El aviso de cada recibo va al grupo de WhatsApp de su block y, por correo, a cada vecino.",
     "archivo": ".claude/videos/m-admin-recibos/torre-m-admin-recibos-escritorio.mp4",
-    "duracion_s": 19.3
+    "duracion_s": 28.4
   },
   {
     "id": "admin.pagos",
@@ -104,9 +104,9 @@
     "ruta": "/admin/morosidad",
     "video": "m-admin-morosidad",
     "titulo": "Morosidad",
-    "descripcion": "Quién debe, cuánto y desde cuándo, ordenado de mayor a menor deuda.",
+    "descripcion": "Quién debe, cuánto y desde cuándo. Marcas a los morosos y les envías un recordatorio, por correo o por WhatsApp.",
     "archivo": ".claude/videos/m-admin-morosidad/torre-m-admin-morosidad-escritorio.mp4",
-    "duracion_s": 16.8
+    "duracion_s": 40
   },
   {
     "id": "admin.cierres-del-mes",
@@ -176,9 +176,9 @@
     "ruta": "/admin/comunicados",
     "video": "m-admin-comunicados",
     "titulo": "Comunicados",
-    "descripcion": "Escribe anuncios para tus vecinos, elige a quién llegan y revisa qué salió por correo y por WhatsApp.",
+    "descripcion": "Los avisos para tus vecinos: eliges para quién es, a qué grupos de WhatsApp sale y qué queda en la junta.",
     "archivo": ".claude/videos/m-admin-comunicados/torre-m-admin-comunicados-escritorio.mp4",
-    "duracion_s": 34.8
+    "duracion_s": 38.2
   },
   {
     "id": "admin.areas-comunes",
@@ -212,9 +212,9 @@
     "ruta": "/admin/whatsapp",
     "video": "m-admin-whatsapp",
     "titulo": "WhatsApp",
-    "descripcion": "Mira que el número de tu administración esté conectado, cuántos mensajes salen y qué grupos usa Torre.",
+    "descripcion": "Mira que tu número esté conectado, cuántos mensajes salen, qué blocks tienen grupo y qué avisos salen también por WhatsApp.",
     "archivo": ".claude/videos/m-admin-whatsapp/torre-m-admin-whatsapp-escritorio.mp4",
-    "duracion_s": 36.6
+    "duracion_s": 34.8
   },
   {
     "id": "admin.proveedores",
@@ -507,9 +507,9 @@
     "ruta": "/junta/comunicados",
     "video": "m-junta-comunicados",
     "titulo": "Comunicados",
-    "descripcion": "Avisa a los vecinos de tu block con un comunicado.",
+    "descripcion": "Avisa a los vecinos de tu block: el grupo del block recibe un solo mensaje, y la junta sólo si es urgente.",
     "archivo": ".claude/videos/m-junta-comunicados/torre-m-junta-comunicados-escritorio.mp4",
-    "duracion_s": 26.2
+    "duracion_s": 29.3
   },
   {
     "id": "junta.proveedores",

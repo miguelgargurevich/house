@@ -27,15 +27,16 @@ La lista de condominios que administras y la ficha de cada uno: blocks, unidades
 | 1 | Condominios: la lista con dirección, empresa y unidades; se señala «Nuevo condominio» | Aquí están los condominios que administras, con su dirección y su número de unidades. Con Nuevo condominio registras uno más. |
 | 2 | Ver ficha → pestaña Residentes | Entra a la ficha de un condominio para ver sus blocks, sus unidades, sus residentes y sus recibos, y elegir qué avisos salen también por WhatsApp. |
 
-## `m-admin-recibos` — Recibos (Administradora) · 19,3 s
+## `m-admin-recibos` — Recibos (Administradora) · 28,4 s
 
-Emite el mantenimiento de cada mes, o sube el Excel del block, y mira cuánto se cobró de cada recibo.
+Emite el mantenimiento de cada mes, o sube el Excel del block. El aviso de cada recibo va al grupo de WhatsApp de su block y, por correo, a cada vecino.
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Recibos: lista por periodo con el avance de cobro; se señalan «Emitir recibo» y «Subir Excel» | Cada mes emites el recibo de mantenimiento, o subes el Excel del block. Y ves, por periodo, cuánto ya se cobró. |
-| 2 | Se abre un periodo: departamentos de cada block; se señalan «Avisar a los vecinos» e «Imprimir recibos del block» | Abre un periodo para ver cada block y sus departamentos. Desde ahí imprimes los recibos y avisas a los vecinos. |
-| 3 | Periodo → pestaña «Consolidado del block» | Y en Consolidado del block tienes el resumen del block, listo para imprimir. |
+| 1 | Recibos: lista por periodo con el avance de cobro; se señalan «Emitir recibo» y «Subir Excel» | Cada mes emites el recibo de mantenimiento, o subes el Excel del block. Al emitir, Torre te dice si algún block no tiene grupo de WhatsApp. |
+| 2 | Recibo de octubre del Block 1: se señala «Avisar a los vecinos» | Cada block tiene su recibo. Abre el de tu block y avisa a los vecinos desde ahí. |
+| 3 | Avisar a los vecinos: cuántos reciben por correo y el aviso al grupo del block (no se envía) | Torre cuenta a cuántos vecinos llega por correo, y el aviso va al grupo de WhatsApp del block: un solo mensaje para todos. Nada sale hasta que lo envíes. |
+| 4 | Periodo → pestaña «Consolidado del block» | Y en Consolidado del block tienes el resumen del block, listo para imprimir. |
 
 ## `m-admin-pagos` — Pagos (Administradora) · 23,2 s
 
@@ -75,14 +76,17 @@ Carga la lectura del contómetro de cada departamento para que el agua salga en 
 | 1 | Lecturas de agua: block, recibo, fecha de corte y tabla de departamentos | Aquí cargas la lectura del contómetro de cada departamento: la anterior, la actual y el factor por metro cúbico. Sale en el recibo de cada vecino. |
 | 2 | Se señalan «Descargar plantilla» y «Subir Excel o CSV» | Escribe las lecturas a mano o súbelas con la plantilla de Excel, y Torre calcula el consumo y el monto de cada departamento. |
 
-## `m-admin-morosidad` — Morosidad (Administradora) · 16,8 s
+## `m-admin-morosidad` — Morosidad (Administradora) · 40,0 s
 
-Quién debe, cuánto y desde cuándo, ordenado de mayor a menor deuda.
+Quién debe, cuánto y desde cuándo. Marcas a los morosos y les envías un recordatorio, por correo o por WhatsApp.
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Morosidad: deuda vencida, unidades morosas, mayor atraso y la lista | La morosidad, ordenada de mayor a menor deuda: cuánto se debe en total, cuántas unidades están morosas y cuál es el mayor atraso. |
-| 2 | Se señala «Exportar CSV» y se abre una unidad para ver sus recibos vencidos | Toca una unidad para ver el detalle de sus recibos vencidos, o exporta la lista a CSV. Así sabes a quién cobrar primero. |
+| 1 | Morosidad: deuda vencida, unidades morosas, mayor atraso y la lista | La morosidad, ordenada de mayor a menor deuda: cuánto se debe, cuántas unidades están morosas y cuál es el mayor atraso. |
+| 2 | Casillas por fila: se marcan dos departamentos; se señalan «Marcar todos los de esta página» y «Enviar recordatorio» | Marca a los morosos a quienes quieres recordar, uno por uno, o todos los de esta página de una vez. |
+| 3 | Enviar recordatorio: por correo (WhatsApp apagado) y a cuántos llega; no se envía nada | Al enviar recordatorio eliges por dónde: por correo, o también por WhatsApp. Antes ves cuántos lo recibirán. Esto es personal: va directo a cada responsable, no a un grupo. |
+| 4 | Así lo recibe cada responsable: su nombre y lo que debe su departamento (no se envía) | Cada responsable recibe sólo lo que debe su departamento, con su nombre. A cada departamento se le recuerda una vez al día. |
+| 5 | Se señala «Enviar a N departamentos» y se pulsa «Cancelar» (no se envía) | El botón de enviar dice a cuántos llega. Si no quieres enviar, cancela: nada sale hasta que pulses Enviar. |
 
 ## `m-admin-cierres` — Cierres del mes (Administradora) · 21,7 s
 
@@ -130,16 +134,17 @@ Lo que se cobra en cada recibo: mantenimiento, agua, luz de áreas comunes y rec
 | 1 | Conceptos: lista con descripción, tipo de monto, destino al cerrar el mes y estado | Los conceptos son lo que se cobra en cada recibo: el mantenimiento, el agua, la luz de las áreas comunes y el recargo por mora. |
 | 2 | Se señalan el tipo de monto, el destino al cerrar el mes y el interruptor de activo | Cada concepto es fijo o variable, y tiene su destino al cerrar el mes. Con el interruptor lo activas o lo desactivas. |
 
-## `m-admin-comunicados` — Comunicados (Administradora) · 34,8 s
+## `m-admin-comunicados` — Comunicados (Administradora) · 38,2 s
 
-Escribe anuncios para tus vecinos, elige a quién llegan y revisa qué salió por correo y por WhatsApp.
+Los avisos para tus vecinos: eliges para quién es, a qué grupos de WhatsApp sale y qué queda en la junta.
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Comunicados: lista de publicados con destinatarios, fecha y quién los envió | Los comunicados son los anuncios para tus vecinos: cortes, reuniones y trabajos. Ves cuáles están publicados, para quién y quién los envió. |
-| 2 | Nuevo comunicado: «Para quién», el título y los envíos a la junta, por correo y por WhatsApp (no se publica) | Toca Nuevo comunicado, elige para quién es y escribe el título y el mensaje. Además puedes avisar a la junta, por correo o por WhatsApp a cada vecino. Nada sale hasta que publiques. |
-| 3 | Nuevo comunicado, más abajo: «A los grupos de WhatsApp» con los grupos marcados (no se publica) | Al final eliges los grupos de WhatsApp donde sale. Vienen marcados los que representan al block o a todo el condominio. Las juntas las marcas tú. |
-| 4 | Pestaña «Notificaciones»: qué salió por correo y por WhatsApp | En Notificaciones ves qué salió por correo y por WhatsApp, y qué hay que reintentar. |
+| 1 | Comunicados: los publicados, con para quién, fecha y quién los envió | Los comunicados son los avisos para tus vecinos: cortes, reuniones y trabajos. Ves para quién es cada uno y quién lo envió. |
+| 2 | Nuevo comunicado: «Para quién» en «Departamentos elegidos», con la lista de casillas (no se publica) | Toca Nuevo comunicado y elige para quién es. Si eliges departamentos, marcas uno por uno quién lo recibe. |
+| 3 | Título y mensaje; más abajo, «A las juntas del condominio» viene desmarcado (no se publica) | Escribe el título y el mensaje. A las juntas sale desmarcado: márcalo sólo si es urgente, porque el grupo de WhatsApp ya lo recibe. |
+| 4 | A los grupos de WhatsApp: los del alcance vienen marcados (no se publica) | Lo general va al grupo de WhatsApp: un solo mensaje para todos. Por eso el grupo del block viene marcado. Lo personal va directo, a cada vecino. |
+| 5 | Pestaña «Notificaciones»: qué salió por correo y por WhatsApp | En Notificaciones ves qué salió por correo y por WhatsApp, y qué hay que reintentar. |
 
 ## `m-admin-areas-comunes` — Áreas comunes (Administradora) · 16,9 s
 
@@ -159,16 +164,16 @@ La junta de cada block: sus miembros, su correo y la cuenta donde pagan los veci
 | 1 | Juntas directivas: la tarjeta de cada block con miembros, correo y cuenta de pago | Cada block tiene su junta directiva: sus miembros, su correo y la cuenta donde pagan los vecinos. |
 | 2 | Se abre «Nueva gestión» (no se guarda); se señala «Historial» | Cuando cambia la junta, usa Nueva gestión: los permisos pasan solos, y la gestión anterior queda en el historial. Cada cambio queda registrado con su fecha de inicio. |
 
-## `m-admin-whatsapp` — WhatsApp (Administradora) · 36,6 s
+## `m-admin-whatsapp` — WhatsApp (Administradora) · 34,8 s
 
-Mira que el número de tu administración esté conectado, cuántos mensajes salen y qué grupos usa Torre.
+Mira que tu número esté conectado, cuántos mensajes salen, qué blocks tienen grupo y qué avisos salen también por WhatsApp.
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | WhatsApp: «WhatsApp vinculado correctamente» (el botón para desvincular no se pulsa) | Tu número de WhatsApp ya está vinculado. Desde aquí salen los avisos de cobro y los comunicados que marques para WhatsApp, con pausas entre envíos y un tope diario. |
-| 2 | Contador de mensajes: enviados hoy contra el tope, en cola y el mes por condominio | El contador muestra lo que salió hoy contra el tope diario, lo que espera en cola y lo que lleva cada condominio este mes. |
-| 3 | Mis grupos: «Traer mis grupos», la lista de grupos y el filtro «Sólo los que uso» | En Mis grupos traes los grupos de tu número. Marcas cuáles usas en Torre y dices a quién representan: un block, su junta o todo el condominio. |
-| 4 | Ficha del condominio › Datos › «Avisos por WhatsApp»: qué avisos salen también por WhatsApp (no se guarda) | En la ficha de cada condominio eliges qué avisos salen también por WhatsApp: el recibo del mes, los vencimientos o el cierre pendiente. El correo no cambia. |
+| 1 | WhatsApp: «WhatsApp vinculado correctamente» (el botón para desvincular no se pulsa) | Tu número de WhatsApp ya está vinculado. Desde aquí salen los avisos que marques para WhatsApp, con pausas entre envíos y un tope diario. |
+| 2 | Contador: enviados hoy contra el tope, en cola, enviados por tipo y el mes por condominio | El contador muestra lo que salió hoy contra el tope diario, lo que espera en cola, y por tipo: recibos, vencidos o comunicados. |
+| 3 | Mis grupos: «Grupos de blocks» y «Falta: Block 14», con el filtro «Sólo los que uso» | En Mis grupos Torre cuenta cuántos blocks tienen su grupo, y te dice cuál falta. Así ningún block se queda sin aviso. |
+| 4 | Ficha del condominio › Avisos por WhatsApp: «Recibo del mes» y «Venció» (no se guarda) | En la ficha del condominio eliges qué avisos salen también por WhatsApp. Lo general, como el recibo, va al grupo de cada block. Lo personal, como un vencido, va directo al vecino. |
 
 ## `m-admin-proveedores` — Proveedores (Administradora) · 17,0 s
 
@@ -318,15 +323,16 @@ Al cerrar el mes, registras lo que paga tu junta a la administración, a la Junt
 | 1 | Cierre del mes (octubre): facturado, cobrado y pagado por la junta | Al cerrar el mes, la junta paga a la empresa administradora, a la Junta central y a los servicios, con el voucher de cada pago. |
 | 2 | Se señalan «Registrar pago» y «Ver voucher» (no se pulsan) | Cada tarjeta muestra lo facturado, lo cobrado y lo pagado, con su botón para registrar el pago. El cierre se hace hacia el día cinco del mes siguiente. |
 
-## `m-junta-comunicados` — Comunicados (Junta (tesorero o presidente de un block)) · 26,2 s
+## `m-junta-comunicados` — Comunicados (Junta (tesorero o presidente de un block)) · 29,3 s
 
-Avisa a los vecinos de tu block con un comunicado.
+Avisa a los vecinos de tu block: el grupo del block recibe un solo mensaje, y la junta sólo si es urgente.
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Comunicados: los de la junta, con destinatarios y fecha | Aquí escribes anuncios para los vecinos de tu block y ves cuáles ya publicaste. Cada uno muestra para quién es, su fecha y quién lo envió. |
-| 2 | Nuevo comunicado: «Para quién» fijo en tu block, el título y los envíos a la junta y por WhatsApp (no se publica) | Toca Nuevo comunicado. Como junta, publicas para tu block: escribe el título y el mensaje. Si es urgente, avísalo también por WhatsApp a cada vecino. |
-| 3 | Nuevo comunicado, más abajo: «A los grupos de WhatsApp» de tu block (no se publica) | Al final eliges los grupos de WhatsApp donde sale. Vienen marcados los de tu block. Marca también el de la junta si corresponde. |
+| 1 | Comunicados de la junta, con destinatarios y fecha | Aquí escribes anuncios para los vecinos de tu block y ves cuáles ya publicaste. Cada uno muestra para quién es, su fecha y quién lo envió. |
+| 2 | Nuevo comunicado: «Para quién» fijo en tu block, título y mensaje (no se publica) | Toca Nuevo comunicado. Como junta publicas para tu block: escribe el título y el mensaje. |
+| 3 | Más abajo: «A la junta del block» desmarcado y el grupo de tu block marcado (no se publica) | Lo general va al grupo de tu block, un solo mensaje para todos, y viene marcado. A la junta, o a cada vecino, sólo si es urgente. |
+| 4 | Lista de comunicados publicados: se señala el primero (no se publica nada) | Al publicar, el comunicado aparece en la app de los vecinos de tu block, y el grupo recibe el aviso. |
 
 ## `m-junta-proveedores` — Proveedores (Junta (tesorero o presidente de un block)) · 16,1 s
 
