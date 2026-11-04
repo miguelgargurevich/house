@@ -5,7 +5,7 @@ import { forbidden, invalid, notFound } from '../errors';
 import { empresaDe, scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDA_COBRO_EXTRANJERO, decimalesDe, monedaEnPlural } from '../../lib/paises';
-import { CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
+import { TODAS_LAS_CAPACIDADES, ESTADOS_SUSCRIPCION, MEDIOS_PAGO_SUSCRIPCION, MODULOS, MONEDA_BASE_PRECIOS } from '../services/comercial/catalogo';
 import { puedeAgregarCondominio } from '../services/comercial/cupo';
 import { crearPrimerCondominio } from '../services/comercial/primerCondominio';
 import { usoDelMes } from '../services/comercial/consumo';
@@ -19,7 +19,7 @@ import { fechaSchema, idSchema, listQuerySchema, parse, parseBody, parseQuery, t
 
 const precio = z.union([z.number(), z.string()], { error: 'Precio inválido' }).transform((v) => String(v).trim()).pipe(z.string().regex(/^\d{1,6}(\.\d{1,4})?$/, 'Precio inválido (máx. 4 decimales)'));
 const moduloEnum = z.enum(MODULOS, { error: `Módulo inválido (${MODULOS.join(', ')})` });
-const capacidadEnum = z.enum(CAPACIDADES, { error: `Capacidad inválida (${CAPACIDADES.join(', ')})` });
+const capacidadEnum = z.enum(TODAS_LAS_CAPACIDADES, { error: `Capacidad inválida (${TODAS_LAS_CAPACIDADES.join(', ')})` });
 const claveParams = z.object({ clave: z.string().min(1).max(40) });
 const complejoParams = z.object({ complejoId: idSchema });
 
@@ -64,7 +64,7 @@ const planSchema = z.object({
   nombre: texto(80).optional(),
   descripcion: textoOpcional(300),
   precio_por_unidad: precio.optional(),
-  modulos_incluidos: z.array(capacidadEnum).max(CAPACIDADES.length).optional(),
+  modulos_incluidos: z.array(capacidadEnum).max(TODAS_LAS_CAPACIDADES.length).optional(),
   unidades_maximas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
   unidades_minimas: z.number().int().min(1, 'Mínimo 1').max(100_000).nullable().optional(),
   /** Precio por tramos: desde qué número de departamento rige `tramo_precio` (61 = los primeros 60 al precio normal). Van juntos; null en los dos = precio único. */

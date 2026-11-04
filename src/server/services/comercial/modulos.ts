@@ -67,11 +67,13 @@ export const NOMBRES_MODULO: Record<CapacidadClave, string> = {
   mora_automatica: 'Mora automática',
   reportes: 'Reportes y exportes',
   conciliacion: 'Conciliación bancaria',
+  marca_propia: 'Marca propia: color y nombre',
 };
 
 /** 403 con `code: 'MODULO_NO_ACTIVO'` y la capacidad: la pantalla muestra el aviso «Disponible en el plan Pro» con el enlace a Mi plan. */
 export function moduloNoActivo(clave: CapacidadClave, mensaje?: string): HttpError {
-  return new HttpError(403, mensaje ?? `«${NOMBRES_MODULO[clave]}» está disponible en el plan Torre Pro. Pasa a Torre Pro desde Mi plan`, undefined, 'MODULO_NO_ACTIVO', { modulo: clave });
+  const plan = clave === 'marca_propia' ? 'Torre Administradora' : 'Torre Pro';
+  return new HttpError(403, mensaje ?? `«${NOMBRES_MODULO[clave]}» está disponible en el plan ${plan}. Pasa a ${plan} desde Mi plan`, undefined, 'MODULO_NO_ACTIVO', { modulo: clave });
 }
 
 export async function exigirModulo(complejoId: number | null | undefined, clave: CapacidadClave, mensaje?: string): Promise<void> {

@@ -121,7 +121,8 @@ describe('API pública: cotizar y planes sin módulos sueltos', () => {
     assert.deepEqual([por('gratis').unidades_maximas, por('gratis').unidades_minimas, por('gratis').modulos_incluidos], [null, null, []]);
     for (const c of ['pro', 'administradora']) {
       assert.deepEqual([por(c).unidades_maximas, por(c).unidades_minimas], [null, 20]);
-      assert.deepEqual([...por(c).modulos_incluidos].sort(), [...CAPACIDADES].sort());
+      // Pro trae las capacidades de siempre; «Marca propia» es sólo de Administradora.
+      assert.deepEqual([...por(c).modulos_incluidos].sort(), [...CAPACIDADES, ...(c === 'administradora' ? ['marca_propia'] : [])].sort());
     }
     assert.equal(por('cortesia'), undefined, 'cortesía sigue oculta');
     for (const m of r.body.modulos) assert.deepEqual(Object.keys(m).sort(), ['clave', 'descripcion', 'nombre']);
@@ -434,7 +435,7 @@ describe('script de la oferta: deja una base existente con los valores nuevos', 
     for (const c of ['pro', 'administradora']) {
       const p = await prisma.planComercial.findUniqueOrThrow({ where: { clave: c } });
       assert.deepEqual([p.unidades_maximas, p.unidades_minimas], [null, 20]);
-      assert.deepEqual([...p.modulos_incluidos].sort(), [...CAPACIDADES].sort());
+      assert.deepEqual([...p.modulos_incluidos].sort(), [...CAPACIDADES, ...(c === 'administradora' ? ['marca_propia'] : [])].sort());
     }
     assert.deepEqual([...(await prisma.planComercial.findUniqueOrThrow({ where: { clave: 'cortesia' } })).modulos_incluidos].sort(), [...CAPACIDADES].sort());
     assert.deepEqual((await prisma.planComercial.findMany({ orderBy: { clave: 'asc' } })).map((p) => [p.clave, p.precio_por_unidad.toFixed(2)]), precios, 'los precios no se tocan');

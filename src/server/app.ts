@@ -41,6 +41,7 @@ import { mediosPagoMeRouter, mediosPagoRouter } from './routes/mediosPago';
 import { notificacionesRouter } from './routes/notificaciones';
 import { pagosRouter } from './routes/pagos';
 import { publicoRouter } from './routes/publico';
+import { marcaPublicaRouter } from './services/marca/rutaPublica';
 import { comercialRouter } from './routes/comercial';
 import { conciliacionRouter } from './routes/conciliacion';
 import { pisosRouter } from './routes/pisos';
@@ -110,6 +111,7 @@ export function createApp(opts: AppOptions = {}) {
   api.get('/health', (_req, res) => { res.json({ ok: true }); }); // público: healthcheck del contenedor
   api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // tramo público: inicio de sesión
   api.use('/auth/invitacion', invitacionRouter(limiters.invitacion)); // tramo público: el enlace del correo de invitación
+  api.use('/publico/marca', marcaPublicaRouter()); // tramo público: el logo de la empresa para los correos (con firma; sólo logos de empresa)
   api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion })); // tramo público: planes, registro y verificación del correo
   api.use(limitarSegunSesion(authenticate, limiters.apiAnonimo, limiters.apiUsuario));
   api.use(auditoria);

@@ -12,6 +12,8 @@ import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
 import { dineroTexto, enlaceDeAviso, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
 import { correoDeAviso } from './correoAviso';
+import { empresaDeAviso } from '../marca/avisos';
+import { marcaParaCorreo } from '../marca/servicio';
 import { correoSinBuzon } from '../invitaciones';
 import { aportesPendientes, cierrePendiente } from '../cierres/pendientes';
 import { esTipoWhatsappConfigurable } from './whatsappTipos';
@@ -495,8 +497,11 @@ async function enviarCorreoDeAviso(deps: DepsAvisos, n: { tipo: string; asunto: 
     // El motivo del rechazo sólo vive en el texto guardado: se toma de ahí para que el correo y el texto digan lo mismo.
     const motivo = tipo === 'pago_rechazado' ? /Motivo: ([\s\S]*?)\n\nRevisa el detalle/.exec(n.cuerpo)?.[1] : undefined;
     const datos = cargado ? { ...cargado.datos, ...(motivo ? { motivo } : {}) } : null;
-    html = correoDeAviso(tipo, datos, { asunto: n.asunto, cuerpo: n.cuerpo, rol: n.usuario.rol }).html;
-    condominio = datos?.condominio ?? null;
+    // Marca de la empresa que escribe (sólo con `marca_propia` activa): cabecera con su logo, nombre y color. Si no se puede leer, el correo sale con la cara de Torre.
+    const marca = ref ? await empresaDeAviso(ref).then(marcaParaCorreo).catch(() => null) : null;
+    html = correoDeAviso(tipo, datos, { asunto: n.asunto, cuerpo: n.cuerpo, rol: n.usuario.rol }, marca).html;
+    // El nombre visible del remitente dice quién escribe: «<Nombre comercial> vía Torre» con marca, «<Condominio> vía Torre» sin ella (la dirección no cambia).
+    condominio = marca?.nombre ?? datos?.condominio ?? null;
   } catch {
     // Sin HTML el correo sale igual, en texto: lo importante es que el vecino se entere.
     html = undefined;

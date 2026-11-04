@@ -9,6 +9,8 @@ import { currentUser } from '../middleware/auth';
 import { MENSAJE_LOGIN_BLOQUEADO, type BloqueoCuenta } from '../middleware/rateLimit';
 import { juntaUnicaDeUsuario } from '../lib/juntaUnica';
 import { aceptarInvitacion, datosDeInvitacion } from '../services/invitaciones';
+import { marcaDeUsuario } from '../services/marca/servicio';
+import { MARCA_TORRE, type MarcaEmpresa } from '../services/marca/tipos';
 import { borrarCookie, crearSesion, listarActivas, ponerCookie, revocarDeUsuario, revocarPropia } from '../services/sesiones';
 import { emailSchema, parse, parseBody, passwordSchema, z } from '../validation';
 
@@ -38,6 +40,11 @@ const usuarioPublico = {
   estructura_id: true,
 } as const;
 
+/** La marca que ve este usuario (la de SU empresa). Un fallo al leerla nunca impide entrar: queda la de Torre, que no revela nada de ninguna empresa. */
+async function marcaSegura(u: { id: number; rol: string | null; empresa_id: number | null }): Promise<MarcaEmpresa> {
+  try { return await marcaDeUsuario(u); } catch (e) { console.error('[marca] no se pudo leer la marca:', e instanceof Error ? e.message : 'error'); return MARCA_TORRE; }
+}
+
 /**
  * @openapi
  * /api/auth/login:
@@ -55,7 +62,7 @@ const usuarioPublico = {
  *               email: { type: string }
  *               password: { type: string }
  *     responses:
- *       200: { description: "{ user, csrf } + Set-Cookie house_sesion" }
+ *       200: { description: "{ user, csrf, marca } + Set-Cookie house_sesion; `marca` trae nombre, logo_url, color y activa de la empresa del usuario" }
  *       401: { description: Credenciales inválidas }
  *       429: { description: Demasiados intentos }
  */
@@ -81,7 +88,7 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));
     ponerCookie(res, token);
     await registrarAuditoria({ usuario_id: user.id, accion: 'login', entidad: 'usuario', entidad_id: user.id, ip: ipDe(req) });
-    res.json({ user, csrf });
+    res.json({ user, csrf, marca: await marcaSegura(usuario) });
   });
   return authRouter;
 }
@@ -155,7 +162,7 @@ export const sesionRouter = Router();
  *     tags: [Auth]
  *     security: [{ cookieAuth: [] }]
  *     responses:
- *       200: { description: Usuario actual (sin hash de contraseña) más `csrf` de la sesión vigente }
+ *       200: { description: "Usuario actual (sin hash de contraseña) más `csrf` de la sesión vigente y `marca` (nombre, logo_url, color y activa de SU empresa)" }
  *       401: { description: Sin sesión }
  */
 sesionRouter.get('/me', async (req, res) => {
@@ -165,7 +172,7 @@ sesionRouter.get('/me', async (req, res) => {
   const { estructura, ...usuario } = cargado ?? { estructura: null };
   // `junta_unica`: la junta del usuario está en un condominio con una sola junta (sin blocks con junta). Se lee de la base en cada llamada.
   const junta_unica = cargado ? await juntaUnicaDeUsuario(cargado) : false;
-  res.json({ ...usuario, estructura_nombre: estructura?.nombre ?? null, junta_unica, csrf: req.sesion?.csrf });
+  res.json({ ...usuario, estructura_nombre: estructura?.nombre ?? null, junta_unica, marca: await marcaSegura(u), csrf: req.sesion?.csrf });
 });
 
 /**

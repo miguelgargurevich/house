@@ -2,6 +2,7 @@
 // tokens de `src/index.css` convertidos a hex (el correo no entiende oklch). El logo es el ícono de Torre (imagen con URL absoluta) sobre una celda
 // del color de marca: si el cliente bloquea las imágenes, queda el cuadro de color y el texto «Torre» al lado; un SVG no se ve en Gmail.
 // Todo texto que llega de fuera (nombre, empresa, concepto, comunicado…) se escapa aquí; quien llama pasa texto plano, nunca HTML.
+import type { MarcaCorreo } from '../marca/tipos';
 import { ENLACE_APP } from './plantillas';
 
 export interface FilaResumen {
@@ -28,7 +29,16 @@ export interface PlantillaCorreo {
   piePagina?: string[];
   /** Texto que algunos clientes muestran junto al asunto; sin él, el primer párrafo. */
   previa?: string;
+  /**
+   * Marca de la empresa administradora (sólo con la capacidad `marca_propia` activa): la cabecera lleva su logo y nombre, una franja y los acentos van en su color, y el
+   * pie dice «Enviado con Torre». Sin ella (o `null`) el correo sale con la cara de Torre, como siempre.
+   */
+  marca?: MarcaCorreo | null;
 }
+
+/** Línea de pie de Torre: con la marca de una empresa se reemplaza por «Enviado con Torre». */
+export const PIE_TORRE = 'Torre · Administración de condominios';
+export const PIE_ENVIADO_CON_TORRE = 'Enviado con Torre';
 
 /** Tokens del sitio en hex. Claro = `:root`, oscuro = `.dark` de `src/index.css`. `panel` es el fondo de la tarjeta de datos; `alerta`, el rojo `bad`. */
 const C = {
@@ -53,8 +63,14 @@ const urlSegura = (url: string): string => (/^[a-z][a-z0-9+.-]*:/i.test(url.trim
 /** Una sola línea (sin saltos): el asunto y la vista previa no admiten los del texto. */
 const unaLinea = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
+/** Primera letra del nombre (sin signos), en mayúscula: queda en el cuadrito de color cuando la empresa no subió logo. */
+const inicialDe = (nombre: string): string => (/[\p{L}\p{N}]/u.exec(nombre.trim())?.[0] ?? 'T').toUpperCase();
+
 export function plantillaCorreo(p: PlantillaCorreo): { html: string; texto: string } {
-  const { claro: L, oscuro: D } = C;
+  // Con marca, los acentos (botón, cifra, enlaces, cuadro del logo) toman el color de la empresa; si activó la marca sin elegir color, quedan en el verde de Torre.
+  const m = p.marca ?? null;
+  const L = m?.claro ? { ...C.claro, marca: m.claro.brand, sobreMarca: m.claro.onBrand, suave: m.claro.brandSoft } : C.claro;
+  const D = m?.oscuro ? { ...C.oscuro, marca: m.oscuro.brand, sobreMarca: m.oscuro.onBrand, suave: m.oscuro.brandSoft } : C.oscuro;
   const titulo = escaparHtml(p.titulo);
   const previa = escaparHtml(unaLinea(p.previa ?? p.parrafos[0] ?? p.titulo).slice(0, 140));
   const parrafos = p.parrafos.map((t) => `<p class="tx" style="margin:0 0 16px;font-size:16px;line-height:24px;color:${L.tinta};">${conSaltos(t)}</p>`).join('');
@@ -92,8 +108,23 @@ export function plantillaCorreo(p: PlantillaCorreo): { html: string; texto: stri
   const pie = p.pie ? `<p class="mu ln" style="margin:0;padding-top:16px;border-top:1px solid ${L.linea};font-size:13px;line-height:20px;color:${L.apagado};">${escaparHtml(p.pie)}</p>` : '';
 
   const condominio = p.condominio?.trim() ? `<p class="mu" style="margin:8px 0 0;font-family:${FUENTE};font-size:14px;line-height:20px;color:${L.apagado};">${escaparHtml(p.condominio.trim())}</p>` : '';
-  const piePagina = (p.piePagina?.length ? p.piePagina : ['Torre · Administración de condominios'])
+  const lineasPie = m ? [...(p.piePagina ?? []).filter((l) => l !== PIE_TORRE), PIE_ENVIADO_CON_TORRE] : p.piePagina?.length ? p.piePagina : [PIE_TORRE];
+  const piePagina = lineasPie
     .map((l, i) => `<p class="mu" style="margin:${i ? 6 : 0}px 0 0;font-size:12px;line-height:18px;color:${L.apagado};">${escaparHtml(l)}</p>`).join('');
+
+  // Cabecera: la de Torre (ícono y palabra) o la de la empresa (su logo, o su inicial en un cuadro de color, y su nombre; con las imágenes bloqueadas queda el nombre).
+  const cabecera = m
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>`
+      + (m.logoUrl
+        ? `<td valign="middle" style="padding-right:12px;"><img src="${escaparHtml(m.logoUrl)}" height="40" alt="" style="display:block;height:40px;max-width:160px;width:auto;border:0;border-radius:6px;"></td>`
+        : `<td class="logo" width="40" height="40" align="center" valign="middle" bgcolor="${L.marca}" style="width:40px;height:40px;background:${L.marca};border-radius:8px;font-family:${FUENTE};font-size:20px;line-height:40px;font-weight:700;color:${L.sobreMarca};">${escaparHtml(inicialDe(m.nombre))}</td><td width="12" style="width:12px;">&nbsp;</td>`)
+      + `<td class="tx" valign="middle" style="font-family:${FUENTE};font-size:20px;line-height:26px;font-weight:600;color:${L.tinta};">${escaparHtml(m.nombre)}</td></tr></table>`
+    : `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td class="logo" width="32" height="32" bgcolor="${L.marca}" style="width:32px;height:32px;background:${L.marca};border-radius:8px;"><img src="${LOGO_URL}" width="32" height="32" alt="" style="display:block;width:32px;height:32px;border:0;border-radius:8px;"></td>
+        <td class="tx" style="padding-left:10px;font-family:${FUENTE};font-size:20px;line-height:32px;font-weight:600;color:${L.tinta};">Torre</td>
+      </tr></table>`;
+  // Franja del color de la marca entre la cabecera y la tarjeta.
+  const franja = m ? `\n    <tr><td class="franja" height="6" bgcolor="${L.marca}" style="height:6px;line-height:6px;font-size:0;background:${L.marca};border-radius:12px 12px 0 0;">&nbsp;</td></tr>` : '';
 
   const html = `<!doctype html>
 <html lang="es">
@@ -115,6 +146,7 @@ export function plantillaCorreo(p: PlantillaCorreo): { html: string; texto: stri
     .tt { color:${D.marca} !important; }
     .al { color:${D.alerta} !important; }
     .logo { background:${D.marca} !important; }
+    .franja { background:${D.marca} !important; }
     .bt { background:${D.marca} !important; }
     .bt-a { color:${D.sobreMarca} !important; }
     .enl { color:${D.marca} !important; }
@@ -127,12 +159,9 @@ export function plantillaCorreo(p: PlantillaCorreo): { html: string; texto: stri
 <tr><td align="center" style="padding:24px 12px;font-family:${FUENTE};">
   <table role="presentation" width="${ANCHO}" cellpadding="0" cellspacing="0" border="0" class="caja" style="width:${ANCHO}px;max-width:100%;">
     <tr><td style="padding:0 4px 16px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-        <td class="logo" width="32" height="32" bgcolor="${L.marca}" style="width:32px;height:32px;background:${L.marca};border-radius:8px;"><img src="${LOGO_URL}" width="32" height="32" alt="" style="display:block;width:32px;height:32px;border:0;border-radius:8px;"></td>
-        <td class="tx" style="padding-left:10px;font-family:${FUENTE};font-size:20px;line-height:32px;font-weight:600;color:${L.tinta};">Torre</td>
-      </tr></table>${condominio}
-    </td></tr>
-    <tr><td class="tarjeta" style="padding:32px;background:${L.tarjeta};border:1px solid ${L.linea};border-radius:12px;font-family:${FUENTE};">
+      ${cabecera}${condominio}
+    </td></tr>${franja}
+    <tr><td class="tarjeta" style="padding:32px;background:${L.tarjeta};border:1px solid ${L.linea};${m ? 'border-top:0;border-radius:0 0 12px 12px;' : 'border-radius:12px;'}font-family:${FUENTE};">
       <h1 class="tx" style="margin:0 0 16px;font-size:24px;line-height:32px;font-weight:600;color:${L.tinta};">${titulo}</h1>
       ${parrafos}${resumen}${tabla}${boton}${pie}
     </td></tr>

@@ -17,9 +17,10 @@ export const comercialCorreo = {
 };
 
 /** Correo de la plataforma (registro, invitaciones, planes): sale con el remitente de la base (`correo_remitente`) o, sin él, con MAIL_FROM. */
-export async function correoA(destino: string | null, asunto: string, cuerpo: string, deps: DepsAvisos = comercialCorreo.deps(), html?: string): Promise<ResultadoEnvio> {
+export async function correoA(destino: string | null, asunto: string, cuerpo: string, deps: DepsAvisos = comercialCorreo.deps(), html?: string, escribe?: string | null): Promise<ResultadoEnvio> {
   const { correo_remitente } = await obtenerConfiguracion();
-  return enviarCorreo(deps, destino, asunto, cuerpo, undefined, html, { remitente: correo_remitente });
+  // `escribe`: quién escribe (el nombre comercial de una empresa con marca propia): el nombre visible pasa a «<escribe> vía Torre»; la dirección no cambia.
+  return enviarCorreo(deps, destino, asunto, cuerpo, undefined, html, { remitente: correo_remitente, condominio: escribe ?? null });
 }
 
 /** Enlace a una pantalla pública. La base sale de la configuración (nunca de la cabecera Host de la petición: sería un enlace envenenable). */

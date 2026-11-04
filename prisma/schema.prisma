@@ -107,6 +107,9 @@ model EmpresaAdministradora {
   whatsapp_token      String?
   /// País (ISO 3166-1 alfa-2, `src/lib/paises.ts`) que se propone a sus condominios nuevos.
   pais                String                 @default("PE")
+  /// Marca propia (plan Torre Administradora, capacidad `marca_propia`): nombre con el que se presenta ante sus vecinos y color `#RRGGBB`. Null = razón social y verde de Torre.
+  nombre_comercial    String?
+  color_marca         String?
   /// Cuenta de la empresa administradora a la que el tesorero de cada block paga el concepto de administración (cierre del mes). Todo opcional.
   cuenta_banco        String?
   cuenta_tipo         String?
