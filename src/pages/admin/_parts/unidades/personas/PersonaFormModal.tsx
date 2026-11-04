@@ -9,7 +9,8 @@ interface Props {
   /** `'nueva'` para agregar; una persona para editarla; null = cerrado. */
   persona: Persona | 'nueva' | null;
   onClose: () => void;
-  onGuardada: () => void;
+  /** Se espera antes de avisar: debe dejar la lista releída. */
+  onGuardada: () => Promise<void>;
 }
 
 /** Alta y edición de una persona del departamento. Con usuario en Torre, el nombre y (con acceso) el correo no se cambian aquí. */
@@ -63,8 +64,9 @@ export function PersonaFormModal({ unidadId, persona, onClose, onGuardada }: Pro
           },
         });
       }
+      // Primero la lista al día (en producción la lectura tarda): el aviso sale cuando la tarjeta ya muestra lo guardado.
+      await onGuardada();
       toast.ok(esNueva ? 'Persona agregada' : 'Cambios guardados');
-      onGuardada();
     } catch (e) {
       setError(errorText(e));
     } finally {

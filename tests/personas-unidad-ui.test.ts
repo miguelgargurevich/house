@@ -70,4 +70,12 @@ describe('cableado y usabilidad', () => {
   it('nada de «push» ni «sube la rama» en la pantalla', () => {
     for (const ruta of ['PersonasModal.tsx', 'PersonaFormModal.tsx']) assert.equal(/\bpush\b|sube la rama/i.test(fuente(`${DIR}/${ruta}`)), false, ruta);
   });
+  it('el aviso verde sale DESPUÉS de releer la lista (si no, «Acceso encendido» se veía con el interruptor apagado)', () => {
+    const m = fuente(`${DIR}/PersonasModal.tsx`);
+    assert.match(m, /await accion\(\); await lista\.reload\(\); toast\.ok\(ok\)/, 'encender/apagar, responsable y titular');
+    assert.match(m, /method: 'DELETE' \}\); await lista\.reload\(\); toast\.ok\('Persona quitada'\)/, 'quitar');
+    assert.match(m, /onGuardada=\{async \(\) => \{ await lista\.reload\(\);/, 'el formulario espera la lista');
+    const f = fuente(`${DIR}/PersonaFormModal.tsx`);
+    assert.ok(f.indexOf('await onGuardada()') > -1 && f.indexOf('await onGuardada()') < f.indexOf("toast.ok(esNueva"), 'el formulario avisa después de que la lista se releyó');
+  });
 });

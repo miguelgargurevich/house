@@ -28,7 +28,8 @@ export function PersonasModal({ unidad, onClose, onCambio }: Props) {
 
   async function correr(id: number, accion: () => Promise<unknown>, ok: string) {
     setOcupada(id);
-    try { await accion(); toast.ok(ok); await lista.reload(); onCambio?.(); } catch (e) { toast.error(errorText(e)); } finally { setOcupada(null); }
+    // La lista se relee ANTES de avisar: si no, el aviso «Acceso encendido» salía con el interruptor todavía apagado (en producción la lectura tarda).
+    try { await accion(); await lista.reload(); toast.ok(ok); onCambio?.(); } catch (e) { toast.error(errorText(e)); } finally { setOcupada(null); }
   }
   const alternar = (p: Persona, activo: boolean) => correr(p.id, () => api(`${url}/${p.id}/acceso`, { method: 'PUT', json: { activo } }), activo ? 'Acceso encendido' : 'Acceso apagado');
   const marcarPaga = (p: Persona) => correr(p.id, () => api(`${url}/${p.id}`, { method: 'PUT', json: { responsable_pago: true } }), 'Responsable de pago cambiado');
@@ -37,7 +38,7 @@ export function PersonasModal({ unidad, onClose, onCambio }: Props) {
   async function confirmarQuitar() {
     if (!quitar) return;
     setQuitando(true);
-    try { await api(`${url}/${quitar.id}`, { method: 'DELETE' }); toast.ok('Persona quitada'); setQuitar(null); await lista.reload(); onCambio?.(); } catch (e) { toast.error(errorText(e)); setQuitar(null); } finally { setQuitando(false); }
+    try { await api(`${url}/${quitar.id}`, { method: 'DELETE' }); await lista.reload(); toast.ok('Persona quitada'); setQuitar(null); onCambio?.(); } catch (e) { toast.error(errorText(e)); setQuitar(null); } finally { setQuitando(false); }
   }
 
   const items = lista.data?.items ?? [];
@@ -95,7 +96,7 @@ export function PersonasModal({ unidad, onClose, onCambio }: Props) {
         </ul>
       </Modal>
 
-      <PersonaFormModal unidadId={unidad?.id ?? 0} persona={edicion} onClose={() => setEdicion(null)} onGuardada={() => { setEdicion(null); void lista.reload(); onCambio?.(); }} />
+      <PersonaFormModal unidadId={unidad?.id ?? 0} persona={edicion} onClose={() => setEdicion(null)} onGuardada={async () => { await lista.reload(); setEdicion(null); onCambio?.(); }} />
       <ConfirmDialog
         open={!!quitar}
         onClose={() => setQuitar(null)}
