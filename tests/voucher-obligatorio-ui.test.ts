@@ -31,7 +31,7 @@ describe('detalle del pago: validar exige el voucher', () => {
 
   it('la lista «Por validar» marca «Voucher falta» en cada pago sin voucher (en su línea Voucher · IA · Tesorero)', () => {
     assert.match(PAGOS, /pestana === 'por_validar'\s*\? <EstadoRevision pago=\{p\} \/>/);
-    assert.match(PAGOS, /Voucher \{e\.voucher\}/);
+    assert.match(PAGOS, /Voucher \{pago\.comprobante \? <Hecho texto=\{e\.voucher\} \/> : e\.voucher\}/, 'sin voucher se lee «falta»; con voucher, el ícono de check');
     assert.match(PAGOS, /pago\.comprobante \? COLOR_ESTADO\.ok : COLOR_ESTADO\.warn/);
     assert.equal(estadoRevision({ estado_validacion: 'por_validar', conformidad: null, comprobante: null }).voucher, 'falta');
   });
