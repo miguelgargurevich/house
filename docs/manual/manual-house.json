@@ -1,6 +1,6 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 4-nov-2026 (13)",
+  "kicker": "Manual de usuario · versión del 4-nov-2026 (14)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
@@ -28,32 +28,32 @@
           [
             "Administradora",
             "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-            "Secciones 07 a 37"
+            "Secciones 07 a 38"
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
             "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
-            "Secciones 38 a 45"
+            "Secciones 39 a 46"
           ],
           [
             "Propietario",
             "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-            "Secciones 46 a 54"
+            "Secciones 47 a 55"
           ],
           [
             "Inquilino",
             "Lo mismo que el propietario, para el departamento que alquilas",
-            "Sección 55"
+            "Sección 56"
           ],
           [
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
-            "Secciones 56 y 57"
+            "Secciones 57 y 58"
           ],
           [
             "Superadmin (soporte de Torre)",
             "Ves Torre como la ve otra persona para darle soporte, con motivo y en la auditoría",
-            "Sección 58"
+            "Sección 59"
           ],
           [
             "Todavía no tienes cuenta",
@@ -321,6 +321,19 @@
       "aviso": {
         "tipo": "aviso",
         "texto": "Sólo la administración puede anular; la junta ve los pagos anulados pero no los anula. Un pago **por validar** no se anula: se rechaza. Si el cierre del mes de ese block ya tiene todos sus pagos registrados, Torre te pide **reabrir el mes primero** (en Junta › Cierre del mes, quita el registro de las líneas) y recién entonces podrás anular."
+      }
+    },
+    {
+      "titulo": "Volver a revisar un pago rechazado",
+      "etiqueta": "Administradora · Pagos",
+      "parrafos": [
+        "Si rechazaste un pago por error (por ejemplo, **el abono sí llegó a la cuenta**), no hace falta pedirle al vecino que pague otra vez: entra a **Pagos**, abre la pestaña **Rechazados**, pulsa **Ver** y luego **Volver a revisar**.",
+        "Torre te pide el **motivo** (de 5 a 200 caracteres; por ejemplo, «Lo rechacé por error, el abono sí llegó») y te dice qué va a pasar: el pago vuelve a **Por validar** y el recibo del departamento queda en revisión. Al confirmar, el pago aparece en la pestaña **Por validar** y lo revisas como siempre. Si era el pago de un mantenimiento completo, vuelven todos sus conceptos a la vez.",
+        "El motivo del rechazo anterior y quién lo había rechazado **no se pierden**: quedan en la auditoría, junto con tu motivo. Si el tesorero ya había dado su check, hay que pedírselo otra vez: tras un rechazo, el check se limpia."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Sólo la administración puede volver a revisar; la junta no. El botón se apaga y te explica por qué cuando **el vecino ya subió otro voucher** de ese mantenimiento (revisa ese pago en lugar de este), cuando el recibo ya no existe o cuando el cierre del mes de ese block está registrado por completo (quita antes el registro de sus líneas en Junta › Cierre del mes). El vecino no recibe un aviso por reabrir: cuando valides o rechaces de nuevo, le llega el aviso de siempre."
       }
     },
     {
