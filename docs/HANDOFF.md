@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Marca propia: también en Pro y Cortesía, migración y firma de WhatsApp (Claude Code, Opus 5.5, revisando lo de Sonnet) — push: no
+
+- Miguel: «en el plan pro también inclúyelo» y «el rebranding por empresa en todo incluyendo correos». `marca_propia` ahora va en Pro, Administradora y Cortesía (`catalogo.ts`); Básico y Gratis no. El logo sigue en todos.
+- Producción: el catálogo sembrado NO toca planes existentes (`createMany skipDuplicates`). `migracionMarca` (en `comercial/migracion.ts`, marca `ConfiguracionComercial.migracion_marca_at`) suma la capacidad UNA vez a Pro, Administradora y Cortesía al arrancar; si el superadmin se la quita a un plan, no vuelve. VRANY está en Cortesía → la verá activa.
+- Firma de los avisos en texto (WhatsApp y respaldo del correo): `— Administración de <condominio> · <nombre comercial>` con la marca activa (`plantillas.ts` `firma`, dato `empresa` que llena `cargarDatos` en `cola.ts`).
+- Textos de pantalla y manual: «Disponible desde el plan Torre Pro».
+- Pruebas: `tests/marca-planes-firma.test.ts` (firma y migración) y ajustes en `marca-api` y `oferta-gratis-pro` (Básico es el plan sin marca).
+- Pendiente: verla en el navegador (375 px, claro y oscuro), un correo real en Gmail, el video de la sección «Tu marca».
+
+---
+
 ## 2026-11-04 — Marca propia de la empresa: logo, nombre comercial y color (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - **Pedido de Miguel**: «necesito poder customizar el logo y el nombre … y color (con color picker) y salga en sus recibos y asi torre pueda customizarse» + «considera el rebranding por empresa en TODO incluyendo correos». Rama `feat/marca-empresa` (sobre `8611d61`), commits sin push.

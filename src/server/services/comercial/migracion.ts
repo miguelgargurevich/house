@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { CONFIGURACION_ID, MODULOS } from './catalogo';
+import { CAPACIDAD_MARCA, CONFIGURACION_ID, MODULOS, PLANES_CON_MARCA } from './catalogo';
 import { estadoEfectivo, finDePrueba } from './estado';
 import { invalidarComercial } from './modulos';
 
@@ -39,6 +39,8 @@ export async function migracionInicial(db: Cliente): Promise<{ aplicada: boolean
     await db.configuracionComercial.updateMany({ where: { id: CONFIGURACION_ID, migracion_cortesia_at: null }, data: { migracion_cortesia_at: new Date() } });
     resultado = { aplicada: true, creadas: r.creadas };
   }
+  const marca = await migracionMarca(db);
+  if (marca.planes) console.log(`[comercial] marca propia sumada a ${marca.planes} planes`);
   const gratis = await migracionGratis(db);
   if (gratis.aplicada && gratis.fijados) console.log(`[comercial] plazo de Torre Gratis fijado a ${gratis.fijados} condominios`);
   return resultado;
@@ -76,4 +78,22 @@ export async function migracionGratis(db: Cliente, opts: { ahora?: Date } = {}):
   }
   await db.configuracionComercial.updateMany({ where: { id: CONFIGURACION_ID, migracion_gratis_at: null }, data: { migracion_gratis_at: ahora } });
   return { aplicada: true, fijados };
+}
+
+/**
+ * UNA sola vez (marca `migracion_marca_at`): suma la capacidad `marca_propia` a los planes Pro, Administradora y Cortesía que ya existían (el catálogo
+ * sembrado no toca planes existentes). Después el superadmin puede quitarla de un plan y no vuelve.
+ */
+export async function migracionMarca(db: Cliente): Promise<{ aplicada: boolean; planes: number }> {
+  const cfg = await db.configuracionComercial.findUnique({ where: { id: CONFIGURACION_ID }, select: { migracion_marca_at: true } });
+  if (!cfg || cfg.migracion_marca_at) return { aplicada: false, planes: 0 };
+  const planes = await db.planComercial.findMany({ where: { clave: { in: [...PLANES_CON_MARCA] } }, select: { clave: true, modulos_incluidos: true } });
+  let n = 0;
+  for (const p of planes) {
+    if (p.modulos_incluidos.includes(CAPACIDAD_MARCA)) continue;
+    await db.planComercial.update({ where: { clave: p.clave }, data: { modulos_incluidos: [...p.modulos_incluidos, CAPACIDAD_MARCA] } });
+    n++;
+  }
+  await db.configuracionComercial.updateMany({ where: { id: CONFIGURACION_ID, migracion_marca_at: null }, data: { migracion_marca_at: new Date() } });
+  return { aplicada: true, planes: n };
 }

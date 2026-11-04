@@ -16,7 +16,7 @@ export interface EmpresaMarca {
   nombre_comercial?: string | null;
   color_marca?: string | null;
   logo_url?: string | null;
-  /** La empresa tiene la capacidad «Marca propia» (plan Torre Administradora). */
+  /** La empresa tiene la capacidad «Marca propia» (planes Torre Pro y Torre Administradora). */
   marca_activa?: boolean;
 }
 
@@ -30,7 +30,7 @@ interface Props {
 
 /**
  * «Tu marca»: logo, nombre comercial y color de la empresa, con vista previa en vivo. El logo va en todos los planes; el nombre y el color se guardan siempre
- * pero sólo se ven con el plan Torre Administradora (la empresa puede prepararlos antes).
+ * pero sólo se ven con Torre Pro o Torre Administradora (la empresa puede prepararlos antes).
  */
 export function SeccionMarca({ empresa, onCambio, comoSuperadmin = false }: Props) {
   const toast = useToast();

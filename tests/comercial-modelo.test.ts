@@ -191,7 +191,7 @@ describe('seed del catálogo y migración a cortesía', () => {
       assert.equal(s.plan_clave, 'cortesia');
       assert.equal(s.vigente_hasta, null);
       assert.deepEqual([...s.modulos].sort(), ['asistente', 'ia_vouchers', 'whatsapp_avisos']);
-      assert.deepEqual([...(await estadoDeComplejo(c.id)).modulos].sort(), ['asistente', 'conciliacion', 'ia_vouchers', 'mora_automatica', 'reportes', 'whatsapp_avisos']);
+      assert.deepEqual([...(await estadoDeComplejo(c.id)).modulos].sort(), ['asistente', 'conciliacion', 'ia_vouchers', 'marca_propia', 'mora_automatica', 'reportes', 'whatsapp_avisos']);
     }
     assert.deepEqual(await migrarACortesia(prisma), { sinSuscripcion: 0, creadas: 0, yaTenian: 2 });
   });

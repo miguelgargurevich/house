@@ -22,7 +22,7 @@ const base = z.object({
   estado: texto(30).optional(),
   /** País por defecto de sus condominios nuevos (catálogo `src/lib/paises.ts`). */
   pais: paisSchema.optional(),
-  /** Marca propia (capacidad `marca_propia` del plan Administradora): se guarda con cualquier plan, pero sólo se muestra con la capacidad. */
+  /** Marca propia (capacidad `marca_propia` de Pro y Administradora): se guarda con cualquier plan, pero sólo se muestra con la capacidad. */
   nombre_comercial: textoOpcional(60),
   /** `#RRGGBB` o null (= verde de Torre). Se guarda en minúsculas. */
   color_marca: z.preprocess((v) => (v === '' ? null : v), z.string().regex(HEX_COLOR, 'Usa un color hex de 6 dígitos, por ejemplo #007565').transform((v) => v.toLowerCase()).nullish()),

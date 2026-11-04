@@ -33,6 +33,8 @@ export interface DatosAviso {
   motivo?: string;
   /** Condominio del recibo: firma el mensaje. */
   condominio?: string | null;
+  /** Nombre comercial de la empresa administradora, sólo con la marca propia activa: se suma a la firma («— Administración de <condominio> · <empresa>»). */
+  empresa?: string | null;
   /** Sólo `comunicado`: el título (es el asunto) y el texto plano que escribió la administración o la junta. */
   titulo?: string;
   texto?: string;
@@ -103,7 +105,7 @@ export function fechaTextoEn(f: Date, zona: string): string {
 }
 
 export const primerNombre = (n: string) => n.trim().split(/\s+/)[0] || 'vecino';
-const firma = (d: DatosAviso) => `— Administración${d.condominio ? ` de ${d.condominio}` : ' de tu condominio'}`;
+const firma = (d: DatosAviso) => `— Administración${d.condominio ? ` de ${d.condominio}` : ' de tu condominio'}${d.empresa && d.empresa !== d.condominio ? ` · ${d.empresa}` : ''}`;
 const enlaceDe = (d: DatosAviso) => d.enlace ?? ENLACE_APP;
 const cierre = (d: DatosAviso) => `Entra a ${enlaceDe(d)}.\n\n${firma(d)}`;
 /** El vencimiento para decirlo en una frase: «lunes 2 de noviembre» (o `dd/mm/aaaa` si no tenemos el día). */

@@ -1,4 +1,4 @@
-/** Marca de una empresa tal como la ve quien la usa (la app, el recibo). `activa` = la empresa tiene la capacidad `marca_propia` (plan Torre Administradora). */
+/** Marca de una empresa tal como la ve quien la usa (la app, el recibo). `activa` = la empresa tiene la capacidad `marca_propia` (planes Torre Pro y Torre Administradora). */
 export interface MarcaEmpresa {
   /** La empresa de esta marca (`null` = Torre). Sirve para saber si la marca del usuario corresponde a la empresa de un documento (recibo, estado de cuenta). */
   empresa_id: number | null;

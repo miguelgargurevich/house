@@ -1095,6 +1095,8 @@ model ConfiguracionComercial {
   migracion_gratis_at    DateTime?
   /// Cuándo se dejaron en «cortesía» los condominios que ya existían al estrenar la capa comercial (una sola vez; ver services/comercial/migracion.ts).
   migracion_cortesia_at  DateTime?
+  /// Cuándo se sumó la capacidad `marca_propia` a los planes Pro, Administradora y Cortesía que ya existían (una sola vez; ver services/comercial/migracion.ts).
+  migracion_marca_at     DateTime?
   pago_titular           String?
   pago_banco             String?
   pago_cuenta            String?

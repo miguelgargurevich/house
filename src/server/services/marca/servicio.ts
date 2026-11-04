@@ -67,12 +67,15 @@ export async function marcaDeUsuario(u: { id: number; rol: string | null; empres
   return marcaDeEmpresa(await empresaDeUsuario(u));
 }
 
-/** La marca para el marco de un correo; `null` si la empresa no tiene marca propia activa (el correo sale como siempre, con la cara de Torre). */
+/** La marca para el marco de un correo; `null` si la empresa no tiene marca propia activa o no personalizó nada (el correo sale como siempre, con la cara de Torre). */
 export async function marcaParaCorreo(empresaId: number | null | undefined): Promise<MarcaCorreo | null> {
   if (empresaId == null) return null;
   const c = await cargar(empresaId);
   if (!c || !(await empresaTieneMarcaPropia(empresaId))) return null;
   const { color_marca, nombre_comercial, nombre } = c.empresa;
+  // Con el plan pero sin nada personalizado (ni nombre comercial ni color), el correo sale como siempre: no cambia de «<Condominio> vía Torre» a la razón social
+  // sólo por tener el plan.
+  if (!nombre_comercial?.trim() && !esHexColor(color_marca)) return null;
   const nombreMarca = nombre_comercial?.trim() || nombre;
   const logoUrl = c.logo ? urlPublicaDeLogo(empresaId, versionImagen(c.logo.updated_at)) : null;
   if (!esHexColor(color_marca)) return { nombre: nombreMarca, logoUrl, claro: null, oscuro: null };

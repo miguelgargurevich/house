@@ -46,4 +46,4 @@ export function hayCambios(f: FormMarca, e: { nombre_comercial?: string | null; 
 }
 
 export const AVISO_AJUSTADO = 'Lo oscurecimos un poco para que el texto se lea.';
-export const AVISO_SIN_PLAN = 'Disponible en el plan Torre Administradora.';
+export const AVISO_SIN_PLAN = 'Disponible desde el plan Torre Pro.';

@@ -1,5 +1,5 @@
 // Marca propia de la empresa administradora: guardar nombre comercial y color, qué marca ve cada usuario (la de SU empresa y sólo con la capacidad
-// `marca_propia` del plan Administradora), el logo público de los correos y el marco del correo con marca. Resend SIEMPRE falso (`fetch` inyectado).
+// `marca_propia` de Pro, Administradora y Cortesía), el logo público de los correos y el marco del correo con marca. Resend SIEMPRE falso (`fetch` inyectado).
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
@@ -26,7 +26,7 @@ const crudo = (metodo: string, ruta: string, token: string | null, cuerpo?: Buff
 
 const MARCA_A = { nombre_comercial: 'Administradora Torres del Sol', color_marca: '#0057b8' };
 
-/** Pone el plan del condominio (la marca propia es de `administradora`; `cortesia` no la trae) y vacía la caché comercial. */
+/** Pone el plan del condominio (la marca propia la traen `pro`, `administradora` y `cortesia`; `basico` no) y vacía la caché comercial. */
 async function plan(complejoId: number, clave: string) {
   await prisma.suscripcionCondominio.upsert({ where: { complejo_id: complejoId }, create: { complejo_id: complejoId, plan_clave: clave, modulos: [], estado: 'activa' }, update: { plan_clave: clave, estado: 'activa', vigente_hasta: null, es_prueba: false } });
   invalidarComercial();
@@ -58,19 +58,19 @@ beforeEach(async () => {
   await prisma.empresaAdministradora.updateMany({ data: { nombre_comercial: null, color_marca: null } });
   await prisma.imagenRecibo.deleteMany();
   await plan(d.complejoA.id, 'administradora');
-  await plan(d.complejoB.id, 'cortesia');
+  await plan(d.complejoB.id, 'basico');
 });
 
 describe('capacidad marca_propia en el plan', () => {
-  it('Torre Administradora la trae; Pro, Básico, Gratis y Cortesía no', async () => {
+  it('Pro, Administradora y Cortesía la traen; Básico y Gratis no', async () => {
     const planes = await prisma.planComercial.findMany({ select: { clave: true, modulos_incluidos: true } });
-    const trae = planes.filter((p) => p.modulos_incluidos.includes('marca_propia')).map((p) => p.clave);
-    assert.deepEqual(trae, ['administradora']);
+    const trae = planes.filter((p) => p.modulos_incluidos.includes('marca_propia')).map((p) => p.clave).sort();
+    assert.deepEqual(trae, ['administradora', 'cortesia', 'pro']);
   });
 
   it('una empresa la tiene si AL MENOS uno de sus condominios la tiene activa', async () => {
     assert.equal(await empresaTieneMarcaPropia(d.empresaA.id), true);
-    assert.equal(await empresaTieneMarcaPropia(d.empresaB.id), false, 'cortesía no la incluye');
+    assert.equal(await empresaTieneMarcaPropia(d.empresaB.id), false, 'básico no la incluye');
     // Un segundo condominio de la B, en Administradora: basta uno.
     const otro = await prisma.complejoHabitacional.create({ data: { nombre: 'Complejo B2', tipo: 'Edificio', empresa_id: d.empresaB.id } });
     await plan(otro.id, 'administradora');
@@ -84,11 +84,13 @@ describe('capacidad marca_propia en el plan', () => {
     invalidarComercial();
   });
 
-  it('un plan sin la capacidad (Pro) no la activa; el superadmin puede dársela por plan', async () => {
-    await plan(d.complejoA.id, 'pro');
+  it('Básico no la activa; Pro, Administradora y Cortesía sí (Miguel, 4-nov: «en el plan pro también inclúyelo»)', async () => {
+    await plan(d.complejoA.id, 'basico');
     assert.equal(await empresaTieneMarcaPropia(d.empresaA.id), false);
-    await plan(d.complejoA.id, 'administradora');
-    assert.equal(await empresaTieneMarcaPropia(d.empresaA.id), true);
+    for (const clave of ['pro', 'administradora', 'cortesia']) {
+      await plan(d.complejoA.id, clave);
+      assert.equal(await empresaTieneMarcaPropia(d.empresaA.id), true, clave);
+    }
   });
 });
 
@@ -206,7 +208,7 @@ describe('marca en /api/auth/me y en el login: la de SU empresa', () => {
   });
 
   it('sin la capacidad: activa false, razón social y sin color (el logo, que va en todos los planes, se conserva)', async () => {
-    await plan(d.complejoA.id, 'pro');
+    await plan(d.complejoA.id, 'basico');
     for (const token of [T.adminA, T.prop1, T.mttoA]) {
       const m = await marcaDe(token);
       assert.equal(m.activa, false);
@@ -275,6 +277,7 @@ describe('logo público para los correos', () => {
   });
 
   it('el reemplazo del logo cambia la versión de la URL pero NO la firma: un correo viejo muestra el logo vigente', async () => {
+    await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { nombre_comercial: MARCA_A.nombre_comercial } }); // con algo personalizado
     const antes = await marcaParaCorreo((await prisma.empresaAdministradora.findUniqueOrThrow({ where: { id: d.empresaA.id } })).id);
     await new Promise((r) => setTimeout(r, 15));
     assert.equal((await crudo('PUT', `/api/empresas/${d.empresaA.id}/logo`, T.adminA, JPG, 'image/jpeg')).status, 200);
@@ -285,6 +288,14 @@ describe('logo público para los correos', () => {
     const viejo = await crudo('GET', ruta(antes!.logoUrl!), null);
     assert.equal(viejo.status, 200);
     assert.deepEqual(Buffer.from(await viejo.arrayBuffer()), JPG);
+  });
+
+  it('con el plan pero sin nombre comercial ni color, el correo sale como siempre (no cambia a la razón social)', async () => {
+    const antes = await prisma.empresaAdministradora.findUniqueOrThrow({ where: { id: d.empresaA.id } });
+    await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { nombre_comercial: null, color_marca: null } });
+    assert.equal(await empresaTieneMarcaPropia(d.empresaA.id), true);
+    assert.equal(await marcaParaCorreo(d.empresaA.id), null);
+    await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { nombre_comercial: antes.nombre_comercial, color_marca: antes.color_marca } });
   });
 
   it('la firma sólo vale para su empresa', () => {

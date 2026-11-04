@@ -28,7 +28,7 @@ export interface Usuario {
   estructura_nombre?: string | null;
   /** Su junta es la ÚNICA del condominio (sólo junta directiva, sin blocks con junta): el menú y las pantallas no hablan de blocks ni de «Junta central». Lo calcula el servidor. */
   junta_unica?: boolean;
-  /** Marca de SU empresa (nombre, logo y color; `activa` sólo con el plan Torre Administradora). Superadmin y sin empresa: Torre. */
+  /** Marca de SU empresa (nombre, logo y color; `activa` con Torre Pro, Administradora o Cortesía). Superadmin y sin empresa: Torre. */
   marca?: MarcaUsuario;
 }
 

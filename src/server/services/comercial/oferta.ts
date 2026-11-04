@@ -30,8 +30,8 @@ export async function ajustarOfertaGratisPro(db: Cliente, opts: { seco?: boolean
     if (fila.unidades_minimas !== seed.unidades_minimas) { cambios.push(`unidades_minimas ${fila.unidades_minimas ?? '—'} → ${seed.unidades_minimas ?? '—'}`); data.unidades_minimas = seed.unidades_minimas; }
     if (fila.asistente_por_unidad_mes !== seed.asistente_por_unidad_mes) { cambios.push(`asistente_por_unidad_mes ${fila.asistente_por_unidad_mes ?? '—'} → ${seed.asistente_por_unidad_mes ?? '—'}`); data.asistente_por_unidad_mes = seed.asistente_por_unidad_mes; }
     if (fila.whatsapp_por_unidad_mes !== seed.whatsapp_por_unidad_mes) { cambios.push(`whatsapp_por_unidad_mes ${fila.whatsapp_por_unidad_mes ?? '—'} → ${seed.whatsapp_por_unidad_mes ?? '—'}`); data.whatsapp_por_unidad_mes = seed.whatsapp_por_unidad_mes; }
-    // Gratis no trae nada; el resto trae las capacidades de su plan (las de Pro y, sólo en Administradora, `marca_propia`): se conserva el orden de las que
-    // ya tenía y se agregan las que faltan. Pro nunca recibe `marca_propia` de aquí, pero si el superadmin se la puso a mano tampoco se le quita.
+    // Gratis no trae nada; el resto trae las capacidades de su plan (las de Pro y `marca_propia` en Pro, Administradora y Cortesía): se conserva el orden de las que
+    // ya tenía y se agregan las que faltan. Lo que el superadmin agregó a mano no se quita.
     const quiere = seed.modulos_incluidos.length ? [...fila.modulos_incluidos.filter((m) => (TODAS_LAS_CAPACIDADES as readonly string[]).includes(m)), ...(seed.modulos_incluidos as readonly string[]).filter((c) => !fila.modulos_incluidos.includes(c))] : [];
     if (!igual(fila.modulos_incluidos, quiere)) { cambios.push(`modulos_incluidos → ${quiere.join(', ') || '(ninguno)'}`); data.modulos_incluidos = quiere; }
     if (fila.nombre !== seed.nombre && fila.nombre === NOMBRES_DE_FABRICA[seed.clave]) { cambios.push(`nombre ${fila.nombre} → ${seed.nombre}`); data.nombre = seed.nombre; }

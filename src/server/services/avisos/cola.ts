@@ -70,7 +70,10 @@ interface Cargado {
 /** Reúne lo que lleva el mensaje. `null` si no hay nada que avisar a ese usuario (cargos ya pagados, recibo borrado…). Agrega el enlace a la pantalla que corresponde al rol de quien lo recibe. */
 async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: string; rol?: string | null }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
   const c = await cargarDatosBase(tipo, usuario, ref, ahora);
-  return c ? { datos: { ...c.datos, enlace: enlaceDeAviso(tipo, usuario.rol, c.datos.central) } } : null;
+  if (!c) return null;
+  // Con la marca propia activa, la firma del texto (WhatsApp y correo en texto) suma el nombre comercial de la empresa que escribe.
+  const marca = ref.entidad === 'ia' ? null : await empresaDeAviso(ref).then(marcaParaCorreo).catch(() => null);
+  return { datos: { ...c.datos, enlace: enlaceDeAviso(tipo, usuario.rol, c.datos.central), ...(marca ? { empresa: marca.nombre } : {}) } };
 }
 
 async function cargarDatosBase(tipo: TipoAviso, usuario: { id: number; nombre: string }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
