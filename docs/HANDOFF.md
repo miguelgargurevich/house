@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Contador de WhatsApp: el tope es por día (Claude Code, Opus 5.5) — push: no
+
+- Miguel no entendía si el «0 de 200» era diario, semanal o mensual. Es el tope POR DÍA del número (`ConfiguracionComercial.whatsapp_tope_diario`, 200 en prod; antibaneo), distinto de la cuota mensual por condominio del plan (Cortesía: sin tope; Pro: 6 por dpto/mes).
+- `ContadorWhatsapp.tsx`: título «Enviados hoy · tope por día» y ayuda `ayudaTopeDiario` (en `whatsapp/tipos.ts`); la sección del mes dice «lo que incluye su plan». Prueba en `tests/whatsapp-grupos-ui.test.ts` (mutación en rojo).
+- Gotcha: con 448 dptos el aviso del recibo por WhatsApp tarda ~3 días con tope 200 (el correo sale el mismo día). El tope lo cambia el superadmin en Precios; recomendado ≤ 300–500.
+
+---
+
 ## 2026-11-04 — Fase 1 y 2 en producción + manual v10 (Claude Code, Opus 5.5) — push: código sí; `ac3af53` (docs) no
 
 - Desplegados `653b0c1` (carga de contactos por Excel) y `ff10ae3` (personas por departamento, construida por Sonnet y verificada por Opus: suite 3954/3956 — fecha + un test de precios que pasa solo —, mutaciones propias de alcance y responsable de pago en rojo, pantalla vista a 375 px). En prod la migración creó personas para los 32 dptos cargados (Block 1), un responsable de pago por dpto.
