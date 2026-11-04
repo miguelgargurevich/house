@@ -64,7 +64,27 @@ def payload(salida):
             ],
             'tabla': {'columnas': ['Rol', 'Quién lo usa', 'Opciones'], 'filas': filas_indice},
             'aviso': {'tipo': 'nota', 'texto': 'Solo ves en tu menú las opciones de tu rol. Si eres propietario y además estás en la junta de tu block, ves las dos partes.'},
-        }
+        },
+        # Onboarding (videos 7 y 8 de marketing): el camino completo, en orden, antes del detalle de cada opción.
+        {
+            'titulo': 'Empieza con Torre (administración)',
+            'etiqueta': 'Empieza aquí',
+            'parrafos': [
+                'ANCLA::empieza-administracion',
+                'El primer día de la administradora, en orden: instala Torre en el celular, carga los contactos de los vecinos con la plantilla, conecta el WhatsApp de la administración y asigna el grupo de cada block, pon tu marca, revisa las personas de cada departamento y avisa tu primer recibo.',
+                'Lo general (el recibo, los comunicados) va al grupo de WhatsApp de cada block; lo personal (vence, venció, recordatorios) va directo a cada vecino.',
+                'VIDEO::v7::escritorio',
+            ],
+        },
+        {
+            'titulo': 'Bienvenido a Torre (vecinos)',
+            'etiqueta': 'Empieza aquí',
+            'parrafos': [
+                'ANCLA::empieza-vecinos',
+                'Para propietarios e inquilinos: te llega la invitación por correo, creas tu contraseña, instalas Torre en el celular, ves lo que debes, pagas y subes tu voucher, y lees los comunicados de tu edificio.',
+                'VIDEO::v8::escritorio',
+            ],
+        },
     ]
     for r in roles:
         for e in por_rol[r]:
