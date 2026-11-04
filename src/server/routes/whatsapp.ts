@@ -63,8 +63,10 @@ async function evolutionRequest(endpoint: string, method = 'GET', body?: Record<
     throw new EvolutionError(timeout ? 'timeout' : 'sin_conexion', null, e instanceof Error ? e.message : 'error de red');
   }
   if (!response.ok) {
-    const detalle = (await response.json().catch(() => ({}))) as { message?: unknown };
-    throw new EvolutionError('error', response.status, typeof detalle.message === 'string' ? detalle.message : '');
+    // Evolution v1 responde `{ message: '…' }`; la v2, `{ response: { message: ['…'] } }`.
+    const detalle = (await response.json().catch(() => ({}))) as { message?: unknown; response?: { message?: unknown } };
+    const texto = (m: unknown): string => (typeof m === 'string' ? m : Array.isArray(m) ? m.filter((x) => typeof x === 'string').join('; ') : '');
+    throw new EvolutionError('error', response.status, (texto(detalle.message) || texto(detalle.response?.message)).slice(0, 200));
   }
   try {
     return (await response.json()) as Record<string, unknown>;
@@ -111,10 +113,11 @@ router.post('/sync', requireRole('admin', 'superadmin'), async (req, res) => {
     instanceName = `house_empresa_${empresa.id}`;
     const token = randomBytes(24).toString('hex');
     try {
-      await evolutionRequest('/instance/create', 'POST', { instanceName, token, qrcode: true });
+      // Evolution v2 exige la integración (sin ella responde 400 «Invalid integration»).
+      await evolutionRequest('/instance/create', 'POST', { instanceName, token, qrcode: true, integration: 'WHATSAPP-BAILEYS' });
     } catch (e) {
       // Si la instancia ya existe en Evolution, se sigue con ella (el token guardado es el que vale).
-      if (!(e instanceof EvolutionError && e.detalle.toLowerCase().includes('already exists'))) {
+      if (!(e instanceof EvolutionError && /already (exists|in use)/i.test(e.detalle))) {
         return falloEvolution(res, 'Error al crear la instancia de WhatsApp', e);
       }
     }

@@ -143,9 +143,11 @@ export default function WhatsappSync() {
         </div>
 
         {error && (
-          <Alert tone="bad">
-            {error}
-          </Alert>
+          <div className="mt-6 text-left">
+            <Alert tone="bad">
+              {error}
+            </Alert>
+          </div>
         )}
       </Card>
     </div>

@@ -95,6 +95,7 @@ describe('sincronización de WhatsApp por administradora', () => {
     const creado = aEvolution.find((l) => l.url.endsWith('/instance/create'))!;
     assert.equal(cuerpoDe(creado).instanceName, esperado);
     assert.equal(cuerpoDe(creado).token, empresa!.whatsapp_token);
+    assert.equal(cuerpoDe(creado).integration, 'WHATSAPP-BAILEYS', 'Evolution v2 exige la integración');
     assert.equal((creado.init.headers as Record<string, string>).apikey, CLAVE_EVO);
   });
 
@@ -130,6 +131,14 @@ describe('sincronización de WhatsApp por administradora', () => {
     assert.equal(r.status, 200, r.texto);
     const empresa = await prisma.empresaAdministradora.findUnique({ where: { id: d.empresaA.id } });
     assert.equal(empresa!.whatsapp_instance, `house_empresa_${d.empresaA.id}`);
+  });
+
+  it('Evolution v2: «already in use» (403, mensaje en response.message) también sigue con la instancia', async () => {
+    responderEvo = (url) => (url.endsWith('/instance/create')
+      ? new Response(JSON.stringify({ status: 403, error: 'Forbidden', response: { message: [`This name "house_empresa_${d.empresaA.id}" is already in use.`] } }), { status: 403 })
+      : new Response(JSON.stringify({ base64: 'QR', status: 'connecting' }), { status: 200 }));
+    const r = await llamar(base, 'POST', '/api/whatsapp/sync', T.adminA, {});
+    assert.equal(r.status, 200, r.texto);
   });
 
   it('status: sin instancia no está vinculado; con instancia, refleja el estado de Evolution', async () => {
