@@ -65,6 +65,7 @@ function FilaGrupo({ g, condominios, onGuardado }: { g: GrupoGuardado; condomini
         </div>
         <Interruptor
           label={`Usar «${g.nombre}» en Torre`}
+          soloLector
           className="shrink-0"
           checked={g.en_uso || editando}
           disabled={busy || (g.ya_no_esta && !g.en_uso)}
