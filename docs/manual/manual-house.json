@@ -1,6 +1,6 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 4-nov-2026 (11)",
+  "kicker": "Manual de usuario · versión del 4-nov-2026 (12)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
@@ -49,6 +49,11 @@
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
             "Secciones 53 y 54"
+          ],
+          [
+            "Superadmin (soporte de Torre)",
+            "Ves Torre como la ve otra persona para darle soporte, con motivo y en la auditoría",
+            "Sección 55"
           ],
           [
             "Todavía no tienes cuenta",
@@ -884,6 +889,24 @@
         "En **Inicio** ves tu condominio asignado. En **Unidades** buscas por código y ves el propietario y el inquilino de cada una antes de autorizar una visita."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/seguridad-inicio.jpg"
+    },
+    {
+      "titulo": "Entrar como otra persona (soporte)",
+      "etiqueta": "Superadmin · Usuarios del sistema",
+      "parrafos": [
+        "Si eres **superadmin** y alguien no ve su recibo o no encuentra una opción, puedes ver Torre exactamente como la ve esa persona: administración, personal, junta o vecino. Sirve también para cuentas importadas por Excel que no tienen contraseña.",
+        "Entra a **Usuarios del sistema** y abre la pestaña **Entrar como**:"
+      ],
+      "numerada": [
+        "Busca a la persona por nombre, correo o celular. Puedes filtrar entre vecinos y personal.",
+        "Pulsa **Entrar como** y escribe el **motivo** (de 5 a 200 caracteres). Es obligatorio y queda guardado.",
+        "Torre se recarga en el inicio de su rol. Arriba aparece una barra de color ámbar que dice como quién estás, su rol y cuántos minutos quedan. La barra no se puede cerrar.",
+        "Para terminar, pulsa **Volver a mi cuenta** en la barra. La sesión dura 30 minutos como máximo y nunca más de lo que le quede a tu propia sesión; si vence, tendrás que iniciar sesión otra vez."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Mientras estás dentro **no puedes** cambiar la contraseña, el correo ni el celular de esa persona, crear ni revocar sus tokens de API, tocar sus sesiones, vincular su WhatsApp ni abrir su asistente. No puedes entrar como otro superadmin ni encadenar una entrada dentro de otra. Todo lo demás sí se puede. Lo que hagas queda en **Auditoría** con el nombre de la persona y el tuyo, y en la pestaña **Entrar como** de Auditoría ves quién entró, a quién, por qué, cuándo empezó y cómo terminó."
+      }
     },
     {
       "titulo": "Mi condominio está en solo lectura",

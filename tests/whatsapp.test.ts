@@ -286,7 +286,9 @@ describe('interfaz: WhatsApp y usuarios del sistema', () => {
   it('«Usuarios del sistema» muestra sólo superadmins (ni residentes ni personal)', () => {
     const fuente = readFileSync('src/pages/superadmin/Usuarios.tsx', 'utf8');
     assert.match(fuente, /tipo="superadmin"/, 'la lista es de superadmins');
-    assert.ok(!/Tabs/.test(fuente), 'sin pestañas de residentes ni personal');
+    // Sin pestañas de residentes ni personal; la pestaña «Entrar como» (soporte) es aparte y trae su propia búsqueda (`_parts/EntrarComo.tsx`).
+    assert.ok(!/label: 'Residentes'|label: 'Personal'/.test(fuente), 'sin pestañas de residentes ni personal');
+    assert.match(fuente, /label: 'Entrar como'/);
     assert.ok(!/tipo="residente"|tipo="personal"/.test(fuente));
     const nav = readFileSync('src/app/nav.ts', 'utf8');
     assert.match(nav, /label: 'Usuarios del sistema'/);

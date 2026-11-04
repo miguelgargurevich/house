@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { api, csrfStore, setUnauthorizedHandler } from '../api';
 import type { MarcaUsuario } from '../lib/marca';
+import type { Impersonando } from './impersonacion-lib';
 
 export type Rol = 'superadmin' | 'admin' | 'propietario' | 'inquilino' | 'mantenimiento' | 'seguridad' | 'limpieza' | 'jardineria';
 
@@ -30,6 +31,8 @@ export interface Usuario {
   junta_unica?: boolean;
   /** Marca de SU empresa (nombre, logo y color; `activa` con Torre Pro, Administradora o Cortesía). Superadmin y sin empresa: Torre. */
   marca?: MarcaUsuario;
+  /** Sólo en una sesión prestada («Entrar como»): quién entró, por qué y cuándo termina. Null o ausente = sesión propia. */
+  impersonando?: Impersonando | null;
 }
 
 interface AuthState {

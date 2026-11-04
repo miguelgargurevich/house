@@ -11,6 +11,8 @@ import { useEscritorio, usePanelAbierto } from './asistente/useDock';
 import { Pista } from './Pista';
 import { useBarra } from './useBarra';
 import { BandaSoloLectura } from './BandaSoloLectura';
+import { BarraImpersonacion } from './BarraImpersonacion';
+import { volverAMiCuenta } from '../auth/impersonacion';
 import { InstalarApp } from './InstalarApp';
 import { CondominioProvider } from './CondominioProvider';
 import { SoloLecturaProvider } from './SoloLecturaProvider';
@@ -73,7 +75,8 @@ function ShellInterior() {
   useEffect(() => { setMenu(false); }, [loc.pathname]);
   if (!user) return null;
 
-  const salir = () => { logout(); nav('/login', { replace: true }); };
+  // En una sesión prestada no hay «cerrar sesión» propia: se vuelve a la cuenta del superadmin.
+  const salir = () => { if (user.impersonando) { void volverAMiCuenta().catch(() => undefined); return; } logout(); nav('/login', { replace: true }); };
 
   /** `riel`: sólo iconos (escritorio colapsado). El cajón del celular siempre se pinta con textos. */
   const sidebar = (riel: boolean, escritorioBarra: boolean) => (
@@ -150,6 +153,8 @@ function ShellInterior() {
 
       <div className="min-w-0 flex-1" inert={chat.abierto && !escritorio}>
       <div className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur">
+      {/* «Entrar como»: mientras el superadmin ve Torre como otra persona, la barra va arriba de todo y no se puede cerrar. */}
+      <BarraImpersonacion />
       <header className="flex h-14 items-center justify-between gap-2 px-4 lg:px-8">
         <div className="flex items-center gap-2 lg:hidden">
           <IconButton label="Abrir menú" onClick={() => setMenu(true)}><Bars3Icon className="h-5 w-5" /></IconButton>
@@ -158,7 +163,8 @@ function ShellInterior() {
         {/* En escritorio el condominio va a la izquierda de la barra; en el celular no cabe junto al resto y baja a su propia fila. */}
         <div className="hidden min-w-0 lg:block"><SelectorCondominio /></div>
         <div className="ml-auto flex items-center gap-1">
-          <IconButton label={chat.abierto ? 'Cerrar asistente' : 'Abrir asistente'} aria-pressed={chat.abierto} onClick={chat.alternar} className={chat.abierto ? '!text-brand' : undefined}><SparklesIcon className="h-5 w-5" /></IconButton>
+          {/* Las conversaciones del asistente son de su dueño: entrando como otra persona no se abren. */}
+          {!user.impersonando && <IconButton label={chat.abierto ? 'Cerrar asistente' : 'Abrir asistente'} aria-pressed={chat.abierto} onClick={chat.alternar} className={chat.abierto ? '!text-brand' : undefined}><SparklesIcon className="h-5 w-5" /></IconButton>}
           <span className="mx-1 h-6 w-px bg-line" aria-hidden="true" />
           <MenuUsuario user={user} onSalir={() => setConfirmarSalida(true)} />
         </div>
@@ -175,9 +181,9 @@ function ShellInterior() {
       </main>
       </div>
 
-      <Assistant open={chat.abierto} onClose={chat.cerrar} escritorio={escritorio} barra={barra.ancho} />
+      {!user.impersonando && <Assistant open={chat.abierto} onClose={chat.cerrar} escritorio={escritorio} barra={barra.ancho} />}
       {/* Un clic de más en «Cerrar sesión» sacaba de la app: se confirma antes de salir. */}
-      <ConfirmDialog open={confirmarSalida} onClose={() => setConfirmarSalida(false)} onConfirm={salir} title="¿Cerrar sesión?" message="Tendrás que volver a ingresar con tu correo y tu contraseña." confirmLabel="Cerrar sesión" />
+      <ConfirmDialog open={confirmarSalida} onClose={() => setConfirmarSalida(false)} onConfirm={salir} title={user.impersonando ? '¿Volver a tu cuenta?' : '¿Cerrar sesión?'} message={user.impersonando ? 'Dejas de ver Torre como esa persona y vuelves a tu cuenta de superadmin.' : 'Tendrás que volver a ingresar con tu correo y tu contraseña.'} confirmLabel={user.impersonando ? 'Volver a mi cuenta' : 'Cerrar sesión'} />
     </div>
   );
 }

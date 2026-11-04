@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ClipboardDocumentListIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../api';
-import { Badge, Card, DataTable, DefinitionList, IconButton, Modal, PageHeader, Select, Toolbar } from '../../ui';
+import { Badge, Card, DataTable, DefinitionList, IconButton, Modal, PageHeader, Select, Tabs, Toolbar } from '../../ui';
 import type { Column, Tone } from '../../ui';
 import { fechaHora } from './_parts/fechas';
+import { Impersonaciones } from './_parts/Impersonaciones';
 
 interface Registro {
   id: number;
@@ -11,6 +12,8 @@ interface Registro {
   created_at?: string | null;
   usuario?: { id?: number; nombre: string; email?: string } | null;
   usuario_nombre?: string | null;
+  /** Hecha desde una sesión prestada («Entrar como»): el superadmin que la hizo (`usuario` es la persona a la que ayudaba). */
+  impersonador?: { id: number; nombre: string } | null;
   accion: string;
   entidad: string;
   entidad_id?: number | string | null;
@@ -23,10 +26,12 @@ const ACCIONES: Record<string, { label: string; tone: Tone }> = {
   editar: { label: 'Editar', tone: 'info' },
   eliminar: { label: 'Eliminar', tone: 'bad' },
   login: { label: 'Inicio de sesión', tone: 'neutral' },
+  impersonar_inicio: { label: 'Entrar como: inicio', tone: 'warn' },
+  impersonar_fin: { label: 'Entrar como: fin', tone: 'warn' },
 };
 const ENTIDADES: Record<string, string> = {
   usuario: 'Usuario', empresa: 'Empresa', complejo: 'Condominio', piso: 'Piso', estructura: 'Estructura',
-  unidad: 'Unidad', concepto: 'Concepto', recibo: 'Recibo', pago: 'Pago', tarea: 'Tarea',
+  unidad: 'Unidad', concepto: 'Concepto', recibo: 'Recibo', pago: 'Pago', tarea: 'Tarea', impersonacion: 'Entrar como',
 };
 
 const nombreUsuario = (r: Registro) => r.usuario?.nombre ?? r.usuario_nombre ?? 'Sistema';
@@ -42,7 +47,10 @@ function detalleTexto(d: unknown): string {
   return JSON.stringify(d, null, 2);
 }
 
+type Vista = 'registro' | 'entrar';
+
 export default function Auditoria() {
+  const [vista, setVista] = useState<Vista>('registro');
   const [entidad, setEntidad] = useState('');
   const [accion, setAccion] = useState('');
   const [ver, setVer] = useState<Registro | null>(null);
@@ -51,7 +59,7 @@ export default function Auditoria() {
 
   const columns: Column<Registro>[] = [
     { key: 'fecha', header: 'Fecha y hora', cell: r => <span className="num sm:whitespace-nowrap">{fechaHora(fechaDe(r))}</span> },
-    { key: 'usuario', header: 'Usuario', cell: r => <span className="font-medium">{nombreUsuario(r)}</span> },
+    { key: 'usuario', header: 'Usuario', cell: r => <><span className="font-medium">{nombreUsuario(r)}</span>{r.impersonador && <span className="block text-xs text-warn">Soporte: {r.impersonador.nombre}</span>}</> },
     { key: 'accion', header: 'Acción', cell: r => { const a = accionDe(r.accion); return <Badge tone={a.tone}>{a.label}</Badge>; } },
     { key: 'entidad', header: 'Entidad', hideBelow: 'sm', cell: r => etiquetaEntidad(r.entidad) },
     { key: 'entidad_id', header: 'ID', hideBelow: 'md', cell: r => <span className="num">{r.entidad_id ?? '—'}</span> },
@@ -66,6 +74,8 @@ export default function Auditoria() {
   return (
     <>
       <PageHeader title="Auditoría" description="Registro de quién hizo qué en la plataforma. Es de sólo lectura." />
+      <div className="mb-4"><Tabs<Vista> value={vista} onChange={setVista} label="Vista" items={[{ id: 'registro', label: 'Actividad' }, { id: 'entrar', label: 'Entrar como' }]} /></div>
+      {vista === 'entrar' ? <Impersonaciones /> : <>
       <Card>
         <Toolbar>
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -99,6 +109,7 @@ export default function Auditoria() {
           }}
         />
       </Card>
+      </>}
 
       <Modal open={!!ver} onClose={() => setVer(null)} title="Detalle del registro" size="lg">
         {ver && (
@@ -107,6 +118,7 @@ export default function Auditoria() {
               items={[
                 { label: 'Fecha y hora', value: fechaHora(fechaDe(ver)) },
                 { label: 'Usuario', value: nombreUsuario(ver) },
+                ...(ver.impersonador ? [{ label: 'Hecho por (soporte)', value: ver.impersonador.nombre }] : []),
                 { label: 'Acción', value: <Badge tone={accionDe(ver.accion).tone}>{accionDe(ver.accion).label}</Badge> },
                 { label: 'Entidad', value: etiquetaEntidad(ver.entidad) },
                 { label: 'ID', value: ver.entidad_id != null ? String(ver.entidad_id) : '' },
