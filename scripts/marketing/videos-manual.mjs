@@ -173,13 +173,16 @@ export function catalogo(u = UTIL_NULAS) {
       accion: async (p) => { await mirar(300); await senalar(p, p.getByText('Destino al cerrar el mes').first()); await mirar(700); await senalar(p, p.getByRole('switch').first().or(p.getByText('Activo').first())); await mirar(600); await senalar(p, btn(p, /nuevo concepto/i)); } },
   ]);
 
-  video('m-admin-comunicados', 'admin', 'Comunicados', 'Escribe anuncios para tus vecinos y revisa qué salió por correo y por WhatsApp.', [
+  video('m-admin-comunicados', 'admin', 'Comunicados', 'Escribe anuncios para tus vecinos, elige a quién llegan y revisa qué salió por correo y por WhatsApp.', [
     { url: '/admin/comunicados', pantalla: 'Comunicados: lista de publicados con destinatarios, fecha y quién los envió',
       voz: 'Los comunicados son los anuncios para tus vecinos: cortes, reuniones y trabajos. Ves cuáles están publicados, para quién y quién los envió.',
       accion: async (p) => { await mirar(); await senalar(p, fila(p).first()); await mirar(600); await desplazar(p, 160, 1000); } },
-    { url: '/admin/comunicados', pantalla: 'Nuevo comunicado: se escribe el título (no se publica)',
-      voz: 'Toca Nuevo comunicado, escribe el título y el mensaje, elige a quién va y publícalo.',
-      accion: async (p) => { await tocar(p, btn(p, /nuevo comunicado/i)); await asentar(p); await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 28 }); await mirar(800); } },
+    { url: '/admin/comunicados', pantalla: 'Nuevo comunicado: «Para quién», el título y los envíos a la junta, por correo y por WhatsApp (no se publica)',
+      voz: 'Toca Nuevo comunicado, elige para quién es y escribe el título y el mensaje. Además puedes avisar a la junta, por correo o por WhatsApp a cada vecino. Nada sale hasta que publiques.',
+      accion: async (p) => { await tocar(p, btn(p, /nuevo comunicado/i)); await asentar(p); await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 28 }); await desplazar(p, 260, 1000); await senalar(p, p.getByText('Por WhatsApp a cada vecino').first()); await mirar(700); } },
+    { url: '/admin/comunicados', pantalla: 'Nuevo comunicado, más abajo: «A los grupos de WhatsApp» con los grupos marcados (no se publica)',
+      voz: 'Al final eliges los grupos de WhatsApp donde sale. Vienen marcados los que representan al block o a todo el condominio. Las juntas las marcas tú.',
+      accion: async (p) => { await tocar(p, btn(p, /nuevo comunicado/i)); await asentar(p); await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 28 }); await desplazar(p, 600, 1400); await asentar(p); await senalar(p, p.getByText('Grupo personal 30').first()); await mirar(700); } },
     { url: '/admin/comunicados', pantalla: 'Pestaña «Notificaciones»: qué salió por correo y por WhatsApp',
       voz: 'En Notificaciones ves qué salió por correo y por WhatsApp, y qué hay que reintentar.',
       accion: async (p) => { await tab(p, /notificaciones/i); await p.getByText('Si un canal no está configurado').first().waitFor({ timeout: 4000 }).catch(() => {}); await asentar(p); await mirar(600); await desplazar(p, 200, 1200); } },
@@ -203,13 +206,19 @@ export function catalogo(u = UTIL_NULAS) {
       accion: async (p) => { await mirar(300); await tocar(p, btn(p, /nueva gestión/i)); await asentar(p); await mirar(1800); } },
   ]);
 
-  video('m-admin-whatsapp', 'admin', 'WhatsApp', 'Vincula el número de WhatsApp de tu administración para enviar avisos y resúmenes a los vecinos.', [
-    { url: '/admin/whatsapp', pantalla: 'Sincronización de WhatsApp: «Número no vinculado»',
-      voz: 'Aquí vinculas el número de WhatsApp de tu administración para enviar avisos y resúmenes directamente a los vecinos.',
-      accion: async (p) => { await mirar(); await senalar(p, p.getByText('Número no vinculado').first()); await mirar(700); } },
-    { url: '/admin/whatsapp', pantalla: 'Se señala el consejo del número con historial y «Sincronizar mi número» (no se pulsa)',
-      voz: 'Toca Sincronizar mi número y escanea el código QR desde tu teléfono. Usa un número con historial de chats: así reduces el riesgo de que WhatsApp lo bloquee.',
-      accion: async (p) => { await mirar(300); await senalar(p, p.getByText(/historial de chats/i).first()); await mirar(900); await senalar(p, btn(p, /sincronizar mi número/i)); await mirar(800); } },
+  video('m-admin-whatsapp', 'admin', 'WhatsApp', 'Mira que el número de tu administración esté conectado, cuántos mensajes salen y qué grupos usa Torre.', [
+    { url: '/admin/whatsapp', pantalla: 'WhatsApp: «WhatsApp vinculado correctamente» (el botón para desvincular no se pulsa)',
+      voz: 'Tu número de WhatsApp ya está vinculado. Desde aquí salen los avisos de cobro y los comunicados que marques para WhatsApp, con pausas entre envíos y un tope diario.',
+      accion: async (p) => { await mirar(); await senalar(p, p.getByText('WhatsApp vinculado correctamente').first()); await mirar(700); } },
+    { url: '/admin/whatsapp', pantalla: 'Contador de mensajes: enviados hoy contra el tope, en cola y el mes por condominio',
+      voz: 'El contador muestra lo que salió hoy contra el tope diario, lo que espera en cola y lo que lleva cada condominio este mes.',
+      accion: async (p) => { await mirar(300); await desplazar(p, 520, 1400); await asentar(p); await senalar(p, p.getByText('Enviados hoy').first()); await mirar(700); await senalar(p, p.getByText('En cola', { exact: true }).first()); await mirar(600); await senalar(p, p.getByText('Este mes, por condominio').first()); await mirar(700); } },
+    { url: '/admin/whatsapp', pantalla: 'Mis grupos: «Traer mis grupos», la lista de grupos y el filtro «Sólo los que uso»',
+      voz: 'En Mis grupos traes los grupos de tu número. Marcas cuáles usas en Torre y dices a quién representan: un block, su junta o todo el condominio.',
+      accion: async (p) => { await desplazar(p, 900, 1000); await asentar(p); await tocar(p, btn(p, /traer mis grupos/i)); await p.getByText(/^Listo:/).first().waitFor({ timeout: 15000 }).catch(() => {}); await asentar(p); await tocar(p, p.getByLabel('Sólo los que uso')); await asentar(p); await desplazar(p, 200, 1000); } },
+    { url: '/admin/condominios/4', pantalla: 'Ficha del condominio › Datos › «Avisos por WhatsApp»: qué avisos salen también por WhatsApp (no se guarda)',
+      voz: 'En la ficha de cada condominio eliges qué avisos salen también por WhatsApp: el recibo del mes, los vencimientos o el cierre pendiente. El correo no cambia.',
+      accion: async (p) => { await p.getByRole('heading', { name: 'Avisos por WhatsApp' }).scrollIntoViewIfNeeded().catch(() => {}); await asentar(p); await pausa(400); await senalar(p, p.locator('label', { hasText: 'Recibo del mes' }).first()); await mirar(600); await senalar(p, p.locator('label', { hasText: 'Venció' }).first()); await mirar(700); } },
   ]);
 
   video('m-admin-proveedores', 'admin', 'Proveedores', 'Las fichas de los proveedores externos: ascensores, gasfitería, pintura; elige cuáles ven los vecinos.', [
@@ -228,6 +237,22 @@ export function catalogo(u = UTIL_NULAS) {
     { url: '/admin/configuracion', pantalla: 'Pestaña «Personal»: las cuentas del equipo',
       voz: 'En la pestaña Personal creas las cuentas de tu equipo, como seguridad o mantenimiento, y cada persona ve sólo lo de su rol.',
       accion: async (p) => { await mirar(500); await tab(p, /^personal/i); await mirar(900); await desplazar(p, 160, 1200); } },
+  ]);
+
+  // «Tu marca» es una sección de Mi empresa › Datos (plan Pro o Administradora; la empresa de prueba está en Cortesía). Nada de esta escena se guarda.
+  video('m-admin-marca', 'admin', 'Tu marca', 'El logo, el nombre comercial y el color de tu administradora: así se ven Torre y sus recibos para tus vecinos.', [
+    { url: '/admin/configuracion', pantalla: 'Mi empresa › Datos, sección «Tu marca»: logo, nombre comercial, color y vista previa',
+      voz: 'Tu marca es el logo, el nombre comercial y el color de tu administradora. Salen en el menú de la app, en el recibo y en los correos de tus vecinos.',
+      accion: async (p) => { await mirar(500); await desplazar(p, 700, 1800); await senalar(p, p.getByRole('heading', { name: 'Tu marca' })); await mirar(600); } },
+    { url: '/admin/configuracion', pantalla: 'Se escribe un nombre comercial de prueba y la vista previa lo muestra (no se guarda)',
+      voz: 'Escribe el nombre comercial con el que te presentas. Si lo dejas vacío, se usa tu razón social. La vista previa cambia al instante.',
+      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Nombre comercial')); await p.keyboard.type('Administración Demo', { delay: 35 }); await mirar(800); await senalar(p, p.getByText('Así se verá').first()); await mirar(600); } },
+    { url: '/admin/configuracion', pantalla: 'Se escribe un color de prueba (#1d4ed8) y la vista previa cambia (no se guarda)',
+      voz: 'Elige el color con el selector o escribe su código, por ejemplo 1d4ed8. Así se verá tu marca en la app.',
+      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Código del color')); await p.keyboard.type('#1d4ed8', { delay: 60 }); await p.keyboard.press('Tab'); await mirar(900); } },
+    { url: '/admin/configuracion', pantalla: 'Se señala «Guardar mi marca» y se pulsa «Volver al verde de Torre» (no se guarda)',
+      voz: 'Volver al verde de Torre devuelve el color de siempre. Nada cambia hasta que tocas Guardar mi marca.',
+      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Código del color')); await p.keyboard.type('#1d4ed8', { delay: 40 }); await p.keyboard.press('Tab'); await mirar(500); await senalar(p, btn(p, /guardar mi marca/i)); await mirar(500); await tocar(p, btn(p, /volver al verde de torre/i)); await mirar(900); } },
   ]);
 
   video('m-admin-mi-plan', 'admin', 'Mi plan', 'El plan de cada condominio, hasta cuándo está vigente, qué incluye y cuánto llevas usando.', [
@@ -358,9 +383,12 @@ export function catalogo(u = UTIL_NULAS) {
     { url: '/junta/comunicados', pantalla: 'Comunicados: los de la junta, con destinatarios y fecha',
       voz: 'Aquí escribes anuncios para los vecinos de tu block y ves cuáles ya publicaste. Cada uno muestra para quién es, su fecha y quién lo envió.',
       accion: async (p) => { await mirar(); await senalar(p, fila(p).first()); await mirar(700); } },
-    { url: '/junta/comunicados', pantalla: 'Nuevo comunicado: se escribe el título (no se publica)',
-      voz: 'Toca Nuevo comunicado, escribe el título y el mensaje, y publícalo para tu block. Tus vecinos lo verán en su pantalla.',
-      accion: async (p) => { await tocar(p, btn(p, /nuevo comunicado/i)); await asentar(p); await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Reunión de la junta el jueves a las 19:30', { delay: 28 }); await mirar(700); } },
+    { url: '/junta/comunicados', pantalla: 'Nuevo comunicado: «Para quién» fijo en tu block, el título y los envíos a la junta y por WhatsApp (no se publica)',
+      voz: 'Toca Nuevo comunicado. Como junta, publicas para tu block: escribe el título y el mensaje. Si es urgente, avísalo también por WhatsApp a cada vecino.',
+      accion: async (p) => { await tocar(p, btn(p, /nuevo comunicado/i)); await asentar(p); await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Reunión de la junta el jueves a las 19:30', { delay: 28 }); await desplazar(p, 260, 1000); await senalar(p, p.getByText('Por WhatsApp a cada vecino').first()); await mirar(700); } },
+    { url: '/junta/comunicados', pantalla: 'Nuevo comunicado, más abajo: «A los grupos de WhatsApp» de tu block (no se publica)',
+      voz: 'Al final eliges los grupos de WhatsApp donde sale. Vienen marcados los de tu block. Marca también el de la junta si corresponde.',
+      accion: async (p) => { await tocar(p, btn(p, /nuevo comunicado/i)); await asentar(p); await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Reunión de la junta el jueves a las 19:30', { delay: 28 }); await desplazar(p, 600, 1400); await asentar(p); await senalar(p, p.getByText('Junta Block 1').first()); await mirar(700); } },
   ]);
 
   video('m-junta-proveedores', 'tesorero', 'Proveedores', 'Los servicios externos de tu condominio: agrega y edita los que atienden sólo a tu condominio.', [
@@ -467,7 +495,7 @@ export const MENU = [
     ['Rendición del mes', '/admin/rendicion', 'm-admin-rendicion'], ['Unidades', '/admin/unidades', 'm-admin-unidades'], ['Mantenimiento', '/admin/mantenimientos', 'm-admin-mantenimiento'],
     ['Conceptos', '/admin/conceptos', 'm-admin-conceptos'], ['Comunicados', '/admin/comunicados', 'm-admin-comunicados'], ['Áreas comunes', '/admin/areas-comunes', 'm-admin-areas-comunes'],
     ['Juntas directivas', '/admin/juntas', 'm-admin-juntas'], ['WhatsApp', '/admin/whatsapp', 'm-admin-whatsapp'], ['Proveedores', '/admin/proveedores', 'm-admin-proveedores'],
-    ['Mi empresa', '/admin/configuracion', 'm-admin-mi-empresa'], ['Mi plan', '/admin/mi-plan', 'm-admin-mi-plan'],
+    ['Mi empresa', '/admin/configuracion', 'm-admin-mi-empresa'], ['Tu marca (en Mi empresa)', '/admin/configuracion', 'm-admin-marca'], ['Mi plan', '/admin/mi-plan', 'm-admin-mi-plan'],
   ].map(([menu, ruta, video]) => ({ rol: 'admin', menu, ruta, video })),
   ...[
     ['Inicio', 'inicio', 'm-propietario-inicio'], ['Mis unidades', 'unidades', 'm-propietario-unidades'], ['Mis recibos', 'cargos', 'm-propietario-recibos'],
@@ -589,6 +617,21 @@ async function preparar() {
     const c = await api.post('/api/tareas', { headers: h, data: { titulo, descripcion, estado, asignado_id } });
     console.log(c.ok() ? '  creada:' : `  FALLÓ (${c.status()}):`, titulo);
   }
+  // Grupos de WhatsApp para «Mis grupos» y los comunicados: lo mismo que `prepararGrupos` de capturas-manual.mjs. Pide la lista al Evolution FALSO
+  // (sólo si el backend local apunta a él); si no responde, avisa y sigue.
+  try {
+    let d = await (await api.get('/api/whatsapp/grupos')).json();
+    if (!d.grupos?.length) d = await (await api.post('/api/whatsapp/grupos/sincronizar', { headers: h })).json();
+    const cond = d.condominios?.[0];
+    const b1 = cond?.estructuras?.find((e) => /block 1$/i.test(e.nombre));
+    const QUIERO = [['Vecinos Block 1 · Libertadores', { destino: 'block', estructura_id: b1?.id }], ['Junta Block 1', { destino: 'junta_block', estructura_id: b1?.id }], ['Grupo personal 30', { destino: 'condominio', complejo_id: cond?.id }]];
+    for (const [nombre, dest] of QUIERO) {
+      const g = d.grupos?.find((x) => x.nombre === nombre);
+      if (!g || g.en_uso) continue;
+      const r = await api.put(`/api/whatsapp/grupos/${g.id}`, { headers: h, data: { en_uso: true, ...dest } });
+      console.log(r.ok() ? '  grupo en uso:' : `  FALLÓ grupo (${r.status()}):`, nombre);
+    }
+  } catch (e) { console.warn('  AVISO grupos de WhatsApp:', e.message.split('\n')[0]); }
   await api.dispose();
 }
 

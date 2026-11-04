@@ -4,6 +4,26 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Videos del manual: WhatsApp, comunicados y «Tu marca» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel**: revisar que los videos muestren las últimas opciones de WhatsApp (contador, Mis grupos, avisos del condominio), comunicados (junta, correo, WhatsApp, grupos) y la opción nueva «Tu marca».
+- **Qué se hizo** (en curso; ver «Estado»):
+  - `videos-manual.mjs`: reescritas las escenas de `m-admin-whatsapp` (4), `m-admin-comunicados` (4) y `m-junta-comunicados` (3); nuevo video `m-admin-marca` («Tu marca», 4 escenas, menú «Tu marca (en Mi empresa)»); `--preparar` ahora también deja 3 grupos de WhatsApp en uso (pide la lista al Evolution falso).
+  - Voces `ef_dora` de las 15 escenas nuevas, bajadas a `.claude/videos/<video>/voz/`.
+  - Base local y backend: se preparó la empresa 6 (`whatsapp_instance='local_6'`), 53 grupos de prueba y backend del checkout principal con `EVOLUTION_URL=http://localhost:18089`.
+- **Resultado**: grabados y montados 4 videos (escritorio 16:9): `m-admin-whatsapp` 36,6 s (4 escenas), `m-admin-comunicados` 34,8 s (4), `m-junta-comunicados` 26,2 s (3), `m-admin-marca` 31,9 s (4, nuevo). Revisión: cuadros a ojo correctos y OCR sin datos reales (Melina, Loayza, Gmail, Gargurevich). Sin avisos de fuga ni errores de escena. Lista y guiones regenerados (`--lista`, `--guiones`: 44 videos).
+- **Restaurado**: empresa 6 con `whatsapp_instance`, `nombre_comercial` y `color_marca` en null; sus 53 `GrupoWhatsapp` borrados; Evolution falso detenido (sin envíos registrados); backend del checkout principal reiniciado sin `EVOLUTION_URL`.
+- **Pendiente** (anotado en `docs/manual/README.md`): en los comunicados, las escenas 2 y 3 del modal desplazan «Para quién» y el título fuera de cuadro. Commit sin push.
+- **Próximos pasos**:
+  1. Decidir si Opus sube los 4 videos y regenera el manual HTML/PDF (con `docs/marketing/manual-videos.json`).
+  2. Si se quiere arreglar el desplazamiento de los comunicados, regrabar sólo esos dos (`scripts/marketing/grabar-manual.sh m-admin-comunicados m-junta-comunicados`) con el falso arriba.
+- **Gotchas**:
+  - El worktree va DETRÁS de `main`: `main` ya tiene la función «Tu marca» (`src/pages/admin/_parts/marca/`) y las cherry-picks de los videos con otros hashes. La app que graba es la del checkout principal (rama `main`), así que las pantallas son las de `main`.
+  - Los logs `grabar.log` de los videos que no se regraban son de corridas viejas.
+  - El Evolution falso (`.claude/worktrees/evo-falso.mjs`) escribe en `scratchpad/evo-falso.log`: si aparece «ENVIO FALSO», algo intentó enviar.
+
+---
+
 ## 2026-11-04 — Videos del manual: uno por opción del menú de cada rol (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: «un video de cada sección (opción del menú) por cada usuario, y el manual lo debe mencionar; versión HTML del manual con sus videos para pasársela a Melina». Aquí sólo los VIDEOS y su lista; el HTML y la publicación los hace Opus.

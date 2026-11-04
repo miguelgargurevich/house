@@ -163,9 +163,9 @@
     "ruta": "/admin/comunicados",
     "video": "m-admin-comunicados",
     "titulo": "Comunicados",
-    "descripcion": "Escribe anuncios para tus vecinos y revisa qué salió por correo y por WhatsApp.",
+    "descripcion": "Escribe anuncios para tus vecinos, elige a quién llegan y revisa qué salió por correo y por WhatsApp.",
     "archivo": ".claude/videos/m-admin-comunicados/torre-m-admin-comunicados-escritorio.mp4",
-    "duracion_s": 20.1
+    "duracion_s": 34.8
   },
   {
     "id": "admin.areas-comunes",
@@ -199,9 +199,9 @@
     "ruta": "/admin/whatsapp",
     "video": "m-admin-whatsapp",
     "titulo": "WhatsApp",
-    "descripcion": "Vincula el número de WhatsApp de tu administración para enviar avisos y resúmenes a los vecinos.",
+    "descripcion": "Mira que el número de tu administración esté conectado, cuántos mensajes salen y qué grupos usa Torre.",
     "archivo": ".claude/videos/m-admin-whatsapp/torre-m-admin-whatsapp-escritorio.mp4",
-    "duracion_s": 17.6
+    "duracion_s": 36.6
   },
   {
     "id": "admin.proveedores",
@@ -226,6 +226,18 @@
     "descripcion": "Los datos de tu administradora y las cuentas de tu equipo.",
     "archivo": ".claude/videos/m-admin-mi-empresa/torre-m-admin-mi-empresa-escritorio.mp4",
     "duracion_s": 16.2
+  },
+  {
+    "id": "admin.tu-marca-en-mi-empresa",
+    "rol": "admin",
+    "rol_nombre": "Administradora",
+    "menu": "Tu marca (en Mi empresa)",
+    "ruta": "/admin/configuracion",
+    "video": "m-admin-marca",
+    "titulo": "Tu marca",
+    "descripcion": "El logo, el nombre comercial y el color de tu administradora: así se ven Torre y sus recibos para tus vecinos.",
+    "archivo": ".claude/videos/m-admin-marca/torre-m-admin-marca-escritorio.mp4",
+    "duracion_s": 31.9
   },
   {
     "id": "admin.mi-plan",
@@ -484,7 +496,7 @@
     "titulo": "Comunicados",
     "descripcion": "Avisa a los vecinos de tu block con un comunicado.",
     "archivo": ".claude/videos/m-junta-comunicados/torre-m-junta-comunicados-escritorio.mp4",
-    "duracion_s": 16.2
+    "duracion_s": 26.2
   },
   {
     "id": "junta.proveedores",

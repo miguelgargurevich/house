@@ -1,6 +1,6 @@
 # Guiones de los videos del manual de Torre
 
-Un video corto (15–40 s) por opción del menú de cada rol, sólo **escritorio (16:9)**. 43 videos distintos; los que comparten pantalla se reusan
+Un video corto (15–40 s) por opción del menú de cada rol, sólo **escritorio (16:9)**. 44 videos distintos; los que comparten pantalla se reusan
 (el inquilino usa los del propietario, jardinería los de limpieza, «Mi perfil» es uno solo). Se generan con `scripts/marketing/videos-manual.mjs --guiones`
 (este archivo se regenera; el texto vive en ese módulo). Voz «Dora» de My Workspace (`ef_dora`); método en `docs/marketing/guiones-videos.md` y `docs/manual/README.md`.
 
@@ -130,15 +130,16 @@ Lo que se cobra en cada recibo: mantenimiento, agua, luz de áreas comunes y rec
 | 1 | Conceptos: lista con descripción, tipo de monto, destino al cerrar el mes y estado | Los conceptos son lo que se cobra en cada recibo: el mantenimiento, el agua, la luz de las áreas comunes y el recargo por mora. |
 | 2 | Se señalan el tipo de monto, el destino al cerrar el mes y el interruptor de activo | Cada concepto es fijo o variable, y tiene su destino al cerrar el mes. Con el interruptor lo activas o lo desactivas. |
 
-## `m-admin-comunicados` — Comunicados (Administradora) · 20,1 s
+## `m-admin-comunicados` — Comunicados (Administradora) · 34,8 s
 
-Escribe anuncios para tus vecinos y revisa qué salió por correo y por WhatsApp.
+Escribe anuncios para tus vecinos, elige a quién llegan y revisa qué salió por correo y por WhatsApp.
 
 | # | En pantalla | Voz |
 |---|---|---|
 | 1 | Comunicados: lista de publicados con destinatarios, fecha y quién los envió | Los comunicados son los anuncios para tus vecinos: cortes, reuniones y trabajos. Ves cuáles están publicados, para quién y quién los envió. |
-| 2 | Nuevo comunicado: se escribe el título (no se publica) | Toca Nuevo comunicado, escribe el título y el mensaje, elige a quién va y publícalo. |
-| 3 | Pestaña «Notificaciones»: qué salió por correo y por WhatsApp | En Notificaciones ves qué salió por correo y por WhatsApp, y qué hay que reintentar. |
+| 2 | Nuevo comunicado: «Para quién», el título y los envíos a la junta, por correo y por WhatsApp (no se publica) | Toca Nuevo comunicado, elige para quién es y escribe el título y el mensaje. Además puedes avisar a la junta, por correo o por WhatsApp a cada vecino. Nada sale hasta que publiques. |
+| 3 | Nuevo comunicado, más abajo: «A los grupos de WhatsApp» con los grupos marcados (no se publica) | Al final eliges los grupos de WhatsApp donde sale. Vienen marcados los que representan al block o a todo el condominio. Las juntas las marcas tú. |
+| 4 | Pestaña «Notificaciones»: qué salió por correo y por WhatsApp | En Notificaciones ves qué salió por correo y por WhatsApp, y qué hay que reintentar. |
 
 ## `m-admin-areas-comunes` — Áreas comunes (Administradora) · 16,9 s
 
@@ -158,14 +159,16 @@ La junta de cada block: sus miembros, su correo y la cuenta donde pagan los veci
 | 1 | Juntas directivas: la tarjeta de cada block con miembros, correo y cuenta de pago | Cada block tiene su junta directiva: sus miembros, su correo y la cuenta donde pagan los vecinos. |
 | 2 | Se abre «Nueva gestión» (no se guarda); se señala «Historial» | Cuando cambia la junta, usa Nueva gestión: los permisos pasan solos, y la gestión anterior queda en el historial. Cada cambio queda registrado con su fecha de inicio. |
 
-## `m-admin-whatsapp` — WhatsApp (Administradora) · 17,6 s
+## `m-admin-whatsapp` — WhatsApp (Administradora) · 36,6 s
 
-Vincula el número de WhatsApp de tu administración para enviar avisos y resúmenes a los vecinos.
+Mira que el número de tu administración esté conectado, cuántos mensajes salen y qué grupos usa Torre.
 
 | # | En pantalla | Voz |
 |---|---|---|
-| 1 | Sincronización de WhatsApp: «Número no vinculado» | Aquí vinculas el número de WhatsApp de tu administración para enviar avisos y resúmenes directamente a los vecinos. |
-| 2 | Se señala el consejo del número con historial y «Sincronizar mi número» (no se pulsa) | Toca Sincronizar mi número y escanea el código QR desde tu teléfono. Usa un número con historial de chats: así reduces el riesgo de que WhatsApp lo bloquee. |
+| 1 | WhatsApp: «WhatsApp vinculado correctamente» (el botón para desvincular no se pulsa) | Tu número de WhatsApp ya está vinculado. Desde aquí salen los avisos de cobro y los comunicados que marques para WhatsApp, con pausas entre envíos y un tope diario. |
+| 2 | Contador de mensajes: enviados hoy contra el tope, en cola y el mes por condominio | El contador muestra lo que salió hoy contra el tope diario, lo que espera en cola y lo que lleva cada condominio este mes. |
+| 3 | Mis grupos: «Traer mis grupos», la lista de grupos y el filtro «Sólo los que uso» | En Mis grupos traes los grupos de tu número. Marcas cuáles usas en Torre y dices a quién representan: un block, su junta o todo el condominio. |
+| 4 | Ficha del condominio › Datos › «Avisos por WhatsApp»: qué avisos salen también por WhatsApp (no se guarda) | En la ficha de cada condominio eliges qué avisos salen también por WhatsApp: el recibo del mes, los vencimientos o el cierre pendiente. El correo no cambia. |
 
 ## `m-admin-proveedores` — Proveedores (Administradora) · 17,0 s
 
@@ -184,6 +187,17 @@ Los datos de tu administradora y las cuentas de tu equipo.
 |---|---|---|
 | 1 | Mi empresa › Datos: razón social, RUC, contacto y logo del recibo | Mi empresa reúne los datos de tu administradora tal como salen en los recibos y comunicados: razón social, RUC, contacto y logo. |
 | 2 | Pestaña «Personal»: las cuentas del equipo | En la pestaña Personal creas las cuentas de tu equipo, como seguridad o mantenimiento, y cada persona ve sólo lo de su rol. |
+
+## `m-admin-marca` — Tu marca (Administradora) · 31,9 s
+
+El logo, el nombre comercial y el color de tu administradora: así se ven Torre y sus recibos para tus vecinos.
+
+| # | En pantalla | Voz |
+|---|---|---|
+| 1 | Mi empresa › Datos, sección «Tu marca»: logo, nombre comercial, color y vista previa | Tu marca es el logo, el nombre comercial y el color de tu administradora. Salen en el menú de la app, en el recibo y en los correos de tus vecinos. |
+| 2 | Se escribe un nombre comercial de prueba y la vista previa lo muestra (no se guarda) | Escribe el nombre comercial con el que te presentas. Si lo dejas vacío, se usa tu razón social. La vista previa cambia al instante. |
+| 3 | Se escribe un color de prueba (#1d4ed8) y la vista previa cambia (no se guarda) | Elige el color con el selector o escribe su código, por ejemplo 1d4ed8. Así se verá tu marca en la app. |
+| 4 | Se señala «Guardar mi marca» y se pulsa «Volver al verde de Torre» (no se guarda) | Volver al verde de Torre devuelve el color de siempre. Nada cambia hasta que tocas Guardar mi marca. |
 
 ## `m-admin-mi-plan` — Mi plan (Administradora) · 16,7 s
 
@@ -303,14 +317,15 @@ Al cerrar el mes, registras lo que paga tu junta a la administración, a la Junt
 | 1 | Cierre del mes (octubre): facturado, cobrado y pagado por la junta | Al cerrar el mes, la junta paga a la empresa administradora, a la Junta central y a los servicios, con el voucher de cada pago. |
 | 2 | Se señalan «Registrar pago» y «Ver voucher» (no se pulsan) | Cada tarjeta muestra lo facturado, lo cobrado y lo pagado, con su botón para registrar el pago. El cierre se hace hacia el día cinco del mes siguiente. |
 
-## `m-junta-comunicados` — Comunicados (Junta (tesorero o presidente de un block)) · 16,2 s
+## `m-junta-comunicados` — Comunicados (Junta (tesorero o presidente de un block)) · 26,2 s
 
 Avisa a los vecinos de tu block con un comunicado.
 
 | # | En pantalla | Voz |
 |---|---|---|
 | 1 | Comunicados: los de la junta, con destinatarios y fecha | Aquí escribes anuncios para los vecinos de tu block y ves cuáles ya publicaste. Cada uno muestra para quién es, su fecha y quién lo envió. |
-| 2 | Nuevo comunicado: se escribe el título (no se publica) | Toca Nuevo comunicado, escribe el título y el mensaje, y publícalo para tu block. Tus vecinos lo verán en su pantalla. |
+| 2 | Nuevo comunicado: «Para quién» fijo en tu block, el título y los envíos a la junta y por WhatsApp (no se publica) | Toca Nuevo comunicado. Como junta, publicas para tu block: escribe el título y el mensaje. Si es urgente, avísalo también por WhatsApp a cada vecino. |
+| 3 | Nuevo comunicado, más abajo: «A los grupos de WhatsApp» de tu block (no se publica) | Al final eliges los grupos de WhatsApp donde sale. Vienen marcados los de tu block. Marca también el de la junta si corresponde. |
 
 ## `m-junta-proveedores` — Proveedores (Junta (tesorero o presidente de un block)) · 16,1 s
 
