@@ -1,3 +1,4 @@
+import { migrarPersonas } from './server/services/personas/sincronizar';
 import { app } from './server/app';
 import { iniciarLimpieza } from './server/services/sesiones';
 import { iniciarPlanificador, planificadorActivo } from './server/services/avisos';
@@ -25,6 +26,11 @@ sembrarCatalogoComercial(prisma)
   .then(() => migracionInicial(prisma))
   .then((r) => { if (r.aplicada) console.log(`[comercial] condominios existentes dejados en cortesía: ${r.creadas}`); })
   .catch((e) => console.error('[comercial] no se pudo preparar el catálogo comercial', e instanceof Error ? e.message : 'error'));
+// Migración idempotente de «Personas del departamento»: cada unidad con propietario o inquilino y sin personas genera las suyas (con el acceso que ya tienen y el
+// responsable de pago de siempre). Sólo mira unidades sin personas: volver a arrancar no cambia nada. Nunca toca pagos ni recibos.
+migrarPersonas()
+  .then((r) => { if (r.unidades) console.log(`[personas] departamentos con personas creadas: ${r.unidades}`); })
+  .catch((e) => console.error('[personas] no se pudo migrar las personas de los departamentos', e instanceof Error ? e.message : 'error'));
 app.listen(PORT, () => {
   console.log(`Servidor backend escuchando en puerto ${PORT}`);
   if (planificadorActivo()) iniciarPlanificador();

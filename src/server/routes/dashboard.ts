@@ -7,7 +7,7 @@ import { pagoEnMes, pagoSegunZona, relojDeCondominios, type Reloj } from '../lib
 import { listarMantenimientos, type EstadoMantenimiento } from '../lib/mantenimientos';
 import { MONEDA_POR_DEFECTO } from '../../lib/paises';
 import { cargoEnMoneda, monedasDelAlcance, pagoEnMoneda, porMoneda } from '../lib/paisMoneda';
-import { scopeCargos, scopeComplejos, scopeEstructuras, scopePagos, scopeRecibos, scopeTareas, scopeUnidades } from '../lib/scope';
+import { scopeCargos, scopeComplejos, scopeEstructuras, scopePagos, scopeRecibos, scopeTareas, scopeUnidades, unidadesDeResidente } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { forbidden } from '../errors';
 import { idSchema, parse, z } from '../validation';
@@ -164,7 +164,7 @@ async function desglosePorTorre(cargos: Prisma.ReciboConceptoUnidadWhereInput, r
 }
 
 async function resumenResidente(u: AuthUser) {
-  const propias = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
+  const propias = unidadesDeResidente(u);
   const mios: Prisma.ReciboConceptoUnidadWhereInput = { unidad: propias };
   const reloj = await relojDeCondominios();
   // Un vecino con unidades en condominios de monedas distintas ve su deuda y lo pagado por moneda, nunca sumados.

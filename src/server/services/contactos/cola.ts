@@ -33,7 +33,12 @@ function candidatos(complejoId: number, ahora: Date, estructuraId?: number | nul
     password_hash: null,
     // Con correo de relleno nunca (`.invalid`). La vista previa todavía no guardó el correo nuevo: ahí se pregunta por todo lo demás.
     ...(correoYaGuardado ? { NOT: { email: { endsWith: '.invalid', mode: 'insensitive' } } } : {}),
-    OR: [{ unidades: { some: unidad } }, { unidadesInquilino: { some: unidad } }],
+    // Quien tiene el acceso apagado en su ficha de persona (titular o inquilino principal) no se invita; las demás personas, sólo con el acceso encendido.
+    OR: [
+      { unidades: { some: { ...unidad, personas: { none: { relacion: 'propietario', acceso_activo: false } } } } },
+      { unidadesInquilino: { some: { ...unidad, personas: { none: { relacion: 'inquilino', acceso_activo: false } } } } },
+      { personasUnidad: { some: { unidad, acceso_activo: true } } },
+    ],
     invitaciones: { none: { usado_at: null, expira_at: { gt: ahora } } },
     invitacionesEnCola: { none: { enviada_at: null, descartada_at: null } },
   };

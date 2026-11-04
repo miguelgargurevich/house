@@ -26,13 +26,35 @@ const MIN = 60_000;
 /** Pendiente = sin pagar y sin comprobante en revisión (`en_revision`) ni `pagado`. */
 const cargoPendiente: Prisma.ReciboConceptoUnidadWhereInput = { OR: [{ estado_pago: null }, { estado_pago: 'pendiente' }] };
 
-/** Quien paga una unidad: el inquilino si lo tiene; si no, el propietario. Los avisos de cobro sólo le llegan a esa persona. */
+/**
+ * Quien paga una unidad SIN personas cargadas: el inquilino si lo tiene; si no, el propietario. Es el respaldo de `pagadoresDe` (unidades que todavía no
+ * tienen un responsable de pago con cuenta en «Personas del departamento»).
+ */
 export function quienPaga(u: { propietario_id: number | null; inquilino_id: number | null }): number | null {
   return u.inquilino_id ?? u.propietario_id ?? null;
 }
 
-/** Las unidades que paga una persona: aquellas de las que es inquilino, y las de las que es propietario y no tienen inquilino. */
-const laPaga = (usuarioId: number): Prisma.UnidadWhereInput => ({ OR: [{ inquilino_id: usuarioId }, { inquilino_id: null, propietario_id: usuarioId }] });
+/**
+ * A quién le llega el aviso de cobro de cada unidad: SÓLO a la persona marcada `responsable_pago` (con su cuenta, que es donde viven el correo, el celular y las
+ * preferencias de aviso). Si la unidad no tiene un responsable con cuenta (aún no se cargaron personas, o el responsable no tiene correo ni celular), se cae a `quienPaga`.
+ */
+export async function pagadoresDe(unidades: { id: number; propietario_id: number | null; inquilino_id: number | null }[]): Promise<Map<number, number | null>> {
+  const ids = [...new Set(unidades.map((u) => u.id))];
+  const responsables = ids.length ? await prisma.personaUnidad.findMany({ where: { unidad_id: { in: ids }, responsable_pago: true, usuario_id: { not: null } }, select: { unidad_id: true, usuario_id: true } }) : [];
+  const deLaPersona = new Map(responsables.map((r) => [r.unidad_id, r.usuario_id]));
+  return new Map(unidades.map((u) => [u.id, deLaPersona.get(u.id) ?? quienPaga(u)]));
+}
+
+/**
+ * Las unidades que paga una persona: aquellas donde es el responsable de pago y, en las que no tienen un responsable con cuenta, las de siempre
+ * (inquilino; o propietario si no hay inquilino). Es el mismo criterio que `pagadoresDe`.
+ */
+const laPaga = (usuarioId: number): Prisma.UnidadWhereInput => ({
+  OR: [
+    { personas: { some: { usuario_id: usuarioId, responsable_pago: true } } },
+    { AND: [{ personas: { none: { responsable_pago: true, usuario_id: { not: null } } } }, { OR: [{ inquilino_id: usuarioId }, { inquilino_id: null, propietario_id: usuarioId }] }] },
+  ],
+});
 
 /** Resultado de un voucher. Nunca salen por WhatsApp; el validado no se encola (el vecino lo ve en «Mis recibos») y el rechazado sólo sale por correo. */
 export const RESULTADOS_PAGO: readonly string[] = ['pago_validado', 'pago_rechazado'];
@@ -220,13 +242,10 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
 async function usuariosDelRecibo(reciboId: number): Promise<number[]> {
   const unidades = await prisma.unidad.findMany({
     where: { reciboConceptoUnidades: { some: { reciboConcepto: { recibo_id: reciboId } } } },
-    select: { propietario_id: true, inquilino_id: true },
+    select: { id: true, propietario_id: true, inquilino_id: true },
   });
   const usuarios = new Set<number>();
-  for (const u of unidades) {
-    const pagador = quienPaga(u);
-    if (pagador != null) usuarios.add(pagador);
-  }
+  for (const pagador of (await pagadoresDe(unidades)).values()) if (pagador != null) usuarios.add(pagador);
   return [...usuarios];
 }
 
@@ -324,14 +343,15 @@ export async function encolarRecordatorios(ahora: Date): Promise<number> {
   for (const { tipo, where } of tandas) {
     const cargos = await prisma.reciboConceptoUnidad.findMany({
       where: { AND: [cargoPendiente, { reciboConcepto: { recibo: where } }] },
-      select: { reciboConcepto: { select: { recibo_id: true } }, unidad: { select: { propietario_id: true, inquilino_id: true } } },
+      select: { reciboConcepto: { select: { recibo_id: true } }, unidad: { select: { id: true, propietario_id: true, inquilino_id: true } } },
     });
+    const pagadores = await pagadoresDe(cargos.flatMap((c) => (c.unidad ? [c.unidad] : [])));
     const pares = new Map<string, { usuario: number; recibo: number }>();
     for (const c of cargos) {
       const recibo = c.reciboConcepto?.recibo_id;
       if (recibo == null) continue;
-      // Sólo quien paga la unidad: el propietario de una unidad con inquilino no recibe recordatorios de ella.
-      const pagador = c.unidad ? quienPaga(c.unidad) : null;
+      // Sólo quien paga la unidad (su responsable de pago): el propietario de una unidad con inquilino no recibe recordatorios de ella.
+      const pagador = c.unidad ? pagadores.get(c.unidad.id) ?? null : null;
       if (pagador != null) pares.set(`${pagador}:${recibo}`, { usuario: pagador, recibo });
     }
     if (!pares.size) continue;

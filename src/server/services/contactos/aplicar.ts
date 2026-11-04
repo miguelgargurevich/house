@@ -5,6 +5,8 @@
  *  3. asigna los departamentos (el de una persona de relleno pasa a la que ya tiene ese correo; la de relleno queda sin departamento, con su historial intacto).
  * Los avisos por correo y por WhatsApp se encienden SÓLO al agregar un correo o un celular (si alguien los apagó antes, no se le vuelven a prender).
  */
+import { sincronizarUnidades } from '../personas/sincronizar';
+import { celularGuardado } from '../personas/tipos';
 import type { Prisma } from '@prisma/client';
 import { HttpError } from '../../errors';
 import type { PlanContactos, UsuarioVirtual } from './plan';
@@ -20,6 +22,8 @@ export interface ResultadoAplicar {
   creados: number;
   actualizados: number;
   unidades: number;
+  /** Personas del departamento (copropietario, cónyuge, familiar u otro) agregadas o completadas. */
+  personas: number;
 }
 
 /** Correo de relleno libre para una persona nueva sin correo (nunca existe el buzón: `.invalid` está reservado). */
@@ -76,5 +80,33 @@ export async function aplicarPlan(tx: Tx, plan: PlanContactos, ctx: { complejoId
     if (r.count !== 1) throw cambioConcurrente();
     unidades++;
   }
-  return { ids, creados, actualizados, unidades };
+  // «Personas del departamento»: el titular y el inquilino de cada unidad tocada (y de las personas cuyo contacto cambió) se alinean con su cuenta.
+  const conCambio = plan.usuarios.filter((v) => v.id != null && (v.correoPuesto || v.celularPuesto)).map((v) => v.id!);
+  const deLasCuentas = conCambio.length ? await tx.unidad.findMany({ where: { OR: [{ propietario_id: { in: conCambio } }, { inquilino_id: { in: conCambio } }] }, select: { id: true } }) : [];
+  await sincronizarUnidades(tx, [...plan.asignaciones.map((x) => x.unidadId), ...deLasCuentas.map((x) => x.id)]);
+  for (const v of plan.usuarios) {
+    const id = v.id ?? ids.get(v.clave);
+    if (id == null || (!v.correoPuesto && !v.celularPuesto)) continue;
+    const correo = v.correoPuesto && !v.sinCorreo ? v.email : null;
+    const celular = v.celularPuesto ? celularGuardado(v.telefono) : null;
+    await tx.personaUnidad.updateMany({ where: { usuario_id: id }, data: { ...(correo ? { correo } : {}), ...(celular ? { celular } : {}) } });
+  }
+  // Las personas del departamento que no son propietario ni inquilino (columna `Relación`): se agregan o se completan. Antes, el titular y el inquilino de esa
+  // unidad ya tienen su persona (sincronizar), así que una persona nueva nunca deja al titular fuera de los avisos.
+  let personas = 0;
+  if (plan.personas.length) {
+    await sincronizarUnidades(tx, plan.personas.map((o) => o.unidadId));
+    for (const o of plan.personas) {
+      if (o.id == null) {
+        await tx.personaUnidad.create({ data: { unidad_id: o.unidadId, empresa_id: o.empresaId, nombre: o.nombre, relacion: o.relacion, correo: o.correo, celular: o.celular, recibe_comunicados: false } });
+      } else {
+        const r = await tx.personaUnidad.updateMany({ where: { id: o.id, correo: o.correo0, celular: o.celular0 }, data: { correo: o.correo, celular: o.celular } });
+        if (r.count !== 1) throw cambioConcurrente();
+        // Su cuenta (si la tiene) lleva el mismo celular: es por donde le llegan los avisos.
+        if (o.usuarioId != null && o.celular && o.celular !== o.celular0) await tx.usuario.update({ where: { id: o.usuarioId }, data: { telefono: o.celular, aviso_whatsapp: true } });
+      }
+      personas++;
+    }
+  }
+  return { ids, creados, actualizados, unidades, personas };
 }

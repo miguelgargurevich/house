@@ -2,7 +2,7 @@
  * Carga de contactos de los vecinos por Excel (ficha del condominio › Residentes). Sólo admin y superadmin de la empresa del condominio; la junta y los residentes → 403,
  * el condominio de otra empresa → 404. Ver `services/contactos/*` y docs/API-CONTRATO.md.
  *
- *   GET  /api/contactos/plantilla.xlsx?complejo_id=      plantilla prellenada con lo que Torre tiene
+ *   GET  /api/contactos/plantilla.xlsx?complejo_id=      plantilla prellenada con lo que Torre tiene (`formato=personas`: una fila por persona; sin `formato`, así sólo si hay personas además del propietario y el inquilino)
  *   POST /api/contactos/excel                            sin `confirmar` → 409 REVISAR_CONTACTOS (vista previa, no escribe); con `confirmar=true` guarda
  *   GET  /api/contactos/invitaciones?complejo_id=        «X enviadas, Y en cola (salen en N días)»
  *   POST /api/contactos/invitaciones                     deja en cola a los pendientes del condominio o de un block
@@ -20,7 +20,7 @@ import { aplicarPlan } from '../services/contactos/aplicar';
 import { contarInvitables, encolarInvitaciones, estadoDeLaCola } from '../services/contactos/cola';
 import { leerContactos } from '../services/contactos/lector';
 import { planificarContactos, type PlanContactos, type Problema } from '../services/contactos/plan';
-import { libroDeContactos, nombreArchivoPlantilla, unidadesParaPlantilla } from '../services/contactos/plantilla';
+import { hayPersonasExtra, libroDeContactos, nombreArchivoPlantilla, unidadesParaPlantilla } from '../services/contactos/plantilla';
 import { idSchema, parseBody, parseQuery, z } from '../validation';
 
 export const contactosRouter = Router();
@@ -54,15 +54,18 @@ async function condominioPropio(req: Parameters<typeof currentUser>[0], complejo
 }
 
 const complejoQuery = z.object({ complejo_id: idSchema });
+/** `formato`: sin él, la plantilla lleva una fila por persona sólo si algún departamento tiene personas además del propietario y el inquilino. */
+const plantillaQuery = z.object({ complejo_id: idSchema, formato: z.enum(['clasico', 'personas'], { error: 'formato debe ser: clasico, personas' }).optional() });
 
 contactosRouter.get('/plantilla.xlsx', requireRole('admin'), async (req, res) => {
-  const { complejo_id } = parseQuery(complejoQuery, req);
+  const { complejo_id, formato } = parseQuery(plantillaQuery, req);
   const { u, c } = await condominioPropio(req, complejo_id);
   const unidades = await unidadesParaPlantilla(c.id);
+  const porPersona = (formato ?? (hayPersonasExtra(unidades) ? 'personas' : 'clasico')) === 'personas';
   // Lleva nombres, correos y celulares de los vecinos: queda constancia de quién la bajó (sólo cantidades).
   await registrarAuditoria({ usuario_id: u.id, accion: 'descargar_plantilla_contactos', entidad: 'complejo', entidad_id: c.id, detalle: { unidades: unidades.length }, ip: ipDe(req) });
   res.set({ ...SIN_CACHE, 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="${nombreArchivoPlantilla(c.nombre)}"` });
-  res.send(libroDeContactos(unidades));
+  res.send(libroDeContactos(unidades, porPersona ? 'personas' : 'clasico'));
 });
 
 const excelBody = z.object({ complejo_id: idSchema, confirmar: casilla('confirmar'), actualizar: casilla('actualizar'), invitar: casilla('invitar') });
@@ -79,6 +82,8 @@ export function mensajeContactos(p: PlanContactos): string {
   if (r.celulares_cambiados) partes.push(`se cambian ${plural(r.celulares_cambiados, 'celular', 'celulares')}`);
   if (r.inquilinos_nuevos) partes.push(`se crean ${plural(r.inquilinos_nuevos, 'inquilino', 'inquilinos')}`);
   if (r.propietarios_nuevos) partes.push(`se crean ${plural(r.propietarios_nuevos, 'propietario', 'propietarios')}`);
+  if (r.personas_nuevas) partes.push(`se agregan ${plural(r.personas_nuevas, 'persona', 'personas')} a la lista de sus departamentos`);
+  if (r.personas_cambiadas) partes.push(`se completan los datos de ${plural(r.personas_cambiadas, 'persona', 'personas')} de la lista`);
   if (r.unidades_unidas) partes.push(`${plural(r.unidades_unidas, 'departamento pasa', 'departamentos pasan')} a la persona que ya tiene ese correo`);
   const lista = partes.length ? partes.join(', ') : 'no hay cambios que guardar';
   const errores = r.filas_con_error ? ` ${plural(r.filas_con_error, 'fila tiene', 'filas tienen')} errores y no se guardarán.` : '';
@@ -93,12 +98,12 @@ contactosRouter.post('/excel', requireRole('admin'), subirArchivo, async (req, r
   if (!req.file) throw invalid('Datos inválidos: archivo es obligatorio', { archivo: 'Obligatorio' });
   const lectura = leerContactos(req.file.buffer);
   const ahora = comercialDeps.ahora();
-  const opts = { complejoId: c.id, empresaId: c.empresa_id, actualizar: body.actualizar, ahora };
+  const opts = { complejoId: c.id, empresaId: c.empresa_id, actualizar: body.actualizar, ahora, porPersona: lectura.por_persona };
 
   if (!body.confirmar) {
     // Vista previa: sólo lee (una transacción de lectura para ver todo en el mismo instante). No se escribe nada.
     const { plan, invitables } = await prisma.$transaction(async (tx) => {
-      const plan = await planificarContactos(tx, lectura.filas, opts);
+      const plan = await planificarContactos(tx, lectura.filas, opts, lectura.extras);
       const existentes = plan.conCorreo.flatMap((v) => (v.id == null ? [] : [v.id]));
       const invitables = plan.conCorreo.filter((v) => v.id == null).length + (await contarInvitables(tx, c.id, existentes, ahora));
       return { plan, invitables };
@@ -118,7 +123,7 @@ contactosRouter.post('/excel', requireRole('admin'), subirArchivo, async (req, r
   await exigirOperativo(c.id, u);
   const r = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${c.id}::int, ${CANDADO_CONTACTOS}::int)`;
-    const plan = await planificarContactos(tx, lectura.filas, opts);
+    const plan = await planificarContactos(tx, lectura.filas, opts, lectura.extras);
     const aplicado = await aplicarPlan(tx, plan, { complejoId: c.id });
     let encoladas = 0;
     if (body.invitar) {
@@ -132,13 +137,14 @@ contactosRouter.post('/excel', requireRole('admin'), subirArchivo, async (req, r
   res.locals.entidad = 'complejo';
   res.locals.entidadId = c.id;
   res.locals.accion = 'cargar_contactos';
-  res.locals.auditDetalle = { ...r.plan.resumen, creados: r.aplicado.creados, actualizados: r.aplicado.actualizados, unidades_asignadas: r.aplicado.unidades, invitaciones_encoladas: r.encoladas, actualizar: body.actualizar, invitar: body.invitar };
+  res.locals.auditDetalle = { ...r.plan.resumen, creados: r.aplicado.creados, actualizados: r.aplicado.actualizados, unidades_asignadas: r.aplicado.unidades, personas_agregadas: r.aplicado.personas, invitaciones_encoladas: r.encoladas, actualizar: body.actualizar, invitar: body.invitar };
   res.status(201).json({
     guardado: true,
     resumen: { ...r.plan.resumen, invitables: r.encoladas },
     creados: r.aplicado.creados,
     actualizados: r.aplicado.actualizados,
     unidades_asignadas: r.aplicado.unidades,
+    ...(lectura.por_persona ? { personas_agregadas: r.aplicado.personas } : {}),
     invitaciones_encoladas: r.encoladas,
     problemas: recortar(r.plan.problemas),
     problemas_total: r.plan.problemas.length,

@@ -1,3 +1,4 @@
+import { accesoDesactivado, MENSAJE_ACCESO_DESACTIVADO } from '../services/personas/servicio';
 import bcrypt from 'bcrypt';
 import { Router, type RequestHandler } from 'express';
 import { BCRYPT_COST } from '../config';
@@ -73,6 +74,8 @@ export function loginRouter(limitador: RequestHandler, cuenta: BloqueoCuenta) {
     }
     // Cuenta del registro público sin confirmar: la contraseña era correcta (no se delata nada), pero no entra hasta abrir el enlace del correo.
     if (!usuario.correo_verificado) throw new HttpError(403, 'Confirma tu correo para entrar: te enviamos un enlace al registrarte.', undefined, 'CORREO_NO_VERIFICADO');
+    // La administración le apagó el acceso a todos sus departamentos: la contraseña era correcta, pero no entra.
+    if (await accesoDesactivado(usuario.id, usuario.rol)) throw new HttpError(403, MENSAJE_ACCESO_DESACTIVADO, undefined, 'ACCESO_DESACTIVADO');
     cuenta.exito(email);
     const user = { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol, empresa_id: usuario.empresa_id, complejo_id: usuario.complejo_id, cargo_junta: usuario.cargo_junta, estructura_id: usuario.estructura_id, estructura_nombre: usuario.estructura?.nombre ?? null, junta_unica: await juntaUnicaDeUsuario(usuario) };
     const { token, csrf } = await crearSesion(user.id, ipDe(req), req.get('user-agent'));

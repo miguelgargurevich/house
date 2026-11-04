@@ -1,6 +1,7 @@
 import { prisma } from '../../db';
 import type { Rol } from '../../config';
 import type { AuthUser } from '../../middleware/auth';
+import { unidadesDeUsuario } from '../../lib/scope';
 
 /** Arma el `AuthUser` desde la base, igual que `authenticate` en la sesión web: rol, cargo de junta, empresa y alcance vigentes AHORA. */
 export async function cargarAuthUser(usuarioId: number): Promise<AuthUser | null> {
@@ -12,7 +13,7 @@ export async function cargarAuthUser(usuarioId: number): Promise<AuthUser | null
 /** Unidades de un residente dentro de una empresa (por la empresa de la unidad o la de su condominio). */
 export const unidadesDeResidenteEnEmpresa = (usuarioId: number, empresaId: number) => ({
   AND: [
-    { OR: [{ propietario_id: usuarioId }, { inquilino_id: usuarioId }] },
+    unidadesDeUsuario(usuarioId),
     { OR: [{ empresa_id: empresaId }, { complejo: { empresa_id: empresaId } }] },
   ],
 });
@@ -22,7 +23,7 @@ export async function empresasDelUsuario(u: Pick<AuthUser, 'id' | 'empresa_id'>)
   const ids = new Set<number>();
   if (u.empresa_id != null) ids.add(u.empresa_id);
   const unidades = await prisma.unidad.findMany({
-    where: { OR: [{ propietario_id: u.id }, { inquilino_id: u.id }] },
+    where: unidadesDeUsuario(u.id),
     select: { empresa_id: true, complejo: { select: { empresa_id: true } } },
   });
   for (const x of unidades) for (const e of [x.empresa_id, x.complejo?.empresa_id]) if (e != null) ids.add(e);

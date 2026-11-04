@@ -14,15 +14,21 @@ export function comunicadoDeUnidades(unidades: { complejo_id: number | null; est
 /** Quién escribió el comunicado: la administración (admin, superadmin o sin autor) o la junta (un propietario con cargo). */
 export const origenDe = (autor: { rol: string | null } | null | undefined): 'administracion' | 'junta' => (autor?.rol === 'propietario' ? 'junta' : 'administracion');
 
-/** Propietarios e inquilinos de las unidades que alcanza el comunicado (una sola vez cada uno). */
+/**
+ * Las personas a quienes les llega un comunicado «a cada vecino» (una sola vez cada una): en cada unidad con personas cargadas, las marcadas «Recibe comunicados»
+ * (con su cuenta, que es donde viven su correo, su celular y sus preferencias); en las que aún no tienen personas, el propietario y el inquilino de siempre.
+ */
 export async function destinatariosDe(c: { complejo_id: number; estructura_id: number | null }): Promise<number[]> {
   const unidades = await prisma.unidad.findMany({
     where: { complejo_id: c.complejo_id, ...(c.estructura_id != null ? { estructura_id: c.estructura_id } : {}) },
-    select: { propietario_id: true, inquilino_id: true },
+    select: { propietario_id: true, inquilino_id: true, personas: { select: { usuario_id: true, recibe_comunicados: true } } },
   });
   const ids = new Set<number>();
-  for (const u of unidades) for (const id of [u.propietario_id, u.inquilino_id]) if (id != null) ids.add(id);
-  return [...ids];
+  for (const u of unidades) {
+    if (u.personas.length) { for (const p of u.personas) if (p.recibe_comunicados && p.usuario_id != null) ids.add(p.usuario_id); }
+    else for (const id of [u.propietario_id, u.inquilino_id]) if (id != null) ids.add(id);
+  }
+  return [...ids].sort((a, b) => a - b);
 }
 
 /** Miembros vigentes de la junta del alcance: la del block, o (comunicado de todo el condominio) las de todos los blocks y la junta central. */
@@ -37,7 +43,7 @@ export async function miembrosDeJunta(c: { complejo_id: number; estructura_id: n
 /**
  * Encola el aviso `comunicado` por los canales que pidió el autor, respetando las preferencias de cada persona (`aviso_email`, `aviso_whatsapp`)
  * como el resto de los avisos:
- *  - `enviar_correo` / `enviar_whatsapp`: a cada propietario e inquilino alcanzado (`enviar_whatsapp` = «por WhatsApp a cada vecino»);
+ *  - `enviar_correo` / `enviar_whatsapp`: a cada persona alcanzada que recibe comunicados (`destinatariosDe`; `enviar_whatsapp` = «por WhatsApp a cada vecino»);
  *  - `enviar_junta`: correo y WhatsApp a los miembros vigentes de la junta del alcance (aunque no se pida a los vecinos).
  * Idempotente por persona y canal: repetir la llamada no duplica nada. Devuelve cuántos avisos se encolaron (no cuántas personas).
  */

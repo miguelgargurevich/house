@@ -1,3 +1,5 @@
+import { celularGuardado, correoReal } from '../services/personas/tipos';
+import { sincronizarUnidad, sincronizarUnidades } from '../services/personas/sincronizar';
 import bcrypt from 'bcrypt';
 import { BCRYPT_COST, ROLES_PERSONAL, ROLES_RESIDENTE } from '../config';
 import { assertRef, crudRouter } from '../crud';
@@ -128,11 +130,15 @@ export const usuariosRouter = crudRouter({
     const morosas = new Set<number>();
     if (residentes.length) {
       const unidades = await prisma.unidad.findMany({
-        where: { OR: [{ propietario_id: { in: residentes } }, { inquilino_id: { in: residentes } }] },
+        where: { OR: [{ propietario_id: { in: residentes } }, { inquilino_id: { in: residentes } }, { personas: { some: { usuario_id: { in: residentes }, acceso_activo: true } } }] },
         orderBy: [{ codigo: 'asc' }, { id: 'asc' }],
-        select: { id: true, codigo: true, propietario_id: true, inquilino_id: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } } },
+        select: {
+          id: true, codigo: true, propietario_id: true, inquilino_id: true, complejo: { select: { id: true, nombre: true } }, estructura: { select: { id: true, nombre: true } },
+          personas: { where: { usuario_id: { in: residentes }, acceso_activo: true }, select: { usuario_id: true } },
+        },
       });
-      for (const un of unidades) for (const id of [un.propietario_id, un.inquilino_id]) if (id != null && residentes.includes(id)) mapa.set(id, [...(mapa.get(id) ?? []), unidadFila(un)]);
+      // Una persona del departamento con acceso también lo tiene (aparece aunque no sea el titular ni el inquilino principal).
+      for (const un of unidades) for (const id of new Set([un.propietario_id, un.inquilino_id, ...un.personas.map((p) => p.usuario_id)])) if (id != null && residentes.includes(id)) mapa.set(id, [...(mapa.get(id) ?? []), unidadFila(un)]);
       const vencidas = await prisma.reciboConceptoUnidad.groupBy({ by: ['unidad_id'], where: { AND: [{ unidad_id: { in: unidades.map((x) => x.id) } }, filtroEstadoCargo('vencido', await relojDeCondominios())] } });
       for (const v of vencidas) if (v.unidad_id != null) morosas.add(v.unidad_id);
     }
@@ -184,7 +190,10 @@ export const usuariosRouter = crudRouter({
     const { unidad_id, ...datos } = data as { unidad_id?: number | null } & Record<string, unknown>;
     return prisma.$transaction(async (tx) => {
       const creado = await tx.usuario.create({ data: datos as never });
-      if (unidad_id != null) await tx.unidad.update({ where: { id: unidad_id }, data: { [datos.rol === 'propietario' ? 'propietario_id' : 'inquilino_id']: creado.id } });
+      if (unidad_id != null) {
+        await tx.unidad.update({ where: { id: unidad_id }, data: { [datos.rol === 'propietario' ? 'propietario_id' : 'inquilino_id']: creado.id } });
+        await sincronizarUnidad(tx, unidad_id); // la persona del departamento sigue a su titular / inquilino
+      }
       return creado;
     });
   },
@@ -210,6 +219,11 @@ export const usuariosRouter = crudRouter({
     // Un residente puede tener unidades en condominios de otra administradora: sólo se sueltan o reasignan las que quien edita alcanza.
     const alcance = scopeUnidades(user);
     return prisma.$transaction(async (tx) => {
+      // Los departamentos que cambian de titular o inquilino (los que suelta, los que toma): sus personas se alinean al terminar.
+      const tocadas = new Set<number>(unidad_id != null ? [unidad_id] : []);
+      if (unidad_id !== undefined || (campoViejo && campoNuevo && campoViejo !== campoNuevo)) {
+        for (const c of new Set([campoViejo, campoNuevo])) if (c) for (const x of await tx.unidad.findMany({ where: { AND: [{ [c]: id }, alcance] }, select: { id: true } })) tocadas.add(x.id);
+      }
       await tx.usuario.update({ where: { id }, data: datos as never });
       // Perdió el cargo (dejó de ser propietario o cambió de condominio): también sale de la junta vigente.
       if (datos.cargo_junta === null && existing.cargo_junta != null) await tx.miembroJunta.deleteMany({ where: { usuario_id: id, junta: { hasta: null } } });
@@ -223,7 +237,13 @@ export const usuariosRouter = crudRouter({
         const suyas = await tx.unidad.findMany({ where: { AND: [{ [campoViejo]: id }, alcance] }, select: { id: true } });
         for (const u of suyas) await tx.unidad.update({ where: { id: u.id }, data: { [campoViejo]: null, [campoNuevo]: id } as never });
       }
-      return tx.usuario.findUniqueOrThrow({ where: { id } });
+      await sincronizarUnidades(tx, tocadas);
+      const actualizado = await tx.usuario.findUniqueOrThrow({ where: { id } });
+      // Sus fichas de persona (en cualquier departamento) siguen a su cuenta: nombre, correo real y celular.
+      const correo = correoReal(actualizado.email);
+      const celular = celularGuardado(actualizado.telefono);
+      await tx.personaUnidad.updateMany({ where: { usuario_id: id }, data: { nombre: actualizado.nombre, ...(correo ? { correo } : {}), ...(celular ? { celular } : {}) } });
+      return actualizado;
     });
   },
   // Cambiar el rol o la contraseña de alguien cierra sus sesiones abiertas (borrar al usuario las elimina por cascada).

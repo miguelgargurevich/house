@@ -11,6 +11,7 @@ import { medioDeUnidades } from '../services/asistente/contexto';
 import { camposDePago, codigoUnidadDelMedio } from '../services/mediosPago';
 import { z } from '../validation';
 import { MAX_FILAS, cortar, dato, defineHerramienta, fechaDia, instante, monto, paginacion, pagina, periodoDe, respuesta, sinAcceso } from './base';
+import { unidadesDeResidente } from '../lib/scope';
 
 const RESIDENTE = ['propietario', 'inquilino'] as const;
 const ESTADOS_CARGO = ['pagado', 'pendiente', 'vencido', 'en_revision'] as const;
@@ -18,8 +19,7 @@ const ESTADOS_CARGO = ['pagado', 'pendiente', 'vencido', 'en_revision'] as const
 const MAX_MANTENIMIENTOS = 6;
 
 export function unidadesPropias(u: AuthUser): Prisma.UnidadWhereInput {
-  if (u.rol === 'propietario') return { propietario_id: u.id };
-  if (u.rol === 'inquilino') return { inquilino_id: u.id };
+  if (u.rol === 'propietario' || u.rol === 'inquilino') return unidadesDeResidente(u);
   throw sinAcceso();
 }
 const misCargos = (u: AuthUser): Prisma.ReciboConceptoUnidadWhereInput => ({ unidad: unidadesPropias(u) });

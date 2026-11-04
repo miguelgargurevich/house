@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { Router, type RequestHandler } from 'express';
 import { BCRYPT_COST, RUBROS_PROVEEDOR } from '../config';
@@ -22,11 +23,11 @@ import { METODOS_PAGO } from './pagos';
 import { comunicadoDeUnidades, origenDe } from '../services/comunicados';
 import { juntasDelResidente } from '../services/juntas';
 import { complejoDeCargo, complejoDeUnidad, exigirOperativo } from '../services/comercial/operativo';
+import { unidadesDeResidente } from '../lib/scope';
 
 /** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
-function unidadesPropias(u: AuthUser) {
-  if (u.rol === 'propietario') return { propietario_id: u.id };
-  if (u.rol === 'inquilino') return { inquilino_id: u.id };
+function unidadesPropias(u: AuthUser): Prisma.UnidadWhereInput {
+  if (u.rol === 'propietario' || u.rol === 'inquilino') return unidadesDeResidente(u);
   return { id: -1 }; // otros roles (p. ej. superadmin) no tienen unidades propias
 }
 

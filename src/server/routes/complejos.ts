@@ -3,7 +3,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { invalid, notFound } from '../errors';
 import { abrirContrato, cambiarAdministradora } from '../lib/contratos';
-import { empresaDe, scopeComplejos } from '../lib/scope';
+import { empresaDe, scopeComplejos, unidadesDeUsuario } from '../lib/scope';
 import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda, zonaInicial, zonaSchema } from '../lib/paisMoneda';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { exigirPuedeAgregarCondominio } from '../services/comercial/cupo';
@@ -162,7 +162,7 @@ router.get('/:id/cabecera', requireRole('admin', 'propietario', 'inquilino'), as
   const u = currentUser(req);
   const id = parseId(req);
   const acceso = u.rol === 'propietario' || u.rol === 'inquilino'
-    ? await prisma.unidad.findFirst({ where: { complejo_id: id, OR: [{ propietario_id: u.id }, { inquilino_id: u.id }] }, select: { id: true } })
+    ? await prisma.unidad.findFirst({ where: { AND: [{ complejo_id: id }, unidadesDeUsuario(u.id)] }, select: { id: true } })
     : await prisma.complejoHabitacional.findFirst({ where: { AND: [{ id }, scopeComplejos(u)] }, select: { id: true } });
   const img = acceso ? await prisma.imagenRecibo.findUnique({ where: { complejo_id: id } }) : null;
   if (!img) throw notFound('Imagen');

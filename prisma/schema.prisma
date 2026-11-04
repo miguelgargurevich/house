@@ -74,6 +74,7 @@ model Usuario {
   terminos_aceptados_at DateTime?
   tokensVerificacion TokenVerificacionCorreo[]
   invitaciones      TokenInvitacion[]      @relation("InvitacionDeUsuario")
+  personasUnidad    PersonaUnidad[]
   invitacionesEnCola InvitacionEnCola[]    @relation("InvitacionEnColaDeUsuario")
   invitacionesEnColaCreadas InvitacionEnCola[] @relation("InvitacionEnColaCreadaPor")
   invitacionesHechas TokenInvitacion[]     @relation("InvitacionCreadaPor")
@@ -294,6 +295,7 @@ model Unidad {
   piso                   Piso?                  @relation(fields: [piso_id], references: [id])
   propietario            Usuario?               @relation("PropietarioUnidad", fields: [propietario_id], references: [id])
   inquilino              Usuario?               @relation("InquilinoUnidad", fields: [inquilino_id], references: [id])
+  personas               PersonaUnidad[]
 }
 
 model Concepto {
@@ -1493,4 +1495,32 @@ model EnvioGrupoWhatsapp {
 
   @@index([instancia, estado, at])
   @@index([empresa_id, at])
+}
+
+/// Persona de un departamento (propietario, copropietario, cónyuge, familiar, inquilino u otro). La administradora decide quién tiene acceso a Torre
+/// (`acceso_activo` con `usuario_id`), quién recibe el aviso de cobro (`responsable_pago`, como máximo UNA por unidad) y quién los comunicados.
+/// `Unidad.propietario_id` / `inquilino_id` siguen siendo el titular y el inquilino principal: se mantienen sincronizados (`services/personas/sincronizar.ts`).
+/// `usuario_id` apunta a la cuenta de la persona (con o sin acceso: una ficha sin acceso sólo sirve para mandarle avisos); no hay borrado en cascada de la persona.
+model PersonaUnidad {
+  id                 Int      @id @default(autoincrement())
+  unidad_id          Int
+  unidad             Unidad   @relation(fields: [unidad_id], references: [id], onDelete: Cascade)
+  /// Empresa que administra el condominio de la unidad (para el alcance); se mantiene al crear la persona.
+  empresa_id         Int?
+  nombre             String
+  /// propietario | copropietario | conyuge | familiar | inquilino | otro
+  relacion           String
+  correo             String?
+  celular            String?
+  responsable_pago   Boolean  @default(false)
+  recibe_comunicados Boolean  @default(false)
+  usuario_id         Int?
+  usuario            Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  acceso_activo      Boolean  @default(false)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  @@index([unidad_id])
+  @@index([usuario_id, acceso_activo])
+  @@index([empresa_id])
 }

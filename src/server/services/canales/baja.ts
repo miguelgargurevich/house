@@ -12,14 +12,17 @@ export const TEXTO_BAJA_WHATSAPP = 'Listo: ya no te enviaremos avisos por WhatsA
 /** ¿El texto es una baja? (SALIR, BAJA o STOP, sin distinguir mayúsculas ni acentos). */
 export const esBajaWhatsapp = (texto: string): boolean => PALABRAS_BAJA.has(comandoDe(texto));
 
-/** Personas de la empresa: su personal (`empresa_id`) y los residentes con alguna unidad suya. */
+/** Personas de la empresa: su personal (`empresa_id`), los residentes con alguna unidad suya y las personas de sus departamentos. */
 async function idsDeEmpresa(empresaId: number): Promise<number[]> {
-  const [personal, unidades] = await Promise.all([
+  const [personal, unidades, personas] = await Promise.all([
     prisma.usuario.findMany({ where: { empresa_id: empresaId }, select: { id: true } }),
     prisma.unidad.findMany({ where: { OR: [{ empresa_id: empresaId }, { complejo: { empresa_id: empresaId } }] }, select: { propietario_id: true, inquilino_id: true } }),
+    // Las personas del departamento (con o sin acceso a Torre) también reciben avisos por su cuenta: la baja las alcanza.
+    prisma.personaUnidad.findMany({ where: { empresa_id: empresaId, usuario_id: { not: null } }, select: { usuario_id: true } }),
   ]);
   const ids = new Set(personal.map((u) => u.id));
   for (const u of unidades) for (const id of [u.propietario_id, u.inquilino_id]) if (id != null) ids.add(id);
+  for (const p of personas) if (p.usuario_id != null) ids.add(p.usuario_id);
   return [...ids];
 }
 

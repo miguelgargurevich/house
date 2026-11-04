@@ -3,7 +3,7 @@ import { crudRouter } from '../crud';
 import { prisma } from '../db';
 import { notFound } from '../errors';
 import { paisSchema } from '../lib/paisMoneda';
-import { scopeEmpresas } from '../lib/scope';
+import { scopeEmpresas, unidadesDeUsuario } from '../lib/scope';
 import { currentUser, requireRole } from '../middleware/auth';
 import { enviarImagen, guardarImagenRecibo, imagenCruda, verificarImagen, versionImagen } from '../services/imagenes';
 import { emailSchema, fechaSchema, parseId, telefonoSchema, texto, textoOpcional, z } from '../validation';
@@ -64,7 +64,7 @@ router.get('/:id/logo', requireRole('admin', 'propietario', 'inquilino'), async 
     ? await prisma.unidad.findFirst({
         where: {
           AND: [
-            { OR: [{ propietario_id: u.id }, { inquilino_id: u.id }] },
+            unidadesDeUsuario(u.id),
             { OR: [{ complejo: { empresa_id: id } }, { reciboConceptoUnidades: { some: { reciboConcepto: { recibo: { empresa_id: id } } } } }] },
           ],
         },

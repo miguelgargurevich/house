@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type { AuthUser } from '../middleware/auth';
-import { scopeComplejos, scopeRecibos } from './scope';
+import { scopeComplejos, scopeRecibos, unidadesDeResidente } from './scope';
 import { CODIGOS_MONEDA, CODIGOS_PAIS, MONEDA_POR_DEFECTO, PAIS_POR_DEFECTO, esZonaHoraria, monedaDe, monedaDelPais, paisDe, zonaDelPais } from '../../lib/paises';
 import { prisma } from '../db';
 import { conflict } from '../errors';
@@ -73,7 +73,7 @@ export async function monedasDelAlcance(recibos: Prisma.ReciboWhereInput, comple
 export async function monedasDeUsuario(u: AuthUser): Promise<string[]> {
   if (u.rol === 'superadmin' || u.rol === 'admin') return monedasDelAlcance(scopeRecibos(u), scopeComplejos(u));
   if (u.rol === 'propietario' || u.rol === 'inquilino') {
-    const propias: Prisma.UnidadWhereInput = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
+    const propias: Prisma.UnidadWhereInput = unidadesDeResidente(u);
     return monedasDelAlcance({ reciboConceptos: { some: { reciboConceptoUnidades: { some: { unidad: propias } } } } }, { unidades: { some: propias } });
   }
   return u.complejo_id != null ? monedasDelAlcance({ complejo_id: u.complejo_id }, { id: u.complejo_id }) : [MONEDA_POR_DEFECTO];

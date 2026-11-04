@@ -83,7 +83,7 @@ export function scopeUsuarios(u: AuthUser): Prisma.UsuarioWhereInput {
     rol: { not: 'superadmin' },
     OR: [
       { empresa_id: e, rol: { notIn: [...ROLES_RESIDENTE] } },
-      { rol: { in: [...ROLES_RESIDENTE] }, OR: [{ complejo: { empresa_id: e } }, { unidades: { some: unidadSuya } }, { unidadesInquilino: { some: unidadSuya } }] },
+      { rol: { in: [...ROLES_RESIDENTE] }, OR: [{ complejo: { empresa_id: e } }, { unidades: { some: unidadSuya } }, { unidadesInquilino: { some: unidadSuya } }, { personasUnidad: { some: { unidad: unidadSuya } } }] },
     ],
   };
 }
@@ -217,8 +217,30 @@ export function scopeBlocksCierre(u: AuthUser): Prisma.EstructuraWhereInput {
   return a.estructura_id == null ? { complejo_id: a.complejo_id } : { id: a.estructura_id, complejo_id: a.complejo_id };
 }
 
-/** Unidades del residente: las suyas si es propietario, la que habita si es inquilino. */
-const unidadesPropias = (u: AuthUser): Prisma.UnidadWhereInput => (u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id });
+/**
+ * ÚNICO lugar donde se decide qué departamentos ve un residente. Los ve si:
+ *  - es el titular (`propietario_id`) o el inquilino principal (`inquilino_id`) y la administración no le apagó el acceso en SU ficha de persona, o
+ *  - es una persona del departamento (`PersonaUnidad.usuario_id`) con `acceso_activo`.
+ * Apagar el acceso corta de inmediato: el alcance se lee de la base en cada petición. Cualquier consulta de residente debe pasar por aquí
+ * (`unidadesDeResidente` por rol, `unidadesDeUsuario` sin importar el rol); nunca mirar `propietario_id`/`inquilino_id` a mano.
+ */
+const sinAccesoApagado = (usuarioId: number): Prisma.UnidadWhereInput => ({ personas: { none: { usuario_id: usuarioId, acceso_activo: false } } });
+const conAccesoDePersona = (usuarioId: number): Prisma.UnidadWhereInput => ({ personas: { some: { usuario_id: usuarioId, acceso_activo: true } } });
+
+/** Departamentos de una persona sin mirar su rol (titular, inquilino principal o persona con acceso). */
+export const unidadesDeUsuario = (usuarioId: number): Prisma.UnidadWhereInput => ({
+  OR: [
+    { AND: [{ propietario_id: usuarioId }, sinAccesoApagado(usuarioId)] },
+    { AND: [{ inquilino_id: usuarioId }, sinAccesoApagado(usuarioId)] },
+    conAccesoDePersona(usuarioId),
+  ],
+});
+
+/** Unidades del residente: las suyas si es propietario, la que habita si es inquilino y las de las personas con acceso. */
+export const unidadesDeResidente = (u: AuthUser): Prisma.UnidadWhereInput => ({
+  OR: [{ AND: [u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id }, sinAccesoApagado(u.id)] }, conAccesoDePersona(u.id)],
+});
+const unidadesPropias = unidadesDeResidente;
 const esResidente = (u: AuthUser) => u.rol === 'propietario' || u.rol === 'inquilino';
 
 /**

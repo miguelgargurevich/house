@@ -23,7 +23,7 @@ import { diaEn, hoyEn } from '../lib/fechas';
 import { filtroAmbito, ambitoJunta } from '../lib/junta';
 import { estadoMantenimiento, sumarCuentas, type EstadoMantenimiento } from '../lib/mantenimientos';
 import { nombreMes } from '../lib/periodo';
-import { scopeUnidades } from '../lib/scope';
+import { scopeUnidades, unidadesDeResidente } from '../lib/scope';
 import type { AuthUser } from '../middleware/auth';
 import { esConceptoMora } from './mora';
 
@@ -126,9 +126,9 @@ export function alcanceEstadoCuenta(u: AuthUser): Prisma.UnidadWhereInput {
     case 'admin':
       return scopeUnidades(u);
     case 'inquilino':
-      return { inquilino_id: u.id };
+      return unidadesDeResidente(u);
     case 'propietario': {
-      const propias: Prisma.UnidadWhereInput = { propietario_id: u.id };
+      const propias: Prisma.UnidadWhereInput = unidadesDeResidente(u);
       const a = ambitoJunta(u); // presidente o tesorero: además, las unidades de su block (o de todo su condominio, si no tiene block)
       return a ? { OR: [propias, filtroAmbito(a)] } : propias;
     }

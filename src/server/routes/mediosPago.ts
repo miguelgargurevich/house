@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError, forbidden, invalid, notFound } from '../errors';
 import { ambitoJunta, esJunta, puedeGestionar } from '../lib/junta';
-import { scopeComplejos, scopeMediosPago } from '../lib/scope';
+import { scopeComplejos, scopeMediosPago, unidadesDeResidente } from '../lib/scope';
 import { diaTexto, vigenteDe } from '../services/juntas';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { detectarTipo, dispositionInline, sanearNombre } from '../services/comprobantes';
@@ -23,8 +23,8 @@ const incluir = { complejo: { select: { id: true, nombre: true } }, estructura: 
 
 /** Unidades en las que el residente vive o es dueño, para saber qué medios le corresponden. */
 async function unidadesDe(u: AuthUser) {
-  const donde = u.rol === 'propietario' ? { propietario_id: u.id } : u.rol === 'inquilino' ? { inquilino_id: u.id } : null;
-  if (!donde) return [];
+  if (u.rol !== 'propietario' && u.rol !== 'inquilino') return [];
+  const donde = unidadesDeResidente(u);
   return prisma.unidad.findMany({ where: donde, select: { complejo_id: true, estructura_id: true } });
 }
 
@@ -235,7 +235,7 @@ mediosPagoMeRouter.get('/', requireRole('propietario', 'inquilino'), async (req,
   const u = currentUser(req);
   if (u.rol === 'superadmin') throw forbidden();
   const { cargo_id } = parse(z.object({ cargo_id: idSchema }), req.query);
-  const donde = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
+  const donde = unidadesDeResidente(u);
   const cargo = await prisma.reciboConceptoUnidad.findFirst({ where: { id: cargo_id, unidad: donde }, select: { unidad: { select: { codigo: true, complejo_id: true, estructura_id: true } } } });
   if (!cargo) throw notFound('Cargo');
   const filas = await prisma.medioPago.findMany({

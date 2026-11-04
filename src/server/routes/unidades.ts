@@ -1,3 +1,4 @@
+import { sincronizarUnidad } from '../services/personas/sincronizar';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { scopeComplejos, scopeEstructuras, scopePisos, scopeUnidades, scopeUsuarios } from '../lib/scope';
@@ -69,6 +70,9 @@ export const unidadesRouter = crudRouter({
   },
   createSchema: base,
   updateSchema: base.partial(),
+  // El titular y el inquilino de la unidad se reflejan en «Personas del departamento»: se alinean tras cada cambio.
+  afterCreate: async (creada) => { await prisma.$transaction((tx) => sincronizarUnidad(tx, creada.id as number)); },
+  afterUpdate: async (existente) => { await prisma.$transaction((tx) => sincronizarUnidad(tx, existente.id as number)); },
   operativo: (r, u) => exigirOperativo(r.complejo_id as number | null, u),
   // Tope de unidades del plan (Gratis = 20): crear por encima falla con 403 «LIMITE_UNIDADES»; lo que ya existe no se toca.
   prepareCreate: async (d, user) => {

@@ -5,6 +5,7 @@
  * Nunca toca lo que ya existe: un block o departamento que está no se modifica ni cambia de propietario. Los propietarios que se crean
  * son nuevos SIEMPRE (nunca se reutiliza un usuario por su correo de relleno: puede ser de otro condominio u otra empresa).
  */
+import { sincronizarUnidades } from './personas/sincronizar';
 import type { Prisma } from '@prisma/client';
 import { HttpError, conflict, invalid } from '../errors';
 import { correoDeRelleno, nombreDeBlock } from '../lib/excelRecibos';
@@ -197,5 +198,7 @@ export async function crearFaltantes(tx: Tx, p: { complejoId: number; empresaId:
     if (id == null) throw new HttpError(500, 'No se pudo crear una unidad del Excel');
     unidades.set(u.clave, id);
   }
+  // Cada propietario nuevo queda también como persona de su departamento (titular, con aviso de cobro y comunicados).
+  await sincronizarUnidades(tx, unidades.values());
   return { estructuras, unidades, resumen };
 }

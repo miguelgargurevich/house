@@ -30,6 +30,7 @@ import { comunicadosRouter } from './routes/comunicados';
 import { complejosRouter } from './routes/complejos';
 import { conceptosRouter } from './routes/conceptos';
 import { contactosRouter } from './routes/contactos';
+import { personasUnidadRouter } from './routes/personasUnidad';
 import { dashboardRouter } from './routes/dashboard';
 import { empresasRouter } from './routes/empresas';
 import { estadoCuentaRouter } from './routes/estadoCuenta';
@@ -135,6 +136,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/contactos', contactosRouter);
   api.use('/estructuras', estructurasRouter);
   api.use('/pisos', pisosRouter);
+  api.use('/unidades/:id/personas', personasUnidadRouter); // antes del CRUD de unidades
   api.use('/unidades', unidadesRouter);
   api.use('/conceptos', conceptosRouter);
   api.use('/recibos', aguaRouter); // lecturas de agua, foto del contómetro y fecha de corte: antes del CRUD de recibos

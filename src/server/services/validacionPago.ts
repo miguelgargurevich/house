@@ -1,7 +1,7 @@
 /** Cierre de un pago por validar (validado o rechazado), compartido por la validación manual y la automática de la IA. */
 import { prisma } from '../db';
 import { conflict } from '../errors';
-import { encolarAviso, quienPaga } from './avisos';
+import { encolarAviso, pagadoresDe } from './avisos';
 
 export interface Cierre {
   pagoId: number;
@@ -67,18 +67,18 @@ export async function cerrarPago(c: Cierre): Promise<void> {
 
 /**
  * Avisa del resultado. Un pago validado NO avisa: el vecino lo ve en «Mis recibos». Un rechazo sale sólo por correo, a quien registró el pago
- * o, si no hay, a quien paga la unidad (el inquilino, o el propietario si no tiene). Es idempotente por pago (lo resuelve `encolarAviso`) y nunca rompe la validación.
+ * o, si no hay, a quien paga la unidad (su responsable de pago; sin personas cargadas, el inquilino o, si no tiene, el propietario). Es idempotente por pago (lo resuelve `encolarAviso`) y nunca rompe la validación.
  */
 export async function avisarResultado(pagoId: number, estado: 'validado' | 'rechazado', motivo?: string | null): Promise<void> {
   if (estado === 'validado') return;
   try {
     const p = await prisma.pago.findUnique({
       where: { id: pagoId },
-      select: { usuario_id: true, reciboConceptoUnidad: { select: { unidad: { select: { propietario_id: true, inquilino_id: true } } } } },
+      select: { usuario_id: true, reciboConceptoUnidad: { select: { unidad: { select: { id: true, propietario_id: true, inquilino_id: true } } } } },
     });
     if (!p) return;
     const u = p.reciboConceptoUnidad?.unidad;
-    const destinatario = p.usuario_id ?? (u ? quienPaga(u) : null);
+    const destinatario = p.usuario_id ?? (u ? (await pagadoresDe([u])).get(u.id) ?? null : null);
     if (destinatario == null) return;
     await encolarAviso('pago_rechazado', destinatario, { entidad: 'pago', id: pagoId }, { motivo: motivo ?? undefined });
   } catch (err) {

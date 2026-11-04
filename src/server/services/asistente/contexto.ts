@@ -13,7 +13,7 @@ import { relojDeCondominios, zonaDeUsuario } from '../../lib/zonas';
 import { ambitoJunta, filtroAmbito } from '../../lib/junta';
 import { cargoEnMoneda, monedasDelAlcance, porMoneda } from '../../lib/paisMoneda';
 import { rutaPermitida } from '../../lib/rutasApp';
-import { scopeCargos, scopeComplejos, scopePagos, scopePagosJunta, scopeRecibos, scopeTareas } from '../../lib/scope';
+import { scopeCargos, scopeComplejos, scopePagos, scopePagosJunta, scopeRecibos, scopeTareas, unidadesDeResidente } from '../../lib/scope';
 import type { AuthUser } from '../../middleware/auth';
 import { dineroTexto, fechaTexto, fechaTextoEn } from '../avisos/plantillas';
 import { camposDePago, codigoUnidadDelMedio } from '../mediosPago';
@@ -99,7 +99,7 @@ export function medioDeUnidades(unidades: { complejo_id: number | null; estructu
 }
 
 async function situacionResidente(u: AuthUser): Promise<SituacionResidente> {
-  const propias: Prisma.UnidadWhereInput = u.rol === 'propietario' ? { propietario_id: u.id } : { inquilino_id: u.id };
+  const propias: Prisma.UnidadWhereInput = unidadesDeResidente(u);
   const mios: Prisma.ReciboConceptoUnidadWhereInput = { unidad: propias };
   const monedas = await monedasDelAlcance({ reciboConceptos: { some: { reciboConceptoUnidades: { some: mios } } } }, { unidades: { some: propias } });
   const reloj = await relojDeCondominios();

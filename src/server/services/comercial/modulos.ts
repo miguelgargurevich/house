@@ -5,6 +5,7 @@ import { HttpError } from '../../errors';
 import type { AuthUser } from '../../middleware/auth';
 import { CONFIGURACION_ID, type CapacidadClave } from './catalogo';
 import { estadoEfectivo, type EstadoEfectivo, type PlanMinimo, type Plazos } from './estado';
+import { unidadesDeUsuario } from '../../lib/scope';
 
 /** Puntos de inyección para pruebas (reloj y vida de la caché). */
 export const comercialDeps = {
@@ -89,7 +90,7 @@ export async function complejosDe(user: AuthUser): Promise<number[] | null> {
     for (const c of await prisma.complejoHabitacional.findMany({ where: { empresa_id: user.empresa_id }, select: { id: true } })) ids.add(c.id);
   }
   if (user.rol === 'propietario' || user.rol === 'inquilino') {
-    const unidades = await prisma.unidad.findMany({ where: { OR: [{ propietario_id: user.id }, { inquilino_id: user.id }], complejo_id: { not: null } }, select: { complejo_id: true } });
+    const unidades = await prisma.unidad.findMany({ where: { AND: [unidadesDeUsuario(user.id), { complejo_id: { not: null } }] }, select: { complejo_id: true } });
     for (const u of unidades) if (u.complejo_id != null) ids.add(u.complejo_id);
   }
   return [...ids];

@@ -9,6 +9,10 @@ import { correoSinBuzon } from '../invitaciones';
 
 export const ENCABEZADOS = ['Block', 'Dpto', 'Propietario', 'Correo propietario', 'Celular propietario', 'Inquilino', 'Correo inquilino', 'Celular inquilino'] as const;
 
+/** Encabezados de la plantilla «una fila por persona» (con la columna `Relación`). */
+export const ENCABEZADOS_PERSONAS = ['Block', 'Dpto', 'Relación', 'Nombre', 'Correo', 'Celular'] as const;
+export type FormatoPlantilla = 'clasico' | 'personas';
+
 /** «B01-101» → «101»: el último tramo del código (es lo que `codigoEncajaConDpto` compara al subir). */
 export const dptoDeCodigo = (codigo: string | null): string => normalizarTexto(codigo).split(/[^A-Za-z0-9]+/).filter(Boolean).pop() ?? '';
 
@@ -34,7 +38,14 @@ interface UnidadFila {
   estructura: { nombre: string | null } | null;
   propietario: { nombre: string; email: string; telefono: string | null } | null;
   inquilino: { nombre: string; email: string; telefono: string | null } | null;
+  /** Las personas del departamento (puede venir vacío en las unidades que aún no las tienen). */
+  personas?: { id: number; relacion: string; nombre: string; correo: string | null; celular: string | null }[];
 }
+
+/** ¿Alguna unidad tiene una persona que no es propietario ni inquilino? Entonces la plantilla lleva una fila por persona (si no, saldrían perdidas al volver a subirla). */
+export const hayPersonasExtra = (unidades: UnidadFila[]): boolean => unidades.some((u) => (u.personas ?? []).some((p) => p.relacion !== 'propietario' && p.relacion !== 'inquilino'));
+
+const ETIQUETA: Record<string, string> = { propietario: 'Propietario', copropietario: 'Copropietario', conyuge: 'Cónyuge', familiar: 'Familiar', inquilino: 'Inquilino', otro: 'Otro' };
 
 /** Orden de la plantilla: por número de block (los que no tienen número, al final por nombre), luego por departamento (numérico primero) y código. */
 export function ordenarUnidades<T extends { codigo: string; estructura: { nombre: string | null } | null }>(unidades: T[]): T[] {
@@ -50,8 +61,49 @@ export function ordenarUnidades<T extends { codigo: string; estructura: { nombre
   });
 }
 
-/** El libro: hoja «Contactos» (datos) y hoja «Instrucciones». */
-export function libroDeContactos(unidades: UnidadFila[]): Buffer {
+const INSTRUCCIONES_PERSONAS = [
+  'Cómo cargar los contactos de los vecinos (una fila por persona)',
+  '',
+  '1. Cada fila es UNA persona de un departamento. Block y Dpto dicen de cuál; Relación dice quién es: Propietario, Copropietario, Cónyuge, Familiar, Inquilino u Otro.',
+  '2. Un departamento tiene un solo Propietario y un solo Inquilino. El resto de las personas va con las otras relaciones. Para agregar a alguien, escribe otra fila con el mismo Block y Dpto.',
+  '3. Los departamentos sin personas salen con una fila vacía: déjala así o escribe ahí a la primera persona.',
+  '4. Los nombres sirven para reconocer a la persona: no se cambian desde aquí. Correo: uno por persona. Celular: 9 dígitos (987 654 321) o con el código de país (+56 9 6123 4567).',
+  '5. Súbelo en Residentes › Subir contactos. Torre te muestra primero un resumen y los problemas fila por fila, sin guardar nada. Recién con «Guardar contactos» se guarda.',
+  '6. Aquí NO se da acceso a Torre: eso se decide en la ficha del departamento (Unidades › Personas del departamento), con el interruptor «Tiene usuario en Torre».',
+  '',
+  'Lo que NO hace esta carga: no cambia nombres, no borra a nadie, no toca recibos ni pagos, y nunca vincula una cuenta de otra empresa o de personal.',
+];
+
+/** Una fila por persona (columna `Relación`); la unidad sin personas, una fila vacía. */
+function libroPorPersona(unidades: UnidadFila[]): Buffer {
+  const filas: string[][] = [[...ENCABEZADOS_PERSONAS]];
+  const orden = (r: string) => (r === 'propietario' ? 0 : r === 'inquilino' ? 1 : 2);
+  for (const u of ordenarUnidades(unidades)) {
+    const bloque = u.estructura?.nombre ?? '';
+    const dpto = dptoDeCodigo(u.codigo);
+    let personas = [...(u.personas ?? [])].sort((a, b) => orden(a.relacion) - orden(b.relacion) || a.id - b.id).map((p) => ({ relacion: p.relacion, nombre: p.nombre, correo: p.correo ?? '', celular: p.celular ?? '' }));
+    if (!personas.length) {
+      // Unidad que todavía no tiene personas cargadas: salen su propietario e inquilino de siempre.
+      if (u.propietario) personas.push({ relacion: 'propietario', nombre: u.propietario.nombre, correo: correoVisible(u.propietario.email), celular: u.propietario.telefono ?? '' });
+      if (u.inquilino) personas.push({ relacion: 'inquilino', nombre: u.inquilino.nombre, correo: correoVisible(u.inquilino.email), celular: u.inquilino.telefono ?? '' });
+    }
+    if (!personas.length) personas = [{ relacion: '', nombre: '', correo: '', celular: '' }];
+    for (const p of personas) filas.push([bloque, dpto, p.relacion ? ETIQUETA[p.relacion] ?? p.relacion : '', p.nombre, p.correo, p.celular]);
+  }
+  const hoja = XLSX.utils.aoa_to_sheet(filas);
+  hoja['!cols'] = [{ wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 34 }, { wch: 32 }, { wch: 20 }];
+  hoja['!freeze'] = { xSplit: 0, ySplit: 1 } as never;
+  const ayuda = XLSX.utils.aoa_to_sheet(INSTRUCCIONES_PERSONAS.map((t) => [t]));
+  ayuda['!cols'] = [{ wch: 130 }];
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, 'Contactos');
+  XLSX.utils.book_append_sheet(libro, ayuda, 'Instrucciones');
+  return XLSX.write(libro, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+}
+
+/** El libro: hoja «Contactos» (datos) y hoja «Instrucciones». `personas` = una fila por persona; `clasico` = una fila por unidad (la de siempre). */
+export function libroDeContactos(unidades: UnidadFila[], formato: FormatoPlantilla = 'clasico'): Buffer {
+  if (formato === 'personas') return libroPorPersona(unidades);
   const filas: string[][] = [[...ENCABEZADOS]];
   for (const u of ordenarUnidades(unidades)) {
     filas.push([
@@ -85,6 +137,7 @@ export async function unidadesParaPlantilla(complejoId: number): Promise<UnidadF
       estructura: { select: { nombre: true } },
       propietario: { select: { nombre: true, email: true, telefono: true } },
       inquilino: { select: { nombre: true, email: true, telefono: true } },
+      personas: { select: { id: true, relacion: true, nombre: true, correo: true, celular: true } },
     },
   });
 }

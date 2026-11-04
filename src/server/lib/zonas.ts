@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { ZONA_POR_DEFECTO } from '../../lib/paises';
 import { prisma } from '../db';
 import { hoyEn, inicioAnioEn, inicioMesEn, mesesHasta } from './fechas';
+import { unidadesDeUsuario } from './scope';
 
 /**
  * El día de cada condominio es el de SU zona (`ComplejoHabitacional.zona_horaria`). Cuando una consulta cruza condominios (un admin con varios, el
@@ -80,7 +81,7 @@ export async function zonasDeComplejos(ids: Iterable<number>): Promise<Map<numbe
 /** Zona de una persona: la de su condominio (por su ficha) o, si no tiene, la del condominio de su primera unidad; Lima si ninguno (superadmin, admin sin condominio). */
 export async function zonaDeUsuario(u: { id: number; complejo_id?: number | null }): Promise<string> {
   if (u.complejo_id != null) return zonaDeComplejo(u.complejo_id);
-  const un = await prisma.unidad.findFirst({ where: { OR: [{ propietario_id: u.id }, { inquilino_id: u.id }], complejo_id: { not: null } }, orderBy: { id: 'asc' }, select: { complejo: { select: { zona_horaria: true } } } });
+  const un = await prisma.unidad.findFirst({ where: { AND: [unidadesDeUsuario(u.id), { complejo_id: { not: null } }] }, orderBy: { id: 'asc' }, select: { complejo: { select: { zona_horaria: true } } } });
   return un?.complejo?.zona_horaria ?? ZONA_POR_DEFECTO;
 }
 

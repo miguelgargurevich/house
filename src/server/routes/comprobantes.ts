@@ -6,7 +6,7 @@ import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { formatearPago, includePago } from '../lib/cargos';
 import { conTesoreroRegistrado, exencionDelPago } from '../lib/conformidad';
 import { esJunta, esTesorero } from '../lib/junta';
-import { scopePagos, scopePagosEscritura, scopePagosJunta } from '../lib/scope';
+import { scopePagos, scopePagosEscritura, scopePagosJunta, unidadesDeResidente } from '../lib/scope';
 import { registrarAuditoria, ipDe } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { estadoParaResidente, selectEvaluacion } from '../lib/evaluacionVista';
@@ -22,10 +22,10 @@ import { parseBody, parseId, z } from '../validation';
 /** Pagos que ve cada rol: el admin, los de su empresa; el residente, los de las unidades que tiene. */
 function alcance(u: AuthUser): Prisma.PagoWhereInput {
   if (u.rol === 'propietario') {
-    const suyos: Prisma.PagoWhereInput = { reciboConceptoUnidad: { unidad: { propietario_id: u.id } } };
+    const suyos: Prisma.PagoWhereInput = { reciboConceptoUnidad: { unidad: unidadesDeResidente(u) } };
     return esJunta(u) ? { OR: [suyos, scopePagosJunta(u)] } : suyos; // la junta ve además los pagos de su ámbito
   }
-  if (u.rol === 'inquilino') return { reciboConceptoUnidad: { unidad: { inquilino_id: u.id } } };
+  if (u.rol === 'inquilino') return { reciboConceptoUnidad: { unidad: unidadesDeResidente(u) } };
   return scopePagos(u);
 }
 
