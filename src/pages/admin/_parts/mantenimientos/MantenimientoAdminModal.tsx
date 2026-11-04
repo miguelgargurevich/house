@@ -12,6 +12,7 @@ import { METODOS } from '../cobranza/comun';
 import { multaQuitable } from '../cobranza/morosos';
 import { puedeValidar } from '../cobranza/conformidad';
 import { QuitarMultaModal } from '../cobranza/QuitarMultaModal';
+import { CorregirCargosModal } from '../recibos/CorregirCargosModal';
 import { ValidarPagoModal } from '../cobranza/ValidarPagoModal';
 import type { PagoRevisable } from '../cobranza/ValidarPagoModal';
 import { FormPagoMantenimiento } from './FormPagoMantenimiento';
@@ -49,6 +50,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
   const [imprimiendo, setImprimiendo] = useState(false);
   const [pago, setPago] = useState<PagoRevisable | null>(null);
   const [quitandoMulta, setQuitandoMulta] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState(false);
   const { user } = useAuth();
   const d = data && data.recibo_id === reciboId && data.unidad_id === unidadId ? data : null;
 
@@ -129,6 +131,12 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
                   <Button size="sm" variant="secondary" onClick={() => setQuitandoMulta(true)}>Quitar la multa</Button>
                 </div>
               )}
+              {puedeValidar(user) && d.conceptos.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-muted">¿Un monto está mal? Corrígelo o quita el cargo, con motivo.</p>
+                  <Bloqueable>{b => <Button size="sm" variant="secondary" disabled={b} onClick={() => setCorrigiendo(true)}>Corregir cargos</Button>}</Bloqueable>
+                </div>
+              )}
             </section>
             <section aria-labelledby="pagos-adm">
               <h3 id="pagos-adm" className="mb-2 text-sm font-semibold">Pagos de este mantenimiento</h3>
@@ -154,6 +162,7 @@ export function MantenimientoAdminModal({ reciboId, unidadId, onClose, onCambio 
       </Modal>
       <ValidarPagoModal pago={pago} onClose={() => setPago(null)} onRevisado={tras} />
       {quitandoMulta && multa && d && <QuitarMultaModal reciboId={reciboId} unidadId={unidadId} codigo={d.unidad.codigo} monto={multa.monto} moneda={d.moneda} onClose={() => setQuitandoMulta(false)} onQuitada={tras} />}
+      {corrigiendo && d && <CorregirCargosModal codigo={d.unidad.codigo} moneda={d.moneda} cargos={d.conceptos} onClose={() => setCorrigiendo(false)} onCorregido={tras} />}
       {imprimiendo && d && <ReciboImprimible detalle={d} onClose={() => setImprimiendo(false)} />}
     </>
   );

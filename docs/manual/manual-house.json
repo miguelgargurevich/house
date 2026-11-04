@@ -28,32 +28,32 @@
           [
             "Administradora",
             "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-            "Secciones 07 a 34"
+            "Secciones 07 a 36"
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
             "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
-            "Secciones 35 a 42"
+            "Secciones 37 a 44"
           ],
           [
             "Propietario",
             "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-            "Secciones 43 a 51"
+            "Secciones 45 a 53"
           ],
           [
             "Inquilino",
             "Lo mismo que el propietario, para el departamento que alquilas",
-            "Sección 52"
+            "Sección 54"
           ],
           [
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
-            "Secciones 53 y 54"
+            "Secciones 55 y 56"
           ],
           [
             "Superadmin (soporte de Torre)",
             "Ves Torre como la ve otra persona para darle soporte, con motivo y en la auditoría",
-            "Sección 55"
+            "Sección 57"
           ],
           [
             "Todavía no tienes cuenta",
@@ -261,6 +261,40 @@
       "aviso": {
         "tipo": "nota",
         "texto": "Un recibo de un block sin grupo de WhatsApp sólo le llega por correo. Asígnale su grupo en WhatsApp › Mis grupos."
+      }
+    },
+    {
+      "titulo": "Anular un recibo",
+      "etiqueta": "Administradora · Recibos",
+      "parrafos": [
+        "Si emitiste un recibo con el mes o los montos equivocados, anúlalo y emítelo de nuevo. Anular **quita los cargos de todos los departamentos de ese block** y deja libre el mes. También se va la mora que la emisión le agregó. Funciona igual si el recibo vino de un Excel."
+      ],
+      "numerada": [
+        "Abre el recibo (Recibos › el mes) y pulsa **Anular recibo**.",
+        "Lee la línea del efecto: «Se quitan los cargos de 32 departamentos y podrás emitir octubre de 2026 de nuevo».",
+        "Escribe el **motivo** (queda en la auditoría con todo lo que se quitó). Deja marcada **Avisar a los vecinos** si quieres que les llegue «Se anuló el recibo de octubre de 2026 de B01-804 (Block 1). Si ya lo viste, ignóralo; te llegará el correcto». Al grupo de WhatsApp no se envía nada.",
+        "Pulsa **Anular recibo** y vuelve a emitir el mes desde Recibos."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Un recibo con pagos no se puede anular: si hay un pago por validar o validado, anúlalo o recházalo primero en Pagos. Los pagos rechazados y las lecturas de agua del recibo se van con él (los pagos rechazados quedan en la auditoría); las lecturas de agua tendrás que volver a cargarlas."
+      }
+    },
+    {
+      "titulo": "Corregir el cargo de un departamento",
+      "etiqueta": "Administradora · Recibos",
+      "parrafos": [
+        "Si el monto de un solo departamento está mal, no hace falta anular el recibo: corrige ese cargo o quítalo. El vecino no recibe aviso, porque es una corrección."
+      ],
+      "numerada": [
+        "Abre el recibo, busca el departamento y ábrelo.",
+        "En **Detalle por concepto** pulsa **Corregir cargos**.",
+        "Escribe el monto nuevo del concepto, o marca **Quitar este cargo** para que el vecino ya no lo deba.",
+        "Escribe el **motivo** y pulsa **Guardar cambio**. Queda en la auditoría con el monto anterior, el nuevo y tu nombre."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El monto no puede quedar por debajo de lo que el vecino ya pagó, y un cargo con pagos no se puede quitar: anula o rechaza ese pago primero en Pagos."
       }
     },
     {
