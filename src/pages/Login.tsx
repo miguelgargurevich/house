@@ -6,6 +6,7 @@ import { HOME, useAuth } from '../auth/AuthContext';
 import { Alert, Button, Input } from '../ui';
 import { api, ApiError, errorText } from '../api';
 import PanelLogin from './_login/PanelLogin';
+import { IconoTorre } from '../ui/IconoTorre';
 
 const DEMO = [
   ['Superadmin', 'miguel.gargurevich@admin.com', 'admin1234'],
@@ -61,10 +62,7 @@ export default function Login() {
       <main className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5 font-semibold tracking-tight">
-            <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
-              <rect width="32" height="32" rx="8" className="fill-brand" />
-              <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            </svg>
+            <IconoTorre className="h-8 w-8" />
             <span className="text-xl">Torre</span>
           </div>
           <h1 className="text-2xl font-semibold">Ingresa a tu cuenta</h1>

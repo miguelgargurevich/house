@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Ícono nuevo: la torre con ventanas (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «el ícono es una casa (quedó de House), ahora se llama Torre» → eligió la opción A (torre con ventanas, 2 × 3 ventanas y puerta).
+- `src/ui/IconoTorre.tsx` (un solo componente, colores del tema: toma la marca propia) en `Shell`, `Login` y `publico/Marco`. `public/favicon.svg` y los PNG (192, 512, maskable 192/512, apple-touch 180, favicon 16/32) con `scripts/marketing/iconos-torre.py` (PIL, supermuestreo). `og-torre.png` con `scripts/seo/generar-imagenes.mjs` (lee el favicon.svg; ese script también reescribe 3 íconos: corre `iconos-torre.py` DESPUÉS). Cierre de los videos (`grabar-video.mjs`) con la torre. Prueba en `tests/instalar-app.test.ts` (ya no queda la casa).
+- Antes (mismo día): íconos maskable, favicons PNG y `sizes` del apple-touch, comparado con el Portal de Dealers (que salió de Torre).
+- Gotcha: los videos ya publicados (1–6 y los del manual) siguen con la casa en el cierre; los del manual no tienen cierre de marca.
+
+---
+
 ## 2026-11-04 — Videos del manual: WhatsApp, comunicados y «Tu marca» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: revisar que los videos muestren las últimas opciones de WhatsApp (contador, Mis grupos, avisos del condominio), comunicados (junta, correo, WhatsApp, grupos) y la opción nueva «Tu marca».

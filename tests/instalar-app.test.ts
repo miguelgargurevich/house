@@ -49,3 +49,17 @@ describe('íconos para instalar y para la pestaña (4-nov, comparado con el Port
     for (const t of ['href="/favicon-32.png"', 'href="/favicon-16.png"', 'rel="apple-touch-icon" sizes="180x180"']) assert.ok(h.includes(t), t);
   });
 });
+
+describe('ícono de Torre: la torre con ventanas (Miguel, 4-nov: la casa quedó de cuando se llamaba House)', () => {
+  it('el logo de la app, del inicio de sesión y de la portada es el mismo componente; ya no queda la casa', () => {
+    for (const ruta of ['src/app/Shell.tsx', 'src/pages/Login.tsx', 'src/pages/publico/Marco.tsx']) {
+      const t = fuente(ruta);
+      assert.match(t, /<IconoTorre className=/, ruta);
+      assert.equal(t.includes('12.5L16 8'), false, `${ruta}: sin la casa`);
+    }
+    const svg = fuente('public/favicon.svg');
+    assert.match(svg, /<rect x="10" y="5.5" width="12" height="21"/);
+    assert.equal(svg.includes('<path'), false, 'el favicon ya no es la casa');
+    assert.equal(fuente('scripts/marketing/grabar-video.mjs').includes('12.5L16 8'), false, 'el cierre de los videos tampoco');
+  });
+});

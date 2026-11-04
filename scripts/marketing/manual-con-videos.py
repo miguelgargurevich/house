@@ -18,8 +18,9 @@ import sys
 BASE_VIDEOS = 'https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/videos-torre/manual'
 ACENTO = '#0f766e'  # verde de Torre (el mismo del cierre de los videos y del ícono)
 APP = 'https://torrecondominios.com'
-ORDEN_ROLES = ['admin', 'junta', 'junta_central', 'propietario', 'inquilino', 'mantenimiento', 'seguridad', 'limpieza', 'jardineria']
+ORDEN_ROLES = ['todos', 'admin', 'junta', 'junta_central', 'propietario', 'inquilino', 'mantenimiento', 'seguridad', 'limpieza', 'jardineria']
 QUIEN = {
+    'todos': 'Todos los usuarios, en el celular',
     'admin': 'La administradora (la empresa que administra el condominio)',
     'junta': 'La junta directiva de cada block (presidente, tesorero, secretario)',
     'junta_central': 'La Junta central del condominio (además de lo de la junta)',
@@ -78,7 +79,8 @@ def payload(salida):
             if e.get('comparte_con') or e.get('nota'):
                 parrafos.append(e.get('nota') or 'Es la misma pantalla que la de otro rol: el video sirve igual.')
             if video:
-                parrafos.append(f'VIDEO::{video}')
+                formato = e.get('formato') or 'escritorio'
+                parrafos.append(f'VIDEO::{video}::{formato}')
             secciones.append({'titulo': e['menu'], 'etiqueta': e['rol_nombre'], 'parrafos': parrafos})
 
     secciones.append({
@@ -127,14 +129,17 @@ def videos(entrada, salida, grupos_json=None):
         nonlocal n
         n += 1
         v = html.unescape(m.group(1))
-        url = f'{BASE_VIDEOS}/torre-{v}-escritorio.mp4'
-        return (f'<figure class="video-torre"><video controls preload="none" playsinline '
+        formato = m.group(2) or 'escritorio'
+        url = f'{BASE_VIDEOS}/torre-{v}-{formato}.mp4'
+        clase = 'video-torre video-celular' if formato == 'celular' else 'video-torre'
+        return (f'<figure class="{clase}"><video controls preload="none" playsinline '
                 f'src="{url}#t=0.5" aria-label="Video de esta opción"></video>'
                 f'<figcaption><a href="{url}" target="_blank" rel="noopener">Abrir el video en otra pestaña</a></figcaption></figure>')
 
-    h = re.sub(r'<p[^>]*>\s*VIDEO::([A-Za-z0-9._-]+)\s*</p>', reemplazo, h)
+    h = re.sub(r'<p[^>]*>\s*VIDEO::([A-Za-z0-9._-]+?)(?:::(escritorio|celular))?\s*</p>', reemplazo, h)
     estilo = ('<style>.video-torre{margin:1rem 0 0}.video-torre video{display:block;width:100%;max-width:960px;aspect-ratio:16/9;'
               'border-radius:12px;border:1px solid var(--borde,#e2e8f2);background:#0b1f1d}'
+              '.video-celular video{max-width:340px;aspect-ratio:9/16}'
               '.video-torre figcaption{margin-top:.4rem;font-size:.85rem}@media print{.video-torre{display:none}}'
               # El índice lateral es «sticky»: con 60 opciones no entraba en la pantalla y no se podía bajar.
               '.toc{max-height:calc(100vh - 3rem);overflow-y:auto;overscroll-behavior:contain;padding-right:.25rem}'

@@ -3,14 +3,12 @@ import { Link } from 'react-router-dom';
 import { cx } from '../../ui';
 import { pieMarco } from '../../lib/seo/textos';
 import { useCatalogo } from './catalogo';
+import { IconoTorre } from '../../ui/IconoTorre';
 
 export function Logo() {
   return (
     <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight" aria-label="Torre, inicio">
-      <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
-        <rect width="32" height="32" rx="8" className="fill-brand" />
-        <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
+      <IconoTorre className="h-8 w-8" />
       <span className="text-xl">Torre</span>
     </Link>
   );

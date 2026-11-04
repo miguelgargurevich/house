@@ -19,6 +19,7 @@ import { MARCA_TORRE, inicialDeMarca } from '../lib/marca';
 import { ImagenRecibo } from '../pages/shared/mantenimiento/ImagenRecibo';
 import { MarcaContext, useMarca } from './marca/contexto';
 import { MarcaTema } from './marca/MarcaTema';
+import { IconoTorre } from '../ui/IconoTorre';
 
 /** Encabezado del menú: la marca de la empresa (logo o su inicial y su nombre) si la tiene activa; si no, la de Torre. */
 function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
@@ -36,10 +37,7 @@ function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
   }
   return (
     <span className="flex items-center gap-2.5 font-semibold tracking-tight">
-      <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" aria-hidden="true">
-        <rect width="32" height="32" rx="8" className="fill-brand" />
-        <path d="M9 24V12.5L16 8l7 4.5V24M13.5 24v-5h5v5" fill="none" className="stroke-on-brand" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
+      <IconoTorre className="h-7 w-7 shrink-0" />
       {!soloMarca && 'Torre'}
     </span>
   );
