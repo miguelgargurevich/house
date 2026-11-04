@@ -5,8 +5,8 @@ Uso:
   python3 scripts/marketing/manual-con-videos.py payload <salida.json>
       Arma el contenido para `web_crear` (diseño manual, acento verde) desde docs/marketing/manual-videos.json y los guiones.
       Cada sección lleva un párrafo marcador «VIDEO::<video>» donde va su video.
-  python3 scripts/marketing/manual-con-videos.py videos <entrada.html> <salida.html>
-      Reemplaza cada marcador por un <video> con la URL pública del video (MinIO, videos-torre/manual/).
+  python3 scripts/marketing/manual-con-videos.py videos <entrada.html> <salida.html> [<payload>.grupos.json]
+      Modo claro fijo, índice con scroll y separado por rol, y reemplaza cada marcador por un <video> con la URL pública del video (MinIO, videos-torre/manual/).
 
 Los videos se graban con scripts/marketing/grabar-manual.sh y se suben a MinIO (ver docs/manual/README.md).
 """
@@ -91,21 +91,36 @@ def payload(salida):
         ],
     })
     datos = {
-        'titulo': 'Torre en video: cada opción del menú, según tu rol',
+        'titulo': 'Torre · Administración de condominios',
         'kicker': 'Manual de usuario con videos · versión del 4-nov-2026',
-        'subtitulo': 'Para qué sirve cada opción de Torre y cómo se usa, con un video corto de la pantalla real.',
+        'subtitulo': 'Cada opción del menú de Torre, según tu rol: para qué sirve y cómo se usa, con un video corto de la pantalla real.',
         'meta': ['torrecondominios.com', f'{len(secciones_videos)} opciones · {len({e.get("video") for e in secciones_videos if e.get("video")})} videos', 'Español · Perú'],
         'diseno': 'manual',
+        'tema': 'verde',  # claro (el tema por defecto de la cuenta es oscuro; Miguel pidió el manual en modo claro)
         'acento': ACENTO,
         'descripcion': 'Manual de Torre con un video por cada opción del menú y por rol (administradora, junta, vecinos y personal). Datos de prueba. Corte: 4-nov-2026.',
         'secciones': secciones,
     }
     json.dump(datos, open(salida, 'w', encoding='utf-8'), ensure_ascii=False)
+    grupos, previo = [], None
+    for i, s in enumerate(secciones, start=1):
+        if s.get('etiqueta') != previo and i > 1 and s.get('etiqueta') not in ('Ayuda',):
+            grupos.append({'seccion': f's{i:02d}', 'rol': s['etiqueta']})
+        previo = s.get('etiqueta')
+    json.dump(grupos, open(salida + '.grupos.json', 'w', encoding='utf-8'), ensure_ascii=False)
     print(f'{len(secciones)} secciones → {salida}')
 
 
-def videos(entrada, salida):
+def videos(entrada, salida, grupos_json=None):
     h = open(entrada, encoding='utf-8').read()
+    # Modo claro fijo (Miguel, 4-nov): el CSS del diseño manual deja el oscuro sólo sin `data-esquema="claro"`.
+    h = re.sub(r'<html([^>]*)>', lambda m: m.group(0) if 'data-esquema' in m.group(1) else f'<html{m.group(1)} data-esquema="claro">', h, count=1)
+    # El script de la plantilla quita `data-esquema` si la dirección no trae `#esquema=…` (y manda el sistema): aquí el defecto es claro.
+    h = h.replace("else raiz.removeAttribute('data-esquema');", "else raiz.setAttribute('data-esquema', 'claro');", 1)
+    # Índice por rol: un rótulo antes de la primera opción de cada rol.
+    if grupos_json:
+        for g in json.load(open(grupos_json, encoding='utf-8')):
+            h = h.replace(f'<li><a href="#{g["seccion"]}">', f'<li class="toc-rol">{html.escape(g["rol"])}</li><li><a href="#{g["seccion"]}">', 1)
     n = 0
 
     def reemplazo(m):
@@ -120,7 +135,11 @@ def videos(entrada, salida):
     h = re.sub(r'<p[^>]*>\s*VIDEO::([A-Za-z0-9._-]+)\s*</p>', reemplazo, h)
     estilo = ('<style>.video-torre{margin:1rem 0 0}.video-torre video{display:block;width:100%;max-width:960px;aspect-ratio:16/9;'
               'border-radius:12px;border:1px solid var(--borde,#e2e8f2);background:#0b1f1d}'
-              '.video-torre figcaption{margin-top:.4rem;font-size:.85rem}@media print{.video-torre{display:none}}</style>')
+              '.video-torre figcaption{margin-top:.4rem;font-size:.85rem}@media print{.video-torre{display:none}}'
+              # El índice lateral es «sticky»: con 60 opciones no entraba en la pantalla y no se podía bajar.
+              '.toc{max-height:calc(100vh - 3rem);overflow-y:auto;overscroll-behavior:contain;padding-right:.25rem}'
+              '.toc .toc-rol{margin:.9rem .7rem .3rem;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--acento)}'
+              ':root{color-scheme:light}</style>')
     h = h.replace('</head>', estilo + '</head>', 1)
     open(salida, 'w', encoding='utf-8').write(h)
     restantes = len(re.findall('VIDEO::', h))
@@ -133,7 +152,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 3 and sys.argv[1] == 'payload':
         payload(sys.argv[2])
     elif len(sys.argv) >= 4 and sys.argv[1] == 'videos':
-        videos(sys.argv[2], sys.argv[3])
+        videos(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) >= 5 else None)
     else:
         print(__doc__)
         sys.exit(2)

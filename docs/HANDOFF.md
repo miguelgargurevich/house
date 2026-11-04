@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Manual con videos: título, modo claro e índice por rol (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «cambia el título … le falta scroll al menú lateral, hazlo modo claro». `scripts/marketing/manual-con-videos.py`: título «Torre · Administración de condominios», `tema: verde` (el de la cuenta es oscuro) y modo claro fijo (`data-esquema="claro"` y el script de la plantilla ya no lo quita), índice lateral con `max-height` + `overflow-y:auto` y rótulos por rol (`<payload>.grupos.json`).
+- Pendiente: regenerar con `web_crear` y publicar encima del mismo archivo (`cmw289vue004z12k19g1ab7gd`) cuando Haiku termine los videos de WhatsApp, Comunicados y «Tu marca».
+- Gotcha: un HTML en `.claude/` se ve en el navegador local por Vite (`http://localhost:5173/.claude/…`); por `file://` el panel lo muestra como captura estática.
+
+---
+
 ## 2026-11-04 — Marca integrada y vista en local; manual con videos publicado (Claude Code, Opus 5.5) — push: no
 
 - Marca propia integrada en main (Sonnet + ajustes de Opus). Regla final: la marca se ACTIVA sólo si el plan la trae (Pro, Administradora, Cortesía) Y la empresa personalizó nombre comercial o color; sólo con el plan, Torre se ve como siempre (app, correos y firmas). `services/marca/servicio.ts` (`marcaDeEmpresa`, `marcaParaCorreo`); prueba en `seguridad.test.ts`.
