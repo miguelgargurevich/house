@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Grupos de WhatsApp con participantes @lid (Claude Code, Opus 5.5) — push: no
+
+- Probado en producción (sólo lectura) con el grupo de prueba de Miguel: `findGroupInfos` de Evolution 2.3.7 trae los participantes como `…@lid` y el PROPIO número no aparece como teléfono → el chequeo «¿sigo en el grupo?» habría fallado siempre.
+- `services/canales/grupos.ts`: si el número no está entre los participantes, la pertenencia se confirma con `fetchAllGroups` (sólo lista grupos donde la instancia sigue). `tests/comunicados-grupos.test.ts`: el falso de Evolution ahora sólo lista los grupos donde está el número y puede devolver `@lid`; caso nuevo. 40/40; mutación → rojo. Commit `450bae6`.
+- En curso (Sonnet, worktree `whatsapp-grupos-contador`, que ya incluye este commit): contador de mensajes, «Mis grupos» guardados en la base y selección de grupos al publicar. Pendiente al integrar: quitar el emoji ✅ de `WhatsappSync.tsx` (Miguel: sin emojis, íconos de Heroicons).
+
+---
+
 ## 2026-11-03 — Con el asistente de WhatsApp apagado no se ofrece vincular (Claude Code, Opus 5.5) — push: no
 
 - Pedido de Miguel: «la idea es que la administración gestione los mensajes a los depas, no que los usuarios sincronicen su WhatsApp». La pantalla de WhatsApp, ya conectada, decía que los vecinos podían vincularse y escribir al asistente.
