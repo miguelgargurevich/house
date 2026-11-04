@@ -16,6 +16,9 @@ export interface ResumenContactos {
   unidades_unidas: number;
   cambian_quien_paga: number;
   invitables: number;
+  /** Sólo con la columna `Relación` (una fila por persona). */
+  personas_nuevas?: number;
+  personas_cambiadas?: number;
 }
 
 export interface ProblemaContacto {
@@ -64,6 +67,8 @@ export function lineasDeResumen(r: ResumenContactos): string[] {
   if (r.celulares_cambiados) l.push(`Se cambian ${plural(r.celulares_cambiados, 'celular', 'celulares')} que ya estaban cargados.`);
   if (r.inquilinos_nuevos) l.push(`Se crean ${plural(r.inquilinos_nuevos, 'inquilino', 'inquilinos')}.`);
   if (r.cambian_quien_paga) l.push(`${plural(r.cambian_quien_paga, 'departamento pasa', 'departamentos pasan')} a avisar de los cobros al inquilino.`);
+  if (r.personas_nuevas) l.push(`Se agregan ${plural(r.personas_nuevas, 'persona', 'personas')} a la lista de sus departamentos (sin usuario en Torre: eso se decide en Unidades).`);
+  if (r.personas_cambiadas) l.push(`Se completan los datos de ${plural(r.personas_cambiadas, 'persona', 'personas')} de la lista.`);
   if (r.propietarios_nuevos) l.push(`Se crean ${plural(r.propietarios_nuevos, 'propietario', 'propietarios')} en departamentos que no tenían.`);
   if (r.unidades_unidas) l.push(`${plural(r.unidades_unidas, 'departamento pasa', 'departamentos pasan')} a la persona que ya tiene ese mismo correo.`);
   return l;
@@ -71,7 +76,7 @@ export function lineasDeResumen(r: ResumenContactos): string[] {
 
 /** ¿Hay algo que guardar? Con la casilla de invitar, también cuenta quien quedaría en cola. */
 export function hayQueGuardar(r: ResumenContactos, invitar: boolean): boolean {
-  const cambia = r.correos_nuevos + r.correos_cambiados + r.celulares_nuevos + r.celulares_cambiados + r.propietarios_nuevos + r.inquilinos_nuevos + r.unidades_unidas;
+  const cambia = r.correos_nuevos + r.correos_cambiados + r.celulares_nuevos + r.celulares_cambiados + r.propietarios_nuevos + r.inquilinos_nuevos + r.unidades_unidas + (r.personas_nuevas ?? 0) + (r.personas_cambiadas ?? 0);
   return cambia > 0 || (invitar && r.invitables > 0);
 }
 

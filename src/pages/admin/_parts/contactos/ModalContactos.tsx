@@ -127,7 +127,7 @@ export function ModalContactos({ complejoId, complejoNombre, onClose, onGuardado
         ) : (
           <>
             <Alert tone="info">
-              Descarga la plantilla (ya trae a cada vecino y lo que Torre tiene de él), llénala con los correos y celulares y súbela. Primero verás un resumen: no se guarda nada hasta que pulses «Guardar contactos».
+              Descarga la plantilla (ya trae a cada vecino y lo que Torre tiene de él), llénala con los correos y celulares y súbela. Con la columna «Relación» puedes poner varias personas por departamento, una por fila. Primero verás un resumen: no se guarda nada hasta que pulses «Guardar contactos».
             </Alert>
             <div>
               <a href={urlPlantilla(complejoId)} className={enlaceBoton} download>

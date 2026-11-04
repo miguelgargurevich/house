@@ -36,6 +36,10 @@
             "Condominios › Residentes › Subir contactos"
           ],
           [
+            "Decidir quién tiene usuario en Torre en cada departamento",
+            "Condominios › Unidades › Personas del departamento"
+          ],
+          [
             "Emitir el mes o subir el Excel de un block",
             "Cobranza › Recibos"
           ],
@@ -224,6 +228,26 @@
       "aviso": {
         "tipo": "aviso",
         "texto": "Torre nunca cambia nombres ni propietarios con este Excel. Si el nombre del archivo no se parece al registrado, esa fila se avisa y no se carga. Un correo o celular que ya estaba cargado no se reemplaza, salvo que marques **Actualizar los datos ya cargados**. Un correo que ya pertenece a una cuenta de otra empresa o de personal no se usa: esa fila queda como error."
+      }
+    },
+    {
+      "titulo": "Personas del departamento y acceso a Torre",
+      "etiqueta": "Administradora · Unidades",
+      "parrafos": [
+        "Un departamento puede tener más de una persona: el propietario, un copropietario, la pareja, familiares o el inquilino. Tú decides quién tiene usuario en Torre, a quién le llega el aviso de cobro y quién recibe los comunicados.",
+        "Entra a **Condominios**, abre el condominio, ve a la pestaña **Unidades** y pulsa el ícono de **Personas del departamento** en la fila del departamento:"
+      ],
+      "numerada": [
+        "Pulsa **Agregar persona**: escribe el nombre, elige la relación (propietario, copropietario, cónyuge, familiar, inquilino u otro) y, si los tienes, el correo y el celular. Cada departamento tiene un solo propietario y un solo inquilino; el resto va con las otras relaciones.",
+        "Enciende **Tiene usuario en Torre** en quien deba entrar. Torre crea su usuario con su correo (hace falta uno) y deja su invitación en la cola. Debajo del interruptor ves en qué va: invitación en cola, invitación enviada o ya entró. Si lo apagas, esa persona deja de ver el departamento al instante y, si no le queda ninguno, se cierra su sesión. La persona se queda en la lista.",
+        "La etiqueta **Paga** marca al responsable de pago: el aviso de cobro del departamento le llega solo a esa persona. Para cambiarla, pulsa **Que a esta persona le llegue el aviso de cobro**; la anterior deja de serlo. Siempre hay una sola.",
+        "**Recibe comunicados** decide quién recibe, por correo o WhatsApp, los comunicados que envías «a cada vecino». Quien respondió SALIR por WhatsApp no los recibe por ahí.",
+        "Para cambiar al titular del departamento, pulsa **Hacer titular** en otra persona que ya tenga usuario; después puedes quitar a la anterior. No se puede quitar al responsable de pago ni al titular sin elegir antes a otra persona.",
+        "Si prefieres cargar muchas personas de una vez, usa el Excel de contactos con la columna **Relación** y una fila por persona. El Excel solo agrega o completa a las personas de la lista: el acceso a Torre se decide aquí."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Un correo que ya es de personal, de otra administradora o de otra persona (con otro nombre) no se vincula: Torre te avisa y no guarda nada. Una misma persona con varios departamentos usa el mismo correo y es un solo usuario con todos ellos. La junta y los vecinos no pueden cambiar esta lista."
       }
     },
     {

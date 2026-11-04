@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useCondominio, useTorreElegida } from '../../../../app/condominio';
-import { DocumentTextIcon, KeyIcon, PencilSquareIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, KeyIcon, PencilSquareIcon, PlusIcon, TrashIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import { api, errorText, useList, useResource, type Page } from '../../../../api';
 import {
   Button, Card, ConfirmDialog, DataTable, IconButton, SearchBox, StatusBadge, Toolbar, useToast,
@@ -9,6 +9,7 @@ import type { Column } from '../../../../ui';
 import { EstadoCuentaModal } from '../../../shared/estado-cuenta/EstadoCuentaModal';
 import { FiltroSelect } from '../catalogo/FiltroSelect';
 import { ModalDeUnidad } from './ModalDeUnidad';
+import { PersonasModal } from './personas/PersonasModal';
 import { ESTADOS_UNIDAD, nombreTorre, type FilaUnidad, type Torre } from './tipos';
 import { etiquetaTipoUnidad } from './tipoUnidad';
 
@@ -33,6 +34,7 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
   const torres = useResource<Page<Torre>>(complejo ? `/api/estructuras?complejo_id=${complejo}&pageSize=100` : null);
   const [borrar, setBorrar] = useState<FilaUnidad | null>(null);
   const [estadoCuenta, setEstadoCuenta] = useState<FilaUnidad | null>(null);
+  const [personas, setPersonas] = useState<FilaUnidad | null>(null);
   const [busy, setBusy] = useState(false);
 
   const filtrado = !!(list.q || torre || estado);
@@ -60,6 +62,7 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
     { key: 'estado', header: 'Estado', cell: f => <StatusBadge estado={f.estado} /> },
     { key: 'acciones', header: '', align: 'right', cell: f => (
       <div className="flex justify-end gap-1">
+        <IconButton label={`Personas del departamento ${f.codigo}: quién tiene usuario en Torre`} onClick={() => setPersonas(f)}><UserGroupIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Estado de cuenta de la unidad ${f.codigo}`} onClick={() => setEstadoCuenta(f)}><DocumentTextIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Editar unidad ${f.codigo}`} onClick={() => onEditando(f)}><PencilSquareIcon className="h-4 w-4" /></IconButton>
         <IconButton label={`Eliminar unidad ${f.codigo}`} onClick={() => setBorrar(f)}><TrashIcon className="h-4 w-4" /></IconButton>
@@ -117,6 +120,7 @@ export function ListaDeUnidades({ complejoId, complejoNombre, editando, onEditan
         />
       </Card>
 
+      <PersonasModal key={personas?.id ?? 0} unidad={personas ? { id: personas.id, codigo: personas.codigo } : null} onClose={() => setPersonas(null)} onCambio={() => void list.reload()} />
       <EstadoCuentaModal unidades={estadoCuenta ? [{ id: estadoCuenta.id, codigo: estadoCuenta.codigo }] : []} unidadId={estadoCuenta?.id ?? null} onClose={() => setEstadoCuenta(null)} />
       <ModalDeUnidad
         unidad={editando}
