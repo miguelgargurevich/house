@@ -87,3 +87,9 @@ export function textoSincronizado(iso: string | null): string {
   if (!iso) return 'Aún no has traído tus grupos';
   return `Traídos el ${new Date(iso).toLocaleString('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })}`;
 }
+
+/** Explicación del tope diario: es por DÍA y por número (no del mes), y lo que pasa sale al día siguiente. */
+export function ayudaTopeDiario(tope: number | null): string {
+  if (tope == null) return 'Tu número no tiene tope por día. Los mensajes igual salen de a poco, con pausas entre cada uno.';
+  return `Es el tope por día de tu número, para cuidarlo de un bloqueo de WhatsApp. Lo que pase de ${tope} sale mañana desde las 8:00 (hora de Lima). No es el límite del mes: ese va abajo, por condominio.`;
+}

@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { useResource } from '../../../../api';
 import { Alert, Badge, Button, Card, CardBody, CardHeader, ProgressBar, Skeleton } from '../../../../ui';
-import { ORDEN_TIPOS, ROTULO_TIPO, porcentajeDeTope, textoTope, tonoDeTope } from './tipos';
+import { ORDEN_TIPOS, ROTULO_TIPO, ayudaTopeDiario, porcentajeDeTope, textoTope, tonoDeTope } from './tipos';
 import type { PorTipo, UsoWhatsapp } from './tipos';
 
 /** Una cifra grande con su barra contra el tope. */
-function Medidor({ titulo, usados, tope, etiquetaBarra }: { titulo: string; usados: number; tope: number | null; etiquetaBarra: string }) {
+function Medidor({ titulo, usados, tope, etiquetaBarra, ayuda }: { titulo: string; usados: number; tope: number | null; etiquetaBarra: string; ayuda?: string }) {
   const pct = porcentajeDeTope(usados, tope);
   return (
     <div className="min-w-0">
       <p className="text-sm text-muted">{titulo}</p>
       <p className="num text-2xl font-semibold">{textoTope(usados, tope)}</p>
       {tope != null ? <ProgressBar value={usados} max={tope} label={etiquetaBarra} tone={tonoDeTope(pct)} className="mt-2" /> : <p className="mt-1 text-xs text-muted">Sin tope</p>}
+      {ayuda && <p className="mt-2 text-xs text-muted">{ayuda}</p>}
     </div>
   );
 }
+
 
 /** Mensajes enviados por cada tipo, sin los que están en cero. */
 function ListaPorTipo({ datos }: { datos: PorTipo }) {
@@ -52,7 +54,7 @@ export function ContadorWhatsapp() {
         {!d ? (uso.loading ? <Skeleton className="h-32 w-full" /> : null) : (
           <>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Medidor titulo="Enviados hoy" usados={d.hoy.enviados} tope={d.hoy.tope} etiquetaBarra="Mensajes de hoy contra el tope diario del número" />
+              <Medidor titulo={d.hoy.tope != null ? 'Enviados hoy · tope por día' : 'Enviados hoy'} usados={d.hoy.enviados} tope={d.hoy.tope} etiquetaBarra="Mensajes de hoy contra el tope diario del número" ayuda={ayudaTopeDiario(d.hoy.tope)} />
               <div className="min-w-0">
                 <p className="text-sm text-muted">En cola</p>
                 <p className="num text-2xl font-semibold">{d.en_cola.total}</p>
@@ -63,7 +65,7 @@ export function ContadorWhatsapp() {
             </div>
 
             <section aria-labelledby="uso-mes">
-              <h3 id="uso-mes" className="mb-2 text-sm font-semibold">Este mes, por condominio <span className="font-normal text-muted">· se renueva el 1 de {d.mes.renueva}</span></h3>
+              <h3 id="uso-mes" className="mb-2 text-sm font-semibold">Este mes, por condominio <span className="font-normal text-muted">· lo que incluye su plan · se renueva el 1 de {d.mes.renueva}</span></h3>
               {d.mes.condominios.length === 0 ? <p className="text-sm text-muted">Aún no tienes condominios.</p> : (
                 <ul className="grid gap-4 sm:grid-cols-2">
                   {d.mes.condominios.map(c => {
