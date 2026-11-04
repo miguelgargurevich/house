@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ArrowRightStartOnRectangleIcon, ChevronDownIcon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
+import { ArrowRightStartOnRectangleIcon, BookOpenIcon, ChevronDownIcon, MoonIcon, SunIcon } from '@heroicons/react/24/outline';
 import type { Usuario } from '../auth/AuthContext';
+import { useResource } from '../api';
 import { Avatar, cx } from '../ui';
+import { enlaceDelManual } from './manual';
 import { PERFIL, rotuloRol } from './nav';
 import { useTheme } from './theme';
 
 const item = 'flex w-full items-center gap-3 rounded px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:bg-surface2 hover:text-ink focus-visible:bg-surface2 focus-visible:text-ink focus-visible:outline-none';
 
 /**
- * El usuario arriba a la derecha: avatar (con nombre y rol desde `sm`) que abre «Mi perfil», el tema claro u oscuro y «Cerrar sesión».
+ * El usuario arriba a la derecha: avatar (con nombre y rol desde `sm`) que abre «Mi perfil», «Manual y videos» (en la sección de su rol), el tema claro u oscuro y «Cerrar sesión».
  * El tema cambia sin cerrar el menú, para ver el resultado al instante.
  * Se cierra al hacer clic fuera, con Escape (devuelve el foco al botón) o al cambiar de página. `onSalir` pide la confirmación.
  */
-export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 'email' | 'rol' | 'cargo_junta' | 'estructura_id' | 'estructura_nombre'>; onSalir: () => void }) {
+export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 'email' | 'rol' | 'cargo_junta' | 'estructura_id' | 'estructura_nombre' | 'junta_unica'>; onSalir: () => void }) {
   const [abierto, setAbierto] = useState(false);
   const rotulo = rotuloRol(user);
   const raiz = useRef<HTMLDivElement>(null);
@@ -21,6 +23,8 @@ export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 
   const menu = useRef<HTMLDivElement>(null);
   const loc = useLocation();
   const { dark, toggle } = useTheme();
+  // «Manual y videos»: la dirección vive en la base (Superadmin › Precios); sin ella, la opción no aparece.
+  const manual = useResource<{ url: string | null }>('/api/comercial/manual');
 
   useEffect(() => { setAbierto(false); }, [loc.pathname]);
   useEffect(() => {
@@ -78,6 +82,11 @@ export function MenuUsuario({ user, onSalir }: { user: Pick<Usuario, 'nombre' | 
             <NavLink to={PERFIL.to} role="menuitem" className={item}>
               <PERFIL.icon className="h-5 w-5 shrink-0" aria-hidden="true" /> {PERFIL.label}
             </NavLink>
+            {manual.data?.url && (
+              <a href={enlaceDelManual(manual.data.url, user)} target="_blank" rel="noopener noreferrer" role="menuitem" className={item} onClick={() => setAbierto(false)}>
+                <BookOpenIcon className="h-5 w-5 shrink-0" aria-hidden="true" /> Manual y videos
+              </a>
+            )}
             <button type="button" role="menuitem" onClick={toggle} className={item}>
               {dark ? <SunIcon className="h-5 w-5 shrink-0" aria-hidden="true" /> : <MoonIcon className="h-5 w-5 shrink-0" aria-hidden="true" />} {dark ? 'Tema claro' : 'Tema oscuro'}
             </button>

@@ -1097,6 +1097,8 @@ model ConfiguracionComercial {
   migracion_cortesia_at  DateTime?
   /// Cuándo se sumó la capacidad `marca_propia` a los planes Pro, Administradora y Cortesía que ya existían (una sola vez; ver services/comercial/migracion.ts).
   migracion_marca_at     DateTime?
+  /// Manual de usuario con videos (página pública de My Workspace): lo abre «Manual y videos» del menú de la cuenta, en la sección del rol. null = no se muestra.
+  url_manual             String?  @default("https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html")
   pago_titular           String?
   pago_banco             String?
   pago_cuenta            String?

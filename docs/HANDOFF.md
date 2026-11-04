@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — «Manual y videos» en el menú de la cuenta (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «¿el manual está disponible en la aplicación también?» → sólo en el menú de la cuenta (NO un «Ver video» por pantalla: lo descartó).
+- `ConfiguracionComercial.url_manual` (por defecto el manual publicado; editable en Superadmin › Precios; vacío = la opción no aparece; sólo https). `GET /api/comercial/manual` (cualquier usuario con sesión). `src/app/manual.ts` (`anclaDelManual`: admin, junta de block, Junta central, propietario, inquilino, personal) y `MenuUsuario.tsx` («Manual y videos», pestaña nueva). Prueba `tests/manual-menu.test.ts`.
+- El manual publicado tiene anclas estables `#rol-<rol>` y `#<id>` de `manual-videos.json` (`manual-con-videos.py`, marcador `ANCLA::`). Republicado en el mismo archivo.
+
+---
+
 ## 2026-11-04 — Videos del manual: «Tu marca» regrabado y «Ten Torre en tu celular» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: que Torre tenga su versión para descargar al celular (como Portal de Dealers) y que el manual lo mencione con su video.

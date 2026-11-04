@@ -72,7 +72,10 @@ def payload(salida):
             if not video:
                 # Sin video propio: el de la misma pantalla en otro rol (p. ej. la rendición de la junta es la de la administradora).
                 video = next((x['video'] for x in secciones_videos if x.get('video') and x['menu'] == e['menu']), None)
-            parrafos = [e['descripcion']]
+            # Anclas estables para los enlaces de la app («Ver video» de cada pantalla y «Manual y videos» del menú): `#<id>` y, en la primera opción
+            # de cada rol, `#rol-<rol>`. Los ids `sNN` de la plantilla cambian si se agrega una sección; estos no.
+            anclas = [e['id']] + ([f'rol-{r}'] if e is por_rol[r][0] else [])
+            parrafos = [f'ANCLA::{"|".join(anclas)}', e['descripcion']]
             frases = voz.get(video or '', [])
             if frases:
                 parrafos.append(' '.join(frases))
@@ -136,6 +139,10 @@ def videos(entrada, salida, grupos_json=None):
                 f'src="{url}#t=0.5" aria-label="Video de esta opción"></video>'
                 f'<figcaption><a href="{url}" target="_blank" rel="noopener">Abrir el video en otra pestaña</a></figcaption></figure>')
 
+    def ancla(m):
+        return ''.join(f'<span id="{html.escape(x)}" class="ancla-torre"></span>' for x in html.unescape(m.group(1)).split('|'))
+
+    h = re.sub(r'<p[^>]*>\s*ANCLA::([A-Za-z0-9._|-]+)\s*</p>', ancla, h)
     h = re.sub(r'<p[^>]*>\s*VIDEO::([A-Za-z0-9._-]+?)(?:::(escritorio|celular))?\s*</p>', reemplazo, h)
     estilo = ('<style>.video-torre{margin:1rem 0 0}.video-torre video{display:block;width:100%;max-width:960px;aspect-ratio:16/9;'
               'border-radius:12px;border:1px solid var(--borde,#e2e8f2);background:#0b1f1d}'
@@ -144,10 +151,11 @@ def videos(entrada, salida, grupos_json=None):
               # El índice lateral es «sticky»: con 60 opciones no entraba en la pantalla y no se podía bajar.
               '.toc{max-height:calc(100vh - 3rem);overflow-y:auto;overscroll-behavior:contain;padding-right:.25rem}'
               '.toc .toc-rol{margin:.9rem .7rem .3rem;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--acento)}'
+              '.ancla-torre{display:block;position:relative;top:-6rem;visibility:hidden}'
               ':root{color-scheme:light}</style>')
     h = h.replace('</head>', estilo + '</head>', 1)
     open(salida, 'w', encoding='utf-8').write(h)
-    restantes = len(re.findall('VIDEO::', h))
+    restantes = len(re.findall('VIDEO::|ANCLA::', h))
     print(f'videos insertados: {n}; marcadores sin reemplazar: {restantes}')
     if restantes:
         sys.exit(1)

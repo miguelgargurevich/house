@@ -125,6 +125,8 @@ const configSchema = z.object({
   invitaciones_por_dia: z.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mínimo 1').max(5000, 'Máximo 5 000').optional(),
   // Asistente por WhatsApp: apagado (por defecto), el número sólo atiende «SALIR».
   whatsapp_bot_activo: z.boolean().optional(),
+  // Manual con videos: una dirección https (vacío = null = el menú no muestra «Manual y videos»).
+  url_manual: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(500, 'Máximo 500 caracteres').url('Escribe una dirección completa').startsWith('https://', 'Usa una dirección https').nullish()),
 });
 const listaSchema = listQuerySchema.extend({ estado: z.enum(ESTADOS_SUSCRIPCION).optional(), empresa_id: idSchema.optional() });
 
@@ -158,6 +160,13 @@ comercialRouter.get('/mi-plan', requireRole('admin'), async (req, res) => {
   // Cada condominio trae cuánto va del mes (topes y vouchers) para la pantalla y el Resumen.
   const usos = await Promise.all(condominios.map((c) => usoDelMes(c.complejo_id)));
   res.json({ condominios: condominios.map((c, i) => ({ ...c, uso: usos[i] })), pagar, catalogo, puede_agregar_condominio: puede });
+});
+
+/** @openapi
+ * /api/comercial/manual:
+ *   get: { summary: "Dirección del manual de usuario con videos (la abre «Manual y videos» del menú de la cuenta); cualquier usuario con sesión", tags: [Comercial], security: [{ cookieAuth: [] }], responses: { 200: { description: "{ url: string | null }" } } } */
+comercialRouter.get('/manual', async (_req, res) => {
+  res.json({ url: (await obtenerConfiguracion()).url_manual ?? null });
 });
 
 /** @openapi
