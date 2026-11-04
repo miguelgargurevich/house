@@ -118,7 +118,7 @@
     "titulo": "Cierres del mes",
     "descripcion": "Al cerrar el mes, cada junta paga a la administración, a la Junta central y a los servicios; aquí ves el estado de todos los blocks.",
     "archivo": ".claude/videos/m-admin-cierres/torre-m-admin-cierres-escritorio.mp4",
-    "duracion_s": 21.7
+    "duracion_s": 21.8
   },
   {
     "id": "admin.rendicion-del-mes",
@@ -238,7 +238,7 @@
     "titulo": "Mi empresa",
     "descripcion": "Los datos de tu administradora y las cuentas de tu equipo.",
     "archivo": ".claude/videos/m-admin-mi-empresa/torre-m-admin-mi-empresa-escritorio.mp4",
-    "duracion_s": 16.2
+    "duracion_s": 16.3
   },
   {
     "id": "admin.tu-marca-en-mi-empresa",

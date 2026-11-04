@@ -4,6 +4,19 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Videos regrabados sin «Gestión Urbana» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel**: «hazlo» (cambiar los datos de prueba y volver a grabar los videos que mostraban «Gestión Urbana SAC» y @gestionurbana.com, dominio real de terceros).
+- **Qué se hizo**: regrabados y montados (mismo nombre de archivo, misma voz) `v2` y `v6` (escritorio y celular) y `m-admin-cierres`, `m-admin-condominios`, `m-admin-marca`, `m-admin-mi-empresa`, `m-admin-recibos`, `m-admin-unidades` (escritorio). `docs/marketing/manual-videos.json` (duraciones de `m-admin-cierres` y `m-admin-mi-empresa`), `docs/marketing/regrabados-2026-11-04.md` (tabla, OCR y pendientes) y nota en `docs/manual/README.md`.
+- **Resultado**: OCR a 1 cuadro por segundo en los 10 mp4: sin «Gestión Urbana», sin Melina/Loayza/gmail/Gargurevich, sin correos. Sólo aparece `torrecondominios.com` (cierre de marca y aviso del recibo). A ojo: v2 escritorio, v6 escritorio y los 6 m-admin de escritorio; v2 y v6 celular sólo por OCR.
+- **No se pudo**:
+  - **v5** (escritorio y celular) sigue con «Gestión Urbana» en el mp4 viejo del checkout principal. Sus escenas 4 a 6 usan WhatsApp con grupos (`Mis grupos`, `Traer mis grupos`): el Evolution falso está apagado (18089), `whatsapp_instance` vacío y `GrupoWhatsapp` con 0 filas. Preparar eso toca la base y reinicia el backend; no se hizo sin OK.
+  - **m-admin-recibos** quedó regrabado sin nombre viejo, pero el aviso dice «El Block 1 no tiene grupo de WhatsApp» y la voz dice que va al grupo. Hay que regrabarlo con grupos.
+- **Gotchas**: la empresa de prueba de la base local queda con `nombre_comercial` y `color_marca` en `null` (lo verifiqué tras `m-admin-marca`). Los mp4 viejos de m-admin y v2/v6 están respaldados en el scratchpad de la sesión.
+- **Próximos (Opus)**: decidir si se preparan WhatsApp y grupos para regrabar v5 y m-admin-recibos; subir a MinIO/My Workspace sólo los mp4 regrabados.
+
+---
+
 ## 2026-11-04 — Volver a revisar un pago rechazado (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/revertir-rechazo`) — push: no
 
 - **Pedido de Miguel**: «acciones que la pantalla no deja deshacer» → «3. Revertir un rechazo: el pago vuelve a "Por validar"» → «Sí, esos tres».
