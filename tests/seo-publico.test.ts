@@ -299,6 +299,19 @@ describe('escapado de lo que viene de la base', () => {
 });
 
 describe('noindex en lo privado y en el host no canónico', () => {
+  for (const ruta of ['/ruta-que-no-existe', '/blog', '/contacto-viejo', '/admin-falso']) {
+    it(`${ruta}: no es de nadie → 404 real, con noindex, nofollow y la SPA (que pinta «No encontramos esta página»)`, async () => {
+      const r = await pedir(ruta);
+      assert.equal(r.status, 404);
+      assert.equal(r.headers['x-robots-tag'], 'noindex, nofollow');
+      assert.equal(metaContenido(r.texto, 'robots'), 'noindex, nofollow');
+      assert.match(r.texto, /<div id="root"><\/div>/);
+    });
+  }
+  it('las rutas de la app y de un solo uso siguen respondiendo 200 aunque no haya sesión: la app decide (login o su pantalla)', async () => {
+    for (const ruta of ['/admin/dashboard', '/admin/ruta/que/no/existe', '/superadmin/contactos', '/verificar-correo', '/invitacion', '/perfil', '/login']) assert.equal((await pedir(ruta)).status, 200, ruta);
+  });
+
   it('/login: noindex, follow (cabecera y etiqueta); nunca nofollow', async () => {
     const r = await pedir('/login');
     assert.equal(r.status, 200);
@@ -308,7 +321,7 @@ describe('noindex en lo privado y en el host no canónico', () => {
     assert.equal(raiz(r.texto), '', 'sin contenido de marketing en el login');
   });
 
-  for (const ruta of ['/verificar-correo', '/invitacion', '/admin/dashboard', '/superadmin/empresas', '/propietario/inicio', '/inquilino/cargos', '/junta/mi-junta', '/mantenimiento/tareas', '/limpieza/inicio', '/jardineria/inicio', '/seguridad/inicio', '/perfil', '/ruta-que-no-existe']) {
+  for (const ruta of ['/verificar-correo', '/invitacion', '/admin/dashboard', '/superadmin/empresas', '/propietario/inicio', '/inquilino/cargos', '/junta/mi-junta', '/mantenimiento/tareas', '/limpieza/inicio', '/jardineria/inicio', '/seguridad/inicio', '/perfil']) {
     it(`${ruta}: noindex, nofollow`, async () => {
       const r = await pedir(ruta);
       assert.equal(r.status, 200);
@@ -373,7 +386,7 @@ describe('sitemap.xml', () => {
     assert.match(String(r.headers['content-type']), /^application\/xml; charset=utf-8/);
     assert.match(r.texto, /^<\?xml version="1\.0" encoding="UTF-8"\?>/);
     const locs = [...r.texto.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
-    assert.deepEqual(locs, ['/', '/precios', '/registro', '/privacidad', '/terminos'].map((p) => `${URL_CANONICA}${p}`));
+    assert.deepEqual(locs, ['/', '/precios', '/registro', '/contacto', '/libro-de-reclamaciones', '/privacidad', '/terminos'].map((p) => `${URL_CANONICA}${p}`));
     assert.match(r.texto, new RegExp(`<loc>${URL_CANONICA}/precios</loc>\\s*<lastmod>2026-03-04</lastmod>`), 'lastmod de /precios = último cambio del catálogo');
     for (const l of r.texto.matchAll(/<lastmod>([^<]*)<\/lastmod>/g)) assert.match(l[1], /^\d{4}-\d{2}-\d{2}$/);
     assert.doesNotMatch(r.texto, /\/login|\/admin|\/api/);

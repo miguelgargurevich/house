@@ -1150,6 +1150,12 @@ model ConfiguracionComercial {
   url_manual             String?  @default("https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html")
   /// Instagram de Torre: sale en el pie de las páginas públicas y en `sameAs` de los datos para buscadores. null = no se muestra.
   url_instagram          String?  @default("https://www.instagram.com/torreadministracioncondominios/")
+  /// Facebook de Torre: pie de las páginas públicas y `sameAs`. null = no se muestra.
+  url_facebook           String?  @default("https://www.facebook.com/profile.php?id=61596421792856")
+  /// WhatsApp de contacto de Torre (celular con código de país, sólo dígitos, p. ej. 51966918363): botón flotante, pie y /contacto. null = no se muestra. Se cambia en Superadmin › Precios.
+  whatsapp_contacto      String?  @default("51966918363")
+  /// Texto con que se abre el chat de WhatsApp de contacto (va codificado en el enlace wa.me).
+  whatsapp_mensaje       String?  @default("Hola, vi Torre y quiero saber más")
   pago_titular           String?
   pago_banco             String?
   pago_cuenta            String?
@@ -1584,4 +1590,77 @@ model PersonaUnidad {
   @@index([unidad_id])
   @@index([usuario_id, acceso_activo])
   @@index([empresa_id])
+}
+
+/// Mensaje que alguien deja en /contacto (sin sesión). La bandeja la lee el superadmin.
+model SolicitudContacto {
+  id              Int      @id @default(autoincrement())
+  nombre          String
+  correo          String
+  celular         String?
+  condominio      String?
+  unidades        Int?
+  varios_condominios Boolean @default(false)
+  /// Por qué escribe: «demo» si llegó desde «Solicita una demo» (/contacto?tema=demo); «consulta» en los demás casos.
+  tema            String   @default("consulta")
+  mensaje         String
+  ip              String?
+  user_agent      String?
+  /// nueva | atendida
+  estado          String   @default("nueva")
+  atendida_at     DateTime?
+  nota            String?
+  /// Si el aviso por correo a Torre salió (false = no se pudo enviar; el mensaje igual quedó guardado aquí).
+  aviso_enviado   Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@index([estado, created_at])
+}
+
+/// Hoja de reclamación del Libro de Reclamaciones virtual (Ley 29571 y DS 011-2011-PCM). El proveedor se copia tal como estaba al registrar.
+model Reclamacion {
+  id                    Int      @id @default(autoincrement())
+  /// Año (de Lima) y número dentro del año: el correlativo «2026-000001» es único.
+  anio                  Int
+  numero                Int
+  correlativo           String   @unique
+  proveedor_razon_social String
+  proveedor_ruc         String
+  proveedor_domicilio   String
+  consumidor_nombre     String
+  /// dni | ce | pasaporte | ruc
+  consumidor_doc_tipo   String
+  consumidor_doc_numero String
+  consumidor_domicilio  String
+  consumidor_correo     String
+  consumidor_telefono   String?
+  menor_de_edad         Boolean  @default(false)
+  apoderado_nombre      String?
+  apoderado_doc_tipo    String?
+  apoderado_doc_numero  String?
+  /// producto | servicio
+  bien_tipo             String
+  bien_descripcion      String
+  monto_reclamado       Decimal? @db.Decimal(12, 2)
+  /// reclamo | queja
+  tipo                  String
+  detalle               String
+  pedido                String
+  acepta_respuesta_correo Boolean
+  ip                    String?
+  user_agent            String?
+  /// pendiente | respondida
+  estado                String   @default("pendiente")
+  /// Último día para responder: 15 días hábiles (sin sábados ni domingos; no cuenta feriados) desde el día del registro.
+  fecha_limite          DateTime @db.Date
+  respondida_at         DateTime?
+  respuesta_nota        String?
+  copia_consumidor_enviada Boolean @default(false)
+  aviso_enviado         Boolean  @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  @@unique([anio, numero])
+  @@index([estado, fecha_limite])
 }

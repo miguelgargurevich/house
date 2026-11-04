@@ -88,7 +88,7 @@ describe('superadmin: los datos legales se editan en Precios, con su sección', 
 describe('versión legal: la página y el servidor dicen lo mismo', () => {
   it('VERSION_LEGAL de la página = la del servidor (la que se graba en cada cuenta)', () => {
     assert.equal(VERSION_PAGINA, VERSION_SERVIDOR);
-    assert.equal(VERSION_PAGINA, '2026-11-03');
+    assert.equal(VERSION_PAGINA, '2026-11-04');
   });
 });
 
@@ -132,8 +132,8 @@ describe('textos: fieles a docs/legal/*.md (autoritativos)', () => {
     assert.ok(html.includes('RUC 20601234567'));
     assert.ok(html.includes('Av. Ejemplo 123, Surco, Lima'));
     assert.ok(html.includes('privacidad@house.test'));
-    // Sólo quedan «por confirmar» los pendientes: 3 en la Política (hosting, correo, plazo) y 2 en los Términos (aviso de precios, conservación).
-    assert.equal(html.split('por confirmar').length - 1, 5);
+    // Los cinco datos que estaban pendientes ya se fijaron (4-nov-2026): con los datos del responsable cargados no queda ningún «por confirmar».
+    assert.equal(html.split('por confirmar').length - 1, 0);
   });
 
   it('sin datos (null), cada dato dice «por confirmar» y nunca aparece «null» ni «undefined»', () => {
@@ -145,8 +145,8 @@ describe('textos: fieles a docs/legal/*.md (autoritativos)', () => {
   it('con el endpoint respondiendo null en cada dato (lo que llega sin cargar), también dice «por confirmar» y nunca «null»', () => {
     const vacio: DatosLegales = { razon_social: null, ruc: null, domicilio: null, correo: null, version: VERSION_SERVIDOR };
     const html = textoPlano(cuerpos({ datos: vacio, cargando: false }).map(pintar).join(' '));
-    // Política: 5 datos (razón, RUC, domicilio, correo ×2) + 3 pendientes = 8. Términos: 3 datos + 2 pendientes = 5.
-    assert.equal(html.split('por confirmar').length - 1, 13);
+    // Sólo los datos del responsable pueden quedar «por confirmar» (si el superadmin no los cargó). Política: razón, RUC, domicilio, correo ×2 = 5. Términos: 3.
+    assert.equal(html.split('por confirmar').length - 1, 8);
     assert.doesNotMatch(html, /\bnull\b|\bundefined\b/);
   });
 
@@ -156,11 +156,17 @@ describe('textos: fieles a docs/legal/*.md (autoritativos)', () => {
     assert.doesNotMatch(html, /por confirmar/);
   });
 
-  it('los pendientes viven en UN solo bloque, con el valor «por confirmar»', () => {
+  it('los cinco datos antes pendientes viven en UN solo bloque, con los valores que aprobó Miguel, y ninguno dice «por confirmar»', () => {
     assert.deepEqual(Object.keys(PENDIENTES).sort(), ['dias_aviso_precios', 'dias_conservacion', 'hosting', 'plazo_auditoria', 'proveedor_correo']);
-    for (const v of Object.values(PENDIENTES)) assert.equal(v, 'por confirmar');
-    // Ningún otro lugar del módulo escribe el valor a mano: sólo PENDIENTES y la constante POR_CONFIRMAR de DocumentoLegal.
+    assert.deepEqual({ ...PENDIENTES }, { hosting: 'un servidor privado virtual (VPS) administrado con Coolify', proveedor_correo: 'Resend', plazo_auditoria: '12 meses', dias_aviso_precios: '30', dias_conservacion: '90' });
+    for (const v of Object.values(PENDIENTES)) assert.notEqual(v, 'por confirmar');
+    // Ningún otro lugar del módulo escribe el valor a mano.
     assert.equal(TEXTOS.split('por confirmar').length - 1, 0);
     assert.doesNotMatch(TEXTOS, /\{(hosting|proveedor_correo|plazo_auditoria|dias_aviso_precios|dias_conservacion)\}/);
+  });
+
+  it('los valores se leen en el texto publicado', () => {
+    const html = textoPlano(cuerpos({ datos: DATOS, cargando: false }).map(pintar).join(' '));
+    for (const frase of ['Alojamiento y servidores: un servidor privado virtual (VPS) administrado con Coolify.', 'Envío de correos: Resend.', 'hasta 12 meses', 'al menos 30 días de anticipación', 'Después de 90 días']) assert.ok(html.includes(frase), frase);
   });
 });

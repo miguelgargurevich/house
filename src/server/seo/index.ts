@@ -7,7 +7,7 @@ import { Router, type Request, type RequestHandler } from 'express';
 import { llmsFullTxt, llmsTxt, robotsTxt, sitemapXml } from './documentos';
 import { baseDe, cargarContexto, hostDe, seoDeps, type ContextoSeo } from './contexto';
 import { construirCuerpo, construirHead, infoPagina } from './paginas';
-import { esPublica, normalizarRuta, robotsPrivado } from './rutas';
+import { esDesconocida, esPublica, normalizarRuta, robotsPrivado } from './rutas';
 
 const TEXTO = 'text/plain; charset=utf-8';
 const CACHE_DOCUMENTOS = 'public, max-age=300';
@@ -92,6 +92,7 @@ export function paginaSpa(distDir: string): RequestHandler {
 
     if (!esPublica(ruta)) { // privadas, de un solo uso o desconocidas: nunca se indexan
       const robots = robotsPrivado(ruta);
+      if (esDesconocida(ruta)) res.status(404); // una ruta que no es de nadie: 404 real (la SPA pinta «No encontramos esta página»)
       res.set('X-Robots-Tag', robots).send(inyectar(html, `<meta name="robots" content="${robots}" />`, null, false));
       return;
     }

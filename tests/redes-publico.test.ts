@@ -32,6 +32,6 @@ describe('Instagram de Torre', () => {
     const marco = readFileSync('src/pages/publico/Marco.tsx', 'utf8');
     assert.match(marco, /data\?\.redes\?\.instagram && \(/);
     assert.match(marco, /target="_blank" rel="noopener noreferrer"/);
-    assert.match(readFileSync('src/server/seo/paginas.ts', 'utf8'), /sameAs: \[cfg\.url_instagram\]/);
+    assert.match(readFileSync('src/server/seo/paginas.ts', 'utf8'), /sameAs = \[redes\.instagram, redes\.facebook\]/);
   });
 });

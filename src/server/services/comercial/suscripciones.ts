@@ -10,6 +10,7 @@ import { correoA, obtenerConfiguracion } from './configuracion';
 import { estadoEfectivo, primerDiaSoloLectura, type EntradaSuscripcion } from './estado';
 import { cargarReferencias, contextoDe, contextoPublico, planContratable, precioEnMoneda, tramoEnMoneda, type ContextoCobro } from './impuestos';
 import { comercialDeps, invalidarComercial } from './modulos';
+import { redesPublicas } from '../contacto/redes';
 
 type FilaPlan = { clave: string; precio_por_unidad: Prisma.Decimal; igv_incluido: boolean; modulos_incluidos: string[]; unidades_minimas: number | null; tramo_desde: number | null; tramo_precio: Prisma.Decimal | null };
 type Tramo = { desde: number; precio: Prisma.Decimal } | null;
@@ -326,8 +327,8 @@ export async function catalogoPublico(pais?: string | null) {
     // Los módulos ya no se venden sueltos: se muestran como «lo que trae Pro» (sin precio).
     modulos: modulos.map((m) => ({ clave: m.clave, nombre: m.nombre, descripcion: m.descripcion })),
     registro_abierto: cfg.registro_abierto,
-    /** Redes de Torre para el pie de las páginas públicas (null = no se muestra). */
-    redes: { instagram: cfg.url_instagram ?? null },
+    /** Redes y WhatsApp de contacto de Torre (pie, botón flotante y /contacto): `{ instagram, facebook, whatsapp: { numero, enlace } | null }`; lo vacío es null = no se muestra. */
+    redes: redesPublicas(cfg),
     /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
     dias_gratis: cfg.dias_gratis && cfg.dias_gratis > 0 ? cfg.dias_gratis : null,
   };

@@ -3,19 +3,19 @@
 // Los datos del responsable salen de `GET /api/publico/legal`; los pendientes, de UN solo bloque (PENDIENTES) hasta que se decidan.
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Dato, POR_CONFIRMAR, type Seccion } from './piezas';
+import { Dato, type Seccion } from './piezas';
 import type { DatosLegales } from './datos';
 
 /** Estado de los datos legales al pintar la página (ver `useDatosLegales`). */
 export interface Legal { datos: DatosLegales | null; cargando: boolean }
 
-/** Datos que todavía no están decididos. Cuando se definan, se reemplazan aquí (y sólo aquí). */
+/** Datos que se fijaron por decisión de Miguel (4-nov-2026) y viven en UN solo bloque: si cambian, se cambian aquí (y la versión de los documentos). */
 export const PENDIENTES = {
-  hosting: POR_CONFIRMAR,
-  proveedor_correo: POR_CONFIRMAR,
-  plazo_auditoria: POR_CONFIRMAR,
-  dias_aviso_precios: POR_CONFIRMAR,
-  dias_conservacion: POR_CONFIRMAR,
+  hosting: 'un servidor privado virtual (VPS) administrado con Coolify',
+  proveedor_correo: 'Resend',
+  plazo_auditoria: '12 meses',
+  dias_aviso_precios: '30',
+  dias_conservacion: '90',
 } as const;
 
 /** Un dato del responsable (razón social, RUC, domicilio o correo) con su estado de carga. */
