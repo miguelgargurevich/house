@@ -111,7 +111,13 @@ async function enviarUno(complejoId: number, instancia: string | null, fila: Res
     const lista = await listarGrupos(instancia).catch(() => null);
     return lista && !lista.some((g) => g.jid === jid) ? { estado: 'fallo', motivo: yaNoEsta, aviso: yaNoEsta } : { estado: 'fallo', motivo: noSePudo };
   }
-  if (!participantes.includes(numero)) return { estado: 'fallo', motivo: yaNoEsta, aviso: yaNoEsta };
+  if (!participantes.includes(numero)) {
+    // WhatsApp ya no siempre da el número de cada participante: muchas veces trae un identificador interno (`…@lid`), también para el propio
+    // número. La lista de grupos del número (`fetchAllGroups`) sólo trae aquellos donde sigue siendo participante: si el grupo está ahí, sigue.
+    const lista = await listarGrupos(instancia).catch(() => null);
+    if (!lista) return { estado: 'fallo', motivo: noSePudo };
+    if (!lista.some((g) => g.jid === jid)) return { estado: 'fallo', motivo: yaNoEsta, aviso: yaNoEsta };
+  }
 
   // Cada mensaje a un grupo cuenta contra el tope mensual de WhatsApp del condominio (se reserva antes, como los avisos).
   if (!(await reservarConsumo(complejoId, 'whatsapp', canalesDeps.ahora())).permitido) return { estado: 'fallo', motivo: MOTIVO_TOPE_WHATSAPP };

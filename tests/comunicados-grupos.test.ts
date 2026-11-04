@@ -17,7 +17,7 @@ const G2 = '120363000000000002@g.us';
 const G3 = '120363000000000003@g.us';
 const GB = '120363000000000099@g.us';
 
-interface GrupoFalso { jid: string; nombre: string; participantes: string[] }
+interface GrupoFalso { jid: string; nombre: string; participantes: string[]; /** WhatsApp entrega identificadores internos (`…@lid`) en vez del número. */ lid?: boolean }
 /** Lo que Evolution «tiene» en cada prueba: los grupos de cada instancia y las llamadas que le llegaron. */
 let mundo: {
   grupos: Record<string, GrupoFalso[]>;
@@ -59,12 +59,14 @@ const evolutionFalsa = (async (url: string | URL | Request, init?: RequestInit) 
   }
   if (a === 'fetchAllGroups') {
     mundo.llamadas.push('fetchAllGroups');
-    return json((mundo.grupos[instancia] ?? []).map((g) => ({ id: g.jid, subject: g.nombre, size: g.participantes.length })));
+    // Como WhatsApp: la lista sólo trae los grupos donde el número de la instancia sigue siendo participante.
+    const propio = mundo.numeros[instancia];
+    return json((mundo.grupos[instancia] ?? []).filter((g) => propio != null && g.participantes.includes(propio)).map((g) => ({ id: g.jid, subject: g.nombre, size: g.participantes.length })));
   }
   if (a === 'findGroupInfos') {
     mundo.llamadas.push('findGroupInfos');
     const g = (mundo.grupos[instancia] ?? []).find((x) => x.jid === u.searchParams.get('groupJid'));
-    return g ? json({ id: g.jid, subject: g.nombre, participants: g.participantes.map((n) => ({ id: `${n}@s.whatsapp.net` })) }) : json({ error: 'no está' }, 404);
+    return g ? json({ id: g.jid, subject: g.nombre, participants: g.participantes.map((n, i) => (g.lid ? { id: `9${i}${n.slice(-6)}0001@lid` } : { id: `${n}@s.whatsapp.net` })) }) : json({ error: 'no está' }, 404);
   }
   if (u.pathname.startsWith('/message/sendText/')) {
     mundo.llamadas.push('sendText');
@@ -342,6 +344,16 @@ describe('comunicado al grupo del block y a la junta', () => {
     assert.equal(e.whatsapp_grupo_aviso, 'El número ya no está en el grupo del Block 1');
     assert.ok(e.whatsapp_grupo_aviso_at);
     assert.equal(await prisma.consumoMensual.count({ where: { complejo_id: d.complejoA.id } }), 0, 'lo que no se envía no gasta cuota');
+  });
+
+  it('WhatsApp con identificadores internos (@lid): el propio número no se reconoce entre los participantes, pero el grupo sigue en su lista → envía', async () => {
+    await ponerPro(5);
+    await conGrupos();
+    mundo.grupos['inst-a']![0]!.lid = true; // como Evolution 2.3.7 en producción: participantes «…@lid», sin número
+    const { grupos } = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_grupo: true }));
+    assert.equal(grupos[0]!.estado, 'enviado', grupos[0]!.motivo ?? '');
+    assert.equal(mundo.enviados.length, 1);
+    assert.equal(mundo.enviados[0]!.jid, G1);
   });
 
   it('si lo sacaron y Evolution ya no devuelve el grupo (404) y tampoco está en su lista: «ya no está»; si la lista sí lo tiene: «no se pudo comprobar» y no escribe', async () => {
