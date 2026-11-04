@@ -5,7 +5,7 @@
   "diseno": "manual",
   "meta": [
     "torrecondominios.com",
-    "Versión 3-nov-2026",
+    "Versión 4-nov-2026",
     "Español · Perú"
   ],
   "descripcion": "Manual de Torre por roles (administradora, junta, propietario, inquilino, personal) con capturas de datos de prueba. Corte: 4-nov-2026.",
@@ -28,27 +28,27 @@
           [
             "Administradora",
             "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-            "Secciones 07 a 33"
+            "Secciones 07 a 34"
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
             "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
-            "Secciones 34 a 41"
+            "Secciones 35 a 42"
           ],
           [
             "Propietario",
             "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-            "Secciones 42 a 50"
+            "Secciones 43 a 51"
           ],
           [
             "Inquilino",
             "Lo mismo que el propietario, para el departamento que alquilas",
-            "Sección 51"
+            "Sección 52"
           ],
           [
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
-            "Secciones 52 y 53"
+            "Secciones 53 y 54"
           ],
           [
             "Todavía no tienes cuenta",
@@ -307,9 +307,29 @@
       "etiqueta": "Administradora",
       "parrafos": [
         "Las unidades con mantenimientos vencidos, de mayor a menor deuda, con los meses vencidos y los días de atraso. Arriba ves la deuda vencida total, cuántas unidades están morosas y el mayor atraso. La deuda ya descuenta los abonos parciales: si un vecino pagó una parte, ves sólo lo que falta.",
-        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. En cada fila, el ícono de documento abre su **Estado de cuenta** (ver «Estado de cuenta de un departamento»). **Exportar CSV** baja la lista."
+        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. En cada fila, el ícono de documento abre su **Estado de cuenta** (ver «Estado de cuenta de un departamento»). **Exportar CSV** baja la lista. Marca departamentos para mandarles un recordatorio de deuda (ver «Recordar a los morosos»)."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-morosidad-detalle.jpg"
+    },
+    {
+      "titulo": "Recordar a los morosos",
+      "etiqueta": "Administradora",
+      "parrafos": [
+        "Si hoy vence un pago o un departamento sigue sin pagar, puedes mandarle un recordatorio desde **Morosidad**, sin configurar nada: marcas los departamentos y Torre arma el mensaje con lo que debe cada uno.",
+        "El recordatorio le llega sólo al **responsable de pago** de cada departamento (no a toda la familia), por correo, por WhatsApp o por ambos. A un mismo departamento se le recuerda **una vez al día**."
+      ],
+      "numerada": [
+        "Entra a **Cobranza › Morosidad**. Si quieres, filtra por condominio o block.",
+        "Marca la casilla de cada departamento que quieres recordar, o **Marcar todos los de esta página**.",
+        "Pulsa **Enviar recordatorio**.",
+        "Elige **Correo**, **WhatsApp** o ambos. Torre te muestra, sin enviar nada todavía, cuántos responsables recibirán el aviso, cuántos por correo y por WhatsApp, cuántos no tienen un canal activo, cuántos ya recibieron un recordatorio hoy y lo que queda de la cuota mensual de WhatsApp del condominio.",
+        "Lee el texto: cada responsable verá su nombre, lo que debe su departamento y el enlace para pagar. Pulsa **Enviar**.",
+        "En **Comunicados**, pestaña **Notificaciones**, ves qué salió y qué quedó pendiente."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El WhatsApp gasta la cuota del mes y cuenta para el tope diario del número: lo que no entre se omite o sale mañana. Si el vecino paga antes de que salga el mensaje, no se le envía. Un departamento sin deuda vencida no recibe nada."
+      }
     },
     {
       "titulo": "Estado de cuenta de un departamento",
@@ -398,7 +418,8 @@
       ],
       "numerada": [
         "Entra a **Comunicados** y pulsa **Nuevo comunicado**.",
-        "En **Para quién** elige todo el condominio o un block.",
+        "En **Para quién** elige todo el condominio, un block o **Departamentos elegidos**.",
+        "Si elegiste **Departamentos elegidos**, escoge el block (o todo el condominio), busca por código o titular y marca los departamentos con las casillas; **Marcar todos** y **Quitar marcas** actúan sobre los que se ven. El aviso sale sólo a las personas de esos departamentos que reciben comunicados, y sólo ellos lo ven en su pantalla. En este caso no hay opción de junta ni de grupos de WhatsApp.",
         "Escribe el título y el mensaje (hasta 4.000 caracteres).",
         "En **Además de verlo en la app** marca lo que necesites: **A la junta del block** (o **A las juntas del condominio**), **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino**.",
         "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo.",
@@ -407,7 +428,7 @@
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Lo más barato es avisar a la junta: son pocas personas y todas se enteran. El WhatsApp a cada vecino gasta la cuota del mes: úsalo para lo urgente. Cada mensaje a un grupo también cuenta para el tope diario del número."
+        "texto": "Lo más barato es avisar a la junta: son pocas personas y todas se enteran. El WhatsApp a cada vecino gasta la cuota del mes: úsalo para lo urgente. Cada mensaje a un grupo también cuenta para el tope diario del número. Con departamentos elegidos el aviso es sólo para esos vecinos: sirve para un trabajo en un piso o para avisar a unos pocos."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-grupos.jpg"
     },

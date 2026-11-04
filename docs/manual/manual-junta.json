@@ -5,10 +5,10 @@
   "diseno": "manual",
   "meta": [
     "torrecondominios.com",
-    "Versión 3-nov-2026",
+    "Versión 4-nov-2026",
     "Español · Perú"
   ],
-  "descripcion": "Manual de Torre para la junta directiva de cada block, con capturas de datos de prueba. Corte: 3-nov-2026.",
+  "descripcion": "Manual de Torre para la junta directiva de cada block, con capturas de datos de prueba. Corte: 4-nov-2026.",
   "secciones": [
     {
       "titulo": "Lo que haces en Torre",
@@ -139,6 +139,7 @@
       "numerada": [
         "En el grupo **Junta**, entra a **Comunicados** y pulsa **Nuevo comunicado**.",
         "Escribe el título y el mensaje.",
+        "Si el aviso es sólo para algunos vecinos, en **Para quién** elige **Departamentos elegidos**: marca, de tu block, los departamentos que lo recibirán (busca por código o titular). Sólo esos vecinos lo reciben y lo ven; en ese caso no hay junta ni grupos.",
         "En **Además de verlo en la app** marca si va **A la junta del block**, **por correo** o **por WhatsApp a cada vecino**. Si tu administración eligió grupos de WhatsApp para tu block, también los ves ahí.",
         "Pulsa **Publicar**."
       ],
