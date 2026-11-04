@@ -326,6 +326,8 @@ export async function catalogoPublico(pais?: string | null) {
     // Los módulos ya no se venden sueltos: se muestran como «lo que trae Pro» (sin precio).
     modulos: modulos.map((m) => ({ clave: m.clave, nombre: m.nombre, descripcion: m.descripcion })),
     registro_abierto: cfg.registro_abierto,
+    /** Redes de Torre para el pie de las páginas públicas (null = no se muestra). */
+    redes: { instagram: cfg.url_instagram ?? null },
     /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
     dias_gratis: cfg.dias_gratis && cfg.dias_gratis > 0 ? cfg.dias_gratis : null,
   };

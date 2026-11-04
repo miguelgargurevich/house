@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Instagram de Torre en la web (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «en el landing podríamos incluir las redes; por ahora sólo Instagram». `ConfiguracionComercial.url_instagram` (por defecto @torreadministracioncondominios; editable en Superadmin › Precios; sólo https de instagram.com; vacío = no se muestra) → `redes.instagram` en el catálogo público → pie de todas las páginas públicas (`Marco.tsx`, ícono propio porque Heroicons no trae logos) y `sameAs` en los datos para buscadores (`seo/paginas.ts`). Prueba `tests/redes-publico.test.ts`.
+- Instagram creado hoy por Miguel: @torreadministracioncondominios (profesional, foto de la torre, bio «Por Ing. Miguel F. Gargurevich», enlace a la web). El publicador automático va en My Workspace (sesión propuesta), con los pilares 40/30/20/10.
+
+---
+
 ## 2026-11-04 — Videos de onboarding: v7 «Empieza con Torre» (administración) y v8 «Bienvenido a Torre» (vecinos) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: «esas recomendaciones me suenan a onboarding … un video para administradores y otro para usuarios»; propuesta de Opus aceptada.

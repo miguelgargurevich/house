@@ -125,6 +125,8 @@ const configSchema = z.object({
   invitaciones_por_dia: z.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mínimo 1').max(5000, 'Máximo 5 000').optional(),
   // Asistente por WhatsApp: apagado (por defecto), el número sólo atiende «SALIR».
   whatsapp_bot_activo: z.boolean().optional(),
+  // Instagram de Torre (pie de las páginas públicas y `sameAs`): sólo una dirección https de instagram.com; vacío = null = no se muestra.
+  url_instagram: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(200, 'Máximo 200 caracteres').url('Escribe una dirección completa').regex(/^https:\/\/(www\.)?instagram\.com\//, 'Usa una dirección https://www.instagram.com/…').nullish()),
   // Manual con videos: una dirección https (vacío = null = el menú no muestra «Manual y videos»).
   url_manual: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(500, 'Máximo 500 caracteres').url('Escribe una dirección completa').startsWith('https://', 'Usa una dirección https').nullish()),
 });
