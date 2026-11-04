@@ -15,7 +15,7 @@ export const COMPLEJO = 'Condominio Los Libertadores de Surco';
 /** Propietarios del seed que no están en ninguna junta (B01-101 y B01-102; el Block 1 ya tiene presidente y tesorera). */
 export const PRESIDENTE = 'teresa.neyra.3@prueba.house';
 export const TESORERO = 'gustavo.cruz.4@prueba.house';
-const ANA = 'ana.lopez@gestionurbana.com';
+const ANA = 'ana.lopez@administradorademo.example';
 export const CLAVE_SEED = 'prop1234';
 
 /** Motivo por el que esta URL no es la base local «house»; `null` si lo es. */

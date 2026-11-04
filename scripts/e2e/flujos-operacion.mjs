@@ -40,12 +40,12 @@ if (!E2E_DB.startsWith('house_e2e')) throw new Error(`La base debe empezar con h
 const CLAVE_PROPIETARIO = 'prop1234';
 const CLAVE_INQUILINO = 'inq1234';
 const CUENTA = {
-  admin: { correo: 'ana.lopez@gestionurbana.com', clave: 'admin1234' },
+  admin: { correo: 'ana.lopez@administradorademo.example', clave: 'admin1234' },
   tesorera1: { correo: 'patricia.alarcon.9@prueba.house', clave: CLAVE_PROPIETARIO }, // tesorera del Block 1
   tesorero_central: { correo: 'gustavo.cruz.4@prueba.house', clave: CLAVE_PROPIETARIO },
-  mantenimiento: { correo: 'maria.fernandez@gestionurbana.com', clave: 'mtto1234' },
-  seguridad: { correo: 'pedro.sanchez@gestionurbana.com', clave: 'seg1234' },
-  javier: { correo: 'javier.castro@prop.com', clave: CLAVE_PROPIETARIO }, // propietario de B03-502
+  mantenimiento: { correo: 'maria.fernandez@administradorademo.example', clave: 'mtto1234' },
+  seguridad: { correo: 'pedro.sanchez@administradorademo.example', clave: 'seg1234' },
+  javier: { correo: 'javier.castro@prop.example', clave: CLAVE_PROPIETARIO }, // propietario de B03-502
 };
 const CONDOMINIO = /Los Libertadores/;
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'setiembre', 'octubre', 'noviembre', 'diciembre'];

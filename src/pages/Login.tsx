@@ -9,12 +9,12 @@ import PanelLogin from './_login/PanelLogin';
 import { IconoTorre } from '../ui/IconoTorre';
 
 const DEMO = [
-  ['Superadmin', 'miguel.gargurevich@admin.com', 'admin1234'],
-  ['Administradora', 'ana.lopez@gestionurbana.com', 'admin1234'],
-  ['Propietario', 'javier.castro@prop.com', 'prop1234'],
-  ['Inquilino', 'valentina.ruiz@inq.com', 'inq1234'],
-  ['Mantenimiento', 'maria.fernandez@gestionurbana.com', 'mtto1234'],
-  ['Seguridad', 'pedro.sanchez@gestionurbana.com', 'seg1234'],
+  ['Superadmin', 'miguel.gargurevich@admin.example', 'admin1234'],
+  ['Administradora', 'ana.lopez@administradorademo.example', 'admin1234'],
+  ['Propietario', 'javier.castro@prop.example', 'prop1234'],
+  ['Inquilino', 'valentina.ruiz@inq.example', 'inq1234'],
+  ['Mantenimiento', 'maria.fernandez@administradorademo.example', 'mtto1234'],
+  ['Seguridad', 'pedro.sanchez@administradorademo.example', 'seg1234'],
   ['Limpieza', 'limpieza@prueba.house', 'pers1234'],
   ['Tesorero', 'patricia.alarcon.9@prueba.house', 'prop1234'],
   ['Tesorero central', 'gustavo.cruz.4@prueba.house', 'prop1234'],

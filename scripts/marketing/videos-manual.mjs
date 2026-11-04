@@ -15,11 +15,11 @@ import { pathToFileURL } from 'node:url';
 
 /** Cuentas de prueba LOCALES (las del botón de desarrollo del login; nunca de producción). */
 export const CUENTAS_MANUAL = {
-  admin: ['ana.lopez@gestionurbana.com', 'admin1234'],
-  propietario: ['javier.castro@prop.com', 'prop1234'],
-  inquilino: ['valentina.ruiz@inq.com', 'inq1234'],
-  mantenimiento: ['maria.fernandez@gestionurbana.com', 'mtto1234'],
-  seguridad: ['pedro.sanchez@gestionurbana.com', 'seg1234'],
+  admin: ['ana.lopez@administradorademo.example', 'admin1234'],
+  propietario: ['javier.castro@prop.example', 'prop1234'],
+  inquilino: ['valentina.ruiz@inq.example', 'inq1234'],
+  mantenimiento: ['maria.fernandez@administradorademo.example', 'mtto1234'],
+  seguridad: ['pedro.sanchez@administradorademo.example', 'seg1234'],
   limpieza: ['limpieza@prueba.house', 'pers1234'],
   tesorero: ['patricia.alarcon.9@prueba.house', 'prop1234'], // tesorera del Block 1
   central: ['gustavo.cruz.4@prueba.house', 'prop1234'], // tesorero de la Junta central
@@ -666,7 +666,7 @@ async function preparar() {
   const csrf = (await (await api.get('/api/auth/me')).json()).csrf;
   const h = { 'x-csrf-token': csrf, origin: APP };
   const idDe = async (correo) => ((await (await api.get(`/api/usuarios?pageSize=10&q=${encodeURIComponent(correo)}`)).json()).items ?? []).find((u) => u.email === correo)?.id;
-  const maria = await idDe('maria.fernandez@gestionurbana.com'), lucia = await idDe('limpieza@prueba.house');
+  const maria = await idDe('maria.fernandez@administradorademo.example'), lucia = await idDe('limpieza@prueba.house');
   const TAREAS = [
     [maria, 'Revisar la bomba de agua del cuarto de máquinas', 'Escuchar el ruido y revisar la presión.', 'pendiente'],
     [maria, 'Cambiar las luminarias del pasillo del piso 3', 'Reponer las que están apagadas.', 'en_progreso'],

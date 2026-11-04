@@ -10,18 +10,18 @@ const { chromium } = require('/opt/homebrew/lib/node_modules/playwright');
 const APP = process.env.APP_URL ?? 'http://localhost:5173', S = process.argv[2], REINICIAR = process.env.REINICIAR_BACKEND;
 const [CX, EMP] = process.argv.slice(3);
 const ROLES = [
-  ['Superadministrador', 'miguel.gargurevich@admin.com', 'admin1234', ['/superadmin/dashboard','/superadmin/empresas',`/superadmin/empresas/${EMP}`,'/superadmin/usuarios','/superadmin/auditoria','/superadmin/llavero','/superadmin/integraciones','/superadmin/suscripciones','/perfil'], false],
-  ['Administradora', 'ana.lopez@gestionurbana.com', 'admin1234', ['/admin/dashboard','/admin/complejos',`/admin/condominios/${CX}`,'/admin/recibos','/admin/recibos/26','/admin/pagos','/admin/medios-pago','/admin/morosidad','/admin/cierres','/admin/unidades','/admin/residentes','/admin/personal','/admin/mantenimientos','/admin/conceptos','/admin/comunicados','/admin/avisos','/admin/juntas','/admin/whatsapp','/admin/proveedores','/admin/configuracion','/admin/mi-plan','/perfil'], false],
-  ['Propietario', 'javier.castro@prop.com', 'prop1234', ['/propietario/inicio','/propietario/unidades','/propietario/cargos','/propietario/pagos','/propietario/junta','/propietario/proveedores','/propietario/comunicados','/perfil'], true],
-  ['Inquilino', 'valentina.ruiz@inq.com', 'inq1234', ['/inquilino/inicio','/inquilino/cargos','/inquilino/pagos','/inquilino/junta','/inquilino/proveedores','/inquilino/comunicados','/perfil'], true],
+  ['Superadministrador', 'miguel.gargurevich@admin.example', 'admin1234', ['/superadmin/dashboard','/superadmin/empresas',`/superadmin/empresas/${EMP}`,'/superadmin/usuarios','/superadmin/auditoria','/superadmin/llavero','/superadmin/integraciones','/superadmin/suscripciones','/perfil'], false],
+  ['Administradora', 'ana.lopez@administradorademo.example', 'admin1234', ['/admin/dashboard','/admin/complejos',`/admin/condominios/${CX}`,'/admin/recibos','/admin/recibos/26','/admin/pagos','/admin/medios-pago','/admin/morosidad','/admin/cierres','/admin/unidades','/admin/residentes','/admin/personal','/admin/mantenimientos','/admin/conceptos','/admin/comunicados','/admin/avisos','/admin/juntas','/admin/whatsapp','/admin/proveedores','/admin/configuracion','/admin/mi-plan','/perfil'], false],
+  ['Propietario', 'javier.castro@prop.example', 'prop1234', ['/propietario/inicio','/propietario/unidades','/propietario/cargos','/propietario/pagos','/propietario/junta','/propietario/proveedores','/propietario/comunicados','/perfil'], true],
+  ['Inquilino', 'valentina.ruiz@inq.example', 'inq1234', ['/inquilino/inicio','/inquilino/cargos','/inquilino/pagos','/inquilino/junta','/inquilino/proveedores','/inquilino/comunicados','/perfil'], true],
   ['Tesorera del block', 'patricia.alarcon.9@prueba.house', 'prop1234', ['/propietario/inicio','/junta/mi-junta','/junta/medios-pago','/junta/pagos','/junta/cierre','/junta/agua','/junta/comunicados','/junta/avisos','/junta/proveedores'], true],
   ['Presidente del block', 'miguel@prueba.house', 'prop1234', ['/junta/mi-junta','/junta/pagos','/junta/cierre','/junta/comunicados'], false],
   ['Tesorero central', 'gustavo.cruz.4@prueba.house', 'prop1234', ['/junta/mi-junta','/junta/pagos','/junta/aportes','/junta/cierre-central','/junta/comunicados','/junta/medios-pago'], true],
   ['Presidenta central', 'teresa.neyra.3@prueba.house', 'prop1234', ['/junta/mi-junta','/junta/aportes','/junta/cierre-central'], false],
-  ['Mantenimiento', 'maria.fernandez@gestionurbana.com', 'mtto1234', ['/mantenimiento/inicio','/mantenimiento/tareas','/perfil'], true],
+  ['Mantenimiento', 'maria.fernandez@administradorademo.example', 'mtto1234', ['/mantenimiento/inicio','/mantenimiento/tareas','/perfil'], true],
   ['Limpieza', 'limpieza@prueba.house', 'pers1234', ['/limpieza/inicio','/limpieza/tareas'], true],
   ['Jardinería', 'jardineria@prueba.house', 'pers1234', ['/jardineria/inicio','/jardineria/tareas'], true],
-  ['Seguridad', 'pedro.sanchez@gestionurbana.com', 'seg1234', ['/seguridad/inicio','/seguridad/unidades','/perfil'], true],
+  ['Seguridad', 'pedro.sanchez@administradorademo.example', 'seg1234', ['/seguridad/inicio','/seguridad/unidades','/perfil'], true],
   ['Público', null, null, ['/','/login','/precios','/registro','/privacidad','/terminos'], true],
 ];
 const b = await chromium.launch(); const filas = [];

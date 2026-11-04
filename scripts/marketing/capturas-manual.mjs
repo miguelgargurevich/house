@@ -12,14 +12,14 @@ const APP = process.env.APP_URL ?? 'http://localhost:5173';
 const SALIDA = join(process.cwd(), '.claude/manual/capturas');
 
 const CUENTAS = {
-  admin: ['ana.lopez@gestionurbana.com', 'admin1234'],
+  admin: ['ana.lopez@administradorademo.example', 'admin1234'],
   tesorero: ['patricia.alarcon.9@prueba.house', 'prop1234'],
-  propietario: ['javier.castro@prop.com', 'prop1234'],
+  propietario: ['javier.castro@prop.example', 'prop1234'],
   // «Ver mi voucher» sólo aparece si el pago trae su comprobante: en el seed, los vecinos con un pago por validar (pestaña «En revisión»).
   pagador: ['ana.huaman.38@prueba.house', 'prop1234'],
-  inquilino: ['valentina.ruiz@inq.com', 'inq1234'],
-  mantenimiento: ['maria.fernandez@gestionurbana.com', 'mtto1234'],
-  seguridad: ['pedro.sanchez@gestionurbana.com', 'seg1234'],
+  inquilino: ['valentina.ruiz@inq.example', 'inq1234'],
+  mantenimiento: ['maria.fernandez@administradorademo.example', 'mtto1234'],
+  seguridad: ['pedro.sanchez@administradorademo.example', 'seg1234'],
 };
 
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));

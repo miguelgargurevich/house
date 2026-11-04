@@ -52,7 +52,7 @@ if (desconocidos.length) {
 const CORRIDA = Date.now().toString(36);
 const CLAVE = 'Torre2026clave';
 const CELULAR = '987654321';
-const SUPER = { email: 'miguel.gargurevich@admin.com', clave: 'admin1234' };
+const SUPER = { email: 'miguel.gargurevich@admin.example', clave: 'admin1234' };
 
 const resultados = [];
 let contador = 0;

@@ -19,8 +19,8 @@ const SALIDA = join(BASE, formato);
 
 /** Cuentas de prueba LOCALES (las del botón de desarrollo del login; nunca de producción). */
 const CUENTAS = {
-  admin: ['ana.lopez@gestionurbana.com', 'admin1234'],
-  propietario: ['javier.castro@prop.com', 'prop1234'],
+  admin: ['ana.lopez@administradorademo.example', 'admin1234'],
+  propietario: ['javier.castro@prop.example', 'prop1234'],
   tesorero: ['patricia.alarcon.9@prueba.house', 'prop1234'], // tesorera del Block 1 en el seed
   // Los videos del manual (m-…) usan además las cuentas de los demás roles: están en videos-manual.mjs.
   ...CUENTAS_MANUAL,
