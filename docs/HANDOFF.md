@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Despliegue de la tanda de la noche (Claude Code, Opus 5.5) — push: sí
+
+- Con OK de Miguel («Sí, despliega»): push `6f8417a..ef9ecd5` (16 commits) y deploy en Coolify. Contenedor `ef9ecd5` sano; `/api/publico/legal` da versión 2026-11-03.
+- Verificado en producción (sólo lectura): `ComplejoHabitacional.whatsapp_avisos` = `{recibo_emitido,vence_hoy,vencido,cierre_pendiente}`; `ConfiguracionComercial.whatsapp_bot_activo` = false; tope diario 200; las 4 columnas `Estructura.whatsapp_grupo_*` existen. Log con planificador activo.
+- Incluye: Excel crea blocks/departamentos/propietarios (vista previa 409 `FALTAN_UNIDADES`), estado de cuenta, rendición del mes, comunicados a junta y grupo del block, avisos por WhatsApp por condominio + cobro sólo a quien paga + sin resultados de pago por WhatsApp + bot de WhatsApp apagado, Morosidad con abonos parciales, cláusula de WhatsApp en Términos, manual (personal y vecinos).
+- Limpieza: worktrees y ramas de las 5 tareas borrados; bases `house_test_*` de la tanda borradas. La copia de trabajo de `excel-crea-blocks` se limpió con el script; las otras 4 a mano (el script se negó porque los cherry-picks no son idénticos: el HANDOFF/esquema se juntaron y hubo retoques de Opus) tras comprobar que el código de cada rama está en main.
+- Pendiente: probar comunicados a grupos con un grupo de WhatsApp real de prueba; ver en el navegador a 390 px las pantallas nuevas; manuales PDF y videos por rol. `36fd60c` (separación del aviso y el botón en WhatsApp) en main sin subir.
+
+---
+
 ## 2026-11-03 — Cobro a quien paga, resultados de pago sólo por correo y asistente de WhatsApp apagado (Claude Code, Haiku 5.5, delegado por Opus) — push: no
 
 - **Pedido de Miguel**: quitar el recordatorio de 2 días antes de la lista por defecto (gasta mensajes); avisos de cobro sólo a quien paga, por WhatsApp y correo; los resultados de pago sin WhatsApp; sin asistente por WhatsApp (sólo «SALIR»). Rama `feat/whatsapp-por-tipo` (worktree), commits sin push.
