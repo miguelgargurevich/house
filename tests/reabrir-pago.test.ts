@@ -194,6 +194,7 @@ describe('qué se puede reabrir', () => {
       await prisma.pago.updateMany({ where: { grupo: GRUPO }, data: { estado_validacion: estado } });
       const r = await reabrir(T.adminA, P1.id);
       assert.equal(r.status, 409, estado);
+      assert.match(r.body.error, { validado: /ya está validado/, por_validar: /ya está por validar/, anulado: /anulado no se vuelve a revisar/ }[estado]!, estado);
       assert.deepEqual(await estadosDe(), [estado, estado]);
     }
   });

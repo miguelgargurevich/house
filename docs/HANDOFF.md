@@ -4,6 +4,24 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Volver a revisar un pago rechazado (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/revertir-rechazo`) — push: no
+
+- **Pedido de Miguel**: «acciones que la pantalla no deja deshacer» → «3. Revertir un rechazo: el pago vuelve a "Por validar"» → «Sí, esos tres».
+- **Qué hay**:
+  - `POST /api/pagos/:id/reabrir {motivo 5–200}` (sólo admin/superadmin; junta/vecino 403; otra empresa 404) y `GET /api/pagos/:id/reapertura` (`{puede, motivo}`: apaga y explica el botón). Lógica `reabrirPago`/`puedeReabrirse` en `services/anulacionPago.ts` (comparte `exigirMesAbierto` con anular, ahora con el verbo como parámetro).
+  - Todo el grupo `rechazado` → `por_validar`; se limpian `motivo_rechazo`, `validado_at/por`, `validado_por_ia` y la conformidad del tesorero; cargos a `en_revision` (`sincronizarCargo`) en una transacción con `FOR UPDATE` sobre los cargos.
+  - Auditoría `reabrir` con `{motivo, monto, pagos, grupo, rechazo_anterior{motivo, por_id, por_nombre, por_ia, at, conformidad_por_id, conformidad_at}}`.
+  - Pantalla: «Volver a revisar» en el detalle de un pago rechazado (`ValidarPagoModal`, `ReabrirPagoModal`, `reabrir.ts`, `useReapertura.ts`); al confirmar pasa a la pestaña «Por validar». Manual versión 14 (63 secciones) y `docs/API-CONTRATO.md`.
+- **Decisiones**:
+  - **La conformidad del tesorero se limpia** al reabrir (tras un rechazo el abono se vuelve a mirar; el tesorero la da otra vez, o aplica la excepción de siempre). Queda en la auditoría. Si prefieres conservarla, es quitar dos campos del `updateMany`.
+  - 409 si: otro pago vigente (`por_validar`/`validado`) en algún cargo; cargo `pagado` sin pago vigente (dato antiguo); cargo sin recibo; mes con el cierre registrado por completo (misma regla que anular). Un pago sin cargo sale 404 por el alcance de la ruta (el servicio también lo rechaza con 409).
+  - Sin aviso nuevo al vecino. Los `pago_rechazado` pendientes (o en `error`) pasan a `omitida` («Pago reabierto»).
+- **Gotcha**: `Notificacion` es única por (usuario, canal, tipo, referencia). Sin cambiar la referencia de los `pago_rechazado` viejos, un segundo rechazo tras reabrir no avisaría (`encolarAviso` usa `skipDuplicates`). Al reabrir, TODOS los de esos pagos (enviados o no) pasan a `ref_entidad = 'reabierto:<ms>'`; conservan su texto. Un reintento manual de una `omitida` desde Envíos la volvería a mandar (acción explícita del admin).
+- **Residual razonado, SIN prueba de carrera**: si el vecino sube un voucher nuevo justo mientras se reabre, su chequeo de saldo ya pasó (el rechazado no contaba) y el INSERT espera el `FOR UPDATE`; podrían quedar dos pagos `por_validar` del mismo cargo. La administración vería ambos y validaría uno.
+- **Pruebas**: `tests/reabrir-pago.test.ts` (24, base `house_test_revertir`) y `tests/reabrir-pago-ui.test.ts` (módulo puro + estructura + manual). Suite completa: 4275/4276; falla sólo `recibos-excel` «conceptos en 0» (conocida). La prueba de rangos del manual (`corregir-recibos-ui`) venía fallando en este `main` (la rama de «Anular pago» sumó una sección sin ajustar los rangos): quedó corregida con la v14. Mutaciones, todas en rojo: la junta puede reabrir, se reabre con otro pago vigente, el cargo no pasa a revisión, la auditoría sin rechazo anterior, el aviso pendiente sigue saliendo; más: no liberar la referencia del aviso, no limpiar la conformidad, «vigente» = sólo validado, ignorar el cierre del mes, reabrir un no rechazado.
+- **NO verificado**: las pantallas (botón apagado y explicado, modal a 375 px, claro/oscuro) no se vieron en un navegador: sólo pruebas de módulo y de fuente, tipos y `npm run build`.
+- **Próximos**: mirar el detalle de un pago rechazado en el navegador; decidir si «Cargo quitado/corregido» también debe avisar; subir la rama (hay que subir antes la base: `feat/anular-pago` y `feat/corregir-recibos` ya están en este `main` local).
+
 ## 2026-11-04 — Anular recibo y corregir el cargo de un departamento (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/corregir-recibos`) — push: no
 
 - **Pedido de Miguel**: revisión de «acciones que la pantalla no deja deshacer» → «1. Anular recibo emitido: reabre el mes para emitirlo de nuevo. 2. Corregir o quitar el cargo de un departamento.» → «Sí, esos tres» (el tercero, revertir un rechazo, va en otra tarea; «Anular pago» lo hace `feat/anular-pago`).
