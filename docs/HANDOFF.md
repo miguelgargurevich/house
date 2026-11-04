@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Videos de onboarding: v7 «Empieza con Torre» (administración) y v8 «Bienvenido a Torre» (vecinos) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel**: «esas recomendaciones me suenan a onboarding … un video para administradores y otro para usuarios»; propuesta de Opus aceptada.
+- **Qué se hizo**: `grabar-video.mjs` con ESCENAS `v7` (10 escenas) y `v8` (7 escenas); voces de Dora generadas y bajadas (17). Escritorio 16:9 y celular 9:16 de cada uno. Guiones en `docs/marketing/guiones-videos.md` (secciones 7 y 8). Nuevos: `scripts/marketing/videos-torre.mjs` (vecino de prueba, limpieza) y `scripts/marketing/correo-invitacion.ts` (correo con la plantilla real).
+- **Duraciones**: v7 63,0 s (ambos formatos) y v8 36,6 s escritorio / 36,7 s celular. Quedan por debajo de los ≈ 90 s y ≈ 45 s pedidos: las voces son cortas. Para alargarlos hay que escribir más texto por escena.
+- **Resultado**: 10 + 10 + 7 + 7 cuadros revisados a ojo (hojas en `.claude/videos/<v>/revision/`) y OCR de 68 cuadros a resolución completa: ningún Melina, Loayza, gmail ni Gargurevich. Las voces no se oyeron (sólo se revisó que su duración marque las escenas).
+- **Restaurado**: empresa 6 con `whatsapp_instance`, `nombre_comercial` y `color_marca` en null; sus 53 `GrupoWhatsapp` de prueba borrados; Evolution falso detenido; backend principal reiniciado sin `EVOLUTION_URL` ni `RESEND_API_KEY`. El vecino de prueba de v8 se borró al terminar.
+- **Cambio en la base local (no en el código)**: se añadió la columna `ConfiguracionComercial.migracion_recibo_auto_at` (`ALTER TABLE … ADD COLUMN`, nullable). Sin ella, `main` daba «Error interno del servidor» en el contador de WhatsApp y en el mi-plan. Se dejó puesta: conviene que quien tenga la base local lo sepa.
+- **Pendiente (Opus)**: subir los 4 mp4 a MinIO/My Workspace; oír las voces; decidir si v7 se alarga. Hay un usuario de una grabación anterior en la base (`video.mw1jifq1@prueba.house`, inquilino de B01-102); no lo borré porque no lo creé en esta sesión: su limpieza es `delete from "Usuario" where email = 'video.mw1jifq1@prueba.house'`.
+- **Gotchas**: el aviso «Instalar Torre» no sale en escritorio (es `lg:hidden`). El correo de invitación de v8 muestra un enlace con un token de prueba que deja de servir al borrar el vecino.
+
 ## 2026-11-04 — Videos del manual: avisos a departamentos, morosidad, recibos y WhatsApp (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: «actualiza los videos si es necesario» tras los avisos a departamentos elegidos, el recordatorio a morosos y «WhatsApp a grupos para lo general, directo para lo personal».

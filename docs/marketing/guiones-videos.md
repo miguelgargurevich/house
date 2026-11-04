@@ -99,6 +99,43 @@ La escena 5 crea de verdad un inquilino de prueba (`video.<hora>@prueba.house`) 
 
 ---
 
+## 7. Empieza con Torre (administración, v7; grabado 4-nov-2026)
+
+Onboarding del primer día de una administradora. Escritorio 16:9 y celular 9:16, con la voz «Dora» (`ef_dora`), una por escena (`.claude/videos/v7/voz/e<N>.wav`).
+Duración real: **63,0 s** en ambos formatos (no llega a los ≈ 90 s pedidos: las voces de estas escenas son cortas; si se quiere más largo, hay que alargar el texto de cada voz).
+
+| # | En pantalla | Voz |
+|---|---|---|
+| 1 | Inicio de sesión de Torre | Este es tu primer día en Torre. Entra con tu cuenta de administradora. |
+| 2 | Resumen. En celular sale el aviso «Ten Torre en tu celular» con «Instalar Torre» (en escritorio ese aviso no aparece: sólo es para pantallas chicas) | Desde el celular, Torre se instala como una app. Toca Instalar Torre y queda en tu pantalla de inicio. |
+| 3 | Condominio › Residentes: «Descargar plantilla», «Subir contactos», «Revisar archivo» y la vista previa («Lo que se va a guardar»). «Guardar contactos» sólo se señala, no se pulsa | Descarga la plantilla, llénala con los correos y celulares de tus vecinos y súbela. Torre te muestra una vista previa: nada se guarda hasta que confirmes. |
+| 4 | WhatsApp: «WhatsApp vinculado correctamente» y «Traer mis grupos» («Listo: 53 grupos») | Conecta tu número de WhatsApp y trae tus grupos. Torre los guarda para que elijas cuáles usas. |
+| 5 | Mis grupos: «Grupos de blocks» y la búsqueda «Block 14»; se activa su grupo, «Este grupo es de… Vecinos de un block», Block 14 y «Guardar» | Asigna el grupo de cada block. Hoy van 13 de 14: aquí asignamos el del Block 14. |
+| 6 | Mi empresa › Tu marca: nombre y color en la vista previa («Así se verá»); «Volver al verde de Torre». No se guarda | Tu marca es el nombre y el color que ven tus vecinos. Escríbelos y mira la vista previa: para probar no hace falta guardar. |
+| 7 | Unidades › «Personas del departamento B01-101»: el interruptor «Tiene usuario en Torre» (sin cambiarlo) | Cada departamento tiene sus personas. Torre sabe quién tiene usuario y a quién le llega cada aviso. |
+| 8 | Recibo de octubre del Block 1 › «Avisar a los vecinos»: cuántos reciben por correo y que el aviso va al grupo de WhatsApp del block. «Enviar aviso» no se pulsa | Al emitir el recibo, avisa a los vecinos. Lo general va al grupo de WhatsApp del block, y el correo llega a cada vecino. |
+| 9 | Menú de la cuenta: «Manual y videos» (sólo se señala) | Para todo lo demás, abre Manual y videos en el menú de tu cuenta. |
+| 10 | Cierre | Torre. Tu condominio, en orden. |
+
+Preparación (LOCAL, nunca el Evolution real): `whatsapp_instance='local_6'` en la empresa 6, Evolution falso en 18089 y el backend con `EVOLUTION_URL=http://localhost:18089`; `videos-manual.mjs --preparar` (13 de 14 blocks con grupo). El contacto de la escena 3 es la plantilla que descarga la propia app (`.claude/videos/v7/contactos-plantilla.xlsx`). Requiere la columna `ConfiguracionComercial.migracion_recibo_auto_at` (ver `docs/manual/README.md`).
+
+## 8. Bienvenido a Torre (vecinos, v8; grabado 4-nov-2026)
+
+Onboarding del vecino invitado. Voz «Dora», una por escena. Duración real: **36,6 s** en escritorio y **36,7 s** en celular (el objetivo era ≈ 45 s).
+El vecino de prueba (`video.<código>@prueba.house`, inquilino de Los Libertadores, sin contraseña) se crea en la escena 1 y se borra al terminar la grabación (`limpiarInvitacion`).
+
+| # | En pantalla | Voz |
+|---|---|---|
+| 1 | El correo de invitación: la plantilla real de Torre (`plantillaCorreo`) con datos de prueba y el botón «Crear mi contraseña» | Tu administración te invita a Torre. El correo trae un botón: Crear mi contraseña. |
+| 2 | «Crea tu contraseña» con la invitación de prueba. No se envía el formulario | Abre el enlace y crea tu contraseña. El enlace sirve una sola vez. |
+| 3 | Inicio del propietario. En celular, el aviso «Ten Torre en tu celular» con «Instalar Torre» (en escritorio no sale) | Instala Torre en tu celular desde el aviso Instalar Torre, y entra como una app. |
+| 4 | Mis recibos: el detalle del mantenimiento de octubre, con el saldo | En Mis recibos ves cuánto debes, concepto por concepto. |
+| 5 | «Pagar mantenimiento»: se señala dónde se sube el voucher. No se envía | Para pagar, toca Pagar mantenimiento y sube tu voucher. Tu administración lo revisa. |
+| 6 | Comunicados del condominio y de la junta | Lo general, como un corte de agua, te llega al grupo de WhatsApp de tu block. Lo personal, como un recibo que vence, te llega directo. |
+| 7 | Cierre | Torre. Tu condominio, en orden. |
+
+Preparación: el correo se renderiza con `scripts/marketing/correo-invitacion.ts` (la plantilla real, no un correo de Resend). Las escenas 3 a 6 usan la cuenta de Javier Castro (propietario del seed); la 2 usa sólo la invitación de prueba.
+
 ## Cómo se arma (para regrabar)
 
 1. Datos: `npm run seed:libertadores` (sólo base local), backend con remitentes apagados, Vite en 5173.

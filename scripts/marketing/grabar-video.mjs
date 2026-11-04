@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CUENTAS_MANUAL, escenasManual } from './videos-manual.mjs';
+import { correoInvitacionHtml, crearInvitacion, limpiarInvitacion } from './videos-torre.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT ?? '/opt/homebrew/lib/node_modules/playwright');
@@ -278,7 +279,97 @@ let ESCENAS = {
       } },
     { rol: null, url: null, cierre: true },
   ],
+  // v7: primer día de una administradora (≈ 60 s con sus voces). Datos: el seed local + `--preparar` (13 de 14 blocks con grupo).
+  v7: [
+    { rol: null, url: '/login', accion: async (p) => { await pausa(500); await tocar(p, p.getByText('Ingresa a tu cuenta').first(), { soloSenalar: true }); await pausa(700); } },
+    // El aviso «Instalar Torre» sólo sale en pantallas chicas (celular); en escritorio la escena muestra el resumen sin él.
+    { rol: 'admin', url: '/admin/dashboard', accion: async (p) => { await avisoAndroid(p); await pausa(800); await tocar(p, p.getByRole('button', { name: /instalar torre/i }), { soloSenalar: true }); await pausa(900); } },
+    { rol: 'admin', url: '/admin/condominios/4', accion: async (p) => {
+      await tocar(p, p.getByRole('tab', { name: /residentes/i })); await asentar(p);
+      await tocar(p, p.getByRole('link', { name: /descargar plantilla/i }).first(), { soloSenalar: true }); await pausa(400);
+      await tocar(p, p.getByRole('button', { name: /subir contactos/i })); await asentar(p);
+      const d = p.getByRole('dialog');
+      await d.locator('input[type=file]').setInputFiles(join(process.cwd(), '.claude/videos/v7/contactos-plantilla.xlsx'));
+      await tocar(p, d.getByRole('button', { name: /revisar archivo/i })); await p.getByLabel('Lo que se va a guardar').waitFor({ timeout: 15000 }).catch(() => {}); await asentar(p);
+      // Vista previa: NO se guarda. Sólo se señala el botón.
+      await tocar(p, d.getByRole('button', { name: /guardar contactos/i }), { soloSenalar: true }); await pausa(600);
+    } },
+    { rol: 'admin', url: '/admin/whatsapp', accion: async (p) => {
+      await pausa(500); await tocar(p, p.getByText('WhatsApp vinculado correctamente').first(), { soloSenalar: true }); await pausa(500);
+      await p.getByText('Mis grupos').first().scrollIntoViewIfNeeded().catch(() => {}); await asentar(p);
+      await tocar(p, p.getByRole('button', { name: /traer mis grupos/i })); await p.getByText(/^Listo:/).first().waitFor({ timeout: 8000 }).catch(() => {}); await asentar(p);
+    } },
+    { rol: 'admin', url: '/admin/whatsapp', accion: async (p) => {
+      await p.getByText('Mis grupos').first().scrollIntoViewIfNeeded().catch(() => {}); await asentar(p);
+      await tocar(p, p.getByText(/grupos de blocks/i).first(), { soloSenalar: true }); await pausa(500);
+      await tocar(p, p.getByPlaceholder('Buscar un grupo')); await p.keyboard.type('Block 14', { delay: 40 }); await asentar(p);
+      await tocar(p, p.getByLabel('Usar «Vecinos Block 14 · Libertadores» en Torre'));
+      await tocar(p, p.getByLabel('Este grupo es de…')); await p.getByLabel('Este grupo es de…').selectOption({ label: 'Vecinos de un block' }).catch(() => {});
+      const bloque = p.getByLabel('Block', { exact: true });
+      const valor = await bloque.locator('option').filter({ hasText: /14/ }).first().getAttribute('value').catch(() => null);
+      if (valor) await bloque.selectOption(valor);
+      await pausa(500);
+      await tocar(p, p.getByRole('button', { name: /^guardar$/i }).first()); await asentar(p); await pausa(600);
+      await tocar(p, p.getByText(/grupos de blocks/i).first(), { soloSenalar: true });
+    } },
+    { rol: 'admin', url: '/admin/configuracion', accion: async (p) => {
+      await pausa(400); await p.getByRole('heading', { name: 'Tu marca' }).scrollIntoViewIfNeeded().catch(() => {}); await asentar(p);
+      // Sólo se escribe en la pantalla: nada se guarda (la empresa de prueba queda como estaba).
+      await tocar(p, p.getByLabel('Nombre comercial')); await p.keyboard.type('Demo Condominios', { delay: 35 });
+      await tocar(p, p.getByLabel('Código del color')); await p.keyboard.type('#1d4ed8', { delay: 60 }); await p.keyboard.press('Tab'); await pausa(500);
+      await tocar(p, p.getByText('Así se verá').first(), { soloSenalar: true }); await pausa(700);
+      await tocar(p, p.getByRole('button', { name: /volver al verde de torre/i })); await pausa(700);
+    } },
+    { rol: 'admin', url: '/admin/unidades', accion: async (p) => {
+      await tocar(p, p.getByRole('button', { name: /personas del departamento b01-101/i })); await asentar(p); await pausa(1200);
+      await tocar(p, p.getByText('Tiene usuario en Torre').first(), { soloSenalar: true }); await pausa(1200);
+      await p.keyboard.press('Escape'); await pausa(300);
+    } },
+    { rol: 'admin', url: '/admin/recibos/26', accion: async (p) => {
+      await pausa(500); await tocar(p, p.getByRole('button', { name: /avisar a los vecinos/i })); await asentar(p); await pausa(900);
+      // No se pulsa «Avisar»: sólo se muestra a dónde va.
+      await tocar(p, p.getByText(/grupo de WhatsApp/i).first(), { soloSenalar: true }); await pausa(1000);
+    } },
+    { rol: 'admin', url: '/admin/dashboard', accion: async (p) => {
+      await pausa(500); await tocar(p, p.getByRole('button', { name: /^tu cuenta:/i })); await asentar(p); await pausa(400);
+      await tocar(p, p.getByRole('menuitem', { name: /manual y videos/i }), { soloSenalar: true }); await pausa(900);
+    } },
+    { rol: null, url: null, cierre: true },
+  ],
+  // v8: bienvenida del vecino (≈ 40 s). El vecino de prueba (sin contraseña) se crea antes de la escena 1 y se borra al terminar.
+  v8: [
+    { rol: null, url: null, antes: async () => { crearInvitacion(); }, correo: () => correoInvitacionHtml(globalThis.__invitacionVideo.token),
+      accion: async (p) => { await pausa(600); await tocar(p, p.getByText('Crear mi contraseña').first(), { soloSenalar: true }); await pausa(800); } },
+    { rol: null, url: () => `/invitacion?token=${encodeURIComponent(globalThis.__invitacionVideo.token)}`, accion: async (p) => {
+      await p.getByLabel('Contraseña', { exact: true }).waitFor({ timeout: 8000 }).catch(() => {});
+      await tocar(p, p.getByLabel('Contraseña', { exact: true })); await p.keyboard.type('Torre2026clave', { delay: 40 });
+      await tocar(p, p.getByLabel('Repite la contraseña')); await p.keyboard.type('Torre2026clave', { delay: 40 });
+      // No se envía el formulario: la cuenta de prueba queda sin contraseña para la limpieza.
+      await pausa(600); await tocar(p, p.getByLabel('Reglas de la contraseña'), { soloSenalar: true }); await pausa(800);
+    } },
+    { rol: 'propietario', url: '/propietario/inicio', accion: async (p) => { await avisoAndroid(p); await pausa(800); await tocar(p, p.getByRole('button', { name: /instalar torre/i }), { soloSenalar: true }); await pausa(900); } },
+    { rol: 'propietario', url: '/propietario/cargos', accion: async (p) => {
+      await pausa(400); await tocar(p, p.getByRole('button', { name: /ver detalle|ver recibo|detalle/i })); await asentar(p); await desplazar(p, 220);
+    } },
+    { rol: 'propietario', url: '/propietario/cargos', accion: async (p) => {
+      await tocar(p, p.getByRole('button', { name: /pagar mantenimiento/i })); await asentar(p); await pausa(900);
+      // Sólo se señala dónde se sube el voucher. No se envía nada.
+      const d = p.getByRole('dialog');
+      await tocar(p, d.locator('input[type=file]').first(), { soloSenalar: true }); await pausa(800);
+      await p.keyboard.press('Escape'); await pausa(300);
+    } },
+    { rol: 'propietario', url: '/propietario/comunicados', accion: async (p) => { await pausa(600); await desplazar(p, 200, 1200); } },
+    { rol: null, url: null, cierre: true },
+  ],
 };
+
+/** Avisos de instalación: dispara el evento «beforeinstallprompt» (en Playwright no llega solo). El diálogo nativo no se graba. */
+const avisoAndroid = (p) => p.evaluate(() => {
+  const e = new Event('beforeinstallprompt');
+  e.prompt = async () => {};
+  e.userChoice = Promise.resolve({ outcome: 'dismissed' });
+  dispatchEvent(e);
+});
 
 const CIERRE = `<!doctype html><meta charset="utf-8"><style>
   html,body{margin:0;height:100%;background:#0f766e;color:#f0fdfa;font-family:Figtree,system-ui,sans-serif;display:grid;place-items:center}
@@ -331,12 +422,14 @@ async function grabar() {
       await ctx.addInitScript(LIMPIEZA);
       // `antes`: prepara datos con otra pestaña (fuera de cámara: el clip del video es el de la pestaña principal).
       if (e.antes) { const aux = await ctx.newPage(); await e.antes(aux).catch((err) => console.warn(`  escena ${n} (antes): ${err.message.split('\n')[0]}`)); await aux.close(); }
+      // (v8) `antes` puede ser una función sin página: se pasa igual.
       const page = await ctx.newPage();
       page.setDefaultTimeout(8000); // un elemento que no está no debe colgar la escena 30 s
       const abierta = Date.now();
       raton = { x: f.viewport.width * 0.55, y: f.viewport.height * 0.45 };
       if (e.cierre) await page.setContent(CIERRE);
-      else { await page.goto(`${APP}${e.url}`); await asentar(page); }
+      else if (e.correo) await page.setContent(e.correo());
+      else { await page.goto(`${APP}${typeof e.url === 'function' ? e.url() : e.url}`); await asentar(page); }
       await page.mouse.move(raton.x, raton.y);
       // Lo que tardó en cargar se recorta en el montaje: el clip empieza con la pantalla ya lista.
       const inicio = Date.now();
@@ -357,6 +450,8 @@ async function grabar() {
     }
   } finally {
     await browser.close();
+    // v8: se borra el vecino de prueba (sólo ese correo exacto).
+    if (video === 'v8') console.log('limpieza v8: usuarios de prueba borrados =', limpiarInvitacion());
     writeFileSync(join(SALIDA, 'recortes.json'), JSON.stringify(recortes, null, 1));
   }
   console.log('clips:', readdirSync(SALIDA).filter((x) => x.endsWith('.webm')).length, existsSync(SALIDA) ? SALIDA : '');
