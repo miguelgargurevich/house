@@ -16,6 +16,7 @@ import { ModalDeComplejo, type FilaComplejo } from './_parts/condominio/ModalDeC
 import { ListaDeUnidades } from './_parts/unidades/ListaDeUnidades';
 import type { FilaUnidad } from './_parts/unidades/tipos';
 import PersonasLista from './_parts/personas/PersonasLista';
+import { PanelContactos } from './_parts/contactos/PanelContactos';
 import { ContratosModal } from './_parts/personas/ContratosModal';
 import { ListaDeRecibos } from './Recibos';
 
@@ -46,6 +47,9 @@ export default function CondominioDetalle() {
   const [borrar, setBorrar] = useState<FilaComplejo | null>(null);
   const [busy, setBusy] = useState(false);
   const [editandoUnidad, setEditandoUnidad] = useState<FilaUnidad | 'nuevo' | null>(null);
+  // Tras cargar contactos por Excel la lista de residentes se vuelve a leer (cambiar la `key` la remonta).
+  const [versionResidentes, setVersionResidentes] = useState(0);
+  const puedeCargarContactos = user?.rol === 'admin' || esSuper;
 
   const complejo = useResource<FilaComplejo>(Number.isInteger(complejoId) && complejoId > 0 ? `/api/complejos/${complejoId}` : null);
 
@@ -142,7 +146,10 @@ export default function CondominioDetalle() {
       </TabPanel>
 
       <TabPanel idBase="ficha-complejo" id="residentes" value={vista}>
-        <PersonasLista tipo="residente" complejoId={complejoId} sinEncabezado />
+        {puedeCargarContactos && <PanelContactos complejoId={complejoId} complejoNombre={c?.nombre} onCambio={() => setVersionResidentes(v => v + 1)} />}
+        <div key={versionResidentes}>
+          <PersonasLista tipo="residente" complejoId={complejoId} sinEncabezado />
+        </div>
       </TabPanel>
 
       <TabPanel idBase="ficha-complejo" id="recibos" value={vista}>

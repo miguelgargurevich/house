@@ -1,6 +1,6 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 3-nov-2026 (8)",
+  "kicker": "Manual de usuario · versión del 3-nov-2026 (9)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
@@ -27,27 +27,27 @@
           [
             "Administradora",
             "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-            "Secciones 07 a 30"
+            "Secciones 07 a 31"
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
             "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
-            "Secciones 31 a 38"
+            "Secciones 32 a 39"
           ],
           [
             "Propietario",
             "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-            "Secciones 39 a 47"
+            "Secciones 40 a 48"
           ],
           [
             "Inquilino",
             "Lo mismo que el propietario, para el departamento que alquilas",
-            "Sección 48"
+            "Sección 49"
           ],
           [
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
-            "Secciones 49 y 50"
+            "Secciones 50 y 51"
           ],
           [
             "Todavía no tienes cuenta",
@@ -531,6 +531,25 @@
         "texto": "El presidente, el tesorero y el secretario de cada block se nombran en **Juntas directivas**, eligiéndolos entre los propietarios ya registrados."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-residente-editar.jpg"
+    },
+    {
+      "titulo": "Cargar los contactos de los vecinos con Excel",
+      "etiqueta": "Administradora · Residentes",
+      "parrafos": [
+        "Para darle correo y celular a todo el condominio de una vez, sin editar vecino por vecino, usa el Excel de contactos. Torre te da la plantilla ya llena con cada departamento y lo que ya tiene de cada vecino.",
+        "Entra a **Condominios**, abre el condominio y ve a la pestaña **Residentes**:"
+      ],
+      "numerada": [
+        "Pulsa **Descargar plantilla de contactos**. Trae una fila por departamento, ordenada por block, con el propietario y, si lo hay, el inquilino.",
+        "Llena el **correo** y el **celular** de cada propietario. Si el departamento tiene inquilino, escribe también su nombre, correo y celular. No cambies las columnas Block y Dpto. Una persona con varios departamentos usa el mismo correo en cada uno.",
+        "Pulsa **Subir contactos**, elige el archivo y pulsa **Revisar archivo**. Torre te muestra un resumen (cuántos correos y celulares se agregan o cambian, cuántos inquilinos se crean) y las filas con problemas, y todavía no guarda nada.",
+        "Corrige en el Excel lo que marcó como error y vuelve a revisarlo, o pulsa **Guardar contactos**: las filas con error no se guardan y las demás sí.",
+        "Si quieres que los vecinos creen su contraseña, marca **Enviar invitación a los que tienen correo** al subir el archivo, o pulsa **Invitar a los pendientes** (de todo el condominio o de un block). Las invitaciones no salen todas de golpe: quedan en cola y se mandan en tandas diarias. La pantalla dice cuántas se enviaron y cuántas siguen en cola."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Torre nunca cambia nombres ni propietarios con este Excel. Si el nombre del archivo no se parece al registrado, esa fila se avisa y no se carga. Un correo o celular que ya estaba cargado no se reemplaza, salvo que marques **Actualizar los datos ya cargados**. Un correo que ya pertenece a una cuenta de otra empresa o de personal no se usa: esa fila queda como error."
+      }
     },
     {
       "titulo": "Juntas directivas",

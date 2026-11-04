@@ -14,6 +14,7 @@ interface Config {
   google_site_verification: string | null; bing_site_verification: string | null;
   tipo_cambio_usd: string | null; tipo_cambio_manual: boolean; tipo_cambio_at: string | null; tipo_cambio_fuente: string | null;
   whatsapp_tope_diario: number | null; whatsapp_pausa_min_seg: number; whatsapp_pausa_max_seg: number; whatsapp_bot_activo: boolean;
+  invitaciones_por_dia: number;
 }
 interface Catalogo { planes: Plan[]; modulos: Modulo[]; configuracion: Config; impuestos: ImpuestoPais[]; precios_moneda: PrecioMoneda[]; precios_usd: PrecioUsd[] }
 
@@ -96,15 +97,15 @@ function FilaPlan({ p, tasa, onGuardado }: { p: Plan; tasa: string; onGuardado: 
 
 function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void }) {
   const toast = useToast();
-  const [f, setF] = useState({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento), dias_prueba_pro: String(c.dias_prueba_pro), dias_gratis: String(c.dias_gratis ?? 0), whatsapp_tope_diario: c.whatsapp_tope_diario == null ? '' : String(c.whatsapp_tope_diario), whatsapp_pausa_min_seg: String(c.whatsapp_pausa_min_seg), whatsapp_pausa_max_seg: String(c.whatsapp_pausa_max_seg) });
+  const [f, setF] = useState({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento), dias_prueba_pro: String(c.dias_prueba_pro), dias_gratis: String(c.dias_gratis ?? 0), whatsapp_tope_diario: c.whatsapp_tope_diario == null ? '' : String(c.whatsapp_tope_diario), whatsapp_pausa_min_seg: String(c.whatsapp_pausa_min_seg), whatsapp_pausa_max_seg: String(c.whatsapp_pausa_max_seg), invitaciones_por_dia: String(c.invitaciones_por_dia) });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setF({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento), dias_prueba_pro: String(c.dias_prueba_pro), dias_gratis: String(c.dias_gratis ?? 0), whatsapp_tope_diario: c.whatsapp_tope_diario == null ? '' : String(c.whatsapp_tope_diario), whatsapp_pausa_min_seg: String(c.whatsapp_pausa_min_seg), whatsapp_pausa_max_seg: String(c.whatsapp_pausa_max_seg) }); }, [c]);
+  useEffect(() => { setF({ ...c, dias_gracia: String(c.dias_gracia), dias_aviso_vencimiento: String(c.dias_aviso_vencimiento), dias_prueba_pro: String(c.dias_prueba_pro), dias_gratis: String(c.dias_gratis ?? 0), whatsapp_tope_diario: c.whatsapp_tope_diario == null ? '' : String(c.whatsapp_tope_diario), whatsapp_pausa_min_seg: String(c.whatsapp_pausa_min_seg), whatsapp_pausa_max_seg: String(c.whatsapp_pausa_max_seg), invitaciones_por_dia: String(c.invitaciones_por_dia) }); }, [c]);
   const t = (k: keyof Config) => ({ value: (f[k] as string | null) ?? '', onChange: (e: { target: { value: string } }) => setF(x => ({ ...x, [k]: e.target.value })) });
   async function guardar() {
     setBusy(true); setError(null);
     try {
-      await api('/api/comercial/configuracion', { method: 'PUT', json: { ...f, dias_gracia: Number(f.dias_gracia), dias_aviso_vencimiento: Number(f.dias_aviso_vencimiento), dias_prueba_pro: Number(f.dias_prueba_pro), dias_gratis: Number(f.dias_gratis), whatsapp_tope_diario: f.whatsapp_tope_diario.trim() === '' ? null : Number(f.whatsapp_tope_diario), whatsapp_pausa_min_seg: Number(f.whatsapp_pausa_min_seg), whatsapp_pausa_max_seg: Number(f.whatsapp_pausa_max_seg) } });
+      await api('/api/comercial/configuracion', { method: 'PUT', json: { ...f, dias_gracia: Number(f.dias_gracia), dias_aviso_vencimiento: Number(f.dias_aviso_vencimiento), dias_prueba_pro: Number(f.dias_prueba_pro), dias_gratis: Number(f.dias_gratis), whatsapp_tope_diario: f.whatsapp_tope_diario.trim() === '' ? null : Number(f.whatsapp_tope_diario), whatsapp_pausa_min_seg: Number(f.whatsapp_pausa_min_seg), whatsapp_pausa_max_seg: Number(f.whatsapp_pausa_max_seg), invitaciones_por_dia: Number(f.invitaciones_por_dia) } });
       toast.ok('Configuración guardada');
       onGuardado();
     } catch (e) { setError(errorText(e)); } finally { setBusy(false); }
@@ -118,6 +119,10 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
         <Input label="Avisar de vencimiento (días antes)" type="number" min={1} max={60} {...t('dias_aviso_vencimiento')} />
         <Input label="Días de prueba de Torre Pro al registrarse" type="number" min={0} max={90} hint="0 = sin prueba: el condominio nace en Torre Gratis." {...t('dias_prueba_pro')} />
         <Input label="Días de Torre Gratis" type="number" min={0} max={365} hint="90 = 3 meses (la prueba de Torre Pro va dentro). Pasado el plazo, el condominio queda en solo lectura. 0 = sin plazo." {...t('dias_gratis')} />
+      </div>
+      <h3 className="pt-2 text-sm font-semibold">Invitaciones por correo</h3>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Input label="Invitaciones por día" type="number" min={1} max={5000} hint="Cuántas invitaciones por correo salen como máximo cada día (día de Lima) cuando una administradora carga los contactos de sus vecinos: no se mandan todas de golpe. Deja margen bajo el límite diario de tu plan de Resend, que también usan los avisos." {...t('invitaciones_por_dia')} />
       </div>
       <h3 className="pt-2 text-sm font-semibold">Avisos por WhatsApp (anti-baneo)</h3>
       <div className="grid gap-4 sm:grid-cols-3">
