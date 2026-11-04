@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Recibo directo automático por block (Claude Code, Opus 5.5) — push: no
+
+- Miguel: «¿el paso 3 hay que hacerlo manual?» → «así debe ser»: el directo del recibo lo decide Torre por block. `listaWhatsappDe` (avisos/cola.ts): para `recibo_emitido` de un recibo, si su block NO tiene grupo usable (`reciboTieneGrupo` en canales/cobertura.ts) agrega `recibo_emitido` a la lista → sale directo; con grupo, sólo si el condominio lo marca (ahora significa «también directo aunque el block tenga grupo»). Lo usan la cola, la vista previa y el envío.
+- Migración única `migracionReciboAutomatico` (`ConfiguracionComercial.migracion_recibo_auto_at`): quita `recibo_emitido` de TODOS los condominios (VRANY lo tenía por el defecto viejo; si no, al asignar grupos le llegaría doble). Corre antes de `migracionRecordatorioGrupos`.
+- Textos: rótulo «Recibo del mes: también directo…», ayuda de Avisos del condominio, aviso de cobertura («le llegará por WhatsApp directo…») y manual. Pruebas en `recibos-grupos` (block con y sin grupo en el mismo condominio, migración) y ajustes en `whatsapp-por-tipo`. Suite 4116/4117 (fecha).
+- Ya no hay «paso 3»: Melina sólo conecta el número y asigna los grupos.
+
+---
+
 ## 2026-11-04 — Producción limpia para VRANY: sin el WhatsApp de Miguel (Claude Code, Opus 5.5) — operación en prod, sin código
 
 - Miguel: «es mi WhatsApp el que sincronicé para pruebas … hagamos las pruebas en local y dejamos prod para Melina y VRANY».

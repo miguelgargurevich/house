@@ -6,14 +6,14 @@ export const TIPOS_WHATSAPP_CONFIGURABLES = ['recibo_emitido', 'por_vencer', 've
 export type TipoWhatsapp = (typeof TIPOS_WHATSAPP_CONFIGURABLES)[number];
 
 /**
- * Lo que sale por WhatsApp directo si el condominio no cambió nada: el aviso del día y el vencido, y el cierre pendiente. El recibo NO va directo:
- * su aviso va al grupo de WhatsApp de cada block (un mensaje por grupo, no uno por departamento). «Por vencer» (2 días antes) queda apagado: gasta mensajes.
+ * Lo que sale por WhatsApp directo si el condominio no cambió nada: el aviso del día y el vencido, y el cierre pendiente. El recibo va al grupo de WhatsApp
+ * de cada block (un mensaje por grupo); directo a cada departamento sólo en los blocks SIN grupo (automático) o si el condominio marca `recibo_emitido`. «Por vencer» (2 días antes) queda apagado: gasta mensajes.
  */
 export const WHATSAPP_POR_DEFECTO: TipoWhatsapp[] = ['vence_hoy', 'vencido', 'cierre_pendiente'];
 
 /** Nombre que ve la administración en la ficha del condominio. */
 export const ROTULO_WHATSAPP: Record<TipoWhatsapp, string> = {
-  recibo_emitido: 'Recibo del mes',
+  recibo_emitido: 'Recibo del mes: también directo a cada departamento (aunque su block tenga grupo)',
   por_vencer: 'Recordatorio 2 días antes',
   vence_hoy: 'Vence hoy',
   vencido: 'Venció',

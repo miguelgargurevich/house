@@ -43,6 +43,8 @@ export async function migracionInicial(db: Cliente): Promise<{ aplicada: boolean
   if (marca.planes) console.log(`[comercial] marca propia sumada a ${marca.planes} planes`);
   const gratis = await migracionGratis(db);
   if (gratis.aplicada && gratis.fijados) console.log(`[comercial] plazo de Torre Gratis fijado a ${gratis.fijados} condominios`);
+  const auto = await migracionReciboAutomatico(db);
+  if (auto.condominios) console.log(`[whatsapp] recibo directo ahora automático por block en ${auto.condominios} condominios`);
   const grupos = await migracionRecordatorioGrupos(db);
   if (grupos.condominios) console.log(`[whatsapp] recibo quitado del WhatsApp directo en ${grupos.condominios} condominios con grupos (lo lleva el grupo de cada block)`);
   return resultado;
@@ -119,4 +121,19 @@ export async function migracionMarca(db: Cliente): Promise<{ aplicada: boolean; 
   }
   await db.configuracionComercial.updateMany({ where: { id: CONFIGURACION_ID, migracion_marca_at: null }, data: { migracion_marca_at: new Date() } });
   return { aplicada: true, planes: n };
+}
+
+/**
+ * UNA sola vez (marca `migracion_recibo_auto_at`): quita `recibo_emitido` de la lista de WhatsApp directo de TODOS los condominios. Desde el 4-nov el
+ * directo del recibo lo decide Torre por block (sólo a los blocks sin grupo, `listaWhatsappDe` en avisos/cola.ts) y tenerlo marcado significa «también
+ * directo en los blocks con grupo». Sin esto, los condominios que lo tenían por el valor por defecto de antes recibirían el recibo dos veces (grupo y directo)
+ * apenas asignaran sus grupos. Va ANTES de `migracionRecordatorioGrupos` en `migracionInicial`.
+ */
+export async function migracionReciboAutomatico(db: Cliente): Promise<{ aplicada: boolean; condominios: number }> {
+  const cfg = await db.configuracionComercial.findUnique({ where: { id: CONFIGURACION_ID }, select: { migracion_recibo_auto_at: true } });
+  if (!cfg || cfg.migracion_recibo_auto_at) return { aplicada: false, condominios: 0 };
+  const complejos: { id: number; whatsapp_avisos: string[] }[] = await db.complejoHabitacional.findMany({ where: { whatsapp_avisos: { has: 'recibo_emitido' } }, select: { id: true, whatsapp_avisos: true } });
+  for (const c of complejos) await db.complejoHabitacional.update({ where: { id: c.id }, data: { whatsapp_avisos: c.whatsapp_avisos.filter((t) => t !== 'recibo_emitido') } });
+  await db.configuracionComercial.updateMany({ where: { id: CONFIGURACION_ID, migracion_recibo_auto_at: null }, data: { migracion_recibo_auto_at: new Date() } });
+  return { aplicada: true, condominios: complejos.length };
 }

@@ -17,6 +17,7 @@ import { marcaParaCorreo } from '../marca/servicio';
 import { correoSinBuzon } from '../invitaciones';
 import { aportesPendientes, cierrePendiente } from '../cierres/pendientes';
 import { esTipoWhatsappConfigurable } from './whatsappTipos';
+import { reciboTieneGrupo } from '../canales/cobertura';
 import { filtroEstadoCargo } from '../../lib/cargos';
 import { acumularDeuda, SELECT_DEUDA } from '../recordatorios/deudaVencida';
 
@@ -230,7 +231,13 @@ async function listaWhatsappDe(tipo: string, n: { ref_entidad: string | null; re
   const complejoId = await complejoDeAviso(n);
   if (complejoId == null) return null;
   const c = await prisma.complejoHabitacional.findUnique({ where: { id: complejoId }, select: { whatsapp_avisos: true } });
-  return c ? c.whatsapp_avisos : null;
+  if (!c) return null;
+  // Recibo del mes: va al grupo del block. Por WhatsApp directo a cada departamento sólo si su block NO tiene grupo (así nadie se queda sin aviso
+  // mientras se asignan los grupos) o si el condominio lo fuerza (`recibo_emitido` en la lista = «también directo aunque el block tenga grupo»).
+  if (tipo === 'recibo_emitido' && n.ref_entidad === 'recibo' && n.ref_id != null && !c.whatsapp_avisos.includes('recibo_emitido')) {
+    if (!(await reciboTieneGrupo(n.ref_id))) return [...c.whatsapp_avisos, 'recibo_emitido'];
+  }
+  return c.whatsapp_avisos;
 }
 
 /**

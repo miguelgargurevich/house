@@ -82,16 +82,24 @@ beforeEach(async () => {
   invalidarComercial();
 });
 
+
+/** Un grupo de WhatsApp en uso para el block del recibo (o para todo el condominio si el recibo no es de un block): con él, el recibo no sale directo. */
+async function grupoParaRecibo(reciboId: number) {
+  const r = await prisma.recibo.findUniqueOrThrow({ where: { id: reciboId }, select: { complejo_id: true, estructura_id: true, complejo: { select: { empresa_id: true } } } });
+  await prisma.grupoWhatsapp.deleteMany({ where: { jid: `grupo-recibo-${reciboId}@g.us` } });
+  await prisma.grupoWhatsapp.create({ data: { empresa_id: r.complejo!.empresa_id!, jid: `grupo-recibo-${reciboId}@g.us`, nombre: 'Grupo de prueba', en_uso: true, destino: r.estructura_id != null ? 'block' : 'condominio', complejo_id: r.complejo_id, estructura_id: r.estructura_id } });
+}
+
 describe('lista por defecto', () => {
   it('un condominio nuevo nace con la lista por defecto (sin el recordatorio de 2 días antes)', async () => {
     const c = await prisma.complejoHabitacional.findUniqueOrThrow({ where: { id: D.complejoA.id }, select: { whatsapp_avisos: true } });
     assert.deepEqual([...c.whatsapp_avisos].sort(), [...DEFECTO].sort());
   });
 
-  it('recibo emitido sale sólo por correo por defecto (su WhatsApp va al grupo); por_vencer, apagado, también sólo por correo (a quien paga: el inquilino de A-101)', async () => {
+  it('recibo emitido SIN grupo para su block: sale directo por correo y WhatsApp (automático); por_vencer, apagado, sólo por correo (a quien paga: el inquilino de A-101)', async () => {
     await encolarAviso('recibo_emitido', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
     await encolarAviso('por_vencer', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
-    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'recibo_emitido'), ['email']);
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'recibo_emitido'), ['email', 'whatsapp']);
     assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'por_vencer'), ['email']);
   });
 
@@ -162,8 +170,9 @@ describe('lo que la lista no controla', () => {
 });
 
 describe('la vista previa de «Avisar a los vecinos» cuenta lo mismo que el envío', () => {
-  it('con recibo_emitido apagado, la vista previa cuenta cero WhatsApp y el envío sólo encola correo', async () => {
+  it('con recibo_emitido apagado y el block CON grupo, la vista previa cuenta cero WhatsApp y el envío sólo encola correo', async () => {
     await listaA(DEFECTO.filter((t) => t !== 'recibo_emitido'));
+    await grupoParaRecibo(D.reciboVencidoA.id);
     const antes = await planAvisoRecibo(D.reciboVencidoA.id);
     assert.equal(antes.por_whatsapp, 0);
     assert.ok(antes.por_correo > 0);
@@ -173,7 +182,8 @@ describe('la vista previa de «Avisar a los vecinos» cuenta lo mismo que el env
     assert.ok(filas.every((f) => f.canal === 'email'), 'ningún recibo emitido por WhatsApp');
   });
 
-  it('con la lista por defecto, la vista previa no cuenta WhatsApp directo del recibo (va al grupo), aunque haya celular', async () => {
+  it('con la lista por defecto y el block CON grupo, la vista previa no cuenta WhatsApp directo del recibo (va al grupo), aunque haya celular', async () => {
+    await grupoParaRecibo(D.reciboVencidoA.id);
     const plan = await planAvisoRecibo(D.reciboVencidoA.id);
     assert.equal(plan.por_whatsapp, 0);
     assert.ok(plan.por_correo > 0, 'el correo sí');
@@ -186,8 +196,9 @@ describe('la vista previa de «Avisar a los vecinos» cuenta lo mismo que el env
     assert.equal(plan.por_whatsapp, plan.por_correo, 'todos tienen correo y celular aquí');
   });
 
-  it('la ruta de la vista previa devuelve el mismo conteo', async () => {
+  it('la ruta de la vista previa devuelve el mismo conteo (block con grupo: cero WhatsApp directo)', async () => {
     await listaA(DEFECTO.filter((t) => t !== 'recibo_emitido'));
+    await grupoParaRecibo(D.reciboVencidoA.id);
     const r = await llamar(base, 'GET', `/api/recibos/${D.reciboVencidoA.id}/avisar`, T.adminA);
     assert.equal(r.status, 200, JSON.stringify(r.body));
     assert.equal(r.body.por_whatsapp, 0);

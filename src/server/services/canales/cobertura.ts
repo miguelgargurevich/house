@@ -80,9 +80,18 @@ export async function gruposDelRecibo(reciboId: number): Promise<GrupoDelRecibo 
   return { ...base, situacion: listos.length ? 'listo' : 'enviado', listos };
 }
 
+/**
+ * ¿El aviso de este recibo tiene un grupo de WhatsApp al que ir (en uso y con el número dentro)? Con grupo, el recibo NO sale por WhatsApp directo a
+ * cada departamento (salvo que el condominio lo fuerce); sin grupo, sí: así ningún block se queda sin aviso mientras se asignan los grupos.
+ */
+export async function reciboTieneGrupo(reciboId: number): Promise<boolean> {
+  const g = await gruposDelRecibo(reciboId);
+  return !!g && (g.situacion === 'listo' || g.situacion === 'enviado');
+}
+
 /** El aviso que la administración ve cuando al recibo le falta grupo (o el grupo ya no tiene al número). `null` si todo está bien o ya salió. */
 export function avisoSinGrupo(g: Pick<GrupoDelRecibo, 'ubicacion' | 'situacion'>): string | null {
-  if (g.situacion === 'sin_grupo') return `El ${g.ubicacion} no tiene grupo de WhatsApp: el aviso del recibo sólo le llegará por correo. Asígnalo en WhatsApp › Mis grupos.`;
+  if (g.situacion === 'sin_grupo') return `El ${g.ubicacion} no tiene grupo de WhatsApp: el aviso del recibo le llegará por WhatsApp directo a cada departamento (un mensaje por departamento) y por correo. Asígnale su grupo en WhatsApp › Mis grupos.`;
   if (g.situacion === 'ya_no_esta') return `Tu número ya no está en el grupo del ${g.ubicacion}: el aviso del recibo sólo le llegará por correo. Vuelve a entrar al grupo y trae tus grupos de nuevo.`;
   return null;
 }

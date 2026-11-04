@@ -39,7 +39,7 @@ export function AvisosWhatsapp({ complejoId, lista, planWhatsapp, onGuardado }: 
           Elige qué avisos automáticos salen también por WhatsApp. El correo no cambia. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número de WhatsApp de tu administración.
         </p>
         <p className="mt-1 text-sm text-muted">
-          El aviso del recibo va al grupo de cada block. El directo es opcional y gasta un mensaje por departamento.
+          El aviso del recibo va al grupo de cada block. En los blocks que aún no tienen grupo, Torre lo manda directo a cada departamento, solo, sin que tengas que cambiar nada. Marca «Recibo del mes» únicamente si quieres el directo también en los blocks con grupo: gasta un mensaje por departamento.
         </p>
       </div>
       {sinPlan && <AvisoModulo modulo="whatsapp_avisos" />}

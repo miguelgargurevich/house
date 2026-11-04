@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 import { darCortesia, iniciar, llamar, login, PASSWORD, prisma, sembrar, type Datos } from './helpers/app';
 import { canalesDeps } from '../src/server/services/canales/deps';
 import { enviarAvisoReciboAGrupos, esperarEnviosAGrupos } from '../src/server/services/canales/grupos';
-import { migracionRecordatorioGrupos } from '../src/server/services/comercial/migracion';
+import { migracionRecordatorioGrupos, migracionReciboAutomatico } from '../src/server/services/comercial/migracion';
 import { encolarAviso } from '../src/server/services/avisos';
 import { WHATSAPP_POR_DEFECTO } from '../src/server/services/avisos/whatsappTipos';
 import { invalidarComercial } from '../src/server/services/comercial/modulos';
@@ -139,16 +139,29 @@ describe('avisar un recibo de un block con grupo', () => {
     assert.equal((await envioAGrupo(recibo.id)).length, 1);
   });
 
-  it('un block sin grupo: sólo correo, y la respuesta dice qué block se queda sin grupo', async () => {
+  it('un block sin grupo: el recibo sale directo a cada departamento por WhatsApp (automático) y por correo, y la respuesta lo dice', async () => {
+    // Quien paga A-301 (propietario 1) acepta WhatsApp: en un block sin grupo, el directo le llega sin que el condominio lo marque.
+    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { telefono: '987111222', aviso_whatsapp: true } });
     const recibo = await reciboDeBlock(e3.id, 9, unidadA3.id);
     const r = await llamar(base, 'POST', `/api/recibos/${recibo.id}/avisar`, T.adminA);
     assert.equal(r.status, 200, r.texto);
     assert.equal(r.body.grupo.situacion, 'sin_grupo');
-    assert.match(r.body.grupo.aviso, /El Block 3 no tiene grupo de WhatsApp: el aviso del recibo sólo le llegará por correo/);
+    assert.match(r.body.grupo.aviso, /El Block 3 no tiene grupo de WhatsApp: el aviso del recibo le llegará por WhatsApp directo a cada departamento/);
     await esperarEnviosAGrupos();
-    assert.equal(enviados.length, 0, 'no sale nada al grupo');
-    assert.equal((await envioAGrupo(recibo.id)).length, 0);
+    assert.equal((await envioAGrupo(recibo.id)).length, 0, 'no hay grupo al que ir');
     assert.ok((await avisosDelRecibo(recibo.id, 'email')).length > 0, 'el correo sí');
+    assert.ok((await avisosDelRecibo(recibo.id, 'whatsapp')).length > 0, 'y el WhatsApp directo, porque su block no tiene grupo');
+  });
+
+  it('el mismo condominio: el block CON grupo no recibe directo y el block SIN grupo sí (Miguel, 4-nov: «así debe ser»)', async () => {
+    await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { telefono: '987111222', aviso_whatsapp: true } });
+    const conGrupo = await reciboDeBlock(e2.id, 7, d.unidadA2.id);
+    const sinGrupo = await reciboDeBlock(e3.id, 7, unidadA3.id);
+    for (const rec of [conGrupo, sinGrupo]) assert.equal((await llamar(base, 'POST', `/api/recibos/${rec.id}/avisar`, T.adminA)).status, 200);
+    await esperarEnviosAGrupos();
+    assert.equal((await avisosDelRecibo(conGrupo.id, 'whatsapp')).length, 0, 'Block 2 tiene grupo: sin directo');
+    assert.equal((await envioAGrupo(conGrupo.id)).length, 1, 'Block 2: un mensaje a su grupo');
+    assert.ok((await avisosDelRecibo(sinGrupo.id, 'whatsapp')).length > 0, 'Block 3 sin grupo: directo');
   });
 
   it('con recibo_emitido prendido a mano en el condominio, también salen los WhatsApp directos', async () => {
@@ -200,13 +213,14 @@ describe('la lista por defecto y lo que sigue directo', () => {
     assert.ok(!WHATSAPP_POR_DEFECTO.includes('recibo_emitido'));
   });
 
-  it('vence_hoy, vencido y el recordatorio de deuda siguen por WhatsApp directo; el recibo no', async () => {
+  it('vence_hoy, vencido y el recordatorio de deuda siguen por WhatsApp directo; el recibo de un block CON grupo, no', async () => {
     for (const tipo of ['vence_hoy', 'vencido'] as const) {
       await encolarAviso(tipo, d.inquilino1.id, { entidad: 'recibo', id: d.reciboVencidoA.id });
       assert.equal((await prisma.notificacion.findFirst({ where: { tipo, usuario_id: d.inquilino1.id, canal: 'whatsapp' } }))?.estado, 'pendiente', tipo);
     }
-    await encolarAviso('recibo_emitido', d.inquilino1.id, { entidad: 'recibo', id: d.reciboVencidoA.id });
-    assert.equal(await prisma.notificacion.count({ where: { tipo: 'recibo_emitido', usuario_id: d.inquilino1.id, canal: 'whatsapp' } }), 0);
+    const conGrupo = await reciboDeBlock(e2.id, 6, d.unidadA2.id);
+    await encolarAviso('recibo_emitido', d.propietario2.id, { entidad: 'recibo', id: conGrupo.id });
+    assert.equal(await prisma.notificacion.count({ where: { tipo: 'recibo_emitido', ref_id: conGrupo.id, canal: 'whatsapp' } }), 0);
   });
 });
 
@@ -283,5 +297,21 @@ describe('contador de WhatsApp: recordatorios y grupos de recibo con su nombre',
     assert.equal(r.body.por_tipo.hoy.recordatorio_deuda, 1);
     assert.equal(r.body.por_tipo.hoy.recibo_emitido, 1, 'el mensaje al grupo del recibo');
     assert.equal(r.body.por_tipo.hoy.otros, 0);
+  });
+});
+
+describe('migración única: el recibo directo pasa a ser automático por block', () => {
+  it('quita recibo_emitido de TODOS los condominios (con o sin grupos) y corre una sola vez', async () => {
+    await listaA(CON_RECIBO);
+    await prisma.complejoHabitacional.update({ where: { id: d.complejoB.id }, data: { whatsapp_avisos: CON_RECIBO } });
+    await prisma.configuracionComercial.update({ where: { id: 1 }, data: { migracion_recibo_auto_at: null } });
+    assert.deepEqual(await migracionReciboAutomatico(prisma), { aplicada: true, condominios: 2 });
+    for (const id of [d.complejoA.id, d.complejoB.id]) {
+      const c = await prisma.complejoHabitacional.findUniqueOrThrow({ where: { id }, select: { whatsapp_avisos: true } });
+      assert.equal(c.whatsapp_avisos.includes('recibo_emitido'), false);
+      assert.ok(c.whatsapp_avisos.includes('vence_hoy'), 'lo demás se queda');
+    }
+    assert.deepEqual(await migracionReciboAutomatico(prisma), { aplicada: false, condominios: 0 });
+    await listaA(['vence_hoy', 'vencido', 'cierre_pendiente']);
   });
 });

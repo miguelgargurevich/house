@@ -16,7 +16,7 @@ describe('lista de tipos que la administración puede activar', () => {
     assert.deepEqual([...TIPOS_WHATSAPP_CONFIGURABLES], ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'cierre_pendiente']);
     assert.deepEqual(
       TIPOS_WHATSAPP_CONFIGURABLES.map((t) => ROTULO_WHATSAPP[t]),
-      ['Recibo del mes', 'Recordatorio 2 días antes', 'Vence hoy', 'Venció', 'Cierre del mes pendiente (al tesorero)'],
+      ['Recibo del mes: también directo a cada departamento (aunque su block tenga grupo)', 'Recordatorio 2 días antes', 'Vence hoy', 'Venció', 'Cierre del mes pendiente (al tesorero)'],
     );
   });
 

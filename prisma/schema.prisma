@@ -1101,6 +1101,8 @@ model ConfiguracionComercial {
   migracion_marca_at     DateTime?
   /// Cuándo se quitó el recibo del WhatsApp directo a los condominios que ya tenían grupos de WhatsApp (una sola vez; ver services/comercial/migracion.ts).
   migracion_grupos_recibo_at DateTime?
+  /// Cuándo se quitó `recibo_emitido` de la lista de WhatsApp directo de todos los condominios (una sola vez): desde entonces el directo del recibo es automático por block (sólo en los blocks sin grupo) y marcarlo significa «también en los blocks con grupo».
+  migracion_recibo_auto_at DateTime?
   /// Manual de usuario con videos (página pública de My Workspace): lo abre «Manual y videos» del menú de la cuenta, en la sección del rol. null = no se muestra.
   url_manual             String?  @default("https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html")
   pago_titular           String?

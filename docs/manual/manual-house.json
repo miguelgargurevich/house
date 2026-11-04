@@ -507,17 +507,17 @@
       "titulo": "Avisos por WhatsApp del condominio",
       "etiqueta": "Administradora · Condominios · Torre Pro",
       "parrafos": [
-        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia. El aviso del recibo va al grupo de cada block. El directo es opcional y gasta un mensaje por departamento."
+        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia. El aviso del recibo va al grupo de cada block. En los blocks que aún no tienen grupo, Torre lo manda directo a cada departamento, solo: no tienes que cambiar nada mientras asignas los grupos."
       ],
       "numerada": [
         "Entra a **Condominios** y abre el condominio.",
         "Baja a **Avisos por WhatsApp**.",
-        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**. El **Recibo del mes** directo viene apagado: el grupo de cada block ya lo avisa.",
+        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**. Deja **Recibo del mes** sin marcar: así el recibo va al grupo en los blocks que lo tienen y directo en los que no. Márcalo sólo si quieres el directo también en los blocks con grupo (gasta un mensaje por departamento).",
         "Pulsa **Guardar avisos por WhatsApp**."
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número. El recibo directo sale apagado por defecto."
+        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número. El recibo va directo sólo a los blocks sin grupo."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-condominio-avisos.jpg"
     },
