@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Graba y monta los videos del manual (escritorio 16:9): para cada video → voz (debe existir) → grabar → montar → hoja de revisión.
+# Graba y monta los videos del manual (escritorio 16:9, o celular 9:16 si el video lo declara): para cada video → voz (debe existir) → grabar → montar → hoja de revisión.
 # Se puede reanudar: sin argumentos recorre la lista y SALTA los que ya tienen su mp4. Con ids, graba sólo esos (aunque ya existan).
 # Uso (desde la raíz del repo o del worktree, con la app local en 5173 y 4000):
 #   scripts/marketing/grabar-manual.sh                        # todos los pendientes
@@ -8,13 +8,13 @@
 # cada escena en .claude/videos/voz-manual.json, y scripts/marketing/bajar-voz.sh baja los .wav. Un solo Chromium y un solo ffmpeg a la vez.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
-FORMATO=escritorio
 if [ "$#" -gt 0 ]; then ids=("$@"); forzar=1; else ids=($(node scripts/marketing/videos-manual.mjs --pendientes)); forzar=0; fi
 [ "${#ids[@]}" -gt 0 ] || { echo "No hay videos pendientes."; node scripts/marketing/videos-manual.mjs --lista; exit 0; }
 # Tareas de prueba de mantenimiento y limpieza (idempotente; base LOCAL). NO_PREPARAR=1 lo salta.
 [ "${NO_PREPARAR:-0}" = 1 ] || node scripts/marketing/videos-manual.mjs --preparar || echo "AVISO: no se pudieron preparar las tareas de prueba"
 ok=(); fallo=()
 for id in "${ids[@]}"; do
+  FORMATO=$(node scripts/marketing/videos-manual.mjs --formato "$id") # escritorio (16:9) o celular (9:16), según el video
   mp4=".claude/videos/$id/torre-$id-$FORMATO.mp4"
   if [ "$forzar" = 0 ] && [ -f "$mp4" ]; then echo "== $id: ya está ($mp4), se salta"; continue; fi
   faltan=$(node scripts/marketing/videos-manual.mjs --voz-falta "$id")

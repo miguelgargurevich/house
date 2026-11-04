@@ -326,7 +326,7 @@ async function grabar() {
       const n = i + 1;
       const largo = duracion(n) * 1000 + 700; // la voz + un respiro
       const tmp = join(SALIDA, `tmp-${n}`);
-      const ctx = await browser.newContext({ viewport: f.viewport, deviceScaleFactor: f.deviceScaleFactor, isMobile: f.isMobile, hasTouch: f.hasTouch, colorScheme: 'light', locale: 'es-PE', recordVideo: { dir: tmp, size: f.video }, storageState: e.rol ? sesiones[e.rol] : undefined });
+      const ctx = await browser.newContext({ userAgent: e.ua, viewport: f.viewport, deviceScaleFactor: f.deviceScaleFactor, isMobile: f.isMobile, hasTouch: f.hasTouch, colorScheme: 'light', locale: 'es-PE', recordVideo: { dir: tmp, size: f.video }, storageState: e.rol ? sesiones[e.rol] : undefined });
       await ctx.addInitScript(CURSOR);
       await ctx.addInitScript(LIMPIEZA);
       // `antes`: prepara datos con otra pestaña (fuera de cámara: el clip del video es el de la pestaña principal).

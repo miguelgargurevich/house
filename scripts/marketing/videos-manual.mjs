@@ -246,13 +246,16 @@ export function catalogo(u = UTIL_NULAS) {
       accion: async (p) => { await mirar(500); await desplazar(p, 700, 1800); await senalar(p, p.getByRole('heading', { name: 'Tu marca' })); await mirar(600); } },
     { url: '/admin/configuracion', pantalla: 'Se escribe un nombre comercial de prueba y la vista previa lo muestra (no se guarda)',
       voz: 'Escribe el nombre comercial con el que te presentas. Si lo dejas vacío, se usa tu razón social. La vista previa cambia al instante.',
-      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Nombre comercial')); await p.keyboard.type('Administración Demo', { delay: 35 }); await mirar(800); await senalar(p, p.getByText('Así se verá').first()); await mirar(600); } },
+      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Nombre comercial')); await p.keyboard.type('Demo Condominios', { delay: 35 }); await mirar(800); await senalar(p, p.getByText('Así se verá').first()); await mirar(600); } },
     { url: '/admin/configuracion', pantalla: 'Se escribe un color de prueba (#1d4ed8) y la vista previa cambia (no se guarda)',
       voz: 'Elige el color con el selector o escribe su código, por ejemplo 1d4ed8. Así se verá tu marca en la app.',
       accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Código del color')); await p.keyboard.type('#1d4ed8', { delay: 60 }); await p.keyboard.press('Tab'); await mirar(900); } },
-    { url: '/admin/configuracion', pantalla: 'Se señala «Guardar mi marca» y se pulsa «Volver al verde de Torre» (no se guarda)',
-      voz: 'Volver al verde de Torre devuelve el color de siempre. Nada cambia hasta que tocas Guardar mi marca.',
-      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Código del color')); await p.keyboard.type('#1d4ed8', { delay: 40 }); await p.keyboard.press('Tab'); await mirar(500); await senalar(p, btn(p, /guardar mi marca/i)); await mirar(500); await tocar(p, btn(p, /volver al verde de torre/i)); await mirar(900); } },
+    { url: '/admin/configuracion', pantalla: 'Se pulsa «Guardar mi marca» y, en el menú, «Resumen»: el nombre y el color ya salen en la app',
+      voz: 'Guarda tu marca y Torre la aplica en toda la app. En el menú ya aparecen tu nombre y tu color.',
+      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Nombre comercial')); await p.getByLabel('Nombre comercial').fill(''); await p.keyboard.type('Demo Condominios', { delay: 35 }); await mirar(300); await tocar(p, p.getByLabel('Código del color')); await p.keyboard.type('#1d4ed8', { delay: 40 }); await p.keyboard.press('Tab'); await mirar(500); await tocar(p, btn(p, /guardar mi marca/i)); await asentar(p); await mirar(600); await tocar(p, p.getByRole('link', { name: 'Resumen' }).first()); await asentar(p); await pausa(800); await senalar(p, p.getByText('Demo Condominios').first()); await mirar(900); } },
+    { url: '/admin/configuracion', pantalla: 'De vuelta en Mi empresa: se quita el nombre, se pulsa «Volver al verde de Torre» y se guarda',
+      voz: 'Para volver al verde de Torre, pulsa Volver al verde de Torre y guarda. Torre vuelve a verse como siempre.',
+      accion: async (p) => { await desplazar(p, 700, 1000); await tocar(p, p.getByLabel('Nombre comercial')); await mirar(300); await p.getByLabel('Nombre comercial').fill(''); await mirar(400); await tocar(p, btn(p, /volver al verde de torre/i)); await mirar(500); await tocar(p, btn(p, /guardar mi marca/i)); await asentar(p); await mirar(900); } },
   ]);
 
   video('m-admin-mi-plan', 'admin', 'Mi plan', 'El plan de cada condominio, hasta cuándo está vigente, qué incluye y cuánto llevas usando.', [
@@ -483,11 +486,42 @@ export function catalogo(u = UTIL_NULAS) {
       accion: async (p) => { await mirar(400); await desplazar(p, 420, 2000); await mirar(500); await desplazar(p, 420, 1800); } },
   ]);
 
+  // Formato celular (9:16). El aviso «Ten Torre en tu celular» sale sólo dentro de la app, en pantallas chicas y sin instalar (src/app/InstalarApp.tsx).
+  // En Android el evento `beforeinstallprompt` no llega solo en el navegador de prueba: se despacha en la página, igual que lo haría Chrome.
+  // iPhone: el aviso sale sin evento, sólo con el userAgent de Safari en iPhone.
+  const avisoAndroid = (p) => p.evaluate(() => {
+    const e = new Event('beforeinstallprompt');
+    e.prompt = async () => {};
+    e.userChoice = Promise.resolve({ outcome: 'dismissed' });
+    dispatchEvent(e);
+  });
+  video('m-todos-instalar', 'propietario', 'Ten Torre en tu celular', 'Cómo agregar Torre a la pantalla de inicio de tu celular: en Android, con el aviso Instalar Torre, y en iPhone, desde Safari.', [
+    { rol: null, url: '/login', pantalla: 'Inicio de sesión en el celular',
+      voz: 'Torre también funciona en tu celular. Puedes agregarla a tu pantalla de inicio y abrirla como una app, sin la barra del navegador.',
+      accion: async (p) => { await mirar(500); await senalar(p, p.getByText('Ingresa a tu cuenta').first()); await mirar(700); } },
+    { url: '/propietario/inicio', pantalla: 'Android: aparece el aviso «Ten Torre en tu celular» y se señala «Instalar Torre»',
+      voz: 'En Android, el aviso Instalar Torre aparece arriba. Tócalo: tu celular te pide confirmar y Torre queda en tu pantalla de inicio.',
+      accion: async (p) => { await avisoAndroid(p); await pausa(700); await senalar(p, btn(p, /instalar torre/i)); await mirar(800); } },
+    { url: '/propietario/inicio', pantalla: 'Android: se señala «Ahora no», que quita el aviso de ese celular',
+      voz: 'Si no quieres instalarla ahora, toca Ahora no. Ese aviso no vuelve a salir en este celular.',
+      accion: async (p) => { await avisoAndroid(p); await pausa(700); await mirar(400); await senalar(p, p.getByRole('button', { name: /ahora no/i })); await mirar(800); } },
+    { ua: UA_IPHONE, url: '/propietario/inicio', pantalla: 'iPhone (Safari): el aviso explica «Compartir» y «Agregar a inicio»; se señala el texto',
+      voz: 'En iPhone, Torre se instala desde Safari. Toca el botón Compartir, y luego Agregar a inicio. Torre queda con su ícono, como cualquier app.',
+      accion: async (p) => { await mirar(600); await senalar(p, p.getByText(/agregar a inicio/i).first()); await mirar(900); } },
+  ]);
+
+  V['m-todos-instalar'].formato = 'celular';
+
   return V;
 }
 
+/** Safari en iPhone: el aviso de «Agregar a inicio» sale sólo con este navegador (sin evento de instalación). */
+export const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
+
 /** Menú de cada rol → video. `comparte`: la opción usa el video de otro rol (misma pantalla). */
 export const MENU = [
+  // Primera de la lista: no es una opción de menú de un rol, sino cómo tener Torre en el celular (formato 9:16).
+  { id: 'todos.instalar', rol: 'todos', menu: 'Ten Torre en tu celular', ruta: '/login', video: 'm-todos-instalar', formato: 'celular' },
   ...[
     ['Resumen', '/admin/dashboard', 'm-admin-resumen'], ['Condominios', '/admin/complejos', 'm-admin-condominios'], ['Recibos', '/admin/recibos', 'm-admin-recibos'],
     ['Pagos', '/admin/pagos', 'm-admin-pagos'], ['Conciliación', '/admin/conciliacion', 'm-admin-conciliacion'], ['Medios de pago', '/admin/medios-pago', 'm-admin-medios-pago'],
@@ -535,9 +569,11 @@ export function escenasManual(util) {
 
 // ---------------------------------------------------------------- Herramientas de línea de comandos
 const RAIZ = process.cwd();
-const mp4 = (id) => join(RAIZ, '.claude/videos', id, `torre-${id}-escritorio.mp4`);
+/** Formato de un video: «escritorio» (16:9) salvo los que lo declaran (p. ej. «celular», 9:16). */
+const formatoDe = (id) => catalogo()[id]?.formato ?? 'escritorio';
+const mp4 = (id) => join(RAIZ, '.claude/videos', id, `torre-${id}-${formatoDe(id)}.mp4`);
 const duracionDe = (f) => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f]).toString().trim());
-const ETIQUETA_ROL = { admin: 'Administradora', propietario: 'Propietario', inquilino: 'Inquilino', junta: 'Junta (tesorero o presidente de un block)', junta_central: 'Junta central', mantenimiento: 'Mantenimiento', seguridad: 'Seguridad', limpieza: 'Limpieza', jardineria: 'Jardinería' };
+const ETIQUETA_ROL = { todos: 'Todos', admin: 'Administradora', propietario: 'Propietario', inquilino: 'Inquilino', junta: 'Junta (tesorero o presidente de un block)', junta_central: 'Junta central', mantenimiento: 'Mantenimiento', seguridad: 'Seguridad', limpieza: 'Limpieza', jardineria: 'Jardinería' };
 
 function escribirLista() {
   const cat = catalogo();
@@ -545,11 +581,12 @@ function escribirLista() {
     const id = m.video ?? m.video_alterno;
     const v = id ? cat[id] : null;
     const f = m.video ? mp4(m.video) : null;
-    const enlistado = { id: `${m.rol}.${m.menu.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`, rol: m.rol, rol_nombre: ETIQUETA_ROL[m.rol], menu: m.menu, ruta: m.ruta, video: m.video, titulo: v?.titulo ?? m.menu, descripcion: v?.descripcion ?? '' };
+    const enlistado = { id: m.id ?? `${m.rol}.${m.menu.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`, rol: m.rol, rol_nombre: ETIQUETA_ROL[m.rol], menu: m.menu, ruta: m.ruta, video: m.video, titulo: v?.titulo ?? m.menu, descripcion: v?.descripcion ?? '' };
+    if (m.video && formatoDe(m.video) !== 'escritorio') enlistado.formato = formatoDe(m.video);
     if (m.comparte) enlistado.comparte_con = m.comparte;
     if (m.video_alterno) enlistado.video_alterno = m.video_alterno;
     if (m.nota) enlistado.nota = m.nota;
-    if (f && existsSync(f)) { enlistado.archivo = `.claude/videos/${m.video}/torre-${m.video}-escritorio.mp4`; enlistado.duracion_s = Math.round(duracionDe(f) * 10) / 10; }
+    if (f && existsSync(f)) { enlistado.archivo = `.claude/videos/${m.video}/torre-${m.video}-${formatoDe(m.video)}.mp4`; enlistado.duracion_s = Math.round(duracionDe(f) * 10) / 10; }
     return enlistado;
   });
   mkdirSync(join(RAIZ, 'docs/marketing'), { recursive: true });
@@ -563,7 +600,7 @@ function escribirGuiones() {
   const out = [
     '# Guiones de los videos del manual de Torre',
     '',
-    `Un video corto (15–40 s) por opción del menú de cada rol, sólo **escritorio (16:9)**. ${Object.keys(cat).length} videos distintos; los que comparten pantalla se reusan`,
+    `Un video corto (15–40 s) por opción del menú de cada rol, en **escritorio (16:9)**; «Ten Torre en tu celular» va en **celular (9:16)**. ${Object.keys(cat).length} videos distintos; los que comparten pantalla se reusan`,
     '(el inquilino usa los del propietario, jardinería los de limpieza, «Mi perfil» es uno solo). Se generan con `scripts/marketing/videos-manual.mjs --guiones`',
     '(este archivo se regenera; el texto vive en ese módulo). Voz «Dora» de My Workspace (`ef_dora`); método en `docs/marketing/guiones-videos.md` y `docs/manual/README.md`.',
     '',
@@ -642,6 +679,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   else if (arg === '--voz') escribirVoz();
   else if (arg === '--preparar') await preparar();
   else if (arg === '--todos') console.log(Object.keys(catalogo()).join('\n'));
+  else if (arg === '--formato') console.log(formatoDe(process.argv[3])); // escritorio | celular (lo usa grabar-manual.sh)
   else if (arg === '--voz-falta') { // escenas de un video a las que les falta su voz (.wav)
     const id = process.argv[3]; const n = catalogo()[id]?.escenas.length ?? 0;
     console.log(Array.from({ length: n }, (_, i) => i + 1).filter((i) => !existsSync(join(RAIZ, '.claude/videos', id, 'voz', `e${i}.wav`))).join(' '));
