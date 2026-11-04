@@ -10,7 +10,8 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - `routes/whatsapp.ts`: el create manda `integration: 'WHATSAPP-BAILEYS'`; el error de Evolution se lee también en el formato v2 (`response.message` como lista), y «already in use» (v2) cuenta como «ya existe». `WhatsappSync.tsx`: el aviso de error queda separado del botón. `tests/whatsapp.test.ts`: aserción de `integration` y caso v2 «already in use».
 - Verificado: 119/119 en las pruebas de WhatsApp; mutación (sin `integration`) → rojo.
 - Gotcha: en el log antes salía «error 400 —» vacío porque la v2 no trae `message` en la raíz.
-- Próximo: desplegar (con OK de Miguel) y que Melina reintente; el número debe tener historial de chats.
+- Desplegado `74b1105` (OK de Miguel). Miguel escaneó el QR: en Evolution `house_empresa_1` quedó `open` y el webhook registrado (`MESSAGES_UPSERT`), pero la pantalla seguía en «no vinculado».
+- Segundo arreglo: `GET /api/whatsapp/status` leía `estado.status`; Evolution v2 responde `{ instance: { state: 'open' } }`. Ahora lee `instance.state`, luego `state`, luego `status`. Prueba nueva en `whatsapp.test.ts`; mutación (sólo `status`) → rojo. 119/119.
 
 ---
 

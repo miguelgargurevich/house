@@ -153,7 +153,10 @@ router.get('/status', requireRole('admin', 'superadmin'), async (req, res) => {
 
   try {
     const estado = await evolutionRequest(`/instance/connectionState/${encodeURIComponent(empresa.whatsapp_instance)}`);
-    const status = typeof estado.status === 'string' ? estado.status : 'unknown';
+    // Evolution v2 responde `{ instance: { state: 'open' } }`; versiones anteriores, `{ state }` o `{ status }`.
+    const anidado = estado.instance && typeof estado.instance === 'object' ? (estado.instance as Record<string, unknown>).state : undefined;
+    const crudo = [anidado, estado.state, estado.status].find((v) => typeof v === 'string');
+    const status = typeof crudo === 'string' ? crudo : 'unknown';
     // Con el número ya vinculado (`open`) el bot queda escuchando sin ningún paso manual más.
     const webhook = status === 'open' ? await asegurarWebhook(empresa.id, empresa.whatsapp_instance) : null;
     return res.json({ connected: status === 'open', status, instance: empresa.whatsapp_instance, ...(webhook ? { webhook } : {}) });

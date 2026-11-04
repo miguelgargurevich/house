@@ -151,6 +151,12 @@ describe('sincronización de WhatsApp por administradora', () => {
     const abierto = await llamar(base, 'GET', '/api/whatsapp/status', T.adminA);
     assert.deepEqual(abierto.body, { connected: true, status: 'open', instance: 'instancia-de-a', webhook: 'registrado' });
 
+    // Evolution v2 (2.3.7): el estado viene anidado en `instance.state`.
+    responderEvo = () => new Response(JSON.stringify({ instance: { instanceName: 'instancia-de-a', state: 'open' } }), { status: 200 });
+    const v2 = await llamar(base, 'GET', '/api/whatsapp/status', T.adminA);
+    assert.equal(v2.body.connected, true, 'v2: instance.state open = conectado');
+    assert.equal(v2.body.status, 'open');
+
     responderEvo = () => new Response(JSON.stringify({ status: 'closed' }), { status: 200 });
     const cerrado = await llamar(base, 'GET', '/api/whatsapp/status', T.adminA);
     assert.deepEqual(cerrado.body, { connected: false, status: 'closed', instance: 'instancia-de-a' });
