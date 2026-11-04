@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { CUENTAS_MANUAL, escenasManual } from './videos-manual.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT ?? '/opt/homebrew/lib/node_modules/playwright');
@@ -20,6 +21,8 @@ const CUENTAS = {
   admin: ['ana.lopez@gestionurbana.com', 'admin1234'],
   propietario: ['javier.castro@prop.com', 'prop1234'],
   tesorero: ['patricia.alarcon.9@prueba.house', 'prop1234'], // tesorera del Block 1 en el seed
+  // Los videos del manual (m-…) usan además las cuentas de los demás roles: están en videos-manual.mjs.
+  ...CUENTAS_MANUAL,
 };
 
 const FORMATOS = {
@@ -47,13 +50,47 @@ const CURSOR = `
     addEventListener('mouseup', () => { c.style.transform = 'scale(1)'; }, true);
   });`;
 
-/** Antes de pintar: quita la tarjeta «Canales» (en local dice «No configurado») y cambia el nombre de Miguel, persona real, por uno de prueba. */
+/**
+ * Personas reales que NO pueden verse en un video: la base local tiene a Miguel (superadmin y presidente del Block 1 en el seed) y UNA cuenta real
+ * de administradora («Melina Loayza», correo de Gmail). Se cambian por nombres y correos de prueba, en el texto de toda la pantalla.
+ */
+const SUSTITUIR = `
+  const SUST = [
+    [/[\\w.+-]*gargurevich[\\w.+-]*@[\\w.-]+/gi, 'martin@prueba.house'],
+    [/Miguel F\\.? Gargurevich|Miguel Gargurevich/g, 'Martín Gallardo Ríos'],
+    [/Gargurevich/gi, 'Gallardo'],
+    [/Melina Loayza/g, 'Mónica Paredes'],
+    [/[\\w.+-]+@gmail\\.com/gi, 'monica.paredes@prueba.house'],
+    [/miguel@prueba\\.house/g, 'martin@prueba.house'],
+    [/923238432/g, '987654399'], // celular de la cuenta real de la administradora
+    [/988491368/g, '987654398'], // celular de Miguel (presidente del Block 1 en el seed)
+  ];
+  const limpiarNombres = () => {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n; (n = w.nextNode());) {
+      const v = n.nodeValue ?? '';
+      if (v.trim() === 'ML') { n.nodeValue = 'MP'; continue; } // iniciales del avatar de «Melina Loayza» → «Mónica Paredes»
+      if (!/gargurevich|melina|gmail|miguel@prueba|923238432|988491368/i.test(v)) continue;
+      let r = v;
+      for (const [re, t] of SUST) r = r.replace(re, t);
+      if (r !== v) n.nodeValue = r;
+    }
+    for (const el of document.querySelectorAll('input,textarea')) {
+      const v = el.value ?? '';
+      if (!/gargurevich|melina|gmail|923238432|988491368/i.test(v)) continue;
+      let r = v;
+      for (const [re, t] of SUST) r = r.replace(re, t);
+      if (r !== v) el.value = r;
+    }
+  };`;
+
+/** Antes de pintar: quita la tarjeta «Canales» (en local dice «No configurado») y cambia los nombres reales por unos de prueba. */
 const LIMPIEZA = `
   addEventListener('DOMContentLoaded', () => {
+    ${SUSTITUIR}
     const limpiar = () => {
       for (const el of document.querySelectorAll('p,div,span')) if (el.children.length === 0 && /Si un canal no está configurado/.test(el.textContent ?? '')) el.closest('[class*="rounded"]')?.remove();
-      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-      for (let n; (n = w.nextNode());) if (/Miguel Gargurevich|miguel@prueba/.test(n.nodeValue ?? '')) n.nodeValue = n.nodeValue.replace(/Miguel Gargurevich/g, 'Martín Gallardo Ríos').replace(/miguel@prueba\\.house/g, 'martin@prueba.house');
+      limpiarNombres();
     };
     new MutationObserver(limpiar).observe(document.body, { childList: true, subtree: true, characterData: true });
   });`;
@@ -89,14 +126,12 @@ async function desplazar(page, px, ms = 1400) {
 const asentar = async (page) => {
   await page.waitForLoadState('networkidle').catch(() => {});
   // El recuadro «Cuentas de prueba (solo desarrollo)» del login sólo existe en local: no sale en un video de marketing.
-  await page.evaluate(() => {
+  await page.evaluate(`(() => { ${SUSTITUIR}
     for (const p of document.querySelectorAll('p')) if (/Cuentas de prueba/i.test(p.textContent ?? '')) p.parentElement?.remove();
     // En local los envíos están apagados: la tarjeta «Canales» diría «No configurado» y nombraría las variables. No va en un video.
     for (const el of document.querySelectorAll('p,div,span')) if (el.children.length === 0 && /Si un canal no está configurado/.test(el.textContent ?? '')) el.closest('[class*="rounded"]')?.remove();
-    // El seed pone a Miguel (persona real) de presidente del Block 1: en un video público sale un nombre de prueba.
-    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    for (let n; (n = w.nextNode());) n.nodeValue = n.nodeValue.replace(/Miguel Gargurevich/g, 'Martín Gallardo Ríos').replace(/miguel@prueba\.house/g, 'martin@prueba.house');
-  }).catch(() => {});
+    limpiarNombres();
+  })()`).catch(() => {});
   await pausa(350);
 };
 
@@ -107,7 +142,7 @@ const pulsar = async (page, loc) => { await tocar(page, loc); await asentar(page
 const octubre = async (page) => { await page.getByLabel(/^mes$/i).first().selectOption('10').catch(() => {}); await asentar(page); };
 
 // ---------- Escenas de cada video (texto en docs/marketing/guiones-videos.md) ----------
-const ESCENAS = {
+let ESCENAS = {
   v1: [
     { rol: null, url: '/login', accion: async (p) => { await ir(p, 1100, 520, 1600); } },
     { rol: 'admin', url: '/admin/recibos', accion: async (p) => { await tocar(p, p.locator('tbody tr')); await asentar(p); await desplazar(p, 260); } },
@@ -255,6 +290,8 @@ const CIERRE = `<!doctype html><meta charset="utf-8"><style>
 <p>Tu condominio, en orden.</p><small>torrecondominios.com</small></div>`;
 
 async function grabar() {
+  // Los videos del manual (m-<rol>-<sección>) viven en videos-manual.mjs: se le pasan las utilidades de grabación.
+  if (video.startsWith('m-')) ESCENAS = escenasManual({ APP, formato, ir, tocar, desplazar, asentar, pulsar, pausa, octubre });
   const escenas = ESCENAS[video];
   if (!escenas) throw new Error(`No hay escenas para ${video}`);
   const f = FORMATOS[formato];
@@ -295,6 +332,7 @@ async function grabar() {
       // `antes`: prepara datos con otra pestaña (fuera de cámara: el clip del video es el de la pestaña principal).
       if (e.antes) { const aux = await ctx.newPage(); await e.antes(aux).catch((err) => console.warn(`  escena ${n} (antes): ${err.message.split('\n')[0]}`)); await aux.close(); }
       const page = await ctx.newPage();
+      page.setDefaultTimeout(8000); // un elemento que no está no debe colgar la escena 30 s
       const abierta = Date.now();
       raton = { x: f.viewport.width * 0.55, y: f.viewport.height * 0.45 };
       if (e.cierre) await page.setContent(CIERRE);
@@ -304,6 +342,10 @@ async function grabar() {
       const inicio = Date.now();
       recortes[`e${n}`] = (inicio - abierta) / 1000;
       if (e.accion) await e.accion(page).catch((err) => console.warn(`  escena ${n}: ${err.message.split('\n')[0]}`));
+      // Verificación: nada de lo que no puede verse (personas reales, «Cuentas de prueba») debe quedar en el texto de la pantalla.
+      await asentar(page);
+      const fuga = await page.evaluate(() => (document.body.innerText.match(/melina|loayza|gargurevich|gmail|923238432|988491368|cuentas de prueba/gi) ?? []).join(', ')).catch(() => '');
+      if (fuga) console.warn(`  escena ${n}: FUGA de datos reales: ${fuga}`);
       const resto = largo - (Date.now() - inicio);
       if (resto > 0) await pausa(resto);
       const v = page.video();
