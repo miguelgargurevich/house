@@ -5,6 +5,7 @@ import { depsReales, type DepsAvisos } from './canales';
 import { encolarRecordatorios, procesarCola } from './cola';
 import { encolarAportesPendientes, encolarCierresPendientes } from './cierres';
 import { procesarVencimientos } from '../comercial/vencimientos';
+import { procesarInvitaciones } from '../contactos/cola';
 
 /** Clave del bloqueo asesor de Postgres: sólo una réplica trabaja a la vez. */
 export const LOCK_AVISOS = 7_302_301;
@@ -37,7 +38,9 @@ export async function ciclo(deps: DepsAvisos = depsReales()) {
       const cierres = await encolarCierresPendientes(deps.ahora()).catch((err) => { console.error('[cierres] el recordatorio falló:', err instanceof Error ? err.message : 'error'); return 0; });
       // Y al tesorero central, los blocks que aún no aportan a la Junta central.
       const aportes = await encolarAportesPendientes(deps.ahora()).catch((err) => { console.error('[cierres] el aviso de aportes falló:', err instanceof Error ? err.message : 'error'); return 0; });
-      return { encoladas, ...(await procesarCola(deps, 50, inicio)), vencimientos, cierres, aportes };
+      // Tanda diaria de invitaciones de la carga de contactos (con el tope por día de Lima): tampoco frena la cobranza si falla.
+      const invitaciones = await procesarInvitaciones().catch((err) => { console.error('[contactos] la tanda de invitaciones falló:', err instanceof Error ? err.message : 'error'); return null; });
+      return { encoladas, ...(await procesarCola(deps, 50, inicio)), vencimientos, cierres, aportes, invitaciones };
     },
     // 15 min: la pasada de WhatsApp corta a los 10 min (desde el inicio del ciclo) y aún falta el último envío con su pausa (≤ 60 s) y su espera de red (≤ 10 s).
     { timeout: 15 * 60_000, maxWait: 10_000 },

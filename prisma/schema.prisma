@@ -74,6 +74,8 @@ model Usuario {
   terminos_aceptados_at DateTime?
   tokensVerificacion TokenVerificacionCorreo[]
   invitaciones      TokenInvitacion[]      @relation("InvitacionDeUsuario")
+  invitacionesEnCola InvitacionEnCola[]    @relation("InvitacionEnColaDeUsuario")
+  invitacionesEnColaCreadas InvitacionEnCola[] @relation("InvitacionEnColaCreadaPor")
   invitacionesHechas TokenInvitacion[]     @relation("InvitacionCreadaPor")
   pagosSuscripcionRegistrados PagoSuscripcion[] @relation("PagoSuscripcionRegistrador")
   egresosRegistrados EgresoBlock[] @relation("EgresoRegistrador")
@@ -126,6 +128,7 @@ model EmpresaAdministradora {
 
 model ComplejoHabitacional {
   id          Int                    @id @default(autoincrement())
+  invitacionesEnCola InvitacionEnCola[]
   gruposWhatsapp GrupoWhatsapp[]
   nombre      String
   tipo        String
@@ -1118,6 +1121,8 @@ model ConfiguracionComercial {
   whatsapp_pausa_max_seg Int      @default(15)
   /// Asistente por WhatsApp (chat, voucher por foto, menú y vincular). Apagado, el número sólo atiende «SALIR» y no responde nada más. Telegram no se rige por esto.
   whatsapp_bot_activo    Boolean  @default(false)
+  /// Invitaciones por correo que la tanda diaria manda como máximo por día de Lima (carga de contactos por Excel). El plan de Resend limita los correos por día: no se mandan todas de golpe.
+  invitaciones_por_dia   Int      @default(90)
   updated_at             DateTime @updatedAt
 }
 
@@ -1172,6 +1177,32 @@ model TokenInvitacion {
   creado_por    Usuario?  @relation("InvitacionCreadaPor", fields: [creado_por_id], references: [id], onDelete: SetNull)
 
   @@index([usuario_id])
+}
+
+/// Invitación por correo que espera su turno: la carga de contactos por Excel las deja aquí y una tarea diaria (enganchada al planificador de avisos) manda
+/// como máximo `ConfiguracionComercial.invitaciones_por_dia` por día de Lima. En cola = `enviada_at` y `descartada_at` nulos. Nunca guarda el correo ni el nombre:
+/// se leen de la cuenta en el momento de enviar.
+model InvitacionEnCola {
+  id             Int                   @id @default(autoincrement())
+  usuario_id     Int
+  usuario        Usuario               @relation("InvitacionEnColaDeUsuario", fields: [usuario_id], references: [id], onDelete: Cascade)
+  complejo_id    Int
+  complejo       ComplejoHabitacional  @relation(fields: [complejo_id], references: [id], onDelete: Cascade)
+  /// Quién la pidió; si esa cuenta se borra queda en null.
+  creado_por_id  Int?
+  creado_por     Usuario?              @relation("InvitacionEnColaCreadaPor", fields: [creado_por_id], references: [id], onDelete: SetNull)
+  created_at     DateTime              @default(now())
+  /// Cuándo salió el correo (la invitación quedó creada en `TokenInvitacion`).
+  enviada_at     DateTime?
+  /// Cuándo se sacó de la cola sin enviarla, y por qué (`ya_tiene_acceso`, `sin_correo`, `ya_invitada`, `fallo`).
+  descartada_at  DateTime?
+  motivo         String?
+  /// Veces que el proveedor rechazó esta dirección (400/404/422): a la tercera se descarta.
+  intentos       Int                   @default(0)
+
+  @@index([complejo_id, enviada_at])
+  @@index([usuario_id])
+  @@index([enviada_at])
 }
 
 /// Cierre del mes de un block: una línea por lo que la junta del block paga ese mes (a la empresa administradora, a la Junta central, agua y luz por la boleta,

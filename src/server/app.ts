@@ -29,6 +29,7 @@ import { comprobantesRouter } from './routes/comprobantes';
 import { comunicadosRouter } from './routes/comunicados';
 import { complejosRouter } from './routes/complejos';
 import { conceptosRouter } from './routes/conceptos';
+import { contactosRouter } from './routes/contactos';
 import { dashboardRouter } from './routes/dashboard';
 import { empresasRouter } from './routes/empresas';
 import { estadoCuentaRouter } from './routes/estadoCuenta';
@@ -131,6 +132,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/usuarios', usuariosRouter);
   api.use('/empresas', empresasRouter);
   api.use('/complejos', complejosRouter);
+  api.use('/contactos', contactosRouter);
   api.use('/estructuras', estructurasRouter);
   api.use('/pisos', pisosRouter);
   api.use('/unidades', unidadesRouter);

@@ -121,6 +121,8 @@ const configSchema = z.object({
   whatsapp_tope_diario: z.number().int().min(0, 'Mínimo 0').max(100_000, 'Máximo 100 000').nullable().optional(),
   whatsapp_pausa_min_seg: z.number().int().min(0, 'Mínimo 0').max(60, 'Máximo 60 s').optional(),
   whatsapp_pausa_max_seg: z.number().int().min(0, 'Mínimo 0').max(60, 'Máximo 60 s').optional(),
+  /** Invitaciones por correo que la tanda diaria manda como máximo por día de Lima (carga de contactos por Excel). Al menos 1. */
+  invitaciones_por_dia: z.number({ error: 'Debe ser un número' }).int('Debe ser un entero').min(1, 'Mínimo 1').max(5000, 'Máximo 5 000').optional(),
   // Asistente por WhatsApp: apagado (por defecto), el número sólo atiende «SALIR».
   whatsapp_bot_activo: z.boolean().optional(),
 });
