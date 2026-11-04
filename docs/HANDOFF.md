@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Correos con diseño en producción y remitente avisos@torrecondominios.com (Claude Code, Opus 5.5) — push: sí
+
+- Con OK de Miguel: dominio `torrecondominios.com` agregado en Resend (región sa-east-1) y sus 4 registros en Cloudflare (TXT `resend._domainkey`, MX y TXT `send`, CNAME `rsend` en «Solo DNS»); Resend: verificado. No se tocaron el DMARC `p=reject` ni el `v=spf1 -all` del dominio raíz (los correos van firmados con DKIM del dominio).
+- Desplegado `c3e6149` (correos HTML + `ConfiguracionComercial.correo_remitente`); en producción `correo_remitente = 'Torre <avisos@torrecondominios.com>'` (UPDATE directo, sin la pantalla). Manual v8, 4 PDF por rol y videos v5/v6 publicados (ver `docs/manual/README.md`).
+- Falta: ver un correo real en Gmail con el remitente nuevo (reenviar el aviso de octubre a Miguel lo prueba).
+
+---
+
 ## 2026-11-03 — Manuales por rol y videos v5/v6 de lo nuevo (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - **Rama** `docs/manuales-videos-nuevo` (sobre `f733b41`). Sólo `docs/manual/**`, `docs/marketing/**` y `scripts/marketing/**`; nada de `src/`, `prisma/` ni `tests/`.
