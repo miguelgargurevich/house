@@ -4,7 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
-## 2026-11-04 — Videos del manual: «Tu marca» regrabado y «Ten Torre en tu celular» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+## 2026-11-04 — Videos del manual: avisos a departamentos, morosidad, recibos y WhatsApp (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel**: «actualiza los videos si es necesario» tras los avisos a departamentos elegidos, el recordatorio a morosos y «WhatsApp a grupos para lo general, directo para lo personal».
+- **Qué se hizo**: regrabados y montados (escritorio 16:9) `m-admin-comunicados` 38,2 s, `m-junta-comunicados` 29,3 s, `m-admin-morosidad` 40,0 s, `m-admin-recibos` 28,4 s y `m-admin-whatsapp` 34,8 s. Guiones y voces nuevas (`ef_dora`, 22 escenas; la junta tiene cuarta escena). `--preparar` ahora deja 13 de 14 blocks con grupo. `docs/marketing/guiones-manual.md` y `manual-videos.json` regenerados. Detalle en `docs/manual/README.md`.
+- **Resultado**: revisión de cuadros a ojo y OCR de 44 cuadros sin datos reales (sólo aparece «Martín Gallardo Ríos», el nombre de prueba). `m-admin-comunicados` se regrabó dos veces: la escena 2 fallaba al buscar «Buscar departamento» (el texto real es «Buscar por código o titular»).
+- **Restaurado**: empresa 6 con `whatsapp_instance`, `nombre_comercial` y `color_marca` en null; sus 53 `GrupoWhatsapp` borrados; Evolution falso detenido; backend del checkout principal reiniciado sin `EVOLUTION_URL`. Ningún comunicado nuevo en la base.
+- **Próximos (Opus)**: subir los 5 mp4 a MinIO/My Workspace y regenerar el manual con la lista; oír las voces antes de publicar. Decidir si el condominio de prueba debe mostrar «Recibo del mes» apagado: el seed lo tiene encendido, así que el guion dice «el directo es opcional» sin afirmar el estado por defecto.
+- **Gotchas**:
+  - El modal de comunicados y el de morosidad se recorren con el cursor SOBRE el diálogo (`bajarEnDialogo`), si no el título sale de cuadro.
+  - Morosidad: el botón dice «Enviar a N departamentos»; el video sólo lo señala y cancela.
+  - La sesión de la junta venció: `grabar-video.mjs` vuelve a iniciar sesión (una vez).
 
 - **Pedido de Miguel**: que Torre tenga su versión para descargar al celular (como Portal de Dealers) y que el manual lo mencione con su video.
 - **Qué se hizo**:
