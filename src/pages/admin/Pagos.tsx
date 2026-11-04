@@ -175,7 +175,7 @@ export default function Pagos() {
         />
       </Card>
 
-      <ValidarPagoModal pago={revisando} onClose={() => setRevisando(null)} onRevisado={() => void list.reload()} />
+      <ValidarPagoModal pago={revisando} onClose={() => setRevisando(null)} onRevisado={() => void list.reload()} onReabierto={() => setPestana('por_validar')} />
       {puedeRegistrar && registrando && <RegistrarPagoModal onClose={() => setRegistrando(false)} onSaved={() => { if (pestana === 'validado') void list.reload(); else setPestana('validado'); /* un pago del admin queda validado */ }} />}
     </>
   );

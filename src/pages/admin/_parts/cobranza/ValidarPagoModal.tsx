@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpTrayIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
+import { ArrowUpTrayIcon, ArrowUturnLeftIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
 import { api, errorText } from '../../../../api';
 import { useAuth } from '../../../../auth/AuthContext';
 import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, dinero, fechaCorta, useToast } from '../../../../ui';
@@ -18,6 +18,9 @@ import { QuitarMultaModal } from './QuitarMultaModal';
 import { AnularPagoModal } from './AnularPagoModal';
 import type { PagoAnuladoRespuesta } from './AnularPagoModal';
 import { puedeAnular } from './anular';
+import { ReabrirPagoModal } from './ReabrirPagoModal';
+import { puedeReabrir } from './reabrir';
+import { useReapertura } from './useReapertura';
 import { textoMarca, useMarcasConciliacion } from '../conciliacion/marcas';
 
 export interface PagoRevisable {
@@ -59,20 +62,23 @@ export interface PagoRevisable {
   aviso_multa?: AvisoMulta | null;
 }
 
-interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: () => void }
+/** `onReabierto`: tras «Volver a revisar» (el pago ya está por validar); la pantalla de Pagos lo usa para pasar a esa pestaña. */
+interface Props { pago: PagoRevisable | null; onClose: () => void; onRevisado: () => void; onReabierto?: () => void }
 
 /**
  * Vista del comprobante de un pago y, si está por validar: la administración lo valida o lo rechaza con motivo; validar exige el check del tesorero («el dinero
  * llegó a la cuenta»), salvo que nadie pueda darlo (block sin tesorero, o pago del propio tesorero: ahí se avisa y queda anotado); la junta sólo lo revisa,
  * y su tesorero da o quita la conformidad.
  */
-export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado }: Props) {
+export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado, onReabierto }: Props) {
   const toast = useToast();
   const { user } = useAuth();
   // «Anular pago»: tras anular, el detalle se muestra ya anulado sin esperar a que la lista se recargue (la fila de la lista es la de antes de abrirlo).
   const [anulando, setAnulando] = useState(false);
   const [anulado, setAnulado] = useState<(PagoAnuladoRespuesta & { id: number }) | null>(null);
   const pago: PagoRevisable | null = pagoProp && anulado && anulado.id === pagoProp.id ? { ...pagoProp, ...anulado } : pagoProp;
+  // «Volver a revisar» un pago rechazado: el servidor dice si se puede hoy (otro pago vigente del mismo cargo, mes cerrado…) y, si no, por qué.
+  const [reabriendo, setReabriendo] = useState(false);
   const [rechazando, setRechazando] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [errorMotivo, setErrorMotivo] = useState<string | undefined>();
@@ -93,11 +99,13 @@ export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado }: Props)
   const [subiendo, setSubiendo] = useState(false);
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
 
+  const ofreceReabrir = pago !== null && puedeReabrir(user, pago.estado_validacion);
+  const reapertura = useReapertura(pago?.id ?? null, ofreceReabrir);
   const ia = useEvaluacionCompleta(pago?.id ?? null, pago?.evaluacion ?? null);
   // Si el condominio tiene la IA de vouchers se sabe al abrir (sin pedir una evaluación): sin ella, el panel ofrece pasar a Torre Pro.
   const capacidadIA = useCapacidadIA(pago?.unidad?.complejo?.id ?? null);
 
-  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinCheck(false); setQuitandoMulta(false); setMultaQuitada(false); setAnulando(false); setAnulado(null); }, [pagoProp?.id]);
+  useEffect(() => { setRechazando(false); setMotivo(''); setErrorMotivo(undefined); setSubido(null); setErrorAdjunto(null); setConformidadLocal(null); setConfirmandoSinCheck(false); setQuitandoMulta(false); setMultaQuitada(false); setAnulando(false); setReabriendo(false); setAnulado(null); }, [pagoProp?.id]);
 
   /** Sube el voucher y sigue la evaluación de la IA; el pago no cambia de estado aquí (sólo la IA o quien valida). */
   async function adjuntar(archivo: File) {
@@ -205,6 +213,11 @@ export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado }: Props)
         ) : (
           <>
             <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+            {ofreceReabrir && reapertura.reapertura?.puede === false && <p id="motivo-no-reabrir" className="mr-auto max-w-xs text-xs text-muted">{reapertura.reapertura.motivo}</p>}
+            {ofreceReabrir && reapertura.error && <p id="motivo-no-reabrir" className="mr-auto max-w-xs text-xs text-muted">{reapertura.error}</p>}
+            {ofreceReabrir && (
+              <Button variant="secondary" icon={<ArrowUturnLeftIcon className="h-4 w-4" aria-hidden="true" />} disabled={reapertura.reapertura?.puede !== true} loading={reapertura.cargando} aria-describedby={reapertura.reapertura?.puede === false || reapertura.error ? 'motivo-no-reabrir' : undefined} onClick={() => setReabriendo(true)}>Volver a revisar</Button>
+            )}
             {pago && puedeAnular(user, estadoPago ?? pago.estado_validacion) && (
               <Button variant="secondary" className="border-bad/40 text-bad hover:bg-bad/10" icon={<NoSymbolIcon className="h-4 w-4" />} onClick={() => setAnulando(true)}>Anular pago</Button>
             )}
@@ -344,6 +357,16 @@ export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado }: Props)
         moneda={pago.moneda}
         onClose={() => setAnulando(false)}
         onAnulado={r => { setAnulado({ ...r, id: pago.id }); onRevisado(); }}
+      />
+    )}
+    {reabriendo && pago && (
+      <ReabrirPagoModal
+        pagoId={pago.id}
+        codigo={pago.unidad?.codigo}
+        monto={pago.mantenimiento?.total ?? pago.monto}
+        moneda={pago.moneda}
+        onClose={() => setReabriendo(false)}
+        onReabierto={() => { onClose(); onRevisado(); onReabierto?.(); }}
       />
     )}
     {quitandoMulta && pago?.aviso_multa && (
