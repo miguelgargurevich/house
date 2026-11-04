@@ -4,9 +4,10 @@ import { cssDeMarca, esHexColor, type MarcaUsuario } from '../../lib/marca';
 
 const ID_ESTILO = 'marca-empresa';
 let tituloOriginal: string | null = null;
-let iconoOriginal: { href: string; type: string | null } | null = null;
+let iconosOriginales: { el: HTMLLinkElement; href: string; type: string | null }[] | null = null;
 
-const iconoDeLaPagina = (): HTMLLinkElement | null => document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+/** Todos los íconos de la pestaña (SVG y PNG de 16 y 32): si se cambia sólo uno, el navegador puede quedarse con otro de Torre. */
+const iconosDeLaPagina = (): HTMLLinkElement[] => [...document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]')];
 
 /** Pone la marca activa: color del tema, «<nombre> · con Torre» en la pestaña y el logo como favicon. */
 export function aplicarMarca(marca: MarcaUsuario): void {
@@ -19,21 +20,22 @@ export function aplicarMarca(marca: MarcaUsuario): void {
   if (tituloOriginal === null) tituloOriginal = document.title;
   document.title = `${marca.nombre} · con Torre`;
 
-  const icono = iconoDeLaPagina();
-  if (icono && marca.logo_url) {
-    if (!iconoOriginal) iconoOriginal = { href: icono.getAttribute('href') ?? '', type: icono.getAttribute('type') };
-    icono.removeAttribute('type'); // el logo es JPG, PNG o WebP: el navegador lo reconoce por su contenido
-    icono.setAttribute('href', marca.logo_url);
+  const iconos = iconosDeLaPagina();
+  if (iconos.length && marca.logo_url) {
+    if (!iconosOriginales) iconosOriginales = iconos.map((el) => ({ el, href: el.getAttribute('href') ?? '', type: el.getAttribute('type') }));
+    for (const el of iconos) {
+      el.removeAttribute('type'); // el logo es JPG, PNG o WebP: el navegador lo reconoce por su contenido
+      el.setAttribute('href', marca.logo_url);
+    }
   } else restaurarIcono();
 }
 
 function restaurarIcono() {
-  const icono = iconoDeLaPagina();
-  if (icono && iconoOriginal) {
-    icono.setAttribute('href', iconoOriginal.href);
-    if (iconoOriginal.type) icono.setAttribute('type', iconoOriginal.type);
+  for (const o of iconosOriginales ?? []) {
+    o.el.setAttribute('href', o.href);
+    if (o.type) o.el.setAttribute('type', o.type);
   }
-  iconoOriginal = null;
+  iconosOriginales = null;
 }
 
 /** Vuelve a Torre: sin hoja de estilos de marca, con el título y el ícono de siempre. */
