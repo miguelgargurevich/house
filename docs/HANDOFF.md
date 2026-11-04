@@ -4,6 +4,13 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Sin emojis en la interfaz (Claude Code, Opus 5.5) — push: no
+
+- Pedido de Miguel: «no uses emojis, usa react icons» y «revisa si hay más así». Barrido de `src/`, `public/` e `index.html` por caracteres emoji/✓: en pantalla sólo quedaban el ✅ de `WhatsappSync.tsx` (lo cambia el que integre `whatsapp-grupos-contador`, que edita ese archivo) y el «✓» de texto de Pagos.
+- `conformidad.ts`: «Voucher subido» / «Tesorero: confirmó» en vez de ✓; `Pagos.tsx`: lo hecho lleva `CheckIcon` (Heroicons) con el texto para lector de pantalla. `ai-system-prompt.txt` dice lo mismo. `tests/conformidad-tesorero-ui.test.ts` ajustado + caso nuevo. Los ✓ que quedan en `src/` son comentarios.
+
+---
+
 ## 2026-11-03 — Grupos de WhatsApp con participantes @lid (Claude Code, Opus 5.5) — push: no
 
 - Probado en producción (sólo lectura) con el grupo de prueba de Miguel: `findGroupInfos` de Evolution 2.3.7 trae los participantes como `…@lid` y el PROPIO número no aparece como teléfono → el chequeo «¿sigo en el grupo?» habría fallado siempre.

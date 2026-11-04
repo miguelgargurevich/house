@@ -96,8 +96,8 @@ describe('estado por pago: Voucher · IA · Tesorero', () => {
   const ev = (estado: string, veredicto: string | null = null) => ({ estado, veredicto });
   const conVoucher = { comprobante: { nombre: 'v.png' } };
 
-  it('voucher ✓, IA coincide, tesorero pendiente', () => {
-    assert.equal(textoEstadoRevision({ ...BASE, ...conVoucher, conformidad: null, conformidad_exencion: null, evaluacion: ev('completada', 'coincide') }), 'Voucher ✓ · IA: coincide · Tesorero: pendiente');
+  it('voucher subido, IA coincide, tesorero pendiente', () => {
+    assert.equal(textoEstadoRevision({ ...BASE, ...conVoucher, conformidad: null, conformidad_exencion: null, evaluacion: ev('completada', 'coincide') }), 'Voucher subido · IA: coincide · Tesorero: pendiente');
   });
 
   it('la IA «duda» con cualquier veredicto que no sea coincide, y «no leído» si no hubo lectura', () => {
@@ -107,11 +107,19 @@ describe('estado por pago: Voucher · IA · Tesorero', () => {
     assert.equal(estadoRevision({ ...BASE, ...conVoucher, evaluacion: ev('pendiente') }).ia.label, 'evaluando…');
   });
 
-  it('tesorero ✓ cuando dio el check; «no aplica» cuando nadie puede darlo; sin voucher dice «falta»', () => {
-    assert.equal(estadoRevision({ ...BASE, ...conVoucher, conformidad: DADA }).tesorero.label, '✓');
+  it('tesorero «confirmó» cuando dio el check; «no aplica» cuando nadie puede darlo; sin voucher dice «falta»', () => {
+    assert.equal(estadoRevision({ ...BASE, ...conVoucher, conformidad: DADA }).tesorero.label, 'confirmó');
     assert.equal(estadoRevision({ ...BASE, ...conVoucher, conformidad: null, conformidad_exencion: 'sin_tesorero' }).tesorero.label, 'no aplica');
     assert.equal(estadoRevision({ ...BASE, conformidad: null, conformidad_exencion: null }).voucher, 'falta');
-    assert.equal(textoEstadoRevision({ ...BASE, ...conVoucher, conformidad: DADA, evaluacion: ev('completada', 'coincide') }), 'Voucher ✓ · IA: coincide · Tesorero: ✓');
+    assert.equal(textoEstadoRevision({ ...BASE, ...conVoucher, conformidad: DADA, evaluacion: ev('completada', 'coincide') }), 'Voucher subido · IA: coincide · Tesorero: confirmó');
+  });
+});
+
+describe('sin emojis ni ✓ de texto: lo hecho lleva el ícono CheckIcon', () => {
+  it('Pagos usa CheckIcon y ninguna etiqueta del estado es un ✓', () => {
+    const f = readFileSync('src/pages/admin/Pagos.tsx', 'utf8');
+    assert.match(f, /CheckIcon/);
+    assert.doesNotMatch(readFileSync('src/pages/admin/_parts/cobranza/conformidad.ts', 'utf8'), /label: '✓'|\? '✓'/);
   });
 });
 

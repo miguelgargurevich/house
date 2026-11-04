@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BanknotesIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { BanknotesIcon, CheckIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useCondominio, useTorreElegida } from '../../app/condominio';
 import { useList } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
@@ -33,14 +33,17 @@ type PagoFila = PagoRevisable;
 
 const COLOR_ESTADO = { ok: 'font-medium text-ok', warn: 'font-medium text-warn', neutral: 'text-muted' } as const;
 
-/** «Voucher ✓ · IA: coincide · Tesorero: pendiente»: lo que falta para que el pago se valide (solo si coinciden la IA y el tesorero, o a mano con el check). */
+/** «Voucher subido · IA: coincide · Tesorero: pendiente»: lo que falta para que el pago se valide (solo si coinciden la IA y el tesorero, o a mano con el check). */
+/** Lo hecho se marca con un check (ícono, no emoji); el texto queda para el lector de pantalla. */
+const Hecho = ({ texto }: { texto: string }) => <><CheckIcon className="inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true" /><span className="sr-only">{texto}</span></>;
+
 function EstadoRevision({ pago }: { pago: PagoFila }) {
   const e = estadoRevision(pago);
   return (
     <span className="block text-xs leading-5" aria-label="Estado de la revisión">
-      <span className={pago.comprobante ? COLOR_ESTADO.ok : COLOR_ESTADO.warn}>Voucher {e.voucher}</span>
+      <span className={pago.comprobante ? COLOR_ESTADO.ok : COLOR_ESTADO.warn}>Voucher {pago.comprobante ? <Hecho texto={e.voucher} /> : e.voucher}</span>
       <span className="text-muted"> · IA: </span><span className={COLOR_ESTADO[e.ia.tone]}>{e.ia.label}</span>
-      <span className="text-muted"> · Tesorero: </span><span className={COLOR_ESTADO[e.tesorero.tone]}>{e.tesorero.label}</span>
+      <span className="text-muted"> · Tesorero: </span><span className={COLOR_ESTADO[e.tesorero.tone]}>{e.tesorero.tone === 'ok' ? <Hecho texto={e.tesorero.label} /> : e.tesorero.label}</span>
     </span>
   );
 }

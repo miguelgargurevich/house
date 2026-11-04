@@ -69,11 +69,11 @@ export function textoIA(ev: EvaluacionResumen): { tone: 'ok' | 'warn' | 'neutral
   return ev.veredicto === 'coincide' ? { tone: 'ok', label: 'coincide' } : { tone: 'warn', label: 'duda' };
 }
 
-/** «Voucher ✓ · IA: coincide · Tesorero: pendiente»: lo que falta para que el pago se valide, de un vistazo. */
+/** «Voucher subido · IA: coincide · Tesorero: pendiente»: lo que falta para que el pago se valide, de un vistazo. */
 export function estadoRevision(p: DatosConformidad & { comprobante?: unknown; evaluacion?: EvaluacionResumen }): { voucher: string; ia: ReturnType<typeof textoIA>; tesorero: { tone: 'ok' | 'warn' | 'neutral'; label: string } } {
   const exencion = exencionDe(p);
-  const tesorero = p.conformidad ? { tone: 'ok' as const, label: '✓' } : exencion ? { tone: 'neutral' as const, label: 'no aplica' } : { tone: 'warn' as const, label: 'pendiente' };
-  return { voucher: p.comprobante ? '✓' : 'falta', ia: textoIA(p.evaluacion), tesorero };
+  const tesorero = p.conformidad ? { tone: 'ok' as const, label: 'confirmó' } : exencion ? { tone: 'neutral' as const, label: 'no aplica' } : { tone: 'warn' as const, label: 'pendiente' };
+  return { voucher: p.comprobante ? 'subido' : 'falta', ia: textoIA(p.evaluacion), tesorero };
 }
 
 export const textoEstadoRevision = (p: Parameters<typeof estadoRevision>[0]): string => {
