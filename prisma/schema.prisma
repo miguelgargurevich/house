@@ -163,7 +163,7 @@ model ComplejoHabitacional {
   /// Mora (en la moneda del condominio) que se agrega, en el recibo del mes siguiente, a la unidad que pagó fuera de fecha. 0 = sin mora.
   mora_monto  Decimal @default(20.00)
   /// Avisos automáticos que salen también por WhatsApp (además del correo), por tipo: `TIPOS_WHATSAPP_CONFIGURABLES` en `src/server/services/avisos/whatsappTipos.ts`. Cada WhatsApp cuenta para la cuota del plan y el tope diario del número. Los avisos de la IA y los comunicados no se rigen por esta lista. Los resultados de pago (validado, rechazado) nunca salen por WhatsApp.
-  whatsapp_avisos String[] @default(["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"])
+  whatsapp_avisos String[] @default(["vence_hoy", "vencido", "cierre_pendiente"])
   /// Recibo impreso: notas de pago (texto libre, una línea por renglón) y contacto de la administración. Todo opcional: si falta, el bloque se omite.
   notas_pago    String?
   admin_nombre  String?
@@ -1099,6 +1099,8 @@ model ConfiguracionComercial {
   migracion_cortesia_at  DateTime?
   /// Cuándo se sumó la capacidad `marca_propia` a los planes Pro, Administradora y Cortesía que ya existían (una sola vez; ver services/comercial/migracion.ts).
   migracion_marca_at     DateTime?
+  /// Cuándo se quitó el recibo del WhatsApp directo a los condominios que ya tenían grupos de WhatsApp (una sola vez; ver services/comercial/migracion.ts).
+  migracion_grupos_recibo_at DateTime?
   /// Manual de usuario con videos (página pública de My Workspace): lo abre «Manual y videos» del menú de la cuenta, en la sección del rol. null = no se muestra.
   url_manual             String?  @default("https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/1793803475298-torre-en-video-cada-opcio-n-del-menu-segu-n-tu-rol.html")
   pago_titular           String?
@@ -1496,6 +1498,8 @@ model EnvioGrupoWhatsapp {
   instancia    String
   complejo_id  Int
   comunicado_id Int?
+  /// El recibo que se avisó al grupo (null en los mensajes de comunicados). Con él, un recibo no se manda dos veces al mismo grupo.
+  recibo_id    Int?
   grupo_id     Int?
   estado       String
   motivo       String?
@@ -1504,6 +1508,7 @@ model EnvioGrupoWhatsapp {
 
   @@index([instancia, estado, at])
   @@index([empresa_id, at])
+  @@index([recibo_id, grupo_id])
 }
 
 /// Persona de un departamento (propietario, copropietario, cónyuge, familiar, inquilino u otro). La administradora decide quién tiene acceso a Torre

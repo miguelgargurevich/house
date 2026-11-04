@@ -45,6 +45,8 @@ let T: Record<'super' | 'adminA' | 'adminB' | 'prop1' | 'inq1', string>;
 
 before(async () => {
   d = await sembrar();
+  // La lista de antes del cambio (el recibo sale también directo por WhatsApp): estas pruebas son del mecanismo, no del defecto.
+  await prisma.complejoHabitacional.updateMany({ data: { whatsapp_avisos: ["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"] } });
   ({ base, cerrar } = await iniciar({ rateLimits: { api: 100_000, login: 100_000 } }));
   T = {
     super: await login(base, 'super@test.pe'),

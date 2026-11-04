@@ -38,6 +38,9 @@ export function AvisosWhatsapp({ complejoId, lista, planWhatsapp, onGuardado }: 
         <p className="mt-1 text-sm text-muted">
           Elige qué avisos automáticos salen también por WhatsApp. El correo no cambia. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número de WhatsApp de tu administración.
         </p>
+        <p className="mt-1 text-sm text-muted">
+          El aviso del recibo va al grupo de cada block. El directo es opcional y gasta un mensaje por departamento.
+        </p>
       </div>
       {sinPlan && <AvisoModulo modulo="whatsapp_avisos" />}
       <fieldset disabled={sinPlan} className="space-y-4">

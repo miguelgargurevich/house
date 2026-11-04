@@ -4,6 +4,32 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Grupos de WhatsApp por block: el recibo va al grupo, lo personal va directo (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/grupos-estrategia`) — push: no
+
+- **Pedido de Miguel**: los avisos generales van a los grupos (14 blocks → 14 grupos), no a cada departamento. Regla: WhatsApp a grupos para lo general; directo sólo para lo personal. El correo no cambia.
+- **Qué se hizo**:
+  - Recibo al grupo de su block (o del condominio si el recibo no es de block), al emitir (API y Excel) y al avisar. Reusa el camino de los comunicados a grupos (`enviarUno`). Va en segundo plano.
+  - Idempotente por recibo y grupo: `EnvioGrupoWhatsapp.recibo_id` (columna nueva).
+  - `recibo_emitido` sale de `WHATSAPP_POR_DEFECTO` y del default de `whatsapp_avisos` en el schema. Migración única (`migracion_grupos_recibo_at`): sólo condominios con grupos pierden el recibo directo.
+  - Cobertura (`services/canales/cobertura.ts`): «Grupos de blocks: 13 de 14. Falta: Block 9» en «Mis grupos»; aviso en «Avisar a los vecinos» y en la respuesta de emitir si el block no tiene grupo. Endpoint `GET /api/whatsapp/cobertura/:id` (404 otra empresa).
+  - Comunicados: «A las juntas» desmarcado por defecto, con texto de ayuda nuevo.
+  - Contador: `recordatorio_deuda` con su nombre; el recibo a grupos cuenta en «Recibo del mes».
+  - Manual (house, administradora, junta) y `docs/API-CONTRATO.md`.
+- **Próximos**:
+  1. Mirar en el navegador «Mis grupos», «Avisar a los vecinos», «Nuevo comunicado» y «Avisos del condominio» (no se vieron).
+  2. Decidir si `cobranza/EmitirReciboModal.tsx` queda: lo toqué para mostrar el aviso de block sin grupo al emitir, pero ese archivo NO está en la lista de permitidos del brief. Si no se aprueba, se revierte y el aviso queda sólo en la API.
+  3. Republicar el manual web y los PDF por rol.
+- **Decisiones**:
+  - El recibo directo viene apagado también en condominios nuevos sin grupos (así lo pidió el brief). Consecuencia: sin grupos no hay WhatsApp del recibo hasta asignar grupos o encenderlo; la cobertura lo dice.
+  - Un grupo con el tope diario alcanzado no se anota, y un «Avisar» posterior lo intenta de nuevo.
+  - `grupo` en la respuesta de «Avisar» es el estado antes de salir (el envío es en segundo plano).
+- **Gotchas**:
+  - Hay que cambiar el default de `whatsapp_avisos` en el schema además de la constante, o los condominios nuevos siguen con el recibo directo.
+  - Las pruebas que dependían del recibo directo por defecto ahora fijan la lista de antes (`avisar-recibo`, `avisos`, `cobranza-pagador`, `whatsapp-mis-grupos`, `whatsapp-por-tipo`, `whatsapp-uso`).
+  - Pruebas nuevas: `recibos-grupos` (13). Base `house_test_grupos`; Evolution y Resend falsos.
+  - Suite completa: 4115 pruebas, 4113 en verde. Fallan 2, ninguna por este cambio: `recibos-excel` «conceptos en 0» (fecha, conocida) y `seo-publico` «la plantilla real de index.html» (index.html no cambió en esta rama).
+  - Mutaciones en rojo (y restauradas con cp + cmp): recibo directo por defecto; mismo recibo dos veces al mismo grupo; migración que quita el directo sin grupos; cobertura sin filtro de empresa (404 roto).
+  - Las pruebas del Excel ahora filtran los avisos «no tiene grupo de WhatsApp» (`sinAvisoGrupo`): el Excel los devuelve en `advertencias`.
 ## 2026-11-04 — Ícono: la torre un 20 % más grande (Claude Code, Opus 5.5) — push: no
 
 - Miguel: «cuando lo copia al dock es muy pequeña la torre en comparación al logo». La torre se dibuja con escala 1,2 sobre las medidas base en `IconoTorre.tsx` (`TORRE_ESCALA`), `favicon.svg`, los PNG (`iconos-torre.py`, `ESCALA`; maskable 1,02 = lo máximo dentro de la zona segura) y el cierre de los videos. `og-torre.png` regenerado.

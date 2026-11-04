@@ -103,6 +103,8 @@ beforeEach(async () => {
   await prisma.empresaAdministradora.update({ where: { id: D.empresaA.id }, data: { whatsapp_instance: INST_A, whatsapp_token: 'token-de-prueba' } });
   await prisma.empresaAdministradora.update({ where: { id: D.empresaB.id }, data: { whatsapp_instance: INST_B, whatsapp_token: 'token-de-prueba' } });
   await configurar({ whatsapp_tope_diario: 200, whatsapp_pausa_min_seg: 5, whatsapp_pausa_max_seg: 15 });
+  // Estas pruebas encolan recibos por WhatsApp directo: la lista de antes del cambio (el recibo sale directo si el condominio lo enciende).
+  await prisma.complejoHabitacional.updateMany({ data: { whatsapp_avisos: ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente'] } });
 });
 
 describe('pausa al azar entre WhatsApp de la misma instancia', () => {

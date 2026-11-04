@@ -41,8 +41,8 @@ const vacio = (inicial: Props['inicial'], ambitos: Ambitos): Form => {
   const complejo = inicial?.complejo_id || (unico ? String(unico.id) : '');
   const bloques = ambitos.complejos.find(c => String(c.id) === complejo)?.estructuras ?? [];
   const estructura = ambitos.fijo ? String(bloques[0]?.id ?? '') : /^\d+$/.test(inicial?.estructura_id ?? '') ? inicial!.estructura_id : '';
-  // A la junta, por defecto; los grupos de WhatsApp vienen marcados según el alcance (abajo); a cada vecino por WhatsApp, nunca.
-  return { complejo_id: complejo, estructura_id: estructura, bloque_elegidos: '', titulo: '', cuerpo: '', enviar_correo: false, enviar_whatsapp: false, enviar_junta: true, fijado: false };
+  // Los comunicados van a los grupos de WhatsApp (marcados según el alcance, abajo). A la junta, sólo si es urgente: gasta un mensaje por persona.
+  return { complejo_id: complejo, estructura_id: estructura, bloque_elegidos: '', titulo: '', cuerpo: '', enviar_correo: false, enviar_whatsapp: false, enviar_junta: false, fijado: false };
 };
 
 /** Crear o editar un comunicado. El condominio, el alcance y las casillas de envío sólo se eligen al crear: editar nunca reenvía. */
@@ -172,7 +172,7 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
             {!elegidos && (
               <Interruptor
                 label={estructuraId ? `A la junta del ${palabra.una}` : 'A las juntas del condominio'}
-                hint="Correo y WhatsApp a cada miembro de la junta vigente. Es lo más barato: pocas personas y todas se enteran."
+                hint="Correo y WhatsApp a cada miembro de la junta vigente, uno por persona. Úsalo si es urgente: el grupo ya lo recibe."
                 {...register('enviar_junta')}
               />
             )}
@@ -184,6 +184,7 @@ export function ComunicadoModal({ comunicado, ambitos, inicial, onClose, onSaved
         {nuevo && !elegidos && (
           <fieldset className="grid gap-2 sm:col-span-2">
             <legend className="mb-1 text-sm font-medium">A los grupos de WhatsApp</legend>
+            <p className="text-xs text-muted">Los comunicados van a los grupos. Directo a la junta o a cada vecino, sólo si es urgente: gasta un mensaje por persona.</p>
             {grupos.length === 0 ? (
               <p className="text-sm text-muted">
                 {estructuraId ? `Este ${palabra.una} aún no tiene` : 'Este condominio aún no tiene'} grupos de WhatsApp en uso. La administración los elige en «WhatsApp» › Mis grupos.{' '}

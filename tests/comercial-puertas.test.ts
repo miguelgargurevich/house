@@ -199,6 +199,8 @@ describe('módulo «Avisos por WhatsApp»', () => {
     await prisma.usuario.update({ where: { id: d.propietario1.id }, data: { telefono: '+51 987 654 321' } });
     await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { whatsapp_instance: 'instancia-falsa' } });
     reciboId = d.reciboVencidoA.id;
+    // Estas pruebas mandan el recibo por WhatsApp directo: la lista de antes del cambio (el recibo va directo si el condominio lo enciende).
+    await prisma.complejoHabitacional.updateMany({ data: { whatsapp_avisos: ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente'] } });
   });
   const aviso = (canal: string, tipo = 'recibo_emitido', ref: { entidad: string; id: number | null } = { entidad: 'recibo', id: reciboId }) =>
     prisma.notificacion.create({ data: { usuario_id: d.propietario1.id, canal, tipo, asunto: 'Asunto', cuerpo: 'Cuerpo', estado: 'pendiente', programada_para: new Date(Date.now() - 1000), ref_entidad: ref.entidad, ref_id: ref.id } });

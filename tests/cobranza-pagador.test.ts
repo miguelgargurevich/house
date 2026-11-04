@@ -29,6 +29,7 @@ async function reciboQueVence(dias: number) {
 
 beforeEach(async () => {
   D = await sembrar();
+  await prisma.complejoHabitacional.updateMany({ data: { whatsapp_avisos: ["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"] } });
   await prisma.usuario.updateMany({ data: { aviso_email: true, aviso_whatsapp: true, telefono: null } });
   await prisma.usuario.update({ where: { id: D.propietario1.id }, data: { telefono: '987654321' } });
   await prisma.usuario.update({ where: { id: D.propietario2.id }, data: { telefono: '922222222' } });

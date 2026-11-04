@@ -29,7 +29,7 @@ describe('contador: cálculos y textos', () => {
   });
 
   it('todos los tipos del servidor tienen su nombre en español', () => {
-    assert.deepEqual([...ORDEN_TIPOS].sort(), ['cierre_pendiente', 'comunicado', 'grupo', 'otros', 'por_vencer', 'recibo_emitido', 'vence_hoy', 'vencido']);
+    assert.deepEqual([...ORDEN_TIPOS].sort(), ['cierre_pendiente', 'comunicado', 'grupo', 'otros', 'por_vencer', 'recibo_emitido', 'recordatorio_deuda', 'vence_hoy', 'vencido']);
     for (const t of ORDEN_TIPOS) assert.ok(ROTULO_TIPO[t].length > 3);
   });
 

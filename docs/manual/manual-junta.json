@@ -140,7 +140,7 @@
         "En el grupo **Junta**, entra a **Comunicados** y pulsa **Nuevo comunicado**.",
         "Escribe el título y el mensaje.",
         "Si el aviso es sólo para algunos vecinos, en **Para quién** elige **Departamentos elegidos**: marca, de tu block, los departamentos que lo recibirán (busca por código o titular). Sólo esos vecinos lo reciben y lo ven; en ese caso no hay junta ni grupos.",
-        "En **Además de verlo en la app** marca si va **A la junta del block**, **por correo** o **por WhatsApp a cada vecino**. Si tu administración eligió grupos de WhatsApp para tu block, también los ves ahí.",
+        "En **Además de verlo en la app** marca, sólo si es urgente, **A la junta del block**, **por correo** o **por WhatsApp a cada vecino**: van apagados por defecto, porque gastan un mensaje por persona. Los comunicados van a los grupos de WhatsApp de tu block, que tu administración elige.",
         "Pulsa **Publicar**."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-comunicado-nuevo.jpg"

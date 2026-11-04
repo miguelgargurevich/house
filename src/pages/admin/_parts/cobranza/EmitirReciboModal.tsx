@@ -31,6 +31,8 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
   const toast = useToast();
   // Paso previo opcional: «Revisar morosos» muestra quién pagó tarde el mes anterior (con la fecha del voucher) antes de emitir.
   const [revisando, setRevisando] = useState(false);
+  // Recibos emitidos cuyo block no tiene grupo de WhatsApp (o el número ya no está en él): se quedan a la vista hasta que se cierre.
+  const [sinGrupo, setSinGrupo] = useState<string[]>([]);
   const complejos = useResource<Lista<Complejo>>('/api/complejos?pageSize=100');
   const conceptos = useResource<Lista<Concepto>>('/api/conceptos?pageSize=100');
   const hoy = new Date();
@@ -67,7 +69,7 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
 
   async function emitir(v: Form) {
     try {
-      const r = await api<{ recibos?: unknown[] }>('/api/recibos', {
+      const r = await api<{ recibos?: unknown[]; advertencias?: string[] }>('/api/recibos', {
         method: 'POST',
         json: {
           complejo_id: Number(v.complejo_id),
@@ -83,7 +85,10 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
       const n = r.recibos?.length ?? 1;
       toast.ok(n > 1 ? `Se emitieron ${n} recibos, uno por block` : 'Recibo emitido');
       onSaved();
-      onClose();
+      // Un block sin grupo de WhatsApp sólo recibe el aviso por correo: se lo decimos antes de cerrar.
+      const sinGrupoAhora = (r.advertencias ?? []).filter(a => /grupo de WhatsApp/.test(a));
+      if (sinGrupoAhora.length) setSinGrupo(sinGrupoAhora);
+      else onClose();
     } catch (e) { toast.error(errorText(e)); }
   }
 
@@ -100,7 +105,9 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
       title={revisando ? 'Revisar morosos' : 'Emitir recibo'}
       description={revisando ? 'Quién pagó tarde el recibo del mes anterior, según la fecha de su voucher. Es el mismo cálculo de la emisión.' : 'Define el periodo y los conceptos; cada unidad activa recibirá su cargo.'}
       footer={
-        revisando ? (
+        sinGrupo.length > 0 ? (
+          <Button onClick={onClose}>Listo</Button>
+        ) : revisando ? (
           <>
             <Button variant="secondary" onClick={() => setRevisando(false)}>Volver</Button>
             <Button loading={isSubmitting} disabled={!listo} onClick={handleSubmit(emitir)}>Emitir recibo</Button>
@@ -114,7 +121,13 @@ export function EmitirReciboModal({ onClose, onSaved }: { onClose: () => void; o
         )
       }
     >
-      {revisando ? (
+      {sinGrupo.length > 0 && (
+        <div className="grid gap-2">
+          <p className="text-sm text-ink">El recibo quedó emitido. Estos blocks no tienen grupo de WhatsApp:</p>
+          {sinGrupo.map(a => <Alert key={a} tone="warn">{a}</Alert>)}
+        </div>
+      )}
+      {sinGrupo.length > 0 ? null : revisando ? (
         <RevisarMorosos fuente={{ tipo: 'recibo', complejoId: complejoElegido, estructuraId: torreElegida, mes: mesElegido, anio: anioElegido }} moneda={moneda} />
       ) : cargando ? (
         <div className="space-y-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /></div>

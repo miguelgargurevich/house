@@ -4,7 +4,7 @@ import { estadoEfectivo, finDePrueba } from './estado';
 import { invalidarComercial } from './modulos';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Cliente = Pick<PrismaClient<any, any, any>, 'complejoHabitacional' | 'suscripcionCondominio' | 'configuracionComercial' | 'planComercial'>;
+type Cliente = Pick<PrismaClient<any, any, any>, 'complejoHabitacional' | 'suscripcionCondominio' | 'configuracionComercial' | 'planComercial' | 'grupoWhatsapp'>;
 
 /**
  * Los condominios que ya existían al estrenar la capa comercial (GRUPO VRANY, Los Libertadores…) quedan en «cortesía» con todos los módulos
@@ -43,7 +43,30 @@ export async function migracionInicial(db: Cliente): Promise<{ aplicada: boolean
   if (marca.planes) console.log(`[comercial] marca propia sumada a ${marca.planes} planes`);
   const gratis = await migracionGratis(db);
   if (gratis.aplicada && gratis.fijados) console.log(`[comercial] plazo de Torre Gratis fijado a ${gratis.fijados} condominios`);
+  const grupos = await migracionRecordatorioGrupos(db);
+  if (grupos.condominios) console.log(`[whatsapp] recibo quitado del WhatsApp directo en ${grupos.condominios} condominios con grupos (lo lleva el grupo de cada block)`);
   return resultado;
+}
+
+/**
+ * UNA sola vez (marca `migracion_grupos_recibo_at`): a los condominios que ya tienen algún grupo de WhatsApp en uso (de un block o de todo el
+ * condominio) les quita el recibo del WhatsApp DIRECTO a cada departamento: ese aviso ya va al grupo. Los que no tienen grupos no se tocan
+ * (si no, se quedarían sin aviso por WhatsApp). La administradora puede volver a prenderlo en «Avisos del condominio».
+ */
+export async function migracionRecordatorioGrupos(db: Cliente): Promise<{ aplicada: boolean; condominios: number }> {
+  const cfg = await db.configuracionComercial.findUnique({ where: { id: CONFIGURACION_ID }, select: { migracion_grupos_recibo_at: true } });
+  if (!cfg || cfg.migracion_grupos_recibo_at) return { aplicada: false, condominios: 0 };
+  const conGrupo = await db.grupoWhatsapp.findMany({ where: { en_uso: true, destino: { in: ['block', 'condominio'] }, complejo_id: { not: null } }, distinct: ['complejo_id'], select: { complejo_id: true } });
+  const ids = conGrupo.flatMap((g: { complejo_id: number | null }) => (g.complejo_id != null ? [g.complejo_id] : []));
+  const complejos: { id: number; whatsapp_avisos: string[] }[] = ids.length ? await db.complejoHabitacional.findMany({ where: { id: { in: ids } }, select: { id: true, whatsapp_avisos: true } }) : [];
+  let condominios = 0;
+  for (const c of complejos) {
+    if (!c.whatsapp_avisos.includes('recibo_emitido')) continue;
+    await db.complejoHabitacional.update({ where: { id: c.id }, data: { whatsapp_avisos: c.whatsapp_avisos.filter((t) => t !== 'recibo_emitido') } });
+    condominios++;
+  }
+  await db.configuracionComercial.updateMany({ where: { id: CONFIGURACION_ID, migracion_grupos_recibo_at: null }, data: { migracion_grupos_recibo_at: new Date() } });
+  return { aplicada: true, condominios };
 }
 
 /**

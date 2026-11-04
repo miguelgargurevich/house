@@ -20,9 +20,10 @@ describe('lista de tipos que la administración puede activar', () => {
     );
   });
 
-  it('por defecto va todo menos el recordatorio de 2 días antes (gasta mensajes) y los resultados de pago no son configurables', () => {
-    assert.deepEqual([...WHATSAPP_POR_DEFECTO], ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente']);
+  it('por defecto va directo lo personal (vence hoy, venció, cierre), sin el recibo (va al grupo) ni el recordatorio de 2 días antes (gasta mensajes); los resultados de pago no son configurables', () => {
+    assert.deepEqual([...WHATSAPP_POR_DEFECTO], ['vence_hoy', 'vencido', 'cierre_pendiente']);
     assert.ok(!WHATSAPP_POR_DEFECTO.includes('por_vencer'));
+    assert.ok(!WHATSAPP_POR_DEFECTO.includes('recibo_emitido'), 'el recibo va al grupo de cada block, no directo');
     for (const t of ['pago_validado', 'pago_rechazado', 'ia_caida', 'ia_restablecida', 'comunicado']) assert.equal(esTipoWhatsappConfigurable(t), false, t);
   });
 });

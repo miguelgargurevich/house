@@ -25,6 +25,8 @@ let T: Record<'super' | 'adminA' | 'adminB' | 'adminSin' | 'prop1' | 'presi1', s
 
 before(async () => {
   d = await sembrar();
+  // La lista de antes del cambio (el recibo sale también directo por WhatsApp): estas pruebas son del mecanismo, no del defecto.
+  await prisma.complejoHabitacional.updateMany({ data: { whatsapp_avisos: ["recibo_emitido", "vence_hoy", "vencido", "cierre_pendiente"] } });
   e1 = await prisma.estructura.create({ data: { nombre: 'Block 1', tipo: 'Block', complejo_id: d.complejoA.id } });
   const hash = await bcrypt.hash(PASSWORD, 4);
   const presi = await prisma.usuario.create({ data: { nombre: 'Presidente 1', email: 'presi1@test.pe', rol: 'propietario', password_hash: hash, empresa_id: d.empresaA.id, complejo_id: d.complejoA.id, cargo_junta: 'presidente', estructura_id: e1.id } });
@@ -154,7 +156,7 @@ describe('contador: lo de hoy, el mes, la cola, los fallos y los tipos', () => {
     const r = await uso();
     assert.equal(r.body.en_cola.total, 5, '2 a mañana + 1 listo + 1 comunicado + 1 grupo pendiente');
     assert.equal(r.body.en_cola.para_manana, 3, 'los 2 del tope y el grupo pendiente');
-    assert.deepEqual(r.body.en_cola.por_tipo, { recibo_emitido: 1, por_vencer: 1, vence_hoy: 1, vencido: 0, comunicado: 1, cierre_pendiente: 0, grupo: 1, otros: 0 });
+    assert.deepEqual(r.body.en_cola.por_tipo, { recibo_emitido: 1, por_vencer: 1, vence_hoy: 1, vencido: 0, comunicado: 1, cierre_pendiente: 0, recordatorio_deuda: 0, grupo: 1, otros: 0 });
   });
 
   it('fallidos de hoy con el motivo agrupado (avisos y grupos); lo de ayer y de otra empresa no cuenta', async () => {
@@ -171,8 +173,8 @@ describe('contador: lo de hoy, el mes, la cola, los fallos y los tipos', () => {
   it('desglose por tipo, hoy y en el mes, con los grupos como su propio tipo', async () => {
     await sembrarTodo();
     const r = await uso();
-    assert.deepEqual(r.body.por_tipo.hoy, { recibo_emitido: 2, por_vencer: 0, vence_hoy: 0, vencido: 1, comunicado: 0, cierre_pendiente: 0, grupo: 2, otros: 0 });
-    assert.deepEqual(r.body.por_tipo.mes, { recibo_emitido: 2, por_vencer: 0, vence_hoy: 0, vencido: 2, comunicado: 0, cierre_pendiente: 0, grupo: 3, otros: 0 });
+    assert.deepEqual(r.body.por_tipo.hoy, { recibo_emitido: 2, por_vencer: 0, vence_hoy: 0, vencido: 1, comunicado: 0, cierre_pendiente: 0, recordatorio_deuda: 0, grupo: 2, otros: 0 });
+    assert.deepEqual(r.body.por_tipo.mes, { recibo_emitido: 2, por_vencer: 0, vence_hoy: 0, vencido: 2, comunicado: 0, cierre_pendiente: 0, recordatorio_deuda: 0, grupo: 3, otros: 0 });
   });
 
   it('sin tope diario (null o 0) no hay «restantes»; desconectar el número no borra lo que ya salió hoy (`conectado: false`)', async () => {
@@ -222,7 +224,7 @@ describe('contador: el día de Lima', () => {
     assert.equal(r.body.fecha, '2026-11-03');
     assert.deepEqual(r.body.hoy, { enviados: 1, tope: 200, restantes: 199 });
     assert.equal(await contarEnviadasHoy('inst-a', ahora), 1);
-    assert.deepEqual(r.body.por_tipo.hoy, { recibo_emitido: 0, por_vencer: 0, vence_hoy: 1, vencido: 0, comunicado: 0, cierre_pendiente: 0, grupo: 0, otros: 0 });
+    assert.deepEqual(r.body.por_tipo.hoy, { recibo_emitido: 0, por_vencer: 0, vence_hoy: 1, vencido: 0, comunicado: 0, cierre_pendiente: 0, recordatorio_deuda: 0, grupo: 0, otros: 0 });
     assert.equal(Object.values(r.body.por_tipo.mes as Record<string, number>).reduce((a, b) => a + b, 0), 4, 'el mes sigue siendo noviembre');
   });
 

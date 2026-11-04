@@ -12,6 +12,7 @@ import { canalesDeps } from './deps';
 import { enviarAGrupo, listarGrupos, numeroDeInstancia, participantesDeGrupo, type GrupoWhatsapp } from './evolution';
 import { aplicarListaDeEvolution, migrarGruposDeEstructuras } from './misGrupos';
 import { cupoDiario, MOTIVO_TOPE_DIARIO, registrarEnvioGrupo } from './uso';
+import { gruposDelRecibo } from './cobertura';
 
 /** Cuánto del mensaje del comunicado va al grupo: lo lee todo el block, así que va corto y el resto se lee en Torre. */
 export const MAX_CUERPO_GRUPO = 600;
@@ -42,7 +43,8 @@ interface Veredicto {
 
 /** Datos de una tanda de envíos: lo que no cambia de un grupo al siguiente. */
 interface Tanda {
-  comunicadoId: number;
+  /** El comunicado del envío; `null` cuando el envío es el aviso de un recibo. */
+  comunicadoId: number | null;
   complejoId: number;
   empresaId: number | null;
   instancia: string | null;
@@ -161,6 +163,48 @@ export function lanzarEnvioAGrupos(comunicadoId: number): void {
   if (enMarcha.has(comunicadoId)) return;
   enMarcha.add(comunicadoId);
   const p: Promise<void> = enviarComunicadoAGrupos(comunicadoId).catch((e) => console.error('[comunicados] envío a grupos:', e instanceof Error ? e.message : 'error')).finally(() => { enCurso.delete(p); enMarcha.delete(comunicadoId); });
+  enCurso.add(p);
+}
+
+const enMarchaRecibo = new Set<number>();
+
+/**
+ * Manda el aviso de un recibo a los grupos que le tocan (el de su block, o el del condominio) y que aún no lo tienen: UN mensaje por grupo y recibo,
+ * así que repetir no lo duplica. Con el tope diario alcanzado el grupo queda `pendiente` y no se anota: otro «Avisar» lo intenta de nuevo. Cada envío
+ * cuenta para la cuota y el tope, como los de los comunicados. Devuelve lo que pasó con cada grupo (sin JID). Nunca lanza.
+ */
+export async function enviarAvisoReciboAGrupos(reciboId: number): Promise<ResultadoGrupo[]> {
+  const g = await gruposDelRecibo(reciboId).catch(() => null);
+  if (!g || !g.listos.length || g.empresa_id == null || g.complejo_id == null) return [];
+  const tanda: Tanda = { comunicadoId: null, complejoId: g.complejo_id, empresaId: g.empresa_id, instancia: g.instancia, hubo: false };
+  const resultado: ResultadoGrupo[] = [];
+  for (const destino of g.listos) {
+    const fila: ResultadoGrupo = { grupo_id: destino.id, nombre: destino.nombre, estado: 'pendiente' };
+    const grupo = await grupoDeLaFila(g.empresa_id, fila);
+    let v: Veredicto;
+    try {
+      v = await enviarUno(tanda, grupo, fila, g.texto);
+    } catch (e) {
+      console.error('[avisos] grupo del recibo:', e instanceof Error ? e.message : 'error');
+      v = { estado: 'fallo', motivo: 'Error inesperado al enviar al grupo' };
+    }
+    if (v.estado === 'pendiente') {
+      resultado.push({ ...fila, motivo: v.motivo });
+      break; // tope diario: ningún otro grupo sale hoy
+    }
+    if (v.estado === 'enviado') tanda.hubo = true;
+    if (tanda.instancia) await registrarEnvioGrupo({ empresa_id: g.empresa_id, instancia: tanda.instancia, complejo_id: g.complejo_id, comunicado_id: null, recibo_id: reciboId, grupo_id: destino.id, estado: v.estado, motivo: v.motivo, ahora: canalesDeps.ahora() });
+    if (grupo && v.aviso !== undefined) await prisma.grupoWhatsapp.update({ where: { id: grupo.id }, data: { aviso: v.aviso, aviso_at: v.aviso ? canalesDeps.ahora() : null } });
+    resultado.push({ ...fila, estado: v.estado, ...(v.motivo ? { motivo: v.motivo } : {}) });
+  }
+  return resultado;
+}
+
+/** Lanza el aviso de un recibo a sus grupos sin hacer esperar la respuesta (la pausa entre grupos suma minutos). Dos a la vez del mismo recibo no se pisan. */
+export function lanzarAvisoReciboAGrupos(reciboId: number): void {
+  if (enMarchaRecibo.has(reciboId)) return;
+  enMarchaRecibo.add(reciboId);
+  const p: Promise<void> = enviarAvisoReciboAGrupos(reciboId).then(() => undefined).catch((e) => console.error('[avisos] grupos del recibo:', e instanceof Error ? e.message : 'error')).finally(() => { enCurso.delete(p); enMarchaRecibo.delete(reciboId); });
   enCurso.add(p);
 }
 

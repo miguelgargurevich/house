@@ -11,7 +11,10 @@ import { invalidarComercial } from '../src/server/services/comercial/modulos';
 // la vista previa de «Avisar a los vecinos», el envío de un pendiente cuyo tipo se apagó después, y la API que la cambia.
 // Nada sale de verdad: `fetch` es un doble y el envío se mide por las llamadas.
 
-const DEFECTO = ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente'];
+// La lista por defecto: el recibo NO va directo por WhatsApp (lo lleva el grupo de cada block).
+const DEFECTO = ['vence_hoy', 'vencido', 'cierre_pendiente'];
+// La lista de antes del cambio: con el recibo directo por WhatsApp (para probar lo que sale cuando se enciende).
+const CON_RECIBO = ['recibo_emitido', 'vence_hoy', 'vencido', 'cierre_pendiente'];
 const ENV_OK: NodeJS.ProcessEnv = {
   RESEND_API_KEY: 're_CLAVE-FALSA-NO-REAL',
   MAIL_FROM: 'Casa <avisos@ejemplo.test>',
@@ -85,11 +88,17 @@ describe('lista por defecto', () => {
     assert.deepEqual([...c.whatsapp_avisos].sort(), [...DEFECTO].sort());
   });
 
-  it('recibo emitido sale por correo y WhatsApp; por_vencer, apagado por defecto, sólo por correo (a quien paga: el inquilino de A-101)', async () => {
+  it('recibo emitido sale sólo por correo por defecto (su WhatsApp va al grupo); por_vencer, apagado, también sólo por correo (a quien paga: el inquilino de A-101)', async () => {
     await encolarAviso('recibo_emitido', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
     await encolarAviso('por_vencer', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
-    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'recibo_emitido'), ['email', 'whatsapp']);
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'recibo_emitido'), ['email']);
     assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'por_vencer'), ['email']);
+  });
+
+  it('si la administración enciende el recibo directo, sale por correo y WhatsApp', async () => {
+    await listaA(CON_RECIBO);
+    await encolarAviso('recibo_emitido', D.inquilino1.id, { entidad: 'recibo', id: D.reciboVencidoA.id });
+    assert.deepEqual(await canalesDeFilas(D.inquilino1.id, 'recibo_emitido'), ['email', 'whatsapp']);
   });
 });
 
@@ -109,9 +118,10 @@ describe('la administración elige la lista', () => {
   });
 
   it('la lista de un condominio no afecta a otro (B conserva la suya)', async () => {
+    await prisma.complejoHabitacional.update({ where: { id: D.complejoB.id }, data: { whatsapp_avisos: CON_RECIBO } });
     await listaA([]);
     await encolarAviso('recibo_emitido', D.propietarioB.id, { entidad: 'recibo', id: D.reciboB.id });
-    assert.deepEqual(await canalesDeFilas(D.propietarioB.id, 'recibo_emitido'), ['email', 'whatsapp'], 'el condominio B sigue con la lista por defecto');
+    assert.deepEqual(await canalesDeFilas(D.propietarioB.id, 'recibo_emitido'), ['email', 'whatsapp'], 'el condominio B conserva su lista (con el recibo directo)');
   });
 });
 
@@ -163,7 +173,14 @@ describe('la vista previa de «Avisar a los vecinos» cuenta lo mismo que el env
     assert.ok(filas.every((f) => f.canal === 'email'), 'ningún recibo emitido por WhatsApp');
   });
 
-  it('con la lista por defecto, la vista previa cuenta WhatsApp para quien tiene celular', async () => {
+  it('con la lista por defecto, la vista previa no cuenta WhatsApp directo del recibo (va al grupo), aunque haya celular', async () => {
+    const plan = await planAvisoRecibo(D.reciboVencidoA.id);
+    assert.equal(plan.por_whatsapp, 0);
+    assert.ok(plan.por_correo > 0, 'el correo sí');
+  });
+
+  it('con el recibo directo encendido, la vista previa cuenta WhatsApp para quien tiene celular', async () => {
+    await listaA(CON_RECIBO);
     const plan = await planAvisoRecibo(D.reciboVencidoA.id);
     assert.ok(plan.por_whatsapp > 0);
     assert.equal(plan.por_whatsapp, plan.por_correo, 'todos tienen correo y celular aquí');

@@ -327,15 +327,19 @@
       "titulo": "Avisar a los vecinos",
       "etiqueta": "Administradora · Recibos",
       "parrafos": [
-        "Cuando el recibo está emitido, avisa a todos con un clic."
+        "Cuando el recibo está emitido, avisa a todos con un clic. El aviso va al **grupo de WhatsApp de cada block** (un solo mensaje para todos los de ese block) y a cada vecino **por correo**."
       ],
       "numerada": [
         "En el recibo, pulsa **Avisar a los vecinos**.",
-        "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular).",
-        "Pulsa **Enviar aviso**.",
-        "Para el grupo de WhatsApp del block, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo allí. Ese mensaje no lleva montos ni nombres. Si prefieres publicar en tus grupos desde Torre, usa un comunicado (ver «Comunicados»)."
+        "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular). Ahí mismo ves si el block tiene su grupo de WhatsApp.",
+        "Pulsa **Enviar aviso**. El mensaje al grupo del block sale solo: no hace falta copiarlo ni pegarlo.",
+        "Si quieres repetirlo a mano, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo en el grupo. Ese mensaje no lleva montos ni nombres."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg"
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg",
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Un recibo de un block sin grupo de WhatsApp sólo le llega por correo. Asígnale su grupo en WhatsApp › Mis grupos."
+      }
     },
     {
       "titulo": "Pagos: cómo se valida cada uno",
@@ -504,14 +508,14 @@
         "En **Para quién** elige todo el condominio, un block o **Departamentos elegidos**.",
         "Si elegiste **Departamentos elegidos**, escoge el block (o todo el condominio), busca por código o titular y marca los departamentos con las casillas; **Marcar todos** y **Quitar marcas** actúan sobre los que se ven. El aviso sale sólo a las personas de esos departamentos que reciben comunicados, y sólo ellos lo ven en su pantalla. En este caso no hay opción de junta ni de grupos de WhatsApp.",
         "Escribe el título y el mensaje (hasta 4.000 caracteres).",
-        "En **Además de verlo en la app** marca lo que necesites: **A la junta del block** (o **A las juntas del condominio**), **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino**.",
-        "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo.",
+        "En **Además de verlo en la app** marca lo que necesites. A la junta (**A la junta del block** o **A las juntas del condominio**) va apagado: úsalo sólo si es urgente, porque gasta un mensaje por persona. **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino** también van apagados.",
+        "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo. **Los comunicados van a los grupos**: es lo que recomendamos para casi todo.",
         "Decide si queda **Fijar arriba** y pulsa **Publicar**.",
         "En la pestaña **Notificaciones** ves qué salió por correo y por WhatsApp, qué está pendiente y qué tuvo error. Si un grupo quedó pendiente por el tope diario, pulsa **Reintentar**."
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Lo más barato es avisar a la junta: son pocas personas y todas se enteran. El WhatsApp a cada vecino gasta la cuota del mes: úsalo para lo urgente. Cada mensaje a un grupo también cuenta para el tope diario del número. Con departamentos elegidos el aviso es sólo para esos vecinos: sirve para un trabajo en un piso o para avisar a unos pocos."
+        "texto": "Regla de Torre: lo general va a los grupos de WhatsApp (un mensaje por grupo) y lo personal va directo (un mensaje por persona). Con departamentos elegidos el aviso es sólo para esos vecinos: sirve para un trabajo en un piso o para avisar a unos pocos. Cada mensaje a un grupo cuenta para el tope diario del número."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-grupos.jpg"
     },
@@ -519,7 +523,8 @@
       "titulo": "WhatsApp: conecta tu número y mira cuántos mensajes salen",
       "etiqueta": "Administradora · Operación · Torre Pro",
       "parrafos": [
-        "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes."
+        "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes. Regla de Torre: lo general va a los grupos de WhatsApp (un mensaje por grupo) y lo personal va directo (un mensaje por persona).",
+        "Un condominio de 14 blocks con 32 departamentos cada uno (448 en total): antes, el recibo de cada mes mandaba 448 WhatsApp directos el día de emisión; ahora manda 14, uno a cada grupo de block. En un mes de avisos completo, baja de unos 1.000 WhatsApp a unos 510."
       ],
       "numerada": [
         "En **Operación**, entra a **WhatsApp**.",
@@ -565,7 +570,8 @@
       "titulo": "Mis grupos: elige dónde publicar",
       "etiqueta": "Administradora · Operación · Torre Pro",
       "parrafos": [
-        "Torre no crea grupos: usa los que ya tiene tu número. Tú eliges cuáles se pueden usar y a quién representa cada uno."
+        "Torre no crea grupos: usa los que ya tiene tu número. Tú eliges cuáles se pueden usar y a quién representa cada uno.",
+        "Cada block necesita su grupo: el aviso del recibo y los comunicados de ese block salen ahí. Arriba de la lista verás cuántos blocks ya tienen grupo, por ejemplo «Grupos de blocks: 13 de 14. Falta: Block 9»."
       ],
       "numerada": [
         "En **WhatsApp**, baja a **Mis grupos** y pulsa **Traer mis grupos**. Puede tardar hasta 30 segundos: no cierres la pantalla.",
@@ -576,7 +582,7 @@
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Si un grupo dice «Ya no estás en este grupo», tu número salió de él y no se podrá publicar ahí. Para cambiar a quién representa un grupo, usa **Cambiar a quién representa**."
+        "texto": "Si un grupo dice «Ya no estás en este grupo», tu número salió de él y no se podrá publicar ahí. Para cambiar a quién representa un grupo, usa **Cambiar a quién representa**. Si falta un block, su recibo sólo llega por correo hasta que le asignes su grupo."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-whatsapp-grupos.jpg"
     },
@@ -584,17 +590,17 @@
       "titulo": "Avisos por WhatsApp del condominio",
       "etiqueta": "Administradora · Condominios · Torre Pro",
       "parrafos": [
-        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia."
+        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia. El aviso del recibo va al grupo de cada block. El directo es opcional y gasta un mensaje por departamento."
       ],
       "numerada": [
         "Entra a **Condominios** y abre el condominio.",
         "Baja a **Avisos por WhatsApp**.",
-        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**.",
+        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**. El **Recibo del mes** directo viene apagado: el grupo de cada block ya lo avisa.",
         "Pulsa **Guardar avisos por WhatsApp**."
       ],
       "aviso": {
         "tipo": "nota",
-        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número."
+        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número. El recibo directo sale apagado por defecto."
       },
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-condominio-avisos.jpg"
     },
