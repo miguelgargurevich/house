@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Fase 1 y 2 en producción + manual v10 (Claude Code, Opus 5.5) — push: código sí; `ac3af53` (docs) no
+
+- Desplegados `653b0c1` (carga de contactos por Excel) y `ff10ae3` (personas por departamento, construida por Sonnet y verificada por Opus: suite 3954/3956 — fecha + un test de precios que pasa solo —, mutaciones propias de alcance y responsable de pago en rojo, pantalla vista a 375 px). En prod la migración creó personas para los 32 dptos cargados (Block 1), un responsable de pago por dpto.
+- Manual web (`cmvvqh1kf000xf5xdaahmr6o5`) y PDF de la administradora (`cmw1joons001f12k1mmt49yup`) regenerados con las dos secciones nuevas, copiados encima de los archivos publicados (mismos enlaces). Detalle en `docs/manual/README.md`.
+- Próximos: capturas para las dos secciones nuevas; probar de punta a punta encender el acceso de una persona con invitación real; filtros «moroso»/«block» de Usuarios no incluyen personas con acceso no titulares; video 7 «Puesta en marcha».
+- Gotcha: la migración de personas corre sola al arrancar el servidor y sólo mira dptos sin personas (idempotente).
+
+---
+
 ## 2026-11-04 — Personas por departamento y quién tiene acceso a Torre (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - **Pedido de Miguel**: «La administradora también debería poder crear usuarios de su administración o actualizar la lista de personas del departamento y de esa lista seleccionar quienes tienen usuario en el sistema» → personas por departamento, interruptor «Tiene usuario en Torre», responsable de pago → «Hazlo». Roles nuevos (contador, conserje): «No por ahora». Rama `feat/personas-unidad` (sobre `653b0c1`), commits sin push.
