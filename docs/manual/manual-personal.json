@@ -1,0 +1,167 @@
+{
+  "titulo": "Torre para el personal del condominio",
+  "kicker": "Manual de usuario · versión del 3-nov-2026",
+  "subtitulo": "Para mantenimiento, limpieza, jardinería y seguridad: tus tareas y tus consultas.",
+  "diseno": "manual",
+  "meta": [
+    "torrecondominios.com",
+    "Versión 3-nov-2026",
+    "Español · Perú"
+  ],
+  "descripcion": "Manual de Torre para el personal del condominio, con capturas de datos de prueba. Corte: 3-nov-2026.",
+  "secciones": [
+    {
+      "titulo": "Lo que haces en Torre",
+      "etiqueta": "Para empezar",
+      "parrafos": [
+        "Tu administración te crea tu cuenta y tú entras con ella. Ves sólo lo de tu rol: tus tareas, si eres de mantenimiento, limpieza o jardinería, o la lista de unidades, si eres de seguridad."
+      ]
+    },
+    {
+      "titulo": "Cómo entrar por primera vez",
+      "etiqueta": "Todos",
+      "parrafos": [
+        "No creas tu cuenta tú: la crea tu administración y te llega un correo de invitación."
+      ],
+      "numerada": [
+        "Abre el correo de invitación de Torre y pulsa el enlace. Vale **7 días**.",
+        "Escribe tu contraseña dos veces y pulsa **Crear contraseña y entrar**.",
+        "Las próximas veces entra en [torrecondominios.com](https://torrecondominios.com) con tu correo y tu contraseña."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Si el enlace venció o no te llegó el correo, pide a tu administración que use **Reenviar invitación** en la lista de residentes."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/login.jpg"
+    },
+    {
+      "titulo": "Lo que tienen todas las pantallas",
+      "etiqueta": "Todos",
+      "bullets": [
+        "**Tu nombre y tu rol, arriba a la derecha**: si tienes un cargo en la junta, sale junto a tu rol («Propietario · Tesorero del Block 1»). Desde ahí abres Mi perfil (nombre, celular y avisos, contraseña), cambias el tema claro u oscuro y cierras sesión.",
+        "**Tema claro u oscuro**: está dentro del menú de tu nombre, arriba a la derecha («Tema oscuro» / «Tema claro»).",
+        "**El ícono de destellos**: abre el Asistente. Pregúntale «¿Cuánto debo?», «¿Cómo pago?» o dónde hacer algo.",
+        "**El selector de condominio**, arriba a la izquierda (sólo administradora): filtra todas las pantallas por condominio.",
+        "En el celular, el menú se abre con las tres rayas de arriba a la izquierda.",
+        "**La banda de solo lectura**: si el condominio ya terminó su periodo gratis, aparece arriba con el botón **Ir a Mi plan** (ver «Mi condominio está en solo lectura»)."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/perfil.jpg"
+    },
+    {
+      "titulo": "Ten Torre en tu celular",
+      "etiqueta": "Todos",
+      "parrafos": [
+        "En el celular, Torre te muestra el aviso **Ten Torre en tu celular**. Instalarla es agregarla a tu pantalla de inicio: se abre como una app, sin la barra del navegador."
+      ],
+      "numerada": [
+        "Entra a Torre desde el navegador del celular.",
+        "En **Android (Chrome)**, toca **Instalar Torre** en el aviso.",
+        "En **iPhone (Safari)**, toca el ícono de Compartir y luego **Agregar a inicio**.",
+        "Si no lo quieres ver, toca la X del aviso (**Ahora no**)."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El aviso sólo sale en pantallas chicas. Desaparece cuando ya la instalaste o lo cerraste."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-instalar.jpg"
+    },
+    {
+      "titulo": "Mantenimiento, limpieza y jardinería",
+      "etiqueta": "Personal",
+      "parrafos": [
+        "En **Mis tareas** están los trabajos que te asignó la administración, en **Pendientes**, **En progreso** y **Completadas**. Pulsa **Iniciar** cuando empiezas y **Completar** cuando terminas: la administración lo ve al momento."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/mantenimiento-tareas.jpg"
+    },
+    {
+      "titulo": "Seguridad",
+      "etiqueta": "Personal",
+      "parrafos": [
+        "En **Inicio** ves tu condominio asignado. En **Unidades** buscas por código y ves el propietario y el inquilino de cada una antes de autorizar una visita."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/seguridad-inicio.jpg"
+    },
+    {
+      "titulo": "Mi condominio está en solo lectura",
+      "etiqueta": "Administradora · Junta · Vecinos",
+      "parrafos": [
+        "Cuando el condominio termina sus 3 meses gratis sin un plan de pago, queda en **solo lectura**. No se borra nada: se ve todo (recibos, pagos, historial y vouchers), pero no se registra nada nuevo. Una banda arriba lo avisa. Antes de que pase, Torre te avisa 7 días antes y el día que vence."
+      ],
+      "bullets": [
+        "**Sí se puede**: ver todas las pantallas, cambiar los datos del condominio, los medios de pago y las cuentas del cierre, manejar usuarios y juntas, asignar tareas de mantenimiento y usar el Asistente.",
+        "**No se puede**: emitir o subir recibos, registrar pagos, recibir vouchers, mandar comunicados, cerrar el mes, cargar lecturas de agua, ni dar de alta unidades, conceptos o proveedores.",
+        "**El vecino** lo ve igual, con su historial y sus vouchers. Si intenta subir un voucher, ve «Habla con tu administración».",
+        "**La junta** ve la banda con «Pídele a tu administración que lo pase a un plan de pago»."
+      ],
+      "numerada": [
+        "Entra a **Mi plan** (en **Cuenta**, en el menú) o pulsa **Ir a Mi plan** en la banda.",
+        "Elige **Básico** (desde S/ 40 al mes por condominio), **Pro** o **Administradora** y pide el plan del condominio.",
+        "Paga por transferencia, Yape o Plin con la referencia que te muestra Mi plan.",
+        "Cuando confirmamos tu pago, el plan se activa y el condominio vuelve a registrar de inmediato."
+      ],
+      "aviso": {
+        "tipo": "ok",
+        "texto": "Al pasar a un plan de pago no se pierde nada: lo que estaba en el condominio sigue ahí."
+      }
+    },
+    {
+      "titulo": "Qué hacer si algo falla",
+      "etiqueta": "Ayuda",
+      "tabla": {
+        "columnas": [
+          "Lo que pasa",
+          "Qué significa",
+          "Qué haces"
+        ],
+        "filas": [
+          [
+            "«Este enlace ya no sirve» al crear tu contraseña",
+            "La invitación venció (7 días) o ya se usó",
+            "Pide a tu administración que te la reenvíe"
+          ],
+          [
+            "«Enviar pago» no se activa",
+            "Falta el voucher, o pesa más de 2 MB",
+            "Sube una foto o un PDF más liviano"
+          ],
+          [
+            "Mi pago sigue «En revisión»",
+            "Falta la validación o el check del tesorero",
+            "Espera; si pasan varios días, escribe a tu junta"
+          ],
+          [
+            "Mi pago salió «Rechazado»",
+            "El voucher no coincidía; el motivo sale en Mi historial",
+            "Vuelve a pagar desde Mis recibos con el voucher correcto"
+          ],
+          [
+            "«Demasiadas solicitudes» al entrar",
+            "Varios intentos fallidos seguidos",
+            "Espera unos minutos y vuelve a intentar"
+          ],
+          [
+            "«Este condominio está en solo lectura»",
+            "Terminó el periodo gratis de 3 meses sin un plan de pago",
+            "Pasa el condominio a un plan de pago desde Mi plan; mientras tanto puedes verlo todo"
+          ],
+          [
+            "«Habla con tu administración» al subir voucher",
+            "El condominio está en solo lectura",
+            "Avisa a tu administración"
+          ]
+        ]
+      }
+    },
+    {
+      "titulo": "A quién escribir",
+      "etiqueta": "Ayuda",
+      "parrafos": [
+        "Para dudas de tu recibo, tus pagos o tu cuenta: tu **administración**. Para confirmar si tu pago llegó: el **tesorero de tu block** (está en Mi junta). También puedes preguntarle al **Asistente**, con el ícono de destellos de arriba."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Las capturas de este manual usan datos de prueba: ningún nombre, monto ni departamento es real."
+      }
+    }
+  ]
+}

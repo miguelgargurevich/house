@@ -1,14 +1,14 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 2-nov-2026 (7)",
+  "kicker": "Manual de usuario · versión del 3-nov-2026 (8)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
     "torrecondominios.com",
-    "Versión 1-nov-2026",
+    "Versión 3-nov-2026",
     "Español · Perú"
   ],
-  "descripcion": "Manual de Torre por roles (administradora, junta, propietario, inquilino, personal) con capturas de datos de prueba. Corte: 1-nov-2026.",
+  "descripcion": "Manual de Torre por roles (administradora, junta, propietario, inquilino, personal) con capturas de datos de prueba. Corte: 3-nov-2026.",
   "secciones": [
     {
       "titulo": "Torre en una frase",
@@ -27,27 +27,27 @@
           [
             "Administradora",
             "Emites los recibos, revisas pagos y morosidad, cierras el mes y avisas a los vecinos",
-            "Secciones 06 a 18"
+            "Secciones 07 a 30"
           ],
           [
             "Junta directiva del block (presidente o tesorero)",
             "Confirmas que los pagos llegaron a la cuenta, mantienes tus medios de pago y cierras el mes del block",
-            "Secciones 19 a 24"
+            "Secciones 31 a 38"
           ],
           [
             "Propietario",
             "Ves y pagas tu mantenimiento, sigues tu historial y conoces a tu junta",
-            "Secciones 25 a 31"
+            "Secciones 39 a 47"
           ],
           [
             "Inquilino",
             "Lo mismo que el propietario, para el departamento que alquilas",
-            "Sección 32"
+            "Sección 48"
           ],
           [
             "Personal (mantenimiento, limpieza, jardinería, seguridad)",
             "Atiendes tus tareas o consultas las unidades",
-            "Secciones 33 y 34"
+            "Secciones 49 y 50"
           ],
           [
             "Todavía no tienes cuenta",
@@ -154,6 +154,24 @@
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/perfil.jpg"
     },
     {
+      "titulo": "Ten Torre en tu celular",
+      "etiqueta": "Todos",
+      "parrafos": [
+        "En el celular, Torre te muestra el aviso **Ten Torre en tu celular**. Instalarla es agregarla a tu pantalla de inicio: se abre como una app, sin la barra del navegador."
+      ],
+      "numerada": [
+        "Entra a Torre desde el navegador del celular.",
+        "En **Android (Chrome)**, toca **Instalar Torre** en el aviso.",
+        "En **iPhone (Safari)**, toca el ícono de Compartir y luego **Agregar a inicio**.",
+        "Si no lo quieres ver, toca la X del aviso (**Ahora no**)."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El aviso sólo sale en pantallas chicas. Desaparece cuando ya la instalaste o lo cerraste."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-instalar.jpg"
+    },
+    {
       "titulo": "Resumen: el condominio en una pantalla",
       "etiqueta": "Administradora",
       "parrafos": [
@@ -171,11 +189,29 @@
       ],
       "numerada": [
         "Entra a **Recibos**.",
-        "Pulsa **Emitir recibo** para armarlo con los conceptos, o **Subir Excel** si ya lo tienes en la plantilla del block.",
+        "Pulsa **Emitir recibo** para armarlo con los conceptos, o **Subir Excel** si ya lo tienes en la plantilla del block (ver «Subir el Excel de un block nuevo»).",
         "Revisa el periodo, el vencimiento y los montos, y emítelo.",
         "Abre el recibo para verlo por block y por departamento."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-recibos.jpg"
+    },
+    {
+      "titulo": "Subir el Excel de un block nuevo",
+      "etiqueta": "Administradora · Recibos",
+      "parrafos": [
+        "Para llenar un condominio block por block no hace falta crear cada departamento a mano. Subes el Excel del block y Torre crea lo que falta."
+      ],
+      "numerada": [
+        "Entra a **Recibos** y pulsa **Subir Excel**.",
+        "Elige el condominio y el archivo del block (.xlsx). Sube un block a la vez.",
+        "Pulsa **Subir Excel y crear recibos**. Si el block o sus departamentos no existen, Torre todavía no crea nada: te avisa en **Faltan blocks o departamentos** y te dice qué se va a crear.",
+        "Pulsa **Crear y cargar el recibo** para crear el block, los pisos, los departamentos y los propietarios, y cargar el recibo. Si prefieres no crearlos, pulsa **Cargar sin crear**: esas filas se saltan."
+      ],
+      "aviso": {
+        "tipo": "aviso",
+        "texto": "Los propietarios nuevos quedan **sin correo y sin acceso**, y no reciben avisos. Para darles acceso, sigue «Propietarios e inquilinos: dar acceso a los vecinos». Lo que ya existe no se modifica: subir el mismo Excel otra vez no duplica nada."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-excel-faltantes.jpg"
     },
     {
       "titulo": "El recibo por dentro y el consolidado del block",
@@ -213,7 +249,7 @@
         "En el recibo, pulsa **Avisar a los vecinos**.",
         "Revisa a cuántos les llegará por correo y por WhatsApp, y a cuántos no (no tienen ni correo ni celular).",
         "Pulsa **Enviar aviso**.",
-        "Si el block tiene grupo de WhatsApp, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo allí. Ese mensaje no lleva montos ni nombres."
+        "Para el grupo de WhatsApp del block, pulsa **Copiar mensaje para el grupo de WhatsApp** y pégalo allí. Ese mensaje no lleva montos ni nombres. Si prefieres publicar en tus grupos desde Torre, usa un comunicado (ver «Comunicados»)."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-avisar.jpg"
     },
@@ -269,10 +305,25 @@
       "titulo": "Morosidad",
       "etiqueta": "Administradora",
       "parrafos": [
-        "Las unidades con mantenimientos vencidos, de mayor a menor deuda, con los meses vencidos y los días de atraso. Arriba ves la deuda vencida total, cuántas unidades están morosas y el mayor atraso.",
-        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. **Exportar CSV** baja la lista."
+        "Las unidades con mantenimientos vencidos, de mayor a menor deuda, con los meses vencidos y los días de atraso. Arriba ves la deuda vencida total, cuántas unidades están morosas y el mayor atraso. La deuda ya descuenta los abonos parciales: si un vecino pagó una parte, ves sólo lo que falta.",
+        "Pulsa una fila para ver cada mantenimiento vencido de esa unidad. Desde ahí abres su detalle, registras el pago o revisas el voucher. En cada fila, el ícono de documento abre su **Estado de cuenta** (ver «Estado de cuenta de un departamento»). **Exportar CSV** baja la lista."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-morosidad-detalle.jpg"
+    },
+    {
+      "titulo": "Estado de cuenta de un departamento",
+      "etiqueta": "Administradora · Unidades y Morosidad",
+      "parrafos": [
+        "Es la hoja que muestra, mes a mes, lo cargado, lo pagado y lo que se debe de un departamento. Sirve para responderle a un vecino o para entregársela en papel."
+      ],
+      "numerada": [
+        "Entra a **Morosidad** o a **Unidades**.",
+        "En la fila del departamento, toca el ícono de documento (**Estado de cuenta**).",
+        "Elige el **Periodo**: los últimos 12 meses, el año o todo el historial.",
+        "Revisa lo cargado, lo pagado, el saldo y los meses vencidos.",
+        "Pulsa **Imprimir** (también sirve para guardar el PDF) o **Excel**."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-estado-cuenta.jpg"
     },
     {
       "titulo": "Cierres del mes",
@@ -283,6 +334,24 @@
         "En cada block ves los pagos registrados, lo facturado, el sobrante del mes y el fondo de ahorros. Pulsa el block para ver el detalle."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-cierres.jpg"
+    },
+    {
+      "titulo": "Rendición del mes",
+      "etiqueta": "Administradora · Cobranza · Torre Pro",
+      "parrafos": [
+        "El informe del mes para la junta o la asamblea: lo cobrado, lo pagado, el saldo, los fondos y la morosidad."
+      ],
+      "numerada": [
+        "En **Cobranza**, entra a **Rendición del mes**.",
+        "Elige el **mes**, el **año** y el **Block** (o el condominio completo).",
+        "Arriba ves lo cobrado del mes, los egresos, el saldo final y el porcentaje cobrado. Debajo están los ingresos, los egresos, el cuadre, los fondos y la morosidad.",
+        "Pulsa **Descargar Excel** o **Imprimir / PDF** para entregarlo."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "La rendición es parte de Torre Pro. La junta de cada block ve la de su block en su menú **Junta**."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-rendicion.jpg"
     },
     {
       "titulo": "Conceptos y su destino",
@@ -323,14 +392,106 @@
     {
       "titulo": "Comunicados",
       "etiqueta": "Administradora",
+      "parrafos": [
+        "Un comunicado lo ven en su pantalla los propietarios e inquilinos del alcance que elijas. Además puedes mandarlo por otros caminos."
+      ],
       "numerada": [
         "Entra a **Comunicados** y pulsa **Nuevo comunicado**.",
         "En **Para quién** elige todo el condominio o un block.",
         "Escribe el título y el mensaje (hasta 4.000 caracteres).",
-        "Marca si además se envía **por correo** o **por WhatsApp**, y si queda **fijado arriba**.",
-        "Pulsa **Publicar**. En la pestaña **Notificaciones** ves qué salió por correo y por WhatsApp, qué está pendiente y qué tuvo error."
+        "En **Además de verlo en la app** marca lo que necesites: **A la junta del block** (o **A las juntas del condominio**), **Enviar por correo a cada vecino** y **Por WhatsApp a cada vecino**.",
+        "Si conectaste WhatsApp, abajo aparece **A los grupos de WhatsApp**: marca los grupos donde quieres publicarlo.",
+        "Decide si queda **Fijar arriba** y pulsa **Publicar**.",
+        "En la pestaña **Notificaciones** ves qué salió por correo y por WhatsApp, qué está pendiente y qué tuvo error. Si un grupo quedó pendiente por el tope diario, pulsa **Reintentar**."
       ],
-      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-nuevo.jpg"
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Lo más barato es avisar a la junta: son pocas personas y todas se enteran. El WhatsApp a cada vecino gasta la cuota del mes: úsalo para lo urgente. Cada mensaje a un grupo también cuenta para el tope diario del número."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-comunicado-grupos.jpg"
+    },
+    {
+      "titulo": "WhatsApp: conecta tu número y mira cuántos mensajes salen",
+      "etiqueta": "Administradora · Operación · Torre Pro",
+      "parrafos": [
+        "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes."
+      ],
+      "numerada": [
+        "En **Operación**, entra a **WhatsApp**.",
+        "Pulsa **Sincronizar mi número** y escanea el código QR con el WhatsApp de tu administración.",
+        "Cuando diga **WhatsApp vinculado correctamente**, el número ya envía. Si un vecino responde SALIR, deja de recibir.",
+        "Abajo está el **Contador de mensajes**. Pulsa **Actualizar** para verlo al momento."
+      ],
+      "tabla": {
+        "columnas": [
+          "En el contador",
+          "Qué significa"
+        ],
+        "filas": [
+          [
+            "Enviados hoy",
+            "Los mensajes que salieron hoy, contra el tope diario del número."
+          ],
+          [
+            "En cola",
+            "Los que esperan su turno. Salen de a poco, con pausas."
+          ],
+          [
+            "Este mes, por condominio",
+            "Los mensajes del mes contra la cuota del plan de cada condominio. Se renueva el día 1."
+          ],
+          [
+            "Enviados por tipo",
+            "Cuántos salieron de cada aviso, hoy o en el mes (botones **Hoy** y **El mes**)."
+          ],
+          [
+            "No salieron hoy",
+            "Los que fallaron hoy y el motivo."
+          ]
+        ]
+      },
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Los mensajes a grupos cuentan igual que los de cada vecino. Si llegas al tope del día, los avisos esperan en la cola y los grupos quedan pendientes hasta que pulses **Reintentar** en Comunicados."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-whatsapp.jpg"
+    },
+    {
+      "titulo": "Mis grupos: elige dónde publicar",
+      "etiqueta": "Administradora · Operación · Torre Pro",
+      "parrafos": [
+        "Torre no crea grupos: usa los que ya tiene tu número. Tú eliges cuáles se pueden usar y a quién representa cada uno."
+      ],
+      "numerada": [
+        "En **WhatsApp**, baja a **Mis grupos** y pulsa **Traer mis grupos**. Puede tardar hasta 30 segundos: no cierres la pantalla.",
+        "Busca el grupo con el buscador. Marca **Sólo los que uso** para ver únicamente los elegidos.",
+        "Activa el interruptor del grupo (**Usar el grupo en Torre**).",
+        "En **Este grupo es de…** elige a quién representa: **Vecinos de un block**, **Junta de un block** o **Todo el condominio**. Elige el block si hace falta y pulsa **Guardar**.",
+        "Al publicar un comunicado, esos grupos aparecen en **A los grupos de WhatsApp**."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Si un grupo dice «Ya no estás en este grupo», tu número salió de él y no se podrá publicar ahí. Para cambiar a quién representa un grupo, usa **Cambiar a quién representa**."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-whatsapp-grupos.jpg"
+    },
+    {
+      "titulo": "Avisos por WhatsApp del condominio",
+      "etiqueta": "Administradora · Condominios · Torre Pro",
+      "parrafos": [
+        "En la ficha de cada condominio eliges qué avisos automáticos salen también por WhatsApp. El correo no cambia."
+      ],
+      "numerada": [
+        "Entra a **Condominios** y abre el condominio.",
+        "Baja a **Avisos por WhatsApp**.",
+        "Marca los avisos que quieres: **Recibo del mes**, **Recordatorio 2 días antes**, **Vence hoy**, **Venció** y **Cierre del mes pendiente (al tesorero)**.",
+        "Pulsa **Guardar avisos por WhatsApp**."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Los avisos de cobro sólo llegan a quien paga ese recibo. Cada WhatsApp cuenta para la cuota mensual del plan y para el tope diario del número."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-condominio-avisos.jpg"
     },
     {
       "titulo": "Crear usuarios para tu personal",
@@ -349,13 +510,14 @@
       "aviso": {
         "tipo": "nota",
         "texto": "Si no le llegó o venció el enlace, en la lista aparece «Invitación pendiente» con un sobre: tócalo para **reenviar la invitación**. Para quitarle el acceso a alguien, usa el tacho de su fila."
-      }
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-personal-nuevo.jpg"
     },
     {
       "titulo": "Propietarios e inquilinos: dar acceso a los vecinos",
       "etiqueta": "Administradora",
       "parrafos": [
-        "Al cargar el Excel de un block, los propietarios quedan registrados con su nombre y su departamento, pero **sin correo**: todavía no pueden entrar ni reciben avisos.",
+        "Al cargar el Excel de un block, los propietarios quedan registrados con su nombre y su departamento, pero **sin correo**: todavía no pueden entrar ni reciben avisos. Lo mismo pasa con los que Torre crea desde un Excel de un block nuevo.",
         "Para darle acceso a un vecino, entra a **Condominios**, abre el condominio y ve a la pestaña **Residentes**:"
       ],
       "numerada": [
@@ -367,7 +529,8 @@
       "aviso": {
         "tipo": "aviso",
         "texto": "El presidente, el tesorero y el secretario de cada block se nombran en **Juntas directivas**, eligiéndolos entre los propietarios ya registrados."
-      }
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-residente-editar.jpg"
     },
     {
       "titulo": "Juntas directivas",
@@ -382,7 +545,7 @@
       "titulo": "Unidades, mantenimiento y proveedores",
       "etiqueta": "Administradora",
       "bullets": [
-        "**Unidades**: departamentos, casas, locales, estacionamientos y depósitos, cada uno con su block, propietario e inquilino.",
+        "**Unidades**: departamentos, casas, locales, estacionamientos y depósitos, cada uno con su block, propietario e inquilino. En cada fila, el ícono de documento abre su **Estado de cuenta**.",
         "**Mantenimiento**: las tareas de reparación y cuidado. Las asignas al personal y ves si están pendientes, en progreso o completadas.",
         "**Proveedores**: ascensores, gasfitería, pintura y demás. Activa **Visible para los vecinos** en los que quieras compartir.",
         "**Mi empresa** y **Mi plan** están en **Cuenta**, en el menú: los datos de tu empresa y el plan de cada condominio (ver «Mi plan: lo que pagas y lo que usas»)."
@@ -460,6 +623,38 @@
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-cierre.jpg"
     },
     {
+      "titulo": "Rendición del mes del block",
+      "etiqueta": "Junta directiva · Torre Pro",
+      "parrafos": [
+        "El informe del mes de tu block: lo cobrado, lo pagado, el saldo, los fondos y la morosidad. Sirve para presentarlo en la reunión de vecinos."
+      ],
+      "numerada": [
+        "En el grupo **Junta** del menú, entra a **Rendición del mes**.",
+        "Elige el **mes** y el **año**.",
+        "Revisa los ingresos, los egresos, el cuadre, los fondos y la morosidad.",
+        "Pulsa **Descargar Excel** o **Imprimir / PDF**."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Si eres de la Junta central, también puedes elegir entre el condominio completo y cada block."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/admin-rendicion.jpg"
+    },
+    {
+      "titulo": "Comunicados de la junta",
+      "etiqueta": "Junta directiva",
+      "parrafos": [
+        "Avisa a los vecinos de tu block. Como junta, publicas sólo para tu block."
+      ],
+      "numerada": [
+        "En el grupo **Junta**, entra a **Comunicados** y pulsa **Nuevo comunicado**.",
+        "Escribe el título y el mensaje.",
+        "En **Además de verlo en la app** marca si va **A la junta del block**, **por correo** o **por WhatsApp a cada vecino**. Si tu administración eligió grupos de WhatsApp para tu block, también los ves ahí.",
+        "Pulsa **Publicar**."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/junta-comunicado-nuevo.jpg"
+    },
+    {
       "titulo": "Si eres de la Junta central",
       "etiqueta": "Junta directiva · Junta central",
       "parrafos": [
@@ -528,6 +723,19 @@
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-historial.jpg"
     },
     {
+      "titulo": "Tu estado de cuenta",
+      "etiqueta": "Propietario e inquilino",
+      "parrafos": [
+        "Una hoja con lo que se cargó, lo que pagaste y lo que debes, mes a mes. La puedes imprimir o guardar."
+      ],
+      "numerada": [
+        "Entra a **Mi historial** y pulsa **Estado de cuenta**.",
+        "Elige el **Periodo** (y el **Departamento**, si tienes más de uno).",
+        "Pulsa **Imprimir** (también sirve para guardar el PDF) o **Excel**."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-estado-cuenta.jpg"
+    },
+    {
       "titulo": "Mi junta",
       "etiqueta": "Propietario",
       "parrafos": [
@@ -547,7 +755,7 @@
       "titulo": "Comunicados",
       "etiqueta": "Propietario",
       "parrafos": [
-        "Lo que la administración y la junta anuncian: cortes, reuniones, trabajos y avisos. Los fijados salen primero. Si activaste los avisos en Mi perfil, también te llegan por correo o WhatsApp."
+        "Lo que la administración y la junta anuncian: cortes, reuniones, trabajos y avisos. Los fijados salen primero. Si activaste los avisos en Mi perfil, también te llegan por correo o WhatsApp. Si no quieres más mensajes por WhatsApp, responde **SALIR** y dejas de recibirlos."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-comunicados.jpg"
     },
@@ -566,7 +774,7 @@
       "titulo": "Si alquilas",
       "etiqueta": "Inquilino",
       "parrafos": [
-        "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores y Comunicados. Pagas y subes tu voucher igual que en la sección 27."
+        "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores, Comunicados y Reservas. Pagas y subes tu voucher igual que en «Pagar con tu voucher»."
       ],
       "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/inquilino-inicio.jpg"
     },
@@ -664,7 +872,7 @@
         "**¿Puedo pagar sólo un concepto?** No: se paga el mantenimiento completo del mes con un solo voucher.",
         "**¿Quién valida mi pago?** La administración, o la validación automática si está activada (el OCR de Torre lee el voucher y la IA sólo si hace falta), siempre con el check del tesorero de tu block.",
         "**¿Cambió la junta?** La administración registra la nueva gestión y los permisos pasan solos.",
-        "**¿Puedo usar Torre en el celular?** Sí, todas las pantallas funcionan en el navegador del celular.",
+        "**¿Puedo usar Torre en el celular?** Sí, todas las pantallas funcionan en el navegador del celular, y puedes agregarla a tu pantalla de inicio (ver «Ten Torre en tu celular»).",
         "**¿Cómo cambio mi contraseña o mi celular?** En Mi perfil, desde tu nombre arriba a la derecha.",
         "**¿Qué pasa al terminar los 3 meses gratis?** El condominio queda en solo lectura: se ve todo, pero no se registra nada nuevo. No se borra nada, y al pasar a Básico, Pro o Administradora vuelve todo. Te avisamos 7 días antes y el día que vence.",
         "**¿Qué diferencia hay entre Básico y Pro?** Básico es lo mismo que Gratis, sin plazo y sin tope de departamentos. No trae la IA que lee vouchers, WhatsApp, asistente, mora automática ni reportes. Pro trae todo eso.",

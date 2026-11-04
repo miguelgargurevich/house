@@ -58,6 +58,8 @@ const LIMPIEZA = `
     new MutationObserver(limpiar).observe(document.body, { childList: true, subtree: true, characterData: true });
   });`;
 
+/** v6 crea un inquilino de prueba: una unidad SIN inquilino (cambia por grabación con UNIDAD_V6=B01-104…). */
+const UNIDAD_V6 = process.env.UNIDAD_V6 ?? 'B01-102';
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 let raton = { x: 200, y: 200 };
 async function ir(page, x, y, ms = 650) {
@@ -97,6 +99,9 @@ const asentar = async (page) => {
   }).catch(() => {});
   await pausa(350);
 };
+
+/** Pulsa y espera a que la pantalla se asiente. */
+const pulsar = async (page, loc) => { await tocar(page, loc); await asentar(page); };
 
 /** Los cierres abren en el mes anterior; el seed local sólo tiene recibo por block en octubre (el del Block 1). */
 const octubre = async (page) => { await page.getByLabel(/^mes$/i).first().selectOption('10').catch(() => {}); await asentar(page); };
@@ -161,6 +166,83 @@ const ESCENAS = {
     { rol: 'propietario', url: '/propietario/comunicados', accion: async (p) => { await pausa(500); await desplazar(p, 220); } },
     { rol: null, url: null, cierre: true },
   ],
+  // v5: lo nuevo para la administradora. Necesita el Evolution FALSO y los grupos de «Mis grupos» (ver docs/marketing/guiones-videos.md, «Cómo se arma»).
+  v5: [
+    { rol: 'admin', url: '/admin/recibos', accion: async (p) => {
+      await tocar(p, p.getByRole('button', { name: /^subir excel/i })); await asentar(p);
+      const d = p.getByRole('dialog');
+      // con un solo condominio, el selector ya viene elegido
+      await d.locator('input[type=file]').setInputFiles(join(process.cwd(), '.claude/manual/block-15-noviembre.xlsx'));
+      await tocar(p, d.getByRole('button', { name: /subir excel y crear recibos/i }));
+      await p.getByText('Faltan blocks o departamentos').waitFor({ timeout: 8000 }); await asentar(p);
+      // En celular el modal desborda de lado (problema de la pantalla, anotado en el handoff): no se desplaza hasta el botón.
+      if (formato === 'escritorio') await tocar(p, d.getByRole('button', { name: /crear y cargar el recibo/i }), { soloSenalar: true });
+    } },
+    { rol: 'admin', url: '/admin/morosidad', accion: async (p) => { await tocar(p, p.getByRole('button', { name: /estado de cuenta de la unidad/i })); await asentar(p); await pausa(900); await desplazar(p, 320, 2400); } },
+    { rol: 'admin', url: '/admin/rendicion', accion: async (p) => { await octubre(p); await pausa(600); await desplazar(p, 700, 3200); } },
+    { rol: 'admin', url: '/admin/whatsapp', accion: async (p) => { await pausa(700); await tocar(p, p.getByRole('button', { name: /^actualizar/i })); await asentar(p); await desplazar(p, 260, 2200); } },
+    { rol: 'admin', url: '/admin/whatsapp', accion: async (p) => {
+      await p.getByText('Mis grupos').first().scrollIntoViewIfNeeded(); await asentar(p);
+      await tocar(p, p.getByRole('button', { name: /traer mis grupos/i })); await p.getByText(/^Listo:/).first().waitFor({ timeout: 40000 }).catch(() => {}); await asentar(p);
+      await tocar(p, p.getByLabel('Sólo los que uso')); await asentar(p); await desplazar(p, 320, 2200);
+    } },
+    { rol: 'admin', url: '/admin/condominios/4', accion: async (p) => { await p.getByText('Avisos que salen por WhatsApp').first().scrollIntoViewIfNeeded(); await asentar(p); await pausa(900); await desplazar(p, 200, 1800); } },
+    { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
+      await tocar(p, p.getByRole('button', { name: /nuevo comunicado/i })); await asentar(p);
+      await tocar(p, p.getByRole('dialog').getByLabel(/^título/i)); await p.keyboard.type('Corte de agua el sábado de 9 a 13 h', { delay: 28 });
+      await p.getByText('Junta Block 1').first().scrollIntoViewIfNeeded().catch(() => {}); await p.getByText('Ninguno marcado').first().scrollIntoViewIfNeeded().catch(() => {}); await asentar(p); await pausa(600);
+      await tocar(p, p.getByRole('dialog').getByLabel(/Junta Block 1/));
+    } },
+    { rol: null, url: null, cierre: true },
+  ],
+  // v6: tu equipo en Torre. El correo del residente es nuevo en cada grabación (lleva la hora): sus usuarios de prueba se borran al terminar.
+  v6: [
+    { rol: 'admin', url: '/admin/configuracion', accion: async (p) => { await pausa(500); await tocar(p, p.getByRole('tab', { name: /^personal/i })); await asentar(p); await desplazar(p, 160, 1500); } },
+    { rol: 'admin', url: '/admin/configuracion', accion: async (p) => {
+      await pulsar(p, p.getByRole('tab', { name: /^personal/i }));
+      await tocar(p, p.getByRole('button', { name: /nuevo personal/i })); await asentar(p);
+      const d = p.getByRole('dialog');
+      await tocar(p, d.getByLabel('Nombre completo')); await p.keyboard.type('Rosa Medina Salas', { delay: 40 });
+      await tocar(p, d.getByLabel('Correo electrónico')); await p.keyboard.type('rosa.medina@prueba.house', { delay: 30 });
+      await tocar(p, d.getByLabel('Rol')); await d.getByLabel('Rol').selectOption({ label: 'Seguridad' }).catch(() => {});
+    } },
+    { rol: 'admin', url: '/admin/configuracion', accion: async (p) => {
+      await pulsar(p, p.getByRole('tab', { name: /^personal/i }));
+      await tocar(p, p.getByRole('button', { name: /nuevo personal/i })); await asentar(p);
+      const d = p.getByRole('dialog');
+      await d.getByLabel('Nombre completo').fill('Rosa Medina Salas'); await d.getByLabel('Correo electrónico').fill('rosa.medina@prueba.house'); await d.getByLabel('Rol').selectOption({ label: 'Seguridad' }).catch(() => {});
+      await tocar(p, d.getByLabel(/^trabaja en/i)); await d.getByLabel(/^trabaja en/i).selectOption({ index: 1 }).catch(() => {}); await pausa(500);
+      await tocar(p, d.getByRole('button', { name: /^crear$/i }), { soloSenalar: true });
+    } },
+    { rol: 'admin', url: '/admin/condominios/4', accion: async (p) => {
+      await p.getByRole('tab', { name: /residentes/i }).first().waitFor({ timeout: 15000 });
+      await tocar(p, p.getByRole('tab', { name: /residentes/i })); await asentar(p); await pausa(900);
+      await tocar(p, p.getByRole('button', { name: /nuevo residente/i })); await asentar(p);
+      const d = p.getByRole('dialog'); const marca = Date.now().toString(36);
+      await tocar(p, d.getByLabel('Nombre completo')); await p.keyboard.type('Lucía Vargas Prado', { delay: 40 });
+      await tocar(p, d.getByLabel('Correo electrónico')); await p.keyboard.type(`video.${marca}@prueba.house`, { delay: 30 });
+      await d.getByLabel('Rol').selectOption({ label: 'Inquilino' }).catch(() => {});
+      await tocar(p, d.getByLabel(/^departamento/i)); await p.keyboard.type(UNIDAD_V6, { delay: 40 });
+      globalThis.__ultimoResidente = marca;
+    } },
+    { rol: 'admin', url: '/admin/condominios/4',
+      antes: async (a) => {
+        await a.goto(`${APP}/admin/condominios/4`); await asentar(a);
+        await a.getByRole('tab', { name: /residentes/i }).first().click(); await pausa(1500);
+        await a.getByRole('button', { name: /nuevo residente/i }).click(); await pausa(500);
+        const d = a.getByRole('dialog');
+        await d.getByLabel('Nombre completo').fill('Lucía Vargas Prado'); await d.getByLabel('Correo electrónico').fill(`video.${Date.now().toString(36)}@prueba.house`);
+        await d.getByLabel('Rol').selectOption({ label: 'Inquilino' }); await d.getByLabel(/^departamento/i).fill(UNIDAD_V6);
+        await d.getByRole('button', { name: /^crear$/i }).click(); await pausa(2500);
+      },
+      accion: async (p) => {
+        await p.getByRole('tab', { name: /residentes/i }).first().waitFor({ timeout: 15000 });
+        await p.getByRole('tab', { name: /residentes/i }).first().click(); await asentar(p);
+        await p.getByPlaceholder(/buscar/i).first().fill('Lucía Vargas'); await pausa(1000);
+        await tocar(p, p.getByRole('button', { name: /reenviar invitación/i }), { soloSenalar: true });
+      } },
+    { rol: null, url: null, cierre: true },
+  ],
 };
 
 const CIERRE = `<!doctype html><meta charset="utf-8"><style>
@@ -210,6 +292,8 @@ async function grabar() {
       const ctx = await browser.newContext({ viewport: f.viewport, deviceScaleFactor: f.deviceScaleFactor, isMobile: f.isMobile, hasTouch: f.hasTouch, colorScheme: 'light', locale: 'es-PE', recordVideo: { dir: tmp, size: f.video }, storageState: e.rol ? sesiones[e.rol] : undefined });
       await ctx.addInitScript(CURSOR);
       await ctx.addInitScript(LIMPIEZA);
+      // `antes`: prepara datos con otra pestaña (fuera de cámara: el clip del video es el de la pestaña principal).
+      if (e.antes) { const aux = await ctx.newPage(); await e.antes(aux).catch((err) => console.warn(`  escena ${n} (antes): ${err.message.split('\n')[0]}`)); await aux.close(); }
       const page = await ctx.newPage();
       const abierta = Date.now();
       raton = { x: f.viewport.width * 0.55, y: f.viewport.height * 0.45 };

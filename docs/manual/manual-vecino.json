@@ -1,0 +1,253 @@
+{
+  "titulo": "Torre para el vecino",
+  "kicker": "Manual de usuario · versión del 3-nov-2026",
+  "subtitulo": "Para propietarios e inquilinos: ver y pagar tu mantenimiento, seguir tu historial, pedir tu estado de cuenta y reservar áreas comunes.",
+  "diseno": "manual",
+  "meta": [
+    "torrecondominios.com",
+    "Versión 3-nov-2026",
+    "Español · Perú"
+  ],
+  "descripcion": "Manual de Torre para propietarios e inquilinos, con capturas de datos de prueba. Corte: 3-nov-2026.",
+  "secciones": [
+    {
+      "titulo": "Lo que haces en Torre",
+      "etiqueta": "Para empezar",
+      "parrafos": [
+        "Torre te muestra cuánto debes, te deja pagar subiendo tu voucher desde el celular y guarda tu historial. También ves los comunicados de tu edificio y reservas áreas comunes.",
+        "Si alquilas, tu menú es casi el mismo: la parte final del manual te lo explica."
+      ]
+    },
+    {
+      "titulo": "Cómo entrar por primera vez",
+      "etiqueta": "Todos",
+      "parrafos": [
+        "No creas tu cuenta tú: la crea tu administración y te llega un correo de invitación."
+      ],
+      "numerada": [
+        "Abre el correo de invitación de Torre y pulsa el enlace. Vale **7 días**.",
+        "Escribe tu contraseña dos veces y pulsa **Crear contraseña y entrar**.",
+        "Las próximas veces entra en [torrecondominios.com](https://torrecondominios.com) con tu correo y tu contraseña."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Si el enlace venció o no te llegó el correo, pide a tu administración que use **Reenviar invitación** en la lista de residentes."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/login.jpg"
+    },
+    {
+      "titulo": "Lo que tienen todas las pantallas",
+      "etiqueta": "Todos",
+      "bullets": [
+        "**Tu nombre y tu rol, arriba a la derecha**: si tienes un cargo en la junta, sale junto a tu rol («Propietario · Tesorero del Block 1»). Desde ahí abres Mi perfil (nombre, celular y avisos, contraseña), cambias el tema claro u oscuro y cierras sesión.",
+        "**Tema claro u oscuro**: está dentro del menú de tu nombre, arriba a la derecha («Tema oscuro» / «Tema claro»).",
+        "**El ícono de destellos**: abre el Asistente. Pregúntale «¿Cuánto debo?», «¿Cómo pago?» o dónde hacer algo.",
+        "**El selector de condominio**, arriba a la izquierda (sólo administradora): filtra todas las pantallas por condominio.",
+        "En el celular, el menú se abre con las tres rayas de arriba a la izquierda.",
+        "**La banda de solo lectura**: si el condominio ya terminó su periodo gratis, aparece arriba con el botón **Ir a Mi plan** (ver «Mi condominio está en solo lectura»)."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/perfil.jpg"
+    },
+    {
+      "titulo": "Ten Torre en tu celular",
+      "etiqueta": "Todos",
+      "parrafos": [
+        "En el celular, Torre te muestra el aviso **Ten Torre en tu celular**. Instalarla es agregarla a tu pantalla de inicio: se abre como una app, sin la barra del navegador."
+      ],
+      "numerada": [
+        "Entra a Torre desde el navegador del celular.",
+        "En **Android (Chrome)**, toca **Instalar Torre** en el aviso.",
+        "En **iPhone (Safari)**, toca el ícono de Compartir y luego **Agregar a inicio**.",
+        "Si no lo quieres ver, toca la X del aviso (**Ahora no**)."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El aviso sólo sale en pantallas chicas. Desaparece cuando ya la instalaste o lo cerraste."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-instalar.jpg"
+    },
+    {
+      "titulo": "Inicio: cuánto debes",
+      "etiqueta": "Propietario",
+      "parrafos": [
+        "Al entrar ves tu deuda total, tu próximo vencimiento, lo que pagaste este año, tus mantenimientos por pagar y los últimos comunicados. Si tienes algo vencido, un aviso rojo te lleva a ver cuál es."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-inicio.jpg"
+    },
+    {
+      "titulo": "Mis recibos",
+      "etiqueta": "Propietario",
+      "parrafos": [
+        "El mantenimiento de cada mes de tu departamento, separado en **Por pagar**, **Vencidos**, **En revisión** y **Pagados**.",
+        "Con **Ver detalle** ves el total, el número de recibo, el vencimiento, el saldo y cada concepto con su monto. **Ver / imprimir recibo** abre el recibo completo, con la cuenta donde pagar."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-detalle.jpg"
+    },
+    {
+      "titulo": "Pagar con tu voucher",
+      "etiqueta": "Propietario",
+      "parrafos": [
+        "Pagas el mantenimiento completo del mes con un solo pago. El voucher es obligatorio."
+      ],
+      "numerada": [
+        "Paga en la cuenta, Yape o Plin de tu junta (está en tu recibo y en Mi junta).",
+        "En **Mis recibos**, pulsa **Pagar mantenimiento**.",
+        "Sube la foto o el PDF del voucher (hasta 2 MB) o pulsa **Tomar foto con la cámara**.",
+        "Elige cómo pagaste y, si quieres, escribe el número de operación.",
+        "Pulsa **Enviar pago**. El recibo pasa a **En revisión** hasta que se valide."
+      ],
+      "aviso": {
+        "tipo": "ok",
+        "texto": "¿Dónde veo el voucher que subí? En **Mis recibos**, pulsa **Ver detalle** y luego **Ver mi voucher**: lo ves ahí mismo, también mientras está en revisión. Pulsa **Ampliar** para verlo a pantalla completa. Mientras siga en revisión, también puedes reemplazarlo desde **Mi historial**."
+      },
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-pagar.jpg"
+    },
+    {
+      "titulo": "Mi historial",
+      "etiqueta": "Propietario",
+      "parrafos": [
+        "Cómo evolucionan tus pagos. Pestañas **Resumen**, **Por concepto** (elige un concepto y míralo mes a mes), **Acumulado** y **Agua**. Elige el periodo y, si quieres, pulsa **Descargar Excel**.",
+        "Al final están todos tus pagos: pulsa uno para ver su comprobante, su estado y el voucher, o para imprimirlo. Con **Ampliar** sobre el voucher lo ves a pantalla completa."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-historial.jpg"
+    },
+    {
+      "titulo": "Tu estado de cuenta",
+      "etiqueta": "Propietario e inquilino",
+      "parrafos": [
+        "Una hoja con lo que se cargó, lo que pagaste y lo que debes, mes a mes. La puedes imprimir o guardar."
+      ],
+      "numerada": [
+        "Entra a **Mi historial** y pulsa **Estado de cuenta**.",
+        "Elige el **Periodo** (y el **Departamento**, si tienes más de uno).",
+        "Pulsa **Imprimir** (también sirve para guardar el PDF) o **Excel**."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-estado-cuenta.jpg"
+    },
+    {
+      "titulo": "Mi junta",
+      "etiqueta": "Propietario",
+      "parrafos": [
+        "Quiénes forman la junta de tu block y la Junta central, y **dónde pagas**: la cuenta, el Yape o el Plin con su QR, y el botón **Copiar** para el número."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-junta.jpg"
+    },
+    {
+      "titulo": "Proveedores",
+      "etiqueta": "Propietario",
+      "parrafos": [
+        "Los proveedores de confianza que tu administración comparte contigo, agrupados por rubro. Con **Llamar**, **WhatsApp** o **Escribir** los contactas directo. Si no ves ninguno, tu administración aún no comparte proveedores."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-proveedores.jpg"
+    },
+    {
+      "titulo": "Comunicados",
+      "etiqueta": "Propietario",
+      "parrafos": [
+        "Lo que la administración y la junta anuncian: cortes, reuniones, trabajos y avisos. Los fijados salen primero. Si activaste los avisos en Mi perfil, también te llegan por correo o WhatsApp. Si no quieres más mensajes por WhatsApp, responde **SALIR** y dejas de recibirlos."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-comunicados.jpg"
+    },
+    {
+      "titulo": "Reservar un área común",
+      "etiqueta": "Propietario e inquilino",
+      "numerada": [
+        "Entra a **Reservas**.",
+        "Elige el área y el día: la barra muestra los horarios libres, ocupados y por aprobar.",
+        "Elige **Desde** y **Hasta**, el departamento, y pulsa **Pedir reserva**.",
+        "En **Mis reservas** ves si quedó aprobada o pendiente, y puedes cancelarla mientras no empiece."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/vecino-reservas.jpg"
+    },
+    {
+      "titulo": "Si alquilas",
+      "etiqueta": "Inquilino",
+      "parrafos": [
+        "Tu menú es el del propietario, sin **Mis unidades**: Inicio, Mis recibos, Mi historial, Mi junta, Proveedores, Comunicados y Reservas. Pagas y subes tu voucher igual que en «Pagar con tu voucher»."
+      ],
+      "imagen": "https://sitios.gargurevich.dev/manual-torre-capturas/inquilino-inicio.jpg"
+    },
+    {
+      "titulo": "Mi condominio está en solo lectura",
+      "etiqueta": "Administradora · Junta · Vecinos",
+      "parrafos": [
+        "Cuando el condominio termina sus 3 meses gratis sin un plan de pago, queda en **solo lectura**. No se borra nada: se ve todo (recibos, pagos, historial y vouchers), pero no se registra nada nuevo. Una banda arriba lo avisa. Antes de que pase, Torre te avisa 7 días antes y el día que vence."
+      ],
+      "bullets": [
+        "**Sí se puede**: ver todas las pantallas, cambiar los datos del condominio, los medios de pago y las cuentas del cierre, manejar usuarios y juntas, asignar tareas de mantenimiento y usar el Asistente.",
+        "**No se puede**: emitir o subir recibos, registrar pagos, recibir vouchers, mandar comunicados, cerrar el mes, cargar lecturas de agua, ni dar de alta unidades, conceptos o proveedores.",
+        "**El vecino** lo ve igual, con su historial y sus vouchers. Si intenta subir un voucher, ve «Habla con tu administración».",
+        "**La junta** ve la banda con «Pídele a tu administración que lo pase a un plan de pago»."
+      ],
+      "numerada": [
+        "Entra a **Mi plan** (en **Cuenta**, en el menú) o pulsa **Ir a Mi plan** en la banda.",
+        "Elige **Básico** (desde S/ 40 al mes por condominio), **Pro** o **Administradora** y pide el plan del condominio.",
+        "Paga por transferencia, Yape o Plin con la referencia que te muestra Mi plan.",
+        "Cuando confirmamos tu pago, el plan se activa y el condominio vuelve a registrar de inmediato."
+      ],
+      "aviso": {
+        "tipo": "ok",
+        "texto": "Al pasar a un plan de pago no se pierde nada: lo que estaba en el condominio sigue ahí."
+      }
+    },
+    {
+      "titulo": "Qué hacer si algo falla",
+      "etiqueta": "Ayuda",
+      "tabla": {
+        "columnas": [
+          "Lo que pasa",
+          "Qué significa",
+          "Qué haces"
+        ],
+        "filas": [
+          [
+            "«Este enlace ya no sirve» al crear tu contraseña",
+            "La invitación venció (7 días) o ya se usó",
+            "Pide a tu administración que te la reenvíe"
+          ],
+          [
+            "«Enviar pago» no se activa",
+            "Falta el voucher, o pesa más de 2 MB",
+            "Sube una foto o un PDF más liviano"
+          ],
+          [
+            "Mi pago sigue «En revisión»",
+            "Falta la validación o el check del tesorero",
+            "Espera; si pasan varios días, escribe a tu junta"
+          ],
+          [
+            "Mi pago salió «Rechazado»",
+            "El voucher no coincidía; el motivo sale en Mi historial",
+            "Vuelve a pagar desde Mis recibos con el voucher correcto"
+          ],
+          [
+            "«Demasiadas solicitudes» al entrar",
+            "Varios intentos fallidos seguidos",
+            "Espera unos minutos y vuelve a intentar"
+          ],
+          [
+            "«Este condominio está en solo lectura»",
+            "Terminó el periodo gratis de 3 meses sin un plan de pago",
+            "Pasa el condominio a un plan de pago desde Mi plan; mientras tanto puedes verlo todo"
+          ],
+          [
+            "«Habla con tu administración» al subir voucher",
+            "El condominio está en solo lectura",
+            "Avisa a tu administración"
+          ]
+        ]
+      }
+    },
+    {
+      "titulo": "A quién escribir",
+      "etiqueta": "Ayuda",
+      "parrafos": [
+        "Para dudas de tu recibo, tus pagos o tu cuenta: tu **administración**. Para confirmar si tu pago llegó: el **tesorero de tu block** (está en Mi junta). También puedes preguntarle al **Asistente**, con el ícono de destellos de arriba."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Las capturas de este manual usan datos de prueba: ningún nombre, monto ni departamento es real."
+      }
+    }
+  ]
+}

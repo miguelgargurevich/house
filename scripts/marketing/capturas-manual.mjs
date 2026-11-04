@@ -99,6 +99,60 @@ const CAPTURAS = {
   'perfil': { rol: 'propietario', url: '/perfil', celular: true },
 };
 
+/** Tras el seed local: Evolution FALSO (brief de manuales) + dos grupos «en uso» para que el comunicado los ofrezca. Nunca el Evolution real. */
+const prepararGrupos = async (p) => {
+  const csrf = (await (await p.request.get(`${APP}/api/auth/me`)).json()).csrf;
+  const api = (u, o) => p.request.fetch(APP + u, { ...o, headers: { 'x-csrf-token': csrf, origin: APP } }).then((r) => r.json());
+  let d = await api('/api/whatsapp/grupos');
+  if (!d.grupos?.length) d = await api('/api/whatsapp/grupos/sincronizar', { method: 'POST' });
+  const cond = d.condominios?.[0];
+  const b1 = cond?.estructuras?.find((e) => /block 1$/i.test(e.nombre));
+  const quiero = [['Vecinos Block 1 · Libertadores', { destino: 'block', estructura_id: b1?.id }], ['Junta Block 1', { destino: 'junta_block', estructura_id: b1?.id }], ['Grupo personal 30', { destino: 'condominio', complejo_id: cond?.id }]];
+  for (const [nombre, dest] of quiero) {
+    const g = d.grupos.find((x) => x.nombre === nombre);
+    if (g && !g.en_uso) await api(`/api/whatsapp/grupos/${g.id}`, { method: 'PUT', data: { en_uso: true, ...dest } });
+  }
+};
+const EXCEL_BLOCK_NUEVO = join(process.cwd(), '.claude/manual/block-15-noviembre.xlsx');
+
+Object.assign(CAPTURAS, {
+  'admin-excel-faltantes': { rol: 'admin', url: '/admin/recibos', accion: async (p) => {
+    await pulsar(p, p.getByRole('button', { name: /^subir excel/i }));
+    const d = p.getByRole('dialog');
+    // con un solo condominio, el selector ya viene elegido
+    await d.locator('input[type=file]').setInputFiles(EXCEL_BLOCK_NUEVO);
+    await pulsar(p, d.getByRole('button', { name: /subir excel y crear recibos/i }));
+    await p.getByText('Faltan blocks o departamentos').waitFor({ timeout: 8000 });
+    await asentar(p);
+  } },
+  'admin-estado-cuenta': { rol: 'admin', url: '/admin/morosidad', accion: async (p) => { await pulsar(p, p.getByRole('button', { name: /estado de cuenta de la unidad/i })); await pausa(1200); } },
+  'vecino-estado-cuenta': { rol: 'propietario', url: '/propietario/pagos', celular: true, accion: async (p) => { await pulsar(p, p.getByRole('button', { name: /^estado de cuenta/i })); await pausa(1200); } },
+  'admin-rendicion': { rol: 'admin', url: '/admin/rendicion', accion: async (p) => { await octubre(p); await pausa(800); } },
+  'admin-comunicado-grupos': { rol: 'admin', url: '/admin/comunicados', accion: async (p) => {
+    await prepararGrupos(p); await p.reload(); await asentar(p);
+    await pulsar(p, p.getByRole('button', { name: /nuevo comunicado/i }));
+    await p.getByRole('dialog').getByLabel(/^título/i).fill('Corte de agua el sábado de 9 a 13 h');
+    await p.getByText('Junta Block 1').first().scrollIntoViewIfNeeded().catch(() => {}); await p.getByText('Ninguno marcado').first().scrollIntoViewIfNeeded().catch(() => {});
+    await p.getByRole('dialog').getByLabel(/Vecinos Block 1/).check().catch(() => {}); await asentar(p);
+  } },
+  'admin-whatsapp': { rol: 'admin', url: '/admin/whatsapp', accion: async (p) => { await pausa(1200); } },
+  'admin-whatsapp-grupos': { rol: 'admin', url: '/admin/whatsapp', accion: async (p) => {
+    await prepararGrupos(p); await p.reload(); await asentar(p);
+    await p.getByText('Mis grupos').first().scrollIntoViewIfNeeded().catch(() => {});
+    await p.getByLabel('Sólo los que uso').check().catch(() => {}); await asentar(p);
+  } },
+  'admin-condominio-avisos': { rol: 'admin', url: '/admin/condominios/4', accion: async (p) => { await p.getByText('Avisos que salen por WhatsApp').first().scrollIntoViewIfNeeded().catch(() => {}); await asentar(p); } },
+  'admin-personal-nuevo': { rol: 'admin', url: '/admin/configuracion', accion: async (p) => { await pulsar(p, p.getByRole('tab', { name: /^personal/i })); await pulsar(p, p.getByRole('button', { name: /nuevo personal/i })); } },
+  'admin-residente-editar': { rol: 'admin', url: '/admin/condominios/4', accion: async (p) => {
+    await p.getByRole('tab', { name: /residentes/i }).first().waitFor({ timeout: 15000 });
+    await pulsar(p, p.getByRole('tab', { name: /residentes/i })); await pausa(1500);
+    await pulsar(p, p.getByRole('button', { name: /editar/i })); await pausa(800);
+  } },
+  'junta-rendicion': { rol: 'tesorero', url: '/junta/rendicion', accion: async (p) => { await octubre(p); await pausa(800); } },
+  'junta-comunicado-nuevo': { rol: 'tesorero', url: '/junta/comunicados', accion: (p) => pulsar(p, p.getByRole('button', { name: /nuevo comunicado/i })) },
+  'vecino-instalar': { rol: 'propietario', url: '/propietario/inicio', celular: true, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' },
+});
+
 const pedidas = process.argv.slice(2);
 const lista = Object.entries(CAPTURAS).filter(([n]) => !pedidas.length || pedidas.includes(n));
 mkdirSync(SALIDA, { recursive: true });
@@ -117,7 +171,7 @@ for (const rol of new Set(lista.map(([, c]) => c.rol).filter(Boolean))) {
 for (const [nombre, cap] of lista) {
   const ctx = await browser.newContext({
     ...(cap.celular ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } }),
-    deviceScaleFactor: 2, colorScheme: 'light', locale: 'es-PE', storageState: cap.rol ? sesiones[cap.rol] : undefined,
+    deviceScaleFactor: 2, colorScheme: 'light', locale: 'es-PE', storageState: cap.rol ? sesiones[cap.rol] : undefined, userAgent: cap.userAgent,
   });
   const page = await ctx.newPage();
   try {
