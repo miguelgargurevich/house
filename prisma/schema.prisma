@@ -590,6 +590,8 @@ model Comunicado {
   complejo_id      Int
   /// null = todo el condominio; si no, un block/torre de ese condominio.
   estructura_id    Int?
+  /// «Departamentos elegidos»: ids de las unidades a las que va dirigido. Vacío = todo el alcance (condominio o block), como siempre. Con ids, sólo las personas de esas unidades lo reciben y lo ven.
+  unidades         Int[]                @default([])
   titulo           String
   cuerpo           String
   autor_id         Int?

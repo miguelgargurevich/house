@@ -12,11 +12,13 @@ import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
 import { dineroTexto, enlaceDeAviso, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
 import { correoDeAviso } from './correoAviso';
-import { empresaDeAviso } from '../marca/avisos';
+import { empresaDeAviso as empresaDeAvisoBase } from '../marca/avisos';
 import { marcaParaCorreo } from '../marca/servicio';
 import { correoSinBuzon } from '../invitaciones';
 import { aportesPendientes, cierrePendiente } from '../cierres/pendientes';
 import { esTipoWhatsappConfigurable } from './whatsappTipos';
+import { filtroEstadoCargo } from '../../lib/cargos';
+import { acumularDeuda, SELECT_DEUDA } from '../recordatorios/deudaVencida';
 
 /** Tras este número de fallos seguidos la notificación pasa a `error`. */
 export const MAX_INTENTOS = 3;
@@ -61,7 +63,23 @@ const laPaga = (usuarioId: number): Prisma.UnidadWhereInput => ({
 /** Resultado de un voucher. Nunca salen por WhatsApp; el validado no se encola (el vecino lo ve en «Mis recibos») y el rechazado sólo sale por correo. */
 export const RESULTADOS_PAGO: readonly string[] = ['pago_validado', 'pago_rechazado'];
 
-export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number } | { entidad: `cierre:${string}`; id: number } | { entidad: `cierre-central:${string}`; id: number };
+export type RefAviso = { entidad: 'recibo'; id: number } | { entidad: 'cargo'; id: number } | { entidad: 'pago'; id: number } | { entidad: 'ia'; id: number } | { entidad: 'comunicado'; id: number } | { entidad: `deuda:${string}`; id: number } | { entidad: `cierre:${string}`; id: number } | { entidad: `cierre-central:${string}`; id: number };
+
+/**
+ * Recordatorio de deuda a mano (`deuda:<AAAA-MM-DD>`, id = la unidad): el día de Lima va en la referencia, de modo que a una unidad se le recuerda una sola vez por día
+ * (la fila es única por persona, canal, tipo y referencia). La empresa, el condominio y la instancia de WhatsApp salen de la unidad.
+ */
+export const refDeuda = (dia: string, unidadId: number): RefAviso => ({ entidad: `deuda:${dia}`, id: unidadId });
+const esDeuda = (entidad: string) => entidad.startsWith('deuda:');
+
+/** La empresa de la que habla el aviso (para la marca): igual que `empresaDeAviso` de la marca, más el recordatorio de deuda (por su unidad). */
+async function empresaDeAviso(ref: { entidad: string; id: number }): Promise<number | null> {
+  if (esDeuda(ref.entidad)) {
+    const un = await prisma.unidad.findUnique({ where: { id: ref.id }, select: { empresa_id: true, complejo: { select: { empresa_id: true } } } });
+    return un?.complejo?.empresa_id ?? un?.empresa_id ?? null;
+  }
+  return empresaDeAvisoBase(ref);
+}
 
 interface Cargado {
   datos: Parameters<typeof plantilla>[1];
@@ -84,6 +102,27 @@ async function cargarDatosBase(tipo: TipoAviso, usuario: { id: number; nombre: s
     const c = await prisma.comunicado.findUnique({ where: { id: ref.id }, select: { titulo: true, cuerpo: true, archivado_at: true, complejo: { select: { nombre: true } } } });
     if (!c || c.archivado_at) return null;
     return { datos: { nombre: usuario.nombre, periodo: '', monto: '', vencimiento: '', titulo: c.titulo, texto: c.cuerpo, condominio: c.complejo?.nombre ?? null } };
+  }
+  // Recordatorio de deuda (`deuda:<día>`, id = unidad): lo que la unidad debe HOY, vencido y sin abonos validados, por recibo (la misma cifra de «Morosidad»).
+  if (esDeuda(ref.entidad)) {
+    const reloj = await relojDeCondominios(ahora);
+    const cargos = await prisma.reciboConceptoUnidad.findMany({ where: { AND: [filtroEstadoCargo('vencido', reloj), { unidad_id: ref.id }] }, select: SELECT_DEUDA });
+    const deuda = acumularDeuda(cargos, reloj).get(ref.id);
+    const un = await prisma.unidad.findUnique({ where: { id: ref.id }, select: { codigo: true, estructura: { select: { nombre: true } }, complejo: { select: { nombre: true, moneda: true } } } });
+    if (!deuda || !un) return null;
+    const moneda = un.complejo?.moneda;
+    const recibos = [...deuda.recibos.values()].sort((a, b) => a.anio - b.anio || a.mes - b.mes);
+    return {
+      datos: {
+        nombre: usuario.nombre,
+        periodo: '',
+        monto: dineroTexto(deuda.deuda, moneda),
+        vencimiento: '',
+        conceptos: recibos.map((r) => ({ nombre: `Mantenimiento de ${periodoTexto(r.mes, r.anio)}`, monto: dineroTexto(r.deuda, moneda) })),
+        condominio: un.complejo?.nombre ?? null,
+        departamentos: [{ codigo: un.codigo, torre: un.estructura?.nombre ?? null }],
+      },
+    };
   }
   // Cierre de la Junta central (`cierre-central:<año>-<mes>`, id = condominio): los blocks que aún no aportan.
   if (ref.entidad.startsWith('cierre-central:')) {
@@ -200,7 +239,7 @@ async function listaWhatsappDe(tipo: string, n: { ref_entidad: string | null; re
  * `lista` es la de `whatsapp_avisos` del condominio (`null` = no se rige): si el tipo no está en ella, no hay WhatsApp, tampoco al número vinculado.
  * Los resultados de pago nunca salen por WhatsApp ni por Telegram: el validado no sale por ningún canal y el rechazado sólo por correo.
  */
-async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }, lista: readonly string[] | null): Promise<Canal[]> {
+export async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null; telefono: string | null; aviso_email: boolean; aviso_whatsapp: boolean }, lista: readonly string[] | null): Promise<Canal[]> {
   if (tipo === 'pago_validado') return [];
   const canales: Canal[] = [];
   if (u.aviso_email && u.email && !correoSinBuzon(u.email)) canales.push('email');
@@ -387,6 +426,10 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
     const c = await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo: { select: { empresa: { select: { whatsapp_instance: true } } } } } });
     return c?.complejo?.empresa?.whatsapp_instance ?? null;
   }
+  if (esDeuda(n.ref_entidad)) {
+    const un = await prisma.unidad.findUnique({ where: { id: n.ref_id }, select: { complejo: { select: { empresa: { select: { whatsapp_instance: true } } } } } });
+    return un?.complejo?.empresa?.whatsapp_instance ?? null;
+  }
   if (n.ref_entidad.startsWith('cierre-central:')) {
     const c = await prisma.complejoHabitacional.findUnique({ where: { id: n.ref_id }, select: { empresa: { select: { whatsapp_instance: true } } } });
     return c?.empresa?.whatsapp_instance ?? null;
@@ -420,6 +463,7 @@ async function resolveInstance(n: { ref_entidad: string | null; ref_id: number |
 async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number | null }): Promise<number | null> {
   if (!n.ref_entidad || n.ref_id == null) return null;
   if (n.ref_entidad === 'comunicado') return (await prisma.comunicado.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
+  if (esDeuda(n.ref_entidad)) return (await prisma.unidad.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   if (n.ref_entidad.startsWith('cierre-central:')) return n.ref_id;
   if (n.ref_entidad.startsWith('cierre:')) return (await prisma.estructura.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
   if (n.ref_entidad === 'recibo') return (await prisma.recibo.findUnique({ where: { id: n.ref_id }, select: { complejo_id: true } }))?.complejo_id ?? null;
@@ -433,6 +477,9 @@ async function complejoDeAviso(n: { ref_entidad: string | null; ref_id: number |
 }
 
 export const MOTIVO_SIN_WHATSAPP = 'Plan sin WhatsApp';
+const TIPO_RECORDATORIO_DEUDA = 'recordatorio_deuda';
+/** El departamento pagó (o se saldó) antes de que saliera el recordatorio de deuda. */
+export const MOTIVO_YA_AL_DIA = 'Ya no tiene deuda vencida';
 /** El condominio apagó este tipo para WhatsApp después de encolarlo. */
 export const MOTIVO_APAGADO_WHATSAPP = 'Apagado en el condominio';
 /** Un resultado de pago sólo sale por correo (queda así también un pendiente que se encoló antes de este cambio). */
@@ -547,6 +594,13 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
       data: { programada_para: new Date(ahora.getTime() + ARRENDAMIENTO_MIN * MIN) },
     });
     if (tomada.count === 0) continue;
+
+    // Un recordatorio de deuda ya no corresponde si el departamento se puso al día entre que se encoló y ahora (un WhatsApp puede esperar su turno un rato).
+    if (n.tipo === TIPO_RECORDATORIO_DEUDA && n.ref_entidad && n.ref_id != null && !(await cargarDatos(n.tipo, { id: n.usuario_id, nombre: n.usuario.nombre, rol: n.usuario.rol }, { entidad: n.ref_entidad, id: n.ref_id } as RefAviso, ahora))) {
+      await prisma.notificacion.update({ where: { id: n.id }, data: { estado: 'omitida', error: MOTIVO_YA_AL_DIA, programada_para: n.programada_para } });
+      resumen.omitidas++;
+      continue;
+    }
 
     let r: ResultadoEnvio;
     let instanciaWa: string | null = null;

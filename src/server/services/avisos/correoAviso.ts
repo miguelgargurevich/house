@@ -15,6 +15,7 @@ const BOTON: Record<TipoAviso, string> = {
   pago_rechazado: 'Revisar y volver a enviar mi pago',
   comunicado: 'Ver el comunicado',
   cierre_pendiente: 'Abrir el cierre',
+  recordatorio_deuda: 'Pagar y subir mi voucher',
   ia_caida: 'Abrir el llavero de IA',
   ia_restablecida: 'Abrir el llavero de IA',
 };
@@ -88,6 +89,15 @@ function contenido(tipo: TipoAviso, d: DatosAviso, asunto: string, cuerpo: strin
   }
 
   switch (tipo) {
+    case 'recordatorio_deuda':
+      return {
+        ...base,
+        parrafos: [hola, 'Te escribimos para recordarte que tienes un saldo vencido en tu mantenimiento. Paga y sube tu voucher desde Torre; si ya pagaste, avísanos para revisarlo.'],
+        previa: `Saldo vencido ${d.monto}.`,
+        resumen: { total: { etiqueta: 'Saldo vencido', valor: d.monto, alerta: true }, filas: filasDeUnidades(d) },
+        ...(d.conceptos?.length ? { tabla: { titulo: 'Lo que está vencido', filas: d.conceptos.map((c) => ({ concepto: c.nombre, monto: c.monto })), total: { concepto: 'Total', monto: d.monto } } } : {}),
+        boton,
+      };
     case 'pago_validado':
     case 'pago_rechazado': {
       const rechazado = tipo === 'pago_rechazado';

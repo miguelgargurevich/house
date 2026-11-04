@@ -41,6 +41,7 @@ const TIPO: Record<string, string> = {
   ia_restablecida: 'IA restablecida',
   comunicado: 'Comunicado',
   cierre_pendiente: 'Cierre del mes pendiente',
+  recordatorio_deuda: 'Recordatorio de deuda',
 };
 const CANAL = { email: 'Correo', whatsapp: 'WhatsApp' } as const;
 const ESTADO: Record<Estado, { tone: Tone; label: string }> = {

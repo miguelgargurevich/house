@@ -97,14 +97,14 @@ export function meRouter(limitePassword: RequestHandler) {
    *   get:
    *     summary: Comunicados de la administración y la junta que alcanzan al residente
    *     tags: [Comunicados]
-   *     description: Los no archivados de los condominios de SUS unidades (como propietario o inquilino), de todo el condominio o del block de alguna de sus unidades. Fijados primero, luego los más nuevos.
+   *     description: Los no archivados de los condominios de SUS unidades (como propietario o inquilino), de todo el condominio o del block de alguna de sus unidades; los dirigidos a «departamentos elegidos» sólo si una de SUS unidades está entre ellos. Fijados primero, luego los más nuevos.
    *     responses:
    *       200: { description: "`{ items, total, page, pageSize }`" }
    */
   router.get('/comunicados', residente, async (req, res) => {
     const u = currentUser(req);
     const q = parse(listQuerySchema, req.query);
-    const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), select: { complejo_id: true, estructura_id: true } });
+    const unidades = await prisma.unidad.findMany({ where: unidadesPropias(u), select: { id: true, complejo_id: true, estructura_id: true } });
     const where = {
       AND: [
         { archivado_at: null },

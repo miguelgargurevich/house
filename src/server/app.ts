@@ -48,6 +48,7 @@ import { pisosRouter } from './routes/pisos';
 import { proveedoresRouter } from './routes/proveedores';
 import { reciboConceptosRouter } from './routes/reciboConceptos';
 import { recibosRouter } from './routes/recibos';
+import { recordatoriosRouter } from './routes/recordatorios';
 import { reportesRouter } from './routes/reportes';
 import { reservasRouter } from './routes/reservas';
 import { tareasRouter } from './routes/tareas';
@@ -131,6 +132,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/comunicados', comunicadosRouter);
   api.use('/dashboard', dashboardRouter);
   api.use('/reportes', reportesRouter);
+  api.use('/recordatorios', recordatoriosRouter);
   api.use('/conciliacion', conciliacionRouter);
   api.use('/usuarios', usuariosRouter);
   api.use('/empresas', empresasRouter);
