@@ -1,4 +1,5 @@
 import { normalizarCelular } from './celular';
+import { resolverRemitente } from './remitente';
 
 export const CANALES = ['email', 'whatsapp'] as const;
 export type Canal = (typeof CANALES)[number];
@@ -29,10 +30,13 @@ const VARIABLES: Record<Canal, readonly string[]> = {
 
 const definida = (env: NodeJS.ProcessEnv, k: string) => !!env[k]?.trim();
 
-/** Qué canales tienen sus variables; `faltan` son NOMBRES de variables, nunca valores. */
-export function estadoCanales(env: NodeJS.ProcessEnv = process.env): Record<Canal, { configurado: boolean; faltan: string[]; sinNumero?: boolean }> {
+/**
+ * Qué canales tienen sus variables; `faltan` son NOMBRES de variables, nunca valores. El correo necesita RESEND_API_KEY y un remitente:
+ * el de la base (`remitenteBd`, `ConfiguracionComercial.correo_remitente`) o, si no hay, MAIL_FROM.
+ */
+export function estadoCanales(env: NodeJS.ProcessEnv = process.env, remitenteBd?: string | null): Record<Canal, { configurado: boolean; faltan: string[]; sinNumero?: boolean }> {
   const una = (c: Canal) => {
-    const faltan = VARIABLES[c].filter((k) => !definida(env, k));
+    const faltan = VARIABLES[c].filter((k) => !definida(env, k) && !(c === 'email' && k === 'MAIL_FROM' && !!remitenteBd?.trim()));
     return { configurado: faltan.length === 0, faltan };
   };
   return { email: una('email'), whatsapp: una('whatsapp') };
@@ -55,15 +59,19 @@ async function llamar(deps: DepsAvisos, proveedor: string, url: string, init: Re
 /** Archivo adjunto de un correo (Resend lo recibe en base64). */
 export interface AdjuntoCorreo { nombre: string; datos: Buffer }
 
+/** De quién sale un correo: el remitente de la base (`correo_remitente`; sin él, MAIL_FROM) y, si el aviso es de un condominio, su nombre en el nombre visible. */
+export interface OpcionesCorreo { remitente?: string | null; condominio?: string | null }
+
 /** Correo por la API HTTP de Resend; `adjuntos` y `html` son opcionales (sin ellos el cuerpo es el de siempre). Con `html`, `cuerpo` sigue yendo como `text`: es el respaldo de los clientes que no lo muestran. */
-export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asunto: string, cuerpo: string, adjuntos?: AdjuntoCorreo[], html?: string): Promise<ResultadoEnvio> {
-  if (!estadoCanales(deps.env).email.configurado) return { resultado: 'omitida', motivo: NO_CONFIGURADO };
+export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asunto: string, cuerpo: string, adjuntos?: AdjuntoCorreo[], html?: string, opciones: OpcionesCorreo = {}): Promise<ResultadoEnvio> {
+  const from = estadoCanales(deps.env, opciones.remitente).email.configurado ? resolverRemitente(deps.env, opciones.remitente, opciones.condominio) : null;
+  if (!from) return { resultado: 'omitida', motivo: NO_CONFIGURADO };
   if (!destino) return { resultado: 'omitida', motivo: 'Sin correo' };
   return llamar(deps, 'Resend', 'https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${deps.env.RESEND_API_KEY!.trim()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: deps.env.MAIL_FROM!.trim(), to: [destino], subject: asunto, text: cuerpo,
+      from, to: [destino], subject: asunto, text: cuerpo,
       ...(html ? { html } : {}),
       ...(adjuntos?.length ? { attachments: adjuntos.map((a) => ({ filename: a.nombre, content: a.datos.toString('base64') })) } : {}),
     }),

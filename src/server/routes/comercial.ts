@@ -10,6 +10,7 @@ import { puedeAgregarCondominio } from '../services/comercial/cupo';
 import { crearPrimerCondominio } from '../services/comercial/primerCondominio';
 import { usoDelMes } from '../services/comercial/consumo';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
+import { MENSAJE_REMITENTE, parsearRemitente } from '../services/avisos/remitente';
 import { cambiarImpuesto, cargarReferencias, preciosEnDolares, reflejarTasaEnPeru } from '../services/comercial/impuestos';
 import { estadoTipoCambio, fijarTipoCambioManual, volverAAutomatico } from '../services/comercial/tipoCambio';
 import { complejosDe, invalidarComercial } from '../services/comercial/modulos';
@@ -94,6 +95,8 @@ const configSchema = z.object({
   dias_gracia: z.number().int().min(0).max(90).optional(),
   dias_aviso_vencimiento: z.number().int().min(1).max(60).optional(),
   correo_superadmin: z.preprocess((v) => (v === '' ? null : v), z.email('Correo inválido').max(160).nullish()),
+  /** «Torre <avisos@torrecondominios.com>» o sólo la dirección. Vacío = se usa MAIL_FROM. */
+  correo_remitente: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(200, 'Máximo 200 caracteres').refine((v) => parsearRemitente(v) !== null, MENSAJE_REMITENTE).nullish()),
   url_publica: z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(200).regex(/^https?:\/\/[^\s/]+[^\s]*$/i, 'Debe empezar con https://').nullish()),
   registro_abierto: z.boolean().optional(),
   /** Días de Pro de prueba al registrarse (0 = sin prueba: el condominio nace en Gratis). */

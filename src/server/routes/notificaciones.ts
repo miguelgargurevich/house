@@ -7,6 +7,7 @@ import { esJunta } from '../lib/junta';
 import { scopeNotificaciones } from '../lib/scope';
 import { currentUser } from '../middleware/auth';
 import { estadoCanales, CANALES, TIPOS, procesarPronto } from '../services/avisos';
+import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { moduloActivoPara } from '../services/comercial/modulos';
 import { idSchema, parse, parseId, z } from '../validation';
 import { exigirOperativoEmpresa } from '../services/comercial/operativo';
@@ -95,7 +96,7 @@ router.use((req, _res, next) => {
  */
 router.get('/canales', async (req, res) => {
   if (esJunta(currentUser(req))) throw forbidden(); // la junta no configura canales: eso es de la administradora
-  const estado = estadoCanales();
+  const estado = estadoCanales(process.env, (await obtenerConfiguracion()).correo_remitente);
   const empresaId = currentUser(req).empresa_id;
   if (estado.whatsapp.configurado && empresaId != null) {
     const empresa = await prisma.empresaAdministradora.findUnique({ where: { id: empresaId }, select: { whatsapp_instance: true } });

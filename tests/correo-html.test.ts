@@ -34,15 +34,15 @@ describe('plantillaCorreo', () => {
     assert.doesNotMatch(texto, /<|&amp;/);
   });
 
-  it('tiene la cara del sitio: colores de marca, logo en celda de color, 560 px, celular y modo oscuro', () => {
+  it('tiene la cara del sitio: colores de marca, logo (ícono de Torre) sobre celda de color, 600 px, celular y modo oscuro', () => {
     const { html } = plantillaCorreo(base);
     assert.match(html, /#007565/, 'brand claro');
     assert.match(html, /#4bc1ad/, 'brand oscuro');
     assert.match(html, /#f5f9f7/, 'fondo');
-    assert.match(html, /<td class="logo"[^>]*>T<\/td>/);
+    assert.match(html, /<td class="logo"[^>]*bgcolor="#007565"[^>]*><img src="https:\/\/torrecondominios\.com\/icon-192\.png"[^>]*width="32"/, 'el logo es imagen con URL absoluta y, si no carga, queda el cuadro de color');
     assert.match(html, />Torre<\/td>/);
     assert.match(html, /max-width:100%/);
-    assert.match(html, /width="560"/);
+    assert.match(html, /width="600"/);
     assert.match(html, /prefers-color-scheme: dark/);
     assert.match(html, /max-width:600px/);
     assert.match(html, /<meta name="color-scheme" content="light dark">/);

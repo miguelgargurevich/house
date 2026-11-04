@@ -16,7 +16,11 @@ export const comercialCorreo = {
   deps: (): DepsAvisos => depsReales(),
 };
 
-export const correoA = (destino: string | null, asunto: string, cuerpo: string, deps: DepsAvisos = comercialCorreo.deps(), html?: string): Promise<ResultadoEnvio> => enviarCorreo(deps, destino, asunto, cuerpo, undefined, html);
+/** Correo de la plataforma (registro, invitaciones, planes): sale con el remitente de la base (`correo_remitente`) o, sin él, con MAIL_FROM. */
+export async function correoA(destino: string | null, asunto: string, cuerpo: string, deps: DepsAvisos = comercialCorreo.deps(), html?: string): Promise<ResultadoEnvio> {
+  const { correo_remitente } = await obtenerConfiguracion();
+  return enviarCorreo(deps, destino, asunto, cuerpo, undefined, html, { remitente: correo_remitente });
+}
 
 /** Enlace a una pantalla pública. La base sale de la configuración (nunca de la cabecera Host de la petición: sería un enlace envenenable). */
 export function enlace(cfg: Pick<ConfiguracionComercial, 'url_publica'>, ruta: string): string {

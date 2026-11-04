@@ -10,7 +10,8 @@ import { MOTIVO_TOPE_WHATSAPP, reservarConsumo } from '../comercial/consumo';
 import { enviarCorreo, enviarWhatsapp, depsReales, type Canal, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
-import { dineroTexto, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
+import { dineroTexto, enlaceDeAviso, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
+import { correoDeAviso } from './correoAviso';
 import { correoSinBuzon } from '../invitaciones';
 import { aportesPendientes, cierrePendiente } from '../cierres/pendientes';
 import { esTipoWhatsappConfigurable } from './whatsappTipos';
@@ -42,8 +43,13 @@ interface Cargado {
   datos: Parameters<typeof plantilla>[1];
 }
 
-/** Reúne lo que lleva el mensaje. `null` si no hay nada que avisar a ese usuario (cargos ya pagados, recibo borrado…). */
-async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: string }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
+/** Reúne lo que lleva el mensaje. `null` si no hay nada que avisar a ese usuario (cargos ya pagados, recibo borrado…). Agrega el enlace a la pantalla que corresponde al rol de quien lo recibe. */
+async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: string; rol?: string | null }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
+  const c = await cargarDatosBase(tipo, usuario, ref, ahora);
+  return c ? { datos: { ...c.datos, enlace: enlaceDeAviso(tipo, usuario.rol, c.datos.central) } } : null;
+}
+
+async function cargarDatosBase(tipo: TipoAviso, usuario: { id: number; nombre: string }, ref: RefAviso, ahora: Date): Promise<Cargado | null> {
   // Avisos de la plataforma (estado de la IA): no hablan de cargos; el detalle viaja en `opts.motivo`.
   if (ref.entidad === 'ia') return { datos: { nombre: usuario.nombre, periodo: '', monto: '', vencimiento: '' } };
   // Comunicado: el título es el asunto y el texto va tal cual; lo firma el condominio.
@@ -80,8 +86,10 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
         nombre: usuario.nombre,
         periodo: periodoTexto(recibo.mes, recibo.anio),
         concepto: c.reciboConcepto?.concepto?.nombre,
+        conceptos: c.reciboConcepto?.concepto?.nombre ? [{ nombre: c.reciboConcepto.concepto.nombre, monto: dineroTexto(c.monto, c.unidad?.complejo?.moneda) }] : [],
         monto: dineroTexto(c.monto, c.unidad?.complejo?.moneda),
         vencimiento: fechaTexto(recibo.fecha_vencimiento),
+        vence: recibo.fecha_vencimiento,
         condominio: c.unidad?.complejo?.nombre ?? null,
         departamentos: c.unidad ? [{ codigo: c.unidad.codigo, torre: c.unidad.estructura?.nombre ?? null }] : [],
       },
@@ -111,14 +119,21 @@ async function cargarDatos(tipo: TipoAviso, usuario: { id: number; nombre: strin
     const x = porUnidad.get(c.unidad.id) ?? { codigo: c.unidad.codigo, torre: c.unidad.estructura?.nombre ?? null, monto: new Prisma.Decimal(0) };
     porUnidad.set(c.unidad.id, { ...x, monto: x.monto.plus(c.monto) });
   }
-  const conceptos = [...new Set(cargos.map((c) => c.reciboConcepto?.concepto?.nombre).filter((n): n is string => !!n))];
+  // Cada concepto completo (sin cortar) con lo que suma para esta persona: un concepto cobrado en dos de sus departamentos sale una vez, con el total.
+  const porConcepto = new Map<string, Prisma.Decimal>();
+  for (const c of cargos) {
+    const nombre = c.reciboConcepto?.concepto?.nombre;
+    if (nombre) porConcepto.set(nombre, (porConcepto.get(nombre) ?? new Prisma.Decimal(0)).plus(c.monto));
+  }
   return {
     datos: {
       nombre: usuario.nombre,
       periodo: periodoTexto(recibo.mes, recibo.anio),
-      concepto: conceptos.slice(0, 3).join(', ') + (conceptos.length > 3 ? '…' : ''),
+      concepto: [...porConcepto.keys()].join(', '),
+      conceptos: [...porConcepto].map(([nombre, monto]) => ({ nombre, monto: dineroTexto(monto, recibo.complejo?.moneda) })),
       monto: dineroTexto(total, recibo.complejo?.moneda),
       vencimiento: fechaTexto(recibo.fecha_vencimiento),
+      vence: recibo.fecha_vencimiento,
       dias: diasEntre(hoyEn(recibo.complejo?.zona_horaria ?? ZONA_POR_DEFECTO, ahora), recibo.fecha_vencimiento), // los días que faltan, contados en el condominio
       // Los recordatorios avisan de la mora (si el condominio la cobra) para que el vecino suba su voucher a tiempo.
       ...((tipo === 'por_vencer' || tipo === 'vence_hoy') && moraMonto.gt(0) ? { mora: montoMoraTexto(moraMonto, recibo.complejo?.moneda) } : {}),
@@ -185,7 +200,7 @@ async function canalesDe(tipo: TipoAviso, u: { id: number; email: string | null;
  */
 export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefAviso, opts: { ahora?: Date; motivo?: string; canales?: readonly Canal[] } = {}): Promise<number> {
   const ahora = opts.ahora ?? new Date();
-  const u = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true, nombre: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
+  const u = await prisma.usuario.findUnique({ where: { id: usuarioId }, select: { id: true, nombre: true, rol: true, email: true, telefono: true, aviso_email: true, aviso_whatsapp: true } });
   if (!u) return 0;
   const canales = await canalesDe(tipo, u, await listaWhatsappDe(tipo, { ref_entidad: ref.entidad, ref_id: ref.id }));
   // `opts.canales` acota (un comunicado puede ir sólo por correo o sólo por WhatsApp); nunca agrega un canal que la persona no aceptó.
@@ -446,6 +461,30 @@ async function enviarWhatsappDeAviso(deps: DepsAvisos, complejoId: number | null
 }
 
 /**
+ * El correo de un aviso, con diseño. El texto plano y el asunto son los que se guardaron al encolar; el HTML se arma al enviar con los datos de
+ * ese momento (recibo, cargos, condominio). Si ya no se pueden rehacer (recibo borrado, comunicado archivado, avisos de la IA) el HTML se arma con el texto guardado:
+ * nunca se deja de enviar por esto.
+ */
+async function enviarCorreoDeAviso(deps: DepsAvisos, n: { tipo: string; asunto: string; cuerpo: string; usuario_id: number; ref_entidad: string | null; ref_id: number | null; usuario: { email: string | null; nombre: string; rol: string | null } }, remitente: string | null): Promise<ResultadoEnvio> {
+  const tipo = n.tipo as TipoAviso;
+  let html: string | undefined;
+  let condominio: string | null = null;
+  try {
+    const ref = n.ref_entidad != null && n.ref_id != null ? ({ entidad: n.ref_entidad, id: n.ref_id } as RefAviso) : null;
+    const cargado = ref ? await cargarDatos(tipo, { id: n.usuario_id, nombre: n.usuario.nombre, rol: n.usuario.rol }, ref, deps.ahora()) : null;
+    // El motivo del rechazo sólo vive en el texto guardado: se toma de ahí para que el correo y el texto digan lo mismo.
+    const motivo = tipo === 'pago_rechazado' ? /Motivo: ([\s\S]*?)\n\nRevisa el detalle/.exec(n.cuerpo)?.[1] : undefined;
+    const datos = cargado ? { ...cargado.datos, ...(motivo ? { motivo } : {}) } : null;
+    html = correoDeAviso(tipo, datos, { asunto: n.asunto, cuerpo: n.cuerpo, rol: n.usuario.rol }).html;
+    condominio = datos?.condominio ?? null;
+  } catch {
+    // Sin HTML el correo sale igual, en texto: lo importante es que el vecino se entere.
+    html = undefined;
+  }
+  return enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo, undefined, html, { remitente, condominio });
+}
+
+/**
  * Envía las `pendiente` con `programada_para <= ahora`. Cada una se «arrienda» antes de enviar (se corre su
  * `programada_para` unos minutos), así dos procesos no mandan el mismo aviso. Los fallos se reintentan con espera
  * creciente (`ESPERA_MIN`) hasta `MAX_INTENTOS`; después quedan en `error` con un motivo corto.
@@ -459,7 +498,7 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
     where: { estado: 'pendiente', programada_para: { lte: ahora } },
     orderBy: [{ programada_para: 'asc' }, { id: 'asc' }],
     take: limite,
-    include: { usuario: { select: { email: true, telefono: true } } },
+    include: { usuario: { select: { email: true, telefono: true, nombre: true, rol: true } } },
   });
   // Por instancia, en esta pasada: las que ya tuvieron un WhatsApp (la pausa va entre ellos) y cuántos salieron hoy (para el tope).
   const instanciasUsadas = new Set<string>();
@@ -484,7 +523,7 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
     let r: ResultadoEnvio;
     let instanciaWa: string | null = null;
     if (n.canal === 'email') {
-      r = await enviarCorreo(deps, n.usuario.email, n.asunto, n.cuerpo);
+      r = await enviarCorreoDeAviso(deps, n, cfg.correo_remitente);
     } else if (n.canal === 'whatsapp' && RESULTADOS_PAGO.includes(n.tipo)) {
       r = { resultado: 'omitida', motivo: MOTIVO_SOLO_CORREO };
     } else if (n.canal === 'whatsapp') {

@@ -283,7 +283,11 @@ describe('envío por canal', () => {
     assert.equal(correo.url, 'https://api.resend.com/emails');
     assert.equal(correo.init.method, 'POST');
     assert.equal((correo.init.headers as Record<string, string>).Authorization, `Bearer ${CLAVE_RESEND}`);
-    assert.deepEqual(JSON.parse(String(correo.init.body)), { from: 'Casa <avisos@ejemplo.test>', to: ['prop1@test.pe'], subject: 'Asunto de prueba', text: 'Cuerpo de prueba' });
+    const cuerpoCorreo = JSON.parse(String(correo.init.body));
+    // Sin datos que rehacer (la fila de prueba no apunta a un recibo) el HTML se arma con el texto guardado: sale texto + HTML.
+    const { html, ...resto } = cuerpoCorreo;
+    assert.deepEqual(resto, { from: 'Casa <avisos@ejemplo.test>', to: ['prop1@test.pe'], subject: 'Asunto de prueba', text: 'Cuerpo de prueba' });
+    assert.match(html, /<h1[^>]*>Asunto de prueba<\/h1>[\s\S]*Cuerpo de prueba/);
     const wa = llamadas.find((l) => l.url.includes('evo'))!;
     assert.equal(wa.url, 'https://evo.ejemplo.test/message/sendText/instancia-falsa', 'sin doble barra');
     assert.equal((wa.init.headers as Record<string, string>).apikey, CLAVE_EVO);

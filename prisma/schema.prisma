@@ -1074,6 +1074,8 @@ model ConfiguracionComercial {
   dias_aviso_vencimiento Int      @default(5)
   /// A esta dirección llegan los avisos de registros nuevos y de solicitudes de plan.
   correo_superadmin      String?
+  /// Remitente de los correos de Torre, p. ej. «Torre <avisos@torrecondominios.com>» (el dominio debe estar verificado en Resend). Vacío = se usa la variable MAIL_FROM.
+  correo_remitente       String?
   /// Base de los enlaces de los correos (https://…). Nunca se toma de la cabecera Host de la petición.
   url_publica            String?
   registro_abierto       Boolean  @default(true)

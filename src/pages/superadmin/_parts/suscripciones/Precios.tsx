@@ -8,7 +8,7 @@ import { TipoCambio } from './TipoCambio';
 interface Modulo { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; activo: boolean }
 interface Plan { clave: string; nombre: string; descripcion: string | null; precio_por_unidad: string; modulos_incluidos: string[]; caracteristicas: string[]; igv_incluido: boolean; visible: boolean; unidades_maximas: number | null; unidades_minimas: number | null; tramo_desde: number | null; tramo_precio: string | null; asistente_por_unidad_mes: number | null; whatsapp_por_unidad_mes: number | null }
 interface Config {
-  igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; url_publica: string | null; registro_abierto: boolean; dias_prueba_pro: number; dias_gratis: number | null;
+  igv_tasa: string; dias_gracia: number; dias_aviso_vencimiento: number; correo_superadmin: string | null; correo_remitente: string | null; url_publica: string | null; registro_abierto: boolean; dias_prueba_pro: number; dias_gratis: number | null;
   pago_titular: string | null; pago_banco: string | null; pago_cuenta: string | null; pago_cci: string | null; pago_yape: string | null; pago_instrucciones: string | null;
   legal_razon_social: string | null; legal_ruc: string | null; legal_domicilio: string | null; legal_correo: string | null;
   google_site_verification: string | null; bing_site_verification: string | null;
@@ -128,6 +128,7 @@ function Configuracion({ c, onGuardado }: { c: Config; onGuardado: () => void })
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-[oklch(var(--brand))]" checked={f.whatsapp_bot_activo} onChange={e => setF(x => ({ ...x, whatsapp_bot_activo: e.target.checked }))} /><span>Asistente por WhatsApp activo<span className="block text-muted">Apagado, el número sólo atiende «SALIR» (dar de baja los avisos) y no responde nada más: ni consultas, ni menú, ni vincular, ni vouchers por foto. Telegram no cambia.</span></span></label>
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Correo para avisos (registros y solicitudes)" type="email" {...t('correo_superadmin')} />
+        <Input label="Remitente de los correos" placeholder="Torre <avisos@torrecondominios.com>" hint="De quién llegan los avisos, recibos y comunicados. En los avisos de un condominio el nombre pasa a ser «Nombre del condominio vía Torre» y la dirección queda. El dominio debe estar verificado en Resend. Vacío = el remitente del servidor (MAIL_FROM)." {...t('correo_remitente')} />
         <Input label="URL pública (enlaces de los correos)" placeholder="https://house.gargurevich.dev" hint="Es el dominio canónico del sitio: también arma los enlaces canónicos, el sitemap y llms.txt. Sin barra final." {...t('url_publica')} />
       </div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[oklch(var(--brand))]" checked={f.registro_abierto} onChange={e => setF(x => ({ ...x, registro_abierto: e.target.checked }))} />Registro público abierto</label>

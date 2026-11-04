@@ -161,7 +161,8 @@ describe('crear usuario: invitación', () => {
     const r = await alta(adminA, { nombre: `<img src=x onerror=alert(1)> "Rosa"` });
     assert.equal(r.status, 201, r.texto);
     const c = enviados.find((x) => x.para === r.body.email)!;
-    assert.doesNotMatch(c.html!, /<img/);
+    assert.doesNotMatch(c.html!, /<img src=x/);
+    assert.equal((c.html!.match(/<img /g) ?? []).length, 1, 'el único <img> es el logo de Torre');
     assert.match(c.html!, /&lt;img src=x onerror=alert\(1\)&gt; &quot;Rosa&quot;/);
   });
 });

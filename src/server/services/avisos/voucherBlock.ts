@@ -13,6 +13,7 @@ import { horaEn } from '../../lib/fechas';
 import { nombreMes } from '../../lib/periodo';
 import { registrarAuditoria } from '../../middleware/audit';
 import { correoEfectivo, selectCorreoBlock } from '../juntas';
+import { obtenerConfiguracion } from '../comercial/configuracion';
 import { enviarCorreo, esperarReal, type DepsAvisos, type ResultadoEnvio } from './canales';
 import { ENLACE_APP, dineroTexto } from './plantillas';
 
@@ -101,11 +102,12 @@ export async function avisarVoucherAlBlock(pagoId: number, deps: typeof voucherB
 
     const adjuntos = [{ nombre: pago.comprobante.nombre, datos: Buffer.from(pago.comprobante.datos) }];
     let intentos = 1;
-    let r: ResultadoEnvio = await enviarCorreo(deps, correo, asunto, cuerpo, adjuntos);
+    const remitente = { remitente: (await obtenerConfiguracion()).correo_remitente, condominio: unidad?.complejo?.nombre ?? null };
+    let r: ResultadoEnvio = await enviarCorreo(deps, correo, asunto, cuerpo, adjuntos, undefined, remitente);
     if (r.resultado === 'fallo') {
       intentos = 2;
       await esperar(deps.esperaReintentoMs);
-      r = await enviarCorreo(deps, correo, asunto, cuerpo, adjuntos);
+      r = await enviarCorreo(deps, correo, asunto, cuerpo, adjuntos, undefined, remitente);
     }
     if (r.resultado === 'ok') return void (await registrar(pago.id, 'enviado', { sha256, intentos }));
     await registrar(pago.id, r.resultado === 'omitida' ? 'omitido' : 'fallo', { motivo: r.motivo, sha256, intentos });

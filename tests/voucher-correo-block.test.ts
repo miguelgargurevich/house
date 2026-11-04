@@ -100,7 +100,7 @@ describe('el pago del panel avisa al correo del block, con el voucher adjunto', 
     assert.equal(c.url, 'https://api.resend.com/emails');
     assert.equal(c.auth, `Bearer ${CLAVE}`);
     assert.deepEqual(c.body.to, [CORREO_BLOCK]);
-    assert.equal(c.body.from, 'House <house@ejemplo.test>');
+    assert.equal(c.body.from, 'Complejo A vía Torre <house@ejemplo.test>', 'el nombre visible dice el condominio y la dirección queda');
     assert.equal(c.body.subject, 'Voucher de pago · A-101 · octubre 2026 · S/ 115.00');
     assert.equal(c.body.attachments?.length, 1);
     assert.equal(c.body.attachments![0]!.filename, 'Operación ñandú.png');

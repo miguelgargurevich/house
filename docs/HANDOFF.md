@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Correos de aviso con diseño (HTML) y remitente en la base (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
+
+- **Pedido de Miguel**: «revisa el correo, mejora el UI y aún dice house@gargurevich.dev… quizá necesitamos otro remitente». Rama `feat/correo-avisos-html` (worktree), commit sin push.
+- **Remitente**: `ConfiguracionComercial.correo_remitente String?` (aditivo; editable en Superadmin › Suscripciones › Precios, con validación → 422). `services/avisos/remitente.ts`: usa ese valor y, si está vacío o roto, `MAIL_FROM`. En avisos de un condominio el nombre visible es «<Condominio> vía Torre» y la dirección no cambia. Hay correo si hay `RESEND_API_KEY` y (remitente o `MAIL_FROM`). `enviarCorreo` gana un 7.º parámetro `{remitente, condominio}`; `correoA` y `voucherBlock` lo pasan.
+- **HTML**: `correoHtml.ts` (layout común: logo, condominio, tarjeta con total grande, tabla de conceptos completa, botón, pie con baja en Mi perfil) y `correoAviso.ts` (contenido de cada tipo). El HTML se arma al enviar (`cola.ts › enviarCorreoDeAviso`) con los datos de ese momento; si no se puede rehacer, con el texto guardado. El texto plano mejora: fecha legible («lunes 2 de noviembre»), conceptos completos con monto, enlace por rol (`/propietario/cargos`, `/inquilino/cargos`, `/junta/cierre`…).
+- **Pruebas**: `tests/correo-avisos-html.test.ts` (nuevo) + ajustes en `correo-html`, `avisos` y `voucher-correo-block` (logo imagen, 600 px, `from` con el condominio). Suite completa (`npm test`, base `house_test_correo`): 3852 pruebas, 3851 verdes; el único rojo es el conocido `recibos-excel` «conceptos en 0». `tsc -b`, `tsc -p tests/tsconfig.json` y `npm run build` limpios. Mutaciones, todas en rojo y restauradas con `cp`+`cmp`: HTML sin escapar, sin respaldo de `MAIL_FROM`, conceptos cortados a 3, PUT sin validar el formato, sin el condominio en el nombre visible, fecha numérica. También se ajustó `invitacion-usuarios` (el único `<img>` permitido es el logo).
+- **Pasos para Miguel (antes de usar el remitente nuevo)**: (1) en Resend › Domains agregar `torrecondominios.com` y copiar los registros (SPF TXT, DKIM, opcional DMARC); (2) crearlos en Cloudflare DNS (modo «solo DNS», sin proxy) y esperar «Verified»; (3) en Superadmin › Suscripciones › Precios poner «Remitente de los correos» = `Torre <avisos@torrecondominios.com>`. Mientras no esté verificado, déjalo vacío (sigue `MAIL_FROM`): con un dominio sin verificar Resend rechaza los envíos.
+- **Gotchas**: el esquema pide `prisma db push` al desplegar (campo nullable, sin riesgo). Muestras HTML de cada tipo en `.claude/correos-muestra/` (ignorado por git; `npx tsx .claude/correos-muestra/generar.ts`). El logo es `https://torrecondominios.com/icon-192.png`: si el cliente bloquea imágenes queda el cuadro verde y «Torre». No probado en Gmail/Outlook reales (sólo Chrome headless).
+
+---
+
 ## 2026-11-03 — WhatsApp: contador de mensajes y «Mis grupos» con selección al publicar (Claude Code, Sonnet 5.5, delegado por Opus) — push: no
 
 - **Pedido de Miguel**: «que listes los grupos, no que crees: así podría yo seleccionar los grupos a los que enviaría mensajes… y un contador de mensajes de WhatsApp». Rama `feat/whatsapp-grupos-contador` (worktree), commits sin push.
