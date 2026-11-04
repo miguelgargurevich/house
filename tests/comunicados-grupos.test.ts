@@ -1,4 +1,4 @@
-// Comunicados a la junta, al grupo de WhatsApp del block y (sólo si se marca) a cada vecino. Nada sale a la red: Evolution va con `fetch` falso.
+// Comunicados a la junta, a los grupos de WhatsApp elegidos de «Mis grupos» y (sólo si se marca) a cada vecino. Nada sale a la red: Evolution va con `fetch` falso.
 import './helpers/env';
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
@@ -149,14 +149,19 @@ beforeEach(async () => {
   await prisma.suscripcionCondominio.deleteMany();
   await darCortesia(d.complejoA.id, d.complejoB.id);
   await prisma.estructura.updateMany({ data: { whatsapp_grupo_jid: null, whatsapp_grupo_nombre: null, whatsapp_grupo_aviso: null, whatsapp_grupo_aviso_at: null } });
+  await prisma.grupoWhatsapp.deleteMany();
+  await prisma.envioGrupoWhatsapp.deleteMany();
   await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { whatsapp_instance: 'inst-a' } });
   await prisma.usuario.updateMany({ where: { id: { in: [d.propietario1.id, d.inquilino1.id, d.propietario2.id] } }, data: { aviso_email: true, aviso_whatsapp: true, telefono: '987654320' } });
 });
 
 const llama = (t: string | null, metodo: string, ruta: string, cuerpo?: unknown) => llamar(base, metodo, ruta, t, cuerpo);
-const poner = async (estructura: { id: number }, jid: string | null, nombre: string | null = null) =>
-  prisma.estructura.update({ where: { id: estructura.id }, data: { whatsapp_grupo_jid: jid, whatsapp_grupo_nombre: nombre } });
-const conGrupos = async () => { await poner(e1, G1, 'Vecinos Block 1'); await poner(e2, G2, 'Vecinos Block 2'); };
+/** Un grupo de «Mis grupos» ya en uso: lo que la administración dejó elegido. */
+const grupo = (jid: string, nombre: string, destino: 'block' | 'junta_block' | 'condominio', estructura: { id: number } | null, extra: Record<string, unknown> = {}) =>
+  prisma.grupoWhatsapp.create({ data: { empresa_id: d.empresaA.id, jid, nombre, en_uso: true, destino, complejo_id: d.complejoA.id, estructura_id: estructura?.id ?? null, sincronizado_at: new Date(), ...extra } });
+let g1: { id: number }, g2: { id: number }, g3: { id: number };
+const conGrupos = async () => { g1 = await grupo(G1, 'Vecinos Block 1', 'block', e1); g2 = await grupo(G2, 'Vecinos Block 2', 'block', e2); };
+const grupoDe = (jid: string) => prisma.grupoWhatsapp.findFirstOrThrow({ where: { jid } });
 const nuevo = (extra: Record<string, unknown> = {}) => ({ titulo: 'Corte de agua', cuerpo: 'El sábado de 9:00 a 13:00 no habrá agua por mantenimiento de la cisterna.', ...extra });
 /** Publica y espera a que terminen los envíos a grupos (corren después de responder). */
 async function publicar(token: string, cuerpo: Record<string, unknown>) {
@@ -175,123 +180,7 @@ async function ponerPro(whatsapp: number | null) {
   invalidarComercial();
 }
 
-describe('grupos de WhatsApp del block: la lista', () => {
-  it('trae sólo los grupos de la instancia de la empresa de la torre, con el nombre que dice Evolution', async () => {
-    const r = await llama(T.adminA, 'GET', `/api/estructuras/${e1.id}/grupos-whatsapp`);
-    assert.equal(r.status, 200, r.texto);
-    assert.equal(r.body.conectado, true);
-    assert.deepEqual(r.body.grupos.map((g: { jid: string }) => g.jid).sort(), [G1, G2, G3].sort());
-    assert.ok(!r.texto.includes(GB), 'ni rastro del grupo de la otra empresa');
-    assert.equal(r.body.actual, null);
-    assert.ok(mundo.llamadas.every((l) => l === 'fetchAllGroups'), 'sólo la lista, sin participantes');
-  });
-
-  it('otra empresa → 404 y nunca llega a Evolution; la junta y los vecinos → 403', async () => {
-    assert.equal((await llama(T.adminB, 'GET', `/api/estructuras/${e1.id}/grupos-whatsapp`)).status, 404);
-    assert.equal((await llama(T.adminSin, 'GET', `/api/estructuras/${e1.id}/grupos-whatsapp`)).status, 403, 'un admin sin empresa no entra');
-    assert.deepEqual(mundo.llamadas, []);
-    for (const t of ['presi1', 'tesor1', 'prop1'] as const) assert.equal((await llama(T[t], 'GET', `/api/estructuras/${e1.id}/grupos-whatsapp`)).status, 403, t);
-    assert.equal((await llama(null, 'GET', `/api/estructuras/${e1.id}/grupos-whatsapp`)).status, 401);
-  });
-
-  it('el superadmin ve los de la empresa dueña de ESE block (no los de otra)', async () => {
-    const r = await llama(T.super, 'GET', `/api/estructuras/${eB.id}/grupos-whatsapp`);
-    assert.equal(r.status, 200);
-    assert.deepEqual(r.body.grupos.map((g: { jid: string }) => g.jid), [GB]);
-  });
-
-  it('sin número conectado: `conectado: false`, lista vacía y ni una llamada a Evolution', async () => {
-    await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { whatsapp_instance: null } });
-    const r = await llama(T.adminA, 'GET', `/api/estructuras/${e1.id}/grupos-whatsapp`);
-    assert.equal(r.status, 200);
-    assert.deepEqual([r.body.conectado, r.body.grupos], [false, []]);
-    assert.deepEqual(mundo.llamadas, []);
-  });
-
-  it('Evolution caído: 502 con una frase corta, sin URL ni claves', async () => {
-    mundo.caido = true;
-    const r = await llama(T.adminA, 'GET', `/api/estructuras/${e1.id}/grupos-whatsapp`);
-    assert.equal(r.status, 502);
-    assert.doesNotMatch(r.texto, /evo\.ejemplo|CLAVE-FALSA|apikey/i);
-  });
-});
-
-describe('grupos de WhatsApp del block: elegir', () => {
-  const put = (t: string | null, est: { id: number }, jid: unknown) => llama(t, 'PUT', `/api/estructuras/${est.id}/grupo-whatsapp`, { jid });
-
-  it('guarda el grupo de la lista con el nombre de Evolution, y se puede cambiar y quitar', async () => {
-    const r = await put(T.adminA, e1, G1);
-    assert.equal(r.status, 200, r.texto);
-    const e = await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } });
-    assert.deepEqual([e.whatsapp_grupo_jid, e.whatsapp_grupo_nombre], [G1, 'Vecinos Block 1']);
-    assert.equal((await put(T.adminA, e1, G3)).status, 200);
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_nombre, 'Administración y proveedores');
-    assert.equal((await put(T.adminA, e1, null)).status, 200);
-    const sin = await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } });
-    assert.deepEqual([sin.whatsapp_grupo_jid, sin.whatsapp_grupo_nombre], [null, null]);
-  });
-
-  it('un JID de OTRA instancia → 422 y no se guarda', async () => {
-    const r = await put(T.adminA, e1, GB);
-    assert.equal(r.status, 422, r.texto);
-    assert.ok(r.body.campos?.jid);
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_jid, null);
-  });
-
-  it('un JID escrito a mano (bien formado pero que no está en la lista) o mal formado → 422', async () => {
-    for (const jid of ['120363999999999999@g.us', '51999000111@s.whatsapp.net', 'hola', '', 123]) {
-      const r = await put(T.adminA, e1, jid);
-      assert.equal(r.status, 422, `${String(jid)}: ${r.texto}`);
-    }
-    assert.equal((await put(T.adminA, e1, undefined)).status, 422);
-    assert.equal((await llama(T.adminA, 'PUT', `/api/estructuras/${e1.id}/grupo-whatsapp`, { jid: G1, nombre: 'Lo escribí yo' })).status, 422, 'el nombre no se acepta del cliente');
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_jid, null);
-  });
-
-  it('otra empresa → 404; la junta, los vecinos y sin sesión no lo cambian', async () => {
-    assert.equal((await put(T.adminB, e1, G1)).status, 404);
-    assert.equal((await put(T.presi1, e1, G1)).status, 403);
-    assert.equal((await put(T.prop1, e1, G1)).status, 403);
-    assert.equal((await put(null, e1, G1)).status, 401);
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_jid, null);
-  });
-
-  it('el mismo grupo no puede ser de dos blocks', async () => {
-    await put(T.adminA, e1, G1);
-    const r = await put(T.adminA, e2, G1);
-    assert.equal(r.status, 422, r.texto);
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e2.id } })).whatsapp_grupo_jid, null);
-  });
-
-  it('sin número conectado no se puede elegir; Evolution caído → 502', async () => {
-    mundo.caido = true;
-    assert.equal((await put(T.adminA, e1, G1)).status, 502);
-    mundo.caido = false;
-    await prisma.empresaAdministradora.update({ where: { id: d.empresaA.id }, data: { whatsapp_instance: null } });
-    assert.equal((await put(T.adminA, e1, G1)).status, 422);
-  });
-
-  it('con el condominio en solo lectura (plan Gratis vencido) elegir el grupo → 409 y no se guarda', async () => {
-    await prisma.suscripcionCondominio.deleteMany({ where: { complejo_id: d.complejoA.id } });
-    await prisma.suscripcionCondominio.create({ data: { complejo_id: d.complejoA.id, plan_clave: 'gratis', estado: 'gratis', gratis_hasta: new Date(Date.now() - 3 * DIA) } }); // 3 días: con 1 día, de 19:00 a 24:00 de Lima (ya otro día en UTC) aún no vencía
-    invalidarComercial();
-    const r = await put(T.adminA, e1, G1);
-    assert.equal(r.status, 409, r.texto);
-    assert.equal(r.body.code, 'SOLO_LECTURA');
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_jid, null);
-  });
-
-  it('quitar el grupo borra también el aviso del último envío; el crud genérico NO acepta el JID', async () => {
-    await prisma.estructura.update({ where: { id: e1.id }, data: { whatsapp_grupo_jid: G1, whatsapp_grupo_nombre: 'Vecinos Block 1', whatsapp_grupo_aviso: 'El número ya no está en el grupo del Block 1' } });
-    assert.equal((await put(T.adminA, e1, null)).status, 200);
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_aviso, null);
-    const r = await llama(T.adminA, 'PUT', `/api/estructuras/${e1.id}`, { nombre: 'Block 1', whatsapp_grupo_jid: G2 });
-    assert.equal(r.status, 200, r.texto);
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_jid, null);
-  });
-});
-
-describe('comunicado al grupo del block y a la junta', () => {
+describe('comunicado a los grupos elegidos y a la junta', () => {
   it('a un block con grupo: UN envío a su JID y la junta de ESE block (3 personas, correo y WhatsApp); nadie más', async () => {
     await conGrupos();
     const { respuesta, grupos, c } = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_junta: true, enviar_grupo: true }));
@@ -299,7 +188,8 @@ describe('comunicado al grupo del block y a la junta', () => {
     assert.deepEqual([mundo.enviados[0]!.instancia, mundo.enviados[0]!.jid], ['inst-a', G1]);
     assert.match(mundo.enviados[0]!.texto, /Corte de agua/);
     assert.match(mundo.enviados[0]!.texto, /https:\/\/torrecondominios\.com/);
-    assert.deepEqual(grupos.map((g) => [g.estructura_id, g.estado]), [[e1.id, 'enviado']]);
+    assert.deepEqual(grupos.map((g) => [g.grupo_id, g.estado]), [[g1.id, 'enviado']]);
+    assert.ok(!JSON.stringify(grupos).includes(G1), 'el resultado nunca lleva el JID');
     assert.deepEqual([c.enviar_junta, c.enviar_grupo], [true, true]);
     assert.deepEqual(await usuariosAvisados(respuesta.id), [u.presi1, u.tesor1, u.secre1].sort((a, b) => a - b));
     assert.equal(respuesta.avisos_encolados, 6, '3 personas × (correo + WhatsApp)');
@@ -339,10 +229,10 @@ describe('comunicado al grupo del block y a la junta', () => {
     const { grupos } = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_grupo: true }));
     assert.equal(mundo.enviados.length, 0);
     assert.equal(grupos[0]!.estado, 'fallo');
-    assert.equal(grupos[0]!.motivo, 'El número ya no está en el grupo del Block 1');
-    const e = await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } });
-    assert.equal(e.whatsapp_grupo_aviso, 'El número ya no está en el grupo del Block 1');
-    assert.ok(e.whatsapp_grupo_aviso_at);
+    assert.equal(grupos[0]!.motivo, 'El número ya no está en el grupo «Vecinos Block 1»');
+    const g = await grupoDe(G1);
+    assert.equal(g.aviso, 'El número ya no está en el grupo «Vecinos Block 1»');
+    assert.ok(g.aviso_at);
     assert.equal(await prisma.consumoMensual.count({ where: { complejo_id: d.complejoA.id } }), 0, 'lo que no se envía no gasta cuota');
   });
 
@@ -361,18 +251,20 @@ describe('comunicado al grupo del block y a la junta', () => {
     const lista = mundo.grupos['inst-a']!;
     mundo.grupos['inst-a'] = lista.filter((g) => g.jid !== G1);
     const a = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_grupo: true }));
-    assert.equal(a.grupos[0]!.motivo, 'El número ya no está en el grupo del Block 1');
+    assert.equal(a.grupos[0]!.motivo, 'El número ya no está en el grupo «Vecinos Block 1»');
     assert.equal(mundo.enviados.length, 0);
-    // Evolution contesta con error al pedir los participantes pero el grupo sigue en la lista: no se sabe → no se escribe, y sin alarma en la ficha.
+    assert.equal((await grupoDe(G1)).ya_no_esta, true, 'de paso «Mis grupos» queda al día: ya no estás en ese grupo');
+    // Evolution contesta con error al pedir los participantes pero el grupo sigue en la lista: no se sabe → no se escribe, y sin alarma en el grupo.
     mundo.grupos['inst-a'] = lista;
+    await prisma.grupoWhatsapp.update({ where: { id: g1.id }, data: { ya_no_esta: false } }); // (el número volvió a entrar y se trajeron los grupos otra vez)
     const original = mundo.llamadas;
     canalesDeps.fetch = (async (url: string | URL | Request, init?: RequestInit) => (String(url).includes('findGroupInfos') ? json({}, 500) : evolutionFalsa(url, init))) as typeof fetch;
-    await prisma.estructura.update({ where: { id: e1.id }, data: { whatsapp_grupo_aviso: null } });
+    await prisma.grupoWhatsapp.update({ where: { id: g1.id }, data: { aviso: null } });
     const b = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_grupo: true }));
     canalesDeps.fetch = evolutionFalsa;
-    assert.match(b.grupos[0]!.motivo ?? '', /^No se pudo comprobar el grupo del Block 1/);
+    assert.match(b.grupos[0]!.motivo ?? '', /^No se pudo comprobar el grupo «Vecinos Block 1»/);
     assert.equal(mundo.enviados.length, 0);
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_aviso, null);
+    assert.equal((await grupoDe(G1)).aviso, null);
     assert.ok(original);
   });
 
@@ -381,7 +273,7 @@ describe('comunicado al grupo del block y a la junta', () => {
     mundo.numeros['inst-a'] = null;
     const { grupos } = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_grupo: true }));
     assert.equal(mundo.enviados.length, 0);
-    assert.match(grupos[0]!.motivo ?? '', /No se pudo comprobar el grupo del Block 1/);
+    assert.match(grupos[0]!.motivo ?? '', /No se pudo comprobar el grupo «Vecinos Block 1»/);
   });
 
   it('Evolution trae el número en `phoneNumber` (id tipo LID): también cuenta como participante', async () => {
@@ -396,10 +288,10 @@ describe('comunicado al grupo del block y a la junta', () => {
 
   it('un envío exitoso limpia el aviso que había quedado en la ficha del block', async () => {
     await conGrupos();
-    await prisma.estructura.update({ where: { id: e1.id }, data: { whatsapp_grupo_aviso: 'El número ya no está en el grupo del Block 1', whatsapp_grupo_aviso_at: new Date() } });
+    await prisma.grupoWhatsapp.update({ where: { id: g1.id }, data: { aviso: 'El número ya no está en el grupo «Vecinos Block 1»', aviso_at: new Date() } });
     await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_grupo: true }));
-    const e = await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } });
-    assert.deepEqual([e.whatsapp_grupo_aviso, e.whatsapp_grupo_aviso_at], [null, null]);
+    const g = await grupoDe(G1);
+    assert.deepEqual([g.aviso, g.aviso_at], [null, null]);
   });
 
   it('Evolution responde error al enviar: queda `fallo` con motivo corto (sin URL ni claves) y el aviso en la ficha', async () => {
@@ -407,16 +299,16 @@ describe('comunicado al grupo del block y a la junta', () => {
     mundo.fallaSend = true;
     const { grupos } = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id, enviar_grupo: true }));
     assert.equal(grupos[0]!.estado, 'fallo');
-    assert.match(grupos[0]!.motivo ?? '', /No se pudo escribir en el grupo del Block 1/);
+    assert.match(grupos[0]!.motivo ?? '', /No se pudo escribir en el grupo «Vecinos Block 1»/);
     assert.doesNotMatch(JSON.stringify(grupos), /evo\.ejemplo|CLAVE-FALSA/);
-    assert.match((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_aviso ?? '', /No se pudo escribir/);
+    assert.match((await grupoDe(G1)).aviso ?? '', /No se pudo escribir/);
   });
 
   it('un fallo en un block no frena a los demás', async () => {
     await conGrupos();
     mundo.grupos['inst-a']![0]!.participantes = [];
     const { grupos } = await publicar(T.adminA, nuevo({ complejo_id: d.complejoA.id, enviar_grupo: true }));
-    assert.deepEqual(grupos.map((g) => [g.estructura_id, g.estado]), [[e1.id, 'fallo'], [e2.id, 'enviado']]);
+    assert.deepEqual(grupos.map((g) => [g.grupo_id, g.estado]), [[g1.id, 'fallo'], [g2.id, 'enviado']]);
     assert.deepEqual(mundo.enviados.map((e) => e.jid), [G2]);
     assert.equal(pausas.length, 0, 'no hubo envío previo: no hay pausa');
   });
@@ -450,15 +342,20 @@ describe('comunicado al grupo del block y a la junta', () => {
     assert.equal(mundo.enviados.length, 1);
   });
 
-  it('la junta ve el nombre del grupo del block pero NO su JID (ámbitos)', async () => {
+  it('la junta de un block ve SÓLO los grupos de su block (con su nombre) y nunca el JID; la administración ve los de todo el condominio', async () => {
     await conGrupos();
+    g3 = await grupo(G3, 'Junta Block 2', 'junta_block', e2);
     const r = await llama(T.presi1, 'GET', '/api/comunicados/ambitos');
     assert.equal(r.status, 200);
-    const b = r.body.complejos[0].estructuras[0];
-    assert.equal(b.whatsapp_grupo_nombre, 'Vecinos Block 1');
-    assert.ok(!r.texto.includes(G1));
+    assert.deepEqual(r.body.complejos[0].grupos.map((g: { id: number }) => g.id), [g1.id]);
+    assert.equal(r.body.complejos[0].grupos[0].nombre, 'Vecinos Block 1');
+    assert.ok(!r.texto.includes(G1) && !r.texto.includes('@g.us'));
     const a = await llama(T.adminA, 'GET', '/api/comunicados/ambitos');
-    assert.equal(a.body.complejos[0].estructuras.find((x: { id: number }) => x.id === e3.id).whatsapp_grupo_nombre, null);
+    const comp = a.body.complejos.find((c: { id: number }) => c.id === d.complejoA.id);
+    assert.deepEqual(comp.grupos.map((g: { id: number }) => g.id).sort(), [g1.id, g2.id, g3.id].sort());
+    assert.ok(!a.texto.includes('@g.us'));
+    const central = await llama(T.presiCentral, 'GET', '/api/comunicados/ambitos');
+    assert.equal(central.body.complejos[0].grupos.length, 3, 'la junta central ve los del condominio');
   });
 
   it('el listado trae el resultado de los grupos', async () => {
@@ -527,7 +424,7 @@ describe('comunicado al grupo: cuota mensual, plan y texto', () => {
     assert.equal(mundo.enviados.length, 0);
     assert.deepEqual([grupos[0]!.estado, grupos[0]!.motivo], ['fallo', MOTIVO_TOPE_WHATSAPP]);
     assert.equal((await prisma.consumoMensual.findFirstOrThrow({ where: { complejo_id: d.complejoA.id, recurso: 'whatsapp' } })).cantidad, 2, 'no pasa del tope');
-    assert.equal((await prisma.estructura.findUniqueOrThrow({ where: { id: e1.id } })).whatsapp_grupo_aviso, null, 'la cuota no es un problema del grupo');
+    assert.equal((await grupoDe(G1)).aviso, null, 'la cuota no es un problema del grupo');
   });
 
   it('la cuota se acaba a mitad de camino: sale a uno y el otro queda con el motivo', async () => {

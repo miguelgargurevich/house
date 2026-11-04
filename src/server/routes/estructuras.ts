@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
-import { HttpError, invalid, notFound } from '../errors';
+import { invalid, notFound } from '../errors';
 import { ambitoJunta, puedeGestionar } from '../lib/junta';
 import { scopeComplejos, scopeEstructuras } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
-import { EvolutionFallo, JID_GRUPO, listarGrupos, type GrupoWhatsapp } from '../services/canales/evolution';
-import { instanciaDeBlock } from '../services/canales/grupos';
 import { correoEfectivo } from '../services/juntas';
 import { emailSchema, idSchema, parseBody, parseId, texto, textoOpcional, z } from '../validation';
 import { exigirOperativo } from '../services/comercial/operativo';
@@ -169,62 +167,6 @@ router.put('/:id/correo-vouchers', async (req, res) => {
   res.locals.accion = 'correo_vouchers';
   res.locals.auditDetalle = { correo_vouchers };
   res.json({ id, correo_vouchers });
-});
-
-/** Los grupos donde está el número de la empresa de ESTA torre. Un fallo de Evolution se resume en una frase (el detalle va al log). */
-async function gruposDeLaEmpresa(instancia: string): Promise<GrupoWhatsapp[]> {
-  try {
-    return await listarGrupos(instancia);
-  } catch (e) {
-    console.error('[estructuras] grupos de WhatsApp:', e instanceof EvolutionFallo ? `${e.causa}${e.estado ? ` ${e.estado}` : ''}` : 'error');
-    throw new HttpError(502, 'No se pudo traer la lista de grupos de WhatsApp: revisa que el número siga conectado e inténtalo de nuevo');
-  }
-}
-
-/** Torre de la empresa de quien llama (otra empresa → 404) con su grupo actual y la instancia de WhatsApp que le toca. */
-async function cargarParaGrupo(user: AuthUser, id: number) {
-  const est = await prisma.estructura.findFirst({ where: { AND: [{ id }, scopeEstructuras(user)] }, select: { id: true, nombre: true, whatsapp_grupo_jid: true, whatsapp_grupo_nombre: true, whatsapp_grupo_aviso: true, whatsapp_grupo_aviso_at: true } });
-  const dueno = est ? await instanciaDeBlock(id) : null;
-  if (!est || !dueno) throw notFound();
-  return { est, ...dueno };
-}
-
-/**
- * Grupos de WhatsApp donde está el número de la empresa de la torre, para elegir el del block. Sólo la administración (la junta ve el grupo
- * elegido en «Comunicados» pero no lo cambia). Sin número conectado: `conectado: false` y lista vacía.
- */
-router.get('/:id/grupos-whatsapp', requireRole('admin'), async (req, res) => {
-  const { est, instancia } = await cargarParaGrupo(currentUser(req), parseId(req));
-  const actual = est.whatsapp_grupo_jid ? { jid: est.whatsapp_grupo_jid, nombre: est.whatsapp_grupo_nombre, aviso: est.whatsapp_grupo_aviso, aviso_at: est.whatsapp_grupo_aviso_at } : null;
-  if (!instancia) return res.json({ conectado: false, grupos: [], actual });
-  res.json({ conectado: true, grupos: await gruposDeLaEmpresa(instancia), actual });
-});
-
-/**
- * Elige (o quita, con `jid: null`) el grupo de WhatsApp del block. El JID NUNCA se acepta a ciegas: tiene que estar en la lista de grupos de la
- * instancia de ESA empresa, y el nombre se guarda tal como lo dice Evolution. Un mismo grupo no puede ser de dos blocks.
- */
-router.put('/:id/grupo-whatsapp', requireRole('admin'), async (req, res) => {
-  const user = currentUser(req);
-  const id = parseId(req);
-  const { jid } = parseBody(z.strictObject({ jid: z.string({ error: 'Elige un grupo de la lista' }).regex(JID_GRUPO, 'Elige un grupo de la lista').nullable() }), req);
-  const { est, instancia, complejo_id, empresa_id } = await cargarParaGrupo(user, id);
-  await exigirOperativo(complejo_id, user);
-  let nombre: string | null = null;
-  if (jid != null) {
-    if (!instancia) throw invalid('Primero conecta WhatsApp: no hay un número vinculado para traer tus grupos', { jid: 'WhatsApp no está conectado' });
-    const grupo = (await gruposDeLaEmpresa(instancia)).find((g) => g.jid === jid);
-    if (!grupo) throw invalid('Ese grupo no está entre los grupos de tu número de WhatsApp', { jid: 'Grupo no encontrado' });
-    const otro = await prisma.estructura.findFirst({ where: { whatsapp_grupo_jid: jid, id: { not: id }, complejo: { empresa_id } }, select: { id: true, nombre: true } });
-    if (otro) throw invalid(`Ese grupo ya es del ${otro.nombre?.trim() || `Block ${otro.id}`}`, { jid: 'Grupo ya asignado' });
-    nombre = grupo.nombre;
-  }
-  await prisma.estructura.update({ where: { id }, data: { whatsapp_grupo_jid: jid, whatsapp_grupo_nombre: nombre, whatsapp_grupo_aviso: null, whatsapp_grupo_aviso_at: null } });
-  res.locals.entidad = 'estructura';
-  res.locals.entidadId = id;
-  res.locals.accion = 'grupo_whatsapp';
-  res.locals.auditDetalle = { grupo: nombre, antes: est.whatsapp_grupo_nombre };
-  res.json({ id, whatsapp_grupo_jid: jid, whatsapp_grupo_nombre: nombre });
 });
 
 router.use(crud);

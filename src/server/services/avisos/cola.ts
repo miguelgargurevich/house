@@ -422,11 +422,18 @@ export function manana0800Lima(ahora: Date): Date {
   return new Date(Date.UTC(h.getUTCFullYear(), h.getUTCMonth(), h.getUTCDate() + 1, 13));
 }
 
-/** WhatsApp de aviso ENVIADOS hoy (día calendario de Lima) por esa instancia. Las respuestas del bot no pasan por aquí: no cuentan. */
+/**
+ * WhatsApp ENVIADOS hoy (día calendario de Lima) por esa instancia: los avisos (1-a-1) y los mensajes a grupos de los comunicados, porque para
+ * WhatsApp un mensaje es un mensaje. Las respuestas del bot no pasan por aquí: no cuentan.
+ */
 export async function contarEnviadasHoy(instancia: string, ahora: Date): Promise<number> {
   const h = hoyEn(ZONA_POR_DEFECTO, ahora);
   const desde = medianocheEn(ZONA_POR_DEFECTO, h.getUTCFullYear(), h.getUTCMonth() + 1, h.getUTCDate());
-  return prisma.notificacion.count({ where: { canal: 'whatsapp', estado: 'enviada', whatsapp_instancia: instancia, enviada_at: { gte: desde } } });
+  const [avisos, grupos] = await Promise.all([
+    prisma.notificacion.count({ where: { canal: 'whatsapp', estado: 'enviada', whatsapp_instancia: instancia, enviada_at: { gte: desde } } }),
+    prisma.envioGrupoWhatsapp.count({ where: { instancia, estado: 'enviado', at: { gte: desde } } }),
+  ]);
+  return avisos + grupos;
 }
 
 /**

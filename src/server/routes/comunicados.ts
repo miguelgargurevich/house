@@ -6,7 +6,8 @@ import { ambitoJunta, puedeGestionar } from '../lib/junta';
 import { scopeComplejos, scopeComunicados, scopeNotificaciones } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { procesarPronto } from '../services/avisos';
-import { lanzarEnvioAGrupos, bloquesConGrupo, type ResultadoGrupo } from '../services/canales/grupos';
+import { lanzarEnvioAGrupos, type ResultadoGrupo } from '../services/canales/grupos';
+import { gruposElegibles, gruposSugeridos, migrarGruposDeEstructuras } from '../services/canales/misGrupos';
 import { encolarComunicado, origenDe } from '../services/comunicados';
 import { idSchema, listQuerySchema, parse, parseBody, parseId, texto, z } from '../validation';
 import { exigirOperativo } from '../services/comercial/operativo';
@@ -60,8 +61,10 @@ const crearSchema = z.object({
   enviar_whatsapp: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
   /** Correo y WhatsApp a los miembros vigentes de la junta del alcance. La pantalla lo marca por defecto; la API, sólo si lo pides. */
   enviar_junta: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
-  /** Un mensaje al grupo de WhatsApp de cada block del alcance que tenga grupo elegido. */
+  /** Un mensaje a los grupos de WhatsApp que elijas (`grupos`). Sin `grupos`, a los que representan al block (o a todo el condominio): los mismos que la pantalla marca de entrada. */
   enviar_grupo: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
+  /** Ids de «Mis grupos» (en uso) donde se publica. Si vienen, `enviar_grupo` se da por hecho. La junta de un block sólo puede elegir los de SU block. */
+  grupos: z.array(idSchema, { error: 'Debe ser una lista de grupos' }).max(50, 'Máximo 50 grupos').optional(),
   fijado: z.boolean({ error: 'Debe ser verdadero o falso' }).default(false),
 });
 
@@ -96,6 +99,22 @@ async function resolverAmbito(u: AuthUser, complejoId: number | undefined, estru
   return { complejo_id: complejoId, estructura_id: estructura };
 }
 
+/**
+ * Los grupos de WhatsApp donde se publica, como filas `pendiente`. Sólo valen los de «Mis grupos» en uso de ESTE condominio (la junta de un block, los de
+ * su block): uno de otra empresa, de otro condominio o apagado es 404. Sin `grupos`, `enviar_grupo` marca los que representan al block (o al condominio).
+ */
+async function resolverGrupos(u: AuthUser, ambito: { complejo_id: number; estructura_id: number | null }, d: { enviar_grupo: boolean; grupos?: number[] }): Promise<ResultadoGrupo[]> {
+  if (!d.enviar_grupo && !d.grupos?.length) return [];
+  const complejo = await prisma.complejoHabitacional.findUnique({ where: { id: ambito.complejo_id }, select: { empresa_id: true } });
+  if (complejo?.empresa_id != null) await migrarGruposDeEstructuras(complejo.empresa_id);
+  const elegibles = await gruposElegibles(ambito.complejo_id, ambitoJunta(u)?.estructura_id ?? null);
+  const ids = d.grupos ? [...new Set(d.grupos)] : gruposSugeridos(elegibles, ambito.estructura_id).map((g) => g.id);
+  const elegidos = ids.map((id) => elegibles.find((g) => g.id === id));
+  if (elegidos.some((g) => !g)) throw notFound('Grupo');
+  if (!elegidos.length) throw invalid(ambito.estructura_id != null ? 'Este block no tiene un grupo de WhatsApp en uso: la administración los elige en «WhatsApp» › Mis grupos' : 'Ningún grupo de WhatsApp de este condominio está en uso: la administración los elige en «WhatsApp» › Mis grupos', { enviar_grupo: 'Sin grupo de WhatsApp' });
+  return elegidos.map((g) => ({ grupo_id: g!.id, nombre: g!.nombre, estado: 'pendiente' as const }));
+}
+
 export const comunicadosRouter = Router();
 comunicadosRouter.use((_req, res, next) => {
   res.locals.entidad = 'comunicado';
@@ -114,7 +133,7 @@ comunicadosRouter.use((req, _res, next) => {
  *     summary: Condominios y blocks donde quien llama puede publicar comunicados
  *     tags: [Comunicados]
  *     responses:
- *       200: { description: "`{ complejos: [{ id, nombre, estructuras }], fijo }`; cada block trae `whatsapp_grupo_nombre` (null = sin grupo de WhatsApp) y `whatsapp_grupo_aviso`; `fijo` = la junta de un block sólo publica en ese block" }
+ *       200: { description: "`{ complejos: [{ id, nombre, estructuras, grupos }], fijo }`; `grupos` = los grupos de WhatsApp en uso de ese condominio (`{ id, nombre, destino, estructura_id }`, sin el JID; la junta de un block sólo ve los de su block); `fijo` = la junta de un block sólo publica en ese block" }
  */
 comunicadosRouter.get('/ambitos', async (req, res) => {
   const u = currentUser(req);
@@ -123,9 +142,12 @@ comunicadosRouter.get('/ambitos', async (req, res) => {
     where: junta ? { id: junta.complejo_id } : scopeComplejos(u),
     orderBy: { nombre: 'asc' },
     take: 100,
-    select: { id: true, nombre: true, estructuras: { where: junta?.estructura_id != null ? { id: junta.estructura_id } : {}, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true, tipo: true, whatsapp_grupo_nombre: true, whatsapp_grupo_aviso: true } } },
+    select: { id: true, nombre: true, empresa_id: true, estructuras: { where: junta?.estructura_id != null ? { id: junta.estructura_id } : {}, orderBy: { nombre: 'asc' }, select: { id: true, nombre: true, tipo: true } } },
   });
-  res.json({ complejos, fijo: junta?.estructura_id != null });
+  const empresas = [...new Set(complejos.map((c) => c.empresa_id).filter((x): x is number => x != null))];
+  await migrarGruposDeEstructuras(empresas); // lo que se eligió en la ficha del block pasa a «Mis grupos»
+  const conGrupos = await Promise.all(complejos.map(async (c) => ({ id: c.id, nombre: c.nombre, estructuras: c.estructuras, grupos: await gruposElegibles(c.id, junta?.estructura_id ?? null) })));
+  res.json({ complejos: conGrupos, fijo: junta?.estructura_id != null });
 });
 
 /**
@@ -184,12 +206,10 @@ comunicadosRouter.post('/', async (req, res) => {
   const d = parseBody(crearSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
   await exigirOperativo(ambito.complejo_id, u);
-  // Antes de publicar: pedir el grupo donde no hay ninguno es un error del pedido, no un comunicado a medias.
-  const bloques = d.enviar_grupo ? await bloquesConGrupo(ambito) : [];
-  if (d.enviar_grupo && !bloques.length) throw invalid(ambito.estructura_id != null ? 'Este block no tiene grupo de WhatsApp: la administración lo elige en la ficha del block' : 'Ningún block de este condominio tiene grupo de WhatsApp', { enviar_grupo: 'Sin grupo de WhatsApp' });
-  const pendientes: ResultadoGrupo[] = bloques.map((b) => ({ estructura_id: b.id, nombre: b.nombre, estado: 'pendiente' }));
+  // Antes de publicar: pedir un grupo que no existe (o que no es tuyo) es un error del pedido, no un comunicado a medias.
+  const pendientes = await resolverGrupos(u, ambito, d);
   const c = await prisma.comunicado.create({
-    data: { ...ambito, titulo: d.titulo, cuerpo: d.cuerpo, autor_id: u.id, enviar_correo: d.enviar_correo, enviar_whatsapp: d.enviar_whatsapp, enviar_junta: d.enviar_junta, enviar_grupo: d.enviar_grupo, ...(pendientes.length ? { grupos_resultado: pendientes as unknown as Prisma.InputJsonValue } : {}), fijado: d.fijado },
+    data: { ...ambito, titulo: d.titulo, cuerpo: d.cuerpo, autor_id: u.id, enviar_correo: d.enviar_correo, enviar_whatsapp: d.enviar_whatsapp, enviar_junta: d.enviar_junta, enviar_grupo: pendientes.length > 0, ...(pendientes.length ? { grupos_resultado: pendientes as unknown as Prisma.InputJsonValue } : {}), fijado: d.fijado },
     include: incluir,
   });
   const avisos = await encolarComunicado(c);
@@ -197,7 +217,7 @@ comunicadosRouter.post('/', async (req, res) => {
   if (pendientes.length) lanzarEnvioAGrupos(c.id);
   res.locals.entidadId = c.id;
   // Sin el texto: la auditoría guarda qué se publicó y dónde, no el contenido.
-  res.locals.auditDetalle = { complejo_id: c.complejo_id, estructura_id: c.estructura_id, titulo: c.titulo, fijado: c.fijado, enviar_correo: c.enviar_correo, enviar_whatsapp: c.enviar_whatsapp, enviar_junta: c.enviar_junta, enviar_grupo: c.enviar_grupo, grupos: pendientes.length, avisos_encolados: avisos };
+  res.locals.auditDetalle = { complejo_id: c.complejo_id, estructura_id: c.estructura_id, titulo: c.titulo, fijado: c.fijado, enviar_correo: c.enviar_correo, enviar_whatsapp: c.enviar_whatsapp, enviar_junta: c.enviar_junta, enviar_grupo: c.enviar_grupo, grupos: pendientes.length, grupos_ids: pendientes.map((g) => g.grupo_id), avisos_encolados: avisos };
   res.status(201).json({ ...formatear(c), avisos_encolados: avisos });
 });
 
@@ -227,6 +247,28 @@ const editar = async (req: Request, res: Response) => {
 };
 comunicadosRouter.put('/:id', editar);
 comunicadosRouter.patch('/:id', editar);
+
+/**
+ * @openapi
+ * /api/comunicados/{id}/reintentar-grupos:
+ *   post:
+ *     summary: Vuelve a intentar los grupos de WhatsApp que quedaron pendientes (p. ej. por el tope diario)
+ *     tags: [Comunicados]
+ *     responses:
+ *       202: { description: "`{ pendientes }`: el envío sigue en segundo plano; el resultado queda en `grupos_resultado`" }
+ *       409: { description: "El comunicado no tiene grupos pendientes" }
+ */
+comunicadosRouter.post('/:id/reintentar-grupos', async (req, res) => {
+  const c = await cargar(req);
+  await exigirOperativo(c.complejo_id, currentUser(req));
+  const pendientes = (Array.isArray(c.grupos_resultado) ? (c.grupos_resultado as unknown as ResultadoGrupo[]) : []).filter((g) => g?.estado === 'pendiente').length;
+  if (!pendientes) throw conflict('Este comunicado no tiene grupos de WhatsApp pendientes');
+  lanzarEnvioAGrupos(c.id);
+  res.locals.entidadId = c.id;
+  res.locals.accion = 'reintentar_grupos';
+  res.locals.auditDetalle = { complejo_id: c.complejo_id, pendientes };
+  res.status(202).json({ pendientes });
+});
 
 /**
  * @openapi

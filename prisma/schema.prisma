@@ -89,6 +89,8 @@ model Usuario {
 
 model EmpresaAdministradora {
   id                  Int                    @id @default(autoincrement())
+  gruposWhatsapp      GrupoWhatsapp[]
+  enviosGrupoWhatsapp EnvioGrupoWhatsapp[]
   nombre              String
   ruc                 String?
   direccion           String?
@@ -124,6 +126,7 @@ model EmpresaAdministradora {
 
 model ComplejoHabitacional {
   id          Int                    @id @default(autoincrement())
+  gruposWhatsapp GrupoWhatsapp[]
   nombre      String
   tipo        String
   direccion   String?
@@ -243,10 +246,12 @@ model Estructura {
   juntas      JuntaDirectiva[]
   recibos     Recibo[]
   comunicados Comunicado[]
+  gruposWhatsapp GrupoWhatsapp[]
   egresosBlock EgresoBlock[]
   /// «Correo del block» al que se envían los vouchers (sale en el recibo impreso).
   correo_vouchers String?
-  /// Grupo de WhatsApp del block (JID `…@g.us`), SIEMPRE elegido de la lista que trae Evolution del número de la empresa: nunca escrito a mano.
+  /// LEGADO (compatibilidad): la fuente de verdad de los grupos de WhatsApp es `GrupoWhatsapp`. Estas columnas sólo se leen una vez, para pasar lo que ya estaba elegido a `GrupoWhatsapp` (`migrarGruposDeEstructuras`); nada más las escribe ni las lee.
+  /// Grupo de WhatsApp del block (JID `…@g.us`).
   whatsapp_grupo_jid         String?
   whatsapp_grupo_nombre      String?
   /// Último problema al escribir al grupo («El número ya no está en el grupo del Block 3»); null = todo bien.
@@ -1405,4 +1410,54 @@ model ConfiguracionConciliacion {
   ventana_dias  Int       @default(3)
   updated_at    DateTime  @updatedAt
   medioPago     MedioPago @relation(fields: [medio_pago_id], references: [id], onDelete: Cascade)
+}
+
+
+/// Un grupo de WhatsApp del número de la empresa, guardado en Torre (se trae UNA vez con «Traer mis grupos»: Evolution tarda y no se le pregunta en cada pantalla ni en cada envío).
+/// Sólo los `en_uso` sirven para escribir; `destino` dice a quién representa. Un mismo grupo (`jid`) es de una sola empresa y representa un solo destino.
+model GrupoWhatsapp {
+  id              Int                    @id @default(autoincrement())
+  empresa_id      Int
+  /// JID `…@g.us`. Sólo sale del servidor hacia Evolution: nunca se muestra ni se acepta del cliente.
+  jid             String
+  nombre          String
+  miembros        Int?
+  en_uso          Boolean                @default(false)
+  /// `block` (los vecinos del block), `junta_block` (la junta de un block) o `condominio` (todo el condominio). null mientras no esté en uso.
+  destino         String?
+  complejo_id     Int?
+  estructura_id   Int?
+  /// El número ya no está en este grupo (no vino en la última lista de Evolution). Un grupo en uso no se borra por eso.
+  ya_no_esta      Boolean                @default(false)
+  /// Último problema al escribirle («El número ya no está en el grupo del Block 3»); null = todo bien.
+  aviso           String?
+  aviso_at        DateTime?
+  /// Cuándo se trajo de Evolution por última vez; null = viene de la ficha del block (migración) y aún no se sincronizó.
+  sincronizado_at DateTime?
+  created_at      DateTime               @default(now())
+  updated_at      DateTime               @updatedAt
+  empresa         EmpresaAdministradora  @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+  complejo        ComplejoHabitacional?  @relation(fields: [complejo_id], references: [id], onDelete: SetNull)
+  estructura      Estructura?            @relation(fields: [estructura_id], references: [id], onDelete: SetNull)
+
+  @@unique([empresa_id, jid])
+  @@index([complejo_id, en_uso])
+}
+
+/// Un mensaje a un grupo de WhatsApp (`enviado` o `fallo`): cuenta para el tope diario del número y para el contador de la pantalla «WhatsApp». Sin datos personales.
+model EnvioGrupoWhatsapp {
+  id           Int                   @id @default(autoincrement())
+  empresa_id   Int
+  /// Instancia (número) por la que salió: el tope diario es por instancia, igual que el de los avisos.
+  instancia    String
+  complejo_id  Int
+  comunicado_id Int?
+  grupo_id     Int?
+  estado       String
+  motivo       String?
+  at           DateTime              @default(now())
+  empresa      EmpresaAdministradora @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+
+  @@index([instancia, estado, at])
+  @@index([empresa_id, at])
 }

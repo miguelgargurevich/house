@@ -19,7 +19,7 @@ export class EvolutionFallo extends Error {
 }
 
 /** Llamada a la Evolution API con la apikey global; el mensaje del error nunca lleva la URL ni la clave. */
-async function llamar(endpoint: string, method: 'GET' | 'POST', body?: Record<string, unknown>): Promise<unknown> {
+async function llamar(endpoint: string, method: 'GET' | 'POST', body?: Record<string, unknown>, tiempoMs: number = TIEMPO_MAX_MS): Promise<unknown> {
   const { env } = canalesDeps;
   const base = env.EVOLUTION_URL?.trim().replace(/\/+$/, '');
   if (!base) throw new EvolutionFallo('sin_configurar');
@@ -29,7 +29,7 @@ async function llamar(endpoint: string, method: 'GET' | 'POST', body?: Record<st
       method,
       headers: { apikey: env.EVOLUTION_APIKEY?.trim() ?? '', 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(TIEMPO_MAX_MS),
+      signal: AbortSignal.timeout(tiempoMs),
     });
   } catch (e) {
     throw new EvolutionFallo(e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'timeout' : 'sin_conexion');
@@ -37,8 +37,9 @@ async function llamar(endpoint: string, method: 'GET' | 'POST', body?: Record<st
   if (!r.ok) throw new EvolutionFallo('error', r.status);
   try {
     return await r.json();
-  } catch {
-    throw new EvolutionFallo('error', r.status);
+  } catch (e) {
+    // El tope también corta la lectura del cuerpo: eso es un timeout, no «respuesta rara».
+    throw new EvolutionFallo(e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'timeout' : 'error', r.status);
   }
 }
 
@@ -118,18 +119,22 @@ export async function responder(instancia: string, numero: string, texto: string
 /** JID de un grupo de WhatsApp: dígitos (con un guion en los grupos viejos) y `@g.us`. */
 export const JID_GRUPO = /^\d{5,}(-\d+)?@g\.us$/;
 
-export interface GrupoWhatsapp { jid: string; nombre: string }
+export interface GrupoWhatsapp { jid: string; nombre: string; /** `size` de Evolution; null si no lo trae. */ miembros: number | null }
 
-/** Los grupos donde está el número de la instancia (sin participantes: la lista puede ser larga). El nombre sale de Evolution, nunca del cliente. */
-export async function listarGrupos(instancia: string): Promise<GrupoWhatsapp[]> {
-  const r = await llamar(`/group/fetchAllGroups/${encodeURIComponent(instancia)}?getParticipants=false`, 'GET');
+/** Tope de «Traer mis grupos»: con ~70 grupos `fetchAllGroups` tardó 16,7 s en My Workspace, así que el tope normal (15 s) no alcanza. */
+export const TIEMPO_LISTA_GRUPOS_MS = 30_000;
+
+/** Los grupos donde está el número de la instancia (sin participantes: la lista puede ser larga). El nombre sale de Evolution, nunca del cliente. Es LENTA: no va en cada pantalla ni en cada envío. */
+export async function listarGrupos(instancia: string, tiempoMs: number = TIEMPO_LISTA_GRUPOS_MS): Promise<GrupoWhatsapp[]> {
+  const r = await llamar(`/group/fetchAllGroups/${encodeURIComponent(instancia)}?getParticipants=false`, 'GET', undefined, tiempoMs);
   const filas = Array.isArray(r) ? r : [];
   const grupos: GrupoWhatsapp[] = [];
   for (const f of filas as Record<string, unknown>[]) {
     const jid = typeof f?.id === 'string' ? f.id : null;
     if (!jid || !JID_GRUPO.test(jid)) continue;
     const nombre = typeof f.subject === 'string' && f.subject.trim() ? f.subject.trim() : 'Grupo sin nombre';
-    grupos.push({ jid, nombre });
+    const miembros = typeof f.size === 'number' && Number.isFinite(f.size) && f.size >= 0 ? Math.trunc(f.size) : null;
+    grupos.push({ jid, nombre, miembros });
   }
   return grupos.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 }
