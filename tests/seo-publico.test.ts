@@ -565,7 +565,7 @@ describe('la plantilla real de index.html', () => {
     assert.equal((real.match(/<meta name="description"/g) ?? []).length, 1);
     assert.ok(real.includes('<div id="root"></div>'));
     assert.match(real, /<link rel="manifest" href="\/site\.webmanifest" \/>/);
-    assert.match(real, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png" \/>/);
+    assert.match(real, /<link rel="apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png" \/>/);
   });
 
   it('inyectar() deja un solo título y una sola descripción y pone el contenido en #root', () => {
