@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { api, errorText } from '../../api';
 import { Alert, Button, Card } from '../../ui';
 import { QrCodeIcon, LinkIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { ContadorWhatsapp } from './_parts/whatsapp/ContadorWhatsapp';
+import { MisGrupos } from './_parts/whatsapp/MisGrupos';
 
 interface EstadoWhatsapp {
   connected?: boolean;
@@ -67,15 +69,15 @@ export default function WhatsappSync() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <div className="mb-6">
+    <div className="mx-auto grid max-w-3xl gap-6 p-4 sm:p-6">
+      <div>
         <h1 className="text-2xl font-bold text-slate-900">Sincronización de WhatsApp</h1>
         <p className="text-slate-500">
           Vincula tu número de teléfono para enviar avisos y resúmenes directamente a los vecinos.
         </p>
       </div>
 
-      <Card className="p-8 text-center">
+      <Card className="p-5 text-center sm:p-8">
         <div className="flex justify-center mb-6">
           {status === 'connected' ? (
             <div className="bg-green-100 p-4 rounded-full">
@@ -150,6 +152,13 @@ export default function WhatsappSync() {
           </div>
         )}
       </Card>
+
+      {status === 'connected' && (
+        <>
+          <ContadorWhatsapp />
+          <MisGrupos />
+        </>
+      )}
     </div>
   );
 }

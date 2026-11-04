@@ -9,7 +9,7 @@ import type { Column } from '../../../../ui';
 import { FiltroSelect } from '../catalogo/FiltroSelect';
 import { nombreTorre, palabraEstructura } from '../medios/tipos';
 import { ComunicadoModal } from './ComunicadoModal';
-import { alcanceLabel, baseDe, enviosDeComunicado, textoEnvios, textoGrupos } from './tipos';
+import { alcanceLabel, baseDe, enviosDeComunicado, gruposPendientes, motivoDeGrupo, textoEnvios, textoGrupos } from './tipos';
 import type { Comunicado } from './tipos';
 import { useAmbitosComunicados } from './useAmbitos';
 import { Bloqueable } from '../../../../app/Bloqueable';
@@ -47,6 +47,15 @@ export function ComunicadosTab() {
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); }
   }
 
+  /** Vuelve a intentar los grupos que quedaron pendientes (el tope diario ya se renovó); el resultado se ve al recargar. */
+  async function reintentar(c: Comunicado) {
+    try {
+      await api(`/api/comunicados/${c.id}/reintentar-grupos`, { method: 'POST' });
+      toast.ok('Reintentando los grupos pendientes. Actualiza la lista en un momento para ver cómo quedó');
+      setTimeout(() => void list.reload(), 4000);
+    } catch (e) { toast.error(errorText(e)); }
+  }
+
   const columns: Column<Comunicado>[] = [
     { key: 'titulo', header: 'Comunicado', cell: c => (
       <div className="tabla-texto-largo min-w-0 max-w-[18rem]">
@@ -56,7 +65,8 @@ export function ComunicadosTab() {
         </p>
         <p className="truncate text-xs text-muted">{c.cuerpo.replace(/\s+/g, ' ')}</p>
         <p className="truncate text-xs text-muted sm:hidden">{alcanceLabel(c)} · {fechaCorta(c.created_at)} · {textoEnvios(c.envios)}{textoGrupos(c) ? ` · ${textoGrupos(c)}` : ''}</p>
-        {c.grupos_resultado?.filter(g => g.estado === 'fallo').map(g => <p key={g.estructura_id} className="text-xs text-bad md:hidden">{g.motivo ?? `No se envió al grupo de ${g.nombre}`}</p>)}
+        {c.grupos_resultado?.filter(g => g.estado === 'fallo').map(g => <p key={g.grupo_id ?? g.estructura_id} className="text-xs text-bad md:hidden">{motivoDeGrupo(g)}</p>)}
+        {gruposPendientes(c).length > 0 && <p className="text-xs text-warn md:hidden">{gruposPendientes(c)[0]!.motivo}. <button type="button" className="font-medium underline" onClick={() => void reintentar(c)}>Reintentar</button></p>}
       </div>
     ) },
     { key: 'alcance', header: 'Para', hideBelow: 'sm', cell: c => (
@@ -66,7 +76,8 @@ export function ComunicadosTab() {
       <span className="block">
         <span className="block">{textoEnvios(c.envios)}</span>
         {textoGrupos(c) && <span className="block">{textoGrupos(c)}</span>}
-        {c.grupos_resultado?.filter(g => g.estado === 'fallo').map(g => <span key={g.estructura_id} className="block max-w-[16rem] text-xs text-bad">{g.motivo ?? `No se envió al grupo de ${g.nombre}`}</span>)}
+        {c.grupos_resultado?.filter(g => g.estado === 'fallo').map(g => <span key={g.grupo_id ?? g.estructura_id} className="block max-w-[16rem] text-xs text-bad">{motivoDeGrupo(g)}</span>)}
+        {gruposPendientes(c).length > 0 && <span className="block max-w-[16rem] text-xs text-warn">{gruposPendientes(c)[0]!.motivo}. <button type="button" className="font-medium underline" onClick={() => void reintentar(c)}>Reintentar</button></span>}
         {!!c.envios?.total && <Link to={enviosDeComunicado(base, c.id)} className="text-xs font-medium text-brand hover:underline">Ver envíos</Link>}
       </span>
     ) },

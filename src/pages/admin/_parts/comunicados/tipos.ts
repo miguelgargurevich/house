@@ -11,9 +11,11 @@ export interface Envios {
   omitida: number;
 }
 
-/** Cómo le fue al mensaje de un block a su grupo de WhatsApp. */
+/** Cómo le fue al mensaje a un grupo de WhatsApp. `pendiente` con `motivo` = no salió (p. ej. el tope diario) y se puede reintentar; sin motivo = se está enviando. */
 export interface ResultadoGrupo {
-  estructura_id: number;
+  grupo_id?: number;
+  /** Sólo en los comunicados anteriores a «Mis grupos» (una fila por block). */
+  estructura_id?: number;
   nombre: string;
   estado: 'pendiente' | 'enviado' | 'fallo';
   motivo?: string;
@@ -66,17 +68,26 @@ export const baseDe = (pathname: string) => (pathname.startsWith('/junta/') ? '/
 /** La pestaña «Notificaciones» filtrada por un comunicado. */
 export const enviosDeComunicado = (base: string, id: number) => `${base}/avisos?comunicado=${id}`;
 
-/** «Grupo del Block 1: enviado» por block, o null si no se pidió grupo. */
+/** Los grupos que no salieron por el tope diario u otro motivo y siguen pendientes. */
+export const gruposPendientes = (c: Pick<Comunicado, 'grupos_resultado'>): ResultadoGrupo[] => (c.grupos_resultado ?? []).filter(g => g.estado === 'pendiente' && !!g.motivo);
+
+/** «2 grupos de WhatsApp · 1 pendiente · 1 con error», o null si no se pidió grupo. */
 export function textoGrupos(c: Pick<Comunicado, 'grupos_resultado'>): string | null {
   const g = c.grupos_resultado;
   if (!g?.length) return null;
   const enviados = g.filter(x => x.estado === 'enviado').length;
   const fallos = g.filter(x => x.estado === 'fallo').length;
+  const esperando = g.filter(x => x.estado === 'pendiente' && !x.motivo).length;
+  const pendientes = g.filter(x => x.estado === 'pendiente' && !!x.motivo).length;
   const partes = [`${enviados} ${enviados === 1 ? 'grupo' : 'grupos'} de WhatsApp`];
-  if (g.some(x => x.estado === 'pendiente')) partes.push('enviando…');
+  if (esperando > 0) partes.push('enviando…');
+  if (pendientes > 0) partes.push(`${pendientes} ${pendientes === 1 ? 'pendiente' : 'pendientes'}`);
   if (fallos > 0) partes.push(`${fallos} con error`);
   return partes.join(' · ');
 }
+
+/** El texto de un grupo que no salió: su motivo, o una frase por defecto. */
+export const motivoDeGrupo = (g: ResultadoGrupo): string => g.motivo ?? `No se envió al grupo «${g.nombre}»`;
 
 /** Lo que dice el aviso tras publicar: cuántos correos/WhatsApp quedaron en cola, o por qué ninguno. */
 export function textoPublicado(c: Pick<Comunicado, 'avisos_encolados' | 'enviar_correo' | 'enviar_whatsapp' | 'enviar_junta' | 'enviar_grupo' | 'grupos_resultado'>): string {
@@ -84,7 +95,7 @@ export function textoPublicado(c: Pick<Comunicado, 'avisos_encolados' | 'enviar_
   const grupos = c.grupos_resultado?.length ?? 0;
   const partes: string[] = [];
   if (n > 0) partes.push(`se encolaron ${n} ${n === 1 ? 'aviso' : 'avisos'} por ${c.enviar_junta || (c.enviar_correo && c.enviar_whatsapp) ? 'correo y WhatsApp' : c.enviar_correo ? 'correo' : 'WhatsApp'}`);
-  if (grupos > 0) partes.push(`se está enviando ${grupos === 1 ? 'al grupo de WhatsApp del block' : `a ${grupos} grupos de WhatsApp`}`);
+  if (grupos > 0) partes.push(`se está enviando ${grupos === 1 ? 'al grupo de WhatsApp' : `a ${grupos} grupos de WhatsApp`}`);
   if (partes.length) return `Comunicado publicado. ${partes[0]![0]!.toUpperCase()}${partes.join(' y ').slice(1)}.`;
   if (c.enviar_correo || c.enviar_whatsapp || c.enviar_junta) return 'Comunicado publicado. Nadie tiene activado ese canal, así que no se envió ningún aviso.';
   return 'Comunicado publicado';
