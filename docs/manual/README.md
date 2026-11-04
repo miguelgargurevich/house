@@ -78,3 +78,5 @@ sobre la app LOCAL (seed de Los Libertadores; ningún dato real). Los .mp4/.wav/
   en `manual-videos.json` esa opción lleva `video: null` y `video_alterno: m-admin-rendicion`. WhatsApp se graba en estado «Número no vinculado» (no hay Evolution en local).
 
 - 4-nov-2026: **«Torre en video: cada opción del menú, según tu rol»** (recurso `cmw289vue004z12k19g1ab7gd`, verde de Torre `#0f766e`): 62 secciones, 60 opciones del menú por rol con su video (43 videos distintos, 12,4 min, en MinIO `videos-torre/manual/`). Se rearma con `python3 scripts/marketing/manual-con-videos.py payload <json>` → `web_crear` → `… videos <html> <html>` (inserta los `<video>`) → se copia encima del archivo publicado. Todos los manuales por rol enlazan esta versión en su primera sección.
+
+- 4-nov-2026 (2), mismo recurso y archivo: título «Torre · Administración de condominios», modo claro fijo (tema verde), índice con scroll y rótulos por rol, 64 secciones (62 opciones, 45 videos): suma «Ten Torre en tu celular» (video vertical `m-todos-instalar`, primera sección) y «Tu marca»; WhatsApp y Comunicados regrabados con el número conectado (Evolution falso).
