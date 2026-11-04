@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Producción limpia para VRANY: sin el WhatsApp de Miguel (Claude Code, Opus 5.5) — operación en prod, sin código
+
+- Miguel: «es mi WhatsApp el que sincronicé para pruebas … hagamos las pruebas en local y dejamos prod para Melina y VRANY».
+- En prod: «Family values» quitado de uso ANTES del deploy de grupos (la migración vio a VRANY sin grupos y no apagó el recibo directo); `logout` de la instancia `house_empresa_1` en Evolution (estado `close`); `EmpresaAdministradora` 1 sin `whatsapp_instance`/`whatsapp_token`; borrados sus 53 `GrupoWhatsapp` (los grupos personales de Miguel). El historial (`EnvioGrupoWhatsapp`, notificaciones) se dejó.
+- Mientras no se vincule el número de VRANY, los avisos de VRANY salen sólo por correo.
+- Pasos para Melina: WhatsApp › «Sincronizar mi número» con el número de la administración → «Traer mis grupos» → asignar los 14 grupos de block → apagar «Recibo emitido» directo en Avisos del condominio.
+- Las pruebas de WhatsApp van en local con el Evolution falso (`.claude/worktrees/evo-falso.mjs`).
+
+---
+
 ## 2026-11-04 — Grupos de WhatsApp por block: el recibo va al grupo, lo personal va directo (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/grupos-estrategia`) — push: no
 
 - **Pedido de Miguel**: los avisos generales van a los grupos (14 blocks → 14 grupos), no a cada departamento. Regla: WhatsApp a grupos para lo general; directo sólo para lo personal. El correo no cambia.
