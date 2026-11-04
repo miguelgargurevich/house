@@ -13,7 +13,7 @@ const router = crudRouter({
   search: ['entidad', 'accion', 'ip'],
   orderable: ['id', 'created_at', 'accion', 'entidad'],
   defaultOrder: { created_at: 'desc' },
-  include: { usuario: { select: { id: true, nombre: true, email: true } } },
+  include: { usuario: { select: { id: true, nombre: true, email: true } }, impersonador: { select: { id: true, nombre: true } } },
   filtros: {
     schema: z.object({ entidad: z.string().max(60).optional(), accion: z.string().max(30).optional(), usuario_id: idSchema.optional() }),
     where: (f) => ({

@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { isProduction, parseCorsOrigins } from '../config';
 import { prisma } from '../db';
+import { cerrarTerminadas } from './impersonacion/cierre';
 
 export const COOKIE = 'house_sesion';
 export const VIGENCIA_MS = 12 * 3_600_000; // caducidad absoluta
@@ -19,11 +20,20 @@ function filtroActiva(ahora: Date) {
   return { revocada_at: null, expira_at: { gt: ahora }, ultimo_uso_at: { gt: new Date(ahora.getTime() - INACTIVIDAD_MS) } };
 }
 
-export async function crearSesion(usuarioId: number, ip: string | null, userAgent: string | undefined) {
+export interface OpcionesSesion {
+  /** Sesión PRESTADA («Entrar como»): el superadmin y la entrada a la que pertenece. */
+  impersonador_id?: number;
+  impersonacion_id?: string;
+  /** Por defecto ahora + 12 h; una sesión prestada trae su propio tope. */
+  expira_at?: Date;
+}
+
+export async function crearSesion(usuarioId: number, ip: string | null, userAgent: string | undefined, opciones: OpcionesSesion = {}) {
   const token = aleatorio();
   const csrf = aleatorio();
   const ahora = sesionDeps.ahora();
-  await prisma.sesion.create({
+  const expira_at = opciones.expira_at ?? new Date(ahora.getTime() + VIGENCIA_MS);
+  const fila = await prisma.sesion.create({
     data: {
       usuario_id: usuarioId,
       token_hash: sha256(token),
@@ -32,11 +42,19 @@ export async function crearSesion(usuarioId: number, ip: string | null, userAgen
       user_agent: userAgent?.slice(0, 300) ?? null,
       created_at: ahora,
       ultimo_uso_at: ahora,
-      expira_at: new Date(ahora.getTime() + VIGENCIA_MS),
+      expira_at,
+      impersonador_id: opciones.impersonador_id ?? null,
+      impersonacion_id: opciones.impersonacion_id ?? null,
     },
   });
-  return { token, csrf };
+  return { token, csrf, id: fila.id, expira_at };
 }
+
+/** El hash con el que se guarda un token de sesión (para comparar sin guardar el token). */
+export const hashDeToken = sha256;
+
+/** Activa = no revocada, dentro de la vigencia absoluta y con uso dentro de la ventana de inactividad. */
+export const sesionActivaDonde = (ahora: Date) => filtroActiva(ahora);
 
 /** Devuelve la sesión si el token corresponde a una activa; desliza `ultimo_uso_at` (máx. cada 60 s). */
 export async function buscarSesionActiva(token: string) {
@@ -55,19 +73,27 @@ export const listarActivas = (usuarioId: number) =>
 /** Revoca una sesión del usuario; false si no existe, no es suya o ya estaba revocada. */
 export async function revocarPropia(usuarioId: number, id: string) {
   const r = await prisma.sesion.updateMany({ where: { id, usuario_id: usuarioId, revocada_at: null }, data: { revocada_at: sesionDeps.ahora() } });
+  if (r.count > 0) await cerrarImpersonacionesTerminadas();
   return r.count > 0;
 }
 
+/** Si lo revocado era una sesión prestada, su `Impersonacion` se cierra igual (`revocada`). Un fallo aquí nunca rompe la revocación. */
+const cerrarImpersonacionesTerminadas = () => cerrarTerminadas(sesionDeps.ahora(), INACTIVIDAD_MS).catch((err) => console.error('[impersonacion] no se pudo cerrar', err));
+
 /** Revoca todas las sesiones del usuario salvo (opcionalmente) una. */
-export const revocarDeUsuario = (usuarioId: number, exceptoId?: string) =>
-  prisma.sesion.updateMany({
+export async function revocarDeUsuario(usuarioId: number, exceptoId?: string) {
+  const r = await prisma.sesion.updateMany({
     where: { usuario_id: usuarioId, revocada_at: null, ...(exceptoId ? { id: { not: exceptoId } } : {}) },
     data: { revocada_at: sesionDeps.ahora() },
   });
+  if (r.count > 0) await cerrarImpersonacionesTerminadas();
+  return r;
+}
 
 /** Borra sesiones revocadas, vencidas o inactivas. Devuelve cuántas. */
 export async function limpiarSesiones() {
   const ahora = sesionDeps.ahora();
+  await cerrarTerminadas(ahora, INACTIVIDAD_MS); // antes de borrar: las impersonaciones cuya sesión prestada se acabó quedan cerradas con su hora real
   const r = await prisma.sesion.deleteMany({
     where: { OR: [{ revocada_at: { not: null } }, { expira_at: { lte: ahora } }, { ultimo_uso_at: { lte: new Date(ahora.getTime() - INACTIVIDAD_MS) } }] },
   });
@@ -97,7 +123,8 @@ export function leerCookie(req: Request, nombre = COOKIE): string | null {
 export const opcionesCookie = (env: NodeJS.ProcessEnv = process.env) =>
   ({ httpOnly: true, sameSite: 'lax', path: '/', secure: isProduction(env) }) as const;
 
-export const ponerCookie = (res: Response, token: string) => res.cookie(COOKIE, token, { ...opcionesCookie(), maxAge: VIGENCIA_MS });
+/** `maxAgeMs`: una sesión prestada o restaurada nunca dura más que su sesión (por defecto, la vigencia completa). */
+export const ponerCookie = (res: Response, token: string, maxAgeMs: number = VIGENCIA_MS) => res.cookie(COOKIE, token, { ...opcionesCookie(), maxAge: Math.max(1, Math.floor(maxAgeMs)) });
 export const borrarCookie = (res: Response) => res.clearCookie(COOKIE, opcionesCookie());
 
 // ---------- CSRF ----------

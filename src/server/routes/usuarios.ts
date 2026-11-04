@@ -10,6 +10,7 @@ import { relojDeCondominios } from '../lib/zonas';
 import { empresaDe, scopeComplejos, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import { registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
+import { MENSAJE_SESION_PRESTADA } from '../services/impersonacion/contexto';
 import { correoSinBuzon, invitarUsuario, type EstadoInvitacion } from '../services/invitaciones';
 import { revocarDeUsuario } from '../services/sesiones';
 import { contrasenaIgualACorreo, emailSchema, idSchema, parseId, MENSAJE_PASSWORD_CORREO, passwordSchema, rolSchema, telefonoSchema, texto, z } from '../validation';
@@ -57,6 +58,8 @@ function perderCargoJunta(out: Record<string, unknown> & { rol?: string; complej
 
 /** Reglas de tenant y de escalada de privilegios comunes a crear y editar. */
 async function normalizar(data: Record<string, unknown>, user: AuthUser, existing?: Record<string, unknown>) {
+  // Sesión prestada («Entrar como»): contraseña, correo y celular de la propia cuenta no se tocan ni por aquí (misma regla que Mi perfil).
+  if (user.impersonador_id && existing?.id === user.id && ['password', 'email', 'telefono'].some((k) => data[k] !== undefined)) throw forbidden(MENSAJE_SESION_PRESTADA);
   const out = { ...data } as Record<string, unknown> & { password?: string; unidad_id?: number | null; rol?: string; empresa_id?: number | null; complejo_id?: number | null; cargo_junta?: string | null; estructura_id?: number | null };
 
   if (user.rol === 'admin') {

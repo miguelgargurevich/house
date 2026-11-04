@@ -7,6 +7,7 @@ import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { isProduction, parseCorsOrigins } from './config';
 import { auditoria } from './middleware/audit';
+import { contextoImpersonacion, soloSesionPropia } from './services/impersonacion/contexto';
 import { authenticate } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { crearLimitadores, limitarSegunSesion, type RateLimitOptions } from './middleware/rateLimit';
@@ -15,6 +16,7 @@ import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
 import { areasComunesRouter } from './routes/areasComunes';
 import { auditoriaRouter } from './routes/auditoria';
+import { impersonacionRouter } from './routes/impersonacion';
 import { juntasRouter } from './routes/juntas';
 import { llaveroRouter } from './routes/llavero';
 import { mcpRouter } from './routes/mcp';
@@ -116,13 +118,15 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion })); // tramo público: planes, registro y verificación del correo
   api.use(limitarSegunSesion(authenticate, limiters.apiAnonimo, limiters.apiUsuario));
   api.use(auditoria);
+  api.use(contextoImpersonacion); // sesión prestada («Entrar como»): la auditoría de segundo plano también lleva al superadmin
   api.use('/auth', sesionRouter);
-  api.use('/ai-chat', aiChatRouter(limiters.ai)); // el límite por usuario sólo cuenta los mensajes (POST), no las lecturas
+  api.use('/impersonacion', impersonacionRouter);
+  api.use('/ai-chat', soloSesionPropia, aiChatRouter(limiters.ai)); // el límite por usuario sólo cuenta los mensajes (POST), no las lecturas
   api.use('/llavero', llaveroRouter(limiters.llavero));
   api.use('/me/tokens-api', tokensApiRouter); // antes de /me: tokens de API (MCP) del propio usuario
   api.use('/me/avisos', avisosPersonalesRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me/medios-pago', mediosPagoMeRouter); // antes de /me: ruta propia, sin tocar me.ts
-  api.use('/me/canales', canalesMeRouter); // antes de /me: vincular el WhatsApp propio
+  api.use('/me/canales', soloSesionPropia, canalesMeRouter); // antes de /me: vincular el WhatsApp propio
   api.use('/me', meRouter(limiters.password));
   api.use('/medios-pago', mediosPagoRouter);
   api.use('/juntas', juntasRouter);

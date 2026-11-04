@@ -7,6 +7,7 @@ import { HttpError, conflict, forbidden, invalid, notFound } from '../errors';
 import { filtroEstadoCargo, formatearCargo, formatearPago, includeCargo, includePago, type EstadoCargo } from '../lib/cargos';
 import { relojDeCondominios } from '../lib/zonas';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
+import { exigirSesionPropia } from '../services/impersonacion/contexto';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { camposDeFormulario, recibirVoucher, ubicado, voucherVerificado } from '../lib/voucherSubida';
 import { avisarVoucherEnSegundoPlano } from '../services/avisos/voucherBlock';
@@ -42,6 +43,7 @@ export function meRouter(limitePassword: RequestHandler) {
 
   // ---------- Perfil ----------
   router.put('/', async (req, res) => {
+    exigirSesionPropia(req); // nombre y celular son de la persona: no se cambian entrando como ella
     const u = currentUser(req);
     const data = parseBody(z.object({ nombre: texto(120), telefono: telefonoSchema }), req);
     const usuario = await prisma.usuario.update({
@@ -54,6 +56,7 @@ export function meRouter(limitePassword: RequestHandler) {
   });
 
   router.put('/password', limitePassword, async (req, res) => {
+    exigirSesionPropia(req);
     const u = currentUser(req);
     const { actual, nueva } = parseBody(z.object({ actual: z.string().min(1, 'Es obligatoria').max(200), nueva: passwordSchema }), req);
     const usuario = await prisma.usuario.findUnique({ where: { id: u.id }, omit: { password_hash: false } });

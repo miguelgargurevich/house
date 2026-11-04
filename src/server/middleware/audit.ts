@@ -1,6 +1,7 @@
 import type { Request, RequestHandler } from 'express';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
+import { contextoActual } from '../services/impersonacion/contexto';
 
 const ACCION: Record<string, string> = { POST: 'crear', PUT: 'editar', PATCH: 'editar', DELETE: 'eliminar' };
 const SENSIBLE = /pass|token|secret|actual|nueva|hash|clave|key|authorization|credencial/i;
@@ -24,9 +25,20 @@ function resumir(body: unknown): Prisma.InputJsonValue | undefined {
   return out;
 }
 
-export async function registrarAuditoria(data: { usuario_id?: number | null; accion: string; entidad: string; entidad_id?: number | null; detalle?: Prisma.InputJsonValue; ip?: string | null }) {
+/**
+ * `impersonador_id`/`impersonacion_id`: si se omiten (undefined) se toman del contexto de la petición, así toda fila escrita desde una sesión
+ * prestada («Entrar como») lleva al superadmin aunque se registre en segundo plano. `null` = sin impersonador, a propósito.
+ */
+export async function registrarAuditoria(data: { usuario_id?: number | null; accion: string; entidad: string; entidad_id?: number | null; detalle?: Prisma.InputJsonValue; ip?: string | null; impersonador_id?: number | null; impersonacion_id?: string | null }) {
   try {
-    await prisma.auditoria.create({ data: { usuario_id: data.usuario_id ?? null, accion: data.accion, entidad: data.entidad, entidad_id: data.entidad_id ?? null, detalle: data.detalle, ip: data.ip ?? null } });
+    const ctx = contextoActual();
+    await prisma.auditoria.create({
+      data: {
+        usuario_id: data.usuario_id ?? null, accion: data.accion, entidad: data.entidad, entidad_id: data.entidad_id ?? null, detalle: data.detalle, ip: data.ip ?? null,
+        impersonador_id: data.impersonador_id === undefined ? (ctx?.impersonador_id ?? null) : data.impersonador_id,
+        impersonacion_id: data.impersonacion_id === undefined ? (ctx?.impersonacion_id ?? null) : data.impersonacion_id,
+      },
+    });
   } catch (err) {
     // La auditoría nunca debe tumbar la petición.
     console.error('[auditoria] no se pudo registrar', err);
@@ -41,6 +53,7 @@ export const auditoria: RequestHandler = (req, res, next) => {
   if (!ACCION[req.method]) return next();
   res.on('finish', () => {
     if (res.statusCode < 200 || res.statusCode >= 300) return;
+    if (res.locals.sinAuditoria) return; // el handler ya dejó su propia fila (p. ej. impersonar_inicio / impersonar_fin)
     const accion = (res.locals.accion as string | undefined) ?? ACCION[req.method]!;
     const path = req.baseUrl + req.path;
     if (excluida(path)) return;
@@ -52,6 +65,8 @@ export const auditoria: RequestHandler = (req, res, next) => {
       entidad_id: (res.locals.entidadId as number | undefined) ?? (Number(req.params.id) || null),
       detalle: (res.locals.auditDetalle as Prisma.InputJsonValue | undefined) ?? resumir(req.body),
       ip: ipDe(req),
+      impersonador_id: req.user?.impersonador_id ?? null,
+      impersonacion_id: req.user?.impersonacion_id ?? null,
     });
   });
   next();
