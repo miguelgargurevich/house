@@ -59,6 +59,13 @@ sobre la app LOCAL (seed de Los Libertadores; ningún dato real). Los .mp4/.wav/
 - **Límite de login**: `/api/auth/login` bloquea (429) tras ~10–15 intentos en 15 min. `grabar-video.mjs` guarda una sesión por rol en `.claude/videos/sesiones/`; no hagas
   exploraciones que inicien sesión una y otra vez.
 - **No grabable**: «Rendición del mes» de la junta (`/junta/rendicion`) responde «Tu usuario no tiene una empresa asignada» (problema de la pantalla, anotado en el HANDOFF);
+  en `manual-videos.json` esa opción lleva `video: null` y `video_alterno: m-admin-rendicion`. 
+- **WhatsApp (`m-admin-whatsapp`, `m-admin-comunicados`, `m-junta-comunicados`)**: se graba con el Evolution FALSO (`.claude/worktrees/evo-falso.mjs`, puerto 18089; 53 grupos
+  de mentira; no envía nada). Preparación: `whatsapp_instance='local_6'` en la empresa 6 y el backend del checkout principal con `EVOLUTION_URL=http://localhost:18089`,
+  `EVOLUTION_APIKEY` cualquiera, `AVISOS_PLANIFICADOR=off` y `RESEND_API_KEY=` vacío. `--preparar` deja 3 grupos «en uso» (Vecinos Block 1, Junta Block 1 y Grupo personal 30).
+  Al terminar: `whatsapp_instance=null` en la empresa 6, borrar sus `GrupoWhatsapp`, backend sin `EVOLUTION_URL`, y detener el falso. Nunca pulses Enviar ni Publicar.
+- **«Tu marca»** (`m-admin-marca`, opción «Tu marca (en Mi empresa)»): escribe un nombre y un color de prueba, sin guardar. Requiere `main` (la función no está en la rama del worktree).
+- **Pendiente**: en los videos de comunicados, las escenas 2 y 3 del modal desplazan el campo «Para quién» y el título fuera de cuadro (sólo se ven los envíos y los grupos).
   en `manual-videos.json` esa opción lleva `video: null` y `video_alterno: m-admin-rendicion`. WhatsApp se graba en estado «Número no vinculado» (no hay Evolution en local).
 
 - 4-nov-2026: **«Torre en video: cada opción del menú, según tu rol»** (recurso `cmw289vue004z12k19g1ab7gd`, verde de Torre `#0f766e`): 62 secciones, 60 opciones del menú por rol con su video (43 videos distintos, 12,4 min, en MinIO `videos-torre/manual/`). Se rearma con `python3 scripts/marketing/manual-con-videos.py payload <json>` → `web_crear` → `… videos <html> <html>` (inserta los `<video>`) → se copia encima del archivo publicado. Todos los manuales por rol enlazan esta versión en su primera sección.
