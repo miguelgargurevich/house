@@ -271,7 +271,7 @@ describe('grupos de WhatsApp del block: elegir', () => {
 
   it('con el condominio en solo lectura (plan Gratis vencido) elegir el grupo → 409 y no se guarda', async () => {
     await prisma.suscripcionCondominio.deleteMany({ where: { complejo_id: d.complejoA.id } });
-    await prisma.suscripcionCondominio.create({ data: { complejo_id: d.complejoA.id, plan_clave: 'gratis', estado: 'gratis', gratis_hasta: new Date(Date.now() - DIA) } });
+    await prisma.suscripcionCondominio.create({ data: { complejo_id: d.complejoA.id, plan_clave: 'gratis', estado: 'gratis', gratis_hasta: new Date(Date.now() - 3 * DIA) } }); // 3 días: con 1 día, de 19:00 a 24:00 de Lima (ya otro día en UTC) aún no vencía
     invalidarComercial();
     const r = await put(T.adminA, e1, G1);
     assert.equal(r.status, 409, r.texto);
