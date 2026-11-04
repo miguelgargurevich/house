@@ -40,6 +40,10 @@
             "Condominios › Unidades › Personas del departamento"
           ],
           [
+            "Poner mi logo, mi nombre y mi color",
+            "Cuenta › Mi empresa › Tu marca"
+          ],
+          [
             "Emitir el mes o subir el Excel de un block",
             "Cobranza › Recibos"
           ],
@@ -115,7 +119,7 @@
             "Torre Administradora",
             "S/ 2,50 por departamento al mes, desde S/ 50 al mes por condominio",
             "Sin tope",
-            "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen."
+            "Todo lo de Pro, para varios condominios en una sola cuenta, con descuento por volumen y marca propia: tu logo, tu nombre y tu color."
           ]
         ]
       },
@@ -615,6 +619,30 @@
       "aviso": {
         "tipo": "nota",
         "texto": "**Gratis incluye un condominio.** Mientras tengas uno en Gratis (o en la prueba de Pro), no puedes crear otro. Para agregarlo, pasa el que ya tienes a un plan de pago."
+      }
+    },
+    {
+      "titulo": "Tu marca: logo, nombre y color",
+      "etiqueta": "Administradora · Cuenta · Torre Administradora",
+      "parrafos": [
+        "Con tu marca, Torre se ve como tu administración: tu logo y tu nombre arriba del menú, tu color en los botones y en los correos, y tu nombre en la cabecera del recibo y del estado de cuenta. Tu personal y tus vecinos ven tu marca; Torre queda en pequeño, como «con Torre».",
+        "Entra a **Cuenta › Mi empresa**, pestaña **Datos**, y baja hasta **Tu marca**:"
+      ],
+      "numerada": [
+        "Pulsa **Subir imagen** y elige tu logo (JPG, PNG o WebP, hasta 2 MB). El logo está disponible en todos los planes.",
+        "Escribe tu **nombre comercial**, hasta 60 caracteres. Si lo dejas vacío, Torre usa tu razón social.",
+        "Elige tu **color** con el selector o escribe su código, por ejemplo #0057B8; los dos campos van juntos. Para volver al color de Torre pulsa **Volver al verde de Torre**.",
+        "Mira **Así se verá**: un botón, el encabezado del menú y la cabecera de un recibo cambian mientras eliges. Si el color es muy claro, Torre lo oscurece un poco para que el texto se lea y te lo dice: «Lo oscurecimos un poco para que el texto se lea».",
+        "Pulsa **Guardar mi marca**. Tu pantalla cambia al instante; tu personal y tus vecinos la ven la próxima vez que entren o recarguen."
+      ],
+      "bullets": [
+        "**En la app**: tu logo (o la inicial de tu nombre en un cuadro de tu color) y tu nombre arriba del menú, tu color en botones y enlaces, y tu nombre en la pestaña del navegador. El inicio de sesión sigue siendo de Torre.",
+        "**En el recibo y el estado de cuenta**: tu logo y tu nombre con una franja de tu color arriba; al pie, tu razón social con su RUC y «con Torre». La franja también sale al imprimir.",
+        "**En los correos**: los avisos de cobro y recordatorios, los comunicados, los resultados de pago y las invitaciones llevan tu logo, tu nombre y tu color, y cierran con «Enviado con Torre». El correo sigue saliendo de avisos@torrecondominios.com, pero el nombre visible es «Tu nombre comercial vía Torre»."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "El nombre y el color son parte del plan **Torre Administradora**: basta con que uno de tus condominios lo tenga. Con otro plan puedes dejarlos listos; se guardan y se activan solos cuando pases de plan, y mientras tanto Torre se ve con su verde y tu razón social. Si pasas a Torre Administradora desde **Mi plan**, no tienes que volver a cargar nada."
       }
     },
     {
