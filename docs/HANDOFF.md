@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-03 — Con el asistente de WhatsApp apagado no se ofrece vincular (Claude Code, Opus 5.5) — push: no
+
+- Pedido de Miguel: «la idea es que la administración gestione los mensajes a los depas, no que los usuarios sincronicen su WhatsApp». La pantalla de WhatsApp, ya conectada, decía que los vecinos podían vincularse y escribir al asistente.
+- `routes/canales.ts`: `GET /api/me/canales` trae `whatsapp_bot` (= `ConfiguracionComercial.whatsapp_bot_activo`); `POST /api/me/canales/whatsapp/codigo` → 409 «sólo envía avisos» con el asistente apagado. `canalesFormato.ts`: `estadoCanales` = 'oculto' si `whatsapp_bot` es false (Mi perfil no muestra «Asistente por WhatsApp»). `WhatsappSync.tsx`: texto de conectado = desde este número salen avisos y comunicados; SALIR. Telegram no cambia.
+- Prueba nueva `tests/vincular-whatsapp-apagado.test.ts` (4); mutación (sin el 409) → rojo. Canales/bot/avisos/whatsapp en verde.
+
+---
+
 ## 2026-11-03 — WhatsApp: la instancia no se creaba (Evolution 2.3.7) (Claude Code, Opus 5.5) — push: no
 
 - Melina (administradora de GRUPO VRANY) tocó «Sincronizar mi número» y salió «error 400». Probado desde el contenedor de producción: Evolution 2.3.7 responde 400 «Invalid integration» si `POST /instance/create` no trae `integration`.

@@ -5,7 +5,7 @@ import { formatearTelefono } from '../../../lib/telefono';
 export interface Destino { empresa: { id: number; nombre: string }; disponible: boolean; numero: string | null }
 export interface VinculoCanal { id: number; canal: string; identificador: string; verificado_at: string; empresa: { id: number; nombre: string } }
 export interface TelegramMe { disponible: boolean; bot_usuario: string | null }
-export interface CanalesMe { vinculos: VinculoCanal[]; codigo_vigente: { canal: string; expira_at: string } | null; destinos: Destino[]; telegram?: TelegramMe }
+export interface CanalesMe { vinculos: VinculoCanal[]; codigo_vigente: { canal: string; expira_at: string } | null; destinos: Destino[]; telegram?: TelegramMe; /** false = asistente de WhatsApp apagado: no se ofrece vincular. */ whatsapp_bot?: boolean }
 export interface CodigoGenerado { canal: string; codigo: string; expira_at: string; vigencia_min: number; destinos: Destino[]; telegram?: { bot_usuario: string; enlace: string } }
 
 /** `51987654321` → `+51 987 654 321`; `56961234567` → `+56 9 6123 4567`. Si no es un número válido se muestra sólo con «+». */
@@ -29,6 +29,8 @@ export const destinosActivos = (d: Destino[]): Destino[] => d.filter((x) => x.di
 export type EstadoCanales = 'oculto' | 'vinculado' | 'sin_whatsapp' | 'listo';
 export function estadoCanales(d: CanalesMe | null): EstadoCanales {
   if (!d) return 'oculto';
+  // Asistente de WhatsApp apagado: el número de la administración sólo envía avisos, no hay nada que vincular.
+  if (d.whatsapp_bot === false) return 'oculto';
   if (d.vinculos.some((v) => v.canal === 'whatsapp')) return 'vinculado';
   if (d.destinos.length === 0) return 'oculto';
   return destinosActivos(d.destinos).length ? 'listo' : 'sin_whatsapp';

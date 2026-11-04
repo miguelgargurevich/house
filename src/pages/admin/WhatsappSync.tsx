@@ -100,7 +100,7 @@ export default function WhatsappSync() {
           </p>
           {status === 'connected' && (
             <p className="text-sm text-slate-500 mt-2">
-              Los vecinos y el personal ya pueden vincular su WhatsApp desde Mi perfil y escribirle a este número: consultan al asistente y envían su comprobante de pago.
+              Desde este número salen los avisos de cobro y los comunicados que marques para WhatsApp, con pausas entre envíos y un tope diario. Si un vecino responde SALIR, deja de recibirlos.
             </p>
           )}
           {status === 'connecting' && (

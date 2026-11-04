@@ -8,6 +8,7 @@ import { numeroDeInstancia } from '../services/canales/evolution';
 import { empresasDelUsuario } from '../services/canales/identidad';
 import { limites } from '../services/canales/limites';
 import { botActivo, enlaceVinculo } from '../services/canales/telegram';
+import { obtenerConfiguracion } from '../services/comercial/configuracion';
 import { VIGENCIA_CODIGO_MIN, generarCodigo, listarVinculos, mascara, revocarVinculo, type CanalBot } from '../services/canales/vinculos';
 import { parse, parseId, z } from '../validation';
 
@@ -35,18 +36,21 @@ canalesMeRouter.use((_req, res, next) => {
 
 canalesMeRouter.get('/', async (req, res) => {
   const u = currentUser(req);
-  const [vinculos, codigo, destinos, bot, empresas] = await Promise.all([
+  const [vinculos, codigo, destinos, bot, empresas, config] = await Promise.all([
     listarVinculos(u.id),
     prisma.codigoVinculacion.findFirst({ where: { usuario_id: u.id, usado_at: null, expira_at: { gt: canalesDeps.ahora() } }, select: { canal: true, expira_at: true } }),
     destinosDe(u),
     botActivo(),
     empresasDelUsuario(u),
+    obtenerConfiguracion(),
   ]);
   res.json({
     vinculos: vinculos.map((v) => ({ id: v.id, canal: v.canal, identificador: mascara(v.identificador, v.canal as CanalBot), verificado_at: v.verificado_at, empresa: v.empresa })),
     // Sólo se dice que hay un código vigente y cuándo vence: el código en sí sólo se ve al generarlo (en la base está hasheado).
     codigo_vigente: codigo,
     destinos,
+    // Con el asistente de WhatsApp apagado (Superadmin › Precios) el número de la administración sólo envía avisos: no se ofrece vincular.
+    whatsapp_bot: config.whatsapp_bot_activo,
     // Telegram es un bot GLOBAL: está disponible si el superadmin lo activó y la persona tiene alguna empresa (el superadmin no).
     telegram: { disponible: !!bot && empresas.length > 0, bot_usuario: bot && empresas.length > 0 ? bot.usuario : null },
   });
@@ -65,6 +69,7 @@ canalesMeRouter.post('/:canal/codigo', async (req, res) => {
     res.locals.auditDetalle = { canal }; // nunca el código
     return void res.status(201).json({ canal, codigo, expira_at, vigencia_min: VIGENCIA_CODIGO_MIN, destinos: [], telegram: { bot_usuario: bot.usuario, enlace: enlaceVinculo(bot.usuario, codigo) } });
   }
+  if (!(await obtenerConfiguracion()).whatsapp_bot_activo) throw conflict('El número de WhatsApp de tu administración sólo envía avisos: no se vincula');
   const destinos = await destinosDe(u);
   if (!destinos.some((d) => d.disponible)) throw conflict('Tu administración todavía no activó WhatsApp en Torre');
   const { codigo, expira_at } = await generarCodigo(u.id, canal);
