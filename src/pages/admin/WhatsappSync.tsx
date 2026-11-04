@@ -111,9 +111,11 @@ export default function WhatsappSync() {
         </div>
 
         {status !== 'connected' && (
+          <div className="mb-6 text-left">
           <Alert tone="warn">
             Antes de conectarlo, usa un número con historial de chats. Si el número es nuevo, úsalo a mano unos días antes (escribe y recibe mensajes de verdad) y recién después conéctalo. Torre manda los avisos con pausas entre cada envío y con un tope diario por número, para cuidarlo; aun así, un número sin historial puede ser bloqueado por WhatsApp.
           </Alert>
+          </div>
         )}
 
         <div className="flex justify-center gap-4">
