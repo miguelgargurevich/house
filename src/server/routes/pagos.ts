@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import type { RequestHandler } from 'express';
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { conflict, invalid, notFound } from '../errors';
@@ -13,7 +14,7 @@ import { scopeCargosEscritura, scopePagos, scopePagosEscritura, scopePagosJunta,
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { fechaSchema, idSchema, montoSchema, parseBody, parseId, textoOpcional, z } from '../validation';
 import { complejoDeCargo, exigirOperativo } from '../services/comercial/operativo';
-import { anularPago, MOTIVO_ANULACION_MAX, MOTIVO_ANULACION_MIN } from '../services/anulacionPago';
+import { anularPago, MOTIVO_ANULACION_MAX, MOTIVO_ANULACION_MIN, MOTIVO_REAPERTURA_MAX, MOTIVO_REAPERTURA_MIN, puedeReabrirse, reabrirPago } from '../services/anulacionPago';
 import { PAGO_VIGENTE } from '../lib/pagoVigente';
 
 export const METODOS_PAGO = ['transferencia', 'yape', 'plin', 'efectivo', 'tarjeta'] as const;
@@ -134,6 +135,45 @@ pagosRouter.post('/:id/anular', requireRole('admin'), async (req, res) => {
   res.locals.accion = 'anular';
   res.locals.entidadId = r.id;
   res.locals.auditDetalle = { motivo, monto: r.monto, pagos: r.pagos, ...(r.grupo ? { grupo: r.grupo } : {}) };
+  const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: r.id }, include: includePago });
+  res.json((await conAvisoMulta(await conTesoreroRegistrado(await conResumenDeGrupo([formatearPago(actualizado, 'completa')]))))[0]);
+});
+
+// ---------- Volver a revisar un pago rechazado ----------
+const reabrirSchema = z.object({
+  motivo: z.string({ error: 'El motivo es obligatorio' }).trim().min(MOTIVO_REAPERTURA_MIN, `Escribe un motivo de al menos ${MOTIVO_REAPERTURA_MIN} caracteres`).max(MOTIVO_REAPERTURA_MAX, `Máximo ${MOTIVO_REAPERTURA_MAX} caracteres`),
+});
+
+/** El pago (de la empresa del admin) o 404; con el cargo, para el aviso de «sin operar» del condominio. */
+async function pagoDeLaEmpresa(req: Parameters<RequestHandler>[0]) {
+  const u = currentUser(req);
+  const pago = await prisma.pago.findFirst({ where: { AND: [{ id: parseId(req) }, scopePagosEscritura(u)] }, select: { id: true, recibo_concepto_unidad_id: true } });
+  if (!pago) throw notFound();
+  return { u, pago };
+}
+
+/**
+ * ¿Se puede volver a revisar este pago? `{ puede, motivo }` (motivo = por qué no, con el texto del 409): la pantalla lo usa para apagar el botón y explicarlo.
+ * Misma regla de alcance que reabrir (admin de la empresa; otra empresa → 404).
+ */
+pagosRouter.get('/:id/reapertura', requireRole('admin'), async (req, res) => {
+  const { pago } = await pagoDeLaEmpresa(req);
+  res.json(await puedeReabrirse(pago.id));
+});
+
+/**
+ * Vuelve a revisar un pago RECHAZADO (y todo su grupo): queda por validar y el recibo en revisión. Sólo la administración (la junta no); otra empresa → 404. El motivo es
+ * obligatorio y la auditoría guarda el rechazo anterior (motivo, quién, cuándo). No avisa al vecino: cuando se valide o se rechace de nuevo, le llega el aviso de siempre.
+ */
+pagosRouter.post('/:id/reabrir', requireRole('admin'), async (req, res) => {
+  const { u, pago } = await pagoDeLaEmpresa(req);
+  const { motivo } = parseBody(reabrirSchema, req);
+  await exigirOperativo(await complejoDeCargo(pago.recibo_concepto_unidad_id), u);
+  const r = await reabrirPago(pago.id);
+  res.locals.entidad = 'pago';
+  res.locals.accion = 'reabrir';
+  res.locals.entidadId = r.id;
+  res.locals.auditDetalle = { motivo, monto: r.monto, pagos: r.pagos, ...(r.grupo ? { grupo: r.grupo } : {}), rechazo_anterior: r.rechazo_anterior };
   const actualizado = await prisma.pago.findUniqueOrThrow({ where: { id: r.id }, include: includePago });
   res.json((await conAvisoMulta(await conTesoreroRegistrado(await conResumenDeGrupo([formatearPago(actualizado, 'completa')]))))[0]);
 });
