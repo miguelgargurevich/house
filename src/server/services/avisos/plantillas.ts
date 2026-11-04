@@ -2,7 +2,7 @@ import { formatoDinero } from '../../../lib/paises';
 import { nombreMes, periodoTexto } from '../../lib/periodo';
 import { hoyEn } from '../../lib/fechas';
 
-export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'pago_anulado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente', 'recordatorio_deuda'] as const;
+export const TIPOS = ['recibo_emitido', 'por_vencer', 'vence_hoy', 'vencido', 'pago_validado', 'pago_rechazado', 'pago_anulado', 'ia_caida', 'ia_restablecida', 'comunicado', 'cierre_pendiente', 'recordatorio_deuda', 'recibo_anulado'] as const;
 export type TipoAviso = (typeof TIPOS)[number];
 
 export const ENLACE_APP = 'https://torrecondominios.com';
@@ -76,7 +76,7 @@ export function fechaLarga(f: Date): string {
 export function rutaDeAviso(tipo: TipoAviso, rol: string | null | undefined, central?: boolean): string {
   const residente = rol === 'propietario' || rol === 'inquilino' ? `/${rol}` : null;
   switch (tipo) {
-    case 'recibo_emitido': case 'por_vencer': case 'vence_hoy': case 'vencido': case 'recordatorio_deuda': return residente ? `${residente}/cargos` : '';
+    case 'recibo_emitido': case 'por_vencer': case 'vence_hoy': case 'vencido': case 'recordatorio_deuda': case 'recibo_anulado': return residente ? `${residente}/cargos` : '';
     case 'pago_validado': case 'pago_rechazado': case 'pago_anulado': return residente ? `${residente}/pagos` : '';
     case 'comunicado': return residente ? `${residente}/comunicados` : rol === 'admin' ? '/admin/comunicados' : '';
     case 'cierre_pendiente': return central ? '/junta/cierre-central' : '/junta/cierre';
@@ -162,6 +162,12 @@ export function plantilla(tipo: TipoAviso, d: DatosAviso): { asunto: string; cue
       return {
         asunto: `Recordatorio: tienes ${d.monto} pendientes de pago`,
         cuerpo: `${hola}\n\nTe escribimos para recordarte que tienes un saldo vencido de ${d.monto} en tu mantenimiento.\n\n${departamentos(d)}${detalle(d)}Paga y sube tu voucher desde ${enlaceDe(d)}. Si ya pagaste, avísanos para revisarlo.\n\n${firma(d)}`,
+      };
+    case 'recibo_anulado':
+      // La administración anuló el recibo (lo emitió mal) y lo emitirá de nuevo: no hay nada que pagar de éste.
+      return {
+        asunto: `Se anuló tu recibo de ${d.periodo}`,
+        cuerpo: `${hola}\n\nSe anuló el recibo de ${d.periodo}${d.departamentos?.length === 1 ? ` de ${d.departamentos[0]!.codigo}${d.departamentos[0]!.torre ? ` (${d.departamentos[0]!.torre})` : ''}` : ''}. Si ya lo viste, ignóralo; te llegará el correcto.\n\n${firma(d)}`,
       };
     case 'pago_validado':
       return {

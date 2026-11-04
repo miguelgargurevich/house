@@ -100,7 +100,7 @@ describe('plantillas', () => {
     assert.equal(datos.periodo, 'octubre de 2026');
     assert.equal(datos.monto, 'S/ 1,234.50');
     assert.equal(datos.vencimiento, '15/11/2026');
-    for (const tipo of TIPOS.filter((t) => !t.startsWith('ia_') && t !== 'comunicado' && t !== 'cierre_pendiente' && t !== 'recordatorio_deuda')) { // los de la IA, el comunicado y el cierre del mes no hablan de cargos (ver abajo, tests/comunicados.test.ts y tests/cierres.test.ts); el recordatorio de deuda habla de varios meses y no dice el periodo (tests/recordatorios-deuda.test.ts)
+    for (const tipo of TIPOS.filter((t) => !t.startsWith('ia_') && t !== 'comunicado' && t !== 'cierre_pendiente' && t !== 'recordatorio_deuda' && t !== 'recibo_anulado')) { // los de la IA, el comunicado y el cierre del mes no hablan de cargos (ver abajo, tests/comunicados.test.ts y tests/cierres.test.ts); el recordatorio de deuda habla de varios meses y no dice el periodo (tests/recordatorios-deuda.test.ts)
       const { asunto, cuerpo } = plantilla(tipo, datos);
       assert.ok(asunto.length > 5 && asunto.length < 90, tipo);
       assert.match(cuerpo, /^Hola María,/, tipo);

@@ -17,6 +17,7 @@ const BOTON: Record<TipoAviso, string> = {
   comunicado: 'Ver el comunicado',
   cierre_pendiente: 'Abrir el cierre',
   recordatorio_deuda: 'Pagar y subir mi voucher',
+  recibo_anulado: 'Abrir Torre',
   ia_caida: 'Abrir el llavero de IA',
   ia_restablecida: 'Abrir el llavero de IA',
 };

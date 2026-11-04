@@ -15,7 +15,8 @@ import { scopeComplejos, scopeConceptos, scopeRecibos, scopeRecibosEscritura, sc
 import { bloquearPeriodo, recibosDelPeriodo } from '../services/reciboUnico';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
-import { avisarReciboEmitido, encolarReciboEmitido, planAvisoRecibo, procesarPronto } from '../services/avisos';
+import { avisarReciboEmitido, encolarReciboAnulado, encolarReciboEmitido, planAvisoRecibo, procesarPronto } from '../services/avisos';
+import { anularRecibo, resumenDeAnulacion } from '../services/correccionRecibos';
 import { avisoSinGrupo, gruposDelRecibo, textoGrupoRecibo } from '../services/canales/cobertura';
 import { lanzarAvisoReciboAGrupos } from '../services/canales/grupos';
 import { detalleMantenimiento, pagarMantenimiento } from '../services/mantenimiento';
@@ -596,6 +597,52 @@ router.post('/:id/mantenimientos/:unidadId/quitar-multa', requireRole('admin'), 
   res.locals.entidadId = id;
   res.locals.auditDetalle = { unidad_id: unidadId, codigo: r.codigo, monto: r.monto, motivo, mes, anio };
   res.json({ monto_quitado: r.monto, motivo, mantenimiento: await detalleMantenimiento(id, unidadId, { unidadWhere: unidadesDe(u), vista: 'completa' }) });
+});
+
+// ---------- Anular un recibo emitido (sólo la administración) ----------
+const anularSchema = z.strictObject({
+  motivo: z.string({ error: 'El motivo es obligatorio' }).trim().min(5, 'Escribe un motivo de al menos 5 caracteres').max(200, 'Máximo 200 caracteres'),
+  /** Avisar a los vecinos (correo y WhatsApp directo según sus preferencias) que el recibo se anuló. Nunca al grupo de WhatsApp. */
+  avisar: z.boolean({ error: 'avisar debe ser true o false' }).default(false),
+});
+
+/** Qué haría «Anular recibo» (departamentos y cargos que se quitan, pagos rechazados que se llevaría, lecturas de agua) y si se puede: lo usa el modal. Sólo lee. */
+router.get('/:id/anulacion', requireRole('admin'), async (req, res) => {
+  const id = parseId(req);
+  await reciboAccesible(req, id, true);
+  const r = await resumenDeAnulacion(id);
+  if (!r) throw notFound();
+  res.json(r);
+});
+
+/**
+ * Anula el recibo: lo borra con sus conceptos y cargos (y la mora que la emisión le agregó) y deja LIBRE el periodo de ese block para emitirlo otra vez.
+ * Sólo si ningún cargo tiene dinero vigente (pago validado o por validar, o estado pagado / en revisión): si lo tiene, 409. Los pagos rechazados se llevan consigo
+ * y quedan, con todo su detalle, en la auditoría junto con la foto completa del recibo (montos por departamento). Con `avisar: true` se encola `recibo_anulado`
+ * a quien paga cada unidad con cargo; al grupo de WhatsApp no sale nada. Sólo la administración del condominio (no la junta, no la administradora anterior).
+ */
+router.post('/:id/anular', requireRole('admin'), async (req, res) => {
+  const u = currentUser(req);
+  const id = parseId(req);
+  await reciboAccesible(req, id, true);
+  await exigirOperativo(await complejoDeRecibo(id), u);
+  const { motivo, avisar } = parseBody(anularSchema, req);
+  const r = await anularRecibo({ reciboId: id, motivo });
+  // El recibo ya no existe: el aviso se arma con lo que la anulación anotó. Un fallo aquí nunca debe deshacer la anulación.
+  let avisados = 0;
+  if (avisar) {
+    try {
+      avisados = await encolarReciboAnulado({ reciboId: r.recibo_id, mes: r.mes, anio: r.anio, unidades: r.unidades });
+      procesarPronto();
+    } catch (err) {
+      console.error('[avisos] no se pudieron encolar los avisos de la anulación del recibo', id, err instanceof Error ? err.message : 'error');
+    }
+  }
+  res.locals.accion = 'anular';
+  res.locals.entidad = 'recibo';
+  res.locals.entidadId = id;
+  res.locals.auditDetalle = { ...(r.foto as Record<string, Prisma.InputJsonValue>), avisar, avisos_encolados: avisados };
+  res.json({ recibo_id: id, mes: r.mes, anio: r.anio, periodo: periodoTexto(r.mes, r.anio), torre: r.torre, departamentos: r.unidades.length, cargos: r.cargos, total: r.total, avisar, avisados });
 });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
