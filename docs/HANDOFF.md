@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Marca integrada y vista en local; manual con videos publicado (Claude Code, Opus 5.5) — push: no
+
+- Marca propia integrada en main (Sonnet + ajustes de Opus). Regla final: la marca se ACTIVA sólo si el plan la trae (Pro, Administradora, Cortesía) Y la empresa personalizó nombre comercial o color; sólo con el plan, Torre se ve como siempre (app, correos y firmas). `services/marca/servicio.ts` (`marcaDeEmpresa`, `marcaParaCorreo`); prueba en `seguridad.test.ts`.
+- Visto en local a 375 px (claro y oscuro): «Tu marca» con vista previa, menú, título de pestaña y gráficos con el color. En la base local `house` quedó «Urbana Condominios» #1d4ed8 en Gestión Urbana SAC (dato de prueba).
+- Manual con videos: `scripts/marketing/manual-con-videos.py`; recurso `cmw289vue004z12k19g1ab7gd`; 60 `<video>` a MinIO `videos-torre/manual/`. OCR (Tesseract, ahora con español `spa`) sobre 129 cuadros: sin datos reales.
+- Los 5 manuales por rol enlazan «Torre en video» en su primera sección (falta republicar web y PDF).
+- Próximos: deploy; republicar manual web y PDF; video de «Tu marca»; lanzar «avisos a departamentos elegidos» (brief listo en `.claude/worktrees/brief-avisos-elegidos.md`, después del push porque `preparar` parte de origin/main).
+
+---
+
 ## 2026-11-04 — Marca propia: también en Pro y Cortesía, migración y firma de WhatsApp (Claude Code, Opus 5.5, revisando lo de Sonnet) — push: no
 
 - Miguel: «en el plan pro también inclúyelo» y «el rebranding por empresa en todo incluyendo correos». `marca_propia` ahora va en Pro, Administradora y Cortesía (`catalogo.ts`); Básico y Gratis no. El logo sigue en todos.

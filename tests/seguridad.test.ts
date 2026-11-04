@@ -28,7 +28,7 @@ describe('login', () => {
     assert.equal(r.status, 200);
     // `marca`: nombre, logo y color de SU empresa (la app la aplica al iniciar sesión); nada sensible.
     assert.deepEqual(Object.keys(r.body).sort(), ['csrf', 'marca', 'user']);
-    assert.deepEqual(r.body.marca, { empresa_id: d.empresaA.id, razon_social: 'Empresa A', nombre: 'Empresa A', logo_url: null, color: null, activa: true }); // el seed deja los condominios en Cortesía, que trae la marca
+    assert.deepEqual(r.body.marca, { empresa_id: d.empresaA.id, razon_social: 'Empresa A', nombre: 'Empresa A', logo_url: null, color: null, activa: false }); // con el plan (Cortesía) pero sin nombre comercial ni color: Torre como siempre
     assert.deepEqual(r.body.user, { id: d.adminA.id, nombre: 'Admin A', email: 'admin.a@test.pe', rol: 'admin', empresa_id: d.empresaA.id, complejo_id: null, cargo_junta: null, estructura_id: null, estructura_nombre: null, junta_unica: false });
     assert.ok(r.body.csrf.length >= 40);
     assert.match(r.headers.get('set-cookie') ?? '', /^house_sesion=[\w-]{43};.*HttpOnly/i);

@@ -37,7 +37,10 @@ export async function marcaDeEmpresa(empresaId: number | null | undefined): Prom
   if (empresaId == null) return MARCA_TORRE;
   const c = await cargar(empresaId);
   if (!c) return MARCA_TORRE;
-  const activa = await empresaTieneMarcaPropia(empresaId);
+  // Activa = el plan la trae Y la empresa personalizó algo (nombre comercial o color). Sólo con el plan, sin personalizar, Torre se ve como siempre:
+  // no cambia a la razón social de un día para otro.
+  const personalizada = !!c.empresa.nombre_comercial?.trim() || esHexColor(c.empresa.color_marca);
+  const activa = personalizada && (await empresaTieneMarcaPropia(empresaId));
   const color = activa && esHexColor(c.empresa.color_marca) ? c.empresa.color_marca : null;
   return {
     empresa_id: empresaId,
