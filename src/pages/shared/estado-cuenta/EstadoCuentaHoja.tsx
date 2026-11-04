@@ -1,6 +1,9 @@
 import { simboloDe } from '../../../lib/paises';
 import { cx, nombreDelMes } from '../../../ui';
 import { fechaNumerica, monto2 } from '../mantenimiento/formato';
+import { useMarca } from '../../../app/marca/contexto';
+import { CabeceraMarca, PieConTorre } from '../mantenimiento/cabeceraMarca';
+import { cabeceraDeDocumento } from '../mantenimiento/cabeceraDocumento';
 import { ESTADO_MES, ESTADO_PAGO, type EstadoCuenta, type FilaEstadoCuenta } from './tipos';
 
 // Como el recibo, el estado de cuenta es una HOJA: fondo blanco y tinta oscura fijos (también en modo oscuro) para que se vea y se imprima igual.
@@ -54,11 +57,14 @@ export function EstadoCuentaHoja({ e }: { e: EstadoCuenta }) {
   const s = simboloDe(e.moneda);
   const m = (v: string) => monto2(v, e.moneda);
   const periodo = e.desde && e.hasta ? `${mesCorto(Number(e.desde.slice(5)), Number(e.desde.slice(0, 4)))} a ${mesCorto(Number(e.hasta.slice(5)), Number(e.hasta.slice(0, 4)))}` : null;
+  // El estado de cuenta no trae el id de la empresa, sólo su razón social: con ella se comprueba que la marca del usuario sea la de la administradora del documento.
+  const cabecera = cabeceraDeDocumento(useMarca(), { razonSocial: e.administradora });
   return (
     <article aria-label={`Estado de cuenta del departamento ${e.unidad.codigo}`} className="mx-auto w-full max-w-[44rem] space-y-3 bg-white p-3 text-[11px] leading-snug text-neutral-900 sm:p-4 sm:text-xs print:max-w-none print:space-y-2 print:p-0 print:text-[10px]">
+      <CabeceraMarca c={cabecera} />
       <header className="text-center">
         <h2 className="break-words text-base font-bold uppercase leading-tight sm:text-lg">{e.condominio?.nombre ?? 'Condominio'}</h2>
-        {e.administradora && <p className="uppercase">Administra: {e.administradora}</p>}
+        {e.administradora && <p className="uppercase">Administra: {cabecera.nombre ?? e.administradora}</p>}
         <p className="mt-2 text-sm font-bold uppercase sm:text-base">Estado de cuenta</p>
         <p className="text-neutral-600">Al corte del <span className="num">{fechaNumerica(e.fecha_corte)}</span>{periodo && <> · {periodo}</>}</p>
       </header>
@@ -128,6 +134,7 @@ export function EstadoCuentaHoja({ e }: { e: EstadoCuenta }) {
         {Number(t.mora) > 0 && <li>La mora (<span className="num">{s} {m(t.mora)}</span>) ya está incluida en el cargo del mes.</li>}
         {t.pagos_rechazados > 0 && <li>Los pagos rechazados se muestran pero no se cuentan.</li>}
       </ul>
+      <footer className="break-inside-avoid pt-1"><PieConTorre /></footer>
     </article>
   );
 }

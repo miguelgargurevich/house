@@ -1,4 +1,6 @@
 import { cx, nombreDelMes } from '../../../../ui';
+import { useMarca } from '../../../../app/marca/contexto';
+import { cabeceraSoloConMarca } from '../../../shared/mantenimiento/cabeceraDocumento';
 import { fechaLarga, monto2 } from '../../../shared/mantenimiento/formato';
 import { letraConsolidadoPt } from './escala';
 import { blockCorto } from './formato';
@@ -71,11 +73,13 @@ export function TablaConsolidado({ c, resaltar, impresion }: { c: Consolidado; r
 /** La hoja del consolidado con su título (empresa, «MANTENIMIENTO DE OCTUBRE 2026», MES y VENCIMIENTO) como la del Excel. */
 export function HojaConsolidado({ c, resaltar, impresion }: { c: Consolidado; resaltar?: number; impresion?: boolean }) {
   const mes = nombreDelMes(c.mes);
+  // Con la marca propia activa de ESA empresa, el título lleva su nombre comercial en lugar de la razón social.
+  const empresa = cabeceraSoloConMarca(useMarca(), c.empresa).nombre ?? c.empresa ?? c.condominio;
   return (
     <section aria-label="Consolidado del block" className={cx('hoja-consolidado bg-white text-[11px] leading-snug text-neutral-900', impresion ? 'print:text-[9pt]' : 'p-3')}>
       <header className="mb-2 space-y-0.5 print:mb-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <p className="font-bold uppercase">{c.empresa ?? c.condominio}</p>
+          <p className="font-bold uppercase">{empresa}</p>
           <h2 className="text-center text-sm font-bold uppercase print:text-[11pt]">Mantenimiento de {mes} {c.anio}</h2>
           <p className="uppercase">{c.condominio}{c.block ? ` · ${c.block}` : ''}</p>
         </div>

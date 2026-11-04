@@ -15,8 +15,25 @@ import { InstalarApp } from './InstalarApp';
 import { CondominioProvider } from './CondominioProvider';
 import { SoloLecturaProvider } from './SoloLecturaProvider';
 import { SelectorCondominio } from './SelectorCondominio';
+import { MARCA_TORRE, inicialDeMarca } from '../lib/marca';
+import { ImagenRecibo } from '../pages/shared/mantenimiento/ImagenRecibo';
+import { MarcaContext, useMarca } from './marca/contexto';
+import { MarcaTema } from './marca/MarcaTema';
 
+/** Encabezado del menú: la marca de la empresa (logo o su inicial y su nombre) si la tiene activa; si no, la de Torre. */
 function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
+  const marca = useMarca();
+  if (marca.activa) {
+    return (
+      <span className="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight">
+        {marca.logo_url
+          ? <ImagenRecibo src={marca.logo_url} alt="" className="h-7 w-auto max-w-[2.75rem] shrink-0 rounded object-contain" />
+          : <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded bg-brand text-sm font-bold text-on-brand">{inicialDeMarca(marca.nombre)}</span>}
+        {!soloMarca && <span className="truncate" title={marca.nombre}>{marca.nombre}</span>}
+        {soloMarca && <span className="sr-only">{marca.nombre}</span>}
+      </span>
+    );
+  }
   return (
     <span className="flex items-center gap-2.5 font-semibold tracking-tight">
       <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" aria-hidden="true">
@@ -34,7 +51,13 @@ const linkRiel = '!justify-center !gap-0 !px-0';
 /** El condominio elegido arriba lo comparten todas las pantallas: el estado vive fuera, con la sesión (`key`) para no heredar el de otro usuario. */
 export function Shell() {
   const { user } = useAuth();
-  return <CondominioProvider key={user?.id ?? 0}><SoloLecturaProvider><ShellInterior /></SoloLecturaProvider></CondominioProvider>;
+  const marca = user?.marca ?? MARCA_TORRE;
+  return (
+    <MarcaContext.Provider value={marca}>
+      <MarcaTema marca={marca} />
+      <CondominioProvider key={user?.id ?? 0}><SoloLecturaProvider><ShellInterior /></SoloLecturaProvider></CondominioProvider>
+    </MarcaContext.Provider>
+  );
 }
 
 function ShellInterior() {
@@ -47,6 +70,7 @@ function ShellInterior() {
   const chat = usePanelAbierto(user?.id ?? 0, escritorio);
   const barra = useBarra(escritorio);
   const { sinCondominios } = useCondominio();
+  const marca = useMarca();
 
   useEffect(() => { setMenu(false); }, [loc.pathname]);
   if (!user) return null;
@@ -97,6 +121,8 @@ function ShellInterior() {
           </div>
         ))}
       </nav>
+      {/* La plataforma sigue siendo Torre: con la marca de la empresa activa queda en pequeño al pie del menú. */}
+      {marca.activa && !riel && <p className="shrink-0 border-t border-line px-5 py-3 text-xs text-muted">con Torre</p>}
     </div>
   );
 
