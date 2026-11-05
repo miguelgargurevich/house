@@ -166,10 +166,12 @@ Administradora de A (dashboard y morosidad: ve Los Cedros y **ninguno** de los e
 **Pantalla / funcionalidad**
 
 4. **F1 (medio, UX): el resumen de una empresa con varios condominios repite nombres de block.** Con «Todos los condominios», «% cobrado por block» muestra «Block 2» tres veces y «Block 6» dos, sin decir de qué condominio es cada uno (captura `mercado-admin-a-dashboard.png`; la API sí trae el condominio en `por_torre[].complejo`). Con las 3 empresas y varios blocks iguales a «Block 1…14» es ambiguo.
+   **Hecho (2026-11-05):** cuando las torres son de más de un condominio, el rótulo lleva el condominio («Block 2 · Los Pinos»), con la misma regla que el selector (`rotuloTorre` en `cobranza/torres.ts`); con un solo condominio queda como antes. La barra usa una columna más angosta sólo en ese caso, con el nombre truncado y su texto completo en `title`. Prueba: `tests/dashboard-rotulo-torres.test.ts`. Pendiente: mirarla a 375 px en navegador.
 
 **Rendimiento**
 
 5. **R1 (medio, vigilar): la rendición de un condominio de 448 departamentos tarda ≈ 1,0 s** (y su Excel ≈ 1,05 s). Es lo más lento medido y el único cerca del 1,5 s; el resto de las pantallas pesadas responde en menos de 0,35 s. Con un condominio de 1 000+ departamentos o más meses de historia puede pasar del límite. `mes.evitados` del contador de WhatsApp hace unas consultas por recibo (126 ms con 19 recibos): conviene cachearlo si una empresa tiene cientos de blocks con grupo (ya anotado en el HANDOFF de mensajería).
+   **Hecho (2026-11-05):** la causa era el cobrado previo: una consulta en serie por block (15 en Los Cedros, ≈ 20 ms cada una). Ahora son las mismas 15 sumas, lanzadas en paralelo (`Promise.all`). Los JSON de la rendición (Los Cedros oct y sep, un block, Santa Rosa) salen **idénticos byte a byte** antes y después. Medido por HTTP sobre una copia desechable de `house_mercado` (5 pasadas, mediana): JSON de Los Cedros **0,49 s → 0,32 s**; Excel **0,50 s → 0,32 s**; Santa Rosa (192 dptos) 0,27 s → 0,18 s. A nivel de servicio: 534 ms → 317 ms. Los 1,0 s de esta tabla no se reprodujeron en esta sesión (el código de partida tarda ≈ 0,5 s aquí): la mejora relativa es la que cuenta. Prueba de forma: `tests/rendicion-rendimiento.test.ts`. No hizo falta índice nuevo.
 
 **Datos / simulación**
 

@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-05 — Observaciones de la simulación: F1 (rótulo con el condominio) y R1 (rendición ~2× más rápida) (Claude Code, Haiku 5.5, delegado por Opus; rama `fix/resumen-rendicion`) — push: no
+
+- **Pedido de Miguel**: «Sí, arréglalas» (F1 y R1 de `docs/pruebas/simulacion-mercado.md`, sección 9).
+- **F1**: `Dashboard.tsx` («% cobrado por block») pone el condominio en el rótulo cuando las torres son de más de uno (`rotuloTorre` en `cobranza/torres.ts`, misma regla que el selector). Con un solo condominio, igual que antes. Columna más angosta sólo en ese caso; texto completo en `title`.
+- **R1**: el cobrado previo por block hacía 15 consultas en serie (`pago.aggregate`, ≈ 20 ms c/u). Ahora van en paralelo (`Promise.all`), mismas sumas. `rendicion.ts`: sin índices nuevos, `prisma/` no tocado.
+  - Por HTTP (copia desechable de `house_mercado`, mediana de 5): Los Cedros JSON 0,49 → 0,32 s; Excel 0,50 → 0,32 s. Servicio: 534 → 317 ms. Los 1,0 s del informe no se reprodujeron aquí.
+  - JSON idéntico byte a byte antes/después (Los Cedros oct y sep, un block, Santa Rosa). El Excel no se comparó byte a byte (el zip lleva fechas), sólo se midió.
+- **Pruebas**: `tests/dashboard-rotulo-torres.test.ts`, `tests/rendicion-rendimiento.test.ts` (nuevas). `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` sin errores.
+- **Gotcha**: `house_mercado` no admite login sin escribir (la sesión va a la base). Para medir por HTTP se usó una copia `house_e2e_rend` con la contraseña del superadmin reseteada en la copia.
+
 ## 2026-11-04 — Mercado simulado: 3 empresas, 9 condominios y 5 juntas, con recorrido de separación entre clientes (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/simulacion-mercado`) — push: no
 
 - **Pedido de Miguel**: «una prueba en local con varios condominios y diferentes cantidades de blocks… 3 empresas con varios condominios y otras que son solo juntas de vecinos de 1 block».
