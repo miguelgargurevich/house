@@ -170,8 +170,16 @@ async function faseSeparacion(S) {
    * Evalúa un intento sobre un recurso AJENO. Fuerte = 403/404, o 422 que rechaza la REFERENCIA ajena («complejo_id: no existe o no tienes acceso»).
    * Débil = otro 4xx (el cuerpo de la prueba pudo fallar por otra razón: no demuestra que se mire la empresa). 2xx = FALLA, salvo la lista vacía de un GET filtrado.
    */
+  // Formas que mandan un campo de ÁMBITO (empresa_id/complejo_id) de otro cliente a un recurso PROPIO: el servidor las rechaza con 422 y código CAMPO_DE_AMBITO
+  // (antes respondía 200 ignorando el campo, o 201 creando el concepto en la empresa de quien llama; observación S1, ya resuelta). Aquí cualquier 2xx es una FALLA.
+  const ESTRICTAS = new Set(['PUT unidad propia → empresa ajena', 'PUT usuario propio → empresa ajena', 'PUT comunicado propio → condominio ajeno', 'PUT medio de pago propio → condominio ajeno', 'PUT concepto propio → empresa ajena', 'PUT recibo propio → condominio ajeno', 'POST concepto en empresa ajena']);
   const ajeno = (a, v, etiqueta, r, { escritura = false } = {}) => {
     intentos++;
+    if (ESTRICTAS.has(etiqueta)) {
+      const ok = r.status === 422 && r.body?.code === 'CAMPO_DE_AMBITO';
+      est_(etiqueta, r.status);
+      return anotar('ajeno', `${a.id} → ${etiqueta} (cliente ${v}): 422 CAMPO_DE_AMBITO (rechazo fuerte)`, ok, ok ? '' : `${r.status} ${r.texto.slice(0, 140).replace(/\s+/g, ' ')}`);
+    }
     const dicePorAjeno = /no existe|no tienes acceso|no es (de|del|un)\b|no pertenece|no se cambia de condominio/i;
     const refAjena = r.status === 422 && ((r.body?.campos && Object.entries(r.body.campos).some(([k, t]) => /_id$/.test(k) && dicePorAjeno.test(String(t)))) || /no se cambia de condominio/i.test(String(r.body?.error)));
     const claro = r.status === 403 || r.status === 404 || r.status === 401 || refAjena;
@@ -188,6 +196,7 @@ async function faseSeparacion(S) {
     anotar('ajeno', nombre, claro || debil, claro ? '' : `${r.status} (rechazo por otra razón: ${r.texto.slice(0, 100)})`);
     if (debil) { (extra.debilesPor ??= {})[etiqueta] = ((extra.debilesPor ??= {})[etiqueta] ?? 0) + 1; extra.debiles = (extra.debiles ?? 0) + 1; }
   };
+  const est_ = (etiqueta, status) => { const e = ((extra.estadosPorAtaque ??= {})[etiqueta] ??= {}); e[status] = (e[status] ?? 0) + 1; };
   const propio = {}; // línea base: lo que cada cuenta ve en su propio dashboard (el del vecino ignora complejo_id)
 
   const rutasLectura = (v) => {
@@ -307,18 +316,17 @@ async function faseSeparacion(S) {
       for (const [etiqueta, metodo, ruta, cuerpo] of escrituras) {
         if (/\/0(\?|$|\/)/.test(ruta)) continue; // la víctima no tiene ese recurso
         const r = await a.api.pedir(metodo, ruta, { json: cuerpo });
-        // Crear un concepto con `empresa_id` ajeno: el servidor ignora ese campo y lo crea en la empresa de QUIEN llama. No es una brecha; se comprueba abajo y se borra.
-        if (etiqueta === 'POST concepto en empresa ajena' && r.status === 201) { intentos++; anotar('ajeno', `${a.id} → ${etiqueta} (cliente ${v}): se crea en SU empresa, no en la ajena`, r.body.empresa_id === dueno[a.cliente].empresa, `empresa_id=${r.body.empresa_id}`); continue; }
+        // `POST /api/conceptos` con `empresa_id` ajeno: 422 CAMPO_DE_AMBITO (antes lo creaba en la empresa de quien llama); lo evalúa `ajeno` (ESTRICTAS).
         ajeno(a, v, etiqueta, r, { escritura: true });
       }
     }
   }
   anotar('ajeno', `${intentos} intentos con ids ajenos hechos`, intentos > 0);
-  // Los conceptos «HACK» que el servidor creó en la empresa de cada atacante (ver arriba): cada empresa debe tener sólo los de SUS intentos (uno por cada otro cliente), y se borran.
+  // Ya no se crea ningún concepto «HACK»: el servidor rechaza el `empresa_id` ajeno (ver ESTRICTAS). Si apareciera alguno, se borra y se marca la falla.
   const hack = sql(`select empresa_id, count(*) from "Concepto" where nombre = 'HACK' group by 1`).map(([e, n]) => [Number(e), Number(n)]);
   for (const [e, n] of hack) {
     const cli = CLIENTES.find((c) => dueno[c].empresa === e);
-    anotar('ajeno', `conceptos «HACK» creados en ${cli}: sólo por sus propios intentos (≤ ${CLIENTES.length - 1})`, n <= CLIENTES.length - 1, `${n}`);
+    anotar('ajeno', `ningún concepto «HACK» se crea (hay ${n} en ${cli})`, false, `${n}`);
   }
   sql(`delete from "Concepto" where nombre = 'HACK' returning id`);
 
@@ -380,9 +388,9 @@ async function faseSeparacion(S) {
       ];
       for (const [etiqueta, metodo, ruta, cuerpo] of mixtas) {
         const r = await a.api.pedir(metodo, ruta, { json: cuerpo });
-        // Un PUT sobre un recurso PROPIO que trae un campo ajeno puede responder 200 si el servidor IGNORA ese campo (no está en lo editable). Eso es correcto SI el campo no se aplicó:
+        // Las formas de ESTRICTAS deben ser 422 CAMPO_DE_AMBITO (las evalúa `ajeno`). Cualquier otro PUT sobre un recurso PROPIO que traiga un campo ajeno puede responder 200 si el servidor lo IGNORA. Eso es correcto SI el campo no se aplicó:
         // se vuelve a leer el recurso y debe quedar idéntico (salvo `updated_at`). Si el campo se aplicó, es una brecha.
-        if (metodo === 'PUT' && r.status >= 200 && r.status < 300) {
+        if (metodo === 'PUT' && !ESTRICTAS.has(etiqueta) && r.status >= 200 && r.status < 300) {
           intentos++;
           const antesObj = basePropia.get(`${a.id}|${ruta}`);
           const quitar = (b) => JSON.stringify(Object.fromEntries(Object.entries(b ?? {}).filter(([k]) => k !== 'updated_at')));
