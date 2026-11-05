@@ -152,7 +152,7 @@ function parMantenimiento(c, { bloque = 0 } = {}) {
 const pagoDe = (c, estado) => Number(sql(`select p.id from "Pago" p where p.estado_validacion = '${estado}' and p.recibo_concepto_unidad_id in (select rcu.id from "ReciboConceptoUnidad" rcu join "ReciboConcepto" rc on rc.id = rcu.recibo_concepto_id join "Recibo" r on r.id = rc.recibo_id where r.empresa_id = ${dueno[c].empresa}) order by p.id limit 1`)[0]?.[0] ?? 0) || null;
 
 const TABLAS_HUELLA = ['EmpresaAdministradora', 'ComplejoHabitacional', 'Estructura', 'Piso', 'Unidad', 'Usuario', 'Recibo', 'ReciboConcepto', 'ReciboConceptoUnidad', 'Pago', 'Comunicado', 'Concepto', 'MedioPago', 'JuntaDirectiva', 'MiembroJunta', 'AreaComun', 'Reserva', 'GrupoWhatsapp', 'SuscripcionCondominio', 'PagoSuscripcion', 'ArchivoComprobante', 'PersonaUnidad'];
-const huella = () => Object.fromEntries(TABLAS_HUELLA.map((t) => [t, sql(`select count(*), md5(coalesce(string_agg(x::text, '' order by x.id), '')) from "${t}" x`)[0].join(':')]));
+const huella = (sinFechas = false) => Object.fromEntries(TABLAS_HUELLA.map((t) => [t, sql(`select count(*), md5(coalesce(string_agg(${sinFechas ? "(to_jsonb(x) - 'updated_at')::text" : 'x::text'}, '' order by x.id), '')) from "${t}" x`)[0].join(':')]));
 
 // ================================================================ FASE 1: separación entre clientes
 async function faseSeparacion(S) {
@@ -162,6 +162,7 @@ async function faseSeparacion(S) {
     ...CLIENTES.map((c) => ({ id: `admin ${c}`, cliente: c, api: S.admin[c], tipo: 'admin' })),
     ...CLIENTES.filter((c) => S.tesorero[c]).map((c) => ({ id: `tesorero ${c}`, cliente: c, api: S.tesorero[c], tipo: 'junta' })),
     ...CLIENTES.filter((c) => S.vecino[c]).map((c) => ({ id: `vecino ${c}`, cliente: c, api: S.vecino[c], tipo: 'vecino' })),
+    ...CLIENTES.filter((c) => S.personal[c]).map((c) => ({ id: `personal ${c}`, cliente: c, api: S.personal[c], tipo: 'personal' })),
   ];
   let intentos = 0;
 
@@ -321,6 +322,14 @@ async function faseSeparacion(S) {
   sql(`delete from "Concepto" where nombre = 'HACK' returning id`);
 
 
+  // Integridad estricta de 1a: ningún intento con ids AJENOS cambió nada (ni siquiera `updated_at`).
+  {
+    const tras = huella();
+    const cambiadas1a = TABLAS_HUELLA.filter((t) => antes[t] !== tras[t]);
+    anotar('integridad', 'tras los intentos con ids AJENOS (lectura, escritura y creación) la base no cambió (huella por tabla, con fechas)', cambiadas1a.length === 0, cambiadas1a.length ? `cambiaron: ${cambiadas1a.map((t) => `${t} ${antes[t]} → ${tras[t]}`).join('; ')}` : `${TABLAS_HUELLA.length} tablas iguales`);
+  }
+  const antesMixtas = huella(true);
+
   // --- 1a-bis. Contenedor PROPIO + referencia AJENA (mover cosas entre clientes, asignar personas ajenas…) y otras vías de entrada
   const muestraPropia = (c) => {
     const d = dueno[c];
@@ -328,8 +337,13 @@ async function faseSeparacion(S) {
     return { unidad: d.unidades[0], residente, estructura: d.estructuras[0], comunicado: d.comunicados[0], medio: d.medios[0], concepto: d.conceptos[0], recibo: d.recibos.at(-1), rc: d.reciboConceptos.at(-1), complejo: d.complejos[0], empresa: d.empresa, recibosMant: parMantenimiento(c) };
   };
   const planExcel = readFileSync(join(HERE, 'block-1-noviembre.xlsx'));
+  const basePropia = new Map();
   for (const a of atacantes.filter((x) => x.tipo === 'admin')) {
     const o = muestraPropia(a.cliente);
+    for (const ruta of [`/api/unidades/${o.unidad}`, `/api/usuarios/${o.residente}`, `/api/estructuras/${o.estructura}`, ...(o.comunicado ? [`/api/comunicados/${o.comunicado}`] : []), `/api/conceptos/${o.concepto}`, `/api/recibos/${o.recibo}`, ...(o.medio ? [`/api/medios-pago/${o.medio}`] : [])]) {
+      const b = (await a.api.get(ruta)).body;
+      basePropia.set(`${a.id}|${ruta}`, JSON.stringify(Object.fromEntries(Object.entries(b ?? {}).filter(([k]) => k !== 'updated_at'))));
+    }
     for (const v of CLIENTES.filter((c) => c !== a.cliente)) {
       const d = dueno[v];
       const ajenoUsuario = d.usuarios.at(-1);
@@ -359,6 +373,18 @@ async function faseSeparacion(S) {
       ];
       for (const [etiqueta, metodo, ruta, cuerpo] of mixtas) {
         const r = await a.api.pedir(metodo, ruta, { json: cuerpo });
+        // Un PUT sobre un recurso PROPIO que trae un campo ajeno puede responder 200 si el servidor IGNORA ese campo (no está en lo editable). Eso es correcto SI el campo no se aplicó:
+        // se vuelve a leer el recurso y debe quedar idéntico (salvo `updated_at`). Si el campo se aplicó, es una brecha.
+        if (metodo === 'PUT' && r.status >= 200 && r.status < 300) {
+          intentos++;
+          const antesObj = basePropia.get(`${a.id}|${ruta}`);
+          const despues = await a.api.get(ruta);
+          const quitar = (b) => JSON.stringify(Object.fromEntries(Object.entries(b ?? {}).filter(([k]) => k !== 'updated_at')));
+          const igual = antesObj !== undefined && quitar(despues.body) === antesObj;
+          anotar('ajeno', `${a.id} → ${etiqueta} (cliente ${v}): 200 pero el campo ajeno NO se aplicó (el recurso queda igual)`, igual, igual ? '' : `el recurso cambió: ${quitar(despues.body).slice(0, 160)}`);
+          if (igual) { const e = ((extra.ignorados ??= {})[etiqueta] = ((extra.ignorados ??= {})[etiqueta] ?? 0) + 1); void e; }
+          continue;
+        }
         ajeno(a, v, etiqueta, r, { escritura: true });
       }
       // Importar un Excel de recibos hacia un condominio ajeno.
@@ -504,10 +530,10 @@ async function faseSeparacion(S) {
     anotar('privilegios', `admin A no entra a ${etiqueta} (sólo superadmin)`, r.status === 403 || r.status === 404, `${r.status}`);
   }
 
-  // --- 1g. La base no cambió
-  const despues = huella();
-  const cambiadas = TABLAS_HUELLA.filter((t) => antes[t] !== despues[t]);
-  anotar('integridad', 'tras todos los intentos ajenos la base no cambió (huella por tabla)', cambiadas.length === 0, cambiadas.length ? `cambiaron: ${cambiadas.map((t) => `${t} ${antes[t]} → ${despues[t]}`).join('; ')}` : `${TABLAS_HUELLA.length} tablas iguales`);
+  // --- 1g. La base no cambió (sin contar `updated_at`: un PUT que se ignora puede tocarlo)
+  const despues = huella(true);
+  const cambiadas = TABLAS_HUELLA.filter((t) => antesMixtas[t] !== despues[t]);
+  anotar('integridad', 'tras los intentos «contenedor propio + referencia ajena», los listados, búsquedas y herramientas, ningún dato cambió (huella por tabla, sin `updated_at`)', cambiadas.length === 0, cambiadas.length ? `cambiaron: ${cambiadas.map((t) => `${t} ${antesMixtas[t]} → ${despues[t]}`).join('; ')}` : `${TABLAS_HUELLA.length} tablas iguales`);
   extra.separacion = { intentos, filasRevisadas, debiles: extra.debiles ?? 0, tablasIguales: TABLAS_HUELLA.length - cambiadas.length };
 }
 
