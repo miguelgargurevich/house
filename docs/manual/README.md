@@ -94,3 +94,20 @@ sobre la app LOCAL (seed de Los Libertadores; ningún dato real). Los .mp4/.wav/
 - 4-nov-2026 (2), mismo recurso y archivo: título «Torre · Administración de condominios», modo claro fijo (tema verde), índice con scroll y rótulos por rol, 64 secciones (62 opciones, 45 videos): suma «Ten Torre en tu celular» (video vertical `m-todos-instalar`, primera sección) y «Tu marca»; WhatsApp y Comunicados regrabados con el número conectado (Evolution falso).
 
 - 4-nov-2026: videos de onboarding v7 «Empieza con Torre» (administración, 63 s) y v8 «Bienvenido a Torre» (vecinos, 37 s), escritorio y celular, en MinIO `videos-torre/` (y copia en `videos-torre/manual/` para el manual) y en My Workspace (espacio Torre): v7 escritorio `cmw2fshsz007512k1i4o70ui8`, v7 celular `cmw2fsldo007612k16j220wqm`, v8 escritorio `cmw2fsnnd007712k17cjcfus8`, v8 celular `cmw2fsqhh007812k1op09xalb`. El manual con videos los muestra primero (anclas `#empieza-administracion` y `#empieza-vecinos`).
+
+## Logo de Torre en los manuales (dos pasos, al publicar)
+
+El logo es el de la app (`src/ui/IconoTorre.tsx`). Tiene que quedar fijo en cada salida, porque regenerar un manual lo borra si no se vuelve a poner.
+
+- **HTML (manual con videos)**: el paso `videos` de `scripts/marketing/manual-con-videos.py` lo pone solo (`marca()`): favicon, CSS, el SVG
+  antes del `<h1>` del hero y el SVG dentro de `<p class="nombre">` del pie. Es idempotente: correrlo dos veces no duplica nada.
+  Flujo: `payload` → `web_crear` → `… videos <html> <html>` → se copia encima del archivo publicado. Si no encuentra el `<h1>` o el pie, termina
+  con un mensaje y no escribe el archivo (la plantilla cambió: ajusta `marca()`).
+  Prueba: `python3 -P scripts/marketing/manual-con-videos.py videos <copia.html> <salida.html>`; `grep -c 'class="logo-torre"'` y `logo-torre-pie`
+  deben dar 1, y `rel="icon"` también 1.
+- **PDF por rol (doc_pdf)**: el PDF que devuelve `doc_pdf` no trae el logo. Como **último paso**, sobre ese PDF sin sello:
+  `python3 -P scripts/marketing/sello-pdf.py <entrada.pdf> <salida.pdf>`. Pone el logo grande en la portada y el chico con el nombre
+  al pie de las demás páginas. NO es idempotente: si hay que rehacerlo, parte del PDF de `doc_pdf`, no de uno sellado. Se sube la salida
+  al mismo recurso que el PDF anterior.
+- **Pendiente**: los PDF por rol publicados el 3-nov (administradora, junta, vecino y personal) no tienen el sello; se sellan la próxima vez que se regeneren.
+  El HTML publicado ya trae el logo (lo puso Opus a mano; el paso `videos` deja el mismo marcado).

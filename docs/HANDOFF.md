@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Logo de Torre fijo en los manuales (HTML y PDF) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/logo-manual`) — push: no
+
+- **Qué se hizo**:
+  - `scripts/marketing/manual-con-videos.py`: el paso `videos` pone el logo (`marca()`): favicon data URI, CSS `.logo-torre`/`.logo-torre-pie`, SVG antes del `<h1>` del hero y SVG en `<p class="nombre">` del pie. Idempotente; falla con mensaje si falta el `<h1>` o el pie. Mismo marcado que `manual-html.diff` (el que Opus aplicó a mano al HTML publicado).
+  - `scripts/marketing/sello-pdf.py` (nuevo): `python3 -P scripts/marketing/sello-pdf.py <entrada.pdf> <salida.pdf>`. Logo grande en la portada (52 pt en (49, 600)) y chico con «Torre · Administración de condominios» en las demás páginas. No es idempotente: se aplica sobre el PDF de `doc_pdf`, sin sello.
+  - `docs/manual/README.md`: sección «Logo de Torre en los manuales» con dónde va cada paso en el flujo de publicar.
+- **Pruebas** (sobre copia del HTML publicado, sin subir nada):
+  - HTML: copia sin el logo (revertido el diff con `patch -R`) → `videos` → 1 de `rel="icon"`, 1 de `class="logo-torre"`, 1 de `logo-torre-pie`, 1 de `.logo-torre{`. Corrido dos veces: salida idéntica. Las marcas coinciden con el publicado. Sin `<h1>` o sin pie: sale con código 1 y no escribe.
+  - PDF: PDF de prueba de 2 páginas → `sello-pdf.py` → `pdftoppm -r 50` → la portada muestra el logo grande y la página 2 el sello chico con el texto.
+- **Pendiente**: los PDF por rol publicados el 3-nov (`cmw1joons…`, `cmw1jope9…`, `cmw1joq6b…`, `cmw1jorsp…`) no tienen el sello. No se volvieron a publicar; se sellan al regenerarlos. El HTML publicado ya trae el logo.
+- **Gotcha**: `grep -c 'logo-torre-pie'` cuenta también la regla CSS; para contar el SVG usa `class="logo-torre-pie"`.
+
 ## 2026-11-04 — Mensajería inteligente: evitados en el contador, portada, planes y flotante (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/mensajeria-inteligente`) — push: no
 
 - **Qué se hizo**:

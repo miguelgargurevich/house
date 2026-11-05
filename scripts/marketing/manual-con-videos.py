@@ -7,6 +7,7 @@ Uso:
       Cada sección lleva un párrafo marcador «VIDEO::<video>» donde va su video.
   python3 scripts/marketing/manual-con-videos.py videos <entrada.html> <salida.html> [<payload>.grupos.json]
       Modo claro fijo, índice con scroll y separado por rol, y reemplaza cada marcador por un <video> con la URL pública del video (MinIO, videos-torre/manual/).
+      Además pone el logo de Torre (favicon, hero y pie): `marca()`, idempotente. Falla con mensaje si no encuentra el <h1> del hero o el pie.
 
 Los videos se graban con scripts/marketing/grabar-manual.sh y se suben a MinIO (ver docs/manual/README.md).
 """
@@ -31,6 +32,44 @@ QUIEN = {
     'limpieza': 'El personal de limpieza',
     'jardineria': 'El personal de jardinería',
 }
+
+# Logo de Torre: el mismo de src/ui/IconoTorre.tsx (escala 1.2, cuadro verde #0f766e redondeado y torre blanca).
+MARCA_TORRE = ('<g transform="translate(16 16) scale(1.2) translate(-16 -16)">'
+               '<rect x="10" y="5.5" width="12" height="21" rx="1.6" fill="none" stroke="#fff" stroke-width="2.2"/>'
+               '<g fill="#fff">'
+               '<rect x="13" y="9.5" width="2.2" height="2.2"/><rect x="16.8" y="9.5" width="2.2" height="2.2"/>'
+               '<rect x="13" y="13.8" width="2.2" height="2.2"/><rect x="16.8" y="13.8" width="2.2" height="2.2"/>'
+               '<rect x="13" y="18.1" width="2.2" height="2.2"/><rect x="16.8" y="18.1" width="2.2" height="2.2"/>'
+               '<rect x="14.6" y="21.6" width="2.8" height="4.9"/></g></g>')
+MARCA_FONDO = '<rect width="32" height="32" rx="7.5" fill="#0f766e"/>'
+MARCA_GRANDE = f'<svg class="logo-torre" viewBox="0 0 32 32" role="img" aria-label="Torre">{MARCA_FONDO}{MARCA_TORRE}</svg>'
+MARCA_PIE = f'<svg class="logo-torre-pie" viewBox="0 0 32 32" aria-hidden="true">{MARCA_FONDO}{MARCA_TORRE}</svg>'
+# Favicon como data URI: comillas y numerales escapados a mano (así lo tiene el HTML publicado).
+MARCA_FAVICON = ('<link rel="icon" href="data:image/svg+xml,'
+                 + f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">{MARCA_FONDO}{MARCA_TORRE}</svg>'.replace('"', '%22').replace('#', '%23')
+                 + '">')
+MARCA_CSS = ('.logo-torre{display:block;width:4.5rem;height:4.5rem;margin:0 0 1.1rem;filter:drop-shadow(0 6px 16px rgba(15,118,110,.25))}'
+             '.logo-torre-pie{width:1.6rem;height:1.6rem;vertical-align:-.4rem;margin-right:.5rem}')
+
+
+def marca(h):
+    """Pone el logo en el HTML: favicon, CSS, el SVG antes del <h1> del hero y el SVG dentro de <p class="nombre"> del pie.
+    Idempotente: lo que ya esté no se repite. Si falta un punto de anclaje, termina con error y no escribe nada."""
+    if '</head>' not in h:
+        sys.exit('marca: no encuentro </head> en el HTML; no escribo nada.')
+    if 'rel="icon"' not in h:
+        h = h.replace('</head>', MARCA_FAVICON + '</head>', 1)
+    if '.logo-torre{' not in h:
+        h = h.replace('</head>', '<style>' + MARCA_CSS + '</style></head>', 1)
+    if 'class="logo-torre"' not in h:
+        h, n = re.subn(r'<h1(?:\s[^>]*)?>', lambda m: MARCA_GRANDE + m.group(0), h, count=1)
+        if n == 0:
+            sys.exit('marca: no encuentro el <h1> del hero en el HTML; no escribo nada. ¿Cambió la plantilla del manual?')
+    if 'class="logo-torre-pie"' not in h:
+        h, n = re.subn(r'<p class="nombre"[^>]*>', lambda m: m.group(0) + MARCA_PIE, h, count=1)
+        if n == 0:
+            sys.exit('marca: no encuentro <p class="nombre"> (el pie del manual) en el HTML; no escribo nada.')
+    return h
 
 
 def voces():
@@ -173,7 +212,11 @@ def videos(entrada, salida, grupos_json=None):
               '.toc .toc-rol{margin:.9rem .7rem .3rem;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--acento)}'
               '.ancla-torre{display:block;position:relative;top:-6rem;visibility:hidden}'
               ':root{color-scheme:light}</style>')
-    h = h.replace('</head>', estilo + '</head>', 1)
+    # Idempotente: si el HTML ya trae el CSS del video (p. ej. el publicado), no se repite.
+    if '.video-torre{margin' not in h:
+        h = h.replace('</head>', estilo + '</head>', 1)
+    # El logo de Torre queda fijo aquí: si se regenera el manual, no se pierde.
+    h = marca(h)
     open(salida, 'w', encoding='utf-8').write(h)
     restantes = len(re.findall('VIDEO::|ANCLA::', h))
     print(f'videos insertados: {n}; marcadores sin reemplazar: {restantes}')
