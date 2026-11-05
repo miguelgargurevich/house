@@ -1,4 +1,4 @@
-export type GlyphProveedor = 'googlagemini' | 'openai' | 'nvidia' | 'ollama';
+export type GlyphProveedor = 'googlagemini' | 'openai' | 'nvidia';
 
 export interface EntradaIcono {
   hex: string;

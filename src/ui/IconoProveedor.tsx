@@ -1,6 +1,6 @@
 import type { IconType } from 'react-icons';
 import { RiOpenaiFill } from 'react-icons/ri';
-import { SiGooglegemini, SiNvidia, SiOllama } from 'react-icons/si';
+import { SiGooglegemini, SiNvidia } from 'react-icons/si';
 import { cx } from './cx';
 import { datosIconoProveedor, type GlyphProveedor } from './proveedoresIcono';
 
@@ -8,7 +8,6 @@ const GLYPHS: Record<GlyphProveedor, IconType> = {
   googlagemini: SiGooglegemini,
   openai: RiOpenaiFill,
   nvidia: SiNvidia,
-  ollama: SiOllama,
 };
 
 interface Props {
