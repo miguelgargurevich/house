@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Mensajería de la portada: quitar frase de riesgo y animar los cuadros (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/mensajeria-animacion`) — push: no
+
+- **Qué se hizo**: se quitó de la portada todo lo que hablaba de bloqueo o del riesgo para el número (bajada y punto «Tope diario y pausas»). El comentario de cabecera ya no dice «el número cuidado». Los 448 cuadros y los 14 grupos de `MensajeriaInteligente.tsx` se animan al entrar en pantalla: los directos pasan de gris claro a gris oscuro uno a uno (≈4 s, `--i` × 9 ms), su contador va de 0 a 448; los 14 grupos aparecen en ≈0,7 s (`--i` × 30 ms) con su contador de 0 a 14, y luego sale el rótulo «Listo» con check de Heroicons.
+- **Cómo funciona**: el componente pone `data-mensajeria` en `espera` (cuadros claros, grupos y «Listo» ocultos) y en `corre` al entrar (un solo `IntersectionObserver`, umbral 0,2; un solo `requestAnimationFrame` por contador). Sin JS o con `prefers-reduced-motion` queda `final`: todo en su estado final y las cifras 448 y 14 escritas en el texto. CSS en `src/index.css` (bloque «Mensajería inteligente (portada)»): sólo color de fondo, opacidad y transform.
+- **Pruebas**: `tests/mensajeria-portada-ui.test.ts` (17 en total, todas verdes) — ningún texto de `MENSAJERIA` con bloqueo/bloquear/baneo/riesgo/«cuidar tu número», `valorCuenta` llega a 448 y 14, un índice `--i` por cuadro, estado final sin JS, reducción de movimiento, y que el CSS animado no toca alturas ni márgenes. `tsc -b`, `tsc -p tests/tsconfig.json --noEmit` y `npm run build` sin errores.
+- **No verificado**: no se miró en navegador (ni a 375 px ni en modo oscuro). Revisar el ritmo real de la animación antes de dar por bueno el diseño.
+- **Gotcha**: la fase `espera` sólo se pinta si el JS corre; los cuadros claros con `bg-line` dependen de la especificidad de `[data-mensajeria="espera"] .mensajeria-directo` frente a las utilidades de Tailwind 3 (no hay capas en `index.css`).
+
 ## 2026-11-04 — Quitar 5 proveedores del llavero de IA (Claude Code, Haiku 5.5, delegado por Opus; rama `fix/quitar-proveedores`) — push: no
 
 - **Qué se hizo**: se retiraron Cerebras, SambaNova, Ollama Cloud, LLM7 y Kilo del catálogo `PROVEEDORES_IA` (`src/server/lib/proveedoresIA.ts`) y del mapa de íconos (`src/ui/proveedoresIcono.ts`). La cadena, la rotación y el orden salen del catálogo, así que no hubo que tocar lógica.

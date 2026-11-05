@@ -97,6 +97,23 @@
 /* Portada: las ventanas de la fachada se encienden (departamentos que pagan). Sólo opacidad; sin animación quedan encendidas. */
 @keyframes enciende { from { opacity: 0.12; } to { opacity: 1; } }
 .ventana { animation: enciende 520ms ease-out both; }
+/* Mensajería inteligente (portada). Estado final sin JS: los cuadros directos en gris oscuro, los grupos en verde y el «Listo» visible.
+   El componente pone data-mensajeria="espera" (cuadros claros, grupos y «Listo» ocultos) y luego "corre" al entrar en pantalla.
+   Cada cuadro toma su retraso de --i. Sólo se anima color de fondo, opacidad y transform: nada cambia alturas ni el diseño. */
+[data-mensajeria] .mensajeria-directo { background-color: oklch(var(--muted) / 0.55); }
+[data-mensajeria="espera"] .mensajeria-directo { background-color: oklch(var(--line)); }
+[data-mensajeria="corre"] .mensajeria-directo { animation: mensajeria-envio 420ms ease-out both; animation-delay: calc(var(--i) * 9ms); }
+@keyframes mensajeria-envio {
+  0% { background-color: oklch(var(--line)); transform: scale(1); }
+  45% { background-color: oklch(var(--muted) / 0.95); transform: scale(1.18); }
+  100% { background-color: oklch(var(--muted) / 0.55); transform: scale(1); }
+}
+[data-mensajeria="espera"] .mensajeria-verde { opacity: 0; transform: scale(0.5); }
+[data-mensajeria="corre"] .mensajeria-verde { animation: mensajeria-verde 300ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--i) * 30ms); }
+@keyframes mensajeria-verde { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: none; } }
+[data-mensajeria="espera"] .mensajeria-listo { opacity: 0; }
+[data-mensajeria="corre"] .mensajeria-listo { animation: mensajeria-listo 400ms ease-out 700ms both; }
+@keyframes mensajeria-listo { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 /* Deslizador de «Cómo funciona»: riel lleno de 8 px y una manija cuadrada del color de marca (sin degradados). */
 .deslizador-pasos { appearance: none; height: 2.5rem; background: transparent; cursor: pointer; }
 .deslizador-pasos::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: oklch(var(--line)); }
