@@ -280,6 +280,16 @@ for (const c of vivos) {
           const perfil: Perfil = r < 0.7 ? 'al_dia' : r < 0.85 ? 'moroso1' : r < 0.95 ? 'moroso_multi' : r < 0.98 ? 'por_validar' : 'rechazado';
           condo.dptos.push({ codigo: `B${dos(b)}-${p}${dos(d)}`, bloque: b, piso: p, blockIdx: b - 1, duenoKey: dueno, inqKey: inq, perfil, mesesMora: perfil === 'moroso_multi' ? entre(2, 5) : 0, rechazoPrevio: perfil === 'al_dia' && rnd() < 0.015 ? entre(0, ACTUAL - 1) : -1 });
         }
+    // Cada cliente tiene al menos 2 pagos por validar y 1 rechazado en octubre (en los edificios chicos el azar puede no dar ninguno).
+    if (ci === c.plan.condos.length - 1) {
+      const todos = c.condos.flatMap((o) => o.dptos);
+      const faltaPV = Math.max(0, 2 - todos.filter((d) => d.perfil === 'por_validar').length);
+      const faltaRe = Math.max(0, 1 - todos.filter((d) => d.perfil === 'rechazado').length);
+      const enJunta = new Set(c.condos.flatMap((o) => o.juntaMiembros.flatMap((j) => j.usuarios.map((u) => u.key))));
+      const libres = barajar(todos.filter((d) => d.perfil === 'al_dia' && d.inqKey == null && !enJunta.has(d.duenoKey)));
+      libres.slice(0, faltaPV).forEach((d) => { d.perfil = 'por_validar'; d.rechazoPrevio = -1; });
+      libres.slice(faltaPV, faltaPV + faltaRe).forEach((d) => { d.perfil = 'rechazado'; d.rechazoPrevio = -1; });
+    }
     // Personal de los condominios grandes.
     for (const s of cp.staff)
       for (let k = 0; k < s.n; k++) {
@@ -289,7 +299,10 @@ for (const c of vivos) {
     // Juntas: presidente, tesorero y secretario de unidades al día (un dueño no repetido en dos juntas).
     const usados = new Set<number>();
     const elegir = (de: Dpto[]): number | null => {
-      const cand = barajar(de.filter((d) => d.perfil === 'al_dia' && d.inqKey == null && !usados.has(d.duenoKey)));
+      // Prefiere dueños al día; en los edificios chicos, si no alcanzan, cualquiera con un solo mes de atraso (nunca los de pago por validar o rechazado).
+      const libres = de.filter((d) => !usados.has(d.duenoKey));
+      const cand = barajar(libres.filter((d) => d.perfil === 'al_dia' && d.inqKey == null));
+      if (!cand.length) cand.push(...barajar(libres.filter((d) => d.perfil === 'al_dia')), ...barajar(libres.filter((d) => d.perfil === 'moroso1')));
       const d = cand[0];
       if (!d) return null;
       usados.add(d.duenoKey);
@@ -589,9 +602,9 @@ async function postFacturacion() {
         for (const dd of destinos) {
           n++;
           const gr = await prisma.grupoWhatsapp.create({ data: { empresa_id: c.empresaId!, jid: `1203630000000${String(n).padStart(5, '0')}@g.us`, nombre: dd.nombre, miembros: entre(14, 40), en_uso: true, destino: dd.dest, complejo_id: condo.id!, estructura_id: dd.est, sincronizado_at: new Date() } });
-          // El recibo de octubre salió a este grupo (envío ya hecho; no sale nada real).
+          // El aviso del recibo de octubre salió a este grupo (anotado con la hora de la siembra, para que cuente en el contador del MES en curso; no sale nada real).
           const reciboId = dd.est == null ? condo.recibos[ACTUAL]!.get('0') : condo.recibos[ACTUAL]!.get(String(condo.estructuras.findIndex((e) => e.id === dd.est)));
-          if (reciboId) await prisma.envioGrupoWhatsapp.create({ data: { empresa_id: c.empresaId!, instancia: 'simulacion-andina', complejo_id: condo.id!, recibo_id: reciboId, grupo_id: gr.id, estado: 'enviado', at: new Date(Date.UTC(2026, 9, 1, 15, 0)) } });
+          if (reciboId) await prisma.envioGrupoWhatsapp.create({ data: { empresa_id: c.empresaId!, instancia: 'simulacion-andina', complejo_id: condo.id!, recibo_id: reciboId, grupo_id: gr.id, estado: 'enviado', at: new Date() } });
         }
       }
     }
@@ -692,7 +705,7 @@ async function resumen(t0: number, passSuper: string, ex: { nComunicados: number
       nombre: c.plan.nombre, tipo: c.plan.tipo, empresa_id: c.empresaId,
       admins: c.admins.map((a) => ({ email: a.email, password: a.password })),
       presidente: miembro('presidente'), tesorero: miembro('tesorero'), secretario: miembro('secretario'),
-      vecino_al_dia: resid((d) => d.perfil === 'al_dia' && d.inqKey == null), vecino_moroso: resid((d) => d.perfil === 'moroso_multi'), vecino_por_validar: resid((d) => d.perfil === 'por_validar'), inquilino: resid((d) => d.inqKey != null, true),
+      vecino_al_dia: resid((d) => d.perfil === 'al_dia'), vecino_moroso: resid((d) => d.perfil === 'moroso_multi'), vecino_por_validar: resid((d) => d.perfil === 'por_validar'), inquilino: resid((d) => d.inqKey != null, true),
       personal: c.staff.map((s) => ({ email: s.email, rol: s.rol, password: s.password })),
       condominios: c.condos.map((o) => ({ id: o.id, nombre: o.plan.nombre })),
       usuarios_por_rol: Object.fromEntries(por.map((p) => [p.rol, Number(p.n)])),
