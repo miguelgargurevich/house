@@ -203,7 +203,7 @@ router.delete('/disconnect', requireRole('admin', 'superadmin'), async (req, res
  *     summary: Contador de mensajes de WhatsApp del número de la empresa
  *     tags: [WhatsApp]
  *     responses:
- *       200: { description: "`{ conectado, fecha, hoy: { enviados, tope, restantes }, mes: { periodo, renueva, condominios: [{ complejo_id, nombre, usados, tope }] }, en_cola: { total, para_manana, por_tipo }, fallidos_hoy: { total, motivos: [{ motivo, cantidad }] }, por_tipo: { hoy, mes } }`. «Hoy» y el mes son de Lima. Los mensajes a grupos cuentan. Sin datos personales; no llama a Evolution." }
+ *       200: { description: "`{ conectado, fecha, hoy: { enviados, tope, restantes }, mes: { periodo, renueva, condominios: [{ complejo_id, nombre, usados, tope }], enviados, a_grupos, evitados, grupos_en_uso }, en_cola: { total, para_manana, por_tipo }, fallidos_hoy: { total, motivos: [{ motivo, cantidad }] }, por_tipo: { hoy, mes } }`. «Hoy» y el mes son de Lima. Los mensajes a grupos cuentan. `mes.evitados` = por cada recibo del mes que salió a un grupo, max(0, vecinos que lo habrían recibido por WhatsApp directo − mensajes a grupos por ese recibo); sólo si el condominio no marcó «recibo del mes también directo» y no cuentan los comunicados. Sin datos personales; no llama a Evolution." }
  */
 router.get('/uso', requireRole('admin', 'superadmin'), async (req, res) => {
   const empresa = await empresaDelAdmin(req.user as AuthUser);

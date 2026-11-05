@@ -84,6 +84,6 @@ describe('el manual', () => {
     assert.equal(n(/^Volver a revisar un pago rechazado$/), n(/^Anular un pago ya validado$/) + 1);
     const t = JSON.stringify(MANUAL.secciones[n(/^Volver a revisar un pago rechazado$/) - 1]);
     for (const frase of ['Rechazados', 'Volver a revisar', 'motivo', 'Por validar', 'auditoría', 'otro voucher']) assert.match(t, new RegExp(frase), frase);
-    assert.match(MANUAL.kicker, /\(15\)$/);
+    assert.match(MANUAL.kicker, /\(16\)$/);
   });
 });

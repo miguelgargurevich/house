@@ -118,8 +118,9 @@ export default function LibroReclamaciones() {
     );
   }
 
+  // «Enviar hoja de reclamación» va a ancho completo al final del formulario: en el celular el botón flotante de WhatsApp lo tapa, así que aquí no se pinta.
   return (
-    <Marco ancho="max-w-3xl">
+    <Marco ancho="max-w-3xl" sinWhatsapp>
       <h1 className="flex items-center gap-3 text-2xl font-semibold sm:text-3xl"><BookOpenIcon className="h-8 w-8 shrink-0 text-brand" aria-hidden="true" />{LIBRO.h1}</h1>
       <p className="mt-3 text-sm text-muted">{LIBRO.bajada}</p>
       <p className="mt-2 text-xs text-muted">{LIBRO.base_legal}</p>

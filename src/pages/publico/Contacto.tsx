@@ -67,8 +67,9 @@ export default function Contacto() {
     );
   }
 
+  // «Enviar» va a ancho completo al final del formulario: en el celular el botón flotante de WhatsApp lo tapa, así que aquí no se pinta.
   return (
-    <Marco>
+    <Marco sinWhatsapp>
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
         <div>
           <h1 className="text-2xl font-semibold sm:text-3xl">{CONTACTO.h1}</h1>

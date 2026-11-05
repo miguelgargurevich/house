@@ -1,6 +1,6 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 4-nov-2026 (15)",
+  "kicker": "Manual de usuario · versión del 4-nov-2026 (16)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
@@ -506,7 +506,8 @@
       "etiqueta": "Administradora · Operación · Torre Pro",
       "parrafos": [
         "Desde el número de WhatsApp de tu administración salen los avisos de cobro y los comunicados que marques. Los vecinos no vinculan nada: tú gestionas los mensajes. Regla de Torre: lo general va a los grupos de WhatsApp (un mensaje por grupo) y lo personal va directo (un mensaje por persona).",
-        "Un condominio de 14 blocks con 32 departamentos cada uno (448 en total): antes, el recibo de cada mes mandaba 448 WhatsApp directos el día de emisión; ahora manda 14, uno a cada grupo de block. En un mes de avisos completo, baja de unos 1.000 WhatsApp a unos 510."
+        "Un condominio de 14 blocks con 32 departamentos cada uno (448 en total): antes, el recibo de cada mes mandaba 448 WhatsApp directos el día de emisión; ahora manda 14, uno a cada grupo de block. En un mes de avisos completo, baja de unos 1.000 WhatsApp a unos 510.",
+        "Arriba del contador, la línea «Este mes: … evitados gracias a los grupos» cuenta lo que los grupos te ahorraron. Por cada recibo del mes que salió a un grupo, cuenta cuántos vecinos lo habrían recibido por WhatsApp directo y le resta el mensaje al grupo. Si el condominio tiene marcado «Recibo del mes: también directo a cada departamento», no cuenta nada, porque el directo sale igual. Los comunicados no entran en esa cuenta. Si todavía no tienes grupos en uso, la línea te pide que asignes el grupo de cada block."
       ],
       "numerada": [
         "En **Operación**, entra a **WhatsApp**.",
@@ -531,6 +532,10 @@
           [
             "Este mes, por condominio",
             "Los mensajes del mes contra la cuota del plan de cada condominio. Se renueva el día 1."
+          ],
+          [
+            "Este mes: … evitados gracias a los grupos",
+            "Los mensajes enviados este mes y cuántos directos no hicieron falta porque el recibo salió al grupo de su block."
           ],
           [
             "Enviados por tipo",

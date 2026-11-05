@@ -4,6 +4,33 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Mensajería inteligente: evitados en el contador, portada, planes y flotante (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/mensajeria-inteligente`) — push: no
+
+- **Qué se hizo**:
+  - **Contador** (`GET /api/whatsapp/uso` → `mes.enviados`, `mes.a_grupos`, `mes.evitados`, `mes.grupos_en_uso`; `services/canales/uso.ts`, `gruposDelMes`). `evitados` = por cada recibo del mes con mensajes a grupos, `max(0, vecinos con WhatsApp directo posible − mensajes a grupos)`. Sólo si el condominio NO marca `recibo_emitido`. Ver `docs/API-CONTRATO.md`.
+  - **Pantalla**: línea «Este mes: N mensajes enviados · M evitados gracias a los grupos» (`ContadorWhatsapp.tsx`, `tipos.ts` → `textoMesGrupos`, `miles`); sin grupos en uso sugiere asignarlos.
+  - **Portada**: sección `portada/MensajeriaInteligente.tsx` entre «Juntas» y «Una pantalla para cada quien» (448 puntos contra 14, tres puntos con Heroicons).
+  - **Planes**: viñeta «Mensajería inteligente (grupos por block)» en Pro y Administradora (`catalogo.ts`). Migración de una sola vez `migracionMensajeria` (`migracion.ts`), marca `ConfiguracionComercial.migracion_mensajeria_at` (columna nueva, aditiva).
+  - **Manual**: versión (16) y párrafo + fila de tabla en la sección de WhatsApp (`manual-house.json`).
+  - **Flotante de WhatsApp oculto** en `/registro`, `/contacto` y el formulario del Libro de Reclamaciones (prop `sinWhatsapp` en `Marco.tsx`); su botón de envío va a ancho completo al final del formulario en el celular.
+- **Decisiones**:
+  - La fórmula del pedido contaba también los comunicados al grupo. Se quitó: si el comunicado tiene `enviar_whatsapp`, el directo sale igual y el número quedaría inflado. Sin esa casilla, el grupo no reemplaza nada que hubiera salido solo.
+  - `mes` es de toda la empresa (su número), no de un condominio: el contador ya era por número.
+  - Con varios grupos por recibo, cada mensaje resta uno (`directos − grupos`). Con un grupo por block da lo mismo que «menos 1».
+  - La bajada dice «corre menos riesgo de bloqueo» (el pedido decía «no corre riesgo»: promesa absoluta sobre WhatsApp).
+- **Gotchas**:
+  - `node_modules` del worktree era un enlace al principal: se aisló (copia de `.prisma` y `@prisma/client`) antes del `prisma generate`, como manda la memoria. El cliente del principal no tiene la columna nueva.
+  - `Aparece.tsx` y `MensajeriaInteligente.tsx` llevan `/** @jsxRuntime automatic */` para que las pruebas con `tsx` rendericen sin importar React.
+  - Base de pruebas: `house_test_mensajeria` (`TEST_DATABASE_URL`).
+- **Pruebas**: `tests/whatsapp-mensajeria.test.ts` (14), `tests/whatsapp-mensajeria-ui.test.ts` (9), `tests/mensajeria-portada-ui.test.ts` (10); `whatsapp-uso`, `contacto-ui` y `reabrir-pago-ui` actualizados. Suite completa (`npm test`, `house_test_mensajeria`): 4406 pruebas, 4403 en verde. Fallan 3, **las mismas en el código base (HEAD, sin estos cambios)**: `corregir-recibos` «un condominio en solo lectura no deja anular», `personas-unidad` «un condominio en solo lectura no recibe cambios» y `recibos-excel` «conceptos en 0» (la conocida de fecha). `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` limpios. Mutaciones: 23 (15 del backend, 8 de la pantalla y la portada), todas en rojo; archivos restaurados con `cp` + `cmp`.
+- **Próximos pasos**:
+  - Opus decide si `Contacto` y el Libro también deben ocultar el flotante (lo hice por criterio, no verificado en navegador).
+  - Repetir en los manuales por rol (`manual-administradora/junta/vecino/personal.json`): no se tocaron.
+  - La portada estática de buscadores (`src/server/seo/paginas.ts`) no tiene la sección: fuera de Permitidos.
+  - Verificar en navegador a 375 px: no se pudo (sin Playwright instalado en el proyecto).
+  - Las 2 de solo lectura en rojo (ya rojas en HEAD): mirar por qué con la fecha de hoy antes de integrar.
+  - `mes.evitados` hace unas consultas por recibo del mes; con muchos condominios conviene cachearlo.
+
 ## 2026-11-04 — Segunda tanda de videos sin «Gestión Urbana»: v5, v7 y m-admin-recibos (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel / Opus**: «hazlo» (segunda tanda, OK de Opus del 4-nov 19:00): regrabar v5 (escritorio y celular), v7 (escritorio y celular, que también mostraba el nombre viejo) y m-admin-recibos con grupos, con la voz existente y el WhatsApp falso en local.

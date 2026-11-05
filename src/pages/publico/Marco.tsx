@@ -41,7 +41,14 @@ function IconoFacebook({ className }: { className?: string }) {
 const enlace = 'rounded px-1.5 py-1.5 sm:px-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-ink';
 
 /** Marco de las pantallas públicas (portada, precios, registro): cabecera con acceso y pie. Móvil primero. */
-export function Marco({ children, ancho = 'max-w-5xl', completo = false }: { children: ReactNode; ancho?: string; /** Sin ancho ni márgenes en el contenido: cada sección pone los suyos (para fondos que llegan de borde a borde). */ completo?: boolean }) {
+export function Marco({ children, ancho = 'max-w-5xl', completo = false, sinWhatsapp = false }: {
+  children: ReactNode;
+  ancho?: string;
+  /** Sin ancho ni márgenes en el contenido: cada sección pone los suyos (para fondos que llegan de borde a borde). */
+  completo?: boolean;
+  /** Sin el botón flotante de WhatsApp: en las pantallas cuyo botón principal queda abajo a la derecha en el celular (el registro). */
+  sinWhatsapp?: boolean;
+}) {
   // «Crear cuenta» sólo con el registro abierto: mientras llega el dato, no se muestra (evita ofrecer lo que luego se quita).
   const { data } = useCatalogo();
   // Datos del responsable para el pie (razón social, RUC, domicilio y correo): sin ellos (cargando o sin red) el pie sólo omite esas líneas.
@@ -99,7 +106,7 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false }: { chi
           <Link to="/libro-de-reclamaciones" className="inline-flex items-center gap-1 underline-offset-2 hover:text-ink hover:underline"><BookOpenIcon className="h-4 w-4" aria-hidden="true" /> Libro de Reclamaciones</Link>
         </nav>
       </footer>
-      {redes?.whatsapp && <WhatsappFlotante enlace={redes.whatsapp.enlace} />}
+      {redes?.whatsapp && !sinWhatsapp && <WhatsappFlotante enlace={redes.whatsapp.enlace} />}
     </div>
   );
 }

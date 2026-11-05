@@ -45,7 +45,7 @@ export default function Registro() {
 
   if (listo) {
     return (
-      <Marco ancho="max-w-xl">
+      <Marco ancho="max-w-xl" sinWhatsapp>
         <Card>
           <CardBody className="text-center">
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand"><EnvelopeIcon className="h-6 w-6" aria-hidden="true" /></span>
@@ -59,8 +59,9 @@ export default function Registro() {
     );
   }
 
+  // «Crear cuenta gratis» va al final del formulario: en el celular el botón flotante de WhatsApp lo tapaba (375 px), así que aquí no se pinta.
   return (
-    <Marco>
+    <Marco sinWhatsapp>
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start lg:gap-14">
         <div>
           <IndicadorPasos actual={1} />

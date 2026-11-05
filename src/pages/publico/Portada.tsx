@@ -7,6 +7,7 @@ import { useCatalogo } from './catalogo';
 import { Marco } from './Marco';
 import { Fachada, TECHO, Techito } from './portada/Fachada';
 import { Juntas } from './portada/Juntas';
+import { MensajeriaInteligente } from './portada/MensajeriaInteligente';
 import { Pasos } from './portada/Pasos';
 import { PreciosVivos } from './portada/PreciosVivos';
 
@@ -60,6 +61,7 @@ export default function Portada() {
 
       <Pasos />
       <Juntas />
+      <MensajeriaInteligente />
 
       {/* Una pantalla para cada quien: cada rol con su captura, recortada con el techo de la fachada. */}
       <section aria-labelledby="roles-titulo" className="mx-auto w-full max-w-6xl px-4 py-24 sm:px-6 lg:py-36">

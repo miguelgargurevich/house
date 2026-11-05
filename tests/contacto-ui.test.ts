@@ -42,7 +42,7 @@ describe('botón flotante de WhatsApp', () => {
   });
 
   it('el marco lo pinta sólo si la configuración trae el número (enlace de catalogo.redes.whatsapp) y la app con sesión no lo usa', () => {
-    assert.match(MARCO, /\{redes\?\.whatsapp && <WhatsappFlotante enlace=\{redes\.whatsapp\.enlace\} \/>\}/);
+    assert.match(MARCO, /\{redes\?\.whatsapp && !sinWhatsapp && <WhatsappFlotante enlace=\{redes\.whatsapp\.enlace\} \/>\}/);
     for (const archivo of ['src/app/Shell.tsx', 'src/auth/guards.tsx']) assert.doesNotMatch(f(archivo), /WhatsappFlotante|publico\/Marco/, archivo);
   });
 
@@ -211,7 +211,7 @@ describe('manual y contrato', () => {
     assert.match(MANUAL.secciones[n('Contactos y reclamaciones de la web')].etiqueta ?? '', /^Superadmin/);
     const t = JSON.stringify(MANUAL.secciones[n('Contactos y reclamaciones de la web')]);
     for (const frase of ['15 días hábiles', 'feriados', 'rojo', 'Marcar como respondida', 'Contacto y redes de la web pública']) assert.ok(t.includes(frase), frase);
-    assert.match(MANUAL.kicker, /\(15\)$/);
+    assert.match(MANUAL.kicker, /\(16\)$/);
   });
   it('API-CONTRATO.md documenta los endpoints nuevos', () => {
     const doc = f('docs/API-CONTRATO.md');
