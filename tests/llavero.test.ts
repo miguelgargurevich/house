@@ -387,8 +387,8 @@ describe('asistente IA', () => {
 
   it('sin proveedor: el error de siempre; si el primero falla rota al siguiente (ver rotacion.test.ts)', async () => {
     let r = await chat();
-    assert.equal(r.status, 500);
-    assert.deepEqual(r.body, { error: { code: 500, message: 'La IA no está configurada en el servidor. Contacta al administrador.' } });
+    assert.equal(r.status, 503);
+    assert.deepEqual(r.body, { error: { code: 503, message: 'La IA no está configurada en el servidor. Contacta al administrador.' }, code: 'IA_NO_CONFIGURADA' });
     assert.equal(llamadas.length, 0);
 
     await guardar('gemini', 'gemini-prueba-0001');

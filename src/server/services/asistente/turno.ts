@@ -24,8 +24,12 @@ export function leerSystemPrompt(): string {
 /** Sólo para pruebas. */
 export const olvidarSystemPrompt = () => { systemPrompt = undefined; };
 
+/** Código estable de la respuesta cuando el servidor no tiene ninguna IA configurada (503). */
+export const IA_NO_CONFIGURADA = 'IA_NO_CONFIGURADA';
+
 export const MENSAJES_ERROR: Record<CausaFallo | 'cortada', { status: number; mensaje: string }> = {
-  sin_configurar: { status: 500, mensaje: 'La IA no está configurada en el servidor. Contacta al administrador.' },
+  // 503, no 500: es un estado de configuración (falta la clave de IA), no un error del servidor; el monitoreo no debe alarmarse.
+  sin_configurar: { status: 503, mensaje: 'La IA no está configurada en el servidor. Contacta al administrador.' },
   saturada: { status: 429, mensaje: 'La IA está saturada o se superó la cuota. Intenta nuevamente en unos minutos.' },
   fallo: { status: 503, mensaje: 'El servicio de IA no pudo responder. Intenta de nuevo más tarde.' },
   modelo_fijo: { status: 503, mensaje: 'El modelo elegido no respondió; prueba con Auto.' },
@@ -48,7 +52,7 @@ export interface Preparado {
 
 /**
  * Todo lo que puede fallar ANTES de responder: hay IA configurada, la conversación es del usuario, se guarda el mensaje y se arma el
- * historial (en el servidor) y el contexto verificado. Lanza `HttpError` (403 sin el módulo del asistente, 500 sin IA, 404 conversación ajena).
+ * historial (en el servidor) y el contexto verificado. Lanza `HttpError` (403 sin el módulo del asistente, 503 `IA_NO_CONFIGURADA` sin IA, 404 conversación ajena).
  */
 export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: AjustesAplicados, opts: { conversacionId?: string; ruta?: string; complejoId?: number | null }): Promise<Preparado> {
   // Módulo «Asistente con IA»: lo usan el chat web y los bots (que pasan por aquí), así que esta es la única puerta.
@@ -56,7 +60,7 @@ export async function prepararTurno(user: AuthUser, mensaje: string, ajustes: Aj
   // Tope mensual de consultas del condominio: se reserva ANTES de llamar al modelo. Pasado el tope responde sin llamarlo.
   const condominio = await complejoDelAsistente(user, opts.complejoId);
   if (condominio != null && !(await reservarConsumo(condominio, 'asistente')).permitido) throw new HttpError(429, mensajeTopeAsistente(user, comercialDeps.ahora()));
-  if ((await construirCadena()).length === 0) throw new HttpError(500, MENSAJES_ERROR.sin_configurar.mensaje);
+  if ((await construirCadena()).length === 0) throw new HttpError(MENSAJES_ERROR.sin_configurar.status, MENSAJES_ERROR.sin_configurar.mensaje, undefined, IA_NO_CONFIGURADA);
   const { id } = await obtenerOCrear(user.id, opts.conversacionId, mensaje);
   const historial = await historialDe(id); // ANTES de guardar el mensaje nuevo
   const guardado = await guardarMensajeUsuario(id, mensaje);
