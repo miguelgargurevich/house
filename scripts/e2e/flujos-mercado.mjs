@@ -172,7 +172,8 @@ async function faseSeparacion(S) {
    */
   const ajeno = (a, v, etiqueta, r, { escritura = false } = {}) => {
     intentos++;
-    const refAjena = r.status === 422 && r.body?.campos && Object.entries(r.body.campos).some(([k, t]) => /_id$/.test(k) && /no existe|no tienes acceso|no es de|no pertenece/i.test(String(t)));
+    const dicePorAjeno = /no existe|no tienes acceso|no es (de|del|un)\b|no pertenece|no se cambia de condominio/i;
+    const refAjena = r.status === 422 && ((r.body?.campos && Object.entries(r.body.campos).some(([k, t]) => /_id$/.test(k) && dicePorAjeno.test(String(t)))) || /no se cambia de condominio/i.test(String(r.body?.error)));
     const claro = r.status === 403 || r.status === 404 || r.status === 401 || refAjena;
     const debil = !claro && r.status >= 400 && r.status < 500;
     const exito = r.status >= 200 && r.status < 300;
@@ -338,9 +339,15 @@ async function faseSeparacion(S) {
   };
   const planExcel = readFileSync(join(HERE, 'block-1-noviembre.xlsx'));
   const basePropia = new Map();
+  /** El cuerpo válido de un medio de pago propio (para que el PUT con condominio ajeno no falle por faltar `tipo`), leído de la base. */
+  const cuerpoMedio = (a) => {
+    const [f] = sql(`select tipo, banco, tipo_cuenta, numero_cuenta, cci, moneda, titular, documento_titular, celular from "MedioPago" where id = ${muestraPropia(a.cliente).medio}`);
+    const claves = ['tipo', 'banco', 'tipo_cuenta', 'numero_cuenta', 'cci', 'moneda', 'titular', 'documento_titular', 'celular'];
+    return Object.fromEntries(claves.map((k, i) => [k, f[i]]).filter(([, v]) => v !== '' && v != null));
+  };
   for (const a of atacantes.filter((x) => x.tipo === 'admin')) {
     const o = muestraPropia(a.cliente);
-    for (const ruta of [`/api/unidades/${o.unidad}`, `/api/usuarios/${o.residente}`, `/api/estructuras/${o.estructura}`, ...(o.comunicado ? [`/api/comunicados/${o.comunicado}`] : []), `/api/conceptos/${o.concepto}`, `/api/recibos/${o.recibo}`, ...(o.medio ? [`/api/medios-pago/${o.medio}`] : [])]) {
+    for (const ruta of [`/api/unidades/${o.unidad}`, `/api/usuarios/${o.residente}`, `/api/estructuras/${o.estructura}`, ...(o.comunicado ? [`/api/comunicados/${o.comunicado}`] : []), `/api/conceptos/${o.concepto}`, `/api/recibos/${o.recibo}`]) {
       const b = (await a.api.get(ruta)).body;
       basePropia.set(`${a.id}|${ruta}`, JSON.stringify(Object.fromEntries(Object.entries(b ?? {}).filter(([k]) => k !== 'updated_at'))));
     }
@@ -358,7 +365,7 @@ async function faseSeparacion(S) {
         ['PUT usuario propio → unidad ajena', 'PUT', `/api/usuarios/${o.residente}`, { unidad_id: d.unidades[0] }],
         ['PUT block propio → condominio ajeno', 'PUT', `/api/estructuras/${o.estructura}`, { complejo_id: d.complejos[0] }],
         ...(o.comunicado ? [['PUT comunicado propio → condominio ajeno', 'PUT', `/api/comunicados/${o.comunicado}`, { complejo_id: d.complejos[0] }]] : []),
-        ...(o.medio ? [['PUT medio de pago propio → condominio ajeno', 'PUT', `/api/medios-pago/${o.medio}`, { complejo_id: d.complejos[0] }]] : []),
+        ...(o.medio ? [['PUT medio de pago propio → condominio ajeno', 'PUT', `/api/medios-pago/${o.medio}`, { ...cuerpoMedio(a), complejo_id: d.complejos[0] }]] : []),
         ['PUT concepto propio → empresa ajena', 'PUT', `/api/conceptos/${o.concepto}`, { empresa_id: d.empresa }],
         ['PUT recibo propio → condominio ajeno', 'PUT', `/api/recibos/${o.recibo}`, { complejo_id: d.complejos[0], empresa_id: d.empresa }],
         ['POST comunicado propio → departamentos ajenos', 'POST', '/api/comunicados', { complejo_id: o.complejo, titulo: 'HACK', cuerpo: 'HACK', unidades: [d.unidades[0]] }],
@@ -366,8 +373,8 @@ async function faseSeparacion(S) {
         ['POST recibo propio → concepto ajeno', 'POST', '/api/recibos', { complejo_id: o.complejo, estructura_id: o.estructura, mes: 12, anio: 2026, fecha_emision: '2026-12-01', fecha_vencimiento: '2026-12-15', conceptos: [{ concepto_id: d.conceptos[0], monto: '10.00' }] }],
         ['POST cargo en recibo propio → unidad ajena', 'POST', '/api/recibo-concepto-unidades', { recibo_concepto_id: o.rc, unidad_id: d.unidades[0], monto: 1 }],
         ['POST usuario propio-condominio → unidad ajena', 'POST', '/api/usuarios', { nombre: 'Hack', email: `hack2.${a.cliente}.${v}@simulacion.example`, rol: 'propietario', complejo_id: o.complejo, unidad_id: d.unidades[0] }],
-        ['POST junta propia → block ajeno', 'POST', '/api/juntas', { complejo_id: o.complejo, estructura_id: d.estructuras[0], desde: '2026-12-01', miembros: [] }],
-        ['POST junta propia → miembro ajeno', 'POST', '/api/juntas', { complejo_id: o.complejo, estructura_id: o.estructura, desde: '2026-12-01', miembros: [{ usuario_id: ajenoUsuario, cargo: 'presidente' }] }],
+        ['POST junta propia → block ajeno', 'POST', '/api/juntas', { complejo_id: o.complejo, estructura_id: d.estructuras[0], desde: '2026-11-01', miembros: [] }],
+        ['POST junta propia → miembro ajeno', 'POST', '/api/juntas', { complejo_id: o.complejo, estructura_id: o.estructura, desde: '2026-11-01', miembros: [{ usuario_id: ajenoUsuario, cargo: 'presidente' }] }],
         ['POST pago en recibo propio → unidad ajena', 'POST', `/api/recibos/${o.recibosMant.reciboId}/mantenimientos/${d.unidades[0]}/pagos`, { metodo_pago: 'efectivo' }],
         ['POST impersonar a un usuario ajeno', 'POST', '/api/impersonacion', { usuario_id: CRED.clientes[v].admins ? sql(`select id from "Usuario" where email = '${CRED.clientes[v].admins[0].email}'`)[0][0] * 1 : 0, motivo: 'prueba de separación' }],
       ];
@@ -647,7 +654,7 @@ async function faseTipos(S) {
   anotar('solo lectura J2', 'el vecino de J2 sí ve sus recibos', v2.status === 200, `${v2.status}`);
   const su = await S.super.post('/api/comunicados', { complejo_id: j2c, titulo: 'prueba superadmin', cuerpo: 'prueba' });
   anotar('solo lectura J2', 'el superadmin no queda en solo lectura (puede escribir)', su.status === 201 || su.status === 200, `${su.status}`);
-  if (su.body?.id) await S.super.del(`/api/comunicados/${su.body.id}`);
+  if (su.body?.id) await S.super.post(`/api/comunicados/${su.body.id}/archivar`, {}); // no hay DELETE de comunicados: se archiva para no dejar una prueba publicada
 }
 
 // ================================================================ FASE 3: planes y facturación de Torre

@@ -4,6 +4,30 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Mercado simulado: 3 empresas, 9 condominios y 5 juntas, con recorrido de separación entre clientes (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/simulacion-mercado`) — push: no
+
+- **Pedido de Miguel**: «una prueba en local con varios condominios y diferentes cantidades de blocks… 3 empresas con varios condominios y otras que son solo juntas de vecinos de 1 block».
+- **Qué se hizo** (no se tocó `src/**`):
+  - `prisma/seed-mercado.ts` + `npm run seed:mercado`: base LOCAL `house_mercado` (el seed aborta si `DATABASE_URL` no es `localhost/house_mercado`). 3 empresas (A: 4 condominios, 652 dptos; B: 3, 280; C: 2, 68, plan Pro) y 5 juntas independientes (8, 12, 20, 32 y 48 dptos: Gratis vigente, Gratis VENCIDO, Básico, Pro, Pro de prueba). 1 120 dptos, 46 blocks, 1 272 usuarios, 276 recibos (mayo–octubre de 2026), 40 562 pagos, 19 grupos de WhatsApp ficticios en la Empresa A. Nombres generados, correos `.example`, celulares 900 xxx xxx. **Los recibos y los pagos salen de la API real** (el seed arranca `createApp()` en proceso con correo/WhatsApp/IA apagados): emisión por block con mora automática, pagos de la administración y del tesorero, vouchers por validar, rechazos. Las suscripciones se crean antes de facturar (la mora depende de Pro); el plazo vencido de la junta J2 se aplica al final. Los avisos que dejó la emisión en cola se borran. Imprime la tabla del mercado y las cuentas por rol (sólo correos); las contraseñas van a `CREDENCIALES_JSON` (fuera del repo; en esta sesión, el scratchpad).
+  - `scripts/e2e/flujos-mercado.mjs`: recorrido contra el backend aislado (sección 1 de `docs/pruebas/simulacion-mercado.md`). Fases: `separacion`, `herramientas` (las herramientas de la IA por `/mcp`), `tipos`, `planes`, `rendimiento`, `mensajeria`, `navegador`. Resultado en `scripts/e2e/resultados/mercado.json` (ignorado por git).
+  - `scripts/e2e/levantar.sh`: acepta `house_mercado` (siempre `--sin-copiar`: nunca la copia desde `house`) y `HOUSE_REPO=<carpeta>` para servir el código de un worktree.
+  - `docs/pruebas/simulacion-mercado.md`: informe (tabla del mercado, qué se probó, resultados, tiempos, facturación mensual de Torre a estos clientes y lista priorizada de observaciones).
+- **Resultado**: 0 fallas en todas las comprobaciones. **Separación entre clientes: ninguna fuga ni escritura** (≈ 19 000 intentos con ids ajenos y listas, búsquedas, Excel, herramientas de la IA, «Entrar como», sesión/CSRF; la base no cambió). Facturación: S/ 3 327.60 al mes con IGV (S/ 3 157.68 sin la prueba de J5). Lo más lento: la rendición de Los Cedros, ≈ 1,0 s. Detalle y observaciones (S1–S3, F1, R1) en el informe.
+- **Decisiones**:
+  - Una junta independiente = una empresa con una cuenta `admin` y un condominio de 1 block (como el registro público); presidente/tesorero/secretario son propietarios con cargo. El tesorero registra la mitad de los pagos de las juntas.
+  - El contador de WhatsApp es del mes en curso: los envíos a grupos se anotan con la hora de la siembra; en otro mes, vuelve a sembrar.
+  - La fase `tipos` escribe (recibo de noviembre de J4, un pago, una validación): se repite re-sembrando (~2 min).
+- **Gotchas**:
+  - El login se limita a 10 intentos por cuenta y por IP cada 15 minutos (también los correctos): reinicia el backend (`levantar.sh`) entre corridas.
+  - El backend de `levantar.sh` sirve el `dist/` de la carpeta `HOUSE_REPO`: para la fase `navegador` corre antes `npm run build` en esa carpeta.
+  - Nunca `prisma generate` en el worktree (el `node_modules` es un enlace al del checkout principal).
+- **Próximos pasos** (decide Opus):
+  - F1: el resumen de una empresa con varios condominios repite «Block 2», «Block 6» sin el condominio (la API trae `por_torre[].complejo`).
+  - S1: esquemas estrictos (422 ante campos desconocidos) en PUT/POST de unidades, usuarios, comunicados, conceptos y recibos; hoy ignoran `empresa_id`/`complejo_id` con 200. S2: `POST /api/ai-chat` responde 500 si la IA no está configurada.
+  - R1: vigilar la rendición de condominios grandes (≈ 1 s con 448 dptos).
+  - No verificado: IA con modelo real, envíos reales de correo/WhatsApp, bots, vencimiento de planes con el reloj, carga masiva por Excel propia, concurrencia real y volumen mayor (lista completa en el informe).
+
+---
 ## 2026-11-04 — Mensajería de la portada: quitar frase de riesgo y animar los cuadros (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/mensajeria-animacion`) — push: no
 
 - **Qué se hizo**: se quitó de la portada todo lo que hablaba de bloqueo o del riesgo para el número (bajada y punto «Tope diario y pausas»). El comentario de cabecera ya no dice «el número cuidado». Los 448 cuadros y los 14 grupos de `MensajeriaInteligente.tsx` se animan al entrar en pantalla: los directos pasan de gris claro a gris oscuro uno a uno (≈4 s, `--i` × 9 ms), su contador va de 0 a 448; los 14 grupos aparecen en ≈0,7 s (`--i` × 30 ms) con su contador de 0 a 14, y luego sale el rótulo «Listo» con check de Heroicons.
