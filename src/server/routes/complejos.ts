@@ -3,6 +3,7 @@ import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { invalid, notFound } from '../errors';
 import { abrirContrato, cambiarAdministradora } from '../lib/contratos';
+import { exigirMismoAmbito } from '../lib/ambito';
 import { empresaDe, scopeComplejos, unidadesDeUsuario } from '../lib/scope';
 import { paisInicial, monedaInicial, monedaSchema, paisSchema, verificarCambioDeMoneda, zonaInicial, zonaSchema } from '../lib/paisMoneda';
 import { obtenerConfiguracion } from '../services/comercial/configuracion';
@@ -90,6 +91,7 @@ const crud = crudRouter({
     if (u.rol === 'admin') {
       // Gratis incluye un condominio: con uno ya en Gratis, otro sólo si pasa a Torre Pro o Torre Administradora el que tiene (409, no crea nada). El superadmin no tiene este límite.
       await exigirPuedeAgregarCondominio(empresaDe(u));
+      exigirMismoAmbito('empresa_id', d.empresa_id, empresaDe(u), 'crear'); // otra empresa → 422; la propia se acepta
       r = { ...d, empresa_id: empresaDe(u) };
     } else {
       if (d.empresa_id == null) throw invalid('Datos inválidos: empresa_id: es obligatorio', { empresa_id: 'Obligatorio' });
@@ -108,11 +110,12 @@ const crud = crudRouter({
       return c;
     });
   },
-  prepareUpdate: async (d, u, existing) => {
+  prepareUpdate: async (d, _u, existing) => {
     // La administradora no se edita aquí: cambiarla cierra un contrato y abre otro (POST /:id/administradora).
     const { empresa_id, ...resto } = d;
     await verificarCambioDeMoneda(existing.id as number, existing.moneda as string, resto.moneda as string | undefined);
-    if (u.rol !== 'admin' && empresa_id != null && empresa_id !== existing.empresa_id) {
+    // Otra empresa (cualquier rol) → 422; la misma que ya tiene se acepta.
+    if (empresa_id !== undefined && empresa_id !== existing.empresa_id) {
       throw invalid('Datos inválidos: empresa_id: para cambiar de administradora usa «Cambiar de administradora»', { empresa_id: 'Usa «Cambiar de administradora»' });
     }
     return resto;

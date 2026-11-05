@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { conflict, forbidden, invalid, notFound } from '../errors';
+import { rechazarAmbito } from '../lib/ambito';
 import { scopeAreasComunes, scopeReservas, scopeUnidadesReserva } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { exigirOperativo } from '../services/comercial/operativo';
@@ -114,6 +115,7 @@ reservasRouter.get('/:id', async (req, res) => {
 reservasRouter.post('/', async (req, res) => {
   const u = currentUser(req);
   soloResidentes(u);
+  rechazarAmbito(req.body); // el condominio sale del área y de la unidad
   const d = parseBody(crearSchema, req);
   const area = await prisma.areaComun.findFirst({ where: { AND: [{ id: d.area_id }, scopeAreasComunes(u)] }, select: { id: true, complejo_id: true } });
   if (!area) throw notFound('Área común');

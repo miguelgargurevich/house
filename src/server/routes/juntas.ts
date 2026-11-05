@@ -5,6 +5,7 @@ import { conflict, invalid, notFound } from '../errors';
 import { hoyEn } from '../lib/fechas';
 import { ambitoJunta, puedeGestionar } from '../lib/junta';
 import { condominiosEnJuntaUnica } from '../lib/juntaUnica';
+import { rechazarAmbito } from '../lib/ambito';
 import { scopeComplejos, scopeJuntas } from '../lib/scope';
 import { zonaDeComplejo } from '../lib/zonas';
 import { currentUser, type AuthUser } from '../middleware/auth';
@@ -194,6 +195,7 @@ const crearSchema = z.object({
 juntasRouter.post('/', async (req, res) => {
   const u = currentUser(req);
   exigirAdministracion(u);
+  rechazarAmbito(req.body, { permitidos: ['complejo_id', 'estructura_id'] });
   const d = parseBody(crearSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
   await exigirNoFutura(ambito.complejo_id, d.desde);
@@ -240,6 +242,7 @@ const editarSchema = z.object({
 juntasRouter.put('/:id', async (req, res) => {
   const u = currentUser(req);
   const actual = await cargarJunta(u, parseId(req));
+  rechazarAmbito(req.body, { actual }); // la junta no cambia de condominio ni de block: otro valor → 422; el mismo, se acepta
   const d = parseBody(editarSchema, req);
   if (!esAdministracion(u)) {
     if (!puedeGestionar(u, actual)) throw notFound('Junta');
@@ -295,6 +298,7 @@ juntasRouter.post('/:id/nueva-gestion', async (req, res) => {
   const u = currentUser(req);
   exigirAdministracion(u);
   const actual = await cargarJunta(u, parseId(req));
+  rechazarAmbito(req.body, { actual });
   const d = parseBody(nuevaGestionSchema, req);
   exigirVigente(actual);
   await exigirNoFutura(actual.complejo_id, d.desde);

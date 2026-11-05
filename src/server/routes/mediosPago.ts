@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { HttpError, forbidden, invalid, notFound } from '../errors';
 import { ambitoJunta, esJunta, puedeGestionar } from '../lib/junta';
+import { rechazarAmbito } from '../lib/ambito';
 import { scopeComplejos, scopeMediosPago, unidadesDeResidente } from '../lib/scope';
 import { diaTexto, vigenteDe } from '../services/juntas';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
@@ -156,6 +157,7 @@ mediosPagoRouter.get('/', async (req, res) => {
 
 mediosPagoRouter.post('/', async (req, res) => {
   const u = currentUser(req);
+  rechazarAmbito(req.body, { permitidos: ['complejo_id', 'estructura_id'] }); // empresa_id no se envía: sale del condominio
   const d = parseBody(medioSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
   if (d.activo !== false) await verificarTope(ambito);
@@ -173,7 +175,9 @@ mediosPagoRouter.post('/', async (req, res) => {
 
 mediosPagoRouter.put('/:id', cargarMedio, async (req, res) => {
   const actual = res.locals.medio as MedioCargado;
-  const d = parseBody(medioSchema, req); // el ámbito (condominio/block) no se cambia: se ignoran complejo_id y estructura_id
+  // El ámbito (empresa, condominio, block) no se cambia: otro valor → 422; el mismo que ya tiene, se acepta y no hace nada.
+  rechazarAmbito(req.body, { actual: actual as unknown as Record<string, unknown> });
+  const d = parseBody(medioSchema, req);
   if (d.activo === true && !actual.activo) await verificarTope(actual, actual.id);
   const m = await prisma.medioPago.update({
     where: { id: actual.id },
@@ -187,6 +191,7 @@ mediosPagoRouter.put('/:id', cargarMedio, async (req, res) => {
 
 mediosPagoRouter.patch('/:id', cargarMedio, async (req, res) => {
   const actual = res.locals.medio as MedioCargado;
+  rechazarAmbito(req.body, { actual: actual as unknown as Record<string, unknown> });
   const d = parseBody(ajusteSchema, req);
   if (d.activo === true && !actual.activo) await verificarTope(actual, actual.id);
   const m = await prisma.medioPago.update({ where: { id: actual.id }, data: { ...(d.activo !== undefined ? { activo: d.activo } : {}), ...(d.orden !== undefined ? { orden: d.orden } : {}) }, omit: ocultarQr, include: incluir });

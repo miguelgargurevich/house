@@ -25,24 +25,39 @@ after(async () => {
 });
 
 describe('empresa: sólo para el personal', () => {
-  it('un residente se guarda SIN empresa aunque se mande una (la propia, otra o ninguna); el personal queda con la del admin', async () => {
+  it('un residente se guarda SIN empresa (sin empresa_id o con la propia del admin); con la de otra empresa, 422; el personal queda con la del admin', async () => {
     for (const rol of ['propietario', 'inquilino']) {
-      for (const empresa_id of [undefined, d.empresaA.id, d.empresaB.id]) {
+      for (const empresa_id of [undefined, d.empresaA.id]) {
         const r = await crear(T.adminA, { rol, complejo_id: d.complejoA.id, empresa_id });
         assert.equal(r.status, 201, JSON.stringify(r.body));
         assert.equal((await enBd(r.body.id)).empresa_id, null, `${rol} con empresa_id=${empresa_id}`);
         assert.equal(r.body.empresa_id, null);
       }
+      const n = await prisma.usuario.count();
+      const ajena = await crear(T.adminA, { rol, complejo_id: d.complejoA.id, empresa_id: d.empresaB.id });
+      assert.equal(ajena.status, 422, JSON.stringify(ajena.body));
+      assert.equal(ajena.body.code, 'CAMPO_DE_AMBITO');
+      assert.equal(await prisma.usuario.count(), n, `${rol}: no se creó`);
     }
     for (const rol of ['admin', 'mantenimiento', 'seguridad']) {
-      const r = await crear(T.adminA, { rol, empresa_id: d.empresaB.id }); // el admin no elige empresa: es la suya
+      const n = await prisma.usuario.count();
+      const ajena = await crear(T.adminA, { rol, empresa_id: d.empresaB.id }); // el admin no elige empresa: es la suya
+      assert.equal(ajena.status, 422, JSON.stringify(ajena.body));
+      assert.equal(ajena.body.code, 'CAMPO_DE_AMBITO');
+      assert.equal(await prisma.usuario.count(), n, `${rol}: no se creó`);
+      const r = await crear(T.adminA, { rol, empresa_id: d.empresaA.id });
       assert.equal(r.status, 201, JSON.stringify(r.body));
       assert.equal((await enBd(r.body.id)).empresa_id, d.empresaA.id, rol);
+      const sin = await crear(T.adminA, { rol });
+      assert.equal((await enBd(sin.body.id)).empresa_id, d.empresaA.id, `${rol} sin empresa_id`);
     }
   });
 
-  it('el superadmin también: residente sin empresa; personal con la que elige', async () => {
-    const res = await crear(T.super, { rol: 'inquilino', empresa_id: d.empresaB.id });
+  it('el superadmin también: residente sin empresa (con una, 422: no tiene); personal con la que elige', async () => {
+    const rechazada = await crear(T.super, { rol: 'inquilino', empresa_id: d.empresaB.id });
+    assert.equal(rechazada.status, 422, JSON.stringify(rechazada.body));
+    assert.match(rechazada.body.error, /no tiene empresa propia/);
+    const res = await crear(T.super, { rol: 'inquilino' });
     assert.equal(res.status, 201);
     assert.equal((await enBd(res.body.id)).empresa_id, null);
     const per = await crear(T.super, { rol: 'seguridad', empresa_id: d.empresaB.id });
@@ -63,8 +78,11 @@ describe('empresa: sólo para el personal', () => {
   });
 
   it('un admin de la empresa A no puede asignar un residente a la empresa B (ni a un condominio de B)', async () => {
-    const r = await crear(T.adminA, { rol: 'propietario', complejo_id: d.complejoA.id, empresa_id: d.empresaB.id });
-    assert.equal((await enBd(r.body.id)).empresa_id, null, 'la empresa pedida se ignora: no queda en B');
+    const ajena = await crear(T.adminA, { rol: 'propietario', complejo_id: d.complejoA.id, empresa_id: d.empresaB.id });
+    assert.equal(ajena.status, 422, 'la empresa pedida ya no se ignora en silencio');
+    assert.equal(ajena.body.code, 'CAMPO_DE_AMBITO');
+    const r = await crear(T.adminA, { rol: 'propietario', complejo_id: d.complejoA.id });
+    assert.equal((await enBd(r.body.id)).empresa_id, null, 'no queda en B ni en A');
     assert.equal((await crear(T.adminA, { rol: 'propietario', complejo_id: d.complejoB.id })).status, 422, 'condominio de otra empresa');
     assert.equal((await llamar(base, 'PUT', `/api/usuarios/${r.body.id}`, T.adminA, { complejo_id: d.complejoB.id })).status, 422);
     assert.equal((await llamar(base, 'PUT', `/api/usuarios/${d.propietarioB.id}`, T.adminA, { nombre: 'Robado' })).status, 404, 'un residente de B no se edita desde A');

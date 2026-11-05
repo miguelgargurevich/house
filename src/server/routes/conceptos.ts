@@ -1,6 +1,7 @@
 import { assertRef, crudRouter } from '../crud';
 import { prisma } from '../db';
 import { invalid } from '../errors';
+import { exigirMismoAmbito } from '../lib/ambito';
 import { empresaDe, scopeConceptos } from '../lib/scope';
 import { DESTINOS, sugerirDestino } from '../services/cierres/destinos';
 import { boolQuery, idSchema, texto, textoOpcional, z } from '../validation';
@@ -20,7 +21,11 @@ const base = z.object({
 
 async function empresa(d: Record<string, unknown>, u: Parameters<typeof empresaDe>[0], crear: boolean, existente?: Record<string, unknown>) {
   let r: Record<string, unknown> = d;
-  if (u.rol === 'admin') r = { ...d, empresa_id: empresaDe(u) };
+  if (u.rol === 'admin') {
+    // La empresa del concepto es la de quien lo administra: si llega otra, 422 (no se pisa en silencio); la propia se acepta.
+    exigirMismoAmbito('empresa_id', d.empresa_id, empresaDe(u), crear ? 'crear' : 'cambiar');
+    r = { ...d, empresa_id: empresaDe(u) };
+  }
   else if (d.empresa_id != null) await assertRef(prisma.empresaAdministradora, d.empresa_id as number, {}, 'empresa_id');
   else if (crear) throw invalid('Datos inválidos: empresa_id: es obligatorio', { empresa_id: 'Obligatorio' });
   // El proveedor sólo va con el destino «proveedor» y debe ser de la misma empresa; con otro destino se limpia.

@@ -4,6 +4,7 @@ import { assertRef, crudRouter, invalidRef } from '../crud';
 import { prisma } from '../db';
 import { forbidden, invalid } from '../errors';
 import { ambitoJunta, esJunta } from '../lib/junta';
+import { exigirMismoAmbito } from '../lib/ambito';
 import { empresaDe, scopeComplejos, scopeProveedores, scopeProveedoresJunta } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { boolQuery, emailSchema, idSchema, telefonoSchema, texto, textoOpcional, z } from '../validation';
@@ -63,8 +64,10 @@ const adminRouter = crudRouter({
   prepareCreate: async (d, u) => {
     const { complejo_ids, empresa_id, ...resto } = d as z.infer<typeof base>;
     let empresa: number;
-    if (u.rol === 'admin') empresa = empresaDe(u);
-    else if (empresa_id == null) throw invalid('Datos inválidos: empresa_id: es obligatorio', { empresa_id: 'Obligatorio' });
+    if (u.rol === 'admin') {
+      exigirMismoAmbito('empresa_id', empresa_id, empresaDe(u), 'crear'); // otra empresa → 422; la propia se acepta
+      empresa = empresaDe(u);
+    } else if (empresa_id == null) throw invalid('Datos inválidos: empresa_id: es obligatorio', { empresa_id: 'Obligatorio' });
     else {
       await assertRef(prisma.empresaAdministradora, empresa_id, {}, 'empresa_id');
       empresa = empresa_id;
@@ -73,8 +76,8 @@ const adminRouter = crudRouter({
   },
   // La empresa del proveedor no se cambia (es de quien lo registró).
   prepareUpdate: async (d, u, existing) => {
-    const { complejo_ids, empresa_id: _ignorada, ...resto } = d as z.infer<typeof base>;
-    void _ignorada;
+    const { complejo_ids, empresa_id, ...resto } = d as z.infer<typeof base>;
+    exigirMismoAmbito('empresa_id', empresa_id, existing.empresa_id, 'cambiar');
     return { ...resto, ...(await complejosAnidados(complejo_ids, u, existing.empresa_id as number, true)) };
   },
 });
@@ -121,18 +124,18 @@ const juntaRouter = crudRouter({
   updateSchema: base.partial(),
   operativo: (_r, u) => exigirOperativo(ambitoJunta(u)!.complejo_id, u),
   prepareCreate: async (d, u) => {
-    const { complejo_ids, empresa_id: _ignorada, ...resto } = d as z.infer<typeof base>;
-    void _ignorada;
+    const { complejo_ids, empresa_id, ...resto } = d as z.infer<typeof base>;
     const mio = ambitoJunta(u)!.complejo_id;
     soloSuCondominio(complejo_ids, mio);
     const complejo = await prisma.complejoHabitacional.findUnique({ where: { id: mio }, select: { empresa_id: true } });
     if (complejo?.empresa_id == null) throw invalid('Tu condominio no tiene una administradora asignada', { _: 'Sin administradora' });
+    exigirMismoAmbito('empresa_id', empresa_id, complejo.empresa_id, 'crear'); // la empresa sale de su condominio; otra → 422
     return { ...resto, empresa_id: complejo.empresa_id, complejos: { create: [{ complejo_id: mio }] } };
   },
   // Los vínculos no se tocan: un proveedor de la junta queda siempre vinculado sólo a su condominio.
   prepareUpdate: async (d, u, existing) => {
-    const { complejo_ids, empresa_id: _ignorada, ...resto } = d as z.infer<typeof base>;
-    void _ignorada;
+    const { complejo_ids, empresa_id, ...resto } = d as z.infer<typeof base>;
+    exigirMismoAmbito('empresa_id', empresa_id, existing.empresa_id, 'cambiar');
     const mio = ambitoJunta(u)!.complejo_id;
     if (!(await soloDeEsteCondominio(existing.id as number, mio))) throw forbidden(MENSAJE_COMPARTIDO);
     soloSuCondominio(complejo_ids, mio);

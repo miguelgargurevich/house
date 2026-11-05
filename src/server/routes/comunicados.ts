@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { conflict, invalid, notFound } from '../errors';
 import { ambitoJunta, puedeGestionar } from '../lib/junta';
+import { rechazarAmbito } from '../lib/ambito';
 import { scopeComplejos, scopeComunicados, scopeNotificaciones } from '../lib/scope';
 import { currentUser, type AuthUser } from '../middleware/auth';
 import { procesarPronto } from '../services/avisos';
@@ -254,6 +255,7 @@ comunicadosRouter.get('/:id', async (req, res) => {
  */
 comunicadosRouter.post('/', async (req, res) => {
   const u = currentUser(req);
+  rechazarAmbito(req.body, { permitidos: ['complejo_id', 'estructura_id'] }); // empresa_id no se envía: sale del condominio
   const d = parseBody(crearSchema, req);
   const ambito = await resolverAmbito(u, d.complejo_id, d.estructura_id);
   await exigirOperativo(ambito.complejo_id, u);
@@ -287,6 +289,7 @@ const editar = async (req: Request, res: Response) => {
   const c = await cargar(req);
   await exigirOperativo(c.complejo_id, currentUser(req));
   if (c.archivado_at) throw conflict('Este comunicado está archivado y ya no se puede editar');
+  rechazarAmbito(req.body, { actual: c }); // el condominio, el block y la empresa no se mueven: otro valor → 422; el mismo, se acepta
   const d = parseBody(editarSchema, req);
   const data: Prisma.ComunicadoUpdateInput = {
     ...(d.titulo !== undefined ? { titulo: d.titulo } : {}),

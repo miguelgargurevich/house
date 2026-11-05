@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { conflict, invalid, notFound } from '../errors';
+import { rechazarAmbito } from '../lib/ambito';
 import { scopeAreasComunes, scopeComplejos } from '../lib/scope';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
 import { exigirOperativo } from '../services/comercial/operativo';
@@ -143,6 +144,7 @@ areasComunesRouter.get('/:id/disponibilidad', async (req, res) => {
  */
 areasComunesRouter.post('/', requireRole('admin'), async (req, res) => {
   const u = currentUser(req);
+  rechazarAmbito(req.body, { permitidos: ['complejo_id'] });
   const d = parseBody(crearSchema, req);
   exigirHorario(d.hora_apertura, d.hora_cierre);
   if (!(await prisma.complejoHabitacional.findFirst({ where: { AND: [{ id: d.complejo_id }, scopeComplejos(u)] }, select: { id: true } }))) throw notFound('Condominio');
@@ -169,6 +171,7 @@ areasComunesRouter.post('/', requireRole('admin'), async (req, res) => {
 const editar = async (req: Request, res: Response) => {
   const u = currentUser(req);
   const a = await cargar(req);
+  rechazarAmbito(req.body, { actual: a }); // el condominio del área no se mueve: otro valor → 422; el mismo, se acepta
   const d = parseBody(editarSchema, req);
   exigirHorario(d.hora_apertura ?? a.hora_apertura, d.hora_cierre ?? a.hora_cierre);
   await exigirOperativo(a.complejo_id, u);

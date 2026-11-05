@@ -93,10 +93,17 @@ describe('aislamiento entre empresas', () => {
     assert.equal(u.status, 422);
     const t = await llamar(base, 'POST', '/api/tareas', T.adminA, { titulo: 'Tarea cruzada', unidad_id: d.unidadB1.id });
     assert.equal(t.status, 422);
-    const c = await llamar(base, 'POST', '/api/conceptos', T.adminA, { nombre: 'Concepto', empresa_id: d.empresaB.id });
+    // Un `empresa_id` ajeno ya no se pisa en silencio: 422 CAMPO_DE_AMBITO (y no se crea nada); sin él, la empresa es la suya.
+    const cAjeno = await llamar(base, 'POST', '/api/conceptos', T.adminA, { nombre: 'Concepto', empresa_id: d.empresaB.id });
+    assert.equal(cAjeno.status, 422);
+    assert.equal(cAjeno.body.code, 'CAMPO_DE_AMBITO');
+    const c = await llamar(base, 'POST', '/api/conceptos', T.adminA, { nombre: 'Concepto' });
     assert.equal(c.status, 201);
     assert.equal(c.body.empresa_id, d.empresaA.id);
-    const us = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Colado', email: 'colado@test.pe', rol: 'seguridad', password: 'ClaveSegura123', empresa_id: d.empresaB.id });
+    const usAjeno = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Colado', email: 'colado@test.pe', rol: 'seguridad', password: 'ClaveSegura123', empresa_id: d.empresaB.id });
+    assert.equal(usAjeno.status, 422);
+    assert.equal(usAjeno.body.code, 'CAMPO_DE_AMBITO');
+    const us = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Colado', email: 'colado@test.pe', rol: 'seguridad', password: 'ClaveSegura123' });
     assert.equal(us.status, 201);
     assert.equal(us.body.empresa_id, d.empresaA.id);
     const asignar = await llamar(base, 'PUT', `/api/unidades/${d.unidadA1.id}`, T.adminA, { propietario_id: d.propietarioB.id });
@@ -128,8 +135,12 @@ describe('escalada de privilegios', () => {
     assert.equal((await llamar(base, 'PUT', `/api/usuarios/${d.superadmin.id}`, T.adminA, { nombre: 'Hackeado' })).status, 404);
   });
 
-  it('el admin puede crear otro admin de SU empresa, pero uno de otra empresa queda en la suya', async () => {
-    const r = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Admin Dos', email: 'admin2@test.pe', rol: 'admin', password: 'ClaveSegura123', empresa_id: d.empresaB.id });
+  it('el admin puede crear otro admin de SU empresa; pedir uno de otra empresa es 422 (no queda ni en la suya)', async () => {
+    const ajena = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Admin Dos', email: 'admin2@test.pe', rol: 'admin', password: 'ClaveSegura123', empresa_id: d.empresaB.id });
+    assert.equal(ajena.status, 422);
+    assert.equal(ajena.body.code, 'CAMPO_DE_AMBITO');
+    assert.equal(await prisma.usuario.count({ where: { email: 'admin2@test.pe' } }), 0);
+    const r = await llamar(base, 'POST', '/api/usuarios', T.adminA, { nombre: 'Admin Dos', email: 'admin2@test.pe', rol: 'admin', password: 'ClaveSegura123' });
     assert.equal(r.status, 201);
     assert.equal(r.body.empresa_id, d.empresaA.id);
   });

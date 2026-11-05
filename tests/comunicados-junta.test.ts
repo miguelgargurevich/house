@@ -119,11 +119,16 @@ describe('junta: Proveedores', () => {
     // La administración lo ve en su lista (es de su empresa) y la junta de otro condominio, no.
     assert.ok(razones(await llama(T.adminA, 'GET', '/api/proveedores')).includes('Cerrajería Rápida'));
     assert.ok(!razones(await llama(T.presiB, 'GET', '/api/proveedores')).includes('Cerrajería Rápida'));
-    // Nombrar su propio condominio está bien; cualquier otro (aunque sea de la misma empresa) o `empresa_id` ajeno no cambia nada.
-    const ok = await llama(T.tesor1, 'POST', '/api/proveedores', proveedorNuevo({ razon_social: 'Con su condominio', complejo_ids: [d.complejoA.id], empresa_id: d.empresaB.id }));
+    // Nombrar su propio condominio está bien; un `empresa_id` ajeno ya no se ignora en silencio: 422 CAMPO_DE_AMBITO y no se crea nada.
+    const n = await prisma.proveedor.count();
+    const ajena = await llama(T.tesor1, 'POST', '/api/proveedores', proveedorNuevo({ razon_social: 'Con empresa ajena', complejo_ids: [d.complejoA.id], empresa_id: d.empresaB.id }));
+    assert.equal(ajena.status, 422, ajena.texto);
+    assert.equal(ajena.body.code, 'CAMPO_DE_AMBITO');
+    assert.equal(await prisma.proveedor.count(), n);
+    const ok = await llama(T.tesor1, 'POST', '/api/proveedores', proveedorNuevo({ razon_social: 'Con su condominio', complejo_ids: [d.complejoA.id], empresa_id: d.empresaA.id }));
     assert.equal(ok.status, 201, ok.texto);
     const f2 = await prisma.proveedor.findUniqueOrThrow({ where: { id: ok.body.id }, include: { complejos: true } });
-    assert.equal(f2.empresa_id, d.empresaA.id, 'el `empresa_id` que mande no cuenta');
+    assert.equal(f2.empresa_id, d.empresaA.id, 'la de su condominio');
     assert.deepEqual(f2.complejos.map((c) => c.complejo_id), [d.complejoA.id]);
   });
 

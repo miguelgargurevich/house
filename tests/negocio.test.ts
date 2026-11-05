@@ -300,8 +300,13 @@ describe('unidades e inquilinos', () => {
     assert.equal(ok.body.inquilino.nombre, 'Inquilino 1');
   });
 
-  it('el empresa_id de una unidad se deriva de su complejo aunque el cliente envíe otro', async () => {
-    const r = await llamar(base, 'POST', '/api/unidades', T.super, { codigo: 'Z-1', tipo: 'Local', complejo_id: d.complejoB.id, empresa_id: d.empresaA.id });
+  it('el empresa_id de una unidad se deriva de su complejo: si el cliente envía uno, 422 (ya no se ignora)', async () => {
+    const n = await prisma.unidad.count();
+    const ajena = await llamar(base, 'POST', '/api/unidades', T.super, { codigo: 'Z-1', tipo: 'Local', complejo_id: d.complejoB.id, empresa_id: d.empresaA.id });
+    assert.equal(ajena.status, 422);
+    assert.equal(ajena.body.code, 'CAMPO_DE_AMBITO');
+    assert.equal(await prisma.unidad.count(), n);
+    const r = await llamar(base, 'POST', '/api/unidades', T.super, { codigo: 'Z-1', tipo: 'Local', complejo_id: d.complejoB.id });
     assert.equal(r.status, 201);
     assert.equal(r.body.empresa_id, d.empresaB.id);
   });
