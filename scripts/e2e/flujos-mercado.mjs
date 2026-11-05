@@ -390,7 +390,7 @@ async function faseSeparacion(S) {
           if (ruta.startsWith('/api/medios-pago/')) {
             // Los medios de pago no tienen GET por id: se comprueba en la base que siguen en SU condominio y block.
             const [f] = sql(`select complejo_id, coalesce(estructura_id, 0) from "MedioPago" where id = ${ruta.split('/').pop()}`);
-            igual = Number(f[0]) === o.complejo && Number(f[1]) === (sql(`select coalesce(estructura_id, 0) from "MedioPago" where id = ${o.medio}`)[0] ? Number(f[1]) : 0) && dueno[a.cliente].sets.complejos.has(Number(f[0]));
+            igual = dueno[a.cliente].sets.complejos.has(Number(f[0])) && dueno[a.cliente].sets.medios.has(Number(ruta.split('/').pop())); // sigue siendo de un condominio SUYO (el ámbito no se cambió a otro cliente)
           } else {
             despues = await a.api.get(ruta);
             igual = antesObj !== undefined && quitar(despues.body) === antesObj;
