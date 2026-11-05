@@ -13,7 +13,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Pruebas** (sobre copia del HTML publicado, sin subir nada):
   - HTML: copia sin el logo (revertido el diff con `patch -R`) → `videos` → 1 de `rel="icon"`, 1 de `class="logo-torre"`, 1 de `logo-torre-pie`, 1 de `.logo-torre{`. Corrido dos veces: salida idéntica. Las marcas coinciden con el publicado. Sin `<h1>` o sin pie: sale con código 1 y no escribe.
   - PDF: PDF de prueba de 2 páginas → `sello-pdf.py` → `pdftoppm -r 50` → la portada muestra el logo grande y la página 2 el sello chico con el texto.
-- **Pendiente**: los PDF por rol publicados el 3-nov (`cmw1joons…`, `cmw1jope9…`, `cmw1joq6b…`, `cmw1jorsp…`) no tienen el sello. No se volvieron a publicar; se sellan al regenerarlos. El HTML publicado ya trae el logo.
+- **Corrección de Opus**: los 4 PDF por rol publicados (`cmw1joons…`, `cmw1jope9…`, `cmw1joq6b…`, `cmw1jorsp…`) YA llevan el sello: Opus los selló a mano y los copió encima de sus archivos (mismo enlace). `sello-pdf.py` reproduce ese PDF byte a byte (comprobado con `cmp`). El HTML publicado también trae el logo; correr el paso `videos` dos veces no lo duplica.
 - **Gotcha**: `grep -c 'logo-torre-pie'` cuenta también la regla CSS; para contar el SVG usa `class="logo-torre-pie"`.
 
 ## 2026-11-04 — Mensajería inteligente: evitados en el contador, portada, planes y flotante (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/mensajeria-inteligente`) — push: no

@@ -109,5 +109,5 @@ El logo es el de la app (`src/ui/IconoTorre.tsx`). Tiene que quedar fijo en cada
   `python3 -P scripts/marketing/sello-pdf.py <entrada.pdf> <salida.pdf>`. Pone el logo grande en la portada y el chico con el nombre
   al pie de las demás páginas. NO es idempotente: si hay que rehacerlo, parte del PDF de `doc_pdf`, no de uno sellado. Se sube la salida
   al mismo recurso que el PDF anterior.
-- **Pendiente**: los PDF por rol publicados el 3-nov (administradora, junta, vecino y personal) no tienen el sello; se sellan la próxima vez que se regeneren.
+- Los PDF por rol publicados (administradora, junta, vecino y personal) ya llevan el sello desde el 4-nov-2026 (Opus los selló y los copió encima de sus mismos archivos de MinIO; `sello-pdf.py` da el mismo PDF byte a byte).
   El HTML publicado ya trae el logo (lo puso Opus a mano; el paso `videos` deja el mismo marcado).
