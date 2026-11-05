@@ -4,6 +4,20 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Segunda tanda de videos sin «Gestión Urbana»: v5, v7 y m-admin-recibos (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel / Opus**: «hazlo» (segunda tanda, OK de Opus del 4-nov 19:00): regrabar v5 (escritorio y celular), v7 (escritorio y celular, que también mostraba el nombre viejo) y m-admin-recibos con grupos, con la voz existente y el WhatsApp falso en local.
+- **Qué se hizo**: mp4 regrabados con el mismo nombre de archivo en `.claude/videos/v5/`, `v7/` y `m-admin-recibos/` (no commiteados). Tabla, OCR y notas en `docs/marketing/regrabados-2026-11-04.md`; nota en `docs/manual/README.md`. `manual-videos.json` sin cambios (las duraciones no varían).
+- **Resultado**: OCR a 1 cuadro por segundo en los 5 mp4: sólo `torrecondominios.com` (cierre de marca y aviso). Sin «Gestión Urbana», sin Melina/Loayza/gmail/Gargurevich. A ojo: hojas de los 5 y cuadros de WhatsApp de v5 y v7.
+- **Preparación LOCAL (ya deshecha)**: Evolution falso en 18089; `whatsapp_instance='local_6'` en la empresa 6; `--preparar` (13 de 14 blocks con grupo); backend principal reiniciado con `EVOLUTION_URL=http://localhost:18089`.
+- **Restaurado y verificado en la base**: `whatsapp_instance` null, `nombre_comercial`/`color_marca` null, 53 `GrupoWhatsapp` de la empresa 6 borrados, Evolution falso detenido (PID por PID), backend reiniciado sin variables de WhatsApp.
+- **Gotchas**:
+  - El grupo «Vecinos Block 14» queda asignado en la base LOCAL tras grabar v7 (la escena 5 lo asigna). Al borrar los grupos de la empresa 6 se va con él; antes de regrabar v7 hay que devolverlo a «sin asignar».
+  - v7 escena 2 (escritorio) y escena 5 (celular, primera pasada): acciones que expiran porque el aviso «Instalar Torre» sólo sale en pantallas chicas y el Block 14 ya estaba asignado. Las escenas se graban igual; la pasada buena de celular asigna el Block 14.
+  - El modal «Subir Excel de recibos» de v5 celular desborda por la derecha (problema de la pantalla, ya anotado).
+  - Los mp4 viejos de v7 se sobrescribieron: su duración vieja (63,0 s) es la del guion, no medida.
+- **Próximos (Opus)**: subir a MinIO/My Workspace sólo los 5 mp4 regrabados (v5, v7 y m-admin-recibos); oír las voces; no subir los pendientes de otras tandas.
+
 ## 2026-11-04 — Videos regrabados sin «Gestión Urbana» (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: «hazlo» (cambiar los datos de prueba y volver a grabar los videos que mostraban «Gestión Urbana SAC» y @gestionurbana.com, dominio real de terceros).

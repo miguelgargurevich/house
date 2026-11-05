@@ -2,9 +2,11 @@
 
 **Motivo**: los videos mostraban «Gestión Urbana SAC» y correos @gestionurbana.com, un dominio real de terceros. La empresa de prueba ahora es «Administradora Demo SAC» con correos `.example` (commit 9293fbf). Se regraban con el mismo guion y la **misma voz** que ya existía (no se generó ninguna voz nueva).
 
-**Cómo se verificó**: OCR con `tesseract -l spa` a 1 cuadro por segundo (`ffmpeg -vf fps=1`), buscando `gesti.n urbana|gestionurbana|melina|loayza|gmail|gargurevich|\.com\b`, más una búsqueda de correos (`@dominio`).
+**Cómo se verificó**: OCR con `tesseract -l spa` a 1 cuadro por segundo (`ffmpeg -vf fps=1`), buscando `gesti.n urbana|gestionurbana|melina|loayza|gmail|gargurevich|\.com\b` y `@`. Los cuadros a ojo son de la hoja de revisión (`.claude/videos/<v>/hoja/hoja.jpg`) y de tiras de cuadros sacadas a mano.
 
 ## Regrabados (mp4 en `.claude/videos/<video>/`, mismo nombre de archivo)
+
+### Primera tanda (Haiku, commit add77c4)
 
 | Archivo | Duración vieja → nueva | OCR | Revisión a ojo |
 |---|---|---|---|
@@ -16,22 +18,27 @@
 | `m-admin-condominios/torre-m-admin-condominios-escritorio.mp4` | 17,2 s → 17,2 s | 17 cuadros, sin hallazgos | Sí |
 | `m-admin-marca/torre-m-admin-marca-escritorio.mp4` | 38,3 s → 38,3 s | 38 cuadros, sin hallazgos | Sí. Al final la marca de la empresa de prueba queda en `null` (verificado en la base) |
 | `m-admin-mi-empresa/torre-m-admin-mi-empresa-escritorio.mp4` | 16,2 s → 16,3 s | 16 cuadros, sin hallazgos | Sí |
-| `m-admin-recibos/torre-m-admin-recibos-escritorio.mp4` | 28,4 s → 28,4 s | 28 cuadros. Sólo `https://torrecondominios.com` (texto del aviso, permitido) | Sí, **con un problema de contenido (ver abajo)** |
 | `m-admin-unidades/torre-m-admin-unidades-escritorio.mp4` | 15,9 s → 15,9 s | 16 cuadros, sin hallazgos | Sí |
 
-Los mp4 viejos de `m-admin-*` y los de v2/v6 están respaldados en `/private/tmp/claude-501/-Users-miguelfernandezgargurevich-Projectos-house--claude-worktrees-manual-videos/5ea1d827-21ab-4d56-8d64-7b0cd2444066/scratchpad/viejos/`.
+### Segunda tanda (Claude Code, Haiku 5.5, con OK de Opus del 4-nov 19:00)
 
-Ningún correo apareció en ningún OCR. No se detectó «Melina», «Loayza», «gmail» ni «Gargurevich».
+| Archivo | Duración vieja → nueva | OCR | Revisión a ojo |
+|---|---|---|---|
+| `v5/torre-v5-escritorio.mp4` | 61,3 s → 61,3 s | 61 cuadros. Sólo `torrecondominios.com` (cierre) | Sí: hoja (recibos con «Administradora Demo SAC», morosidad, rendición) y cuadros de WhatsApp: grupos de prueba, «Falta: Block 14», aviso de recibo |
+| `v5/torre-v5-celular.mp4` | 61,3 s → 61,3 s | 61 cuadros. Sólo `torrecondominios.com` (cierre) | Sí: hoja. El modal «Subir Excel» desborda por la derecha en celular: es el problema ya anotado de la pantalla, no del video |
+| `v7/torre-v7-escritorio.mp4` | 63,0 s → 63,0 s (según el guion; el mp4 anterior se sobrescribió y no se volvió a medir) | 63 cuadros. Sólo `torrecondominios.com` (cierre) | Sí: hoja (login, resumen, vista previa de contactos sin guardar) |
+| `v7/torre-v7-celular.mp4` | 63,0 s → 63,0 s (igual) | 63 cuadros. Sólo `torrecondominios.com` (cierre) | Sí: escena 5 (WhatsApp) con «Block 14» asignado en la base (ver abajo); escena 4 con «Listo: 53 grupos» |
+| `m-admin-recibos/torre-m-admin-recibos-escritorio.mp4` | 28,4 s → 28,4 s | 28 cuadros. Sólo `torrecondominios.com` (texto del aviso). El aviso dice «el aviso va al grupo de WhatsApp de Block 1»; ya no aparece «no tiene grupo» | Sí: hoja. Coincide con la voz |
 
-## Pendientes (NO regrabados)
+## Notas de la segunda tanda
 
-| Archivo | Estado | Motivo |
-|---|---|---|
-| `v5/torre-v5-escritorio.mp4` (61,3 s) | Sin regrabar. El mp4 viejo está en el checkout principal y sigue mostrando «Gestión Urbana» | Las escenas 4 a 6 usan «Mis grupos» y «Traer mis grupos», que necesitan WhatsApp: el Evolution falso (puerto 18089) está apagado, `whatsapp_instance` de la empresa está vacío y `GrupoWhatsapp` tiene 0 filas. Preparar eso cambia datos de la base y reinicia el backend, y el encargo no lo permite sin OK. El xlsx `block-15-noviembre.xlsx` ya se copió al worktree |
-| `v5/torre-v5-celular.mp4` (61,3 s) | Sin regrabar | Mismo motivo que el escritorio |
-| `m-admin-recibos` (aviso al grupo) | Regrabado, pero **no coincide con la voz** | La escena del aviso muestra «El Block 1 no tiene grupo de WhatsApp» (0 grupos en la base). La voz dice que el aviso va al grupo del block. Hay que regrabarlo cuando haya grupos (mismo motivo que v5) |
+- **v5 y m-admin-recibos** necesitaban WhatsApp con grupos: se preparó en LOCAL con el Evolution falso (puerto 18089), `whatsapp_instance='local_6'` en la empresa 6 y `--preparar` (13 de 14 blocks con grupo; el Block 14 queda sin grupo a propósito).
+- **v7 escritorio y celular** asignan el grupo del Block 14 en la escena 5 (y el escritorio también en la 4, que los cuadros de la app muestran). Cada grabación parte de «sin asignar», así que antes de regrabar celular se devolvió ese grupo a «sin asignar» en la base y después la escena lo asignó de nuevo. Lo de la base se borra al cerrar (ver HANDOFF).
+- **v7, escena 2, escritorio**: la acción «Instalar Torre» expiró (8 s) porque ese aviso sólo sale en pantallas chicas. La escena se grabó igual, sin el aviso (límite ya documentado).
+- **v7, escena 5, celular**: la primera pasada expiró al buscar el selector del Block 14 porque ya estaba asignado (ver arriba). La pasada buena asigna el Block 14 (verificado en la base: el grupo «Vecinos Block 14 · Libertadores» queda con `estructura_id` de «Block 14»).
+- **Botón «Guardar» de la asignación de grupos** (v7, escena 5): el guion lo pulsa en la base LOCAL para asignar el grupo. No sale nada hacia afuera (los envíos siguen apagados y el Evolution es el falso).
+- La lista de grupos de prueba (53) y la empresa 6 se restauran al cerrar la sesión.
 
-## Acción para Opus
+## Cómo se verificó
 
-- Decidir si se preparan WhatsApp y grupos para regrabar v5 y m-admin-recibos (el método está en `docs/manual/README.md`, sección de WhatsApp).
-- Subir a MinIO/My Workspace sólo los mp4 regrabados (no los pendientes).
+Los OCR se hicieron con el comando de arriba. Los datos reales que buscamos (Melina, Loayza, gmail, Gargurevich, correos de dominios reales) no aparecen en ninguno de los 5 mp4.
