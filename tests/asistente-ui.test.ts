@@ -89,7 +89,8 @@ describe('cliente del stream', () => {
   it('errores previos al stream (JSON) → causa clara; 401 avisa que se perdió la sesión', async () => {
     const mk = (status: number, cuerpo: unknown) => (async () => new Response(JSON.stringify(cuerpo), { status })) as unknown as typeof fetch;
     const caso = async (status: number, cuerpo: unknown) => (await todos(enviarMensaje(deps(mk(status, cuerpo)), { message: 'x' })))[0] as Extract<EventoCliente, { tipo: 'error' }>;
-    assert.equal((await caso(500, { error: { code: 500, message: 'La IA no está configurada en el servidor. Contacta al administrador.' } })).error.causa, 'no_configurado');
+    assert.equal((await caso(503, { error: { code: 503, message: 'La IA no está configurada en el servidor. Contacta al administrador.' }, code: 'IA_NO_CONFIGURADA' })).error.causa, 'no_configurado');
+    assert.equal((await caso(500, { error: { code: 500, message: 'La IA no está configurada en el servidor. Contacta al administrador.' } })).error.causa, 'no_configurado', 'servidores viejos');
     assert.equal((await caso(429, { error: 'Has alcanzado el límite de consultas a la IA, intenta de nuevo más tarde' })).error.causa, 'limite_uso');
     assert.equal((await caso(429, { error: { code: 429, message: 'La IA está saturada o se superó la cuota. Intenta nuevamente en unos minutos.' } })).error.causa, 'saturado');
     assert.equal((await caso(503, { error: { code: 503, message: 'x' } })).error.causa, 'caido');
