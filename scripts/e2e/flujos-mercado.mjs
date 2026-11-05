@@ -385,9 +385,16 @@ async function faseSeparacion(S) {
         if (metodo === 'PUT' && r.status >= 200 && r.status < 300) {
           intentos++;
           const antesObj = basePropia.get(`${a.id}|${ruta}`);
-          const despues = await a.api.get(ruta);
           const quitar = (b) => JSON.stringify(Object.fromEntries(Object.entries(b ?? {}).filter(([k]) => k !== 'updated_at')));
-          const igual = antesObj !== undefined && quitar(despues.body) === antesObj;
+          let igual, despues = { body: null };
+          if (ruta.startsWith('/api/medios-pago/')) {
+            // Los medios de pago no tienen GET por id: se comprueba en la base que siguen en SU condominio y block.
+            const [f] = sql(`select complejo_id, coalesce(estructura_id, 0) from "MedioPago" where id = ${ruta.split('/').pop()}`);
+            igual = Number(f[0]) === o.complejo && Number(f[1]) === (sql(`select coalesce(estructura_id, 0) from "MedioPago" where id = ${o.medio}`)[0] ? Number(f[1]) : 0) && dueno[a.cliente].sets.complejos.has(Number(f[0]));
+          } else {
+            despues = await a.api.get(ruta);
+            igual = antesObj !== undefined && quitar(despues.body) === antesObj;
+          }
           anotar('ajeno', `${a.id} → ${etiqueta} (cliente ${v}): 200 pero el campo ajeno NO se aplicó (el recurso queda igual)`, igual, igual ? '' : `el recurso cambió: ${quitar(despues.body).slice(0, 160)}`);
           if (igual) { const e = ((extra.ignorados ??= {})[etiqueta] = ((extra.ignorados ??= {})[etiqueta] ?? 0) + 1); void e; }
           continue;
