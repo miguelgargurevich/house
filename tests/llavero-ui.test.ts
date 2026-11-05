@@ -21,7 +21,6 @@ describe('iconos de proveedor', () => {
     assert.equal(datosIconoProveedor('openai').adaptive, true);
     assert.equal(datosIconoProveedor('nvidia').glyph, 'nvidia');
     assert.equal(datosIconoProveedor('nvidia').hex, '#76B900');
-    assert.equal(datosIconoProveedor('ollama').glyph, 'ollama');
   });
 
   it('los que no tienen logo caen a monograma con el color oficial de la marca', () => {
@@ -29,14 +28,14 @@ describe('iconos de proveedor', () => {
     assert.deepEqual(datosIconoProveedor('openrouter'), { hex: '#6467F2', mono: 'OR', adaptive: false, glyph: null });
     assert.deepEqual(datosIconoProveedor('deepseek'), { hex: '#4D6BFE', mono: 'DS', adaptive: false, glyph: null });
     assert.deepEqual(datosIconoProveedor('mistral'), { hex: '#FA520F', mono: 'MI', adaptive: false, glyph: null });
-    assert.deepEqual(datosIconoProveedor('cerebras'), { hex: '#F15A29', mono: 'CB', adaptive: false, glyph: null });
     assert.deepEqual(datosIconoProveedor('cohere'), { hex: '#39594D', mono: 'CO', adaptive: false, glyph: null });
-    assert.deepEqual(datosIconoProveedor('sambanova'), { hex: '#EE3124', mono: 'SN', adaptive: false, glyph: null });
   });
 
-  it('sin logo conocido: monograma gris de dos letras', () => {
+  it('sin logo conocido: monograma gris de dos letras (también los proveedores retirados)', () => {
     assert.deepEqual(datosIconoProveedor('llm7'), { hex: '#6B7280', mono: 'LL', adaptive: false, glyph: null });
     assert.deepEqual(datosIconoProveedor('kilo'), { hex: '#6B7280', mono: 'KI', adaptive: false, glyph: null });
+    assert.deepEqual(datosIconoProveedor('ollama'), { hex: '#6B7280', mono: 'OL', adaptive: false, glyph: null });
+    assert.deepEqual(datosIconoProveedor('cerebras'), { hex: '#6B7280', mono: 'CE', adaptive: false, glyph: null });
     assert.equal(datosIconoProveedor('no-existe').mono, 'NO');
     assert.equal(datosIconoProveedor('').mono, '?');
   });

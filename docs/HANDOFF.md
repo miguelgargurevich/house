@@ -4,6 +4,14 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Quitar 5 proveedores del llavero de IA (Claude Code, Haiku 5.5, delegado por Opus; rama `fix/quitar-proveedores`) — push: no
+
+- **Qué se hizo**: se retiraron Cerebras, SambaNova, Ollama Cloud, LLM7 y Kilo del catálogo `PROVEEDORES_IA` (`src/server/lib/proveedoresIA.ts`) y del mapa de íconos (`src/ui/proveedoresIcono.ts`). La cadena, la rotación y el orden salen del catálogo, así que no hubo que tocar lógica.
+- **Filas viejas**: una fila de `ClaveIntegracion` con uno de esos proveedores sigue en la lista (con su slug y un monograma gris), pero no entra en la cadena (`eslabonDeFila`) ni se usa al llamar (`obtenerClaveParaUso`), y no aparece en `orden`. Guardar una clave nueva para uno de ellos da 404. No se migró ningún dato: en producción no había filas.
+- **Pendiente fuera de alcance**: `src/ui/IconoProveedor.tsx` aún importa `SiOllama` y mapea el glyph `ollama`. Se dejó porque el archivo no estaba en la lista permitida; el tipo `GlyphProveedor` conserva `'ollama'` por eso. Limpiarlo es un cambio de dos líneas.
+- **Pruebas**: `tests/llavero.test.ts` gana el bloque «proveedores retirados» (catálogo, PUT 404 y fila vieja que no se usa). Falla si cualquiera de los cinco vuelve al catálogo (mutación comprobada). `tests/llavero-ui.test.ts`, `tests/llavero.test.ts` y `tests/rotacion.test.ts` ajustados a los proveedores vigentes.
+- **Gotcha**: `prisma db push` sin `--skip-generate` regenera el cliente del checkout principal. Aquí se usó `--skip-generate`.
+
 ## 2026-11-04 — Logo de Torre fijo en los manuales (HTML y PDF) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/logo-manual`) — push: no
 
 - **Qué se hizo**:
