@@ -217,7 +217,7 @@ function cuerpoPortada(ctx: ContextoSeo): string {
   const planes = orden.map(c => ctx.cat.planes.find(p => p.clave === c)).filter((p): p is Plan => !!p);
   return `<section><h1 style="${estiloH1}">${esc(PORTADA.h1)}</h1>
 <p>${esc(PORTADA.bajada)}</p>
-<p>${abierto ? `${A('/registro', PORTADA.botones.registro)} · ` : ''}${A('/precios', PORTADA.botones.precios)}</p></section>
+<p>${abierto ? `${A('/registro', PORTADA.botones.registro)} · ` : ''}${A('/precios', PORTADA.botones.precios)} · ${A(CONTACTO.enlace_demo, CONTACTO.cta_demo)}</p></section>
 <section><h2 style="${estiloH2}">${esc(e.titulo)}</h2><p>${esc(enunciado)}</p></section>
 <section><h2 style="${estiloH2}">${esc(PORTADA.pasos.titulo)}</h2><ol>${PORTADA.pasos.lista.map(p => `<li><h3>${esc(p.clausula)}</h3><p>${esc(p.texto)}</p></li>`).join('')}</ol></section>
 <section><h2 style="${estiloH2}">${esc(PORTADA.juntas.block.titulo)}</h2><p>${esc(PORTADA.juntas.block.texto)}</p><p>${esc(PORTADA.juntas.una.titulo)}: ${esc(PORTADA.juntas.una.texto)}</p></section>

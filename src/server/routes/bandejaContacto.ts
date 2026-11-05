@@ -27,7 +27,7 @@ bandejaContactoRouter.get('/contactos', superadmin, async (req, res) => {
     ...(q.q ? { OR: [{ nombre: { contains: q.q, mode: 'insensitive' } }, { correo: { contains: q.q, mode: 'insensitive' } }, { condominio: { contains: q.q, mode: 'insensitive' } }] } : {}),
   };
   const [items, total, nuevas] = await Promise.all([
-    prisma.solicitudContacto.findMany({ where, orderBy: { created_at: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+    prisma.solicitudContacto.findMany({ where, orderBy: [{ created_at: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
     prisma.solicitudContacto.count({ where }),
     prisma.solicitudContacto.count({ where: { estado: 'nueva' } }),
   ]);

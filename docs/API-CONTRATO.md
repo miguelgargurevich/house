@@ -970,3 +970,35 @@ El `PUT|DELETE /api/recibo-concepto-unidades/:id` genérico sigue existiendo (si
 ### Pantallas
 - Admin › Recibos › el mes: **Anular recibo** (secundaria, de peligro; apagada y explicada si hay pagos) → modal con motivo, casilla «Avisar a los vecinos» (marcada) y el efecto en una línea (`AnularReciboModal.tsx`; lógica en `_parts/recibos/correccion.ts`). Al anular vuelve a la lista de recibos.
 - Admin › Recibos › el mes › un departamento › **Corregir cargos** (`CorregirCargosModal.tsx`): monto nuevo por concepto o «Quitar este cargo», un motivo para todo. Cada cambio es una llamada aparte: si uno falla, los anteriores ya quedaron guardados y el modal lo dice.
+
+## Contacto, WhatsApp y Libro de Reclamaciones (4-nov-2026)
+
+### Configuración (`ConfiguracionComercial`, aditivo; se edita en Superadmin › Precios con `PUT /api/comercial/configuracion`, sólo superadmin, 403 al resto)
+- `whatsapp_contacto` (por defecto `"51966918363"`): celular con código de país, sólo dígitos (`^[1-9]\d{7,14}$`; se aceptan `+`, espacios, guiones y paréntesis y se quitan). Vacío = `null` = no se muestra ningún botón ni enlace. **El número no está escrito en el código** (una prueba lo recorre): sólo vive en la base y como valor de partida en `prisma/schema.prisma`.
+- `whatsapp_mensaje` (por defecto «Hola, vi Torre y quiero saber más»; ≤ 200, una línea, sin `<` ni `>`): texto con que se abre el chat. Vacío = el enlace va sin `?text`.
+- `url_facebook` (por defecto la página de Torre): `https://` + `facebook.com` (con `www.`, `m.` o `web.`). Vacío = `null`.
+- `GET /api/publico/planes` → `redes: { instagram, facebook, whatsapp: { numero, enlace } | null }`; `enlace = https://wa.me/<numero>?text=<mensaje codificado>`. Lo vacío es `null`.
+- El correo de contacto que ve el público es `legal_correo` (ya existente, «Datos legales»); el aviso de cada mensaje y de cada hoja sale a `legal_correo` y, si no hay, a `correo_superadmin`.
+
+### Público (sin sesión ni CSRF) — `/api/publico`
+- `POST /api/publico/contacto` `{ nombre ≤120, correo, celular?, condominio? ≤120, unidades? 1–100000, varios_condominios? bool, tema? 'consulta'|'demo', mensaje 5–2000 }` → **200** `{ ok: true, mensaje: "Recibimos tu mensaje. Te escribimos en menos de 1 día hábil." }`. Guarda en `SolicitudContacto` (con `ip`, `user_agent`) y manda un correo (texto + HTML, todo escapado) a `legal_correo`; si el correo falla el mensaje igual queda guardado (`aviso_enviado = false`). **422** `{ error, campos }`: sin correo o mensaje, textos que pasan del tope, etiquetas HTML (`<b>`, `<script>`, comentarios; un `<` suelto sí vale), caracteres de control, nombre en varias líneas. **429** pasadas 5 peticiones por IP en una hora.
+- `POST /api/publico/reclamaciones` (Libro de Reclamaciones virtual; Ley 29571 y D.S. 011-2011-PCM): `{ nombre, tipo_documento: dni|ce|pasaporte|ruc, numero_documento (formato según el tipo), domicilio, correo, telefono?, menor_de_edad?, apoderado_nombre/apoderado_tipo_documento/apoderado_numero_documento (obligatorios si es menor), bien_tipo: producto|servicio, bien_descripcion, monto_reclamado?, tipo: reclamo|queja, detalle 10–3000, pedido 5–2000, acepta_respuesta_correo: true }` → **201** con la constancia `{ correlativo, fecha, fecha_limite, plazo_dias_habiles, tipo, proveedor, consumidor, bien, detalle, pedido, mensaje }`. El proveedor (razón social, RUC, domicilio) se lee de `legal_*` y se copia a la hoja; sin esos datos → **503**.
+  - **Correlativo** `AAAA-NNNNNN`, consecutivo y único por año de Lima (candado `pg_advisory_xact_lock` por año + índice único `(anio, numero)`).
+  - **Plazo**: 15 días **hábiles** desde el día del registro (el día del registro no cuenta; si cae en sábado o domingo, el primer hábil es el lunes). **No descuenta feriados.** Es un criterio conservador: la fecha mostrada puede ser uno o dos días anterior al plazo real.
+  - Manda **copia al consumidor** (con el número y el plazo) y aviso a Torre; si un correo falla, la hoja ya quedó registrada y la constancia sale igual.
+  - **422** campos inválidos; **429** a la sexta hoja por IP o a la cuarta con el mismo correo en una hora.
+- **Antiabuso común**: campo trampa `sitio_web` (si llega con algo, **200** idéntico a un envío bueno —en reclamaciones `{ ok: true }`— y NO se guarda ni se envía nada); topes por IP propios de cada formulario (no gastan el cupo del registro); el límite general de 300 cada 15 min por IP también aplica. Los limitadores viven en `src/server/lib/limitesPublicos.ts`.
+
+### Bandeja del superadmin — `/api/comercial` (sólo superadmin; 403 al resto, 401 sin sesión)
+- `GET /contactos?estado=nueva|atendida&q=` → `{ items, total, page, pageSize, nuevas }`; `PATCH /contactos/:id` `{ estado: nueva|atendida, nota? }` (guarda `atendida_at`; auditado `solicitud_contacto`/`atender|reabrir`).
+- `GET /reclamaciones?estado=pendiente|respondida&tipo=&q=` (correlativo, nombre, correo o documento) → `{ items, total, page, pageSize, pendientes, vencidas }`; las pendientes primero y la que vence antes arriba. Cada hoja trae `fecha_limite` (AAAA-MM-DD), `dias_habiles_restantes` (0 el día del límite; negativo = vencida; `null` si ya se respondió) y `vencida`. `GET /reclamaciones/:id` = una hoja completa. `PATCH /reclamaciones/:id` `{ estado: pendiente|respondida, fecha?, nota? }`: la fecha de respuesta (por defecto hoy, de Lima) no puede ser futura ni anterior al registro (422); auditado `reclamacion`/`responder|reabrir`.
+
+### SEO y rutas
+- `/contacto` y `/libro-de-reclamaciones` son públicas e indexables (sitemap, `llms.txt`, título y descripción propios). Datos estructurados de la portada: `sameAs` con Instagram y Facebook y `ContactPoint` (teléfono = `+<whatsapp_contacto>` y correo = `legal_correo`; sin ninguno no hay `ContactPoint`).
+- Una ruta que no es pública, ni `/login`, ni de la app (prefijos de `PREFIJOS_PRIVADOS`) responde **404 real** con `noindex, nofollow` y la SPA, que pinta «No encontramos esta página» sin sesión. Las rutas de la app siguen respondiendo 200 y la app decide (login o su pantalla).
+
+### Esquema (aditivo)
+- `ConfiguracionComercial`: `url_facebook`, `whatsapp_contacto`, `whatsapp_mensaje`. Tablas nuevas `SolicitudContacto` y `Reclamacion` (índices `(estado, created_at)` y `(estado, fecha_limite)`; único `correlativo` y `(anio, numero)`).
+
+### Textos legales
+- Los cinco datos que estaban «por confirmar» se fijaron (Miguel, 4-nov-2026): alojamiento «un servidor privado virtual (VPS) administrado con Coolify», correo «Resend», registros de acceso y cambios «12 meses», aviso de cambios de precio «30 días» y conservación tras la baja «90 días». Viven en `PENDIENTES` (`src/pages/publico/legal/textos.tsx`). `VERSION_LEGAL` pasa a `2026-11-04`. Los `.md` de `docs/legal/` conservan los marcadores `{…}` de esos cinco datos (la prueba de fidelidad los ignora).

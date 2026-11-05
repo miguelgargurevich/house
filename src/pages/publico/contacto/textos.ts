@@ -5,6 +5,8 @@ export const CONTACTO = {
   h1: 'Habla con nosotros',
   bajada: 'Cuéntanos de tu condominio y te respondemos en menos de 1 día hábil. Si prefieres, escríbenos por WhatsApp.',
   exito: 'Recibimos tu mensaje. Te escribimos en menos de 1 día hábil.',
+  cta_demo: 'Solicita una demo',
+  enlace_demo: '/contacto?tema=demo',
   demo: 'Pide una demo y te mostramos Torre con los datos de tu condominio.',
 } as const;
 

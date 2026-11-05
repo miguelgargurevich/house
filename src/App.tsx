@@ -7,6 +7,7 @@ import { RequireCondominio } from './app/RequireCondominio';
 import { ToastProvider, Skeleton } from './ui';
 import Login from './pages/Login';
 import Portada from './pages/publico/Portada';
+import { esRutaDeLaApp } from './pages/publico/rutasApp';
 
 const SuperadminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
 const SuperadminEmpresas = lazy(() => import('./pages/superadmin/Empresas'));
@@ -22,6 +23,10 @@ const VerificarCorreo = lazy(() => import('./pages/publico/VerificarCorreo'));
 const Invitacion = lazy(() => import('./pages/publico/Invitacion'));
 const Privacidad = lazy(() => import('./pages/publico/Privacidad'));
 const Terminos = lazy(() => import('./pages/publico/Terminos'));
+const Contacto = lazy(() => import('./pages/publico/Contacto'));
+const LibroReclamaciones = lazy(() => import('./pages/publico/LibroReclamaciones'));
+const NoEncontrada = lazy(() => import('./pages/publico/NoEncontrada'));
+const SuperadminContactos = lazy(() => import('./pages/superadmin/Contactos'));
 const AdminBienvenida = lazy(() => import('./pages/admin/Bienvenida'));
 const AdminMiPlan = lazy(() => import('./pages/admin/MiPlan'));
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
@@ -76,8 +81,8 @@ function Landing() {
   const { user, loading } = useAuth();
   const { pathname } = useLocation();
   if (loading) return null;
-  // Sin sesión, la raíz es la portada; cualquier otra ruta desconocida lleva al inicio de sesión.
-  if (!user) return pathname === '/' ? <Portada /> : <Navigate to="/login" replace />;
+  // Sin sesión: la raíz es la portada; una dirección de la app (favorito viejo, enlace compartido) lleva al inicio de sesión; cualquier otra es una página que no existe.
+  if (!user) return pathname === '/' ? <Portada /> : esRutaDeLaApp(pathname) ? <Navigate to="/login" replace /> : <NoEncontrada />;
   return <Navigate to={HOME[user.rol]} replace />;
 }
 
@@ -95,6 +100,8 @@ export default function App() {
               <Route path="/invitacion" element={<Invitacion />} />
               <Route path="/privacidad" element={<Privacidad />} />
               <Route path="/terminos" element={<Terminos />} />
+              <Route path="/contacto" element={<Contacto />} />
+              <Route path="/libro-de-reclamaciones" element={<LibroReclamaciones />} />
               <Route element={<RequireAuth />}>
                 <Route element={<Shell />}>
         <Route element={<RequireRole roles={['superadmin']} />}>
@@ -106,6 +113,7 @@ export default function App() {
           <Route path="/superadmin/llavero" element={<SuperadminLlavero />} />
           <Route path="/superadmin/integraciones" element={<SuperadminIntegraciones />} />
           <Route path="/superadmin/suscripciones" element={<SuperadminSuscripciones />} />
+          <Route path="/superadmin/contactos" element={<SuperadminContactos />} />
         </Route>
         {/* Paso 2 del registro: la administradora sin condominios (`RequireCondominio` la manda aquí desde cualquier pantalla de la administración). */}
         <Route element={<RequireRole roles={['admin']} />}>

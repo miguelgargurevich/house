@@ -25,6 +25,8 @@ export interface Modulo { clave: string; nombre: string; descripcion: string | n
 /** «IGV», «IVA»… y su tasa en fracción (0.18 = 18 %). */
 export interface ImpuestoPublico { nombre: string; tasa: string }
 export interface PaisAbierto { codigo: string; nombre: string; bandera: string; moneda: string; impuesto: ImpuestoPublico }
+/** `whatsapp.enlace` es el `wa.me` con el mensaje inicial ya codificado. */
+export interface Redes { instagram: string | null; facebook: string | null; whatsapp: { numero: string; enlace: string } | null }
 export interface Catalogo {
   /** País con el que el servidor armó los precios (el pedido si está abierto; si no, Perú) y de él la moneda y el impuesto. */
   pais: string;
@@ -33,8 +35,8 @@ export interface Catalogo {
   /** Los países abiertos a contratar: lo que ofrece el selector. */
   paises: PaisAbierto[];
   planes: Plan[]; modulos: Modulo[]; registro_abierto: boolean;
-  /** Redes de Torre para el pie (null = no se muestra). */
-  redes?: { instagram: string | null };
+  /** Redes y WhatsApp de contacto de Torre (null = no se muestra). Vienen de la configuración, nunca del código. */
+  redes?: Redes;
   /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
   dias_gratis: number | null;
 }

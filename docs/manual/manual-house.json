@@ -1,6 +1,6 @@
 {
   "titulo": "Cómo usar Torre, según tu rol",
-  "kicker": "Manual de usuario · versión del 4-nov-2026 (14)",
+  "kicker": "Manual de usuario · versión del 4-nov-2026 (15)",
   "subtitulo": "Para la administradora, la junta directiva de cada block, los propietarios, los inquilinos y el personal del condominio: qué ves al entrar y cómo hacer cada cosa.",
   "diseno": "manual",
   "meta": [
@@ -967,6 +967,24 @@
       "aviso": {
         "tipo": "aviso",
         "texto": "Mientras estás dentro **no puedes** cambiar la contraseña, el correo ni el celular de esa persona, crear ni revocar sus tokens de API, tocar sus sesiones, vincular su WhatsApp ni abrir su asistente. No puedes entrar como otro superadmin ni encadenar una entrada dentro de otra. Todo lo demás sí se puede. Lo que hagas queda en **Auditoría** con el nombre de la persona y el tuyo, y en la pestaña **Entrar como** de Auditoría ves quién entró, a quién, por qué, cuándo empezó y cómo terminó."
+      }
+    },
+    {
+      "titulo": "Contactos y reclamaciones de la web",
+      "etiqueta": "Superadmin · Contactos y reclamaciones",
+      "parrafos": [
+        "Todo lo que llega desde la web pública está en **Plataforma › Contactos y reclamaciones**. Hay dos pestañas: **Contactos** (los mensajes del formulario de la página de contacto, también los que piden una demo) y **Reclamaciones** (las hojas del Libro de Reclamaciones). Cada mensaje y cada hoja también te llegan por correo; aquí queda el registro aunque el correo falle."
+      ],
+      "bullets": [
+        "**Contactos**: abre un mensaje con **Ver**, respóndele a su correo o celular y márcalo como **atendido** (puedes dejar una nota). Si lo marcaste por error, **Volver a «nuevo»**.",
+        "**Reclamaciones**: cada hoja tiene un número (por ejemplo 2026-000001) y una fecha límite de **15 días hábiles**. Los sábados y domingos no cuentan; los feriados sí, así que la fecha que ves puede ser uno o dos días anterior al plazo real.",
+        "La columna **Plazo** dice cuántos días hábiles faltan y se pone en **rojo** cuando venció. Arriba de la lista, un aviso rojo cuenta cuántas están vencidas.",
+        "Al responder la hoja por correo, ábrela, escribe la **fecha de la respuesta** y una **nota**, y pulsa **Marcar como respondida**. Con eso deja de correr el plazo.",
+        "El número de WhatsApp, Instagram y Facebook que ve el público se cambian en **Suscripciones › Precios y pagos › Contacto y redes de la web pública**."
+      ],
+      "aviso": {
+        "tipo": "nota",
+        "texto": "Sólo el superadmin ve esta pantalla. Los datos del Libro de Reclamaciones son datos personales de quien reclama: úsalos sólo para responderle."
       }
     },
     {

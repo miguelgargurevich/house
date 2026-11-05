@@ -80,10 +80,10 @@ describe('estructura de las pantallas', () => {
 
 describe('el manual', () => {
   const n = (re: RegExp) => MANUAL.secciones.findIndex(x => re.test(x.titulo)) + 1;
-  it('trae «Volver a revisar un pago rechazado» justo después de «Anular un pago ya validado», versión 14', () => {
+  it('trae «Volver a revisar un pago rechazado» justo después de «Anular un pago ya validado», versión 15', () => {
     assert.equal(n(/^Volver a revisar un pago rechazado$/), n(/^Anular un pago ya validado$/) + 1);
     const t = JSON.stringify(MANUAL.secciones[n(/^Volver a revisar un pago rechazado$/) - 1]);
     for (const frase of ['Rechazados', 'Volver a revisar', 'motivo', 'Por validar', 'auditoría', 'otro voucher']) assert.match(t, new RegExp(frase), frase);
-    assert.match(MANUAL.kicker, /\(14\)$/);
+    assert.match(MANUAL.kicker, /\(15\)$/);
   });
 });

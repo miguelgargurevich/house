@@ -30,7 +30,7 @@ describe('Instagram de Torre', () => {
 
   it('el pie lo enlaza en otra pestaña sólo si hay dirección, y los datos para buscadores lo ponen en sameAs', () => {
     const marco = readFileSync('src/pages/publico/Marco.tsx', 'utf8');
-    assert.match(marco, /data\?\.redes\?\.instagram && \(/);
+    assert.match(marco, /redes\?\.instagram && \(/);
     assert.match(marco, /target="_blank" rel="noopener noreferrer"/);
     assert.match(readFileSync('src/server/seo/paginas.ts', 'utf8'), /sameAs = \[redes\.instagram, redes\.facebook\]/);
   });

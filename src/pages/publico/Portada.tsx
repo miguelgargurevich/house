@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { PORTADA, cierrePrecios, preguntasPortada } from '../../lib/seo/textos';
 import { Aparece } from './Aparece';
+import { CONTACTO } from './contacto/textos';
 import { useCatalogo } from './catalogo';
 import { Marco } from './Marco';
 import { Fachada, TECHO, Techito } from './portada/Fachada';
@@ -36,6 +37,7 @@ export default function Portada() {
             <div style={sube(2)} className="sube mt-8 flex flex-wrap gap-3">
               {abierto && <Link to="/registro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>{PORTADA.botones.registro}</Link>}
               <Link to="/precios" className={`${boton} bg-surface2 hover:bg-line`}>{PORTADA.botones.precios}</Link>
+              <Link to={CONTACTO.enlace_demo} className={`${boton} border border-line hover:bg-surface2`}>{CONTACTO.cta_demo}</Link>
             </div>
           </div>
         </div>
@@ -104,8 +106,9 @@ export default function Portada() {
         <Aparece className="relative mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
           <h2 id="cierre-titulo" className={`max-w-3xl ${titulo}`}>{cierre.h2}</h2>
           <p className="mt-6 max-w-xl text-lg sm:text-xl">{cierre.texto}</p>
-          <div className="mt-9">
+          <div className="mt-9 flex flex-wrap gap-3">
             <Link to={abierto ? '/registro' : '/login'} className={`${boton} bg-on-brand text-brand hover:opacity-90`}>{abierto ? PORTADA.botones.registro : 'Ingresar'}</Link>
+            <Link to={CONTACTO.enlace_demo} className={`${boton} border border-on-brand/60 text-on-brand hover:bg-on-brand/10`}>{CONTACTO.cta_demo}</Link>
           </div>
         </Aparece>
       </section>

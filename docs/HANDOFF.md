@@ -4,6 +4,36 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-04 — Contacto, WhatsApp, Libro de Reclamaciones, 404 y datos legales (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/contacto-legal`) — push: no
+
+- **Pedido de Miguel**: «revisa los contactos de las páginas y los videos: si veo un video en Face o un reel y quiero contactar, ¿lo tengo?…». Antes sólo había `/registro` y `/login`. Aprobó: WhatsApp de contacto «usaremos el mío por mientras consigo otro número», los 5 datos legales «Yes, those values», y (mensaje posterior) el **ícono oficial de WhatsApp** en el botón flotante.
+- **Qué hay**:
+  - **Config en BD** (`ConfiguracionComercial`, aditivo): `whatsapp_contacto`, `whatsapp_mensaje`, `url_facebook`; se editan en Superadmin › Precios › «Contacto y redes de la web pública». `catalogoPublico.redes = { instagram, facebook, whatsapp: { numero, enlace } }` (wa.me con el mensaje codificado; vacío = `null` = no se muestra). **Ningún número en el código** (una prueba recorre `src/` y `public/`; sólo el valor de partida está en `prisma/schema.prisma`).
+  - **Botón flotante** (`WhatsappFlotante.tsx`, logo oficial inline en `src/ui/IconoWhatsapp.tsx`, 56 px, #25D366) dentro de `Marco`, es decir en todas las páginas públicas y no en la app con sesión; pie nuevo (razón social, RUC, domicilio, correo, WhatsApp, Instagram, Facebook, Contacto, Privacidad, Términos, Libro de Reclamaciones con `BookOpenIcon`).
+  - **`/contacto`** + `POST /api/publico/contacto` → `SolicitudContacto` + correo a `legal_correo` (si no, `correo_superadmin`). «Solicita una demo» → `/contacto?tema=demo` en la portada (hero y cierre) y en el plan Administradora de Precios.
+  - **`/libro-de-reclamaciones`** + `POST /api/publico/reclamaciones` → `Reclamacion` con correlativo `AAAA-NNNNNN` por año de Lima (candado `pg_advisory_xact_lock` + índice único), plazo de **15 días hábiles** (`services/reclamaciones/plazo.ts`; sin feriados, documentado), copia al consumidor y aviso a Torre, constancia en pantalla (imprimible).
+  - **Superadmin › Contactos y reclamaciones** (`/superadmin/contactos`, `routes/bandejaContacto.ts` bajo `/api/comercial`): lista, detalle, atender/responder con fecha y nota, días hábiles que faltan (rojo si venció).
+  - **Antiabuso** (contacto y libro): campo trampa `sitio_web`, tope por IP propio de cada formulario (5/h; el libro también 3/h por correo), tamaños máximos, sin etiquetas HTML (`lib/textoPublico.ts`), correo escapado.
+  - **404 real**: el servidor responde 404 + `noindex` a lo que no es público, ni `/login`, ni de la app (`esDesconocida`); la SPA pinta «No encontramos esta página» sin sesión (`NoEncontrada.tsx`); las rutas de la app sin sesión siguen yendo al login (`pages/publico/rutasApp.ts` = misma lista que `PREFIJOS_PRIVADOS`; lo fija una prueba).
+  - **SEO**: sitemap, `llms.txt`, títulos/descripciones; `sameAs` con Instagram y Facebook y `ContactPoint` (teléfono + correo).
+  - **Legal**: los 5 «por confirmar» pasaron a los valores aprobados (Coolify/VPS, Resend, 12 meses, 30 días, 90 días); `VERSION_LEGAL` = `2026-11-04` (servidor y página).
+  - Manual versión 15 (sección «Contactos y reclamaciones de la web», 64 secciones) y `docs/API-CONTRATO.md`.
+- **Decisiones**:
+  - Los limitadores nuevos viven en `src/server/lib/limitesPublicos.ts` (no en `middleware/rateLimit.ts`, fuera de lo permitido); `createApp` los crea sin opciones: las pruebas de 429 mandan 6 peticiones. Cada formulario lleva su cupo (no gasta el de registro).
+  - El contacto responde **200** (no 201), y con el señuelo lleno responde lo mismo que un envío bueno.
+  - El correo de contacto del público es `legal_correo` (no se creó un campo nuevo).
+  - Sin los datos legales del proveedor el libro responde **503** (no se registra una hoja sin proveedor).
+  - Reclamaciones: «días que faltan» = días hábiles; 0 el día del límite; negativo = vencida.
+- **Gotchas**:
+  - **Plazo legal**: Miguel pidió 15 días hábiles; **conviene que lo revise un abogado** (la hoja oficial y el reglamento han cambiado de plazo entre versiones) y también el texto del Libro (`pages/publico/contacto/textos.ts`). No descuenta feriados.
+  - `docs/legal/*.md` (autoritativos) conservan los marcadores `{hosting}`, `{proveedor_correo}`… de esos 5 datos (fuera de lo permitido; la prueba de fidelidad ignora las líneas con `{…}`). Si se quiere el markdown al día, reemplazarlos y subir la versión.
+  - `tests/reabrir-pago-ui.test.ts` fijaba el manual en «(14)»: ahora «(15)». Si otra rama sube el manual, hay que reconciliar el número.
+  - `tests/*-ui.test.ts` no pueden importar páginas que usen `api.ts` (`import.meta.env`): se fijan leyendo la fuente; los componentes que se renderizan llevan `/** @jsxRuntime automatic */`.
+  - Hay 3 errores de `eslint` (`react-refresh/only-export-components` en `legal/textos.tsx` y `DominiosPermitidos.tsx`) que ya existían.
+- **Verificado en navegador** (Chrome por CDP, ancho exacto 375 px, servidor local contra `house_test_contacto`, correo apagado): `/contacto`, `/libro-de-reclamaciones`, `/blog` (404), portada y Precios sin desborde horizontal (`scrollWidth` 375) y con el botón flotante de 56×56 a 16 px del borde; envío real de ambos formularios (contacto guardado con `tema=demo`; hoja `2026-000001` con límite 25/11/2026) y la bandeja del superadmin. El botón flotante no solapa ningún botón principal salvo en `/registro` a 375×812 con scroll 0: el extremo derecho de «Crear cuenta gratis» queda bajo el botón (al hacer scroll se libera; sigue tocable en el 85 % izquierdo).
+- **NO verificado**: modo oscuro; el correo real (Resend apagado en local: sólo con un `fetch` falso); lectores de pantalla; otros navegadores/tamaños; el texto legal del Libro de Reclamaciones.
+- **Próximos**: revisión legal del Libro y su plazo; actualizar `docs/legal/*.md`; mirar `/registro` en celular y decidir si el botón flotante se oculta ahí; cargar en producción (Superadmin › Precios) el WhatsApp definitivo cuando Miguel tenga otro número; subir la rama con OK de Miguel.
+
 ## 2026-11-04 — Volver a revisar un pago rechazado (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/revertir-rechazo`) — push: no
 
 - **Pedido de Miguel**: «acciones que la pantalla no deja deshacer» → «3. Revertir un rechazo: el pago vuelve a "Por validar"» → «Sí, esos tres».
