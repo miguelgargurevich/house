@@ -1,5 +1,5 @@
 // Graba las escenas de un video de marketing de Torre con Playwright sobre la app LOCAL (seed de Los Libertadores; ningún dato real).
-// Uso: node scripts/marketing/grabar-video.mjs <video> <escritorio|celular>   (video: v1 …; ver ESCENAS)
+// Uso: [TEMA=oscuro] node scripts/marketing/grabar-video.mjs <video> <escritorio|celular>   (video: v1 …; ver ESCENAS; TEMA: claro (por defecto) u oscuro)
 // Lee la voz de cada escena en .claude/videos/<video>/voz/e<N>.wav (la duración de la escena la manda su audio) y deja un clip por escena en
 // .claude/videos/<video>/<formato>/e<N>.webm. El montaje (voz + clips + cierre) lo hace scripts/marketing/montar-video.sh.
 import { createRequire } from 'node:module';
@@ -14,8 +14,10 @@ const { chromium } = require(process.env.PLAYWRIGHT ?? '/opt/homebrew/lib/node_m
 
 const APP = process.env.APP_URL ?? 'http://localhost:5173';
 const [video = 'v1', formato = 'escritorio'] = process.argv.slice(2);
+// Tema de la app al grabar: TEMA=oscuro (para redes) o claro (por defecto). Con oscuro, los clips van a <formato>-oscuro/ y no pisan los claros.
+const TEMA = process.env.TEMA ?? 'claro';
 const BASE = join(process.cwd(), '.claude/videos', video);
-const SALIDA = join(BASE, formato);
+const SALIDA = join(BASE, TEMA === 'oscuro' ? `${formato}-oscuro` : formato);
 
 /** Cuentas de prueba LOCALES (las del botón de desarrollo del login; nunca de producción). */
 const CUENTAS = {
@@ -380,13 +382,18 @@ const CIERRE = `<!doctype html><meta charset="utf-8"><style>
 </style><div class="c"><div class="m"><span class="l"><svg viewBox="0 0 32 32" width="56" height="56"><g transform="translate(16 16) scale(1.2) translate(-16 -16)"><rect x="10" y="5.5" width="12" height="21" rx="1.6" fill="none" stroke="#0f766e" stroke-width="2.2"/><g fill="#0f766e"><rect x="13" y="9.5" width="2.2" height="2.2"/><rect x="16.8" y="9.5" width="2.2" height="2.2"/><rect x="13" y="13.8" width="2.2" height="2.2"/><rect x="16.8" y="13.8" width="2.2" height="2.2"/><rect x="13" y="18.1" width="2.2" height="2.2"/><rect x="16.8" y="18.1" width="2.2" height="2.2"/><rect x="14.6" y="21.6" width="2.8" height="4.9"/></g></g></svg></span>Torre</div>
 <p>Tu condominio, en orden.</p><small>torrecondominios.com</small></div>`;
 
+// Tema oscuro: la app decide el tema con localStorage['house-theme'] antes de pintar (public/theme-init.js); se fija en cada carga de página.
+const TEMA_OSCURO = `try { localStorage.setItem('house-theme', 'dark'); } catch (e) {}`;
+
 async function grabar() {
+  if (!['claro', 'oscuro'].includes(TEMA)) throw new Error(`TEMA desconocido: ${TEMA} (claro u oscuro)`);
   // Los videos del manual (m-<rol>-<sección>) viven en videos-manual.mjs: se le pasan las utilidades de grabación.
   if (video.startsWith('m-')) ESCENAS = escenasManual({ APP, formato, ir, tocar, desplazar, asentar, pulsar, pausa, octubre });
   const escenas = ESCENAS[video];
   if (!escenas) throw new Error(`No hay escenas para ${video}`);
   const f = FORMATOS[formato];
   if (!f) throw new Error(`Formato desconocido: ${formato}`);
+  console.log(`tema: ${TEMA} → ${SALIDA}`);
   rmSync(SALIDA, { recursive: true, force: true });
   mkdirSync(SALIDA, { recursive: true });
   const browser = await chromium.launch();
@@ -417,7 +424,8 @@ async function grabar() {
       const n = i + 1;
       const largo = duracion(n) * 1000 + 700; // la voz + un respiro
       const tmp = join(SALIDA, `tmp-${n}`);
-      const ctx = await browser.newContext({ userAgent: e.ua, viewport: f.viewport, deviceScaleFactor: f.deviceScaleFactor, isMobile: f.isMobile, hasTouch: f.hasTouch, colorScheme: 'light', locale: 'es-PE', recordVideo: { dir: tmp, size: f.video }, storageState: e.rol ? sesiones[e.rol] : undefined });
+      const ctx = await browser.newContext({ userAgent: e.ua, viewport: f.viewport, deviceScaleFactor: f.deviceScaleFactor, isMobile: f.isMobile, hasTouch: f.hasTouch, colorScheme: TEMA === 'oscuro' ? 'dark' : 'light', locale: 'es-PE', recordVideo: { dir: tmp, size: f.video }, storageState: e.rol ? sesiones[e.rol] : undefined });
+      if (TEMA === 'oscuro') await ctx.addInitScript(TEMA_OSCURO);
       await ctx.addInitScript(CURSOR);
       await ctx.addInitScript(LIMPIEZA);
       // `antes`: prepara datos con otra pestaña (fuera de cámara: el clip del video es el de la pestaña principal).
