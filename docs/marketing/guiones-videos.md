@@ -145,3 +145,13 @@ Preparación: el correo se renderiza con `scripts/marketing/correo-invitacion.ts
    el montaje la agranda a 1920×1080 o 1080×1920); cursor visible, la duración de cada escena la manda su voz.
 3. Voz: un audio por escena con `audio_generar` (My Workspace, `voice: "ef_dora"`; devuelve una URL .wav que se baja con `curl` a `.claude/videos/<v>/voz/e<N>.wav`); la duración de cada escena la manda su audio. Si las acciones de una escena tardan más que su voz, el montaje las corta: lo lento (crear datos) va en `antes`.
 4. Montaje: `scripts/marketing/montar-video.sh <video> <formato>` (ffmpeg, H.264 + AAC); sin música por ahora.
+
+### Versión en modo oscuro (para redes)
+
+- Grabar: `TEMA=oscuro node scripts/marketing/grabar-video.mjs <video> <escritorio|celular>`. El contexto de Playwright va con `colorScheme: 'dark'` y un `addInitScript` que pone `localStorage['house-theme']='dark'` antes de cada página (la app lee esa clave en `public/theme-init.js`). Sin `TEMA` (o con `TEMA=claro`) todo queda como antes.
+- Los clips van a `.claude/videos/<video>/<formato>-oscuro/` (no pisan los claros).
+- Montar: `scripts/marketing/montar-video.sh <video> <formato> oscuro` → `.claude/videos/<video>/torre-<video>-<formato>-oscuro.mp4`.
+- Misma voz y mismo guion. Antes de cada toma, el grupo de WhatsApp de la escena de asignar (v7: Block 14) debe quedar «sin asignar» (`en_uso=false`, `destino` y `estructura_id` en null) en la base local; si no, la escena no puede asignarlo.
+- Revisión (7-nov-2026): OCR a 1 cuadro por segundo con `tesseract -l spa` sin coincidencias de `gesti.n ?urbana|gestionurbana|melina|loayza|gmail|gargurevich`, y hojas de contacto de todos los cuadros: en oscuro salen las pantallas públicas (inicio de sesión, aviso de instalar) y las de la app. La tarjeta de cierre ya es verde Torre con letras claras.
+- Limitación ya conocida: en escritorio la escena 2 de v7 pierde el aviso «Instalar Torre» (sólo sale en pantallas chicas); el video queda igual que la versión clara.
+- Las vistas previas («Así se verá» de Tu marca y el recibo de ejemplo) son tarjetas claras a propósito, también en oscuro.
