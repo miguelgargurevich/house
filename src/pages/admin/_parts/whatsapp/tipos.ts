@@ -25,7 +25,15 @@ export interface UsoWhatsapp {
   conectado: boolean;
   fecha: string;
   hoy: { enviados: number; tope: number | null; restantes: number | null };
-  mes: { periodo: string; renueva: string; condominios: { complejo_id: number; nombre: string; usados: number; tope: number | null }[] };
+  mes: {
+    periodo: string;
+    renueva: string;
+    condominios: { complejo_id: number; nombre: string; usados: number; tope: number | null }[];
+    enviados: number;
+    a_grupos: number;
+    evitados: number;
+    grupos_en_uso: number;
+  };
   en_cola: { total: number; para_manana: number; por_tipo: PorTipo };
   fallidos_hoy: { total: number; motivos: { motivo: string; cantidad: number }[] };
   por_tipo: { hoy: PorTipo; mes: PorTipo };
@@ -107,6 +115,23 @@ export function textoDestino(g: Pick<GrupoGuardado, 'destino' | 'complejo_id' | 
 export function textoSincronizado(iso: string | null): string {
   if (!iso) return 'Aún no has traído tus grupos';
   return `Traídos el ${new Date(iso).toLocaleString('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })}`;
+}
+
+/** Un número con punto de miles («1.300»), sin depender del idioma del navegador: el texto es el mismo en cualquier equipo. */
+export const miles = (n: number): string => String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+/**
+ * La línea del mes del contador. Con grupos en uso: «Este mes: 42 mensajes enviados · 1.300 evitados gracias a los grupos». Sin grupos, la
+ * sugerencia de asignarlos (el número de «evitados» no dice nada hasta entonces).
+ */
+export function textoMesGrupos(mes: Pick<UsoWhatsapp['mes'], 'enviados' | 'evitados' | 'grupos_en_uso'>): { linea: string; ayuda: string } {
+  if (mes.grupos_en_uso === 0) {
+    return { linea: 'Asigna el grupo de cada block y evita mensajes repetidos.', ayuda: 'Con un grupo por block, el recibo del mes llega en un solo mensaje al grupo en lugar de uno por departamento.' };
+  }
+  return {
+    linea: `Este mes: ${miles(mes.enviados)} ${mes.enviados === 1 ? 'mensaje enviado' : 'mensajes enviados'} · ${miles(mes.evitados)} ${mes.evitados === 1 ? 'evitado' : 'evitados'} gracias a los grupos`,
+    ayuda: 'Evitados: los mensajes directos que no hicieron falta porque el recibo del mes salió al grupo de su block. Cada grupo cuenta como un mensaje.',
+  };
 }
 
 /** Explicación del tope diario: es por DÍA y por número (no del mes), y lo que pasa sale al día siguiente. */

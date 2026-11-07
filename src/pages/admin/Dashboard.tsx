@@ -5,6 +5,7 @@ import { useResource } from '../../api';
 import { monedaEnPlural } from '../../lib/paises';
 import { Alert, BarChart, Card, CardBody, CardHeader, ErrorState, PageHeader, Skeleton, StatStrip, dinero, dineroCorto, nombreDelMes, periodo } from '../../ui';
 import { SelectoresUbicacion } from './_parts/cobranza/SelectoresUbicacion';
+import { hayVariosCondominios, rotuloTorre } from './_parts/cobranza/torres';
 import { BandaPlan } from './_parts/plan/BandaPlan';
 import { BienvenidaListo } from './_parts/BienvenidaListo';
 
@@ -161,10 +162,13 @@ export default function Dashboard() {
 
 /** «% cobrado de <mes> por block»: del último periodo emitido, qué parte de lo facturado a cada torre ya está pagado; de mayor a menor. */
 function CobradoPorTorre({ torres, palabra }: { torres: NonNullable<Resumen['por_torre']>; palabra: string }) {
+  // Con torres de más de un condominio, «Block 2» solo no dice de qué condominio es: el rótulo lleva el condominio.
+  const varios = hayVariosCondominios(torres);
+  const rotulo = (t: NonNullable<Resumen['por_torre']>[number]) => rotuloTorre(t.nombre, t.complejo, varios);
   const filas = torres
     .filter(t => Number(t.emitido_mes ?? 0) > 0)
     .map(t => ({ ...t, pct: Math.round((Number(t.cobrado_mes) / Number(t.emitido_mes)) * 1000) / 10 }))
-    .sort((a, b) => b.pct - a.pct || a.nombre.localeCompare(b.nombre, 'es', { numeric: true }));
+    .sort((a, b) => b.pct - a.pct || rotulo(a).localeCompare(rotulo(b), 'es', { numeric: true }));
   const mes = torres.find(t => t.mes)?.mes;
   if (!filas.length || !mes) return null;
   const tono = (pct: number) => (pct >= 90 ? 'bg-ok' : pct >= 70 ? 'bg-brand' : pct >= 50 ? 'bg-warn' : 'bg-bad');
@@ -174,8 +178,8 @@ function CobradoPorTorre({ torres, palabra }: { torres: NonNullable<Resumen['por
       <CardBody>
         <ul className="space-y-2.5" aria-label={`Porcentaje cobrado de ${periodo(mes.mes, mes.anio).toLowerCase()} por ${palabra}`}>
           {filas.map(t => (
-            <li key={t.estructura_id ?? t.nombre} className="grid grid-cols-[minmax(4.5rem,auto)_1fr_3.25rem] items-center gap-3 text-sm">
-              <span className="truncate font-medium" title={t.complejo ? `${t.nombre} · ${t.complejo.nombre}` : t.nombre}>{t.nombre}</span>
+            <li key={t.estructura_id ?? t.nombre} className={`grid ${varios ? 'grid-cols-[minmax(0,8rem)_1fr_3.25rem]' : 'grid-cols-[minmax(4.5rem,auto)_1fr_3.25rem]'} items-center gap-3 text-sm`}>
+              <span className="truncate font-medium" title={rotulo(t)}>{rotulo(t)}</span>
               <span className="h-2.5 overflow-hidden rounded-full bg-surface2" title={`${dinero(t.cobrado_mes ?? 0, t.moneda)} de ${dinero(t.emitido_mes ?? 0, t.moneda)}`}>
                 <span className={`block h-full rounded-full ${tono(t.pct)}`} style={{ width: `${Math.min(100, t.pct)}%` }} />
               </span>

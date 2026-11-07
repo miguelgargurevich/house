@@ -261,7 +261,13 @@ describe('comunicados: quién puede gestionar', () => {
 
   it('editar cambia título, texto y fijado, NO el condominio ni el alcance; uno archivado ya no se edita (409)', async () => {
     const c = await crear(T.adminA, nuevo({ complejo_id: d.complejoA.id, estructura_id: e1.id }));
-    const r = await llama(T.adminA, 'PUT', `/api/comunicados/${c.id}`, { titulo: 'Nuevo título', cuerpo: 'Nuevo texto', fijado: true, complejo_id: d.complejoB.id, estructura_id: e2.id });
+    // Mover el comunicado de condominio o de block ya no se ignora en silencio: 422 CAMPO_DE_AMBITO y nada cambia.
+    const mover = await llama(T.adminA, 'PUT', `/api/comunicados/${c.id}`, { titulo: 'Nuevo título', cuerpo: 'Nuevo texto', fijado: true, complejo_id: d.complejoB.id, estructura_id: e2.id });
+    assert.equal(mover.status, 422, mover.texto);
+    assert.equal(mover.body.code, 'CAMPO_DE_AMBITO');
+    assert.equal((await prisma.comunicado.findUniqueOrThrow({ where: { id: c.id } })).titulo, 'Corte de agua');
+    // Con el MISMO condominio y block que ya tiene, se acepta (no cambia nada más que el texto).
+    const r = await llama(T.adminA, 'PUT', `/api/comunicados/${c.id}`, { titulo: 'Nuevo título', cuerpo: 'Nuevo texto', fijado: true, complejo_id: d.complejoA.id, estructura_id: e1.id });
     assert.equal(r.status, 200, r.texto);
     const fila = await prisma.comunicado.findUniqueOrThrow({ where: { id: c.id } });
     assert.deepEqual([fila.titulo, fila.cuerpo, fila.fijado, fila.complejo_id, fila.estructura_id], ['Nuevo título', 'Nuevo texto', true, d.complejoA.id, e1.id]);

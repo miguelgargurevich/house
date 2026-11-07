@@ -17,7 +17,7 @@ describe('menú: cada grupo es un objeto de trabajo y la plataforma va al final'
     const grupos = NAV.superadmin;
     assert.equal(grupos.at(-1)?.label, 'Plataforma');
     assert.deepEqual(grupos.map(g => g.label ?? null), [null, 'Cobranza', 'Operación', 'Plataforma']);
-    assert.deepEqual(grupos.at(-1)?.items.map(i => i.label), ['Usuarios del sistema', 'Auditoría', 'Llavero de IA', 'Canales e integraciones', 'Suscripciones']);
+    assert.deepEqual(grupos.at(-1)?.items.map(i => i.label), ['Usuarios del sistema', 'Auditoría', 'Llavero de IA', 'Canales e integraciones', 'Suscripciones', 'Contactos y reclamaciones']);
     // WhatsApp en un solo lugar: el superadmin lo ve en «Canales e integraciones»; el QR del número sigue siendo de cada administradora.
     assert.ok(!grupos.flatMap(g => g.items).some(i => i.to === '/admin/whatsapp'), 'el superadmin no tiene la pantalla de QR');
     assert.ok(NAV.admin.flatMap(g => g.items).some(i => i.to === '/admin/whatsapp'), 'la administradora sí');

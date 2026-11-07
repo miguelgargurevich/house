@@ -112,10 +112,10 @@ describe('POST /api/ai-chat (compatible)', () => {
     assert.ok(!sistemaDe(ultima()).includes('negative'), 'el sentimiento del cliente ya no entra al prompt');
   });
 
-  it('sin IA configurada: el error de siempre (500) y NO se crea conversación; mensaje inválido: 400 con la forma histórica', async () => {
+  it('sin IA configurada: 503 con código IA_NO_CONFIGURADA (no 500: es configuración, no una falla) y NO se crea conversación; mensaje inválido: 400 con la forma histórica', async () => {
     let r = await chat(T.prop1);
-    assert.equal(r.status, 500);
-    assert.deepEqual(r.body, { error: { code: 500, message: 'La IA no está configurada en el servidor. Contacta al administrador.' } });
+    assert.equal(r.status, 503);
+    assert.deepEqual(r.body, { error: { code: 503, message: 'La IA no está configurada en el servidor. Contacta al administrador.' }, code: 'IA_NO_CONFIGURADA' });
     assert.equal(await prisma.conversacionIA.count(), 0);
     await guardar('groq', 'groq-prueba-00001');
     r = await chat(T.prop1, { message: '   ' });
@@ -682,7 +682,7 @@ describe('POST /api/ai-chat/stream', () => {
 
   it('errores previos son JSON normales (sin abrir el stream): validación, sesión, CSRF, conversación ajena, sin IA', async () => {
     let r = await stream(T.prop1, {});
-    assert.equal(r.status, 500, 'sin IA configurada');
+    assert.equal(r.status, 503, 'sin IA configurada');
     assert.match(r.headers.get('content-type')!, /json/);
     await guardar('groq', 'groq-prueba-00001');
     r = await stream(T.prop1, { message: '' });
@@ -828,8 +828,8 @@ describe('contexto verificado por rol', () => {
   });
 
   it('las rutas de la lista son EXACTAMENTE las que existen en App.tsx', () => {
-    // Pantallas sin sesión (login, registro, precios, verificación del correo, invitación, términos y privacidad): el asistente sólo trabaja con usuarios dentro.
-    const PUBLICAS = ['/login', '/registro', '/precios', '/verificar-correo', '/invitacion', '/privacidad', '/terminos'];
+    // Pantallas sin sesión (login, registro, precios, contacto, Libro de Reclamaciones, verificación del correo, invitación, términos y privacidad): el asistente sólo trabaja con usuarios dentro.
+    const PUBLICAS = ['/login', '/registro', '/precios', '/contacto', '/libro-de-reclamaciones', '/verificar-correo', '/invitacion', '/privacidad', '/terminos'];
     const app = fs.readFileSync('src/App.tsx', 'utf8');
     // Redirecciones (no son pantallas): el asistente no las ofrece; sólo deben seguir redirigiendo.
     const REDIRECCIONES = ['/junta/agua'];

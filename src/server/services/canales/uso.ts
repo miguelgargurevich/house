@@ -3,7 +3,7 @@
 import { prisma } from '../../db';
 import { ZONA_POR_DEFECTO } from '../../../lib/paises';
 import { hoyEn, inicioMesEn, medianocheEn } from '../../lib/fechas';
-import { contarEnviadasHoy } from '../avisos/cola';
+import { contarEnviadasHoy, pagadoresDe } from '../avisos/cola';
 import { obtenerConfiguracion } from '../comercial/configuracion';
 import { periodoDe, mesSiguienteTexto, topeDelMes } from '../comercial/consumo';
 
@@ -78,7 +78,19 @@ export interface UsoWhatsapp {
   /** Día de Lima del contador de «hoy» (AAAA-MM-DD). */
   fecha: string;
   hoy: { enviados: number; tope: number | null; restantes: number | null };
-  mes: { periodo: string; renueva: string; condominios: { complejo_id: number; nombre: string; usados: number; tope: number | null }[] };
+  mes: {
+    periodo: string;
+    renueva: string;
+    condominios: { complejo_id: number; nombre: string; usados: number; tope: number | null }[];
+    /** WhatsApp realmente enviados este mes por el número: directos y a grupos (lo mismo que suman `por_tipo.mes`). */
+    enviados: number;
+    /** Mensajes a grupos enviados este mes (comunicados y recibos). */
+    a_grupos: number;
+    /** Directos que no hicieron falta porque el recibo salió al grupo de su block (ver `gruposDelMes`). */
+    evitados: number;
+    /** Grupos de WhatsApp en uso de la empresa. Con 0 la pantalla sugiere asignarlos. */
+    grupos_en_uso: number;
+  };
   en_cola: { total: number; para_manana: number; por_tipo: PorTipo };
   fallidos_hoy: { total: number; motivos: { motivo: string; cantidad: number }[] };
   por_tipo: { hoy: PorTipo; mes: PorTipo };
@@ -86,6 +98,49 @@ export interface UsoWhatsapp {
 
 const MAX_AVISOS_LEIDOS = 20_000;
 const DIAS_COMUNICADOS_CON_GRUPOS = 30;
+
+/**
+ * Cuántos vecinos recibirían el aviso del recibo por WhatsApp directo: los que pagan una unidad con cargo en él, aceptan WhatsApp y tienen celular
+ * o un número vinculado. Es el mismo criterio que `canalesDe` (el correo no cuenta: aquí sólo se mide WhatsApp).
+ */
+async function directosDelRecibo(reciboId: number): Promise<number> {
+  const unidades = await prisma.unidad.findMany({ where: { reciboConceptoUnidades: { some: { reciboConcepto: { recibo_id: reciboId } } } }, select: { id: true, propietario_id: true, inquilino_id: true } });
+  const pagadores = [...new Set([...(await pagadoresDe(unidades)).values()].filter((x): x is number => x != null))];
+  if (!pagadores.length) return 0;
+  const usuarios = await prisma.usuario.findMany({ where: { id: { in: pagadores }, aviso_whatsapp: true }, select: { id: true, telefono: true } });
+  const vinculados = new Set((await prisma.canalVinculado.findMany({ where: { usuario_id: { in: usuarios.map((u) => u.id) }, canal: 'whatsapp', revocado_at: null }, select: { usuario_id: true } })).map((v) => v.usuario_id));
+  return usuarios.filter((u) => u.telefono?.trim() || vinculados.has(u.id)).length;
+}
+
+/**
+ * Lo que el número mandó a los grupos este mes y lo que eso evitó.
+ *
+ * - `a_grupos`: todos los mensajes a grupos enviados desde el día 1 (comunicados y recibos).
+ * - `evitados`: por cada RECIBO que salió a algún grupo, `max(0, directos − grupos)`: `directos` son los vecinos que lo habrían recibido por WhatsApp
+ *   directo (`directosDelRecibo`) y `grupos` los mensajes a grupos que salieron por ese recibo. Con un grupo por block son `directos − 1`.
+ *   Sólo cuenta si el condominio NO marcó `recibo_emitido`: marcado, el directo sale igual, junto al grupo, y el grupo no evitó nada.
+ *   Los comunicados no suman: su WhatsApp directo es una casilla aparte (`enviar_whatsapp`); un comunicado sólo al grupo no reemplaza ningún
+ *   directo que hubiera salido solo, así que no se cuenta como evitado.
+ *
+ * Todo es de la empresa (su número y sus condominios): otra empresa no se mezcla. Sólo lee la base.
+ */
+async function gruposDelMes(empresaId: number, complejos: { id: number; whatsapp_avisos: string[] }[], inicioMes: Date): Promise<{ a_grupos: number; evitados: number }> {
+  const envios = await prisma.envioGrupoWhatsapp.findMany({ where: { empresa_id: empresaId, estado: 'enviado', at: { gte: inicioMes } }, select: { recibo_id: true, complejo_id: true } });
+  const porRecibo = new Map<number, { complejo_id: number; grupos: number }>();
+  for (const e of envios) {
+    if (e.recibo_id == null) continue;
+    const r = porRecibo.get(e.recibo_id) ?? { complejo_id: e.complejo_id, grupos: 0 };
+    r.grupos++;
+    porRecibo.set(e.recibo_id, r);
+  }
+  let evitados = 0;
+  for (const [reciboId, r] of porRecibo) {
+    const lista = complejos.find((c) => c.id === r.complejo_id)?.whatsapp_avisos ?? [];
+    if (lista.includes('recibo_emitido')) continue;
+    evitados += Math.max(0, (await directosDelRecibo(reciboId)) - r.grupos);
+  }
+  return { a_grupos: envios.length, evitados };
+}
 
 /**
  * El contador de la empresa: lo enviado hoy por su número (todos sus condominios) contra el tope diario, lo del mes por condominio contra su cuota,
@@ -103,7 +158,7 @@ export async function usoWhatsapp(empresa: { id: number; whatsapp_instance: stri
   const periodo = periodoDe(ahora);
   const cfg = await obtenerConfiguracion();
 
-  const complejos = await prisma.complejoHabitacional.findMany({ where: { empresa_id: empresa.id }, orderBy: [{ nombre: 'asc' }, { id: 'asc' }], select: { id: true, nombre: true } });
+  const complejos = await prisma.complejoHabitacional.findMany({ where: { empresa_id: empresa.id }, orderBy: [{ nombre: 'asc' }, { id: 'asc' }], select: { id: true, nombre: true, whatsapp_avisos: true } });
   const complejoIds = complejos.map((c) => c.id);
   const instanciasDeGrupos = await prisma.envioGrupoWhatsapp.findMany({ where: { empresa_id: empresa.id, at: { gte: inicioMes } }, distinct: ['instancia'], select: { instancia: true } });
   const instancias = [...new Set([empresa.whatsapp_instance, ...instanciasDeGrupos.map((g) => g.instancia)].filter((x): x is string => !!x))];
@@ -116,7 +171,7 @@ export async function usoWhatsapp(empresa: { id: number; whatsapp_instance: stri
     por.recibo_emitido += await prisma.envioGrupoWhatsapp.count({ where: { empresa_id: empresa.id, estado: 'enviado', recibo_id: { not: null }, at: { gte: desdeFecha } } });
     return por;
   };
-  const [porTipoHoy, porTipoMes, consumos, topes, avisos, gruposFallidos, comunicadosConGrupos] = await Promise.all([
+  const [porTipoHoy, porTipoMes, consumos, topes, avisos, gruposFallidos, comunicadosConGrupos, grupos, gruposEnUso] = await Promise.all([
     enviadosPorTipo(desde),
     enviadosPorTipo(inicioMes),
     prisma.consumoMensual.findMany({ where: { complejo_id: { in: complejoIds }, periodo, recurso: 'whatsapp' }, select: { complejo_id: true, cantidad: true } }),
@@ -129,6 +184,8 @@ export async function usoWhatsapp(empresa: { id: number; whatsapp_instance: stri
     }),
     prisma.envioGrupoWhatsapp.findMany({ where: { empresa_id: empresa.id, estado: 'fallo', at: { gte: desde } }, select: { motivo: true } }),
     prisma.comunicado.findMany({ where: { complejo_id: { in: complejoIds }, enviar_grupo: true, created_at: { gte: new Date(ahora.getTime() - DIAS_COMUNICADOS_CON_GRUPOS * 86_400_000) } }, select: { grupos_resultado: true } }),
+    gruposDelMes(empresa.id, complejos, inicioMes),
+    prisma.grupoWhatsapp.count({ where: { empresa_id: empresa.id, en_uso: true } }),
   ]);
 
   const cuando = await complejosDeAvisos(avisos);
@@ -165,7 +222,15 @@ export async function usoWhatsapp(empresa: { id: number; whatsapp_instance: stri
     conectado: !!empresa.whatsapp_instance,
     fecha: h.toISOString().slice(0, 10),
     hoy: { enviados: enviadosHoy, tope, restantes: tope == null ? null : Math.max(0, tope - enviadosHoy) },
-    mes: { periodo, renueva: mesSiguienteTexto(ahora), condominios: complejos.map((c, i) => ({ complejo_id: c.id, nombre: c.nombre, usados: consumos.find((x) => x.complejo_id === c.id)?.cantidad ?? 0, tope: topes[i] ?? null })) },
+    mes: {
+      periodo,
+      renueva: mesSiguienteTexto(ahora),
+      condominios: complejos.map((c, i) => ({ complejo_id: c.id, nombre: c.nombre, usados: consumos.find((x) => x.complejo_id === c.id)?.cantidad ?? 0, tope: topes[i] ?? null })),
+      enviados: TIPOS_CONTADOR.reduce((s, t) => s + porTipoMes[t], 0),
+      a_grupos: grupos.a_grupos,
+      evitados: grupos.evitados,
+      grupos_en_uso: gruposEnUso,
+    },
     en_cola: { total: delaEmpresa.filter((n) => n.estado === 'pendiente').length + gruposPendientes, para_manana: paraManana + gruposPendientes, por_tipo: enCola },
     fallidos_hoy: { total: fallidos, motivos: [...motivos].map(([motivo, cantidad]) => ({ motivo, cantidad })).sort((a, b) => b.cantidad - a.cantidad || a.motivo.localeCompare(b.motivo, 'es')) },
     por_tipo: { hoy: porTipoHoy, mes: porTipoMes },

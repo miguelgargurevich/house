@@ -21,7 +21,7 @@ export function errorDeRespuesta(status: number, mensajeServidor?: string): Erro
   if (status === 429 && /usó las consultas al asistente/i.test(mensajeServidor ?? '')) return { causa: 'limite_uso', mensaje: mensajeServidor! };
   if (status === 429) return /saturad|cuota/i.test(mensajeServidor ?? '') ? { causa: 'saturado', mensaje: MENSAJE_ERROR.saturado } : { causa: 'limite_uso', mensaje: MENSAJE_ERROR.limite_uso };
   if (status === 504 || status === 408) return { causa: 'tiempo', mensaje: MENSAJE_ERROR.tiempo };
-  if (status === 500 && /no está configurada/i.test(mensajeServidor ?? '')) return { causa: 'no_configurado', mensaje: MENSAJE_ERROR.no_configurado };
+  if ((status === 503 || status === 500) && /no está configurada/i.test(mensajeServidor ?? '')) return { causa: 'no_configurado', mensaje: MENSAJE_ERROR.no_configurado };
   if (/no respondió; prueba con Auto/i.test(mensajeServidor ?? '')) return { causa: 'modelo', mensaje: mensajeServidor! };
   if (status === 400 || status === 404 || status === 422) return { causa: 'otro', mensaje: mensajeServidor && mensajeServidor.length < 160 ? mensajeServidor : MENSAJE_ERROR.otro };
   if (status >= 500) return { causa: 'caido', mensaje: MENSAJE_ERROR.caido };

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useResource } from '../../../../api';
 import { Alert, Badge, Button, Card, CardBody, CardHeader, ProgressBar, Skeleton } from '../../../../ui';
-import { ORDEN_TIPOS, ROTULO_TIPO, ayudaTopeDiario, porcentajeDeTope, textoTope, tonoDeTope } from './tipos';
+import { ORDEN_TIPOS, ROTULO_TIPO, ayudaTopeDiario, porcentajeDeTope, textoMesGrupos, textoTope, tonoDeTope } from './tipos';
 import type { PorTipo, UsoWhatsapp } from './tipos';
 
 /** Una cifra grande con su barra contra el tope. */
@@ -65,6 +65,11 @@ export function ContadorWhatsapp() {
             </div>
 
             <section aria-labelledby="uso-mes">
+              {/* Lo que los grupos del mes han ahorrado frente a un mensaje por departamento (la fórmula está en `services/canales/uso.ts`). */}
+              <div className="mb-4 rounded-lg bg-surface2 px-4 py-3">
+                <p className="num text-sm font-medium">{textoMesGrupos(d.mes).linea}</p>
+                <p className="mt-1 text-xs text-muted">{textoMesGrupos(d.mes).ayuda}</p>
+              </div>
               <h3 id="uso-mes" className="mb-2 text-sm font-semibold">Este mes, por condominio <span className="font-normal text-muted">· lo que incluye su plan · se renueva el 1 de {d.mes.renueva}</span></h3>
               {d.mes.condominios.length === 0 ? <p className="text-sm text-muted">Aún no tienes condominios.</p> : (
                 <ul className="grid gap-4 sm:grid-cols-2">

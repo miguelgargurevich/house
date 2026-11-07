@@ -1,5 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
-import { CAPACIDAD_MARCA, CONFIGURACION_ID, MODULOS, PLANES_CON_MARCA } from './catalogo';
+import { CAPACIDAD_MARCA, CARACTERISTICA_MENSAJERIA, CONFIGURACION_ID, MODULOS, PLANES_CON_MARCA, PLANES_CON_WHATSAPP } from './catalogo';
 import { estadoEfectivo, finDePrueba } from './estado';
 import { invalidarComercial } from './modulos';
 
@@ -47,7 +47,33 @@ export async function migracionInicial(db: Cliente): Promise<{ aplicada: boolean
   if (auto.condominios) console.log(`[whatsapp] recibo directo ahora automático por block en ${auto.condominios} condominios`);
   const grupos = await migracionRecordatorioGrupos(db);
   if (grupos.condominios) console.log(`[whatsapp] recibo quitado del WhatsApp directo en ${grupos.condominios} condominios con grupos (lo lleva el grupo de cada block)`);
+  const mensajeria = await migracionMensajeria(db);
+  if (mensajeria.planes) console.log(`[comercial] «${CARACTERISTICA_MENSAJERIA}» sumada a ${mensajeria.planes} planes con WhatsApp`);
   return resultado;
+}
+
+/**
+ * UNA sola vez (marca `migracion_mensajeria_at`): suma «Mensajería inteligente (grupos por block)» a las características de los planes con WhatsApp
+ * (Pro y Administradora) que ya existían; va justo después de «Avisos por WhatsApp» (o al final si no está). Después el superadmin puede quitarla de
+ * un plan y no vuelve. Idempotente: con la marca puesta no hace nada, y un plan que ya la trae no se toca.
+ */
+export async function migracionMensajeria(db: Cliente): Promise<{ aplicada: boolean; planes: number }> {
+  const cfg = await db.configuracionComercial.findUnique({ where: { id: CONFIGURACION_ID }, select: { migracion_mensajeria_at: true } });
+  if (!cfg || cfg.migracion_mensajeria_at) return { aplicada: false, planes: 0 };
+  const planes = await db.planComercial.findMany({ where: { clave: { in: [...PLANES_CON_WHATSAPP] } }, select: { clave: true, caracteristicas: true } });
+  let n = 0;
+  for (const p of planes) {
+    if (p.caracteristicas.includes(CARACTERISTICA_MENSAJERIA)) continue;
+    const nuevas = [...p.caracteristicas];
+    const i = nuevas.indexOf('Avisos por WhatsApp');
+    if (i >= 0) nuevas.splice(i + 1, 0, CARACTERISTICA_MENSAJERIA);
+    else nuevas.push(CARACTERISTICA_MENSAJERIA);
+    await db.planComercial.update({ where: { clave: p.clave }, data: { caracteristicas: nuevas } });
+    n++;
+  }
+  await db.configuracionComercial.updateMany({ where: { id: CONFIGURACION_ID, migracion_mensajeria_at: null }, data: { migracion_mensajeria_at: new Date() } });
+  invalidarComercial();
+  return { aplicada: true, planes: n };
 }
 
 /**

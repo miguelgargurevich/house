@@ -5,8 +5,9 @@ import { esperar, iniciar, llamar, login, prisma, sembrar } from './helpers/app'
 import { aadClave, cifrar, descifrar } from '../src/server/lib/secretBox';
 import { limpiarTodo } from '../src/server/lib/cooldown';
 import { FRASE_CONTINGENCIA } from '../src/server/services/asistente/contexto';
-import { llaveroDeps, obtenerClaveParaUso } from '../src/server/services/llavero';
-import { olvidarTodoUso } from '../src/server/services/rotacion';
+import { catalogoPublico, llaveroDeps, obtenerClaveParaUso } from '../src/server/services/llavero';
+import { construirCadena, olvidarTodoUso } from '../src/server/services/rotacion';
+import { proveedorPorId } from '../src/server/lib/proveedoresIA';
 
 const ENC = 'clave-maestra-de-pruebas-que-supera-32-caracteres';
 const KEY = 'sk-prueba-0000-AAAA';
@@ -92,8 +93,47 @@ describe('acceso', () => {
     assert.equal(ok.body.claves.length, 1, 'el admin no pudo borrar nada');
     assert.equal(ok.body.claves[0].habilitada, true);
     assert.equal(ok.body.claves[0].ultimos4, KEY.slice(-4), 'el admin no pudo reemplazar la clave');
-    assert.deepEqual(ok.body.proveedores.map((p: { id: string }) => p.id).sort(), ['cerebras', 'cohere', 'deepseek', 'gemini', 'groq', 'kilo', 'llm7', 'mistral', 'nvidia', 'ollama', 'openai', 'openrouter', 'sambanova']);
+    assert.deepEqual(ok.body.proveedores.map((p: { id: string }) => p.id).sort(), ['cohere', 'deepseek', 'gemini', 'groq', 'mistral', 'nvidia', 'openai', 'openrouter']);
     assert.ok(ok.body.proveedores.every((p: Record<string, unknown>) => p.nombre && p.descripcion && p.urlParaConseguirKey && p.modeloPorDefecto && !('baseUrl' in p)));
+  });
+});
+
+describe('proveedores retirados', () => {
+  const RETIRADOS = ['cerebras', 'sambanova', 'ollama', 'llm7', 'kilo'];
+
+  it('no están en el catálogo, ni en el público, ni en la lista del llavero, ni se pueden guardar', async () => {
+    for (const id of RETIRADOS) {
+      assert.equal(proveedorPorId(id), undefined, `${id} fuera de PROVEEDORES_IA`);
+      assert.ok(!catalogoPublico().some((p) => p.id === id), `${id} fuera de catalogoPublico`);
+      const r = await guardar(id);
+      assert.equal(r.status, 404, `PUT ${id} responde 404`);
+      assert.equal(await prisma.claveIntegracion.count({ where: { proveedor: id } }), 0);
+    }
+    const lista = await llamar(base, 'GET', '/api/llavero', T.super);
+    assert.equal(lista.status, 200);
+    for (const id of RETIRADOS) {
+      assert.ok(!lista.body.proveedores.some((p: { id: string }) => p.id === id), `${id} fuera de la lista`);
+      assert.ok(!lista.body.orden.includes(id), `${id} fuera del orden`);
+    }
+  });
+
+  it('una fila vieja de un retirado no rompe la pantalla, no entra en la cadena y no se usa para llamar', async () => {
+    await prisma.claveIntegracion.create({
+      data: { proveedor: 'cerebras', etiqueta: 'principal', api_key_enc: cifrar(KEY, aadClave('cerebras', 'principal')), ultimos4: KEY.slice(-4), habilitada: true, estado: 'sin_probar' },
+    });
+    const viva = await guardar('groq', KEY2);
+    assert.equal(viva.status, 201);
+
+    const lista = await llamar(base, 'GET', '/api/llavero', T.super);
+    assert.equal(lista.status, 200, 'la pantalla no se rompe');
+    assert.ok(lista.body.claves.some((c: { proveedor: string }) => c.proveedor === 'cerebras'), 'la fila vieja se muestra');
+    assert.ok(!lista.body.orden.includes('cerebras'));
+    assert.ok(!lista.texto.includes(KEY), 'la clave vieja no sale');
+
+    const cadena = await construirCadena();
+    assert.deepEqual(cadena.map((e) => e.proveedor.id), ['groq'], 'la cadena sólo usa el proveedor vigente');
+    assert.equal(await obtenerClaveParaUso('cerebras'), null, 'no se usa la clave retirada');
+    assert.equal((await obtenerClaveParaUso('groq'))?.clave, KEY2);
   });
 });
 
@@ -347,8 +387,8 @@ describe('asistente IA', () => {
 
   it('sin proveedor: el error de siempre; si el primero falla rota al siguiente (ver rotacion.test.ts)', async () => {
     let r = await chat();
-    assert.equal(r.status, 500);
-    assert.deepEqual(r.body, { error: { code: 500, message: 'La IA no está configurada en el servidor. Contacta al administrador.' } });
+    assert.equal(r.status, 503);
+    assert.deepEqual(r.body, { error: { code: 503, message: 'La IA no está configurada en el servidor. Contacta al administrador.' }, code: 'IA_NO_CONFIGURADA' });
     assert.equal(llamadas.length, 0);
 
     await guardar('gemini', 'gemini-prueba-0001');

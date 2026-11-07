@@ -4,6 +4,113 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-05 — Campos de ámbito estrictos (S1) e IA no configurada = 503 (S2) (Claude Code, Sonnet 5.5, delegado por Opus; rama `fix/campos-estrictos`) — push: no
+
+- **Pedido de Miguel**: tras la simulación de mercado (0 fugas), «Sí, arréglalas» las observaciones S1 y S2 del informe (`docs/pruebas/simulacion-mercado.md` §9).
+- **S1 — qué cambió**: un campo de ámbito (`empresa_id`, `complejo_id`, `estructura_id`) que el endpoint no acepta ya responde **422** `{error, campos, code: 'CAMPO_DE_AMBITO'}` en vez de 200/201 callado.
+  - Helper nuevo `src/server/lib/ambito.ts` (`rechazarAmbito` para el cuerpo; `exigirMismoAmbito` para campos que el esquema declara pero la ruta fija por su cuenta).
+  - **Central** en `crudRouter` (`crud.ts`): POST rechaza todo campo de ámbito que `createSchema` no declare; PUT/PATCH, los que `updateSchema` no declare. `clavesDe()` lanza al montar la ruta si un esquema no es un objeto (así nadie desactiva la regla sin darse cuenta). Cubre `unidades` (`empresa_id`), `recibos` (PUT), `estructuras`, `pisos`, `cargos`, `pagos`, etc.
+  - **A mano** (routers propios): `comunicados` (POST/PUT), `medios-pago` (POST/PUT/PATCH), `areas-comunes` (POST/PUT), `juntas` (POST/PUT/nueva gestión), `reservas` (POST), `recibos` (POST emitir). **Declarados pero fijados por la ruta**: `usuarios`, `conceptos`, `proveedores` (admin y junta), `complejos` (POST y PUT; ahora también para el superadmin en el PUT).
+  - **Decisión «mismo valor»**: en edición, si el campo llega con el valor que el recurso YA tiene → 200 (no cambia nada: tolera un formulario que reenvía todo); distinto → 422 y el recurso intacto. Al crear no hay «igual»: sobra. En `conceptos`/`usuarios`/`proveedores`/`complejos` la administradora que manda su propia empresa se acepta; la de otro cliente → 422. Un recurso de otro cliente sigue siendo **404** (se resuelve antes).
+  - **Cambio de comportamiento a notar**: un propietario/inquilino no tiene empresa; mandar `empresa_id` al crearlo/editarlo (distinto de la propia del admin; cualquiera si es superadmin) era ignorado → ahora 422 «un propietario o inquilino no tiene empresa propia». `PUT /api/complejos/:id` con otra `empresa_id` → 422 también para el superadmin (se cambia con `POST /:id/administradora`; antes sólo se rechazaba al no-admin).
+  - **Pantallas**: revisé `src/pages/**` y `src/app/**`: ninguna manda un campo de ámbito ajeno. `PersonasLista` (usuarios) manda `empresa_id` sólo el superadmin y sólo para personal; `Proveedores.tsx` y `ModalDeComplejo.tsx` sólo al CREAR y sólo el superadmin; `ModalDeUnidad` reenvía su propio `complejo_id`/`estructura_id` (siguen editables y validados); `Conceptos`, comunicados (`PUT` sólo titulo/cuerpo/fijado), medios de pago (PUT sin ámbito; POST con `complejo_id`/`estructura_id` declarados), áreas, juntas y reservas no mandan nada de más. **No hubo que tocar el front por S1.**
+- **S2**: `POST /api/ai-chat` (y `/stream`, JSON previo) sin ninguna IA configurada → **503** con el mismo mensaje y `code: 'IA_NO_CONFIGURADA'` (antes 500). `services/asistente/turno.ts` (`MENSAJES_ERROR.sin_configurar.status`, `IA_NO_CONFIGURADA`) y `routes/aiChat.ts`.
+  - **Fuera de la lista de Permitidos (avisar)**: tocar `src/server/services/asistente/turno.ts` (2 líneas, ahí vive el 500) y `src/app/asistente/errores.ts` (1 línea: `status === 503 || 500` con «no está configurada» → causa `no_configurado`; sin eso el panel habría mostrado «no está disponible» en vez de «todavía no está configurado»). Sigue reconociendo el 500 de servidores viejos.
+- **Pruebas**: `tests/campos-estrictos.test.ts` (28: por recurso, PUT ajeno → 422 y sin cambios, mismo valor → 200, POST ajeno → 422, y la regla central); se actualizaron los que fijaban el comportamiento viejo (`permisos`, `empresa-personal`, `negocio`, `comunicados`, `comunicados-junta`) y los del 500 del chat (`asistente`, `llavero`, `asistente-ui`). **Mutaciones en rojo** (revertidas con `cp` + `cmp`): quitar el rechazo central de `crud.ts` → fallan unidades y recibos; quitar `exigirMismoAmbito` de `conceptos` → fallan PUT y POST de conceptos; `mismo()` que acepta cualquier valor → fallan 15 de 26; `sin_configurar` otra vez 500 → fallan 3 del chat.
+- **Recorrido del mercado**: `scripts/e2e/flujos-mercado.mjs` espera ahora 422 `CAMPO_DE_AMBITO` en las 7 formas (`ESTRICTAS`: 6 PUT propios con campo ajeno + `POST concepto en empresa ajena`; cualquier 2xx es falla). **No se corrió** (la Mac cargada): vuelve a correr `separacion` contra `house_mercado` cuando esté tranquila.
+- **Gotchas**: los tests de usuarios que mandaban `empresa_id` de otra empresa «para ver que se ignora» ahora esperan 422; si una integración externa (token de API) mandaba esos campos de más, recibirá 422 con el campo señalado. Docs: `docs/API-CONTRATO.md` («Campos de ámbito estrictos») e informe S1/S2 marcadas resueltas.
+- **Próximo paso**: Opus verifica el diff, corre la suite completa, integra con cherry-pick; push sólo con OK de Miguel.
+
+---
+## 2026-11-05 — Observaciones de la simulación: F1 (rótulo con el condominio) y R1 (rendición ~2× más rápida) (Claude Code, Haiku 5.5, delegado por Opus; rama `fix/resumen-rendicion`) — push: no
+
+- **Pedido de Miguel**: «Sí, arréglalas» (F1 y R1 de `docs/pruebas/simulacion-mercado.md`, sección 9).
+- **F1**: `Dashboard.tsx` («% cobrado por block») pone el condominio en el rótulo cuando las torres son de más de uno (`rotuloTorre` en `cobranza/torres.ts`, misma regla que el selector). Con un solo condominio, igual que antes. Columna más angosta sólo en ese caso; texto completo en `title`.
+- **R1**: el cobrado previo por block hacía 15 consultas en serie (`pago.aggregate`, ≈ 20 ms c/u). Ahora van en paralelo (`Promise.all`), mismas sumas. `rendicion.ts`: sin índices nuevos, `prisma/` no tocado.
+  - Por HTTP (copia desechable de `house_mercado`, mediana de 5): Los Cedros JSON 0,49 → 0,32 s; Excel 0,50 → 0,32 s. Servicio: 534 → 317 ms. Los 1,0 s del informe no se reprodujeron aquí.
+  - JSON idéntico byte a byte antes/después (Los Cedros oct y sep, un block, Santa Rosa). El Excel no se comparó byte a byte (el zip lleva fechas), sólo se midió.
+- **Pruebas**: `tests/dashboard-rotulo-torres.test.ts`, `tests/rendicion-rendimiento.test.ts` (nuevas). `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` sin errores.
+- **Gotcha**: `house_mercado` no admite login sin escribir (la sesión va a la base). Para medir por HTTP se usó una copia `house_e2e_rend` con la contraseña del superadmin reseteada en la copia.
+
+## 2026-11-04 — Mercado simulado: 3 empresas, 9 condominios y 5 juntas, con recorrido de separación entre clientes (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/simulacion-mercado`) — push: no
+
+- **Pedido de Miguel**: «una prueba en local con varios condominios y diferentes cantidades de blocks… 3 empresas con varios condominios y otras que son solo juntas de vecinos de 1 block».
+- **Qué se hizo** (no se tocó `src/**`):
+  - `prisma/seed-mercado.ts` + `npm run seed:mercado`: base LOCAL `house_mercado` (el seed aborta si `DATABASE_URL` no es `localhost/house_mercado`). 3 empresas (A: 4 condominios, 652 dptos; B: 3, 280; C: 2, 68, plan Pro) y 5 juntas independientes (8, 12, 20, 32 y 48 dptos: Gratis vigente, Gratis VENCIDO, Básico, Pro, Pro de prueba). 1 120 dptos, 46 blocks, 1 272 usuarios, 276 recibos (mayo–octubre de 2026), 40 562 pagos, 19 grupos de WhatsApp ficticios en la Empresa A. Nombres generados, correos `.example`, celulares 900 xxx xxx. **Los recibos y los pagos salen de la API real** (el seed arranca `createApp()` en proceso con correo/WhatsApp/IA apagados): emisión por block con mora automática, pagos de la administración y del tesorero, vouchers por validar, rechazos. Las suscripciones se crean antes de facturar (la mora depende de Pro); el plazo vencido de la junta J2 se aplica al final. Los avisos que dejó la emisión en cola se borran. Imprime la tabla del mercado y las cuentas por rol (sólo correos); las contraseñas van a `CREDENCIALES_JSON` (fuera del repo; en esta sesión, el scratchpad).
+  - `scripts/e2e/flujos-mercado.mjs`: recorrido contra el backend aislado (sección 1 de `docs/pruebas/simulacion-mercado.md`). Fases: `separacion`, `herramientas` (las herramientas de la IA por `/mcp`), `tipos`, `planes`, `rendimiento`, `mensajeria`, `navegador`. Resultado en `scripts/e2e/resultados/mercado.json` (ignorado por git).
+  - `scripts/e2e/levantar.sh`: acepta `house_mercado` (siempre `--sin-copiar`: nunca la copia desde `house`) y `HOUSE_REPO=<carpeta>` para servir el código de un worktree.
+  - `docs/pruebas/simulacion-mercado.md`: informe (tabla del mercado, qué se probó, resultados, tiempos, facturación mensual de Torre a estos clientes y lista priorizada de observaciones).
+- **Resultado**: 0 fallas en todas las comprobaciones. **Separación entre clientes: ninguna fuga ni escritura** (≈ 19 000 intentos con ids ajenos y listas, búsquedas, Excel, herramientas de la IA, «Entrar como», sesión/CSRF; la base no cambió). Facturación: S/ 3 327.60 al mes con IGV (S/ 3 157.68 sin la prueba de J5). Lo más lento: la rendición de Los Cedros, ≈ 1,0 s. Detalle y observaciones (S1–S3, F1, R1) en el informe.
+- **Decisiones**:
+  - Una junta independiente = una empresa con una cuenta `admin` y un condominio de 1 block (como el registro público); presidente/tesorero/secretario son propietarios con cargo. El tesorero registra la mitad de los pagos de las juntas.
+  - El contador de WhatsApp es del mes en curso: los envíos a grupos se anotan con la hora de la siembra; en otro mes, vuelve a sembrar.
+  - La fase `tipos` escribe (recibo de noviembre de J4, un pago, una validación): se repite re-sembrando (~2 min).
+- **Gotchas**:
+  - El login se limita a 10 intentos por cuenta y por IP cada 15 minutos (también los correctos): reinicia el backend (`levantar.sh`) entre corridas.
+  - El backend de `levantar.sh` sirve el `dist/` de la carpeta `HOUSE_REPO`: para la fase `navegador` corre antes `npm run build` en esa carpeta.
+  - Nunca `prisma generate` en el worktree (el `node_modules` es un enlace al del checkout principal).
+- **Próximos pasos** (decide Opus):
+  - F1: el resumen de una empresa con varios condominios repite «Block 2», «Block 6» sin el condominio (la API trae `por_torre[].complejo`).
+  - S1: esquemas estrictos (422 ante campos desconocidos) en PUT/POST de unidades, usuarios, comunicados, conceptos y recibos; hoy ignoran `empresa_id`/`complejo_id` con 200. S2: `POST /api/ai-chat` responde 500 si la IA no está configurada.
+  - R1: vigilar la rendición de condominios grandes (≈ 1 s con 448 dptos).
+  - No verificado: IA con modelo real, envíos reales de correo/WhatsApp, bots, vencimiento de planes con el reloj, carga masiva por Excel propia, concurrencia real y volumen mayor (lista completa en el informe).
+
+---
+## 2026-11-04 — Mensajería de la portada: quitar frase de riesgo y animar los cuadros (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/mensajeria-animacion`) — push: no
+
+- **Qué se hizo**: se quitó de la portada todo lo que hablaba de bloqueo o del riesgo para el número (bajada y punto «Tope diario y pausas»). El comentario de cabecera ya no dice «el número cuidado». Los 448 cuadros y los 14 grupos de `MensajeriaInteligente.tsx` se animan al entrar en pantalla: los directos pasan de gris claro a gris oscuro uno a uno (≈4 s, `--i` × 9 ms), su contador va de 0 a 448; los 14 grupos aparecen en ≈0,7 s (`--i` × 30 ms) con su contador de 0 a 14, y luego sale el rótulo «Listo» con check de Heroicons.
+- **Cómo funciona**: el componente pone `data-mensajeria` en `espera` (cuadros claros, grupos y «Listo» ocultos) y en `corre` al entrar (un solo `IntersectionObserver`, umbral 0,2; un solo `requestAnimationFrame` por contador). Sin JS o con `prefers-reduced-motion` queda `final`: todo en su estado final y las cifras 448 y 14 escritas en el texto. CSS en `src/index.css` (bloque «Mensajería inteligente (portada)»): sólo color de fondo, opacidad y transform.
+- **Pruebas**: `tests/mensajeria-portada-ui.test.ts` (17 en total, todas verdes) — ningún texto de `MENSAJERIA` con bloqueo/bloquear/baneo/riesgo/«cuidar tu número», `valorCuenta` llega a 448 y 14, un índice `--i` por cuadro, estado final sin JS, reducción de movimiento, y que el CSS animado no toca alturas ni márgenes. `tsc -b`, `tsc -p tests/tsconfig.json --noEmit` y `npm run build` sin errores.
+- **No verificado**: no se miró en navegador (ni a 375 px ni en modo oscuro). Revisar el ritmo real de la animación antes de dar por bueno el diseño.
+- **Gotcha**: la fase `espera` sólo se pinta si el JS corre; los cuadros claros con `bg-line` dependen de la especificidad de `[data-mensajeria="espera"] .mensajeria-directo` frente a las utilidades de Tailwind 3 (no hay capas en `index.css`).
+
+## 2026-11-04 — Quitar 5 proveedores del llavero de IA (Claude Code, Haiku 5.5, delegado por Opus; rama `fix/quitar-proveedores`) — push: no
+
+- **Qué se hizo**: se retiraron Cerebras, SambaNova, Ollama Cloud, LLM7 y Kilo del catálogo `PROVEEDORES_IA` (`src/server/lib/proveedoresIA.ts`) y del mapa de íconos (`src/ui/proveedoresIcono.ts`). La cadena, la rotación y el orden salen del catálogo, así que no hubo que tocar lógica.
+- **Filas viejas**: una fila de `ClaveIntegracion` con uno de esos proveedores sigue en la lista (con su slug y un monograma gris), pero no entra en la cadena (`eslabonDeFila`) ni se usa al llamar (`obtenerClaveParaUso`), y no aparece en `orden`. Guardar una clave nueva para uno de ellos da 404. No se migró ningún dato: en producción no había filas.
+- **Pendiente fuera de alcance**: `src/ui/IconoProveedor.tsx` aún importa `SiOllama` y mapea el glyph `ollama`. Se dejó porque el archivo no estaba en la lista permitida; el tipo `GlyphProveedor` conserva `'ollama'` por eso. Limpiarlo es un cambio de dos líneas.
+- **Pruebas**: `tests/llavero.test.ts` gana el bloque «proveedores retirados» (catálogo, PUT 404 y fila vieja que no se usa). Falla si cualquiera de los cinco vuelve al catálogo (mutación comprobada). `tests/llavero-ui.test.ts`, `tests/llavero.test.ts` y `tests/rotacion.test.ts` ajustados a los proveedores vigentes.
+- **Gotcha**: `prisma db push` sin `--skip-generate` regenera el cliente del checkout principal. Aquí se usó `--skip-generate`.
+
+## 2026-11-04 — Logo de Torre fijo en los manuales (HTML y PDF) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/logo-manual`) — push: no
+
+- **Qué se hizo**:
+  - `scripts/marketing/manual-con-videos.py`: el paso `videos` pone el logo (`marca()`): favicon data URI, CSS `.logo-torre`/`.logo-torre-pie`, SVG antes del `<h1>` del hero y SVG en `<p class="nombre">` del pie. Idempotente; falla con mensaje si falta el `<h1>` o el pie. Mismo marcado que `manual-html.diff` (el que Opus aplicó a mano al HTML publicado).
+  - `scripts/marketing/sello-pdf.py` (nuevo): `python3 -P scripts/marketing/sello-pdf.py <entrada.pdf> <salida.pdf>`. Logo grande en la portada (52 pt en (49, 600)) y chico con «Torre · Administración de condominios» en las demás páginas. No es idempotente: se aplica sobre el PDF de `doc_pdf`, sin sello.
+  - `docs/manual/README.md`: sección «Logo de Torre en los manuales» con dónde va cada paso en el flujo de publicar.
+- **Pruebas** (sobre copia del HTML publicado, sin subir nada):
+  - HTML: copia sin el logo (revertido el diff con `patch -R`) → `videos` → 1 de `rel="icon"`, 1 de `class="logo-torre"`, 1 de `logo-torre-pie`, 1 de `.logo-torre{`. Corrido dos veces: salida idéntica. Las marcas coinciden con el publicado. Sin `<h1>` o sin pie: sale con código 1 y no escribe.
+  - PDF: PDF de prueba de 2 páginas → `sello-pdf.py` → `pdftoppm -r 50` → la portada muestra el logo grande y la página 2 el sello chico con el texto.
+- **Corrección de Opus**: los 4 PDF por rol publicados (`cmw1joons…`, `cmw1jope9…`, `cmw1joq6b…`, `cmw1jorsp…`) YA llevan el sello: Opus los selló a mano y los copió encima de sus archivos (mismo enlace). `sello-pdf.py` reproduce ese PDF byte a byte (comprobado con `cmp`). El HTML publicado también trae el logo; correr el paso `videos` dos veces no lo duplica.
+- **Gotcha**: `grep -c 'logo-torre-pie'` cuenta también la regla CSS; para contar el SVG usa `class="logo-torre-pie"`.
+
+## 2026-11-04 — Mensajería inteligente: evitados en el contador, portada, planes y flotante (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/mensajeria-inteligente`) — push: no
+
+- **Qué se hizo**:
+  - **Contador** (`GET /api/whatsapp/uso` → `mes.enviados`, `mes.a_grupos`, `mes.evitados`, `mes.grupos_en_uso`; `services/canales/uso.ts`, `gruposDelMes`). `evitados` = por cada recibo del mes con mensajes a grupos, `max(0, vecinos con WhatsApp directo posible − mensajes a grupos)`. Sólo si el condominio NO marca `recibo_emitido`. Ver `docs/API-CONTRATO.md`.
+  - **Pantalla**: línea «Este mes: N mensajes enviados · M evitados gracias a los grupos» (`ContadorWhatsapp.tsx`, `tipos.ts` → `textoMesGrupos`, `miles`); sin grupos en uso sugiere asignarlos.
+  - **Portada**: sección `portada/MensajeriaInteligente.tsx` entre «Juntas» y «Una pantalla para cada quien» (448 puntos contra 14, tres puntos con Heroicons).
+  - **Planes**: viñeta «Mensajería inteligente (grupos por block)» en Pro y Administradora (`catalogo.ts`). Migración de una sola vez `migracionMensajeria` (`migracion.ts`), marca `ConfiguracionComercial.migracion_mensajeria_at` (columna nueva, aditiva).
+  - **Manual**: versión (16) y párrafo + fila de tabla en la sección de WhatsApp (`manual-house.json`).
+  - **Flotante de WhatsApp oculto** en `/registro`, `/contacto` y el formulario del Libro de Reclamaciones (prop `sinWhatsapp` en `Marco.tsx`); su botón de envío va a ancho completo al final del formulario en el celular.
+- **Decisiones**:
+  - La fórmula del pedido contaba también los comunicados al grupo. Se quitó: si el comunicado tiene `enviar_whatsapp`, el directo sale igual y el número quedaría inflado. Sin esa casilla, el grupo no reemplaza nada que hubiera salido solo.
+  - `mes` es de toda la empresa (su número), no de un condominio: el contador ya era por número.
+  - Con varios grupos por recibo, cada mensaje resta uno (`directos − grupos`). Con un grupo por block da lo mismo que «menos 1».
+  - La bajada dice «corre menos riesgo de bloqueo» (el pedido decía «no corre riesgo»: promesa absoluta sobre WhatsApp).
+- **Gotchas**:
+  - `node_modules` del worktree era un enlace al principal: se aisló (copia de `.prisma` y `@prisma/client`) antes del `prisma generate`, como manda la memoria. El cliente del principal no tiene la columna nueva.
+  - `Aparece.tsx` y `MensajeriaInteligente.tsx` llevan `/** @jsxRuntime automatic */` para que las pruebas con `tsx` rendericen sin importar React.
+  - Base de pruebas: `house_test_mensajeria` (`TEST_DATABASE_URL`).
+- **Pruebas**: `tests/whatsapp-mensajeria.test.ts` (14), `tests/whatsapp-mensajeria-ui.test.ts` (9), `tests/mensajeria-portada-ui.test.ts` (10); `whatsapp-uso`, `contacto-ui` y `reabrir-pago-ui` actualizados. Suite completa (`npm test`, `house_test_mensajeria`): 4406 pruebas, 4403 en verde. Fallan 3, **las mismas en el código base (HEAD, sin estos cambios)**: `corregir-recibos` «un condominio en solo lectura no deja anular», `personas-unidad` «un condominio en solo lectura no recibe cambios» y `recibos-excel` «conceptos en 0» (la conocida de fecha). `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` limpios. Mutaciones: 23 (15 del backend, 8 de la pantalla y la portada), todas en rojo; archivos restaurados con `cp` + `cmp`.
+- **Próximos pasos**:
+  - Opus decide si `Contacto` y el Libro también deben ocultar el flotante (lo hice por criterio, no verificado en navegador).
+  - Repetir en los manuales por rol (`manual-administradora/junta/vecino/personal.json`): no se tocaron.
+  - La portada estática de buscadores (`src/server/seo/paginas.ts`) no tiene la sección: fuera de Permitidos.
+  - Verificar en navegador a 375 px: no se pudo (sin Playwright instalado en el proyecto).
+  - Las 2 de solo lectura en rojo (ya rojas en HEAD): mirar por qué con la fecha de hoy antes de integrar.
+  - `mes.evitados` hace unas consultas por recibo del mes; con muchos condominios conviene cachearlo.
+
 ## 2026-11-04 — Segunda tanda de videos sin «Gestión Urbana»: v5, v7 y m-admin-recibos (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel / Opus**: «hazlo» (segunda tanda, OK de Opus del 4-nov 19:00): regrabar v5 (escritorio y celular), v7 (escritorio y celular, que también mostraba el nombre viejo) y m-admin-recibos con grupos, con la voz existente y el WhatsApp falso en local.
@@ -30,6 +137,35 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Próximos (Opus)**: decidir si se preparan WhatsApp y grupos para regrabar v5 y m-admin-recibos; subir a MinIO/My Workspace sólo los mp4 regrabados.
 
 ---
+## 2026-11-04 — Contacto, WhatsApp, Libro de Reclamaciones, 404 y datos legales (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/contacto-legal`) — push: no
+
+- **Pedido de Miguel**: «revisa los contactos de las páginas y los videos: si veo un video en Face o un reel y quiero contactar, ¿lo tengo?…». Antes sólo había `/registro` y `/login`. Aprobó: WhatsApp de contacto «usaremos el mío por mientras consigo otro número», los 5 datos legales «Yes, those values», y (mensaje posterior) el **ícono oficial de WhatsApp** en el botón flotante.
+- **Qué hay**:
+  - **Config en BD** (`ConfiguracionComercial`, aditivo): `whatsapp_contacto`, `whatsapp_mensaje`, `url_facebook`; se editan en Superadmin › Precios › «Contacto y redes de la web pública». `catalogoPublico.redes = { instagram, facebook, whatsapp: { numero, enlace } }` (wa.me con el mensaje codificado; vacío = `null` = no se muestra). **Ningún número en el código** (una prueba recorre `src/` y `public/`; sólo el valor de partida está en `prisma/schema.prisma`).
+  - **Botón flotante** (`WhatsappFlotante.tsx`, logo oficial inline en `src/ui/IconoWhatsapp.tsx`, 56 px, #25D366) dentro de `Marco`, es decir en todas las páginas públicas y no en la app con sesión; pie nuevo (razón social, RUC, domicilio, correo, WhatsApp, Instagram, Facebook, Contacto, Privacidad, Términos, Libro de Reclamaciones con `BookOpenIcon`).
+  - **`/contacto`** + `POST /api/publico/contacto` → `SolicitudContacto` + correo a `legal_correo` (si no, `correo_superadmin`). «Solicita una demo» → `/contacto?tema=demo` en la portada (hero y cierre) y en el plan Administradora de Precios.
+  - **`/libro-de-reclamaciones`** + `POST /api/publico/reclamaciones` → `Reclamacion` con correlativo `AAAA-NNNNNN` por año de Lima (candado `pg_advisory_xact_lock` + índice único), plazo de **15 días hábiles** (`services/reclamaciones/plazo.ts`; sin feriados, documentado), copia al consumidor y aviso a Torre, constancia en pantalla (imprimible).
+  - **Superadmin › Contactos y reclamaciones** (`/superadmin/contactos`, `routes/bandejaContacto.ts` bajo `/api/comercial`): lista, detalle, atender/responder con fecha y nota, días hábiles que faltan (rojo si venció).
+  - **Antiabuso** (contacto y libro): campo trampa `sitio_web`, tope por IP propio de cada formulario (5/h; el libro también 3/h por correo), tamaños máximos, sin etiquetas HTML (`lib/textoPublico.ts`), correo escapado.
+  - **404 real**: el servidor responde 404 + `noindex` a lo que no es público, ni `/login`, ni de la app (`esDesconocida`); la SPA pinta «No encontramos esta página» sin sesión (`NoEncontrada.tsx`); las rutas de la app sin sesión siguen yendo al login (`pages/publico/rutasApp.ts` = misma lista que `PREFIJOS_PRIVADOS`; lo fija una prueba).
+  - **SEO**: sitemap, `llms.txt`, títulos/descripciones; `sameAs` con Instagram y Facebook y `ContactPoint` (teléfono + correo).
+  - **Legal**: los 5 «por confirmar» pasaron a los valores aprobados (Coolify/VPS, Resend, 12 meses, 30 días, 90 días); `VERSION_LEGAL` = `2026-11-04` (servidor y página).
+  - Manual versión 15 (sección «Contactos y reclamaciones de la web», 64 secciones) y `docs/API-CONTRATO.md`.
+- **Decisiones**:
+  - Los limitadores nuevos viven en `src/server/lib/limitesPublicos.ts` (no en `middleware/rateLimit.ts`, fuera de lo permitido); `createApp` los crea sin opciones: las pruebas de 429 mandan 6 peticiones. Cada formulario lleva su cupo (no gasta el de registro).
+  - El contacto responde **200** (no 201), y con el señuelo lleno responde lo mismo que un envío bueno.
+  - El correo de contacto del público es `legal_correo` (no se creó un campo nuevo).
+  - Sin los datos legales del proveedor el libro responde **503** (no se registra una hoja sin proveedor).
+  - Reclamaciones: «días que faltan» = días hábiles; 0 el día del límite; negativo = vencida.
+- **Gotchas**:
+  - **Plazo legal**: Miguel pidió 15 días hábiles; **conviene que lo revise un abogado** (la hoja oficial y el reglamento han cambiado de plazo entre versiones) y también el texto del Libro (`pages/publico/contacto/textos.ts`). No descuenta feriados.
+  - `docs/legal/*.md` (autoritativos) conservan los marcadores `{hosting}`, `{proveedor_correo}`… de esos 5 datos (fuera de lo permitido; la prueba de fidelidad ignora las líneas con `{…}`). Si se quiere el markdown al día, reemplazarlos y subir la versión.
+  - `tests/reabrir-pago-ui.test.ts` fijaba el manual en «(14)»: ahora «(15)». Si otra rama sube el manual, hay que reconciliar el número.
+  - `tests/*-ui.test.ts` no pueden importar páginas que usen `api.ts` (`import.meta.env`): se fijan leyendo la fuente; los componentes que se renderizan llevan `/** @jsxRuntime automatic */`.
+  - Hay 3 errores de `eslint` (`react-refresh/only-export-components` en `legal/textos.tsx` y `DominiosPermitidos.tsx`) que ya existían.
+- **Verificado en navegador** (Chrome por CDP, ancho exacto 375 px, servidor local contra `house_test_contacto`, correo apagado): `/contacto`, `/libro-de-reclamaciones`, `/blog` (404), portada y Precios sin desborde horizontal (`scrollWidth` 375) y con el botón flotante de 56×56 a 16 px del borde; envío real de ambos formularios (contacto guardado con `tema=demo`; hoja `2026-000001` con límite 25/11/2026) y la bandeja del superadmin. El botón flotante no solapa ningún botón principal salvo en `/registro` a 375×812 con scroll 0: el extremo derecho de «Crear cuenta gratis» queda bajo el botón (al hacer scroll se libera; sigue tocable en el 85 % izquierdo).
+- **NO verificado**: modo oscuro; el correo real (Resend apagado en local: sólo con un `fetch` falso); lectores de pantalla; otros navegadores/tamaños; el texto legal del Libro de Reclamaciones.
+- **Próximos**: revisión legal del Libro y su plazo; actualizar `docs/legal/*.md`; mirar `/registro` en celular y decidir si el botón flotante se oculta ahí; cargar en producción (Superadmin › Precios) el WhatsApp definitivo cuando Miguel tenga otro número; subir la rama con OK de Miguel.
 
 ## 2026-11-04 — Volver a revisar un pago rechazado (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/revertir-rechazo`) — push: no
 

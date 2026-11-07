@@ -28,6 +28,7 @@ export function entradasSitemap(ctx: ContextoSeo): EntradaSitemap[] {
     { ruta: '/precios', lastmod: ctx.modificadoPrecios ? dia(ctx.modificadoPrecios) : FECHA_CONTENIDO },
   ];
   if (ctx.cfg.registro_abierto) e.push({ ruta: '/registro', lastmod: FECHA_CONTENIDO });
+  e.push({ ruta: '/contacto', lastmod: FECHA_CONTENIDO }, { ruta: '/libro-de-reclamaciones', lastmod: FECHA_CONTENIDO });
   e.push({ ruta: '/privacidad', lastmod: VERSION_LEGAL }, { ruta: '/terminos', lastmod: VERSION_LEGAL });
   return e;
 }
@@ -57,6 +58,8 @@ function paginas(ctx: ContextoSeo): string[] {
     `- [Inicio](${u('/')}): qué es Torre y para quién es.`,
     `- [Precios](${u('/precios')}): planes, precio por departamento al mes y preguntas frecuentes.`,
     ...(ctx.cfg.registro_abierto ? [`- [Crear cuenta](${u('/registro')}): registro en Torre Gratis, sin tarjeta.`] : []),
+    `- [Contacto](${u('/contacto')}): escríbenos o pide una demo.`,
+    `- [Libro de Reclamaciones](${u('/libro-de-reclamaciones')}): registra un reclamo o una queja sobre el servicio.`,
     `- [Términos y condiciones](${u('/terminos')}): condiciones de uso del servicio.`,
     `- [Política de privacidad](${u('/privacidad')}): tratamiento de datos personales (Ley N.º 29733).`,
   ];

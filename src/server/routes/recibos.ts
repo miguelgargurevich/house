@@ -11,6 +11,7 @@ import { monedaDeRecibo } from '../lib/paisMoneda';
 import { ambitoJunta, filtroAmbito, filtroReciboAmbito } from '../lib/junta';
 import { descripcionRecibo, periodoTexto } from '../lib/periodo';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, agruparPorBlock, listarMantenimientos, resumenPorBlock, type OrdenMantenimientos } from '../lib/mantenimientos';
+import { rechazarAmbito } from '../lib/ambito';
 import { scopeComplejos, scopeConceptos, scopeRecibos, scopeRecibosEscritura, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import { bloquearPeriodo, recibosDelPeriodo } from '../services/reciboUnico';
 import { ipDe, registrarAuditoria } from '../middleware/audit';
@@ -302,6 +303,7 @@ export function unidadesDe(u: AuthUser): Prisma.UnidadWhereInput {
 /** Emitir el recibo del periodo: uno por torre (o el de la torre elegida). Responde el primero y la lista completa en `recibos`. */
 router.post('/', requireRole('admin'), async (req, res) => {
   const user = currentUser(req);
+  rechazarAmbito(req.body, { permitidos: ['complejo_id', 'estructura_id'] }); // empresa_id no se envía: sale del condominio
   const d = parseBody(createSchema, req);
   const { ids, mora, avisosMora } = await emitirRecibos(d, user);
   const filas = await prisma.recibo.findMany({ where: { id: { in: ids } }, include: includeRecibo, orderBy: { id: 'asc' } });

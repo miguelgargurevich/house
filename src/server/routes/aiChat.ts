@@ -10,7 +10,7 @@ import { currentUser } from '../middleware/auth';
 import { ESTADO_RECHAZADA } from '../services/rotacion';
 import { TITULO_RENOMBRADO_MAX, borrarDe, detalleDe, listarDe, renombrarDe, revertirDesde } from '../services/asistente/conversaciones';
 import { MAX_INTENTOS } from '../services/asistente/motor';
-import { MENSAJES_ERROR, ejecutarTurno, prepararTurno, type Preparado } from '../services/asistente/turno';
+import { IA_NO_CONFIGURADA, MENSAJES_ERROR, ejecutarTurno, prepararTurno, type Preparado } from '../services/asistente/turno';
 import { parse, z } from '../validation';
 
 export { MAX_INTENTOS };
@@ -147,7 +147,10 @@ export function aiChatRouter(limitador: RequestHandler) {
     }
     for await (const ev of ejecutarTurno(prep, { stream: false })) {
       if (ev.tipo === 'fin') return void res.json({ response: ev.texto, conversacion_id: prep.conversacionId, ...(ev.modo ? { modo: ev.modo } : {}) });
-      if (ev.tipo === 'error') return fallo(res, MENSAJES_ERROR[ev.codigo].status, ev.mensaje);
+      if (ev.tipo === 'error') {
+        const status = MENSAJES_ERROR[ev.codigo].status;
+        return ev.codigo === 'sin_configurar' ? res.status(status).json({ error: { code: status, message: ev.mensaje }, code: IA_NO_CONFIGURADA }) : fallo(res, status, ev.mensaje);
+      }
     }
     fallo(res, 503, MENSAJES_ERROR.fallo.mensaje);
   });

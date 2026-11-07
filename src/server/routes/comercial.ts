@@ -129,6 +129,12 @@ const configSchema = z.object({
   url_instagram: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(200, 'Máximo 200 caracteres').url('Escribe una dirección completa').regex(/^https:\/\/(www\.)?instagram\.com\//, 'Usa una dirección https://www.instagram.com/…').nullish()),
   // Manual con videos: una dirección https (vacío = null = el menú no muestra «Manual y videos»).
   url_manual: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(500, 'Máximo 500 caracteres').url('Escribe una dirección completa').startsWith('https://', 'Usa una dirección https').nullish()),
+  // Facebook de Torre (pie y `sameAs`): una dirección https de facebook.com; vacío = null = no se muestra.
+  url_facebook: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(200, 'Máximo 200 caracteres').url('Escribe una dirección completa').regex(/^https:\/\/((www|m|web)\.)?facebook\.com\//, 'Usa una dirección https://www.facebook.com/…').nullish()),
+  // WhatsApp de contacto: celular con código de país, sólo dígitos (se aceptan +, espacios y guiones y se quitan). Vacío = null = no se muestra el botón.
+  whatsapp_contacto: z.preprocess((v) => (typeof v === 'string' ? (v.trim() === '' ? null : v.replace(/[\s+\-().]/g, '')) : v), z.string().regex(/^[1-9]\d{7,14}$/, 'Escribe el celular con código de país y sólo números (p. ej. 51912345678)').nullish()),
+  // Texto con que se abre el chat de WhatsApp (sin etiquetas); vacío = el chat se abre sin texto.
+  whatsapp_mensaje: z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), z.string().trim().max(200, 'Máximo 200 caracteres').refine((v) => !/[<>\r\n]/.test(v), 'Escríbelo en una sola línea y sin < ni >').nullish()),
 });
 const listaSchema = listQuerySchema.extend({ estado: z.enum(ESTADOS_SUSCRIPCION).optional(), empresa_id: idSchema.optional() });
 

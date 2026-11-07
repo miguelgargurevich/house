@@ -32,6 +32,11 @@ export const MEDIOS_PAGO_SUSCRIPCION = ['transferencia', 'yape', 'plin', 'efecti
 export const ESTADOS_SUSCRIPCION = ['gratis', 'solicitada', 'activa', 'por_vencer', 'vencida'] as const;
 export type EstadoSuscripcion = (typeof ESTADOS_SUSCRIPCION)[number];
 
+/** Viñeta de los planes con WhatsApp: los grupos de cada block (un mensaje al grupo en lugar de uno por departamento). La suma `migracionMensajeria`. */
+export const CARACTERISTICA_MENSAJERIA = 'Mensajería inteligente (grupos por block)' as const;
+/** Planes que traen WhatsApp (el módulo `whatsapp_avisos` va en sus capacidades). */
+export const PLANES_CON_WHATSAPP = ['pro', 'administradora'] as const;
+
 /** Viñetas de Gratis tal como salieron con la oferta anterior: el script de la oferta sólo las cambia si siguen así (lo editado a mano se respeta). */
 export const CARACTERISTICAS_GRATIS_ANTERIORES = ['Recibos por torre', 'Cobranza y morosidad', 'Importación del Excel', 'Medios de pago del condominio', 'Portal del vecino', 'Vouchers validados a mano', 'Avisos por correo'] as const;
 /** Viñetas de Gratis de la oferta nueva: las anteriores, con «Recibos por block» en lugar de «Recibos por torre». */
@@ -54,9 +59,9 @@ export const PLANES_SEED = [
   { clave: 'basico', nombre: 'Torre Básico', descripcion: 'Para quien ya terminó su periodo gratis y no necesita IA ni WhatsApp.', precio_por_unidad: '2.00', modulos_incluidos: [] as string[], visible: true, orden: 2, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_BASICO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null,
     caracteristicas: ['Todo lo de Torre Gratis, sin plazo', 'Sin tope de departamentos', 'Vouchers validados a mano', 'Avisos por correo'] },
   { clave: 'pro', nombre: 'Torre Pro', descripcion: 'Todo Torre, sin tope de departamentos.', precio_por_unidad: '3.00', modulos_incluidos: [...CAPACIDADES, CAPACIDAD_MARCA] as string[], visible: true, orden: 3, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
-    caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes', 'Conciliación bancaria', 'Marca propia: tu logo, nombre y color'] },
+    caracteristicas: ['Todo lo de Torre Gratis, sin tope de departamentos', 'IA que lee y valida vouchers', 'Avisos por WhatsApp', CARACTERISTICA_MENSAJERIA, 'Asistente con IA (web y bots)', 'Mora automática', 'Reportes y exportes', 'Conciliación bancaria', 'Marca propia: tu logo, nombre y color'] },
   { clave: 'administradora', nombre: 'Torre Administradora', descripcion: 'Varios condominios en una sola cuenta, con descuento por volumen.', precio_por_unidad: '2.50', modulos_incluidos: [...CAPACIDADES, CAPACIDAD_MARCA] as string[], visible: true, orden: 4, unidades_maximas: null as number | null, unidades_minimas: UNIDADES_PRO_MIN as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: 5 as number | null, whatsapp_por_unidad_mes: 6 as number | null,
-    caracteristicas: ['Todo lo de Torre Pro', 'Varios condominios en una cuenta', 'Descuento por volumen'] },
+    caracteristicas: ['Todo lo de Torre Pro', CARACTERISTICA_MENSAJERIA, 'Varios condominios en una cuenta', 'Descuento por volumen'] },
   { clave: 'cortesia', nombre: 'Cortesía', descripcion: 'Condominios de la casa: todo incluido, sin cobro ni vencimiento.', precio_por_unidad: '0.00', modulos_incluidos: [...CAPACIDADES, CAPACIDAD_MARCA] as string[], visible: false, orden: 5, unidades_maximas: null as number | null, unidades_minimas: null as number | null, tramo_desde: null as number | null, tramo_precio: null as string | null, asistente_por_unidad_mes: null as number | null, whatsapp_por_unidad_mes: null as number | null, caracteristicas: [] as string[] },
 ] as const;
 

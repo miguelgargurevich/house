@@ -11,6 +11,7 @@ import { contextoImpersonacion, soloSesionPropia } from './services/impersonacio
 import { authenticate } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error';
 import { crearLimitadores, limitarSegunSesion, type RateLimitOptions } from './middleware/rateLimit';
+import { crearLimitadoresFormularios } from './lib/limitesPublicos';
 import { paginaSpa, seoDocumentos } from './seo';
 import { aguaRouter } from './routes/agua';
 import { aiChatRouter } from './routes/aiChat';
@@ -45,6 +46,7 @@ import { pagosRouter } from './routes/pagos';
 import { publicoRouter } from './routes/publico';
 import { marcaPublicaRouter } from './services/marca/rutaPublica';
 import { comercialRouter } from './routes/comercial';
+import { bandejaContactoRouter } from './routes/bandejaContacto';
 import { conciliacionRouter } from './routes/conciliacion';
 import { pisosRouter } from './routes/pisos';
 import { proveedoresRouter } from './routes/proveedores';
@@ -67,6 +69,7 @@ export interface AppOptions {
 export function createApp(opts: AppOptions = {}) {
   const app = express();
   const limiters = crearLimitadores(opts.rateLimits);
+  const formularios = crearLimitadoresFormularios();
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
@@ -115,7 +118,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // tramo público: inicio de sesión
   api.use('/auth/invitacion', invitacionRouter(limiters.invitacion)); // tramo público: el enlace del correo de invitación
   api.use('/publico/marca', marcaPublicaRouter()); // tramo público: el logo de la empresa para los correos (con firma; sólo logos de empresa)
-  api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion })); // tramo público: planes, registro y verificación del correo
+  api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion, ...formularios })); // tramo público: planes, registro, verificación del correo, contacto y Libro de Reclamaciones
   api.use(limitarSegunSesion(authenticate, limiters.apiAnonimo, limiters.apiUsuario));
   api.use(auditoria);
   api.use(contextoImpersonacion); // sesión prestada («Entrar como»): la auditoría de segundo plano también lleva al superadmin
@@ -158,6 +161,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/tareas', tareasRouter);
   api.use('/auditoria', auditoriaRouter);
   api.use('/whatsapp', whatsappRouter);
+  api.use('/comercial', bandejaContactoRouter); // contactos y reclamaciones (sólo superadmin); antes de comercialRouter: rutas propias
   api.use('/comercial', comercialRouter);
   api.use('/areas-comunes', areasComunesRouter);
   api.use('/reservas', reservasRouter);

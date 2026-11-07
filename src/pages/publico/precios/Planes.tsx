@@ -5,6 +5,7 @@ import { cx, dinero } from '../../../ui';
 import { Aparece } from '../Aparece';
 import type { Catalogo, Plan } from '../catalogo';
 import { textoTope, tituloPlanes, unidadPrecio } from '../../../lib/seo/textos';
+import { CONTACTO } from '../contacto/textos';
 
 const boton = 'inline-flex h-12 w-full items-center justify-center whitespace-nowrap rounded px-6 text-base font-semibold transition-colors duration-150 active:scale-[0.98]';
 
@@ -106,9 +107,10 @@ export function Planes({ cat, onCalcular }: { cat: Catalogo; onCalcular: (clave:
           </>} />
         )}
         {adm && (
-          <Nivel plan={adm} cat={cat} retraso={160} pie={
-            calcular('administradora', `${boton} bg-surface2 text-ink hover:bg-brand-soft`)
-          } />
+          <Nivel plan={adm} cat={cat} retraso={160} pie={<>
+            <Link to={CONTACTO.enlace_demo} className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>{CONTACTO.cta_demo}</Link>
+            {calcular('administradora', 'inline-flex h-11 items-center justify-center text-base font-medium text-brand underline underline-offset-4 hover:text-brand-hover')}
+          </>} />
         )}
       </div>
     </section>

@@ -3,7 +3,7 @@ import {
   ChatBubbleLeftRightIcon, HomeIcon, BuildingOffice2Icon, UsersIcon, ClipboardDocumentListIcon, Cog6ToothIcon, BuildingStorefrontIcon,
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
-  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon, ArrowsRightLeftIcon, BeakerIcon, DocumentChartBarIcon,
+  SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon, ArrowsRightLeftIcon, BeakerIcon, DocumentChartBarIcon, InboxIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { CargoJunta, Rol, Usuario } from '../auth/AuthContext';
@@ -60,6 +60,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
         { to: '/superadmin/llavero', label: 'Llavero de IA', icon: LockClosedIcon },
         { to: '/superadmin/integraciones', label: 'Canales e integraciones', icon: ChatBubbleLeftRightIcon },
         { to: '/superadmin/suscripciones', label: 'Suscripciones', icon: CreditCardIcon },
+        { to: '/superadmin/contactos', label: 'Contactos y reclamaciones', icon: InboxIcon },
       ],
     },
   ],

@@ -6,8 +6,12 @@ export const nombreTorre = (t: { id: number; nombre: string | null }): string =>
 /** ¿Las torres son de más de un condominio? Entonces «Block 1» solo no alcanza para distinguirlas. */
 export const hayVariosCondominios = (torres: Pick<Torre, 'complejo'>[]): boolean => new Set(torres.map(t => t.complejo?.id ?? 0)).size > 1;
 
+/** Rótulo de una torre: «Block 1», o «Block 1 · Los Libertadores» si hay torres de varios condominios. Sirve también para filas que sólo traen nombre y condominio (p. ej. el resumen). */
+export const rotuloTorre = (nombre: string, complejo: { nombre: string } | null | undefined, variosCondominios: boolean): string =>
+  `${nombre}${variosCondominios && complejo ? ` · ${complejo.nombre}` : ''}`;
+
 /** Texto de una torre en un select: «Block 1», o «Block 1 · Los Libertadores» si hay torres de varios condominios. */
-export const etiquetaTorre = (t: Torre, variosCondominios: boolean): string => `${nombreTorre(t)}${variosCondominios && t.complejo ? ` · ${t.complejo.nombre}` : ''}`;
+export const etiquetaTorre = (t: Torre, variosCondominios: boolean): string => rotuloTorre(nombreTorre(t), t.complejo, variosCondominios);
 
 /** Cómo se llaman los edificios en el filtro: siempre «block». */
 export const palabraDeTorres = (_torres: Pick<Torre, 'tipo'>[]): { titulo: string; todas: string } => ({ titulo: 'Block', todas: 'Todos los blocks' });

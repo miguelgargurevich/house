@@ -7,6 +7,7 @@ import { prisma } from '../db';
 import { forbidden, HttpError, invalid, notFound } from '../errors';
 import { filtroEstadoCargo } from '../lib/cargos';
 import { relojDeCondominios } from '../lib/zonas';
+import { exigirMismoAmbito } from '../lib/ambito';
 import { empresaDe, scopeComplejos, scopeUnidades, scopeUsuarios } from '../lib/scope';
 import { registrarAuditoria } from '../middleware/audit';
 import { currentUser, requireRole, type AuthUser } from '../middleware/auth';
@@ -64,6 +65,8 @@ async function normalizar(data: Record<string, unknown>, user: AuthUser, existin
 
   if (user.rol === 'admin') {
     if (out.rol === 'superadmin') throw forbidden('No puedes crear ni ascender usuarios a superadmin');
+    // La empresa de una persona del personal es la de quien la administra: si llega otra, 422 (no se pisa en silencio); la propia se acepta.
+    exigirMismoAmbito('empresa_id', out.empresa_id, empresaDe(user), existing ? 'cambiar' : 'crear');
     out.empresa_id = empresaDe(user);
     if (existing && existing.id === user.id && out.rol !== undefined && out.rol !== existing.rol) {
       throw forbidden('No puedes cambiar tu propio rol');
@@ -75,6 +78,10 @@ async function normalizar(data: Record<string, unknown>, user: AuthUser, existin
   // es la del condominio de sus unidades. Se guarda null al crear, al cambiar el rol a residente y al editar a un residente.
   const rolFinal = (out.rol !== undefined ? out.rol : existing?.rol) as string | null | undefined;
   if (rolFinal === 'propietario' || rolFinal === 'inquilino') {
+    // Un residente no tiene empresa: mandar una (distinta de la propia de quien llama) no se guarda, así que se avisa en vez de callarlo.
+    if (data.empresa_id != null && !(user.rol === 'admin' && data.empresa_id === user.empresa_id)) {
+      throw invalid('Datos inválidos: empresa_id: un propietario o inquilino no tiene empresa propia', { empresa_id: 'Un residente no tiene empresa propia' });
+    }
     out.empresa_id = null;
     // Sin empresa propia, al residente la administración lo alcanza por su condominio o por sus unidades: un residente nuevo debe nacer con condominio.
     if (!existing && user.rol === 'admin' && out.complejo_id == null) {

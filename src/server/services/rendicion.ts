@@ -319,11 +319,11 @@ export async function rendicionDe(u: AuthUser, q: ConsultaRendicion, ahora: Date
   }
 
   // ---------- Cobrado ANTES del mes (para el saldo inicial) ----------
+  // Una suma por block, todas en paralelo (antes eran en serie: ≈ 1 consulta por block y ~300 ms en un condominio de 14 blocks).
   const clavesBlocks: Clave[] = [...parciales.keys()];
-  for (const k of clavesBlocks) {
-    const r = await prisma.pago.aggregate({ _sum: { monto: true }, where: { estado_validacion: 'validado', fecha_pago: { lt: desde }, reciboConceptoUnidad: cargosDe(enBlock ? alcanceBloque : k) } });
-    de(k).prior_cobrado = new Prisma.Decimal(r._sum.monto ?? 0);
-  }
+  const previos = await Promise.all(clavesBlocks.map((k) =>
+    prisma.pago.aggregate({ _sum: { monto: true }, where: { estado_validacion: 'validado', fecha_pago: { lt: desde }, reciboConceptoUnidad: cargosDe(enBlock ? alcanceBloque : k) } })));
+  clavesBlocks.forEach((k, i) => { de(k).prior_cobrado = new Prisma.Decimal(previos[i]._sum.monto ?? 0); });
 
   // ---------- Egresos de los cierres de los blocks ----------
   const lineas: LineaEgreso[] = [];

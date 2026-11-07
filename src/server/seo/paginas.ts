@@ -7,6 +7,8 @@ import { StaticRouter } from 'react-router-dom';
 import { dinero } from '../../ui/format';
 import { MARCA, MARCA_LARGA, PORTADA, PRECIOS_HERO, REGISTRO, cierrePrecios, hechosPrecios, pieMarco, preguntas, preguntasPortada, textoTope, textosModulos, tituloPlanes, unidadPrecio } from '../../lib/seo/textos';
 import { textosPrivacidad, textosTerminos } from '../../pages/publico/legal/textos';
+import { CONTACTO, LIBRO } from '../../pages/publico/contacto/textos';
+import { redesPublicas } from '../services/contacto/redes';
 import { VERSION_LEGAL, datosLegales } from '../services/comercial/legal';
 import type { Plan } from '../../pages/publico/catalogo';
 import type { ContextoSeo } from './contexto';
@@ -23,6 +25,8 @@ const TITULOS: Record<RutaPublica, { titulo: string; nombre: string }> = {
   '/': { titulo: 'Torre · Administración de condominios', nombre: 'Inicio' },
   '/precios': { titulo: 'Precios | Torre · Administración de condominios', nombre: 'Precios' },
   '/registro': { titulo: 'Crea tu cuenta | Torre · Administración de condominios', nombre: 'Crear cuenta' },
+  '/contacto': { titulo: 'Contacto | Torre · Administración de condominios', nombre: 'Contacto' },
+  '/libro-de-reclamaciones': { titulo: 'Libro de Reclamaciones | Torre · Condominios', nombre: 'Libro de Reclamaciones' },
   '/privacidad': { titulo: 'Privacidad | Torre · Administración de condominios', nombre: 'Política de privacidad' },
   '/terminos': { titulo: 'Términos | Torre · Administración de condominios', nombre: 'Términos y condiciones' },
 };
@@ -41,6 +45,8 @@ function descripcionPrecios(ctx: ContextoSeo | null): string {
 const DESCRIPCIONES: Record<Exclude<RutaPublica, '/precios'>, string> = {
   '/': 'Torre ordena recibos, pagos y morosidad de edificios y condominios en el Perú: recibos por block, vouchers con IA y avisos por WhatsApp. Empieza gratis.',
   '/registro': 'Crea tu cuenta en Torre Gratis, sin tarjeta, y emite el primer recibo de tu condominio. Después eliges Torre Básico o Torre Pro.',
+  '/contacto': 'Escríbenos o pide una demo de Torre, el servicio para administrar edificios y condominios en el Perú. Respondemos en menos de 1 día hábil.',
+  '/libro-de-reclamaciones': 'Libro de Reclamaciones virtual de Torre: registra un reclamo o una queja sobre el servicio, según la Ley N.º 29571 de Protección y Defensa del Consumidor.',
   '/privacidad': 'Cómo Torre trata los datos personales de administradoras, juntas, vecinos y personal del edificio, según la Ley N.º 29733 de Protección de Datos Personales.',
   '/terminos': 'Condiciones de uso de Torre, el servicio para administrar edificios y condominios: cuentas, planes y pagos, validación de vouchers y responsabilidades.',
 };
@@ -90,14 +96,21 @@ function aplicacion(ctx: ContextoSeo): Json {
 
 function organizacion(ctx: ContextoSeo): Json {
   const { cfg, base } = ctx;
+  const redes = redesPublicas(cfg);
+  const sameAs = [redes.instagram, redes.facebook].filter((u): u is string => !!u);
+  // Punto de contacto: el celular (WhatsApp) y el correo de la base. Sin ninguno de los dos no hay `ContactPoint`.
+  const telefono = redes.whatsapp ? `+${redes.whatsapp.numero}` : null;
+  const correo = cfg.legal_correo ?? null;
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     ...(base ? { '@id': `${base}/#organizacion`, url: `${base}/`, logo: `${base}/apple-touch-icon.png` } : {}),
     name: MARCA,
     ...(cfg.legal_razon_social ? { legalName: cfg.legal_razon_social } : {}),
-    ...(cfg.legal_correo ? { email: cfg.legal_correo } : {}),
-    ...(cfg.url_instagram ? { sameAs: [cfg.url_instagram] } : {}),
+    ...(correo ? { email: correo } : {}),
+    ...(telefono ? { telephone: telefono } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
+    ...(telefono || correo ? { contactPoint: [{ '@type': 'ContactPoint', contactType: 'customer service', areaServed: 'PE', availableLanguage: 'es', ...(telefono ? { telephone: telefono } : {}), ...(correo ? { email: correo } : {}) }] } : {}),
   };
 }
 
@@ -184,10 +197,10 @@ function marco(ctx: ContextoSeo, contenido: string): string {
   const abierto = ctx.cfg.registro_abierto;
   return `<div style="max-width:64rem;margin:0 auto;padding:1rem 1.25rem;line-height:1.6">
 <header style="display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:center;justify-content:space-between"><a href="/" style="font-weight:600;font-size:1.25rem;text-decoration:none">${esc(MARCA)}</a>
-<nav aria-label="Principal" style="display:flex;gap:1rem">${A('/precios', 'Precios')} ${A('/login', 'Ingresar')}${abierto ? ` ${A('/registro', 'Crear cuenta')}` : ''}</nav></header>
+<nav aria-label="Principal" style="display:flex;gap:1rem">${A('/precios', 'Precios')} ${A('/contacto', 'Contacto')} ${A('/login', 'Ingresar')}${abierto ? ` ${A('/registro', 'Crear cuenta')}` : ''}</nav></header>
 <main style="padding:2rem 0">${contenido}</main>
 <footer style="font-size:.75rem"><p>${esc(pieMarco(ctx.cat))}</p>
-<nav aria-label="Legal">${A('/privacidad', 'Privacidad')} · ${A('/terminos', 'Términos')}</nav></footer>
+<nav aria-label="Legal">${A('/contacto', 'Contacto')} · ${A('/privacidad', 'Privacidad')} · ${A('/terminos', 'Términos')} · ${A('/libro-de-reclamaciones', 'Libro de Reclamaciones')}</nav></footer>
 </div>`;
 }
 
@@ -204,7 +217,7 @@ function cuerpoPortada(ctx: ContextoSeo): string {
   const planes = orden.map(c => ctx.cat.planes.find(p => p.clave === c)).filter((p): p is Plan => !!p);
   return `<section><h1 style="${estiloH1}">${esc(PORTADA.h1)}</h1>
 <p>${esc(PORTADA.bajada)}</p>
-<p>${abierto ? `${A('/registro', PORTADA.botones.registro)} · ` : ''}${A('/precios', PORTADA.botones.precios)}</p></section>
+<p>${abierto ? `${A('/registro', PORTADA.botones.registro)} · ` : ''}${A('/precios', PORTADA.botones.precios)} · ${A(CONTACTO.enlace_demo, CONTACTO.cta_demo)}</p></section>
 <section><h2 style="${estiloH2}">${esc(e.titulo)}</h2><p>${esc(enunciado)}</p></section>
 <section><h2 style="${estiloH2}">${esc(PORTADA.pasos.titulo)}</h2><ol>${PORTADA.pasos.lista.map(p => `<li><h3>${esc(p.clausula)}</h3><p>${esc(p.texto)}</p></li>`).join('')}</ol></section>
 <section><h2 style="${estiloH2}">${esc(PORTADA.juntas.block.titulo)}</h2><p>${esc(PORTADA.juntas.block.texto)}</p><p>${esc(PORTADA.juntas.una.titulo)}: ${esc(PORTADA.juntas.una.texto)}</p></section>
@@ -251,6 +264,34 @@ function cuerpoRegistro(): string {
 <p>¿Ya tienes cuenta? ${A('/login', 'Ingresa')}</p>`;
 }
 
+/** Contacto: los mismos textos de la página y los datos de contacto de la base (el formulario lo pinta React). */
+function cuerpoContacto(ctx: ContextoSeo): string {
+  const redes = redesPublicas(ctx.cfg);
+  const correo = ctx.cfg.legal_correo;
+  const medios = [
+    redes.whatsapp ? `<li>${A(redes.whatsapp.enlace, 'Escríbenos por WhatsApp')}</li>` : '',
+    correo ? `<li>${A(`mailto:${correo}`, correo)}</li>` : '',
+    redes.instagram ? `<li>${A(redes.instagram, 'Instagram')}</li>` : '',
+    redes.facebook ? `<li>${A(redes.facebook, 'Facebook')}</li>` : '',
+  ].join('');
+  return `<h1 style="${estiloH1}">${esc(CONTACTO.h1)}</h1>
+<p>${esc(CONTACTO.bajada)}</p>
+${medios ? `<ul>${medios}</ul>` : ''}`;
+}
+
+/** Libro de Reclamaciones: la base legal, qué es un reclamo y una queja, el plazo y los datos del proveedor (el formulario lo pinta React). */
+function cuerpoLibro(ctx: ContextoSeo): string {
+  const { cfg } = ctx;
+  const proveedor = [cfg.legal_razon_social, cfg.legal_ruc ? `RUC ${cfg.legal_ruc}` : null, cfg.legal_domicilio].filter(Boolean).join(' · ');
+  return `<h1 style="${estiloH1}">${esc(LIBRO.h1)}</h1>
+<p>${esc(LIBRO.bajada)}</p>
+<p>${esc(LIBRO.base_legal)}</p>
+${proveedor ? `<p>${esc(proveedor)}</p>` : ''}
+<ul><li><strong>Reclamo:</strong> ${esc(LIBRO.reclamo)}</li><li><strong>Queja:</strong> ${esc(LIBRO.queja)}</li></ul>
+<p>${esc(LIBRO.plazo)}</p>
+<p>${esc(LIBRO.indecopi)}</p>`;
+}
+
 /** Los textos legales son los MISMOS componentes de la página (se renderizan con React): una sola fuente, sin copia que se desactualice. */
 function cuerpoLegal(ruta: '/privacidad' | '/terminos', ctx: ContextoSeo): string {
   const legal = { datos: datosLegales(ctx.cfg), cargando: false };
@@ -271,6 +312,8 @@ export function construirCuerpo(ruta: RutaPublica, ctx: ContextoSeo): string {
     case '/': return marco(ctx, cuerpoPortada(ctx));
     case '/precios': return marco(ctx, cuerpoPrecios(ctx));
     case '/registro': return marco(ctx, cuerpoRegistro());
+    case '/contacto': return marco(ctx, cuerpoContacto(ctx));
+    case '/libro-de-reclamaciones': return marco(ctx, cuerpoLibro(ctx));
     default: return marco(ctx, cuerpoLegal(ruta, ctx));
   }
 }

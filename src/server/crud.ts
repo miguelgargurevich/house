@@ -2,6 +2,7 @@ import { Router, type Request, type RequestHandler, type Response } from 'expres
 import type { Rol } from './config';
 import { currentUser, requireRole, type AuthUser } from './middleware/auth';
 import { forbidden, invalid, notFound } from './errors';
+import { rechazarAmbito } from './lib/ambito';
 import { listQuerySchema, parse, parseBody, parseId, parseOrden, z } from './validation';
 
 type Where = Record<string, unknown>;
@@ -54,6 +55,15 @@ export interface CrudOptions {
   update?: (data: Record<string, unknown>, existing: Record<string, unknown>, user: AuthUser) => Promise<Record<string, unknown>>;
 }
 
+/** Claves que declara un esquema de objeto (con o sin `.refine`/`.partial()`). Lanza si no se pueden leer: mejor fallar al montar la ruta que dejar el rechazo de ámbito sin efecto. */
+function clavesDe(schema: z.ZodType, entidad: string): Set<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const s = schema as any;
+  const shape = s.shape ?? s.def?.shape ?? s.def?.out?.shape;
+  if (!shape) throw new Error(`crudRouter(${entidad}): el esquema no es un objeto; declara usa z.object`);
+  return new Set(Object.keys(shape));
+}
+
 /** 'campo' o 'relacion.campo' (anidado) → filtro `contains` sin distinguir mayúsculas. */
 const buscar = (ruta: string, q: string): Where =>
   ruta.split('.').reduceRight<Where | string>((acc, parte) => (typeof acc === 'string' ? { [parte]: { contains: acc, mode: 'insensitive' } } : { [parte]: acc }), q) as Where;
@@ -101,9 +111,13 @@ export function crudRouter(o: CrudOptions): Router {
 
   if (o.readOnly || !o.createSchema || !o.updateSchema) return router;
   const { createSchema, updateSchema } = o;
+  // Campos de ámbito (empresa_id, complejo_id, estructura_id) que el esquema no declara: se rechazan con 422, no se ignoran en silencio.
+  const declaradosAlCrear = clavesDe(createSchema, o.entidad);
+  const declaradosAlEditar = clavesDe(updateSchema, o.entidad);
 
   router.post('/', requireRole(...(o.createRoles ?? o.writeRoles)), async (req, res) => {
     const user = currentUser(req);
+    rechazarAmbito(req.body, { permitidos: declaradosAlCrear });
     let data = parseBody(createSchema, req) as Record<string, unknown>;
     if (o.prepareCreate) data = await o.prepareCreate(data, user);
     await o.operativo?.(data, user);
@@ -121,6 +135,7 @@ export function crudRouter(o: CrudOptions): Router {
     const id: Id = parseId(req);
     const existing = await o.delegate.findFirst({ where: { AND: [{ id }, (o.writeScope ?? o.scope)(user)] } });
     if (!existing) throw notFound();
+    rechazarAmbito(req.body, { permitidos: declaradosAlEditar, actual: existing });
     let data = parseBody(updateSchema, req) as Record<string, unknown>;
     if (o.prepareUpdate) data = await o.prepareUpdate(data, user, existing);
     await o.operativo?.(existing, user);
