@@ -65,8 +65,8 @@ const SUSTITUIR = `
     [/Melina Loayza/g, 'Mónica Paredes'],
     [/[\\w.+-]+@gmail\\.com/gi, 'monica.paredes@prueba.house'],
     [/miguel@prueba\\.house/g, 'martin@prueba.house'],
-    [/923238432/g, '987654399'], // celular de la cuenta real de la administradora
-    [/988491368/g, '987654398'], // celular de Miguel (presidente del Block 1 en el seed)
+    [/923238432/g, '900009001'], // celular de la cuenta real de la administradora
+    [/988491368/g, '900009002'], // celular de Miguel (presidente del Block 1 en el seed)
   ];
   const limpiarNombres = () => {
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);

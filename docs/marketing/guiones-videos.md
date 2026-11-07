@@ -155,3 +155,12 @@ Preparación: el correo se renderiza con `scripts/marketing/correo-invitacion.ts
 - Revisión (7-nov-2026): OCR a 1 cuadro por segundo con `tesseract -l spa` sin coincidencias de `gesti.n ?urbana|gestionurbana|melina|loayza|gmail|gargurevich`, y hojas de contacto de todos los cuadros: en oscuro salen las pantallas públicas (inicio de sesión, aviso de instalar) y las de la app. La tarjeta de cierre ya es verde Torre con letras claras.
 - Limitación ya conocida: en escritorio la escena 2 de v7 pierde el aviso «Instalar Torre» (sólo sale en pantallas chicas); el video queda igual que la versión clara.
 - Las vistas previas («Así se verá» de Tu marca y el recibo de ejemplo) son tarjetas claras a propósito, también en oscuro.
+
+## Celulares de prueba (ficticios)
+
+Los videos muestran datos de la base local, así que **ningún celular de prueba tiene forma real**:
+
+- Residentes y personal del seed (`prisma/seed-libertadores.ts`, `prisma/seed.ts`): `9000` + 5 dígitos (p. ej. `900012345`). Los fijos de las empresas: `0100000NN`. Los proveedores del seed libertadores: `900005NNN`.
+- Base local `house` ya convertida (7-nov-2026): `Usuario.telefono` y `MedioPago.celular`/`Proveedor.telefono` en `9000` + id a 5 dígitos; `PersonaUnidad.celular` en `+51 900 0NN NNN`; `EmpresaAdministradora.telefono` en `0100000NN`.
+- La plantilla de contactos de la escena 3 de v7 se vuelve a descargar de la app (`GET /api/contactos/plantilla.xlsx?complejo_id=4`) después de cambiar la base; no se edita a mano.
+- Antes de dar por buena una grabación, OCR a 2 cuadros por segundo: ningún celular que no empiece por `9000`/`900 0` (y ningún nombre ni correo real).

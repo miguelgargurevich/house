@@ -51,7 +51,7 @@ if (desconocidos.length) {
 // Datos de prueba: contraseñas propias de esta corrida (la semilla del superadmin es la pública de recorrido-pantallas.mjs).
 const CORRIDA = Date.now().toString(36);
 const CLAVE = 'Torre2026clave';
-const CELULAR = '987654321';
+const CELULAR = '900000321';
 const SUPER = { email: 'miguel.gargurevich@admin.example', clave: 'admin1234' };
 
 const resultados = [];
