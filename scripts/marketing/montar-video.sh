@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Monta un video de marketing: cada clip de grabar-video.mjs (sin lo que tardó en cargar) con su voz, en orden, y exporta un MP4 H.264 + AAC
-# listo para redes. Uso: scripts/marketing/montar-video.sh <video> <escritorio|celular>  →  .claude/videos/<video>/house-<video>-<formato>.mp4
+# listo para redes. Uso: scripts/marketing/montar-video.sh <video> <escritorio|celular> [oscuro]
+#   → .claude/videos/<video>/torre-<video>-<formato>.mp4  (con «oscuro»: clips de <formato>-oscuro/ y torre-<video>-<formato>-oscuro.mp4)
 set -euo pipefail
-video="${1:-v1}"; formato="${2:-escritorio}"
-base="$(pwd)/.claude/videos/$video"; clips="$base/$formato"; voz="$base/voz"
+video="${1:-v1}"; formato="${2:-escritorio}"; tema="${3:-}"
+[ -z "$tema" ] || [ "$tema" = oscuro ] || { echo "tema? (vacío u oscuro)"; exit 1; }
+dir="$formato${tema:+-$tema}"
+base="$(pwd)/.claude/videos/$video"; clips="$base/$dir"; voz="$base/voz"
 [ -f "$clips/recortes.json" ] || { echo "Falta $clips/recortes.json: graba primero"; exit 1; }
 case "$formato" in escritorio) ancho=1920; alto=1080 ;; celular) ancho=1080; alto=1920 ;; *) echo "formato?"; exit 1 ;; esac
 tmp="$clips/montaje"; rm -rf "$tmp"; mkdir -p "$tmp"
@@ -20,6 +23,6 @@ while [ -f "$clips/e$n.webm" ]; do
   echo "file 'e$n.mp4'" >> "$lista"
   n=$((n + 1))
 done
-salida="$base/torre-$video-$formato.mp4"
+salida="$base/torre-$video-$dir.mp4"
 ffmpeg -v error -y -f concat -safe 0 -i "$lista" -c copy -movflags +faststart "$salida"
 printf '%s  %.1f s\n' "$salida" "$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$salida")"
