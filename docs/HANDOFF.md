@@ -4,6 +4,17 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-07 — Video 7 «Empieza con Torre» en modo oscuro (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel**: v7 en oscuro para las redes (celular 9:16 primero); misma voz y guion.
+- **Hecho**: `grabar-video.mjs` acepta `TEMA=oscuro` (contexto `colorScheme: 'dark'` + `localStorage['house-theme']='dark'`; clips en `<formato>-oscuro/`) y `montar-video.sh <video> <formato> oscuro` (sale `torre-<video>-<formato>-oscuro.mp4`). Cómo se graba: `docs/marketing/guiones-videos.md`, «Versión en modo oscuro».
+- **Resultado**: `.claude/videos/v7/torre-v7-celular-oscuro.mp4` y `.claude/videos/v7/torre-v7-escritorio-oscuro.mp4`, 63,0 s cada uno. OCR de 63 cuadros por video sin datos reales; hojas de contacto revisadas a ojo (todo en oscuro). Los .mp4 no se commitean ni se subieron a MinIO / My Workspace (lo hace Opus).
+- **Gotcha**: en escritorio, la escena 2 pierde el aviso «Instalar Torre» (sólo pantallas chicas), igual que la versión clara.
+- **Local, ya restaurado**: Evolution falso apagado; empresa 6 con `whatsapp_instance` null, nombre y color null; sus 53 `GrupoWhatsapp` de prueba borrados; backend principal reiniciado sin `EVOLUTION_URL` ni `EVOLUTION_APIKEY`, con `AVISOS_PLANIFICADOR=off` y `RESEND_API_KEY` vacío.
+- **Próximo paso**: Opus decide si sube los dos mp4 oscuros (MinIO `videos-torre/` y My Workspace).
+
+---
+
 ## 2026-11-05 — Campos de ámbito estrictos (S1) e IA no configurada = 503 (S2) (Claude Code, Sonnet 5.5, delegado por Opus; rama `fix/campos-estrictos`) — push: no
 
 - **Pedido de Miguel**: tras la simulación de mercado (0 fugas), «Sí, arréglalas» las observaciones S1 y S2 del informe (`docs/pruebas/simulacion-mercado.md` §9).
