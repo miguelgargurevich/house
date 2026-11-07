@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-07 — Manual y videos en la web pública (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-publico`) — push: no
+
+- **Pedido de Miguel**: «¿tenemos el manual publicado en el landing o en algún lado?». Antes sólo estaba en «Manual y videos» del menú de la cuenta (con sesión).
+- **Hecho**: `catalogoPublico` trae `manual` (la `url_manual` de la configuración; vacío = `null`). Pie de todas las páginas públicas (`Marco.tsx`): enlace «Manual y videos» con `PlayCircleIcon`, en el grupo legal, en pestaña nueva. Portada: botón de contorno «Mira cómo funciona» junto a «Crear cuenta gratis», sólo si hay manual.
+- **Pruebas**: `tests/manual-publico.test.ts` (4 en verde, base `house_test_manual_publico`). Contrato actualizado en `docs/API-CONTRATO.md`.
+- **Gotcha**: `db push` contra la base de prueba también regeneró el cliente de Prisma, que en este worktree apunta al `node_modules` compartido (mismo esquema, sin cambios).
+
+---
+
 ## 2026-11-07 — Video 7 «Empieza con Torre» en modo oscuro (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: v7 en oscuro para las redes (celular 9:16 primero); misma voz y guion.

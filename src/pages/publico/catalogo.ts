@@ -37,6 +37,8 @@ export interface Catalogo {
   planes: Plan[]; modulos: Modulo[]; registro_abierto: boolean;
   /** Redes y WhatsApp de contacto de Torre (null = no se muestra). Vienen de la configuración, nunca del código. */
   redes?: Redes;
+  /** Dirección del manual de usuario con videos (se abre en otra pestaña desde el pie y la portada); null = no se muestra. Viene de la configuración. */
+  manual?: string | null;
   /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
   dias_gratis: number | null;
 }

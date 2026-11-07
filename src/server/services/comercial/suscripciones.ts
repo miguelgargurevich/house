@@ -329,6 +329,8 @@ export async function catalogoPublico(pais?: string | null) {
     registro_abierto: cfg.registro_abierto,
     /** Redes y WhatsApp de contacto de Torre (pie, botón flotante y /contacto): `{ instagram, facebook, whatsapp: { numero, enlace } | null }`; lo vacío es null = no se muestra. */
     redes: redesPublicas(cfg),
+    /** Manual de usuario con videos (el de «Manual y videos» del menú): la misma `url_manual` de la configuración; null = no se muestra el enlace. */
+    manual: cfg.url_manual || null,
     /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
     dias_gratis: cfg.dias_gratis && cfg.dias_gratis > 0 ? cfg.dias_gratis : null,
   };

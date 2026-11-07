@@ -982,7 +982,7 @@ El `PUT|DELETE /api/recibo-concepto-unidades/:id` genérico sigue existiendo (si
 - `whatsapp_contacto` (por defecto `"51966918363"`): celular con código de país, sólo dígitos (`^[1-9]\d{7,14}$`; se aceptan `+`, espacios, guiones y paréntesis y se quitan). Vacío = `null` = no se muestra ningún botón ni enlace. **El número no está escrito en el código** (una prueba lo recorre): sólo vive en la base y como valor de partida en `prisma/schema.prisma`.
 - `whatsapp_mensaje` (por defecto «Hola, vi Torre y quiero saber más»; ≤ 200, una línea, sin `<` ni `>`): texto con que se abre el chat. Vacío = el enlace va sin `?text`.
 - `url_facebook` (por defecto la página de Torre): `https://` + `facebook.com` (con `www.`, `m.` o `web.`). Vacío = `null`.
-- `GET /api/publico/planes` → `redes: { instagram, facebook, whatsapp: { numero, enlace } | null }`; `enlace = https://wa.me/<numero>?text=<mensaje codificado>`. Lo vacío es `null`.
+- `GET /api/publico/planes` → `redes: { instagram, facebook, whatsapp: { numero, enlace } | null }`; `enlace = https://wa.me/<numero>?text=<mensaje codificado>`. Lo vacío es `null`. Además `manual: string | null` (la `url_manual` de la configuración; vacío = `null` = no se muestra el enlace «Manual y videos» del pie ni «Mira cómo funciona» de la portada).
 - El correo de contacto que ve el público es `legal_correo` (ya existente, «Datos legales»); el aviso de cada mensaje y de cada hoja sale a `legal_correo` y, si no hay, a `correo_superadmin`.
 
 ### Público (sin sesión ni CSRF) — `/api/publico`

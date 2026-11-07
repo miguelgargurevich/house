@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { PlayCircleIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { PORTADA, cierrePrecios, preguntasPortada } from '../../lib/seo/textos';
 import { Aparece } from './Aparece';
 import { CONTACTO } from './contacto/textos';
@@ -37,6 +37,7 @@ export default function Portada() {
             <p style={sube(1)} className="sube mt-6 max-w-[34rem] text-base leading-relaxed sm:text-xl">{PORTADA.bajada}</p>
             <div style={sube(2)} className="sube mt-8 flex flex-wrap gap-3">
               {abierto && <Link to="/registro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>{PORTADA.botones.registro}</Link>}
+              {cat?.manual && <a href={cat.manual} target="_blank" rel="noopener noreferrer" className={`${boton} gap-2 border border-line hover:bg-surface2`}><PlayCircleIcon className="h-5 w-5" aria-hidden="true" />Mira cómo funciona<span className="sr-only"> (se abre en otra pestaña)</span></a>}
               <Link to="/precios" className={`${boton} bg-surface2 hover:bg-line`}>{PORTADA.botones.precios}</Link>
               <Link to={CONTACTO.enlace_demo} className={`${boton} border border-line hover:bg-surface2`}>{CONTACTO.cta_demo}</Link>
             </div>
