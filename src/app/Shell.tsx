@@ -1,9 +1,10 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Bars3Icon, ChevronDoubleLeftIcon, SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmDialog, IconButton, cx } from '../ui';
 import { navPara } from './nav';
+import { MenuLateral } from './MenuLateral';
 import { useCondominio } from './condominio';
 import { MenuUsuario } from './MenuUsuario';
 import { Assistant } from './Assistant';
@@ -44,9 +45,6 @@ function Logo({ soloMarca = false }: { soloMarca?: boolean }) {
     </span>
   );
 }
-
-const link = 'flex items-center gap-3 rounded px-3 py-2 text-sm font-medium transition-colors duration-150';
-const linkRiel = '!justify-center !gap-0 !px-0';
 
 /** El condominio elegido arriba lo comparten todas las pantallas: el estado vive fuera, con la sesión (`key`) para no heredar el de otro usuario. */
 export function Shell() {
@@ -99,29 +97,7 @@ function ShellInterior() {
           </Pista>
         ) : <Logo />}
       </div>
-      <nav aria-label="Principal" className={cx('flex-1 overflow-y-auto py-3', riel ? 'space-y-3 px-2' : 'space-y-5 px-3')}>
-        {navPara(user, { sinCondominios }).map((g, i) => (
-          <div key={i} className={cx(riel && i > 0 && 'border-t border-line pt-3')}>
-            {!riel && g.label && <p className="mb-1.5 px-3 text-xs font-medium uppercase tracking-wide text-muted">{g.label}</p>}
-            <ul className="space-y-0.5">
-              {g.items.map(it => (
-                <li key={it.to}>
-                  <Pista texto={riel ? it.label : undefined}>
-                    <NavLink
-                      to={it.to}
-                      aria-label={riel ? it.label : undefined}
-                      className={({ isActive }) => cx(link, riel && linkRiel, isActive ? 'bg-brand-soft text-brand' : 'text-muted hover:bg-surface2 hover:text-ink')}
-                    >
-                      <it.icon className="h-5 w-5 shrink-0" />
-                      {!riel && it.label}
-                    </NavLink>
-                  </Pista>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </nav>
+      <MenuLateral grupos={navPara(user, { sinCondominios })} riel={riel} />
       {/* La plataforma sigue siendo Torre: con la marca de la empresa activa queda en pequeño al pie del menú. */}
       {marca.activa && !riel && <p className="shrink-0 border-t border-line px-5 py-3 text-xs text-muted">con Torre</p>}
     </div>

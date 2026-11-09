@@ -4,6 +4,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-09 — Menú lateral agrupado y plegable, como el portal de dealers (Claude Code, Opus 5.5; en `main`, sin commit) — push: no
+
+- **Pedido de Miguel**: «agrupa el menú porque así sueltos no se ve bien, revisa cómo lo hicimos en el portal de dealers».
+- **Hecho**: las áreas que ya existían en `nav.ts` (Cobranza, Operación, Plataforma, Cuenta, Junta) ahora son cabeceras plegables con ícono y flecha, en vez de títulos con todo abierto. Componente nuevo `src/app/MenuLateral.tsx` (lo usa `Shell.tsx`); lógica pura en `src/app/menuGrupos.ts`.
+  - Como en dealers: el grupo de la pantalla actual se abre solo (y si se pliega a mano, la cabecera queda resaltada); los que la persona abre se recuerdan en `localStorage['house-menu-grupos']`; un grupo con una sola entrada no se arma (sale suelta); las entradas sin rótulo (Resumen, Condominios, el menú de vecinos y personal) siguen sueltas arriba.
+  - Barra colapsada (riel): la cabecera es un ícono; al hacer clic abre las entradas en un panel al costado (portal en `body`, se cierra con Esc, clic afuera o al navegar).
+  - `NavGroup` tiene `icon` opcional. Las rutas no cambiaron.
+- **Pruebas**: `tests/menu-grupos.test.ts` (12, en verde) más `barra-menu` y `cargo-menu`; `npx tsc -b` sin errores. Visto en el navegador (escritorio expandido y colapsado, y cajón del celular) contra un backend falso de sesión: en esta PC no hay Postgres ni Docker encendido, así que no se corrió la suite completa (`manual-menu` y las de API necesitan base).
+- **Gotcha (PC Windows)**: el checkout no tenía `node_modules`; se hizo `npm ci` + `npx prisma generate`.
+
+---
+
 ## 2026-11-07 — Manual y videos en la web pública (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-publico`) — push: no
 
 - **Pedido de Miguel**: «¿tenemos el manual publicado en el landing o en algún lado?». Antes sólo estaba en «Manual y videos» del menú de la cuenta (con sesión).

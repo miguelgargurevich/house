@@ -4,13 +4,15 @@ import {
   ReceiptPercentIcon, BanknotesIcon, ExclamationTriangleIcon, WrenchScrewdriverIcon, TagIcon, KeyIcon,
   ChartBarIcon, CreditCardIcon, UserCircleIcon, ShieldCheckIcon, LockClosedIcon, QrCodeIcon, TruckIcon, SparklesIcon,
   SunIcon, MegaphoneIcon, UserGroupIcon, CalendarDaysIcon, ArchiveBoxArrowDownIcon, BuildingLibraryIcon, HomeModernIcon, CalendarIcon, ArrowsRightLeftIcon, BeakerIcon, DocumentChartBarIcon, InboxIcon,
+  CurrencyDollarIcon, ClipboardDocumentCheckIcon, CpuChipIcon, BriefcaseIcon,
 } from '@heroicons/react/24/outline';
 import { esJunta } from '../auth/junta';
 import type { CargoJunta, Rol, Usuario } from '../auth/AuthContext';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 export interface NavItem { to: string; label: string; icon: Icon }
-export interface NavGroup { label?: string; items: NavItem[] }
+/** Un grupo con rótulo (y más de una entrada) se pliega en la barra; `icon` es el de su cabecera y el del riel. */
+export interface NavGroup { label?: string; icon?: Icon; items: NavItem[] }
 
 /** Condominios: la lista y, desde la ficha, sus torres, unidades, residentes y recibos. */
 const condominios: NavItem = { to: '/admin/complejos', label: 'Condominios', icon: BuildingStorefrontIcon };
@@ -49,11 +51,12 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/superadmin/empresas', label: 'Empresas', icon: BuildingOffice2Icon },
       condominios,
     ] },
-    { label: 'Cobranza', items: cobranza },
+    { label: 'Cobranza', icon: CurrencyDollarIcon, items: cobranza },
     // WhatsApp (QR del número) es de cada administradora; el superadmin lo ve todo en «Canales e integraciones».
-    { label: 'Operación', items: operacion.filter(i => i.to !== '/admin/whatsapp') },
+    { label: 'Operación', icon: ClipboardDocumentCheckIcon, items: operacion.filter(i => i.to !== '/admin/whatsapp') },
     {
       label: 'Plataforma',
+      icon: CpuChipIcon,
       items: [
         { to: '/superadmin/usuarios', label: 'Usuarios del sistema', icon: UsersIcon },
         { to: '/superadmin/auditoria', label: 'Auditoría', icon: ClipboardDocumentListIcon },
@@ -69,9 +72,9 @@ export const NAV: Record<Rol, NavGroup[]> = {
       { to: '/admin/dashboard', label: 'Resumen', icon: HomeIcon },
       condominios,
     ] },
-    { label: 'Cobranza', items: cobranza },
-    { label: 'Operación', items: operacion },
-    { label: 'Cuenta', items: [{ to: '/admin/configuracion', label: 'Mi empresa', icon: Cog6ToothIcon }, { to: '/admin/mi-plan', label: 'Mi plan', icon: CreditCardIcon }] },
+    { label: 'Cobranza', icon: CurrencyDollarIcon, items: cobranza },
+    { label: 'Operación', icon: ClipboardDocumentCheckIcon, items: operacion },
+    { label: 'Cuenta', icon: BriefcaseIcon, items: [{ to: '/admin/configuracion', label: 'Mi empresa', icon: Cog6ToothIcon }, { to: '/admin/mi-plan', label: 'Mi plan', icon: CreditCardIcon }] },
   ],
   propietario: [
     { items: [
@@ -125,6 +128,7 @@ export const NAV: Record<Rol, NavGroup[]> = {
 /** Grupo «Junta» de presidente y tesorero: reusa las pantallas de la administración, acotadas por la API a su torre. */
 const JUNTA: NavGroup = {
   label: 'Junta',
+  icon: UserGroupIcon,
   items: [
     { to: '/junta/mi-junta', label: 'Mi junta', icon: UserGroupIcon },
     { to: '/junta/medios-pago', label: 'Medios de pago', icon: QrCodeIcon },
