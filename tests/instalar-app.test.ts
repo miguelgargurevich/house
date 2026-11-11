@@ -2,12 +2,14 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { modoInstalar } from '../src/app/instalar';
+import { dentroDeLaApp, modoInstalar } from '../src/app/instalar';
 
 const fuente = (ruta: string) => readFileSync(ruta, 'utf8');
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
 const IPHONE_CHROME = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0 Mobile/15E148 Safari/604.1';
+const APP_ANDROID = `${ANDROID} TorreApp/1.0.0`;
+const APP_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 TorreApp/1.0.0';
 const base = { instalada: false, descartado: false, hayAviso: false };
 
 describe('Torre instalable', () => {
@@ -36,6 +38,29 @@ describe('Torre instalable', () => {
     assert.equal(modoInstalar({ ...base, userAgent: ANDROID }), null);
     assert.equal(modoInstalar({ ...base, instalada: true, hayAviso: true, userAgent: ANDROID }), null);
     assert.equal(modoInstalar({ ...base, descartado: true, userAgent: IPHONE }), null);
+  });
+});
+
+describe('app de Torre para iOS y Android (mobile/): no ofrece «Instalar Torre»', () => {
+  it('dentroDeLaApp reconoce el TorreApp/<versión> que agrega Capacitor y nada más', () => {
+    assert.equal(dentroDeLaApp(APP_ANDROID), true);
+    assert.equal(dentroDeLaApp(APP_IPHONE), true);
+    assert.equal(dentroDeLaApp(ANDROID), false);
+    assert.equal(dentroDeLaApp(IPHONE), false);
+    assert.equal(dentroDeLaApp('Mozilla/5.0 NoTorreApp/1.0'), false);
+  });
+
+  it('dentro de la app no hay aviso: ni el botón de Android (aunque llegue beforeinstallprompt) ni la explicación de iPhone', () => {
+    assert.equal(modoInstalar({ ...base, hayAviso: true, userAgent: APP_ANDROID }), null);
+    assert.equal(modoInstalar({ ...base, userAgent: APP_IPHONE }), null);
+    // Safari de iPhone con «Safari» en el user agent: aun así, si trae TorreApp no se muestra.
+    assert.equal(modoInstalar({ ...base, userAgent: `${IPHONE} TorreApp/1.0.0` }), null);
+  });
+
+  it('el user agent que la app agrega sale de mobile/package.json y la web de producción sigue siendo la misma', () => {
+    const cfg = fuente('mobile/capacitor.config.ts');
+    assert.match(cfg, /appendUserAgent: `TorreApp\/\$\{version\(\)\}`/);
+    assert.match(fuente('mobile/scripts/entorno.cjs'), /PRODUCCION = 'https:\/\/torrecondominios\.com'/);
   });
 });
 
