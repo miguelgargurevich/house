@@ -76,3 +76,24 @@ scripts/e2e/resultados/
 
 # Archivos de trabajo de la skill de diseño (inspector, capturas, dirección)
 .taste-skill/
+
+# App móvil (mobile/, Capacitor): dependencias, builds, llaves de firma y archivos de cada máquina
+mobile/node_modules/
+mobile/www/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/local.properties
+mobile/android/app/release/
+mobile/android/captures/
+mobile/ios/App/Pods/
+mobile/ios/DerivedData/
+mobile/ios/App/build/
+**/xcuserdata/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+mobile/android/keystore.properties
+mobile/android/app/google-services.json
+mobile/ios/App/App/GoogleService-Info.plist

@@ -1,0 +1,30 @@
+{
+  "name": "torre-movil",
+  "version": "1.0.0",
+  "private": true,
+  "torre": {
+    "build": 1
+  },
+  "description": "Torre para iOS y Android: la misma web dentro de una app (Capacitor).",
+  "scripts": {
+    "preparar": "node scripts/preparar.mjs",
+    "sync": "node scripts/preparar.mjs && cap sync",
+    "sync:prod": "node scripts/preparar.mjs --produccion && env -u TORRE_URL cap sync",
+    "assets": "python3 scripts/generar-assets.py && capacitor-assets generate --android --ios --iconBackgroundColor \"#0f766e\" --splashBackgroundColor \"#0f766e\" --splashBackgroundColorDark \"#0f766e\"",
+    "verificar": "node scripts/verificar.mjs",
+    "version": "node scripts/version.mjs",
+    "apk:debug": "npm run sync && cd android && ./gradlew assembleDebug",
+    "apk:release": "npm run sync:prod && npm run verificar && cd android && ./gradlew bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "@capacitor/splash-screen": "^8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.0",
+    "typescript": "^5.9.0"
+  }
+}

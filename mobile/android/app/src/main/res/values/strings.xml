@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Torre</string>
+    <string name="title_activity_main">Torre</string>
+    <string name="package_name">com.torrecondominios.app</string>
+    <string name="custom_url_scheme">com.torrecondominios.app</string>
+    <string name="descarga_bajando">Descargando el archivo…</string>
+    <string name="descarga_error">No se pudo descargar el archivo. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="descarga_compartir">Compartir archivo</string>
+</resources>
