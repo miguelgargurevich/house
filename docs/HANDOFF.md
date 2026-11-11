@@ -4,8 +4,6 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
-<<<<<<< HEAD
-=======
 ## 2026-11-10 — App móvil iOS y Android con Capacitor, fase 1 (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/app-movil`) — push: no
 
 - **Pedido de Miguel**: «haz la app para iOS y Android» → camino elegido «Envolver la web» (Capacitor); cuentas de desarrollador «todavía no» (se prepara y se prueba en emulador; publicar después).
@@ -35,7 +33,6 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
->>>>>>> 1d9682b (Docs: APP-MOVIL (construir, probar, publicar, riesgos de rechazo, push) y entrada en HANDOFF)
 ## 2026-11-07 — Manual y videos en la web pública (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-publico`) — push: no
 
 - **Pedido de Miguel**: «¿tenemos el manual publicado en el landing o en algún lado?». Antes sólo estaba en «Manual y videos» del menú de la cuenta (con sesión).
