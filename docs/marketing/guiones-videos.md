@@ -217,3 +217,32 @@ Revisión: OCR a 2 cuadros/s con `tesseract -l spa` y el patrón de siempre: **0
 - **v10, escena 1**: se ve abrir la app y llegar al resumen; el login no alcanza a verse dentro de la voz.
 - **Splash**: es gris claro con el logo verde (no verde entero): la voz de v9 escena 2 dice «el logo», no «la pantalla verde».
 - **IA**: el voucher de prueba no es legible para la IA; la app lo muestra como «No coincide» o «Ilegible». Es honesto con un archivo ficticio, pero no es lo que el vecino vería con un voucher real.
+
+---
+
+## 11. Conoce Torre en la demo (para enviar con el enlace de la demo; ≈ 2:30; 16:9 y 9:16)
+
+**Estado: SÓLO GUION. El video se graba DESPUÉS, sobre la demo ya armada** (decisión de Miguel: «Entorno y guía, luego video»; ver `docs/DEMO.md`). Va junto con el enlace `https://demo.torrecondominios.com` en el mensaje a los clientes.
+
+Voz «Dora» (`ef_dora`), una por escena (`.claude/videos/v11/voz/e<N>.wav`), con la herramienta de la serie (`grabar-video.mjs` / `montar-video.sh`; 16:9 escritorio y 9:16 celular) y **`TEMA` claro** (sin `TEMA`, que es el claro). Duración objetivo **2:30** (≈ 340 palabras de voz; si una escena tarda más que su voz, lo lento va en `antes`). Reglas de siempre: tuteo, frases cortas, una cosa por escena, sin cifras inventadas (sólo las que se ven en pantalla), sin nombres de clientes reales.
+
+| # | En pantalla | Voz |
+|---|---|---|
+| 1 | El problema (≈ 20 s). Tarjeta de marca con tres imágenes que entran una a una: una hoja de Excel de cobranza, un chat de WhatsApp lleno de fotos de vouchers y un listado de morosos en rojo (ilustraciones propias, sin nombres ni números reales) | ¿Cobrar el mantenimiento cada mes te toma días? El Excel que nunca cuadra. Los vouchers que llegan por WhatsApp, perdidos entre mil mensajes. Y la morosidad, que nadie sabe cuánto crece. |
+| 2 | Entrar a la demo (≈ 15 s). La portada `/demo` con las tarjetas «Entrar como…»; el cursor pasa por Administradora, Tesorero, Presidente, Vecino… y entra a Administradora | Con la demo de Torre no te registras. Eliges un rol, y entras sin contraseña. Todo lo que ves son datos de ejemplo. Empecemos como administradora. |
+| 3a | Administradora › Resumen y Morosidad: quién debe, cuánto y desde cuándo (≈ 12 s) | Aquí ves toda tu administración: lo cobrado, lo pendiente, y la morosidad ordenada por departamento. |
+| 3b | Recibos › el recibo del mes, por block, con el avance del cobro (≈ 10 s) | Emites el recibo del mes por block, con cada concepto, y ves cuánto ya se cobró. |
+| 3c | Pagos › «Por validar» › Revisar pago: el voucher y la lectura de la IA con «coincide» (≈ 15 s) | Cada pago llega con su voucher. La inteligencia artificial lo lee y lo compara con el recibo. Tú revisas, y lo validas con un clic. |
+| 3d | Cierres del mes: el estado de todos los blocks (≈ 8 s) | Y al cerrar el mes, ves el estado de cada block, sin armar nada a mano. |
+| 4 | La junta (≈ 25 s). Se vuelve a `/demo` (franja «Cambiar de rol») y se entra como **Tesorero de un block**: Pagos con la conformidad; luego el cierre del mes del block; un vistazo a la **Junta central** (presidente) con los aportes de los blocks | Si eres de la junta de un block, Torre te da tu propio espacio. Como tesorero, confirmas que el dinero llegó a la cuenta, y cierras el mes con lo que va a la administración, a los servicios y a la Junta central. |
+| 5 | El vecino (≈ 25 s). Se entra como **Propietario moroso** (B01-101): «Mis recibos» con lo que debe; «Pagar mantenimiento» con el voucher de ejemplo; el recibo descargado en PDF. Se señala «Evaluando tu comprobante…» | Y tu vecino, en su celular, ve cuánto debe, concepto por concepto. Paga y sube su voucher en un minuto, y descarga su recibo cuando quiera. |
+| 6 | Mensajería por grupos (≈ 15 s). Administradora › WhatsApp (número de ejemplo conectado y «Mis grupos») › Recibos › «Avisar a los vecinos» (se señala; sale «Simulado en la demo») | Lo general sale al grupo de WhatsApp de cada block, y lo personal, directo a quien corresponde. En la demo el envío se simula: no sale nada real. |
+| 7 | Cierre (≈ 10 s). Tarjeta de marca con el logo y el texto «Pruébala tú: demo.torrecondominios.com · Empieza gratis 3 meses» (imagen, sin toques) | Torre. Tu condominio, en orden. Pruébala tú, en demo punto torrecondominios punto com. Y empieza gratis por tres meses. |
+
+### Cómo se graba (cuando toque)
+
+1. **Datos**: la demo LOCAL, no `house`: `DATABASE_URL=postgresql://postgres:house@localhost:5433/house_demo npm run seed:demo` y el backend con esa misma `DATABASE_URL` (puerto 4000); Vite en 5173. Sembrar **el mismo día** de la grabación: los recibos son relativos a hoy, y el del mes vence en 5 días. Ver `docs/DEMO.md` §1.
+2. **Entrada por rol**: las tomas parten de `http://localhost:5173/demo` (portada de la demo) y entran con la tarjeta, igual que un cliente; no se usan contraseñas.
+3. **Qué NO sale en cámara**: el cambio de contraseña, correos o celulares (están cerrados en la demo), y el cursor no pulsa «Enviar aviso» (aunque en la demo sólo se simula). Las lecturas de IA de la demo son de ejemplo: no se muestran como si leyeran un voucher real de un cliente.
+4. **Revisión antes de publicar**: OCR a **2 cuadros por segundo** con `tesseract -l spa` y el patrón de siempre: `gesti.n ?urbana|gestionurbana|melina|loayza|gmail|gargurevich`, **0 coincidencias**; **0 celulares** que no empiecen por `900`; **0 datos reales** (ningún correo que no sea `.example`). Hojas de contacto de todo el video, a ojo.
+5. **Montaje**: `scripts/marketing/montar-video.sh v11 escritorio` y `… celular`; sin música por ahora. Se publica junto con el enlace (MinIO `videos-torre/torre-v11-escritorio.mp4` y `…-celular.mp4`); la subida la hace Opus.

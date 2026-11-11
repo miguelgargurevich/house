@@ -4,6 +4,19 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-11 — Demo para clientes: modo demo con candado, seed, entrada por rol y guía (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/demo-clientes`) — push: no
+
+- **Pedido de Miguel**: una demo pública para enviar a clientes, con roles, datos, guía y video. Decidido: pública con enlace, instancia aparte `demo.torrecondominios.com` (base `house_demo`), reinicio nocturno 3:00 Lima, primero entorno y guía, el video después (aquí sólo el guion, §11 de `docs/marketing/guiones-videos.md`).
+- **Hecho (backend, verificado)**: tabla propia `ConfiguracionDemo` (fila única; aditiva; sin ella el servidor lee «apagado»); candado (`middleware/demo.ts`, cortes en `avisos/canales.ts`, `canales/evolution.ts`, `canales/telegram.ts` y `evaluacion.ts`): correo/WhatsApp quedan `omitida` «Simulado en la demo», WhatsApp de ejemplo conectado, IA de voucher de ejemplo, 403 `code: 'DEMO'` en claves/correos/celulares/tokens/registro/«Entrar como»/llavero/chat IA; `/api/demo/{estado,entrar,reiniciar}` (404 sin modo demo); `prisma/seed-demo.ts` (`npm run seed:demo`, sólo `*_demo`, ~21 s, por la API real, determinista, relativo a hoy, auditoría de coherencia en 0); reinicio nocturno en `server.ts`. Pruebas: `tests/demo-candado.test.ts` (14), `tests/demo-seed.test.ts` (11). Mutaciones en rojo: candado deja salir correo, `/entrar` sin modo, seed contra `house`, Evolution sin candado, sin candado de sesión, IA real.
+- **Frontend (verificado en navegador, Playwright contra la demo local)**: `src/app/demo/**` (franja fija, guía «Qué probar» en un portal a `body`, roles), `src/pages/publico/Demo.tsx` (portada de la instancia de demo), enganchado en App (`/demo`), Shell, Portada, Marco, Login y WhatsappSync. `tests/demo-ui.test.ts` (19; en rojo al quitar la franja o una ruta). `npx tsc -b`, `npm run build` y tsc de tests sin errores.
+- **Suite**: 4505 pruebas (corrida del backend), 3 fallas conocidas ajenas a la demo: `recibos-excel` «conceptos en 0» y 2 de hora/zona del asistente (herramientas con México). La corrida final con el frontend: ver el resumen de la sesión.
+- **Video**: NO grabado (sólo guion §11). Marca propia: por empresa, no sólo en el edificio chico.
+- **Fuera de «Permitidos» (avisar)**: `prisma/schema.prisma` (tabla nueva), `src/server.ts` (1 línea: reinicio nocturno), `src/server/services/evaluacion.ts` (corte de IA), `tests/helpers/app.ts` (apaga el modo demo en cada `sembrar()`), `src/App.tsx`, `src/pages/admin/WhatsappSync.tsx` (muestra el número de ejemplo).
+- **Gotchas**: correr pruebas con `TEST_DATABASE_URL=…/house_test_demo`; la marca propia es por empresa (se ve en los 2 condominios); sembrar el mismo día de la grabación del video; una evaluación se quedó «evaluando» una vez en una corrida (el seed ahora repite las pendientes).
+- **Próximo**: Opus verifica el diff, despliega la instancia (Coolify: `DATABASE_URL`=`house_demo`, DNS, `npm run seed:demo -- --superadmin=…`; ver `docs/DEMO.md` §3) con OK de Miguel, graba el video v11. No verificado: la franja y la guía en el navegador, despliegue real.
+
+---
+
 
 ## 2026-11-10 — Videos de la app en iPhone (v9 y v10) y grabador de la app que termina solo (Claude Code, Sonnet 5.5 delegado por Opus; commit de Opus) — push: no
 

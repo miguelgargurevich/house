@@ -1020,3 +1020,24 @@ Observación S1 de la simulación de mercado (`docs/pruebas/simulacion-mercado.m
 - Los filtros de lista (`?complejo_id=`, `?empresa_id=`) no cambian: ahí el campo sólo acota.
 - Lo que la pantalla manda no cambia: ningún formulario envía un campo de ámbito ajeno (los de administración sólo mandan `empresa_id` el superadmin al crear, y las unidades reenvían su propio `complejo_id`/`estructura_id`, que siguen siendo válidos).
 
+
+## Demo para clientes: modo demostración, `/api/demo/*` y candado (11-nov-2026)
+
+Instancia aparte de la misma app (`demo.torrecondominios.com`, base `house_demo`) con datos de ejemplo. Guía completa: `docs/DEMO.md`.
+
+### Interruptor — tabla `ConfiguracionDemo` (fila única `id = 1`; aditiva)
+- `activo` (bool, por defecto `false`): enciende el **candado de demo**. Sólo se enciende en la base de la instancia de demo (`npm run seed:demo` lo hace). Sin tabla o sin fila, el servidor lee «apagado»: producción no cambia. Si la lectura falla, se conserva el último valor conocido.
+- `sembrada_at`, `reiniciando_desde`: cuándo se sembró por última vez y el candado de un reinicio en curso (> 15 min = caído).
+
+### Rutas — `/api/demo` (sólo existen con el modo encendido; sin él todo responde **404** `{error:'Ruta no encontrada'}`)
+- `GET /api/demo/estado` (público) → `{ demo: true, roles: [...], reinicia_a_las, sembrada_at, reiniciando }`.
+- `POST /api/demo/entrar` (público; 60 por IP cada 15 min → 429) — cuerpo `{ rol }` con `rol` ∈ `administradora | tesorero_block | presidente_central | propietario_al_dia | propietario_moroso | inquilino | seguridad | mantenimiento` (otro valor o campos de más → **422**). Abre sesión **sin contraseña** con la cuenta de demo de ese rol y responde igual que el login: `{ user, csrf, marca }` + cookie `house_sesion`. **503** si la demo se está sembrando.
+- `POST /api/demo/reiniciar` (sólo superadmin; 401/403 al resto) → **202**; vuelve a sembrar la base en segundo plano. Además, solo, cada noche a las 3:00 (Lima).
+
+### Candado (con el modo encendido)
+- Correo, WhatsApp y Telegram: **nunca se llama a la red**. La notificación queda `omitida` con `error = "Simulado en la demo: no se envía nada real"`. Los mensajes a grupos «salen» (`ok`) sin llamar a Evolution. `GET /api/whatsapp/status` y `POST /api/whatsapp/sync` responden con un número de ejemplo ya conectado (`{ connected: true, status: 'open', instance, numero }`).
+- Lectura de vouchers (OCR/IA): una respuesta de ejemplo (`proveedor: 'demo'`) armada con los datos del pago; 1 de cada 6 con monto distinto.
+- **403** `{ error, code: 'DEMO' }`: `POST /api/publico/{registro,reenviar-verificacion,verificar-correo,contacto,reclamaciones}`, `POST /api/impersonacion*`, `POST|DELETE /api/me/tokens-api*`, `PUT /api/me`, `PUT /api/me/password`, `POST|DELETE /api/me/canales*`, `POST /api/ai-chat*`, escrituras de `/api/llavero*`, `POST|DELETE /api/empresas*`, `DELETE /api/whatsapp/disconnect`, y `PUT|PATCH /api/usuarios/:id` o `POST|PUT|PATCH /api/unidades/:id/personas*` cuyo cuerpo traiga `password`, `nueva`, `contrasena`, `email`, `correo`, `telefono` o `celular`.
+
+### Pantallas de la demo (frontend)
+- `/demo` (pública; en la instancia de demo es también la portada `/`): tarjetas «Entrar como…» → `POST /api/demo/entrar`; en otra instancia sólo enlaza a la demo. La app muestra una franja fija («Estás en la demo de Torre…», Cambiar de rol, Crear mi cuenta gratis, Hablar por WhatsApp) y el panel «Qué probar» por rol (casillas en `localStorage`; enlaza el video del manual de cada pantalla). Sólo se pregunta `GET /api/demo/estado` en `demo.*` y local.
