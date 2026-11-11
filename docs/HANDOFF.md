@@ -4,6 +4,16 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+
+## 2026-11-10 — Videos de la app en iPhone (v9 y v10) y grabador de la app que termina solo (Claude Code, Sonnet 5.5 delegado por Opus; commit de Opus) — push: no
+
+- **Pedido de Miguel**: «graba la versión de iPhone de los videos». Publicados en MinIO `videos-torre/torre-v9-iphone.mp4` y `torre-v10-iphone.mp4` (9:16, 43 s; OCR limpio, revisado por Opus) junto a los de Android (`torre-v9-celular.mp4`, `torre-v10-celular.mp4`, programados en redes el sáb 21 y 28-nov).
+- **Scripts**: `scripts/marketing/grabar-iphone.mjs` (simulador «Torre iPhone 16», app de desarrollo contra el backend LOCAL, toques nativos con Appium/XCUITest y el WebView leído por JS para ubicar los elementos; graba con `xcrun simctl io recordVideo`), `ios-driver.mjs` (sesión de Appium), `cierre-app.mjs` (tarjeta de cierre común a Android e iPhone). `grabar-app.mjs` (Android) ahora termina solo: quita `screenrecord`, cierra CDP/adb y sale con `process.exit`. `montar-video.sh` acepta fondo y formato de la app.
+- **Gotchas**: Safari del simulador falla 2 de 3 cargas de torrecondominios.com aunque HTTP/3 esté apagado: el grabador reintenta fuera de cámara y reinicia Safari antes de cada carga. El pie de `/app` muestra la razón social: la escena 1 lo deja fuera de cuadro. Los toques no se ven en la grabación del simulador: se dibuja un círculo sobre la página.
+- **Incidente**: una limpieza con consulta demasiado amplia borró 12 grupos de pagos de prueba de B01-604 en la base LOCAL `house` (datos de prueba, nada real). No se recuperaron. Ahora la limpieza borra sólo los pagos con id mayor al máximo guardado antes de la toma y del usuario de esa toma.
+- **Próximo**: más videos de la app con estos scripts; Appium y el driver XCUITest quedan instalados en el scratchpad de la sesión (reinstalar con `npm i appium` + `appium driver install xcuitest` si se borra).
+
+---
 ## 2026-11-07 — Celulares ficticios en seeds, base local y videos v7 (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
 
 - **Pedido de Miguel**: el reel v7 oscuro mostraba un celular real (~1,5 s). Arreglar y regrabar.

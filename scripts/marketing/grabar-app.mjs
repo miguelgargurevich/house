@@ -8,9 +8,10 @@ import { createRequire } from 'node:module';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { crearCierre } from './cierre-app.mjs';
 
 const require = createRequire(import.meta.url);
-const { _android: android, chromium } = require(process.env.PLAYWRIGHT ?? '/opt/homebrew/lib/node_modules/playwright');
+const { _android: android } = require(process.env.PLAYWRIGHT ?? '/opt/homebrew/lib/node_modules/playwright');
 
 const SERIE = process.env.ANDROID_SERIAL;
 if (!SERIE) throw new Error('Falta ANDROID_SERIAL (el emulador que grabas, p. ej. emulator-5590)');
@@ -32,7 +33,8 @@ const ROL = video === 'v10' ? 'admin' : 'propietario';
 const UNIDAD_V10 = process.env.UNIDAD_V10 ?? 'B13-804'; // unidad del vecino B: su pago es el que valida la administradora
 
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
-const adb = (...a) => execFileSync('adb', ['-s', SERIE, ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+// `timeout`: un adb colgado no puede dejar el grabador esperando para siempre.
+const adb = (...a) => execFileSync('adb', ['-s', SERIE, ...a], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 90000 });
 const duracion = (n) => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', join(BASE, 'voz', `e${n}.wav`)]).toString().trim());
 
 // ---------- Dispositivo ----------
@@ -235,28 +237,6 @@ const ESCENAS = {
     } },
   ],
 };
-// El cierre es la misma tarjeta de marca para los dos videos (una imagen de 6 s, sin toques).
-const CIERRE = `<!doctype html><meta charset="utf-8"><style>
-  html,body{margin:0;height:100%;background:#0f766e;color:#f0fdfa;font-family:Figtree,system-ui,sans-serif;display:grid;place-items:center}
-  .c{text-align:center;padding:0 24px} .m{display:inline-flex;align-items:center;gap:14px;font-size:58px;font-weight:600}
-  .l{width:78px;height:78px;border-radius:18px;background:#f0fdfa;display:grid;place-items:center}
-  p{font-size:44px;margin:40px 0 0;opacity:.95;line-height:1.25} small{display:block;margin-top:30px;font-size:34px;opacity:.8}
-</style><div class="c"><div class="m"><span class="l"><svg viewBox="0 0 32 32" width="50" height="50"><g transform="translate(16 16) scale(1.2) translate(-16 -16)"><rect x="10" y="5.5" width="12" height="21" rx="1.6" fill="none" stroke="#0f766e" stroke-width="2.2"/><g fill="#0f766e"><rect x="13" y="9.5" width="2.2" height="2.2"/><rect x="16.8" y="9.5" width="2.2" height="2.2"/><rect x="13" y="13.8" width="2.2" height="2.2"/><rect x="16.8" y="13.8" width="2.2" height="2.2"/><rect x="13" y="18.1" width="2.2" height="2.2"/><rect x="16.8" y="18.1" width="2.2" height="2.2"/><rect x="14.6" y="21.6" width="2.8" height="4.9"/></g></g></svg></span>Torre</div>
-<p>Tu condominio, en orden.</p><small>Descárgala en torrecondominios.com/app</small></div>`;
-
-async function cierre(n, largoMs) {
-  const png = join(SALIDA, `cierre.png`);
-  const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 540, height: 960 }, deviceScaleFactor: 2, locale: 'es-PE' });
-  const p = await ctx.newPage();
-  await p.setContent(CIERRE);
-  await p.screenshot({ path: png });
-  await b.close();
-  const seg = (largoMs + 1000) / 1000;
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-loop', '1', '-i', png, '-t', String(seg), '-r', '30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'medium', '-crf', '20', join(SALIDA, `e${n}.mp4`)]);
-  rmSync(png, { force: true });
-  return 0; // la tarjeta empieza en 0
-}
 
 /** Un clip por escena: screenrecord de `limite` s (el montaje corta al largo de la voz). Devuelve el recorte: desde el primer cuadro hasta la acción. */
 async function grabarEscena(n, largoMs, accion) {
@@ -293,15 +273,13 @@ async function grabar() {
       const n = i + 1;
       if (SOLO && n !== SOLO) continue;
       const largo = duracion(n) * 1000 + 700;
-      if (n === total) { recortes[`e${n}`] = await cierre(n, largo); console.log(`escena ${n} (cierre): ${(largo / 1000).toFixed(1)} s`); continue; }
+      if (n === total) { recortes[`e${n}`] = await crearCierre(SALIDA, n, largo); console.log(`escena ${n} (cierre): ${(largo / 1000).toFixed(1)} s`); continue; }
       const e = escenas[i];
       recortes[`e${n}`] = await grabarEscena(n, largo, e.accion);
       console.log(`escena ${n}: ${(largo / 1000).toFixed(1)} s · recorte ${recortes[`e${n}`].toFixed(2)} s`);
     }
   } finally {
-    // Salida limpia: cerrar el driver del WebView y cualquier screenrecord que haya quedado; sin esto el proceso no termina.
-    await dev?.close?.().catch(() => {});
-    try { adb('shell', 'pkill', 'screenrecord'); } catch { /* ninguno en curso */ }
+    await cerrarTodo();
     adb('shell', 'settings', 'put', 'system', 'show_touches', '0');
     adb('shell', 'svc', 'power', 'stayon', 'false');
     if (!SOLO) writeFileSync(join(SALIDA, 'recortes.json'), JSON.stringify(recortes, null, 1));
@@ -312,6 +290,21 @@ async function grabar() {
       writeFileSync(f, JSON.stringify({ ...previo, ...recortes }, null, 1));
     }
   }
+}
+
+/** Salida limpia: cierra el WebView de Playwright, el screenrecord que haya quedado y los `adb forward` del WebView. Cada paso tiene tope de tiempo
+ *  (`dev.close()` se quedaba esperando y el proceso no terminaba). Un guardián deja la salida segura aunque algo siga abierto. */
+async function cerrarTodo() {
+  setTimeout(() => process.exit(process.exitCode ?? 0), 20000).unref();
+  await Promise.race([Promise.resolve(dev?.close?.()).catch(() => {}), pausa(6000)]);
+  try { adb('shell', 'pkill', 'screenrecord'); } catch { /* ninguno en curso */ }
+  try {
+    // Playwright abre un `adb forward tcp:<puerto> localabstract:webview_devtools_remote_<pid>` por WebView; se quitan los de ESTE equipo.
+    for (const l of adb('forward', '--list').split('\n')) {
+      const m = l.match(/^\S+\s+(tcp:\d+)\s+localabstract:webview_devtools_remote_/);
+      if (m) adb('forward', '--remove', m[1]);
+    }
+  } catch { /* sin forwards */ }
 }
 
 grabar().then(() => process.exit(0), (err) => { console.error(err); process.exit(1); });
