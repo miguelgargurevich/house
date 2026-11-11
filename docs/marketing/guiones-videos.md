@@ -222,7 +222,7 @@ Revisión: OCR a 2 cuadros/s con `tesseract -l spa` y el patrón de siempre: **0
 
 ## 11. Conoce Torre en la demo (para enviar con el enlace de la demo; ≈ 2:30; 16:9 y 9:16)
 
-**Estado: SÓLO GUION. El video se graba DESPUÉS, sobre la demo ya armada** (decisión de Miguel: «Entorno y guía, luego video»; ver `docs/DEMO.md`). Va junto con el enlace `https://demo.torrecondominios.com` en el mensaje a los clientes.
+**Estado: GRABADO (11-nov-2026), revisado con OCR. Falta subirlo (lo hace Opus).** Se grabó sobre la demo local (`house_demo`), después de armar la demo (decisión de Miguel: «Entorno y guía, luego video»; ver `docs/DEMO.md`). Va junto con el enlace `https://demo.torrecondominios.com` en el mensaje a los clientes.
 
 Voz «Dora» (`ef_dora`), una por escena (`.claude/videos/v11/voz/e<N>.wav`), con la herramienta de la serie (`grabar-video.mjs` / `montar-video.sh`; 16:9 escritorio y 9:16 celular) y **`TEMA` claro** (sin `TEMA`, que es el claro). Duración objetivo **2:30** (≈ 340 palabras de voz; si una escena tarda más que su voz, lo lento va en `antes`). Reglas de siempre: tuteo, frases cortas, una cosa por escena, sin cifras inventadas (sólo las que se ven en pantalla), sin nombres de clientes reales.
 
@@ -238,6 +238,21 @@ Voz «Dora» (`ef_dora`), una por escena (`.claude/videos/v11/voz/e<N>.wav`), co
 | 5 | El vecino (≈ 25 s). Se entra como **Propietario moroso** (B01-101): «Mis recibos» con lo que debe; «Pagar mantenimiento» con el voucher de ejemplo; el recibo descargado en PDF. Se señala «Evaluando tu comprobante…» | Y tu vecino, en su celular, ve cuánto debe, concepto por concepto. Paga y sube su voucher en un minuto, y descarga su recibo cuando quiera. |
 | 6 | Mensajería por grupos (≈ 15 s). Administradora › WhatsApp (número de ejemplo conectado y «Mis grupos») › Recibos › «Avisar a los vecinos» (se señala; sale «Simulado en la demo») | Lo general sale al grupo de WhatsApp de cada block, y lo personal, directo a quien corresponde. En la demo el envío se simula: no sale nada real. |
 | 7 | Cierre (≈ 10 s). Tarjeta de marca con el logo y el texto «Pruébala tú: demo.torrecondominios.com · Empieza gratis 3 meses» (imagen, sin toques) | Torre. Tu condominio, en orden. Pruébala tú, en demo punto torrecondominios punto com. Y empieza gratis por tres meses. |
+
+### Grabado (11-nov-2026)
+
+- **Duración real: 84,4 s** en 16:9 y en 9:16 (no llega a los ≈ 2:30 del objetivo: las voces del texto tal como está escrito suman 77 s, y el texto no se cambió). Si se quiere más largo, hay que alargar el texto de las voces (con cuidado con el tono) o añadir tomas nuevas.
+- **Voces** (`ef_dora`, `.claude/videos/v11/voz/e1.wav` … `e10.wav`): e1 = fila 1, e2 = 2, e3 = 3a, e4 = 3b, e5 = 3c, e6 = 3d, e7 = 4, e8 = 5, e9 = 6, e10 = 7. Duración de cada toma (voz + 0,7 s): 11,4 · 9,2 · 6,8 · 5,5 · 8,6 · 4,6 · 12,3 · 8,9 · 9,2 · 7,8 s.
+- **Desviaciones del guion** (decididas al grabar):
+  - **3c (validar)**: en la demo ningún pago por validar se puede validar sin la conformidad del tesorero del block. Como en v10, la conformidad del primer pago del Block 1 (B01-104) se da **fuera de cámara** (`antes`) y la administradora lo valida en cámara.
+  - **4 (junta)**: el tesorero confirma en cámara otro pago (B01-301). El vistazo a la Junta central (presidente) **no entra** en los 12 s; la voz la menciona igual.
+  - **5 (moroso)**: no sale el PDF del recibo; se sube el voucher de ejemplo, se envía y se señala «Evaluando tu comprobante…».
+  - **6 (avisos)**: «Simulado en la demo» **no aparece** sin pulsar el envío, y el cursor no pulsa. La toma muestra el diálogo «Avisar a los vecinos» y la leyenda de que el envío no sale a nadie.
+  - **2 (entrar)**: en 16:9 el panel «Qué probar» se queda abierto (permitido); en 9:16 se cierra con su X, porque tapa la mitad de la pantalla.
+  - **3 (resumen) en 9:16**: no se hace el paso «Cobranza → Morosidad» (el menú lateral no se ve en el celular); la toma se queda en los indicadores.
+  - **1 (problema) en 9:16**: el título y las tres tarjetas caben en el cuadro; el borde inferior de la última tarjeta se recorta un poco.
+- **Re-grabar** exige sembrar `house_demo` antes de cada corrida (`DATABASE_URL=…/house_demo npm run seed:demo`): la toma 3c valida B01-104 y la 4 confirma B01-301, y la 5 envía un pago. El seed es determinista; sin re-sembrar, las tomas fallan con el pago ya validado.
+- **Revisión**: OCR a 2 cuadros/s con `tesseract -l spa` (169 cuadros por video): patrón `gesti.n ?urbana|gestionurbana|melina|loayza|gmail|gargurevich|10\.0\.2\.2|localhost` → 0 coincidencias en los dos; celulares que no empiezan por 900 → 0; correos que no terminan en `.example` o `@prueba.house` → 0. Hojas de contacto revisadas a ojo.
 
 ### Cómo se graba (cuando toque)
 

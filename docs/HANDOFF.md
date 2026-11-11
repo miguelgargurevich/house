@@ -4,6 +4,22 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-11 — Video v11 «Conoce Torre en la demo», grabado en 16:9 y 9:16 (Claude Code, Haiku 5.5; rama `feat/video-demo`) — push: no
+
+- **Pedido de Miguel**: el video v11 de la §11 de `docs/marketing/guiones-videos.md`, en dos formatos, sobre la demo local (`house_demo`), con su hoja de contacto y el OCR de revisión.
+- **Hecho**: 10 voces (`ef_dora`) en `.claude/videos/v11/voz/e1..e10.wav` (las 10 tomas de la §11, con 3a–3d como tomas separadas). Grabado con `scripts/marketing/grabar-video.mjs v11 <formato>` y montado con `montar-video.sh v11 <formato>`: `.claude/videos/v11/torre-v11-escritorio.mp4` y `torre-v11-celular.mp4`, **84,4 s** cada uno (ver §11 para los tiempos por toma y las desviaciones). OCR a 2 cuadros/s: 0 coincidencias en los patrones prohibidos, 0 celulares que no empiecen por 900, 0 correos fuera de `.example`/`@prueba.house`.
+- **Cambios en la herramienta** (aditivos; los videos anteriores no cambian): escenas `v11` en `ESCENAS`; en el runner, las escenas pueden traer `html` (tarjeta propia), `cierreHtml` (cierre con el texto exacto) y `rolDemo` (rol de la guía). Helpers `entrarComoDemo`, `confirmarTesorero` y `cerrarGuia`. Imagen de voucher de ejemplo dibujada en `.claude/videos/v11/voucher-ejemplo.png`.
+- **Gotchas**:
+  - La demo entra **sólo por la tarjeta** de `/demo`: las escenas no usan contraseñas. Cada toma que necesita otro rol lo entra en `antes` (fuera de cámara) en la misma sesión del contexto.
+  - La guía «Qué probar» se abre sola al entrar con un rol y tapa la columna «Revisar» de la tabla de pagos: se cierra con su X antes de esos clics.
+  - En la demo, **ningún** pago por validar se valida sin la conformidad del tesorero: la toma 3c da la conformidad a B01-104 fuera de cámara (como en v10).
+  - **Re-grabar exige reseed** de `house_demo` antes de cada corrida (`DATABASE_URL=postgresql://postgres:house@localhost:5433/house_demo npm run seed:demo`); si no, la 3c y la 4 fallan.
+  - `node_modules` es un enlace al checkout principal: no se corrió `prisma generate` ni `npm install`; `prisma db push` se hizo con `--skip-generate`, sólo contra `house_demo`.
+  - El worktree no tiene `.env`: el backend de demo se levantó con `DATABASE_URL` de `house_demo`; el de Miguel se restauró desde el checkout principal (que sí tiene `.env`, base `house`) y `/api/demo/estado` da 404.
+- **Pendiente**: subir los dos .mp4 (MinIO / My Workspace) y el mensaje para clientes: lo hace Opus. Duración 84 s frente a los ≈ 2:30 del objetivo (ver §11). En celular, la última tarjeta del problema se recorta un poco en el borde inferior.
+
+---
+
 ## 2026-11-11 — Demo montada en demo.torrecondominios.com (Claude Code, Opus 5.5) — push: sí (con OK de Miguel)
 
 - **Instancia**: app nueva de Coolify `torre-demo` (uuid `k0yybt0acjalvtpelezo9irt`, mismo repo y Dockerfile, rama main) con su base `house_demo` en el mismo Postgres que producción. Variables: sólo `DATABASE_URL` y un `JWT_SECRET` propio (sin Resend, Evolution, Gemini ni llavero). Sembrada con `npm run seed:demo -- --superadmin=superadmin-demo@torrecondominios.com` (modo demo ENCENDIDO, coherencia 0); la clave de ese superadmin quedó en la Mac en `~/.torre/demo-superadmin.json` (0600), nunca impresa.

@@ -144,6 +144,66 @@ const pulsar = async (page, loc) => { await tocar(page, loc); await asentar(page
 /** Los cierres abren en el mes anterior; el seed local sólo tiene recibo por block en octubre (el del Block 1). */
 const octubre = async (page) => { await page.getByLabel(/^mes$/i).first().selectOption('10').catch(() => {}); await asentar(page); };
 
+// ---------- v11 (demo para clientes): utilidades y escena 1 (el problema, ilustraciones propias: sin nombres ni cifras reales) ----------
+const TARJETA_DEMO = (p, titulo) => p.getByRole('listitem').filter({ has: p.getByRole('heading', { name: titulo, exact: true }) });
+const botonEntrar = (p, titulo) => TARJETA_DEMO(p, titulo).getByRole('button', { name: 'Entrar', exact: true });
+/** Entra como un rol desde la portada /demo, con la tarjeta «Entrar» (sin contraseña). La sesión queda en el contexto de la escena. */
+async function entrarComoDemo(p, titulo) {
+  await p.goto(`${APP}/demo`); await p.waitForLoadState('networkidle');
+  await botonEntrar(p, titulo).click();
+  await p.waitForURL((u) => !u.pathname.startsWith('/demo'), { timeout: 15000 }).catch(() => {});
+  await p.waitForLoadState('networkidle'); await pausa(500);
+}
+/** Fuera de cámara: el tesorero del Block 1 da su conformidad al primer pago (como en v10, donde la junta lo da antes de que la administradora valide). */
+async function confirmarTesorero(a) {
+  await entrarComoDemo(a, 'Tesorero de un block');
+  await a.goto(`${APP}/junta/pagos`); await a.waitForLoadState('networkidle'); await pausa(400);
+  await a.locator('tr', { hasText: 'B01-104' }).first().getByRole('button', { name: 'Revisar' }).click(); await pausa(500);
+  await a.getByRole('dialog').getByRole('button', { name: 'Confirmo que llegó a la cuenta' }).click(); await pausa(900);
+  await a.keyboard.press('Escape'); await pausa(300);
+}
+/** La guía «Qué probar» se abre sola al entrar con un rol: se cierra con su X si tapa lo que la toma va a pulsar. */
+async function cerrarGuia(p) {
+  const x = p.getByRole('button', { name: 'Cerrar la guía' });
+  if (await x.isVisible().catch(() => false)) await tocar(p, x);
+}
+const VOUCHER_EJEMPLO = join(process.cwd(), '.claude/videos/v11/voucher-ejemplo.png'); // imagen de ejemplo (dibujada), sin datos de nadie
+const filasExcel = Array.from({ length: 5 }, (_, i) => `<div class="bar-c">${i % 2 ? '<i></i>' : ''}</div><div>${i === 2 ? '<i class="r"></i>' : '<i></i>'}</div><div><i></i></div><div>${i === 1 ? '<i class="r"></i>' : '<i></i>'}</div>`).join('');
+const PROBLEMA_V11 = () => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:#0f766e;color:#f0fdfa;font-family:Figtree,system-ui,sans-serif;overflow:hidden}
+  .wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5vmin}
+  h1{margin:0 0 4vmin;font-size:min(4.6vw,58px);font-weight:600;text-align:center;line-height:1.15;animation:in .8s ease both}
+  .fila{display:flex;gap:3vmin;justify-content:center;align-items:stretch;flex-wrap:wrap;width:100%}
+  .card{background:#fff;color:#0f172a;border-radius:18px;padding:2.6vmin;width:min(30vw,400px);box-shadow:0 18px 40px rgba(0,0,0,.25);animation:in .9s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d)}
+  .card h2{margin:0 0 2vmin;font-size:min(1.9vw,20px);color:#475569;font-weight:600}
+  @keyframes in{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  .xl{display:grid;grid-template-columns:repeat(4,1fr);font-size:12px;border:1px solid #cbd5e1}
+  .xl>div{border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;min-height:5vh;padding:1vh 1vmin}
+  .xl .h{background:#f1f5f9;font-weight:700;color:#334155;min-height:auto}
+  .xl i{display:block;height:8px;border-radius:4px;background:#cbd5e1;margin-top:1vh;width:72%}
+  .xl i.r{background:#f87171}
+  .chat{display:flex;flex-direction:column;gap:1.4vh;background:#e5ddd5;border-radius:12px;padding:2vmin}
+  .b{max-width:80%;padding:1vh 2vmin;border-radius:10px;font-size:min(1.5vw,15px);background:#fff;color:#111}
+  .b.d{align-self:flex-end;background:#d9fdd3}
+  .foto{width:120px;height:74px;border-radius:8px;background:linear-gradient(135deg,#94a3b8,#e2e8f0);display:grid;place-items:center;color:#334155;font-size:12px;font-weight:700}
+  .mo{display:flex;flex-direction:column;gap:1.2vh}
+  .mo>div{display:flex;justify-content:space-between;align-items:center;gap:2vmin;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:1.2vh 2vmin}
+  .mo i{display:block;height:8px;border-radius:4px;background:#fca5a5;width:50%}
+  .tag{background:#dc2626;color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;white-space:nowrap}
+  @media (max-aspect-ratio:1/1){ .wrap{justify-content:flex-start;padding-top:6vh} .card{width:88vw;padding:1.6vh 3vw} h1{font-size:7.6vw;margin-bottom:3vh} .card h2{font-size:4.2vw;margin-bottom:1vh} .xl{font-size:10px} .xl>div{min-height:3.1vh} .chat{gap:0.8vh} .b{padding:0.6vh 2vmin} .foto{width:90px;height:56px} .mo>div{padding:0.8vh 2vmin} }
+</style><div class="wrap">
+  <h1>¿Cobrar el mantenimiento cada mes te toma días?</h1>
+  <div class="fila">
+    <section class="card" style="--d:1s"><h2>La hoja de cobranza</h2><div class="xl">
+      <div class="h">Unidad</div><div class="h">Mes</div><div class="h">Monto</div><div class="h">Pagado</div>${filasExcel}</div></section>
+    <section class="card" style="--d:4.5s"><h2>WhatsApp del condominio</h2><div class="chat">
+      <div class="b">¿Ya pagaste el mantenimiento?</div><div class="b d"><span class="foto">VOUCHER</span></div>
+      <div class="b">Te mandé el comprobante por aquí</div><div class="b d"><span class="foto">VOUCHER</span></div></div></section>
+    <section class="card" style="--d:8s"><h2>Morosidad</h2><div class="mo">
+      <div><i></i><span class="tag">Vencido</span></div><div><i></i><span class="tag">Vencido</span></div><div><i></i><span class="tag">Vencido</span></div></div></section>
+  </div>
+</div>`;
+
 // ---------- Escenas de cada video (texto en docs/marketing/guiones-videos.md) ----------
 let ESCENAS = {
   v1: [
@@ -363,6 +423,68 @@ let ESCENAS = {
     { rol: 'propietario', url: '/propietario/comunicados', accion: async (p) => { await pausa(600); await desplazar(p, 200, 1200); } },
     { rol: null, url: null, cierre: true },
   ],
+  // v11: «Conoce Torre en la demo» (guion §11; 16:9 y 9:16). Se entra por /demo con la tarjeta «Entrar», sin contraseñas. Lo que sólo prepara la toma
+  // (conformidad del tesorero, inicio de sesión de cada rol) se hace en `antes`, fuera de cámara. La escena 1 y la 10 son tarjetas de marca.
+  v11: [
+    { rol: null, url: null, html: PROBLEMA_V11 },
+    { rol: null, url: '/demo', accion: async (p) => {
+      await pausa(500);
+      await tocar(p, TARJETA_DEMO(p, 'Tesorero de un block'), { soloSenalar: true }); await pausa(250);
+      await tocar(p, TARJETA_DEMO(p, 'Presidente de la junta central'), { soloSenalar: true }); await pausa(250);
+      await tocar(p, TARJETA_DEMO(p, 'Propietario al día'), { soloSenalar: true }); await pausa(250);
+      await tocar(p, botonEntrar(p, 'Administradora')); await p.waitForURL((u) => !u.pathname.startsWith('/demo'), { timeout: 15000 }).catch(() => {});
+      await asentar(p);
+      // En celular la guía tapa la mitad de la pantalla: se cierra con su X (en escritorio se queda abierta, como la pidió el brief).
+      if (formato === 'celular') { await p.getByRole('button', { name: 'Cerrar la guía' }).waitFor({ timeout: 4000 }).catch(() => {}); await cerrarGuia(p); }
+    } },
+    { rol: null, url: '/admin/dashboard', antes: async (a) => entrarComoDemo(a, 'Administradora'), accion: async (p) => {
+      await pausa(300);
+      await tocar(p, p.getByText('Cobrado este mes').first(), { soloSenalar: true }); await pausa(400);
+      await tocar(p, p.getByText('Unidades morosas').first(), { soloSenalar: true }); await pausa(300);
+      // En celular el menú lateral está oculto: ahí la escena se queda en los indicadores y baja (como v5).
+      if (formato === 'escritorio') { await tocar(p, p.getByRole('button', { name: 'Cobranza' })); await tocar(p, p.getByText('Morosidad', { exact: true }).first()); }
+      else await desplazar(p, 300, 1400);
+      await asentar(p); await pausa(500);
+    } },
+    { rol: null, url: '/admin/recibos', antes: async (a) => entrarComoDemo(a, 'Administradora'), accion: async (p) => {
+      await pausa(300); await tocar(p, p.locator('tbody tr').first()); await asentar(p); await desplazar(p, 240, 1500);
+    } },
+    { rol: null, url: '/admin/pagos', antes: async (a) => { await confirmarTesorero(a); await entrarComoDemo(a, 'Administradora'); }, accion: async (p) => {
+      await pausa(300);
+      await tocar(p, p.locator('tr', { hasText: 'B01-104' }).first().getByRole('button', { name: 'Revisar' })); await asentar(p); await pausa(1200);
+      await tocar(p, p.getByRole('dialog').getByRole('button', { name: 'Validar pago' })); await asentar(p); await pausa(500);
+    } },
+    { rol: null, url: '/admin/cierres', antes: async (a) => entrarComoDemo(a, 'Administradora'), accion: async (p) => {
+      await pausa(300); await tocar(p, p.getByRole('tab', { name: /cierre por block/i })); await asentar(p); await desplazar(p, 260, 1800);
+    } },
+    { rol: null, url: '/admin/cierres', antes: async (a) => entrarComoDemo(a, 'Administradora'), accion: async (p) => {
+      // Escena 4 (la junta): se vuelve a /demo con la franja («Cambiar de rol») y se entra como tesorero del Block 1.
+      await pausa(300);
+      await tocar(p, p.getByRole('link', { name: 'Cambiar de rol' })); await p.waitForURL((u) => u.pathname === '/demo', { timeout: 15000 }).catch(() => {}); await asentar(p);
+      await tocar(p, botonEntrar(p, 'Tesorero de un block')); await p.waitForURL((u) => u.pathname.startsWith('/junta/'), { timeout: 15000 }).catch(() => {}); await asentar(p);
+      await cerrarGuia(p); // la guía «Qué probar» se abre sola al entrar y tapa la columna «Revisar»
+      await tocar(p, p.locator('tr', { hasText: 'B01-301' }).first().getByRole('button', { name: 'Revisar' })); await asentar(p);
+      await tocar(p, p.getByRole('dialog').getByRole('button', { name: 'Confirmo que llegó a la cuenta' })); await asentar(p); await pausa(500);
+      await p.keyboard.press('Escape'); await pausa(300);
+      await p.goto(`${APP}/junta/cierre`); await asentar(p); await desplazar(p, 300, 1500);
+    } },
+    { rol: null, url: '/propietario/inicio', rolDemo: 'propietario_moroso', antes: async (a) => entrarComoDemo(a, 'Propietario moroso'), accion: async (p) => {
+      await pausa(400);
+      await tocar(p, p.getByRole('button', { name: 'Pagar mantenimiento' }).first()); await asentar(p);
+      const d = p.getByRole('dialog');
+      await d.locator('input[type=file]').first().setInputFiles(VOUCHER_EJEMPLO); await pausa(700);
+      await tocar(p, d.getByRole('button', { name: /enviar pago/i })); await asentar(p);
+      await tocar(p, p.getByText(/evaluando tu comprobante/i).first(), { soloSenalar: true }); await pausa(600);
+    } },
+    { rol: null, url: '/admin/whatsapp', antes: async (a) => entrarComoDemo(a, 'Administradora'), accion: async (p) => {
+      await pausa(400);
+      await tocar(p, p.getByText('WhatsApp vinculado correctamente').first(), { soloSenalar: true }); await pausa(500);
+      await tocar(p, p.getByText('Mis grupos').first(), { soloSenalar: true }); await pausa(500);
+      await p.goto(`${APP}/admin/recibos`); await asentar(p);
+      await tocar(p, p.getByRole('button', { name: 'Avisar a los vecinos de Noviembre de 2026' }).first()); await asentar(p); await pausa(1200);
+    } },
+    { rol: null, url: null, cierreHtml: () => CIERRE_V11, cierre: true },
+  ],
 };
 
 /** Avisos de instalación: dispara el evento «beforeinstallprompt» (en Playwright no llega solo). El diálogo nativo no se graba. */
@@ -381,6 +503,9 @@ const CIERRE = `<!doctype html><meta charset="utf-8"><style>
   @media (max-aspect-ratio:1/1){.m{font-size:52px}p{font-size:34px}}
 </style><div class="c"><div class="m"><span class="l"><svg viewBox="0 0 32 32" width="56" height="56"><g transform="translate(16 16) scale(1.2) translate(-16 -16)"><rect x="10" y="5.5" width="12" height="21" rx="1.6" fill="none" stroke="#0f766e" stroke-width="2.2"/><g fill="#0f766e"><rect x="13" y="9.5" width="2.2" height="2.2"/><rect x="16.8" y="9.5" width="2.2" height="2.2"/><rect x="13" y="13.8" width="2.2" height="2.2"/><rect x="16.8" y="13.8" width="2.2" height="2.2"/><rect x="13" y="18.1" width="2.2" height="2.2"/><rect x="16.8" y="18.1" width="2.2" height="2.2"/><rect x="14.6" y="21.6" width="2.8" height="4.9"/></g></g></svg></span>Torre</div>
 <p>Tu condominio, en orden.</p><small>torrecondominios.com</small></div>`;
+
+/** (v11) La misma tarjeta de cierre, con el texto exacto del guion (§11). */
+const CIERRE_V11 = CIERRE.replace('<small>torrecondominios.com</small>', '<small>Pruébala tú: demo.torrecondominios.com · Empieza gratis 3 meses</small>');
 
 // Tema oscuro: la app decide el tema con localStorage['house-theme'] antes de pintar (public/theme-init.js); se fija en cada carga de página.
 const TEMA_OSCURO = `try { localStorage.setItem('house-theme', 'dark'); } catch (e) {}`;
@@ -427,6 +552,8 @@ async function grabar() {
       const ctx = await browser.newContext({ userAgent: e.ua, viewport: f.viewport, deviceScaleFactor: f.deviceScaleFactor, isMobile: f.isMobile, hasTouch: f.hasTouch, colorScheme: TEMA === 'oscuro' ? 'dark' : 'light', locale: 'es-PE', recordVideo: { dir: tmp, size: f.video }, storageState: e.rol ? sesiones[e.rol] : undefined });
       if (TEMA === 'oscuro') await ctx.addInitScript(TEMA_OSCURO);
       await ctx.addInitScript(CURSOR);
+      // (v11) rol de la guía «Qué probar» cuando la escena no entra por la portada (la sesión viene de `antes`).
+      if (e.rolDemo) await ctx.addInitScript(`try { sessionStorage.setItem('house-demo-rol', '${e.rolDemo}'); } catch (err) {}`);
       await ctx.addInitScript(LIMPIEZA);
       // `antes`: prepara datos con otra pestaña (fuera de cámara: el clip del video es el de la pestaña principal).
       if (e.antes) { const aux = await ctx.newPage(); await e.antes(aux).catch((err) => console.warn(`  escena ${n} (antes): ${err.message.split('\n')[0]}`)); await aux.close(); }
@@ -435,7 +562,8 @@ async function grabar() {
       page.setDefaultTimeout(8000); // un elemento que no está no debe colgar la escena 30 s
       const abierta = Date.now();
       raton = { x: f.viewport.width * 0.55, y: f.viewport.height * 0.45 };
-      if (e.cierre) await page.setContent(CIERRE);
+      if (e.cierre) await page.setContent(e.cierreHtml ? e.cierreHtml() : CIERRE);
+      else if (e.html) await page.setContent(e.html());
       else if (e.correo) await page.setContent(e.correo());
       else { await page.goto(`${APP}${typeof e.url === 'function' ? e.url() : e.url}`); await asentar(page); }
       await page.mouse.move(raton.x, raton.y);
