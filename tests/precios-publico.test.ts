@@ -126,7 +126,7 @@ describe('página pública de precios', () => {
 
   it('el marco público sólo ofrece «Crear cuenta» con el registro abierto', () => {
     const s = readFileSync('src/pages/publico/Marco.tsx', 'utf8');
-    assert.match(s, /\{data\?\.registro_abierto && <Link to="\/registro"/);
+    assert.match(s, /\{data\?\.registro_abierto && \(demo\s*\? <a href=\{`\$\{URL_TORRE\}\/registro`\}[\s\S]*?: <Link to="\/registro"/); // en la demo, el registro de verdad (torrecondominios.com)
   });
 });
 

@@ -828,8 +828,8 @@ describe('contexto verificado por rol', () => {
   });
 
   it('las rutas de la lista son EXACTAMENTE las que existen en App.tsx', () => {
-    // Pantallas sin sesión (login, registro, precios, contacto, Libro de Reclamaciones, App para el celular, verificación del correo, invitación, términos y privacidad): el asistente sólo trabaja con usuarios dentro.
-    const PUBLICAS = ['/login', '/registro', '/precios', '/contacto', '/libro-de-reclamaciones', '/app', '/verificar-correo', '/invitacion', '/privacidad', '/terminos'];
+    // Pantallas sin sesión (login, registro, precios, contacto, Libro de Reclamaciones, App para el celular, demo, verificación del correo, invitación, términos y privacidad): el asistente sólo trabaja con usuarios dentro.
+    const PUBLICAS = ['/login', '/registro', '/precios', '/contacto', '/libro-de-reclamaciones', '/app', '/demo', '/verificar-correo', '/invitacion', '/privacidad', '/terminos'];
     const app = fs.readFileSync('src/App.tsx', 'utf8');
     // Redirecciones (no son pantallas): el asistente no las ofrece; sólo deben seguir redirigiendo.
     const REDIRECCIONES = ['/junta/agua'];
