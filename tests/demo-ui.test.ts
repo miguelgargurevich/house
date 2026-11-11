@@ -191,3 +191,12 @@ describe('El cableado', () => {
     }
   });
 });
+
+describe('La raíz de la instancia de demo', () => {
+  it('en demo.… la raíz lleva a /demo; en cualquier otra dirección es la portada sin esperar a la consulta', () => {
+    const raiz = APP.slice(APP.indexOf('function RaizPublica'));
+    assert.match(APP, /pathname === '\/' \? <RaizPublica \/>/);
+    assert.match(raiz, /!puedeSerDemo\(window\.location\.hostname\)\) return <Portada \/>/);
+    assert.match(raiz, /demo \? <Navigate to="\/demo" replace \/> : <Portada \/>/);
+  });
+});

@@ -309,7 +309,13 @@ describe('noindex en lo privado y en el host no canónico', () => {
     });
   }
   it('las rutas de la app y de un solo uso siguen respondiendo 200 aunque no haya sesión: la app decide (login o su pantalla)', async () => {
-    for (const ruta of ['/admin/dashboard', '/admin/ruta/que/no/existe', '/superadmin/contactos', '/verificar-correo', '/invitacion', '/perfil', '/login']) assert.equal((await pedir(ruta)).status, 200, ruta);
+    for (const ruta of ['/admin/dashboard', '/admin/ruta/que/no/existe', '/superadmin/contactos', '/verificar-correo', '/invitacion', '/perfil', '/login', '/demo']) assert.equal((await pedir(ruta)).status, 200, ruta);
+  });
+
+  it('/demo: 200 con noindex, follow (el enlace que se envía a los clientes no puede responder 404)', async () => {
+    const r = await pedir('/demo');
+    assert.equal(r.status, 200);
+    assert.equal(r.headers['x-robots-tag'], 'noindex, follow');
   });
 
   it('/login: noindex, follow (cabecera y etiqueta); nunca nofollow', async () => {

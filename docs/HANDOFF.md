@@ -4,6 +4,15 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-11 — Demo montada en demo.torrecondominios.com (Claude Code, Opus 5.5) — push: sí (con OK de Miguel)
+
+- **Instancia**: app nueva de Coolify `torre-demo` (uuid `k0yybt0acjalvtpelezo9irt`, mismo repo y Dockerfile, rama main) con su base `house_demo` en el mismo Postgres que producción. Variables: sólo `DATABASE_URL` y un `JWT_SECRET` propio (sin Resend, Evolution, Gemini ni llavero). Sembrada con `npm run seed:demo -- --superadmin=superadmin-demo@torrecondominios.com` (modo demo ENCENDIDO, coherencia 0); la clave de ese superadmin quedó en la Mac en `~/.torre/demo-superadmin.json` (0600), nunca impresa.
+- **Gotcha**: la base nueva la crea `$POSTGRES_USER` y la app entra como `house` → `permission denied for schema public`. Arreglo: `ALTER DATABASE house_demo OWNER TO house` y `ALTER SCHEMA public OWNER TO house`.
+- **Arreglos**: `/demo` respondía 404 en el servidor (la regla del 404 público no la conocía; la vista previa del enlace en WhatsApp habría fallado) → ahora 200 con `noindex, follow` (`seo/rutas.ts`). En la instancia de demo la raíz `/` lleva a `/demo` (`RaizPublica` en `App.tsx`); en torrecondominios.com no cambia nada (ni consulta). Pruebas en `seo-publico` y `demo-ui`, con mutación en rojo.
+- **Pendiente**: el registro DNS `demo` (A → 84.247.167.43) en Cloudflare lo agrega Miguel (Cloudflare pide sesión); luego Coolify saca el certificado. Después: video v11 y mensaje para clientes.
+
+---
+
 ## 2026-11-11 — Demo para clientes: modo demo con candado, seed, entrada por rol y guía (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/demo-clientes`) — push: no
 
 - **Pedido de Miguel**: una demo pública para enviar a clientes, con roles, datos, guía y video. Decidido: pública con enlace, instancia aparte `demo.torrecondominios.com` (base `house_demo`), reinicio nocturno 3:00 Lima, primero entorno y guía, el video después (aquí sólo el guion, §11 de `docs/marketing/guiones-videos.md`).

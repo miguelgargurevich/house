@@ -7,6 +7,7 @@ import { RequireCondominio } from './app/RequireCondominio';
 import { ToastProvider, Skeleton } from './ui';
 import Login from './pages/Login';
 import Portada from './pages/publico/Portada';
+import { puedeSerDemo, useModoDemo } from './app/demo/useDemo';
 import { esRutaDeLaApp } from './pages/publico/rutasApp';
 
 const SuperadminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
@@ -84,8 +85,16 @@ function Landing() {
   const { pathname } = useLocation();
   if (loading) return null;
   // Sin sesión: la raíz es la portada; una dirección de la app (favorito viejo, enlace compartido) lleva al inicio de sesión; cualquier otra es una página que no existe.
-  if (!user) return pathname === '/' ? <Portada /> : esRutaDeLaApp(pathname) ? <Navigate to="/login" replace /> : <NoEncontrada />;
+  if (!user) return pathname === '/' ? <RaizPublica /> : esRutaDeLaApp(pathname) ? <Navigate to="/login" replace /> : <NoEncontrada />;
   return <Navigate to={HOME[user.rol]} replace />;
+}
+
+/** En la instancia de demostración la raíz es la entrada por rol (`/demo`); en cualquier otra dirección, la portada sin esperar a nada. */
+function RaizPublica() {
+  const { demo, cargando } = useModoDemo();
+  if (typeof window === 'undefined' || !puedeSerDemo(window.location.hostname)) return <Portada />;
+  if (cargando) return null;
+  return demo ? <Navigate to="/demo" replace /> : <Portada />;
 }
 
 export default function App() {
