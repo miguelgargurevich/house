@@ -1,5 +1,7 @@
 import { enviarWhatsapp, type ResultadoEnvio } from '../avisos/canales';
 import { MOTIVO_TOPE_WHATSAPP, reservarConsumo } from '../comercial/consumo';
+import { respuestaEvolutionDemo } from '../demo/evolutionDemo';
+import { modoDemo } from '../demo/estado';
 import { canalesDeps } from './deps';
 
 const TIEMPO_MAX_MS = 15_000;
@@ -20,6 +22,12 @@ export class EvolutionFallo extends Error {
 
 /** Llamada a la Evolution API con la apikey global; el mensaje del error nunca lleva la URL ni la clave. */
 async function llamar(endpoint: string, method: 'GET' | 'POST', body?: Record<string, unknown>, tiempoMs: number = TIEMPO_MAX_MS): Promise<unknown> {
+  // Candado de demo: respuestas de ejemplo; nunca se llama a la Evolution API.
+  if (await modoDemo()) {
+    const ejemplo = await respuestaEvolutionDemo(endpoint, method);
+    if (ejemplo === undefined) throw new EvolutionFallo('error', 404);
+    return ejemplo;
+  }
   const { env } = canalesDeps;
   const base = env.EVOLUTION_URL?.trim().replace(/\/+$/, '');
   if (!base) throw new EvolutionFallo('sin_configurar');

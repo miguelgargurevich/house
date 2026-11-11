@@ -1,3 +1,4 @@
+import { modoDemo } from '../demo/estado';
 import { normalizarCelular } from './celular';
 import { resolverRemitente } from './remitente';
 
@@ -44,8 +45,12 @@ export function estadoCanales(env: NodeJS.ProcessEnv = process.env, remitenteBd?
 
 const TIEMPO_MAX_MS = 10_000;
 const NO_CONFIGURADO = 'Canal no configurado';
+/** Motivo con que queda registrado un envío en la demo (modo demostración): no sale nada real, ni correo ni WhatsApp. */
+export const MOTIVO_SIMULADO = 'Simulado en la demo: no se envía nada real';
+const SIMULADO: ResultadoEnvio = { resultado: 'omitida', motivo: MOTIVO_SIMULADO };
 
 async function llamar(deps: DepsAvisos, proveedor: string, url: string, init: RequestInit): Promise<ResultadoEnvio> {
+  if (await modoDemo()) return SIMULADO; // el candado de demo: nunca se llega a la red
   try {
     const r = await deps.fetch(url, { ...init, signal: AbortSignal.timeout(TIEMPO_MAX_MS) });
     if (r.ok) return { resultado: 'ok' };
@@ -64,6 +69,7 @@ export interface OpcionesCorreo { remitente?: string | null; condominio?: string
 
 /** Correo por la API HTTP de Resend; `adjuntos` y `html` son opcionales (sin ellos el cuerpo es el de siempre). Con `html`, `cuerpo` sigue yendo como `text`: es el respaldo de los clientes que no lo muestran. */
 export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asunto: string, cuerpo: string, adjuntos?: AdjuntoCorreo[], html?: string, opciones: OpcionesCorreo = {}): Promise<ResultadoEnvio> {
+  if (await modoDemo()) return SIMULADO;
   const from = estadoCanales(deps.env, opciones.remitente).email.configurado ? resolverRemitente(deps.env, opciones.remitente, opciones.condominio) : null;
   if (!from) return { resultado: 'omitida', motivo: NO_CONFIGURADO };
   if (!destino) return { resultado: 'omitida', motivo: 'Sin correo' };
@@ -83,6 +89,7 @@ export async function enviarCorreo(deps: DepsAvisos, destino: string | null, asu
  * `antesDeEnviar` corre justo antes de llamar a la red (cuando ya sabemos que sí sale): ahí va la pausa anti-baneo, para no esperar por un envío que no se hace.
  */
 export async function enviarWhatsapp(deps: DepsAvisos, instancia: string | null, celular: string | null, cuerpo: string, antesDeEnviar?: () => Promise<void>): Promise<ResultadoEnvio> {
+  if (await modoDemo()) return SIMULADO; // sin pausa anti-baneo y sin red
   if (!estadoCanales(deps.env).whatsapp.configurado) return { resultado: 'omitida', motivo: NO_CONFIGURADO };
   if (!instancia?.trim()) return { resultado: 'omitida', motivo: 'Sincronización de WhatsApp no configurada para la administradora' };
   const numero = normalizarCelular(celular);

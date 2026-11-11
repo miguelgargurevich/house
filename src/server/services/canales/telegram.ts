@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { prisma } from '../../db';
 import { cifrar, descifrar } from '../../lib/secretBox';
 import { canalesDeps } from './deps';
+import { modoDemo } from '../demo/estado';
 import { partirMensaje } from './evolution';
 import { ENLACE_APP } from '../avisos/plantillas';
 import type { DepsAvisos, ResultadoEnvio } from '../avisos/canales';
@@ -34,7 +35,7 @@ export const tokenValido = (t: string): boolean => FORMATO_TOKEN.test(t);
 
 /** Llamada a la Bot API. El mensaje del error NUNCA lleva la URL (que contiene el token) ni la respuesta del proveedor. */
 async function llamar(token: string, metodo: string, body?: Record<string, unknown>, deps: Pick<DepsAvisos, 'fetch'> = canalesDeps): Promise<unknown> {
-  if (!tokenValido(token)) throw new TelegramFallo('sin_configurar');
+  if (!tokenValido(token) || (await modoDemo())) throw new TelegramFallo('sin_configurar'); // en la demo no hay bot de Telegram: nunca se llama a la red
   let r: Response;
   try {
     r = await deps.fetch(`${HOST_TELEGRAM}/bot${token}/${metodo}`, {

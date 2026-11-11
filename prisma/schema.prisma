@@ -1670,3 +1670,15 @@ model Reclamacion {
   @@unique([anio, numero])
   @@index([estado, fecha_limite])
 }
+
+/// Modo demostración (fila única, id = 1). `activo` enciende el candado de demo: sin correos ni WhatsApp reales, sin IA de pago, sin cambiar claves, correos
+/// ni celulares, sin tokens de API ni registros nuevos. Es una tabla propia (y no una columna de ConfiguracionComercial) para que una base que todavía no la
+/// tenga se comporte como siempre: si la tabla no existe, el servidor lee «apagado». Sólo se enciende en la base de la instancia de demo (`*_demo`).
+model ConfiguracionDemo {
+  id            Int       @id @default(1)
+  activo        Boolean   @default(false)
+  /// Cuándo se sembró la demo por última vez (seed o reinicio).
+  sembrada_at   DateTime?
+  /// Cuándo empezó el reinicio en curso (null = ninguno). Sirve de candado: un reinicio que lleva más de 15 minutos se da por caído.
+  reiniciando_desde DateTime?
+}

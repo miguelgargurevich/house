@@ -6,9 +6,11 @@ import { prisma } from '../../src/server/db';
 import { hoyLima } from '../../src/server/lib/fechas';
 import { sembrarCatalogoComercial } from '../../src/server/services/comercial/catalogo';
 import { comercialDeps, invalidarComercial } from '../../src/server/services/comercial/modulos';
+import { demoDeps, invalidarDemo } from '../../src/server/services/demo/estado';
 
 // Sin caché en las pruebas: las filas se escriben directo en la base y los ids se reinician en cada `vaciarBase`.
 comercialDeps.ttlMs = 0;
+demoDeps.ttlMs = 0; // el modo demostración se enciende y apaga directo en la base: tampoco se guarda en caché
 
 export { prisma };
 export const PASSWORD = 'Passw0rd!123';
@@ -80,6 +82,9 @@ export async function vaciarBase() {
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE "ModuloComercial","PlanComercial","ConfiguracionComercial","ImpuestoPais","PrecioPlanMoneda"`);
   await sembrarCatalogoComercial(prisma);
   invalidarComercial();
+  // El modo demostración queda APAGADO en cada siembra: una prueba de la demo que lo dejara encendido no puede contagiar a las demás.
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE "ConfiguracionDemo"`).catch(() => undefined);
+  invalidarDemo();
 }
 
 /** Condominios en «cortesía» (todos los módulos, sin vencimiento): como están hoy los de producción. */

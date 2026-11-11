@@ -7,6 +7,8 @@ import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { isProduction, parseCorsOrigins } from './config';
 import { auditoria } from './middleware/audit';
+import { candadoDemo } from './middleware/demo';
+import { demoRouter, type OpcionesDemo } from './routes/demo';
 import { contextoImpersonacion, soloSesionPropia } from './services/impersonacion/contexto';
 import { authenticate } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error';
@@ -64,6 +66,8 @@ export interface AppOptions {
   rateLimits?: RateLimitOptions;
   /** Sólo para pruebas: carpeta del frontend compilado (por defecto `dist/` del directorio de trabajo). */
   distDir?: string;
+  /** Sólo para pruebas: topes de la demo (`/api/demo/*`, que sólo existe con el modo demostración encendido). */
+  demo?: OpcionesDemo;
 }
 
 export function createApp(opts: AppOptions = {}) {
@@ -112,15 +116,18 @@ export function createApp(opts: AppOptions = {}) {
   }
 
   const api = Router();
+  api.use(candadoDemo('publico')); // modo demostración: registros y formularios públicos (sin el modo, no hace nada)
   // Límite general: lo anónimo cuenta por IP (aquí, en los tramos públicos, y abajo para toda petición sin sesión); lo autenticado, por usuario.
-  api.use(['/health', '/auth/login', '/auth/invitacion', '/publico'], limiters.apiAnonimo);
+  api.use(['/health', '/auth/login', '/auth/invitacion', '/publico', '/demo'], limiters.apiAnonimo);
   api.get('/health', (_req, res) => { res.json({ ok: true }); }); // público: healthcheck del contenedor
   api.use('/auth', loginRouter(limiters.login, limiters.loginCuenta)); // tramo público: inicio de sesión
   api.use('/auth/invitacion', invitacionRouter(limiters.invitacion)); // tramo público: el enlace del correo de invitación
   api.use('/publico/marca', marcaPublicaRouter()); // tramo público: el logo de la empresa para los correos (con firma; sólo logos de empresa)
   api.use('/publico', publicoRouter({ registroIp: limiters.registroIp, registroCorreo: limiters.registroCorreo, verificacion: limiters.verificacion, ...formularios })); // tramo público: planes, registro, verificación del correo, contacto y Libro de Reclamaciones
+  api.use('/demo', demoRouter(opts.demo)); // tramo público: entrar a la demo por rol (404 si no es una demo)
   api.use(limitarSegunSesion(authenticate, limiters.apiAnonimo, limiters.apiUsuario));
   api.use(auditoria);
+  api.use(candadoDemo('sesion')); // modo demostración: lo que cambia cuentas o abre puertas hacia fuera; el WhatsApp de ejemplo
   api.use(contextoImpersonacion); // sesión prestada («Entrar como»): la auditoría de segundo plano también lleva al superadmin
   api.use('/auth', sesionRouter);
   api.use('/impersonacion', impersonacionRouter);

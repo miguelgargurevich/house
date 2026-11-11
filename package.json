@@ -14,6 +14,7 @@
     "test": "node --import tsx --test --test-concurrency=1 \"tests/*.test.ts\"",
     "seed:libertadores": "tsx prisma/seed-libertadores.ts",
     "seed:mercado": "tsx prisma/seed-mercado.ts",
+    "seed:demo": "tsx prisma/seed-demo.ts",
     "junta-central:local": "tsx scripts/junta-central-local.ts",
     "medir:ocr": "tsx scripts/medir-ocr-vs-ia.ts"
   },

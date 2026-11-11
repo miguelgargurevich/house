@@ -9,6 +9,7 @@ import { migrarOcrDesdeEnv } from './server/lib/gatewaysDatos';
 import { sembrarCatalogoComercial } from './server/services/comercial/catalogo';
 import { migracionInicial } from './server/services/comercial/migracion';
 import { iniciarTipoCambio } from './server/services/comercial/tipoCambio';
+import { iniciarReinicioNocturno } from './server/services/demo/reinicio';
 
 const PORT = Number(process.env.PORT) || 4000;
 iniciarLimpieza();
@@ -37,4 +38,6 @@ app.listen(PORT, () => {
   iniciarTareasAsistente();
   // Tipo de cambio PEN/USD (los países que no son Perú pagan en dólares): lo lee solo cada 24 h, salvo que el superadmin lo haya fijado a mano.
   iniciarTipoCambio();
+  // Demo: con el modo demostración encendido en la base, la vuelve a sembrar cada noche a las 3:00 (Lima). Sin el modo, no hace nada.
+  iniciarReinicioNocturno();
 });

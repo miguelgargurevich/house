@@ -19,6 +19,8 @@ import { construirCadena, contarUso, marcarUso, rechazarClave, type Eslabon } fr
 import { aplicarFechaDelVoucher, decidirFechaEvaluada, type DecisionFecha } from './fechaVoucher';
 import { validarSiCumple } from './validacionAutomatica';
 import { exigirModulo, moduloActivo } from './comercial/modulos';
+import { modoDemo } from './demo/estado';
+import { lecturaDeEjemplo } from './demo/lecturaEjemplo';
 
 /** Eslabones que se prueban como máximo por evaluación (con dos claves de Gemini caídas todavía llega al gateway de respaldo). */
 export const MAX_INTENTOS_IA = 4;
@@ -425,6 +427,13 @@ async function ejecutar(pagoId: number, intento: number): Promise<void> {
     // Un OCR que sólo fue la última red nunca valida; el que decidió solo, sí (con el mismo check del tesorero).
     await validarSiCumple(pagoId, { fechaInvalida: decision.tipo === 'invalida' });
   };
+
+  // Modo demo: ni OCR ni IA de pago. La lectura es una respuesta de ejemplo, armada con los datos del propio pago, y pasa por el mismo contraste que una real.
+  if (await modoDemo()) {
+    const lecturaDemo = await lecturaDeEjemplo(pago, moneda, zona);
+    await concluir(lecturaDemo, { proveedor: 'demo', modelo: 'lectura-de-ejemplo' }, await (await contextoDelPago()).contrastarLectura(lecturaDemo));
+    return;
+  }
 
   // 1. OCR primero. Si TODO calza (monto, destino, fecha, operación, sin alertas) se acepta sin llamar a la IA; si no, escala a la IA.
   const ocr = await leerConOcr({ mime: archivo.tipo_mime, bytes: archivo.datos });
