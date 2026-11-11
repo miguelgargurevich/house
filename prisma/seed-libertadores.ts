@@ -148,7 +148,8 @@ function nombreNuevo(): { nombre: string; ap: string } {
 const telUsados = new Set<string>();
 function telefono() {
   for (;;) {
-    const t = `9${entre(10000000, 99999999)}`;
+    // Celular FICTICIO: 9000 + 5 dígitos (nunca un número con forma real; los videos muestran estos datos).
+    const t = `9000${entre(10000, 99999)}`;
     if (!telUsados.has(t)) return (telUsados.add(t), t);
   }
 }
@@ -324,10 +325,10 @@ async function main() {
   await limpiar();
 
   const empresa = await prisma.empresaAdministradora.create({
-    data: { nombre: 'Administradora Demo SAC', ruc: '20123456789', direccion: 'Av. Javier Prado 1234, Lima', telefono: '012345678', email: 'contacto@administradorademo.example', representante_legal: 'Rosa Benavides', estado: 'activa' },
+    data: { nombre: 'Administradora Demo SAC', ruc: '20123456789', direccion: 'Av. Javier Prado 1234, Lima', telefono: '010000001', email: 'contacto@administradorademo.example', representante_legal: 'Rosa Benavides', estado: 'activa' },
   });
   const empresaAnterior = await prisma.empresaAdministradora.create({
-    data: { nombre: 'Servicios del Edificio SAC', ruc: '20987654321', direccion: 'Av. Arequipa 800, Lince, Lima', telefono: '013456789', email: 'admin@serviciosededificio.example', representante_legal: 'Carlos Mendoza', estado: 'activa' },
+    data: { nombre: 'Servicios del Edificio SAC', ruc: '20987654321', direccion: 'Av. Arequipa 800, Lince, Lima', telefono: '010000005', email: 'admin@serviciosededificio.example', representante_legal: 'Carlos Mendoza', estado: 'activa' },
   });
   const complejo = await prisma.complejoHabitacional.create({
     data: { nombre: 'Condominio Los Libertadores de Surco', tipo: 'condominio', direccion: 'Av. Libertadores 1500, Santiago de Surco, Lima', empresa_id: empresa.id, descripcion: '14 blocks de 8 pisos con 4 departamentos por piso (448 unidades), áreas verdes y zona de juegos.' },
@@ -342,12 +343,12 @@ async function main() {
 
   // Personal (cuentas de prueba del Login, mismas contraseñas).
   const personal = [
-    { nombre: 'Miguel Gargurevich', email: 'miguel.gargurevich@admin.example', telefono: '987654321', rol: 'superadmin', password: 'admin1234', conEmpresa: false },
-    { nombre: 'Ana López', email: 'ana.lopez@administradorademo.example', telefono: '987654324', rol: 'admin', password: 'admin1234', conEmpresa: true },
-    { nombre: 'Pedro Sánchez', email: 'pedro.sanchez@administradorademo.example', telefono: '987654325', rol: 'seguridad', password: 'seg1234', conEmpresa: true },
-    { nombre: 'María Fernández', email: 'maria.fernandez@administradorademo.example', telefono: '987654326', rol: 'mantenimiento', password: 'mtto1234', conEmpresa: true },
-    { nombre: 'Lucía Rojas', email: 'limpieza@prueba.house', telefono: '987654327', rol: 'limpieza', password: 'pers1234', conEmpresa: true },
-    { nombre: 'Carlos Quispe', email: 'jardineria@prueba.house', telefono: '987654328', rol: 'jardineria', password: 'pers1234', conEmpresa: true },
+    { nombre: 'Miguel Gargurevich', email: 'miguel.gargurevich@admin.example', telefono: '900000321', rol: 'superadmin', password: 'admin1234', conEmpresa: false },
+    { nombre: 'Ana López', email: 'ana.lopez@administradorademo.example', telefono: '900000324', rol: 'admin', password: 'admin1234', conEmpresa: true },
+    { nombre: 'Pedro Sánchez', email: 'pedro.sanchez@administradorademo.example', telefono: '900000325', rol: 'seguridad', password: 'seg1234', conEmpresa: true },
+    { nombre: 'María Fernández', email: 'maria.fernandez@administradorademo.example', telefono: '900000326', rol: 'mantenimiento', password: 'mtto1234', conEmpresa: true },
+    { nombre: 'Lucía Rojas', email: 'limpieza@prueba.house', telefono: '900000327', rol: 'limpieza', password: 'pers1234', conEmpresa: true },
+    { nombre: 'Carlos Quispe', email: 'jardineria@prueba.house', telefono: '900000328', rol: 'jardineria', password: 'pers1234', conEmpresa: true },
   ];
   const staff = await prisma.usuario.createManyAndReturn({
     data: await Promise.all(
@@ -416,16 +417,16 @@ async function main() {
   // Proveedores del directorio de Administradora Demo SAC, asignados al condominio.
   const proveedores = await prisma.proveedor.createManyAndReturn({
     data: [
-      { razon_social: 'Ascensores del Sur SAC', ruc: '20111111111', rubro: 'ascensores', contacto_nombre: 'Renato Huamaní', telefono: '991112233', email: 'servicio@ascensoresdelsur.example', notas: 'Mantenimiento mensual de ascensores Blocks 1-7.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Tuberías Lima EIRL', ruc: '20222222222', rubro: 'gasfiteria', contacto_nombre: 'Sandra Cáceres', telefono: '992223344', email: 'contacto@tuberiaslima.example', notas: 'Reparación de filtraciones y cambio de grifería.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Pinturas Andina SAC', ruc: '20333333333', rubro: 'pintura', contacto_nombre: 'Miguel Quispe', telefono: '993334455', email: 'ventas@pinturasandina.example', notas: 'Pintura de áreas comunes y pasillos.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Eléctrica Central SAC', ruc: '20444444444', rubro: 'electricidad', contacto_nombre: 'Luis Torres', telefono: '994445566', email: 'luis@electricacentral.example', notas: 'Mantenimiento de luminarias y tableros eléctricos.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Jardines del Sur', ruc: '20555555555', rubro: 'jardineria', contacto_nombre: 'Rosa Condori', telefono: '995556677', email: 'rosa@jardinesdelsur.example', notas: 'Jardinería y limpieza de áreas verdes.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Fumigación Rápida EIRL', ruc: '20666666666', rubro: 'fumigacion', contacto_nombre: 'Jorge Valdivia', telefono: '996667788', email: 'jvaldivia@fumigacionrapida.example', notas: 'Control de plagas cada trimestre.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Cerraduras Lima', ruc: '20777777777', rubro: 'cerrajeria', contacto_nombre: 'Patricia Salas', telefono: '997778899', email: 'patricia@cerraduraslima.example', notas: 'Cambio de cerraduras y cerrajería de emergencia.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Servicios Generales del Centro SAC', ruc: '20888888888', rubro: 'limpieza', contacto_nombre: 'Martha Paredes', telefono: '998889900', email: 'martha@serviciosgenerales.example', notas: 'Limpieza profunda de áreas comunes.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Carpintería San Borja', ruc: '20999999999', rubro: 'carpinteria', contacto_nombre: 'Fernando Espinoza', telefono: '999990011', email: 'fespinoza@carpenteria.example', notas: 'Reparación de puertas y muebles de áreas comunes.', activo: true, empresa_id: empresa.id },
-      { razon_social: 'Multiservicios Norte', ruc: '20000000001', rubro: 'otros', contacto_nombre: 'Doris Flores', telefono: '990001122', email: 'dflores@multiserviciosnorte.example', notas: 'Otros servicios varios.', activo: false, empresa_id: empresa.id },
+      { razon_social: 'Ascensores del Sur SAC', ruc: '20111111111', rubro: 'ascensores', contacto_nombre: 'Renato Huamaní', telefono: '900005001', email: 'servicio@ascensoresdelsur.example', notas: 'Mantenimiento mensual de ascensores Blocks 1-7.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Tuberías Lima EIRL', ruc: '20222222222', rubro: 'gasfiteria', contacto_nombre: 'Sandra Cáceres', telefono: '900005002', email: 'contacto@tuberiaslima.example', notas: 'Reparación de filtraciones y cambio de grifería.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Pinturas Andina SAC', ruc: '20333333333', rubro: 'pintura', contacto_nombre: 'Miguel Quispe', telefono: '900005003', email: 'ventas@pinturasandina.example', notas: 'Pintura de áreas comunes y pasillos.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Eléctrica Central SAC', ruc: '20444444444', rubro: 'electricidad', contacto_nombre: 'Luis Torres', telefono: '900005004', email: 'luis@electricacentral.example', notas: 'Mantenimiento de luminarias y tableros eléctricos.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Jardines del Sur', ruc: '20555555555', rubro: 'jardineria', contacto_nombre: 'Rosa Condori', telefono: '900005005', email: 'rosa@jardinesdelsur.example', notas: 'Jardinería y limpieza de áreas verdes.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Fumigación Rápida EIRL', ruc: '20666666666', rubro: 'fumigacion', contacto_nombre: 'Jorge Valdivia', telefono: '900005006', email: 'jvaldivia@fumigacionrapida.example', notas: 'Control de plagas cada trimestre.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Cerraduras Lima', ruc: '20777777777', rubro: 'cerrajeria', contacto_nombre: 'Patricia Salas', telefono: '900005007', email: 'patricia@cerraduraslima.example', notas: 'Cambio de cerraduras y cerrajería de emergencia.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Servicios Generales del Centro SAC', ruc: '20888888888', rubro: 'limpieza', contacto_nombre: 'Martha Paredes', telefono: '900005008', email: 'martha@serviciosgenerales.example', notas: 'Limpieza profunda de áreas comunes.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Carpintería San Borja', ruc: '20999999999', rubro: 'carpinteria', contacto_nombre: 'Fernando Espinoza', telefono: '900005009', email: 'fespinoza@carpenteria.example', notas: 'Reparación de puertas y muebles de áreas comunes.', activo: true, empresa_id: empresa.id },
+      { razon_social: 'Multiservicios Norte', ruc: '20000000001', rubro: 'otros', contacto_nombre: 'Doris Flores', telefono: '900005010', email: 'dflores@multiserviciosnorte.example', notas: 'Otros servicios varios.', activo: false, empresa_id: empresa.id },
     ],
     select: { id: true, razon_social: true },
   });

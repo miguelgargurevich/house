@@ -4,6 +4,30 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+
+## 2026-11-10 — Videos de la app en iPhone (v9 y v10) y grabador de la app que termina solo (Claude Code, Sonnet 5.5 delegado por Opus; commit de Opus) — push: no
+
+- **Pedido de Miguel**: «graba la versión de iPhone de los videos». Publicados en MinIO `videos-torre/torre-v9-iphone.mp4` y `torre-v10-iphone.mp4` (9:16, 43 s; OCR limpio, revisado por Opus) junto a los de Android (`torre-v9-celular.mp4`, `torre-v10-celular.mp4`, programados en redes el sáb 21 y 28-nov).
+- **Scripts**: `scripts/marketing/grabar-iphone.mjs` (simulador «Torre iPhone 16», app de desarrollo contra el backend LOCAL, toques nativos con Appium/XCUITest y el WebView leído por JS para ubicar los elementos; graba con `xcrun simctl io recordVideo`), `ios-driver.mjs` (sesión de Appium), `cierre-app.mjs` (tarjeta de cierre común a Android e iPhone). `grabar-app.mjs` (Android) ahora termina solo: quita `screenrecord`, cierra CDP/adb y sale con `process.exit`. `montar-video.sh` acepta fondo y formato de la app.
+- **Gotchas**: Safari del simulador falla 2 de 3 cargas de torrecondominios.com aunque HTTP/3 esté apagado: el grabador reintenta fuera de cámara y reinicia Safari antes de cada carga. El pie de `/app` muestra la razón social: la escena 1 lo deja fuera de cuadro. Los toques no se ven en la grabación del simulador: se dibuja un círculo sobre la página.
+- **Incidente**: una limpieza con consulta demasiado amplia borró 12 grupos de pagos de prueba de B01-604 en la base LOCAL `house` (datos de prueba, nada real). No se recuperaron. Ahora la limpieza borra sólo los pagos con id mayor al máximo guardado antes de la toma y del usuario de esa toma.
+- **Próximo**: más videos de la app con estos scripts; Appium y el driver XCUITest quedan instalados en el scratchpad de la sesión (reinstalar con `npm i appium` + `appium driver install xcuitest` si se borra).
+
+---
+## 2026-11-07 — Celulares ficticios en seeds, base local y videos v7 (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-videos`) — push: no
+
+- **Pedido de Miguel**: el reel v7 oscuro mostraba un celular real (~1,5 s). Arreglar y regrabar.
+- **Hecho**: celulares de prueba a `9000` + 5 dígitos en `prisma/seed.ts` y `prisma/seed-libertadores.ts` (generador `telefono()` incluido); fijos de empresa `0100000NN`; proveedores `900005NNN`. `scripts/e2e/flujos-comercial.mjs` y los reemplazos de `grabar-video.mjs` al mismo patrón. Base LOCAL `house` convertida (respaldo CSV en la scratchpad): 512 usuarios, 515 personas, 6 medios de pago, 10 proveedores, 2 empresas. Login de 5 cuentas de prueba: 200. La plantilla de contactos de v7 (tenía 507 celulares con forma real) se volvió a descargar de la app.
+- **Regrabado (7-nov, 09:07–09:15)**: v7 oscuro y claro, celular y escritorio, con el mismo nombre de archivo. Duración 63,0 s cada uno. OCR a 2 cuadros/s: sin nombres ni correos reales; el único «celular» (`910000006` a 36–37 s en escritorio) es un fijo `010000006` leído mal, comprobado en el cuadro.
+- **Inventario**: OCR a 1 cuadro/s de los 75 mp4 finales de los dos checkouts: 24 videos con celular visible, 37 números distintos. Lista enmascarada en `docs/marketing/celulares-en-videos.md`; la completa, en la scratchpad. NO regrabados: decide Opus.
+- **Limpieza hecha y verificada**: empresa 6 con `whatsapp_instance`, `nombre_comercial` y `color_marca` en null; 53 `GrupoWhatsapp` borrados; Evolution falso detenido (PID); backend reiniciado sin variables de WhatsApp.
+- **Gotchas**:
+  - `src/server/services/contactos/plantilla.ts:28` pone «987 654 321» como ejemplo en las instrucciones de la plantilla (fuera de Permitidos; no sale en el video).
+  - Fuera de Permitidos y con celulares viejos: `prisma/seed-mercado.ts` y `tests/*.test.ts` (p. ej. `987654321`).
+  - `scripts/marketing/grabar-video.mjs` conserva dos celulares reales como claves de enmascarado (para ocultarlos en pantalla); sólo cambiaron los valores de reemplazo.
+  - El primer intento de regrabar dio `login admin: 500` (transitorio); al repetir funcionó.
+  - OCR: `xargs -I` con muchos cuadros falla en silencio; el script ya llama a tesseract de uno en uno.
+- **Próximos (Opus)**: subir a MinIO / My Workspace los 4 mp4 de v7 (oscuro y claro); decidir si se regraban los videos viejos con celulares de la lista; revisar los fixtures de `tests/` y `seed-mercado.ts`.
 ## 2026-11-10 — App para el celular: APK de Android desde la web (`/app`) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/app-descarga`) — push: no
 
 - **Pedido de Miguel**: «genera el APK para probarlo en mi celular y lo pones disponible para descargar desde la landing». Esta sesión hizo la parte web; el APK firmado y su subida al bucket los hace Opus.

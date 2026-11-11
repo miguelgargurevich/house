@@ -155,3 +155,65 @@ Preparación: el correo se renderiza con `scripts/marketing/correo-invitacion.ts
 - Revisión (7-nov-2026): OCR a 1 cuadro por segundo con `tesseract -l spa` sin coincidencias de `gesti.n ?urbana|gestionurbana|melina|loayza|gmail|gargurevich`, y hojas de contacto de todos los cuadros: en oscuro salen las pantallas públicas (inicio de sesión, aviso de instalar) y las de la app. La tarjeta de cierre ya es verde Torre con letras claras.
 - Limitación ya conocida: en escritorio la escena 2 de v7 pierde el aviso «Instalar Torre» (sólo sale en pantallas chicas); el video queda igual que la versión clara.
 - Las vistas previas («Así se verá» de Tu marca y el recibo de ejemplo) son tarjetas claras a propósito, también en oscuro.
+
+## Celulares de prueba (ficticios)
+
+Los videos muestran datos de la base local, así que **ningún celular de prueba tiene forma real**:
+
+- Residentes y personal del seed (`prisma/seed-libertadores.ts`, `prisma/seed.ts`): `9000` + 5 dígitos (p. ej. `900012345`). Los fijos de las empresas: `0100000NN`. Los proveedores del seed libertadores: `900005NNN`.
+- Base local `house` ya convertida (7-nov-2026): `Usuario.telefono` y `MedioPago.celular`/`Proveedor.telefono` en `9000` + id a 5 dígitos; `PersonaUnidad.celular` en `+51 900 0NN NNN`; `EmpresaAdministradora.telefono` en `0100000NN`.
+- La plantilla de contactos de la escena 3 de v7 se vuelve a descargar de la app (`GET /api/contactos/plantilla.xlsx?complejo_id=4`) después de cambiar la base; no se edita a mano.
+- Antes de dar por buena una grabación, OCR a 2 cuadros por segundo: ningún celular que no empiece por `9000`/`900 0` (y ningún nombre ni correo real).
+
+---
+
+## 9. Paga desde la app (vecino, v9; celular 9:16, Android)
+
+Dos videos NUEVOS de la app, sólo celular (no hay escritorio). Voz «Dora» (`ef_dora`), una por escena (`.claude/videos/v9/voz/e<N>.wav`). Duración real: **43,1 s** (voz ≈ 38 s + margen de cada escena).
+
+| # | En pantalla | Voz |
+|---|---|---|
+| 1 | Navegador del teléfono: `/app` (copia local, ver «Estado») | Torre también está en tu celular. Desde el navegador, entra a torrecondominios punto com barra app, y toca Descargar para Android. |
+| 2 | Ícono de Torre en el lanzador → logo de la app (splash) → pantalla de entrar | Ábrela desde el ícono de Torre. Aparece el logo, y luego la pantalla para entrar con tu cuenta. |
+| 3 | Login del propietario: correo y contraseña | Entra con tu correo y tu contraseña. Son las mismas que usas en el navegador. |
+| 4 | Inicio: «Deuda total» y el mantenimiento vencido | En Inicio ves tu deuda total, y el mantenimiento que toca pagar, con la fecha en que vence. |
+| 5 | «Pagar mantenimiento» → voucher `voucher-prueba.jpg` elegido | Toca Pagar mantenimiento. Elige la foto del voucher desde tu galería, y revisa que se vea bien. |
+| 6 | «Enviar pago» → «Pago enviado» («Evaluando tu comprobante…») | Listo. Tu pago queda en revisión, y la administración lo confirma desde su panel. |
+| 7 | Cierre: tarjeta de marca (imagen, sin toques) | Torre. Tu condominio, en orden. Descárgala en torrecondominios punto com barra app. |
+
+## 10. Administra desde el celular (administradora, v10; celular 9:16, Android)
+
+Voz «Dora», una por escena (`.claude/videos/v10/voz/e<N>.wav`). Duración real: **43,6 s**. El pago que se valida es el del vecino B (ver «Cómo se graba»).
+
+| # | En pantalla | Voz |
+|---|---|---|
+| 1 | Abre Torre desde el ícono y entra con la cuenta de la administradora (**el login no alcanza a verse: ver «Estado»**) | Desde tu celular, administra tu condominio con Torre. Entra con tu cuenta de administradora. |
+| 2 | Resumen del condominio: cobrado, por cobrar, unidades morosas | En el resumen ves todo el condominio en una sola pantalla: lo cobrado, lo pendiente y la morosidad. |
+| 3 | Pagos → «Por validar» con el filtro «Tarjeta» → «Revisar pago» con el voucher y la lectura de la IA | Cada pago llega con su voucher. La inteligencia artificial lo lee, y tú revisas lo que dice antes de validar. |
+| 4 | «Validar pago» → «Pago validado. El mantenimiento quedó pagado.» | Abre el pago, revisa el voucher, y válidalo. Así el vecino ve su mantenimiento al día. |
+| 5 | Morosidad: unidades con su deuda y su atraso | En morosidad ves quién debe, cuánto, y desde cuándo. Puedes abrir el detalle de cada recibo. |
+| 6 | Recibos → recibo → «Avisar a los vecinos» (se abre el aviso; **«Enviar aviso» sólo se señala, no se pulsa**) | Con Avisar a los vecinos, el aviso sale por WhatsApp y por correo, a cada vecino. |
+| 7 | Cierre: tarjeta de marca | Torre. Tu condominio, en orden. Descárgala en torrecondominios punto com barra app. |
+
+## Cómo se graba el celular (Android)
+
+Script: `scripts/marketing/grabar-app.mjs` (`ANDROID_SERIAL=<emulador> node scripts/marketing/grabar-app.mjs v9|v10`, con `SOLO=n` para regrabar una escena). Montaje: `FONDO=0x0f766e scripts/marketing/montar-video.sh v9 celular` (las franjas del 9:16 salen en el verde de marca).
+
+- **App de desarrollo** (`cd mobile && TORRE_URL=http://10.0.2.2:4000 npm run apk:debug`), instalada en el emulador. Nunca producción.
+- **Pantalla**: `adb shell screenrecord` por escena (1080×2340, el teléfono real). Toques reales con `adb shell input tap` (con «Mostrar toques»); las coordenadas salen del WebView (Playwright `_android`, sin CDP). Un clip por escena (`e<N>.mp4`) y `recortes.json`.
+- **Cierre**: imagen de 6 s renderizada en Chromium (no hay toques).
+- **Dato de prueba**: un vecino de prueba **distinto en cada toma**, `@prueba.house`, con mantenimiento pendiente y sin pagos. Usado: **A** = `maria.espinoza.160@prueba.house` (B05-804, v9); **B** = `enrique.huaman.416@prueba.house` (B13-804, no se usó en el video final); **C** = `teresa.farfan.34@prueba.house` (B02-101, Block 2, v10). Contraseña de prueba de propietarios: la del seed.
+- **Pago del vecino en v10**: se crea fuera de cámara con la misma API que la app (`POST /api/me/mantenimientos/<recibo>/<unidad>/pagos`, método `tarjeta`, voucher de prueba). Un bloque con tesorero no deja validar sin su **conformidad**: la da Gustavo Cruz (tesorero del condominio, `PUT /api/pagos/<id>/conformidad`) también fuera de cámara; después la administradora valida.
+- **Limpieza al terminar cada toma** (la base local debe quedar como estaba): borrar **el grupo completo** de pagos (`grupo`, todas las filas: el principal con el voucher y las demás) y devolver a `pendiente` las filas de `ReciboConceptoUnidad` que el envío cambió a `en_revision`/`pagado` (fecha y voucher en nulo). **Cuidado**: el seed trae textos en `observaciones` (p. ej. «Recargo por no pagar a tiempo…»); no se tocan.
+- **Gmail** se desactiva en el emulador mientras se graba el lanzador (`pm disable-user --user 0 com.google.android.gm`) y se reactiva al final: sale del lanzador, no del video.
+
+## Estado de v9 y v10 (11-nov-2026)
+
+Revisión: OCR a 2 cuadros/s con `tesseract -l spa` y el patrón de siempre: **0 coincidencias** de `gesti.n urbana|gestionurbana|melina|loayza|gmail|gargurevich` y **0 celulares**. Hojas de contacto de todo el video, a ojo. Lo que **no** cumple y queda pendiente:
+
+- **v9, escena 1 (navegador)**: la página `/app` sale **en blanco** en el Chrome 113 del emulador de esta Mac (el de escritorio sí la muestra: «Torre en tu celular»). Sin resolver. Mientras tanto, la escena muestra la pantalla blanca.
+- **v9, escena 1, dirección**: el navegador abre la copia local del backend (10.0.2.2:4001) porque el backend del 4000 sirve un `dist` anterior en el que `/app` y `/contacto` redirigen a `/login` (ver HANDOFF).
+- **v9, escena 5**: el voucher se elige con el archivo de la galería por el input de la app; el selector nativo de la galería **no sale en pantalla**.
+- **v10, escena 1**: se ve abrir la app y llegar al resumen; el login no alcanza a verse dentro de la voz.
+- **Splash**: es gris claro con el logo verde (no verde entero): la voz de v9 escena 2 dice «el logo», no «la pantalla verde».
+- **IA**: el voucher de prueba no es legible para la IA; la app lo muestra como «No coincide» o «Ilegible». Es honesto con un archivo ficticio, pero no es lo que el vecino vería con un voucher real.
