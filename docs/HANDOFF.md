@@ -18,6 +18,60 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
   - El primer intento de regrabar dio `login admin: 500` (transitorio); al repetir funcionó.
   - OCR: `xargs -I` con muchos cuadros falla en silencio; el script ya llama a tesseract de uno en uno.
 - **Próximos (Opus)**: subir a MinIO / My Workspace los 4 mp4 de v7 (oscuro y claro); decidir si se regraban los videos viejos con celulares de la lista; revisar los fixtures de `tests/` y `seed-mercado.ts`.
+## 2026-11-10 — App para el celular: APK de Android desde la web (`/app`) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/app-descarga`) — push: no
+
+- **Pedido de Miguel**: «genera el APK para probarlo en mi celular y lo pones disponible para descargar desde la landing». Esta sesión hizo la parte web; el APK firmado y su subida al bucket los hace Opus.
+- **Hecho**:
+  - **Esquema (aditivo)**: `ConfiguracionComercial.url_app_android` (por defecto la dirección estable del APK en el bucket) y `app_android_version` (por defecto `1.0.0`). Se editan en Superadmin › Precios, «Contacto y redes de la web pública», con su ayuda («Vacío: no se muestra»). PUT con 422 si no es https o si la versión no es un número de versión.
+  - **Catálogo**: `GET /api/publico/planes` → `app: { android: { url, version } | null }`; `null` sin APK.
+  - **Página `/app`** («Torre en tu celular»): `src/pages/publico/AppMovil.tsx`, textos en `appMovil/textos.ts`, decisiones en `appMovil/logica.ts`. Android (botón con la versión, 4 pasos, nota) sólo si hay APK; iPhone siempre (Safari › Agregar a inicio). Dentro de la app de Torre (`dentroDeLaApp()`) no hay bloques, sólo «Ya estás usando la app». Está en el sitemap y en el HTML estático (`src/server/seo/paginas.ts`, mismos textos). `FECHA_CONTENIDO` pasa a 2026-11-10 porque la portada cambió.
+  - **Enlaces**: pie de todas las páginas públicas («App para el celular», junto a «Manual y videos»); portada: «Descarga la app para Android» bajo los botones del hero, sólo con APK (sin botón nuevo).
+  - **Doc**: `docs/APP-MOVIL.md`, «Distribución directa (APK) mientras no hay tienda»; `docs/API-CONTRATO.md` (configuración y catálogo).
+- **Pruebas**: `tests/app-descarga.test.ts` (7, en verde, base `house_test_app_descarga`); `tests/seo-publico.test.ts` 69/69 (sitemap con `/app`). `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` sin errores. Suite completa (`npm test`, base `house_test_app_descarga`): 4478 pruebas, 4471 pasan, 7 fallan. Dos fallas eran de mi cambio y ya están corregidas: `tests/asistente.test.ts` (la lista de pantallas públicas ahora incluye `/app`) y `tests/contacto-ui.test.ts` (import de Heroicons y enlace `/app` en el pie). Con ellas, esos dos archivos pasan 86/86. Las otras cinco son las conocidas o dependen de la hora: `recibos-excel` (2, «conceptos en 0»), `corregir-recibos` (1, solo lectura de 19:00 a 24:00 de Lima; `excel-crea-blocks` pasa solo y falló por carga), `zona-horaria` (2, «hoy» por hora de Lima). No se corrió la suite contra un `main` limpio para comparar.
+- **Gotchas**:
+  - **Antes de integrar**: aplicar el esquema a `house` (`db push`, aditivo, 2 columnas). Sin eso, las consultas de `ConfiguracionComercial` fallan en el checkout principal, porque el cliente generado ya las pide. Lo hace Opus al integrar, no esta sesión.
+  - `npx prisma generate` en este worktree regenera el cliente del `node_modules` compartido (ver la memoria de Prisma en worktree).
+  - El APK no está en el repo. La dirección vive sólo en el esquema y en la base; una prueba vigila que no aparezca en `src/`.
+- **Próximo paso**: Opus sube el APK firmado a la misma dirección (encima del anterior), revisa que `app_android_version` diga `1.0.0`, abre `/app` en producción, aplica el esquema a `house`, integra con cherry-pick. Push sólo con OK de Miguel.
+
+---
+
+
+## 2026-11-10 — App móvil iOS y Android con Capacitor, fase 1 (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/app-movil`) — push: no
+
+- **Pedido de Miguel**: «haz la app para iOS y Android» → camino elegido «Envolver la web» (Capacitor); cuentas de desarrollador «todavía no» (se prepara y se prueba en emulador; publicar después).
+- **Hecho**: proyecto en `mobile/` (propio `package.json` y `node_modules`; **no** corras `npm install` en la raíz de un worktree). `appId com.torrecondominios.app`, nombre Torre, `server.url` = producción con `appStartPath /login`, `TORRE_URL` sólo para desarrollo (`npm run sync:prod` + `npm run verificar` garantizan que el build de tienda no lleve una dirección de desarrollo). Navegación restringida a `torrecondominios.com`; el resto abre fuera.
+  - **Android** (`mobile/android`, código propio en `com/torrecondominios/app/`): Atrás (historial y, en la raíz, al fondo), descargas PDF/Excel/CSV con la sesión (abre el visor o la hoja de compartir), cámara para el voucher (el `accept` exacto de la web hacía que Capacitor ignorara `capture`; `CamaraWebChromeClient` lo corrige y el manifest declara `<queries>` de la cámara), vertical, permisos, ícono adaptable y splash con la marca (`npm run assets`).
+  - **iOS** (`mobile/ios`, Swift Package Manager, sin CocoaPods): ícono, splash, textos de cámara y fotos en español, vertical, `TorreViewController.swift` para las descargas. **Nada de iOS se compiló ni se ejecutó** (no hay Xcode); `project.pbxproj` y `Main.storyboard` se editaron a mano. Detalle y plan de verificación en `docs/APP-MOVIL.md`.
+  - **Web** (`src/app/instalar.ts`): `dentroDeLaApp()` detecta `TorreApp/` en el user agent y `modoInstalar` devuelve `null`: dentro de la app no sale «Instalar Torre». Prueba: `tests/instalar-app.test.ts` (3 nuevas, 9 en verde).
+  - **Doc**: `docs/APP-MOVIL.md` (construir y probar, versión con `npm run version`, publicar en Play y App Store, firma fuera del repo en `~/.torre/`, fichas, riesgos de rechazo, plan de push de la fase 2).
+- **Probado en emulador** (Pixel 3a, API 34, contra un backend local con una copia de la base `house`, luego borrada): login y sesión de un propietario de prueba, enlaces externos (wa.me, `_blank`, mailto), descarga de un Excel real de Torre y de PDF/CSV de prueba, selector de voucher con archivo adjunto, permiso y apertura de la cámara, sin conexión + Reintentar, Atrás. APK de depuración (producción) y AAB sin firmar compilan.
+- **No probado**: iOS entero; Android 15 o superior y tabletas; foto de cámara de punta a punta; la firma de tienda (el keystore no existe; sólo se comprobó que Gradle lo busca).
+- **Pruebas**: `npx tsx --test tests/instalar-app.test.ts` (9 en verde), `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` sin errores. No se corrió la suite completa (sólo se tocó el aviso de instalar). No se tocó `src/server/**`, `prisma/**` ni la autenticación.
+- **Decisiones de Miguel antes de publicar** (detalle en la doc): (1) **eliminar cuenta**: hoy no existe en Torre y Apple (5.1.1(v)) y Google la exigen si se puede crear cuenta; (2) **precios y registro dentro de la app**: ocultarlos con `dentroDeLaApp()` o defender 3.1.3(c); (3) **push** (fase 2) antes del primer envío a Apple para reducir el riesgo de 4.2; (4) cuenta de demostración en producción para los revisores.
+- **Gotchas**: el emulador de Android en esta Mac se cae con `-gpu auto` (macOS 26): usar `-gpu swiftshader_indirect`; `adb devices` muestra un `emulator-5554 offline` fantasma, usar `ANDROID_SERIAL`. El Docker de esta Mac no estaba encendido: se abrió Docker Desktop y `house-pg` (y Docker reinició otros contenedores suyos). Capacitor 8 compila con la plataforma 36 de Android (Gradle la descargó sola en `~/Library/Android/sdk`).
+- **Próximo paso**: Opus verifica el diff e integra con cherry-pick; push sólo con OK de Miguel. Para probar a mano: `.claude/app-movil/apk/torre-1.0.0-debug.apk` del worktree.
+
+---
+
+## 2026-11-09 — Menú lateral agrupado y plegable, como el portal de dealers (Claude Code, Opus 5.5; en `main`, sin commit) — push: no
+
+- **Pedido de Miguel**: «agrupa el menú porque así sueltos no se ve bien, revisa cómo lo hicimos en el portal de dealers».
+- **Hecho**: las áreas que ya existían en `nav.ts` (Cobranza, Operación, Plataforma, Cuenta, Junta) ahora son cabeceras plegables con ícono y flecha, en vez de títulos con todo abierto. Componente nuevo `src/app/MenuLateral.tsx` (lo usa `Shell.tsx`); lógica pura en `src/app/menuGrupos.ts`.
+  - Como en dealers: el grupo de la pantalla actual se abre solo (y si se pliega a mano, la cabecera queda resaltada); los que la persona abre se recuerdan en `localStorage['house-menu-grupos']`; un grupo con una sola entrada no se arma (sale suelta); las entradas sin rótulo (Resumen, Condominios, el menú de vecinos y personal) siguen sueltas arriba.
+  - Barra colapsada (riel): la cabecera es un ícono; al hacer clic abre las entradas en un panel al costado (portal en `body`, se cierra con Esc, clic afuera o al navegar).
+  - `NavGroup` tiene `icon` opcional. Las rutas no cambiaron.
+- **Pruebas**: `tests/menu-grupos.test.ts` (12, en verde) más `barra-menu` y `cargo-menu`; `npx tsc -b` sin errores. Visto en el navegador (escritorio expandido y colapsado, y cajón del celular) contra un backend falso de sesión: en esta PC no hay Postgres ni Docker encendido, así que no se corrió la suite completa (`manual-menu` y las de API necesitan base).
+- **Gotcha (PC Windows)**: el checkout no tenía `node_modules`; se hizo `npm ci` + `npx prisma generate`.
+
+---
+
+## 2026-11-07 — Manual y videos en la web pública (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-publico`) — push: no
+
+- **Pedido de Miguel**: «¿tenemos el manual publicado en el landing o en algún lado?». Antes sólo estaba en «Manual y videos» del menú de la cuenta (con sesión).
+- **Hecho**: `catalogoPublico` trae `manual` (la `url_manual` de la configuración; vacío = `null`). Pie de todas las páginas públicas (`Marco.tsx`): enlace «Manual y videos» con `PlayCircleIcon`, en el grupo legal, en pestaña nueva. Portada: botón de contorno «Mira cómo funciona» junto a «Crear cuenta gratis», sólo si hay manual.
+- **Pruebas**: `tests/manual-publico.test.ts` (4 en verde, base `house_test_manual_publico`). Contrato actualizado en `docs/API-CONTRATO.md`.
+- **Gotcha**: `db push` contra la base de prueba también regeneró el cliente de Prisma, que en este worktree apunta al `node_modules` compartido (mismo esquema, sin cambios).
 
 ---
 

@@ -32,4 +32,4 @@ export const LIMITES = [
 ];
 
 /** Fecha (AAAA-MM-DD) del contenido fijo de las páginas que no dependen de la base: es el `lastmod` de `/` y `/registro` en el sitemap. Súbela cuando cambie ese texto. */
-export const FECHA_CONTENIDO = '2026-11-04';
+export const FECHA_CONTENIDO = '2026-11-10';

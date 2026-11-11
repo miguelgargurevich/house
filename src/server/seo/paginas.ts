@@ -8,6 +8,7 @@ import { dinero } from '../../ui/format';
 import { MARCA, MARCA_LARGA, PORTADA, PRECIOS_HERO, REGISTRO, cierrePrecios, hechosPrecios, pieMarco, preguntas, preguntasPortada, textoTope, textosModulos, tituloPlanes, unidadPrecio } from '../../lib/seo/textos';
 import { textosPrivacidad, textosTerminos } from '../../pages/publico/legal/textos';
 import { CONTACTO, LIBRO } from '../../pages/publico/contacto/textos';
+import { APP_MOVIL } from '../../pages/publico/appMovil/textos';
 import { redesPublicas } from '../services/contacto/redes';
 import { VERSION_LEGAL, datosLegales } from '../services/comercial/legal';
 import type { Plan } from '../../pages/publico/catalogo';
@@ -27,6 +28,7 @@ const TITULOS: Record<RutaPublica, { titulo: string; nombre: string }> = {
   '/registro': { titulo: 'Crea tu cuenta | Torre · Administración de condominios', nombre: 'Crear cuenta' },
   '/contacto': { titulo: 'Contacto | Torre · Administración de condominios', nombre: 'Contacto' },
   '/libro-de-reclamaciones': { titulo: 'Libro de Reclamaciones | Torre · Condominios', nombre: 'Libro de Reclamaciones' },
+  '/app': { titulo: APP_MOVIL.titulo_pagina, nombre: APP_MOVIL.nombre },
   '/privacidad': { titulo: 'Privacidad | Torre · Administración de condominios', nombre: 'Política de privacidad' },
   '/terminos': { titulo: 'Términos | Torre · Administración de condominios', nombre: 'Términos y condiciones' },
 };
@@ -43,6 +45,7 @@ function descripcionPrecios(ctx: ContextoSeo | null): string {
 }
 
 const DESCRIPCIONES: Record<Exclude<RutaPublica, '/precios'>, string> = {
+  '/app': APP_MOVIL.descripcion,
   '/': 'Torre ordena recibos, pagos y morosidad de edificios y condominios en el Perú: recibos por block, vouchers con IA y avisos por WhatsApp. Empieza gratis.',
   '/registro': 'Crea tu cuenta en Torre Gratis, sin tarjeta, y emite el primer recibo de tu condominio. Después eliges Torre Básico o Torre Pro.',
   '/contacto': 'Escríbenos o pide una demo de Torre, el servicio para administrar edificios y condominios en el Perú. Respondemos en menos de 1 día hábil.',
@@ -200,7 +203,7 @@ function marco(ctx: ContextoSeo, contenido: string): string {
 <nav aria-label="Principal" style="display:flex;gap:1rem">${A('/precios', 'Precios')} ${A('/contacto', 'Contacto')} ${A('/login', 'Ingresar')}${abierto ? ` ${A('/registro', 'Crear cuenta')}` : ''}</nav></header>
 <main style="padding:2rem 0">${contenido}</main>
 <footer style="font-size:.75rem"><p>${esc(pieMarco(ctx.cat))}</p>
-<nav aria-label="Legal">${A('/contacto', 'Contacto')} · ${A('/privacidad', 'Privacidad')} · ${A('/terminos', 'Términos')} · ${A('/libro-de-reclamaciones', 'Libro de Reclamaciones')}</nav></footer>
+<nav aria-label="Legal">${A('/contacto', 'Contacto')} · ${A('/privacidad', 'Privacidad')} · ${A('/terminos', 'Términos')} · ${A('/libro-de-reclamaciones', 'Libro de Reclamaciones')} · ${A('/app', APP_MOVIL.nombre)}</nav></footer>
 </div>`;
 }
 
@@ -217,7 +220,7 @@ function cuerpoPortada(ctx: ContextoSeo): string {
   const planes = orden.map(c => ctx.cat.planes.find(p => p.clave === c)).filter((p): p is Plan => !!p);
   return `<section><h1 style="${estiloH1}">${esc(PORTADA.h1)}</h1>
 <p>${esc(PORTADA.bajada)}</p>
-<p>${abierto ? `${A('/registro', PORTADA.botones.registro)} · ` : ''}${A('/precios', PORTADA.botones.precios)} · ${A(CONTACTO.enlace_demo, CONTACTO.cta_demo)}</p></section>
+<p>${abierto ? `${A('/registro', PORTADA.botones.registro)} · ` : ''}${A('/precios', PORTADA.botones.precios)} · ${A(CONTACTO.enlace_demo, CONTACTO.cta_demo)}</p>${ctx.cfg.url_app_android ? `<p>${A('/app', 'Descarga la app para Android')}</p>` : ''}</section>
 <section><h2 style="${estiloH2}">${esc(e.titulo)}</h2><p>${esc(enunciado)}</p></section>
 <section><h2 style="${estiloH2}">${esc(PORTADA.pasos.titulo)}</h2><ol>${PORTADA.pasos.lista.map(p => `<li><h3>${esc(p.clausula)}</h3><p>${esc(p.texto)}</p></li>`).join('')}</ol></section>
 <section><h2 style="${estiloH2}">${esc(PORTADA.juntas.block.titulo)}</h2><p>${esc(PORTADA.juntas.block.texto)}</p><p>${esc(PORTADA.juntas.una.titulo)}: ${esc(PORTADA.juntas.una.texto)}</p></section>
@@ -279,6 +282,21 @@ function cuerpoContacto(ctx: ContextoSeo): string {
 ${medios ? `<ul>${medios}</ul>` : ''}`;
 }
 
+/** «Torre en tu celular»: los mismos textos de la página. El APK sólo si la configuración lo trae (como el botón); el iPhone siempre. */
+function cuerpoApp(ctx: ContextoSeo): string {
+  const { cfg } = ctx;
+  const a = APP_MOVIL.android;
+  const i = APP_MOVIL.iphone;
+  const paso = (p: { clausula: string; texto: string }) => `<li><h3>${esc(p.clausula)}</h3><p>${esc(p.texto)}</p></li>`;
+  const android = cfg.url_app_android
+    ? `<section><h2 style="${estiloH2}">${esc(a.titulo)}</h2>${cfg.app_android_version ? `<p>${esc(a.version(cfg.app_android_version))}</p>` : ''}<p>${A(cfg.url_app_android, a.boton)}</p><ol>${a.pasos.map(paso).join('')}</ol><p>${esc(a.nota)}</p></section>`
+    : '';
+  return `<h1 style="${estiloH1}">${esc(APP_MOVIL.h1)}</h1>
+<p>${esc(APP_MOVIL.bajada)}</p>
+${android}
+<section><h2 style="${estiloH2}">${esc(i.titulo)}</h2><p>${esc(i.texto)}</p><ol>${i.pasos.map(paso).join('')}</ol><p>${esc(i.nota)}</p></section>`;
+}
+
 /** Libro de Reclamaciones: la base legal, qué es un reclamo y una queja, el plazo y los datos del proveedor (el formulario lo pinta React). */
 function cuerpoLibro(ctx: ContextoSeo): string {
   const { cfg } = ctx;
@@ -314,6 +332,7 @@ export function construirCuerpo(ruta: RutaPublica, ctx: ContextoSeo): string {
     case '/registro': return marco(ctx, cuerpoRegistro());
     case '/contacto': return marco(ctx, cuerpoContacto(ctx));
     case '/libro-de-reclamaciones': return marco(ctx, cuerpoLibro(ctx));
+    case '/app': return marco(ctx, cuerpoApp(ctx));
     default: return marco(ctx, cuerpoLegal(ruta, ctx));
   }
 }

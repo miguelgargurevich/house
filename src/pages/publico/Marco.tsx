@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpenIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, DevicePhoneMobileIcon, EnvelopeIcon, PlayCircleIcon } from '@heroicons/react/24/outline';
 import { cx } from '../../ui';
 import { pieMarco } from '../../lib/seo/textos';
 import { useCatalogo } from './catalogo';
 import { IconoTorre } from '../../ui/IconoTorre';
 import { IconoWhatsapp } from '../../ui/IconoWhatsapp';
 import { useDatosLegales } from './legal/datos';
+import { APP_MOVIL } from './appMovil/textos';
 import { WhatsappFlotante } from './WhatsappFlotante';
 
 export function Logo() {
@@ -104,6 +105,14 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false, sinWhat
           <Link to="/terminos" className="underline-offset-2 hover:text-ink hover:underline">Términos</Link>
           <span aria-hidden="true">·</span>
           <Link to="/libro-de-reclamaciones" className="inline-flex items-center gap-1 underline-offset-2 hover:text-ink hover:underline"><BookOpenIcon className="h-4 w-4" aria-hidden="true" /> Libro de Reclamaciones</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/app" className="inline-flex items-center gap-1 underline-offset-2 hover:text-ink hover:underline"><DevicePhoneMobileIcon className="h-4 w-4" aria-hidden="true" /> {APP_MOVIL.nombre}</Link>
+          {data?.manual && (
+            <>
+              <span aria-hidden="true">·</span>
+              <a href={data.manual} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 underline-offset-2 hover:text-ink hover:underline"><PlayCircleIcon className="h-4 w-4" aria-hidden="true" /> Manual y videos<span className="sr-only"> (se abre en otra pestaña)</span></a>
+            </>
+          )}
         </nav>
       </footer>
       {redes?.whatsapp && !sinWhatsapp && <WhatsappFlotante enlace={redes.whatsapp.enlace} />}

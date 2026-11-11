@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { DevicePhoneMobileIcon, PlayCircleIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { PORTADA, cierrePrecios, preguntasPortada } from '../../lib/seo/textos';
 import { Aparece } from './Aparece';
 import { CONTACTO } from './contacto/textos';
@@ -37,9 +37,11 @@ export default function Portada() {
             <p style={sube(1)} className="sube mt-6 max-w-[34rem] text-base leading-relaxed sm:text-xl">{PORTADA.bajada}</p>
             <div style={sube(2)} className="sube mt-8 flex flex-wrap gap-3">
               {abierto && <Link to="/registro" className={`${boton} bg-brand text-on-brand hover:bg-brand-hover`}>{PORTADA.botones.registro}</Link>}
+              {cat?.manual && <a href={cat.manual} target="_blank" rel="noopener noreferrer" className={`${boton} gap-2 border border-line hover:bg-surface2`}><PlayCircleIcon className="h-5 w-5" aria-hidden="true" />Mira cómo funciona<span className="sr-only"> (se abre en otra pestaña)</span></a>}
               <Link to="/precios" className={`${boton} bg-surface2 hover:bg-line`}>{PORTADA.botones.precios}</Link>
               <Link to={CONTACTO.enlace_demo} className={`${boton} border border-line hover:bg-surface2`}>{CONTACTO.cta_demo}</Link>
             </div>
+            {cat?.app?.android && <p style={sube(3)} className="sube mt-4 text-sm"><Link to="/app" className="inline-flex items-center gap-1.5 font-medium text-brand underline-offset-2 hover:underline"><DevicePhoneMobileIcon className="h-4 w-4" aria-hidden="true" />Descarga la app para Android</Link></p>}
           </div>
         </div>
       </section>

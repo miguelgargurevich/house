@@ -329,6 +329,10 @@ export async function catalogoPublico(pais?: string | null) {
     registro_abierto: cfg.registro_abierto,
     /** Redes y WhatsApp de contacto de Torre (pie, botón flotante y /contacto): `{ instagram, facebook, whatsapp: { numero, enlace } | null }`; lo vacío es null = no se muestra. */
     redes: redesPublicas(cfg),
+    /** Manual de usuario con videos (el de «Manual y videos» del menú): la misma `url_manual` de la configuración; null = no se muestra el enlace. */
+    manual: cfg.url_manual || null,
+    /** App de Torre para el celular (página /app): el APK de Android de la configuración (`url_app_android`, versión `app_android_version`); sin APK, `android` es null. */
+    app: { android: cfg.url_app_android ? { url: cfg.url_app_android, version: cfg.app_android_version || null } : null },
     /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
     dias_gratis: cfg.dias_gratis && cfg.dias_gratis > 0 ? cfg.dias_gratis : null,
   };

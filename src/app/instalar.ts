@@ -9,6 +9,12 @@ export interface AvisoInstalar extends Event {
 
 export type ModoInstalar = 'boton' | 'iphone' | null;
 
+/**
+ * ¿Corre dentro de la app de Torre para iOS/Android (Capacitor, carpeta `mobile/`)? La app agrega `TorreApp/<versión>` al user agent
+ * (`appendUserAgent` en mobile/capacitor.config.ts). Ahí no se ofrece «Instalar Torre»: ya está instalada.
+ */
+export const dentroDeLaApp = (userAgent: string): boolean => /\bTorreApp\//.test(userAgent);
+
 const CLAVE = 'torre-instalar-descartado';
 
 let aviso: AvisoInstalar | null = null;
@@ -23,9 +29,9 @@ if (typeof window !== 'undefined') {
 export const avisoGuardado = () => aviso;
 export const alCambiar = (f: () => void) => { oyentes.add(f); return () => { oyentes.delete(f); }; };
 
-/** Qué mostrar: el botón (Android con aviso), la explicación (Safari de iPhone) o nada (ya instalada, descartado o un navegador que no instala). */
+/** Qué mostrar: el botón (Android con aviso), la explicación (Safari de iPhone) o nada (ya instalada, dentro de la app de Torre, descartado o un navegador que no instala). */
 export function modoInstalar(d: { instalada: boolean; descartado: boolean; hayAviso: boolean; userAgent: string }): ModoInstalar {
-  if (d.instalada || d.descartado) return null;
+  if (d.instalada || d.descartado || dentroDeLaApp(d.userAgent)) return null;
   if (d.hayAviso) return 'boton';
   const iphone = /iPhone|iPad|iPod/.test(d.userAgent);
   const safari = /Safari/.test(d.userAgent) && !/CriOS|FxiOS|EdgiOS|GSA/.test(d.userAgent);

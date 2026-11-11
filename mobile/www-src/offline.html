@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es-PE">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>Sin conexión · Torre</title>
+  <style>
+    :root { color-scheme: light dark; --marca: #0f766e; --fondo: #ffffff; --texto: #0f172a; --suave: #475569; }
+    @media (prefers-color-scheme: dark) { :root { --fondo: #0b1220; --texto: #e2e8f0; --suave: #94a3b8; } }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center;
+      padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+      background: var(--fondo); color: var(--texto);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased;
+    }
+    .logo { width: 72px; height: 72px; border-radius: 18px; background: var(--marca); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+    h1 { font-size: 1.375rem; margin: 0; }
+    p { margin: 0; max-width: 28rem; line-height: 1.5; color: var(--suave); }
+    button {
+      margin-top: 12px; min-height: 48px; padding: 0 28px; border: 0; border-radius: 12px; cursor: pointer;
+      background: var(--marca); color: #fff; font: inherit; font-weight: 600;
+    }
+    button:focus-visible { outline: 3px solid var(--marca); outline-offset: 3px; }
+    button[disabled] { opacity: .6; }
+    #estado { min-height: 1.5em; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <div class="logo" aria-hidden="true">
+    <svg width="44" height="44" viewBox="0 0 32 32"><g transform="translate(16 16) scale(1.2) translate(-16 -16)"><rect x="10" y="5.5" width="12" height="21" rx="1.6" fill="none" stroke="#fff" stroke-width="2"/><rect x="13" y="9.5" width="2.2" height="2.2" rx="0.4" fill="#fff"/><rect x="16.8" y="9.5" width="2.2" height="2.2" rx="0.4" fill="#fff"/><rect x="13" y="13.8" width="2.2" height="2.2" rx="0.4" fill="#fff"/><rect x="16.8" y="13.8" width="2.2" height="2.2" rx="0.4" fill="#fff"/><rect x="13" y="18.1" width="2.2" height="2.2" rx="0.4" fill="#fff"/><rect x="16.8" y="18.1" width="2.2" height="2.2" rx="0.4" fill="#fff"/><rect x="14.6" y="21.6" width="2.8" height="4.9" fill="#fff"/></g></svg>
+  </div>
+  <h1>Sin conexión</h1>
+  <p>No pudimos conectar con Torre. Revisa tu internet (datos móviles o Wi-Fi) y vuelve a intentarlo.</p>
+  <button id="reintentar" type="button">Reintentar</button>
+  <p id="estado" role="status" aria-live="polite"></p>
+  <script>
+    // La dirección de Torre la pone `npm run sync` (scripts/preparar.mjs).
+    var DESTINO = '__TORRE_DESTINO__';
+    var boton = document.getElementById('reintentar');
+    var estado = document.getElementById('estado');
+    function reintentar() {
+      boton.disabled = true;
+      estado.textContent = 'Conectando…';
+      // Si sigue sin red, la app vuelve a esta pantalla sola.
+      window.location.replace(DESTINO); // replace: la pantalla «sin conexión» no queda en el historial (Atrás no vuelve a ella)
+      setTimeout(function () { boton.disabled = false; estado.textContent = ''; }, 6000);
+    }
+    boton.addEventListener('click', reintentar);
+    window.addEventListener('online', reintentar);
+  </script>
+</body>
+</html>

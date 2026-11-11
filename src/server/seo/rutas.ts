@@ -1,6 +1,6 @@
 // Qué rutas son públicas e indexables y cuáles no. Todo lo que no está en `PUBLICAS` es privado o de un solo uso: `noindex`.
 
-export const PUBLICAS = ['/', '/precios', '/registro', '/contacto', '/libro-de-reclamaciones', '/privacidad', '/terminos'] as const;
+export const PUBLICAS = ['/', '/precios', '/registro', '/contacto', '/libro-de-reclamaciones', '/app', '/privacidad', '/terminos'] as const;
 export type RutaPublica = (typeof PUBLICAS)[number];
 
 /** Rutas con `noindex, follow` (la página de ingreso se rastrea para llegar a sus enlaces, pero no se indexa). El resto de lo no público es `noindex, nofollow`. */
