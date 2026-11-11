@@ -28,7 +28,7 @@ export function entradasSitemap(ctx: ContextoSeo): EntradaSitemap[] {
     { ruta: '/precios', lastmod: ctx.modificadoPrecios ? dia(ctx.modificadoPrecios) : FECHA_CONTENIDO },
   ];
   if (ctx.cfg.registro_abierto) e.push({ ruta: '/registro', lastmod: FECHA_CONTENIDO });
-  e.push({ ruta: '/contacto', lastmod: FECHA_CONTENIDO }, { ruta: '/libro-de-reclamaciones', lastmod: FECHA_CONTENIDO });
+  e.push({ ruta: '/contacto', lastmod: FECHA_CONTENIDO }, { ruta: '/libro-de-reclamaciones', lastmod: FECHA_CONTENIDO }, { ruta: '/app', lastmod: FECHA_CONTENIDO });
   e.push({ ruta: '/privacidad', lastmod: VERSION_LEGAL }, { ruta: '/terminos', lastmod: VERSION_LEGAL });
   return e;
 }

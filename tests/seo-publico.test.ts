@@ -386,7 +386,7 @@ describe('sitemap.xml', () => {
     assert.match(String(r.headers['content-type']), /^application\/xml; charset=utf-8/);
     assert.match(r.texto, /^<\?xml version="1\.0" encoding="UTF-8"\?>/);
     const locs = [...r.texto.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
-    assert.deepEqual(locs, ['/', '/precios', '/registro', '/contacto', '/libro-de-reclamaciones', '/privacidad', '/terminos'].map((p) => `${URL_CANONICA}${p}`));
+    assert.deepEqual(locs, ['/', '/precios', '/registro', '/contacto', '/libro-de-reclamaciones', '/app', '/privacidad', '/terminos'].map((p) => `${URL_CANONICA}${p}`));
     assert.match(r.texto, new RegExp(`<loc>${URL_CANONICA}/precios</loc>\\s*<lastmod>2026-03-04</lastmod>`), 'lastmod de /precios = último cambio del catálogo');
     for (const l of r.texto.matchAll(/<lastmod>([^<]*)<\/lastmod>/g)) assert.match(l[1], /^\d{4}-\d{2}-\d{2}$/);
     assert.doesNotMatch(r.texto, /\/login|\/admin|\/api/);

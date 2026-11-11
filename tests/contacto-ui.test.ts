@@ -61,7 +61,8 @@ describe('pie de las páginas públicas', () => {
   it('enlaza Contacto, Privacidad, Términos y «Libro de Reclamaciones» con su ícono de libro (Heroicons)', () => {
     assert.match(MARCO, /<Link to="\/contacto" className=\{vinculo\}>Contacto<\/Link>/);
     assert.match(MARCO, /<Link to="\/libro-de-reclamaciones"[^>]*><BookOpenIcon[^>]*\/> Libro de Reclamaciones<\/Link>/);
-    assert.match(MARCO, /import \{ BookOpenIcon, EnvelopeIcon \} from '@heroicons\/react\/24\/outline'/);
+    assert.match(MARCO, /import \{[^}]*BookOpenIcon[^}]*\} from '@heroicons\/react\/24\/outline'/);
+    assert.match(MARCO, /<Link to="\/app"[^>]*><DevicePhoneMobileIcon[^>]*\/> \{APP_MOVIL\.nombre\}<\/Link>/, 'enlace «App para el celular» en el pie');
   });
 
   it('ningún dato de contacto está escrito en el marco: ni número, ni correo, ni direcciones de redes', () => {

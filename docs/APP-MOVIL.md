@@ -139,6 +139,19 @@ npm run sync:prod
 - `torre.build` es el número de compilación (`versionCode` de Android, `CURRENT_PROJECT_VERSION` de iOS). **Cada subida a una tienda necesita un build mayor al anterior**, aunque la versión sea la misma.
 - Una versión nueva de la **web** no necesita versión nueva de la app: la app carga la web en vivo. Sólo se sube versión cuando cambia algo nativo (permisos, íconos, plugins, código de `mobile/`).
 
+## Distribución directa (APK) mientras no hay tienda
+
+Mientras no esté en Google Play, la gente instala el APK desde la web: la página **`/app`** («Torre en tu celular») tiene el botón «Descargar para Android» y los pasos para instalarlo; el pie de todas las páginas públicas enlaza a `/app` y la portada tiene una línea «Descarga la app para Android». iPhone no tiene APK: `/app` le explica cómo instalar Torre desde Safari («Agregar a inicio»).
+
+- **Dónde vive el APK**: en el bucket de Torre, en una dirección **estable** (`…/documentos/b601f104-…/app/torre-android.apk`). Esa dirección es `ConfiguracionComercial.url_app_android` (valor por defecto en `prisma/schema.prisma`); no está escrita en `src/`, una prueba lo vigila (`tests/app-descarga.test.ts`).
+- **Cómo se publica un APK nuevo**: se firma el build de producción (`mobile/`, `npm run sync:prod` y el APK firmado con el keystore de `~/.torre/`, fuera del repo), y se **sube encima** del mismo archivo `torre-android.apk`. La dirección no cambia, así que no hay nada que tocar en la web.
+- **Cómo se avisa de la versión**: en Superadmin › Precios, en «Versión de la app de Android», se pone el número nuevo (p. ej. `1.1.0`; es lo que muestra `/app` junto al botón). **Sin ese paso la gente no sabe que hay una versión nueva.** La versión sale de `mobile/package.json` (`npm run version -- 1.1.0`).
+- **Actualizar sobre la versión instalada**: el APK tiene que estar firmado con la **misma** clave que la versión que ya tiene la persona. Con la misma clave, Android instala la nueva encima y conserva los datos; con otra, sólo se puede desinstalar y volver a instalar. No cambies el keystore.
+- **Aviso de Android al instalar**: el teléfono pregunta si permites «Instalar apps de esta fuente» para el navegador que bajó el archivo (sólo una vez, lo explica el paso 3 de `/app`). Google Play Protect puede mostrar «app no verificada» porque no está en la tienda; es la firma propia de Torre, no un virus, pero conviene decirlo a quien la instala.
+- **Versión mínima**: Android 7.0 (`minSdkVersion` 24, en `mobile/android/variables.gradle`).
+- **Cuando salga en Google Play**: el botón de `/app` debe llevar a la ficha de la tienda, así que se cambia `url_app_android` por el enlace de Google Play (y se ajusta el texto «Pronto en Google Play» de `src/pages/publico/appMovil/textos.ts`), o se vacía para ocultarlo. Decide Miguel; hoy `/app` sigue con el APK.
+- **Qué no hace `/app`**: no sabe si el teléfono es Android. Muestra los dos bloques (Android, iPhone) y el de Android sale sólo si la configuración trae el APK. Dentro de la app de Torre no ofrece ninguno de los dos (`dentroDeLaApp()`, con el user agent `TorreApp/`).
+
 ## Publicar: paso a paso
 
 Antes de empezar, lee «Riesgos de rechazo» más abajo: hay tres temas (eliminar cuenta, precios, reseñas de Apple) que conviene resolver **antes** de pagar nada.

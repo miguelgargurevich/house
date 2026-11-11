@@ -4,6 +4,25 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-10 — App para el celular: APK de Android desde la web (`/app`) (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/app-descarga`) — push: no
+
+- **Pedido de Miguel**: «genera el APK para probarlo en mi celular y lo pones disponible para descargar desde la landing». Esta sesión hizo la parte web; el APK firmado y su subida al bucket los hace Opus.
+- **Hecho**:
+  - **Esquema (aditivo)**: `ConfiguracionComercial.url_app_android` (por defecto la dirección estable del APK en el bucket) y `app_android_version` (por defecto `1.0.0`). Se editan en Superadmin › Precios, «Contacto y redes de la web pública», con su ayuda («Vacío: no se muestra»). PUT con 422 si no es https o si la versión no es un número de versión.
+  - **Catálogo**: `GET /api/publico/planes` → `app: { android: { url, version } | null }`; `null` sin APK.
+  - **Página `/app`** («Torre en tu celular»): `src/pages/publico/AppMovil.tsx`, textos en `appMovil/textos.ts`, decisiones en `appMovil/logica.ts`. Android (botón con la versión, 4 pasos, nota) sólo si hay APK; iPhone siempre (Safari › Agregar a inicio). Dentro de la app de Torre (`dentroDeLaApp()`) no hay bloques, sólo «Ya estás usando la app». Está en el sitemap y en el HTML estático (`src/server/seo/paginas.ts`, mismos textos). `FECHA_CONTENIDO` pasa a 2026-11-10 porque la portada cambió.
+  - **Enlaces**: pie de todas las páginas públicas («App para el celular», junto a «Manual y videos»); portada: «Descarga la app para Android» bajo los botones del hero, sólo con APK (sin botón nuevo).
+  - **Doc**: `docs/APP-MOVIL.md`, «Distribución directa (APK) mientras no hay tienda»; `docs/API-CONTRATO.md` (configuración y catálogo).
+- **Pruebas**: `tests/app-descarga.test.ts` (7, en verde, base `house_test_app_descarga`); `tests/seo-publico.test.ts` 69/69 (sitemap con `/app`). `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` sin errores. Suite completa (`npm test`, base `house_test_app_descarga`): 4478 pruebas, 4471 pasan, 7 fallan. Dos fallas eran de mi cambio y ya están corregidas: `tests/asistente.test.ts` (la lista de pantallas públicas ahora incluye `/app`) y `tests/contacto-ui.test.ts` (import de Heroicons y enlace `/app` en el pie). Con ellas, esos dos archivos pasan 86/86. Las otras cinco son las conocidas o dependen de la hora: `recibos-excel` (2, «conceptos en 0»), `corregir-recibos` (1, solo lectura de 19:00 a 24:00 de Lima; `excel-crea-blocks` pasa solo y falló por carga), `zona-horaria` (2, «hoy» por hora de Lima). No se corrió la suite contra un `main` limpio para comparar.
+- **Gotchas**:
+  - **Antes de integrar**: aplicar el esquema a `house` (`db push`, aditivo, 2 columnas). Sin eso, las consultas de `ConfiguracionComercial` fallan en el checkout principal, porque el cliente generado ya las pide. Lo hace Opus al integrar, no esta sesión.
+  - `npx prisma generate` en este worktree regenera el cliente del `node_modules` compartido (ver la memoria de Prisma en worktree).
+  - El APK no está en el repo. La dirección vive sólo en el esquema y en la base; una prueba vigila que no aparezca en `src/`.
+- **Próximo paso**: Opus sube el APK firmado a la misma dirección (encima del anterior), revisa que `app_android_version` diga `1.0.0`, abre `/app` en producción, aplica el esquema a `house`, integra con cherry-pick. Push sólo con OK de Miguel.
+
+---
+
+
 ## 2026-11-10 — App móvil iOS y Android con Capacitor, fase 1 (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/app-movil`) — push: no
 
 - **Pedido de Miguel**: «haz la app para iOS y Android» → camino elegido «Envolver la web» (Capacitor); cuentas de desarrollador «todavía no» (se prepara y se prueba en emulador; publicar después).

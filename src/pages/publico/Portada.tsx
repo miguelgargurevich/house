@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { PlayCircleIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { DevicePhoneMobileIcon, PlayCircleIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { PORTADA, cierrePrecios, preguntasPortada } from '../../lib/seo/textos';
 import { Aparece } from './Aparece';
 import { CONTACTO } from './contacto/textos';
@@ -41,6 +41,7 @@ export default function Portada() {
               <Link to="/precios" className={`${boton} bg-surface2 hover:bg-line`}>{PORTADA.botones.precios}</Link>
               <Link to={CONTACTO.enlace_demo} className={`${boton} border border-line hover:bg-surface2`}>{CONTACTO.cta_demo}</Link>
             </div>
+            {cat?.app?.android && <p style={sube(3)} className="sube mt-4 text-sm"><Link to="/app" className="inline-flex items-center gap-1.5 font-medium text-brand underline-offset-2 hover:underline"><DevicePhoneMobileIcon className="h-4 w-4" aria-hidden="true" />Descarga la app para Android</Link></p>}
           </div>
         </div>
       </section>

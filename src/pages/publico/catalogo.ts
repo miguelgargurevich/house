@@ -39,6 +39,8 @@ export interface Catalogo {
   redes?: Redes;
   /** Dirección del manual de usuario con videos (se abre en otra pestaña desde el pie y la portada); null = no se muestra. Viene de la configuración. */
   manual?: string | null;
+  /** App de Torre para el celular (página /app): el APK de Android de la configuración; `android` null = no se ofrece la descarga. */
+  app?: { android: { url: string; version: string | null } | null };
   /** Días de Gratis desde el registro (90 = 3 meses); null = Gratis sin plazo. */
   dias_gratis: number | null;
 }

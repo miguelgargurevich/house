@@ -1154,6 +1154,10 @@ model ConfiguracionComercial {
   url_instagram          String?  @default("https://www.instagram.com/torreadministracioncondominios/")
   /// Facebook de Torre: pie de las páginas públicas y `sameAs`. null = no se muestra.
   url_facebook           String?  @default("https://www.facebook.com/profile.php?id=61596421792856")
+  /// APK de Android de la app de Torre (página pública /app). null = no se muestra el botón de descarga; la página sigue con la explicación de iPhone.
+  url_app_android        String?  @default("https://s3.gargurevich.dev/dashboardia-bucket/documentos/b601f104-f838-49e7-9da5-c49efe9dc723/app/torre-android.apk")
+  /// Versión del APK de `url_app_android` (p. ej. 1.0.0). Se sube al publicar un APK nuevo; se muestra en /app. null = no se muestra.
+  app_android_version    String?  @default("1.0.0")
   /// WhatsApp de contacto de Torre (celular con código de país, sólo dígitos, p. ej. 51966918363): botón flotante, pie y /contacto. null = no se muestra. Se cambia en Superadmin › Precios.
   whatsapp_contacto      String?  @default("51966918363")
   /// Texto con que se abre el chat de WhatsApp de contacto (va codificado en el enlace wa.me).
