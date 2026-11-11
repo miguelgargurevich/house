@@ -15,6 +15,9 @@ export type ModoInstalar = 'boton' | 'iphone' | null;
  */
 export const dentroDeLaApp = (userAgent: string): boolean => /\bTorreApp\//.test(userAgent);
 
+/** El user agent de este navegador (vacío al pintar en el servidor o en las pruebas). */
+export const agente = (): string => (typeof navigator === 'undefined' ? '' : navigator.userAgent);
+
 const CLAVE = 'torre-instalar-descartado';
 
 let aviso: AvisoInstalar | null = null;

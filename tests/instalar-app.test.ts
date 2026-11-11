@@ -88,3 +88,21 @@ describe('ícono de Torre: la torre con ventanas (Miguel, 4-nov: la casa quedó 
     assert.equal(fuente('scripts/marketing/grabar-video.mjs').includes('12.5L16 8'), false, 'el cierre de los videos tampoco');
   });
 });
+
+describe('Dentro de la app no se ofrece descargar la app', () => {
+  it('la portada sólo ofrece «Descarga la app para Android» fuera de la app (misma regla que /app)', async () => {
+    const { ofreceDescarga } = await import('../src/pages/publico/appMovil/logica');
+    const apk = { url: 'https://ejemplo.example/torre.apk', version: '1.0.0' };
+    assert.equal(ofreceDescarga(apk, ANDROID), true);
+    assert.equal(ofreceDescarga(apk, APP_ANDROID), false);
+    assert.equal(ofreceDescarga(apk, APP_IPHONE), false);
+    const portada = fuente('src/pages/publico/Portada.tsx');
+    assert.match(portada, /\{ofreceDescarga\(cat\?\.app\?\.android, agente\(\)\) && <p[^>]*>.*Descarga la app para Android/);
+  });
+  it('el pie de las páginas públicas no enlaza a /app dentro de la app', () => {
+    const marco = fuente('src/pages/publico/Marco.tsx');
+    const i = marco.indexOf('<Link to="/app"');
+    assert.ok(i > 0);
+    assert.match(marco.slice(Math.max(0, i - 160), i), /\{muestraBloques\(agente\(\)\) && \(/);
+  });
+});
