@@ -9,7 +9,8 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 - **Instancia**: app nueva de Coolify `torre-demo` (uuid `k0yybt0acjalvtpelezo9irt`, mismo repo y Dockerfile, rama main) con su base `house_demo` en el mismo Postgres que producción. Variables: sólo `DATABASE_URL` y un `JWT_SECRET` propio (sin Resend, Evolution, Gemini ni llavero). Sembrada con `npm run seed:demo -- --superadmin=superadmin-demo@torrecondominios.com` (modo demo ENCENDIDO, coherencia 0); la clave de ese superadmin quedó en la Mac en `~/.torre/demo-superadmin.json` (0600), nunca impresa.
 - **Gotcha**: la base nueva la crea `$POSTGRES_USER` y la app entra como `house` → `permission denied for schema public`. Arreglo: `ALTER DATABASE house_demo OWNER TO house` y `ALTER SCHEMA public OWNER TO house`.
 - **Arreglos**: `/demo` respondía 404 en el servidor (la regla del 404 público no la conocía; la vista previa del enlace en WhatsApp habría fallado) → ahora 200 con `noindex, follow` (`seo/rutas.ts`). En la instancia de demo la raíz `/` lleva a `/demo` (`RaizPublica` en `App.tsx`); en torrecondominios.com no cambia nada (ni consulta). Pruebas en `seo-publico` y `demo-ui`, con mutación en rojo.
-- **Pendiente**: el registro DNS `demo` (A → 84.247.167.43) en Cloudflare lo agrega Miguel (Cloudflare pide sesión); luego Coolify saca el certificado. Después: video v11 y mensaje para clientes.
+- **DNS**: registro A `demo` → 84.247.167.43 en Cloudflare, «DNS only» (como `www`). Gotcha: el certificado de Let's Encrypt no sale si la app se desplegó antes que el DNS (Traefik sirve el de `premium.gargurevich.dev`); un redespliegue de `torre-demo` lo pidió de nuevo. Verificado en vivo: `/` → `/demo`, `/api/demo/estado` con `demo:true`, `x-robots-tag: noindex, follow`, entrada como administradora con franja y «Qué probar».
+- **Pendiente**: video v11 y mensaje para clientes (documentos-mw).
 
 ---
 
