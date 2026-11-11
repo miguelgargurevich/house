@@ -14,7 +14,8 @@ import { avisarVoucherEnSegundoPlano } from '../services/avisos/voucherBlock';
 import { iniciarEvaluacion } from '../services/evaluacion';
 import { contrasenaIgualACorreo, listQuerySchema, MENSAJE_PASSWORD_CORREO, parse, parseBody, parseId, parseOrden, passwordSchema, telefonoSchema, texto, z } from '../validation';
 import { enviarImagen } from '../services/imagenes';
-import { revocarDeUsuario } from '../services/sesiones';
+import { borrarCookie, revocarDeUsuario } from '../services/sesiones';
+import { FRASE_ELIMINAR, MENSAJE_SUPERADMIN, MENSAJE_UNICA_ADMIN, eliminarCuenta, modoDeEliminacion, solicitarCierre, solicitudPendiente, verificarIdentidad } from '../services/cuenta/eliminar';
 import { ORDEN_MANTENIMIENTOS, estadosQuery, listarMantenimientos, type OrdenMantenimientos } from '../lib/mantenimientos';
 import { historialXlsx } from '../lib/historialExcel';
 import { historialResidente } from '../services/historial';
@@ -70,6 +71,84 @@ export function meRouter(limitePassword: RequestHandler) {
     res.locals.entidadId = u.id;
     res.locals.auditDetalle = { campo: 'password' };
     res.json({ ok: true });
+  });
+
+  // ---------- Eliminar mi cuenta ----------
+  /**
+   * @openapi
+   * /api/me/eliminacion:
+   *   get:
+   *     summary: Qué pasa si elimino mi cuenta (para armar la pantalla de Mi perfil)
+   *     tags: [Perfil]
+   *     responses:
+   *       200: { description: "`{ modo: 'inmediata'|'solicitud'|'no_disponible', frase: 'ELIMINAR', solicitud_pendiente: bool }`. `solicitud` = única administradora de su empresa (sólo puede pedir el cierre); `no_disponible` = superadmin." }
+   */
+  router.get('/eliminacion', async (req, res) => {
+    const u = currentUser(req);
+    const modo = await modoDeEliminacion(prisma, u);
+    res.json({ modo, frase: FRASE_ELIMINAR, solicitud_pendiente: modo === 'solicitud' ? (await solicitudPendiente(prisma, u.email)) != null : false });
+  });
+
+  const eliminarSchema = z.strictObject({
+    password: z.string({ error: 'Debe ser un texto' }).max(200, 'Máximo 200 caracteres').optional(),
+    confirmacion: z.string({ error: 'Debe ser un texto' }).max(40, 'Máximo 40 caracteres').optional(),
+  });
+  const solicitarSchema = z.strictObject({ password: z.string({ error: 'Debe ser un texto' }).max(200, 'Máximo 200 caracteres').optional() });
+
+  /**
+   * @openapi
+   * /api/me/eliminar:
+   *   post:
+   *     summary: Elimina mi cuenta al momento (se anonimiza; lo contable se conserva)
+   *     tags: [Perfil]
+   *     requestBody: { required: true, content: { application/json: { schema: { type: object, required: [confirmacion], properties: { password: { type: string }, confirmacion: { type: string, example: ELIMINAR } } } } } }
+   *     responses:
+   *       200: { description: "`{ ok: true, resultado: 'eliminada' }` y la cookie de sesión se borra" }
+   *       403: { description: "Superadmin, sesión prestada («Entrar como») o modo demo (`code: 'DEMO'`)" }
+   *       409: { description: "`code: 'UNICA_ADMIN'`: es la única administradora de su empresa; debe pedir el cierre (POST /api/me/solicitar-cierre)" }
+   *       422: { description: "Falta escribir ELIMINAR o la contraseña no es correcta; no cambia nada" }
+   *       429: { description: Demasiados intentos }
+   */
+  router.post('/eliminar', limitePassword, async (req, res) => {
+    exigirSesionPropia(req);
+    const u = currentUser(req);
+    if (u.rol === 'superadmin') throw forbidden(MENSAJE_SUPERADMIN);
+    const body = parseBody(eliminarSchema, req);
+    await verificarIdentidad(u.id, body, { pideFrase: true });
+    const r = await eliminarCuenta(u.id);
+    if (r.resultado === 'unica_admin') throw new HttpError(409, MENSAJE_UNICA_ADMIN, undefined, 'UNICA_ADMIN');
+    borrarCookie(res);
+    res.locals.accion = 'eliminar_cuenta';
+    res.locals.entidadId = u.id;
+    res.locals.auditDetalle = { rol: u.rol, empresa_id: u.empresa_id, departamentos: r.unidades.length }; // nunca la contraseña
+    res.json({ ok: true, resultado: 'eliminada' });
+  });
+
+  /**
+   * @openapi
+   * /api/me/solicitar-cierre:
+   *   post:
+   *     summary: La única administradora de su empresa pide el cierre de su empresa (queda en Superadmin › Contactos)
+   *     tags: [Perfil]
+   *     responses:
+   *       201: { description: "`{ ok: true, resultado: 'solicitud_cierre', solicitud_id, ya_existia: false }`" }
+   *       200: { description: "Ya había una solicitud pendiente (ya_existia true), sin duplicar" }
+   *       403: { description: "Superadmin, sesión prestada o modo demo" }
+   *       409: { description: "`code: 'HAY_OTRA_ADMIN'`: ya no es la única; puede eliminar su cuenta" }
+   *       422: { description: "La contraseña no es correcta" }
+   */
+  router.post('/solicitar-cierre', limitePassword, async (req, res) => {
+    exigirSesionPropia(req);
+    const u = currentUser(req);
+    if (u.rol === 'superadmin') throw forbidden(MENSAJE_SUPERADMIN);
+    const body = parseBody(solicitarSchema, req);
+    await verificarIdentidad(u.id, body, { pideFrase: false });
+    const r = await solicitarCierre(u.id, { ip: ipDe(req), user_agent: req.get('user-agent') ?? null });
+    res.locals.accion = 'solicitar_cierre_empresa';
+    res.locals.entidad = 'empresa';
+    res.locals.entidadId = u.empresa_id ?? undefined;
+    res.locals.auditDetalle = { solicitud_id: r.fila.id, ya_existia: r.ya_existia };
+    res.status(r.ya_existia ? 200 : 201).json({ ok: true, resultado: 'solicitud_cierre', solicitud_id: r.fila.id, ya_existia: r.ya_existia });
   });
 
   // ---------- Residentes ----------

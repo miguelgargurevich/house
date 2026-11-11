@@ -4,7 +4,7 @@ export const PUBLICAS = ['/', '/precios', '/registro', '/contacto', '/libro-de-r
 export type RutaPublica = (typeof PUBLICAS)[number];
 
 /** Rutas con `noindex, follow` (la página de ingreso se rastrea para llegar a sus enlaces, pero no se indexa). El resto de lo no público es `noindex, nofollow`. */
-const NOINDEX_SEGUIR = new Set(['/login', '/demo']);
+const NOINDEX_SEGUIR = new Set(['/login', '/demo', '/eliminar-cuenta']);
 
 /** Prefijos que `robots.txt` no deja rastrear (áreas privadas, API y enlaces de un solo uso). `/login` NO va: se rastrea para ver su `noindex`. */
 export const PREFIJOS_PRIVADOS = ['/api/', '/admin', '/superadmin', '/propietario', '/inquilino', '/junta', '/mantenimiento', '/limpieza', '/jardineria', '/seguridad', '/perfil', '/verificar-correo', '/invitacion'] as const;
@@ -27,6 +27,7 @@ export const robotsPrivado = (ruta: string): string => (NOINDEX_SEGUIR.has(ruta)
  */
 export function esDesconocida(ruta: string): boolean {
   // `/demo` (la entrada por rol de la instancia de demostración) es de la app: 200 aunque no se indexe; con 404 la vista previa del enlace en WhatsApp falla.
+  // `/eliminar-cuenta` es la página que pide Google Play («cómo eliminar tu cuenta»): pública, 200 y sin indexar.
   if (esPublica(ruta) || NOINDEX_SEGUIR.has(ruta)) return false;
   return !PREFIJOS_PRIVADOS.some((p) => {
     const base = p.replace(/\/$/, '');

@@ -76,10 +76,12 @@ export function scopeUnidades(u: AuthUser): Prisma.UnidadWhereInput {
  * un condominio suyo. Nunca superadmins.
  */
 export function scopeUsuarios(u: AuthUser): Prisma.UsuarioWhereInput {
-  if (esGlobal(u)) return {};
+  // Las cuentas eliminadas (anonimizadas, `eliminada_at`) no son usuarios del sistema: ni se listan ni se pueden elegir como propietario, pagador o asignado.
+  if (esGlobal(u)) return { eliminada_at: null };
   const e = empresaDe(u);
   const unidadSuya: Prisma.UnidadWhereInput = { OR: [{ empresa_id: e }, { complejo: { empresa_id: e } }] };
   return {
+    eliminada_at: null,
     rol: { not: 'superadmin' },
     OR: [
       { empresa_id: e, rol: { notIn: [...ROLES_RESIDENTE] } },

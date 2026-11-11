@@ -46,8 +46,8 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
   if (!token) throw new HttpError(401, 'Autenticación requerida');
   const sesion = await buscarSesionActiva(token);
   if (!sesion) throw new HttpError(401, SIN_SESION);
-  const u = await prisma.usuario.findUnique({ where: { id: sesion.usuario_id }, select: { id: true, email: true, rol: true, empresa_id: true, complejo_id: true, cargo_junta: true, estructura_id: true } });
-  if (!u || !u.rol) throw new HttpError(401, SIN_SESION);
+  const u = await prisma.usuario.findUnique({ where: { id: sesion.usuario_id }, select: { id: true, email: true, rol: true, empresa_id: true, complejo_id: true, cargo_junta: true, estructura_id: true, eliminada_at: true } });
+  if (!u || !u.rol || u.eliminada_at) throw new HttpError(401, SIN_SESION); // una cuenta eliminada nunca autentica, aunque le quedara una sesión
   if (MUTA.has(req.method)) {
     if (!origenPermitido(req)) throw forbidden('Petición bloqueada: el origen no coincide con el de la aplicación');
     const csrf = req.get('x-csrf-token');

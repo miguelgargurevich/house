@@ -1,6 +1,6 @@
 // El candado de la demo. Con el modo demostración encendido (`ConfiguracionDemo.activo`), lo que podría sacar algo de la instancia o dañar las cuentas
 // compartidas responde 403 `{ error, code: 'DEMO' }` ANTES de llegar a la ruta: registrar empresas, «Entrar como», tokens de API, cambiar claves,
-// correos o celulares de las cuentas, el llavero de IA, el chat de IA, vincular números propios. El WhatsApp se contesta con datos de ejemplo.
+// correos o celulares de las cuentas, eliminar una cuenta, el llavero de IA, el chat de IA, vincular números propios. El WhatsApp se contesta con datos de ejemplo.
 // Los envíos de correo y WhatsApp y la IA de pago se cortan en sus propios puntos (`avisos/canales.ts`, `canales/evolution.ts`, `evaluacion.ts`).
 // Sin el modo encendido este middleware no hace nada: producción queda igual.
 import type { RequestHandler } from 'express';
@@ -30,6 +30,7 @@ export const REGLAS_CON_SESION: readonly Regla[] = [
   { metodos: ['POST', 'DELETE'], ruta: /^\/me\/tokens-api(\/.*)?$/ }, // tokens de API (MCP)
   { metodos: ['PUT'], ruta: /^\/me$/ }, // nombre y celular propios
   { metodos: ['PUT'], ruta: /^\/me\/password$/ }, // contraseña propia
+  { metodos: ['POST'], ruta: /^\/me\/(eliminar|solicitar-cierre)$/ }, // eliminar la propia cuenta o pedir el cierre de la empresa: las cuentas de la demo son compartidas
   { metodos: ['POST', 'DELETE'], ruta: /^\/me\/canales(\/.*)?$/ }, // vincular el WhatsApp o Telegram propio
   { metodos: ['POST'], ruta: /^\/ai-chat(\/.*)?$/ }, // IA de pago
   { metodos: ['POST', 'PUT', 'PATCH', 'DELETE'], ruta: /^\/llavero(\/.*)?$/ }, // claves y gateways de IA

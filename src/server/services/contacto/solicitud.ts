@@ -9,7 +9,17 @@ import { textoLargo, textoLinea, textoLineaOpcional } from '../../lib/textoPubli
 import { correoA, obtenerConfiguracion } from '../comercial/configuracion';
 
 export const MENSAJE_CONTACTO = 'Recibimos tu mensaje. Te escribimos en menos de 1 día hábil.';
-export const TEMAS_CONTACTO = ['consulta', 'demo'] as const;
+/** Temas que puede elegir quien escribe en /contacto. (`cierre_cuenta` lo crea el servidor cuando la única administradora pide el cierre de su empresa: no se acepta por aquí.) */
+export const TEMAS_CONTACTO = ['consulta', 'demo', 'eliminar_cuenta'] as const;
+
+/** Cómo se llama cada tema en el aviso a Torre. */
+const ENCABEZADO: Record<string, string> = {
+  demo: 'Pidió una demo de Torre.',
+  eliminar_cuenta: 'Pide eliminar su cuenta de Torre (no puede entrar a la app).',
+  cierre_cuenta: 'La única administradora de una empresa pide el cierre de su empresa (desde Mi perfil).',
+};
+const ASUNTO: Record<string, string> = { demo: 'Solicitud de demo', eliminar_cuenta: 'Solicitud para eliminar una cuenta', cierre_cuenta: 'Solicitud de cierre de empresa' };
+const encabezado = (tema: string) => ENCABEZADO[tema] ?? 'Escribió desde /contacto.';
 
 export const contactoSchema = z.object({
   nombre: textoLinea(120),
@@ -32,7 +42,7 @@ const unaLinea = (s: string) => s.replace(/\s+/g, ' ').trim();
 /** Cuerpo del aviso a Torre, en texto plano. */
 export function textoAviso(s: Pick<SolicitudContacto, 'nombre' | 'correo' | 'celular' | 'condominio' | 'unidades' | 'varios_condominios' | 'tema' | 'mensaje'>): string {
   return [
-    s.tema === 'demo' ? 'Pidió una demo de Torre.' : 'Escribió desde /contacto.',
+    encabezado(s.tema),
     '',
     `Nombre: ${s.nombre}`,
     `Correo: ${s.correo}`,
@@ -52,7 +62,7 @@ export function textoAviso(s: Pick<SolicitudContacto, 'nombre' | 'correo' | 'cel
 export function htmlAviso(s: Parameters<typeof textoAviso>[0]): string {
   const fila = (k: string, v: string) => `<tr><td style="padding:2px 12px 2px 0;color:#555">${esc(k)}</td><td style="padding:2px 0"><strong>${esc(v)}</strong></td></tr>`;
   return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#111">
-<p>${s.tema === 'demo' ? 'Pidió una demo de Torre.' : 'Escribió desde /contacto.'}</p>
+<p>${esc(encabezado(s.tema))}</p>
 <table role="presentation" style="border-collapse:collapse">${[
     fila('Nombre', s.nombre), fila('Correo', s.correo), fila('Celular', s.celular ?? 'no indicó'), fila('Condominio', s.condominio ?? 'no indicó'),
     fila('Departamentos', s.unidades == null ? 'no indicó' : String(s.unidades)), fila('¿Administra varios condominios?', s.varios_condominios ? 'sí' : 'no'),
@@ -72,9 +82,14 @@ export async function registrarContacto(d: DatosContacto, origen: OrigenPeticion
       ip: origen.ip?.slice(0, 64) ?? null, user_agent: origen.user_agent?.slice(0, 300) ?? null,
     },
   });
+  return avisarContacto(fila);
+}
+
+/** Avisa a Torre por correo de una solicitud ya guardada. Si el correo falla, la solicitud sigue guardada (`aviso_enviado = false`). Devuelve la fila. */
+export async function avisarContacto(fila: SolicitudContacto): Promise<SolicitudContacto> {
   const cfg = await obtenerConfiguracion();
   const destino = cfg.legal_correo?.trim() || cfg.correo_superadmin?.trim() || null;
-  const asunto = unaLinea(`${d.tema === 'demo' ? 'Solicitud de demo' : 'Mensaje de contacto'} en Torre: ${d.nombre}`);
+  const asunto = unaLinea(`${ASUNTO[fila.tema] ?? 'Mensaje de contacto'} en Torre: ${fila.nombre}`);
   let enviado = false;
   try {
     const r = await correoA(destino, asunto, textoAviso(fila), undefined, htmlAviso(fila));

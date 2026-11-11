@@ -77,6 +77,9 @@ model Usuario {
   /// Versión de los Términos y la Política de privacidad que aceptó al registrarse, y cuándo. Nulos en las cuentas anteriores y en las que crea el superadmin.
   terminos_version      String?
   terminos_aceptados_at DateTime?
+  /// Cuándo la persona eliminó su cuenta desde Mi perfil: la fila queda ANONIMIZADA (nombre «Cuenta eliminada», correo no entregable, sin contraseña ni contacto) para que
+  /// recibos, pagos y movimientos del condominio sigan teniendo a quién señalar. Nunca vuelve a entrar; su correo original queda libre.
+  eliminada_at      DateTime?
   tokensVerificacion TokenVerificacionCorreo[]
   invitaciones      TokenInvitacion[]      @relation("InvitacionDeUsuario")
   personasUnidad    PersonaUnidad[]
