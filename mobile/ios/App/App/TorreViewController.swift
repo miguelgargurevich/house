@@ -6,8 +6,8 @@ import Capacitor
 // «Content-Disposition: attachment» o un Excel no se abren ni se ofrecen. Aquí se interceptan esas respuestas, se bajan con WKDownload
 // (con la sesión de la persona: mismas cookies) y se presentan con la hoja de compartir de iOS (Abrir en…, Guardar en Archivos, WhatsApp…).
 //
-// NOTA: este archivo se escribió sin Xcode a mano (la Mac donde se armó el proyecto no lo tiene). Revisa que compile y pruébalo en un
-// simulador/iPhone antes de enviar a TestFlight: ver docs/APP-MOVIL.md, «iOS: lo que falta verificar».
+// También reintenta la carga de la página cuando falla por un corte de red a mitad de la conexión (ver «reintentos» abajo).
+// Compilado y probado en el simulador de iPhone (docs/APP-MOVIL.md); las descargas en un iPhone real siguen sin probarse.
 class TorreViewController: CAPBridgeViewController {
     private var descargas: DescargasTorre?
 
@@ -17,12 +17,29 @@ class TorreViewController: CAPBridgeViewController {
         descargas = envoltura // navigationDelegate es débil: lo mantenemos vivo aquí
         web.navigationDelegate = envoltura
     }
+
+    // El WebView ocupa toda la pantalla (Capacitor lo usa como la vista raíz): al hacer scroll, el contenido pasaría por debajo de la hora
+    // y la isla dinámica. Una franja con desenfoque nativo cubre sólo la zona de la barra de estado, como en Android (SystemBars).
+    private let franjaSuperior = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if franjaSuperior.superview == nil {
+            franjaSuperior.isUserInteractionEnabled = false
+            view.addSubview(franjaSuperior)
+        }
+        franjaSuperior.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: view.safeAreaInsets.top)
+        view.bringSubviewToFront(franjaSuperior)
+    }
 }
 
 /// Envuelve el delegado de navegación de Capacitor: todo lo reenvía tal cual, salvo qué hacer con las descargas.
 final class DescargasTorre: NSObject, WKNavigationDelegate, WKDownloadDelegate {
     private let original: WKNavigationDelegate
     private var destinos: [ObjectIdentifier: URL] = [:]
+    // Última navegación de la página principal y cuántas veces se reintentó seguida.
+    private var ultimaSolicitud: URLRequest?
+    private var reintentos = 0
 
     init(original: WKNavigationDelegate) {
         self.original = original
@@ -43,6 +60,7 @@ final class DescargasTorre: NSObject, WKNavigationDelegate, WKDownloadDelegate {
 
     // Un <a download> o un enlace que la web marca como descarga (CSV, markdown armados en el navegador: blob:).
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if navigationAction.targetFrame?.isMainFrame == true { ultimaSolicitud = navigationAction.request }
         if navigationAction.shouldPerformDownload {
             decisionHandler(.download)
         } else {
@@ -58,6 +76,33 @@ final class DescargasTorre: NSObject, WKNavigationDelegate, WKDownloadDelegate {
         } else {
             decisionHandler(.allow)
         }
+    }
+
+    // MARK: reintento ante cortes de red
+
+    // Con HTTP/3 (QUIC) la conexión a veces se corta justo después de abrirse (NSURLErrorNetworkConnectionLost, o «no se puede analizar la
+    // respuesta»), aunque haya internet: se vio en el simulador de iPhone, donde ni Safari carga Torre de forma fiable. Capacitor mostraría
+    // «Sin conexión» al primer fallo. Se reintenta hasta 2 veces (sólo GET); el segundo intento suele ir por HTTP/2. Si falla igual, se reenvía
+    // el error a Capacitor y sale la pantalla «Sin conexión» con «Reintentar».
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        let e = error as NSError
+        // Una navegación que se vuelve descarga (PDF, Excel) termina con «Carga del marco interrumpida» (WebKit 102); una carga cancelada, con -999.
+        // No son fallos de red: si se reenviaran, Capacitor cambiaría la página por «Sin conexión» mientras sale la hoja de compartir.
+        if (e.domain == "WebKitErrorDomain" && e.code == 102) || (e.domain == NSURLErrorDomain && e.code == NSURLErrorCancelled) { return }
+        let reintentable = e.domain == NSURLErrorDomain && (e.code == NSURLErrorNetworkConnectionLost || e.code == NSURLErrorCannotParseResponse)
+        if reintentable, reintentos < 2, let peticion = ultimaSolicitud, peticion.httpMethod == nil || peticion.httpMethod == "GET" {
+            reintentos += 1
+            CAPLog.print("⚡️  Torre: reintento \(reintentos) tras \(e.code)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { webView.load(peticion) }
+            return
+        }
+        reintentos = 0
+        original.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        reintentos = 0
+        original.webView?(webView, didFinish: navigation)
     }
 
     func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
