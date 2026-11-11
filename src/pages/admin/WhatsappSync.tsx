@@ -10,6 +10,8 @@ interface EstadoWhatsapp {
   status?: string;
   instance?: string;
   qr?: string;
+  /** Sólo en la demo: el número de ejemplo ya conectado (51…). */
+  numero?: string;
 }
 
 export default function WhatsappSync() {
@@ -17,10 +19,12 @@ export default function WhatsappSync() {
   const [status, setStatus] = useState<'not_linked' | 'connecting' | 'connected'>('not_linked');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [numero, setNumero] = useState<string | null>(null);
 
   const checkStatus = async () => {
     try {
       const data = await api<EstadoWhatsapp>('/api/whatsapp/status');
+      setNumero(data.numero ?? null);
       if (data.connected) {
         setStatus('connected');
       } else if (data.status === 'connecting') {
@@ -100,6 +104,7 @@ export default function WhatsappSync() {
                 ? 'Esperando escaneo del código QR...'
                 : 'Número no vinculado'}
           </p>
+          {status === 'connected' && numero && <p className="mt-2 text-sm font-medium">Número de ejemplo: +{numero.replace(/^(\d{2})(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4')}</p>}
           {status === 'connected' && (
             <p className="text-sm text-slate-500 mt-2">
               Desde este número salen los avisos de cobro y los comunicados que marques para WhatsApp, con pausas entre envíos y un tope diario. Si un vecino responde SALIR, deja de recibirlos.

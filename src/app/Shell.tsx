@@ -13,6 +13,7 @@ import { Pista } from './Pista';
 import { useBarra } from './useBarra';
 import { BandaSoloLectura } from './BandaSoloLectura';
 import { BarraImpersonacion } from './BarraImpersonacion';
+import { FranjaDemo } from './demo/FranjaDemo';
 import { volverAMiCuenta } from '../auth/impersonacion';
 import { InstalarApp } from './InstalarApp';
 import { CondominioProvider } from './CondominioProvider';
@@ -129,6 +130,8 @@ function ShellInterior() {
 
       <div className="min-w-0 flex-1" inert={chat.abierto && !escritorio}>
       <div className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur">
+      {/* Demo de Torre: la franja fija (datos de ejemplo, cambiar de rol, crear cuenta, WhatsApp y «Qué probar»); en cualquier otra instancia no pinta nada. */}
+      <FranjaDemo />
       {/* «Entrar como»: mientras el superadmin ve Torre como otra persona, la barra va arriba de todo y no se puede cerrar. */}
       <BarraImpersonacion />
       <header className="flex h-14 items-center justify-between gap-2 px-4 lg:px-8">

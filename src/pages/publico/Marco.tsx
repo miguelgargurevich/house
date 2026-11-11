@@ -4,6 +4,7 @@ import { BookOpenIcon, DevicePhoneMobileIcon, EnvelopeIcon, PlayCircleIcon } fro
 import { cx } from '../../ui';
 import { pieMarco } from '../../lib/seo/textos';
 import { useCatalogo } from './catalogo';
+import { URL_TORRE, useModoDemo } from '../../app/demo/useDemo';
 import { IconoTorre } from '../../ui/IconoTorre';
 import { IconoWhatsapp } from '../../ui/IconoWhatsapp';
 import { useDatosLegales } from './legal/datos';
@@ -52,6 +53,7 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false, sinWhat
 }) {
   // «Crear cuenta» sólo con el registro abierto: mientras llega el dato, no se muestra (evita ofrecer lo que luego se quita).
   const { data } = useCatalogo();
+  const { demo } = useModoDemo(); // en la demo el registro es el de torrecondominios.com (aquí está cerrado)
   // Datos del responsable para el pie (razón social, RUC, domicilio y correo): sin ellos (cargando o sin red) el pie sólo omite esas líneas.
   const { datos } = useDatosLegales();
   const redes = data?.redes;
@@ -65,7 +67,9 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false, sinWhat
             <Link to="/precios" className={enlace}>Precios</Link>
             <Link to="/contacto" className={cx(enlace, 'hidden sm:inline-block')}>Contacto</Link>
             <Link to="/login" className={enlace}>Ingresar</Link>
-            {data?.registro_abierto && <Link to="/registro" className="whitespace-nowrap rounded bg-brand px-2.5 py-1.5 sm:px-3 text-sm font-medium text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta</Link>}
+            {data?.registro_abierto && (demo
+              ? <a href={`${URL_TORRE}/registro`} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap rounded bg-brand px-2.5 py-1.5 sm:px-3 text-sm font-medium text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta<span className="sr-only"> (se abre en otra pestaña)</span></a>
+              : <Link to="/registro" className="whitespace-nowrap rounded bg-brand px-2.5 py-1.5 sm:px-3 text-sm font-medium text-on-brand transition-colors duration-150 hover:bg-brand-hover">Crear cuenta</Link>)}
           </nav>
         </div>
       </header>

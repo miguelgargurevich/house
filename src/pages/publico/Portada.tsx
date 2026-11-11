@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
 import { DevicePhoneMobileIcon, PlayCircleIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { PORTADA, cierrePrecios, preguntasPortada } from '../../lib/seo/textos';
+import { useModoDemo } from '../../app/demo/useDemo';
 import { Aparece } from './Aparece';
 import { CONTACTO } from './contacto/textos';
 import { useCatalogo } from './catalogo';
+import Demo from './Demo';
 import { Marco } from './Marco';
 import { Fachada, TECHO, Techito } from './portada/Fachada';
 import { Juntas } from './portada/Juntas';
@@ -22,9 +24,12 @@ const sube = (n: number) => ({ animationDelay: `${n * 80}ms` });
  */
 export default function Portada() {
   const { data: cat } = useCatalogo();
+  const { demo } = useModoDemo();
   const abierto = cat?.registro_abierto !== false;
   const cierre = cierrePrecios(abierto);
   const faq = preguntasPortada(cat ?? null);
+  // En la instancia de demo (demo.torrecondominios.com) la portada es la elección de rol.
+  if (demo) return <Demo />;
 
   return (
     <Marco completo ancho="max-w-6xl">

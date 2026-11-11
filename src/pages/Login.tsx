@@ -7,6 +7,7 @@ import { Alert, Button, Input } from '../ui';
 import { api, ApiError, errorText } from '../api';
 import PanelLogin from './_login/PanelLogin';
 import { IconoTorre } from '../ui/IconoTorre';
+import { useModoDemo } from '../app/demo/useDemo';
 
 const DEMO = [
   ['Superadmin', 'miguel.gargurevich@admin.example', 'admin1234'],
@@ -30,6 +31,7 @@ export default function Login() {
   const [sinVerificar, setSinVerificar] = useState(false);
   const [reenviado, setReenviado] = useState(false);
   const [verClave, setVerClave] = useState(false);
+  const { demo } = useModoDemo();
 
   if (user) return <Navigate to={HOME[user.rol]} replace />;
 
@@ -67,6 +69,8 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-semibold">Ingresa a tu cuenta</h1>
           <p className="mt-1 text-sm text-muted">Recibos, pagos y mantenimiento de tu condominio.</p>
+
+          {demo && <div className="mt-6"><Alert tone="info">Estás en la demo de Torre: no necesitas contraseña. <Link to="/demo" className="font-medium underline">Entra eligiendo un rol</Link>.</Alert></div>}
 
           <form onSubmit={submit} className="mt-8 space-y-4" noValidate>
             {error && <Alert tone="bad">{error}</Alert>}
