@@ -4,6 +4,25 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+<<<<<<< HEAD
+=======
+## 2026-11-10 — App móvil iOS y Android con Capacitor, fase 1 (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/app-movil`) — push: no
+
+- **Pedido de Miguel**: «haz la app para iOS y Android» → camino elegido «Envolver la web» (Capacitor); cuentas de desarrollador «todavía no» (se prepara y se prueba en emulador; publicar después).
+- **Hecho**: proyecto en `mobile/` (propio `package.json` y `node_modules`; **no** corras `npm install` en la raíz de un worktree). `appId com.torrecondominios.app`, nombre Torre, `server.url` = producción con `appStartPath /login`, `TORRE_URL` sólo para desarrollo (`npm run sync:prod` + `npm run verificar` garantizan que el build de tienda no lleve una dirección de desarrollo). Navegación restringida a `torrecondominios.com`; el resto abre fuera.
+  - **Android** (`mobile/android`, código propio en `com/torrecondominios/app/`): Atrás (historial y, en la raíz, al fondo), descargas PDF/Excel/CSV con la sesión (abre el visor o la hoja de compartir), cámara para el voucher (el `accept` exacto de la web hacía que Capacitor ignorara `capture`; `CamaraWebChromeClient` lo corrige y el manifest declara `<queries>` de la cámara), vertical, permisos, ícono adaptable y splash con la marca (`npm run assets`).
+  - **iOS** (`mobile/ios`, Swift Package Manager, sin CocoaPods): ícono, splash, textos de cámara y fotos en español, vertical, `TorreViewController.swift` para las descargas. **Nada de iOS se compiló ni se ejecutó** (no hay Xcode); `project.pbxproj` y `Main.storyboard` se editaron a mano. Detalle y plan de verificación en `docs/APP-MOVIL.md`.
+  - **Web** (`src/app/instalar.ts`): `dentroDeLaApp()` detecta `TorreApp/` en el user agent y `modoInstalar` devuelve `null`: dentro de la app no sale «Instalar Torre». Prueba: `tests/instalar-app.test.ts` (3 nuevas, 9 en verde).
+  - **Doc**: `docs/APP-MOVIL.md` (construir y probar, versión con `npm run version`, publicar en Play y App Store, firma fuera del repo en `~/.torre/`, fichas, riesgos de rechazo, plan de push de la fase 2).
+- **Probado en emulador** (Pixel 3a, API 34, contra un backend local con una copia de la base `house`, luego borrada): login y sesión de un propietario de prueba, enlaces externos (wa.me, `_blank`, mailto), descarga de un Excel real de Torre y de PDF/CSV de prueba, selector de voucher con archivo adjunto, permiso y apertura de la cámara, sin conexión + Reintentar, Atrás. APK de depuración (producción) y AAB sin firmar compilan.
+- **No probado**: iOS entero; Android 15 o superior y tabletas; foto de cámara de punta a punta; la firma de tienda (el keystore no existe; sólo se comprobó que Gradle lo busca).
+- **Pruebas**: `npx tsx --test tests/instalar-app.test.ts` (9 en verde), `npx tsc -b` y `npx tsc -p tests/tsconfig.json --noEmit` sin errores. No se corrió la suite completa (sólo se tocó el aviso de instalar). No se tocó `src/server/**`, `prisma/**` ni la autenticación.
+- **Decisiones de Miguel antes de publicar** (detalle en la doc): (1) **eliminar cuenta**: hoy no existe en Torre y Apple (5.1.1(v)) y Google la exigen si se puede crear cuenta; (2) **precios y registro dentro de la app**: ocultarlos con `dentroDeLaApp()` o defender 3.1.3(c); (3) **push** (fase 2) antes del primer envío a Apple para reducir el riesgo de 4.2; (4) cuenta de demostración en producción para los revisores.
+- **Gotchas**: el emulador de Android en esta Mac se cae con `-gpu auto` (macOS 26): usar `-gpu swiftshader_indirect`; `adb devices` muestra un `emulator-5554 offline` fantasma, usar `ANDROID_SERIAL`. El Docker de esta Mac no estaba encendido: se abrió Docker Desktop y `house-pg` (y Docker reinició otros contenedores suyos). Capacitor 8 compila con la plataforma 36 de Android (Gradle la descargó sola en `~/Library/Android/sdk`).
+- **Próximo paso**: Opus verifica el diff e integra con cherry-pick; push sólo con OK de Miguel. Para probar a mano: `.claude/app-movil/apk/torre-1.0.0-debug.apk` del worktree.
+
+---
+
 ## 2026-11-09 — Menú lateral agrupado y plegable, como el portal de dealers (Claude Code, Opus 5.5; en `main`, sin commit) — push: no
 
 - **Pedido de Miguel**: «agrupa el menú porque así sueltos no se ve bien, revisa cómo lo hicimos en el portal de dealers».
@@ -16,6 +35,7 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+>>>>>>> 1d9682b (Docs: APP-MOVIL (construir, probar, publicar, riesgos de rechazo, push) y entrada en HANDOFF)
 ## 2026-11-07 — Manual y videos en la web pública (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/manual-publico`) — push: no
 
 - **Pedido de Miguel**: «¿tenemos el manual publicado en el landing o en algún lado?». Antes sólo estaba en «Manual y videos» del menú de la cuenta (con sesión).
