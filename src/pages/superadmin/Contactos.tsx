@@ -42,7 +42,7 @@ function ListaContactos({ onCambio }: { onCambio: () => void }) {
   const columns = useMemo<Column<Contacto>[]>(() => [
     { key: 'quien', header: 'Quién', cell: c => <><span className="font-medium">{c.nombre}</span><span className="block text-xs text-muted">{c.correo}{c.celular ? ` · ${c.celular}` : ''}</span></> },
     { key: 'condominio', header: 'Condominio', hideBelow: 'md', cell: c => <>{c.condominio ?? '—'}{c.unidades ? <span className="block text-xs text-muted">{c.unidades} deptos{c.varios_condominios ? ' · varios condominios' : ''}</span> : null}</> },
-    { key: 'tema', header: 'Tema', hideBelow: 'sm', cell: c => c.tema === 'demo' ? <Badge tone="brand">Demo</Badge> : <span className="text-muted">Consulta</span> },
+    { key: 'tema', header: 'Tema', hideBelow: 'sm', cell: c => c.tema === 'demo' ? <Badge tone="brand">Demo</Badge> : c.tema === 'cierre_cuenta' ? <Badge tone="warn">Cierre de empresa</Badge> : c.tema === 'eliminar_cuenta' ? <Badge tone="warn">Eliminar cuenta</Badge> : <span className="text-muted">Consulta</span> },
     { key: 'fecha', header: 'Recibido', hideBelow: 'sm', cell: c => <span className="num text-muted">{fechaCorta(c.created_at)}</span> },
     { key: 'estado', header: 'Estado', cell: c => <Badge tone={c.estado === 'nueva' ? 'warn' : 'ok'}>{c.estado === 'nueva' ? 'Nuevo' : 'Atendido'}</Badge> },
     { key: 'ver', header: '', align: 'right', cell: c => <Button size="sm" variant="secondary" onClick={() => setAbierto(c)} aria-label={`Ver mensaje de ${c.nombre}`}>Ver</Button> },

@@ -152,6 +152,7 @@
       "bullets": [
         "**Tu nombre y tu rol, arriba a la derecha**: si tienes un cargo en la junta, sale junto a tu rol («Propietario · Tesorero del Block 1»). Desde ahí abres Mi perfil (nombre, celular y avisos, contraseña), cambias el tema claro u oscuro y cierras sesión.",
         "**Tema claro u oscuro**: está dentro del menú de tu nombre, arriba a la derecha («Tema oscuro» / «Tema claro»).",
+        "**Eliminar tu cuenta**: al final de Mi perfil está «Eliminar mi cuenta». Escribes tu contraseña y la palabra ELIMINAR, y la cuenta se elimina al momento: se cierran tus sesiones y tu nombre, correo y celular quedan anonimizados. Los recibos y pagos de tu departamento se conservan (son los libros del condominio) y tu correo queda libre para que tu administradora te invite otra vez. Si eres la única administradora de tu empresa, no se elimina al momento: pides el cierre de tu empresa desde el mismo lugar y Torre lo atiende según los Términos. Quien ya no puede entrar escribe desde [torrecondominios.com/eliminar-cuenta](https://torrecondominios.com/eliminar-cuenta).",
         "**El ícono de destellos**: abre el Asistente. Pregúntale «¿Cuánto debo?», «¿Cómo pago?» o dónde hacer algo.",
         "**El selector de condominio**, arriba a la izquierda (sólo administradora): filtra todas las pantallas por condominio.",
         "En el celular, el menú se abre con las tres rayas de arriba a la izquierda.",
@@ -1072,6 +1073,7 @@
         "**¿Cambió la junta?** La administración registra la nueva gestión y los permisos pasan solos.",
         "**¿Puedo usar Torre en el celular?** Sí, todas las pantallas funcionan en el navegador del celular, y puedes agregarla a tu pantalla de inicio (ver «Ten Torre en tu celular»).",
         "**¿Cómo cambio mi contraseña o mi celular?** En Mi perfil, desde tu nombre arriba a la derecha.",
+        "**¿Cómo elimino mi cuenta?** En Mi perfil, al final: «Eliminar mi cuenta». También puedes leer cómo funciona, sin entrar, en [torrecondominios.com/eliminar-cuenta](https://torrecondominios.com/eliminar-cuenta).",
         "**¿Qué pasa al terminar los 3 meses gratis?** El condominio queda en solo lectura: se ve todo, pero no se registra nada nuevo. No se borra nada, y al pasar a Básico, Pro o Administradora vuelve todo. Te avisamos 7 días antes y el día que vence.",
         "**¿Qué diferencia hay entre Básico y Pro?** Básico es lo mismo que Gratis, sin plazo y sin tope de departamentos. No trae la IA que lee vouchers, WhatsApp, asistente, mora automática ni reportes. Pro trae todo eso.",
         "**¿Dónde está la política de privacidad?** En [torrecondominios.com/privacidad](https://torrecondominios.com/privacidad), junto a los [Términos y condiciones](https://torrecondominios.com/terminos). También está en el pie de cada página."

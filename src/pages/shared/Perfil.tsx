@@ -7,6 +7,7 @@ import { rotuloRol } from '../../app/nav';
 import SesionesActivas from './SesionesActivas';
 import { AvisosPerfil } from './_parts/AvisosPerfil';
 import { CanalesPerfil } from './_parts/CanalesPerfil';
+import { EliminarCuentaPerfil } from './_parts/EliminarCuentaPerfil';
 import { TelegramPerfil } from './_parts/TelegramPerfil';
 import { TokensApiPerfil } from './_parts/TokensApi';
 import { Avatar, Button, Card, CardBody, CardHeader, DefinitionList, Input, PageHeader, Skeleton, useToast } from '../../ui';
@@ -105,6 +106,7 @@ export default function Perfil() {
         <CanalesPerfil />
         <TelegramPerfil />
         {CON_HERRAMIENTAS.includes(user.rol) && <TokensApiPerfil />}
+        <EliminarCuentaPerfil />
       </div>
     </>
   );

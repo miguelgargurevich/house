@@ -21,6 +21,7 @@ const MAX_MENSAJE = 2000;
 export default function Contacto() {
   const [params] = useSearchParams();
   const demo = params.get('tema') === 'demo';
+  const eliminar = params.get('tema') === 'eliminar-cuenta';
   const { data: cat } = useCatalogo();
   const { datos } = useDatosLegales();
   const redes = cat?.redes;
@@ -42,7 +43,7 @@ export default function Contacto() {
         method: 'POST',
         json: {
           nombre: f.nombre.trim(), correo: f.correo.trim(), celular: f.celular.trim() === '' ? null : f.celular, condominio: f.condominio.trim() === '' ? null : f.condominio.trim(),
-          unidades, varios_condominios: f.varios === 'si', mensaje: f.mensaje.trim(), tema: demo ? 'demo' : 'consulta', sitio_web: señuelo,
+          unidades, varios_condominios: f.varios === 'si', mensaje: f.mensaje.trim(), tema: demo ? 'demo' : eliminar ? 'eliminar_cuenta' : 'consulta', sitio_web: señuelo,
         },
       });
       setListo(r.mensaje);
@@ -75,6 +76,7 @@ export default function Contacto() {
           <h1 className="text-2xl font-semibold sm:text-3xl">{CONTACTO.h1}</h1>
           <p className="mt-2 text-sm text-muted">{CONTACTO.bajada}</p>
           {demo && <p className="mt-4 rounded-lg bg-brand-soft px-4 py-3 text-sm font-medium text-brand" role="note">{CONTACTO.demo}</p>}
+          {eliminar && <p className="mt-4 rounded-lg bg-brand-soft px-4 py-3 text-sm font-medium text-brand" role="note">{CONTACTO.eliminar}</p>}
           <form onSubmit={enviar} className="mt-8 space-y-4" noValidate>
             {error && <Alert tone="bad">{error}</Alert>}
             <Input label="Tu nombre" autoComplete="name" maxLength={120} required {...campo('nombre')} />

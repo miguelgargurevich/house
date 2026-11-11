@@ -8,6 +8,7 @@ export const CONTACTO = {
   cta_demo: 'Solicita una demo',
   enlace_demo: '/contacto?tema=demo',
   demo: 'Pide una demo y te mostramos Torre con los datos de tu condominio.',
+  eliminar: 'Cuéntanos con qué correo tienes tu cuenta de Torre y te ayudamos a eliminarla. Por seguridad, podemos pedirte que confirmes que eres tú.',
 } as const;
 
 export const LIBRO = {

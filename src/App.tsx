@@ -28,6 +28,7 @@ const Contacto = lazy(() => import('./pages/publico/Contacto'));
 const LibroReclamaciones = lazy(() => import('./pages/publico/LibroReclamaciones'));
 const AppMovil = lazy(() => import('./pages/publico/AppMovil'));
 const Demo = lazy(() => import('./pages/publico/Demo'));
+const EliminarCuenta = lazy(() => import('./pages/publico/EliminarCuenta'));
 const NoEncontrada = lazy(() => import('./pages/publico/NoEncontrada'));
 const SuperadminContactos = lazy(() => import('./pages/superadmin/Contactos'));
 const AdminBienvenida = lazy(() => import('./pages/admin/Bienvenida'));
@@ -115,6 +116,7 @@ export default function App() {
               <Route path="/libro-de-reclamaciones" element={<LibroReclamaciones />} />
               <Route path="/app" element={<AppMovil />} />
               <Route path="/demo" element={<Demo />} />
+              <Route path="/eliminar-cuenta" element={<EliminarCuenta />} />
               <Route element={<RequireAuth />}>
                 <Route element={<Shell />}>
         <Route element={<RequireRole roles={['superadmin']} />}>

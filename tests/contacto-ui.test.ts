@@ -81,7 +81,7 @@ describe('/contacto', () => {
     assert.match(CONTACTO_TSX, /sitio_web: señuelo/);
     assert.match(CONTACTO_TSX, /aria-hidden="true" className="absolute -left-\[9999px\]/);
     assert.match(CONTACTO_TSX, /params\.get\('tema'\) === 'demo'/);
-    assert.match(CONTACTO_TSX, /tema: demo \? 'demo' : 'consulta'/);
+    assert.match(CONTACTO_TSX, /tema: demo \? 'demo' : eliminar \? 'eliminar_cuenta' : 'consulta'/);
   });
 
   it('muestra al lado WhatsApp, correo y redes, todos de la configuración', () => {

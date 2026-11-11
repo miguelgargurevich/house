@@ -122,6 +122,7 @@ export function textosPrivacidad(l: Legal): { intro: ReactNode; secciones: Secci
         cuerpo: <>
           <p>Puedes pedir <strong>acceso</strong> a tus datos, su <strong>rectificación</strong> (corregirlos), su <strong>cancelación</strong> (eliminarlos) y <strong>oponerte</strong> a su tratamiento, además de revocar un consentimiento que nos hayas dado. Escríbenos a {correo} indicando tu nombre, tu correo en Torre y qué pides. Responderemos en los plazos de ley. Muchos datos los puedes corregir tú mismo en <strong>Mi perfil</strong>.</p>
           <p>Si no estás conforme con la respuesta, puedes acudir a la Autoridad Nacional de Protección de Datos Personales del Ministerio de Justicia y Derechos Humanos.</p>
+          <p>Para eliminar tu cuenta no hace falta escribirnos: en <strong>Mi perfil</strong> tienes «Eliminar mi cuenta», y aquí te explicamos cómo funciona: <Link to="/eliminar-cuenta" className="font-medium text-brand underline">Eliminar tu cuenta de Torre</Link>.</p>
         </>,
       },
       {

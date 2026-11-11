@@ -110,6 +110,8 @@ export function Marco({ children, ancho = 'max-w-5xl', completo = false, sinWhat
           <span aria-hidden="true">·</span>
           <Link to="/terminos" className="underline-offset-2 hover:text-ink hover:underline">Términos</Link>
           <span aria-hidden="true">·</span>
+          <Link to="/eliminar-cuenta" className="underline-offset-2 hover:text-ink hover:underline">Eliminar mi cuenta</Link>
+          <span aria-hidden="true">·</span>
           <Link to="/libro-de-reclamaciones" className="inline-flex items-center gap-1 underline-offset-2 hover:text-ink hover:underline"><BookOpenIcon className="h-4 w-4" aria-hidden="true" /> Libro de Reclamaciones</Link>
           {muestraBloques(agente()) && (
             <>

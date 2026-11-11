@@ -203,7 +203,7 @@ function marco(ctx: ContextoSeo, contenido: string): string {
 <nav aria-label="Principal" style="display:flex;gap:1rem">${A('/precios', 'Precios')} ${A('/contacto', 'Contacto')} ${A('/login', 'Ingresar')}${abierto ? ` ${A('/registro', 'Crear cuenta')}` : ''}</nav></header>
 <main style="padding:2rem 0">${contenido}</main>
 <footer style="font-size:.75rem"><p>${esc(pieMarco(ctx.cat))}</p>
-<nav aria-label="Legal">${A('/contacto', 'Contacto')} · ${A('/privacidad', 'Privacidad')} · ${A('/terminos', 'Términos')} · ${A('/libro-de-reclamaciones', 'Libro de Reclamaciones')} · ${A('/app', APP_MOVIL.nombre)}</nav></footer>
+<nav aria-label="Legal">${A('/contacto', 'Contacto')} · ${A('/privacidad', 'Privacidad')} · ${A('/terminos', 'Términos')} · ${A('/eliminar-cuenta', 'Eliminar mi cuenta')} · ${A('/libro-de-reclamaciones', 'Libro de Reclamaciones')} · ${A('/app', APP_MOVIL.nombre)}</nav></footer>
 </div>`;
 }
 
