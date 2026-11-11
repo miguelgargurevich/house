@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
-const { PRODUCCION } = require('./entorno.cjs');
+const { PRODUCCION, INICIO } = require('./entorno.cjs');
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const archivos = [
   'android/app/src/main/assets/capacitor.config.json',
@@ -22,7 +22,7 @@ for (const rel of archivos) {
   if (/10\.0\.2\.2|localhost|127\.0\.0\.1|192\.168\.|"cleartext"\s*:\s*true/.test(t.replace(/https:\/\/localhost/g, ''))) problemas.push('trae una dirección de desarrollo o cleartext');
   if (rel.endsWith('.json')) {
     const c = JSON.parse(t);
-    if (c.server?.url !== PRODUCCION) problemas.push(`server.url es «${c.server?.url}» y debería ser ${PRODUCCION}`);
+    if (c.server?.url !== `${PRODUCCION}${INICIO}`) problemas.push(`server.url es «${c.server?.url}» y debería ser ${PRODUCCION}${INICIO}`);
     if (c.android?.webContentsDebuggingEnabled || c.ios?.webContentsDebuggingEnabled) problemas.push('trae el depurador web encendido');
   }
   console.log(problemas.length ? `X ${rel}: ${problemas.join('; ')}` : `ok ${rel}`);

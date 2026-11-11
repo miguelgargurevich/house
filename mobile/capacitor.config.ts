@@ -16,8 +16,9 @@ const config: CapacitorConfig = {
   appendUserAgent: `TorreApp/${version()}`,
   backgroundColor: '#ffffff',
   server: {
-    url,
-    appStartPath: INICIO,
+    // La dirección completa con la ruta de inicio: en iOS, `appStartPath` junto a `server.url` se busca como archivo local
+    // (public//login) y la app se cierra al abrir. Así funciona igual en las dos plataformas.
+    url: `${url}${INICIO}`,
     // Sólo Torre dentro de la app. Todo lo demás (WhatsApp, Instagram, el manual, mailto:, tel:) lo abre el sistema fuera.
     allowNavigation: [hostname, ...(hostname === 'torrecondominios.com' ? ['www.torrecondominios.com'] : [])],
     // Sin red o servidor caído: se muestra www/offline.html (local) con «Reintentar».

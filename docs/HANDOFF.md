@@ -37,6 +37,21 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 ---
 
 
+## 2026-11-10 — App iOS compilada y probada en el simulador (Claude Code, Sonnet 5.5, delegado por Opus; rama `fix/app-ios`) — push: no
+
+- **Pedido de Miguel**: «ya está instalado Xcode» → que la app de iPhone funcione (se publica después; sin cuentas de Apple aún).
+- **Causa del cierre al abrir**: `CAPBridgeViewController.loadWebView` exige el archivo `public/<appStartPath>` aunque haya `server.url`; con `appStartPath: '/login'` buscaba `public//login` y llamaba a `fatalLoadError()`. **Arreglo**: la ruta va en la propia `server.url` (`https://torrecondominios.com/login`), sin `appStartPath`; vale igual para Android (comprobado: compila, la config empaquetada lleva la URL y carga el login en el emulador Pixel 3a). `scripts/verificar.mjs` espera esa URL; `npm run verificar` en verde.
+- **Causa del «Sin conexión»**: no es de la app. `alt-svc: h3` + el QUIC del simulador de iPhone: la conexión se abre y se corta (-1005 / -1017). Con HTTP/3 la app falló 7 de 10 y **Safari del mismo simulador 5 de 6**; con HTTP/3 apagado en el simulador, 0 de 6; en la Mac real `URLSession` dio h3 200 en 11 de 11. La prueba de Safari de Opus salió bien por suerte. No se vio en un iPhone real.
+- **Bugs míos de la fase 1 que salieron al compilar** (todo en `mobile/ios/App/App/`): (1) `SceneDelegate.swift` creaba `CAPBridgeViewController()` e ignoraba el storyboard: `TorreViewController` nunca corría (las descargas no habrían funcionado) → ahora crea `TorreViewController()`; (2) una descarga por navegación terminaba en `WebKitErrorDomain 102` y Capacitor cambiaba la página por «Sin conexión» detrás de la hoja de compartir → se ignora 102 y -999; (3) el contenido pasaba bajo la hora y la isla dinámica al hacer scroll → franja de desenfoque nativo en la zona de la barra de estado; (4) reintento (2 veces, sólo GET) ante -1005/-1017: mitigación parcial (rescató 3 de 8 aperturas con HTTP/3 activo en el simulador).
+- **Probado en el simulador «Torre iPhone 16» (iOS 18.4)**: login de producción cargado; sesión con cuenta de prueba contra el backend LOCAL (cookie persiste al reabrir); enlace de WhatsApp sale a Safari; «Sin conexión» con una URL sin servidor y «Reintentar» (falla con el servidor apagado, carga al levantarlo); descarga del Excel `mi-historial.xlsx` con la hoja de compartir; selector del voucher (Fototeca) con una foto que llega al formulario. Detalle y gotchas en `docs/APP-MOVIL.md`, «iOS: construir y probar».
+- **No verificado**: iPhone real; cámara (el simulador no tiene; sólo se vio la opción en el menú); descarga de PDF y por `blob:`; guardar el archivo en Archivos; iPad; modo oscuro; modo avión real; Android 15+.
+- **Gotchas**: `xcodebuild` desde Claude Code falla por `GIT_CONFIG_PARAMETERS` (`safe.bareRepository=explicit`): correrlo con `env -u GIT_CONFIG_PARAMETERS`. Con `mobile/node_modules` enlazado al checkout principal, `cap sync` reescribe `Package.swift` y `capacitor.settings.gradle` con rutas ajenas: se dejó un `node_modules` propio y esos archivos sin cambios. WebKit bloquea puertos como el 1 (pantalla en blanco). Se apagó HTTP/3 sólo en el simulador de Torre (`defaults write -g CFNetworkHTTP3Override -bool NO`).
+- **Observaciones para la web (no se tocó `src/`)**: una foto de iPhone suele pesar más de 2 MB y el formulario del voucher la rechaza sin comprimir; la portada pública dentro de la app sigue ofreciendo «Descarga la app para Android».
+- **Incidente**: mis primeros clics con `cliclick` cayeron en la ventana del Simulador de otra sesión (Facturo, superpuesta); probablemente se tecleó un correo de prueba en su simulador. Después se movió la ventana de Torre a otra zona de la pantalla.
+- **Próximo paso**: Opus verifica el diff e integra; push sólo con OK de Miguel. Antes de publicar: probar en un iPhone real (TestFlight) y decidir los puntos de «Riesgos de rechazo».
+
+---
+
 ## 2026-11-10 — App móvil iOS y Android con Capacitor, fase 1 (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/app-movil`) — push: no
 
 - **Pedido de Miguel**: «haz la app para iOS y Android» → camino elegido «Envolver la web» (Capacitor); cuentas de desarrollador «todavía no» (se prepara y se prueba en emulador; publicar después).

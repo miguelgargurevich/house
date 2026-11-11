@@ -2,24 +2,24 @@
 
 La app es **la misma web de Torre dentro de una app nativa** (Capacitor 8). No hay una segunda versión del producto: la app abre https://torrecondominios.com en un WebView, así que cada despliegue de la web llega a la app al instante, sin pasar por las tiendas. Lo que sí es nativo es lo que un WebView no hace solo: cámara y galería para el voucher, descargas de PDF y Excel, botón Atrás de Android, pantalla sin conexión, ícono y splash.
 
-Estado (10-nov-2026): fase 1 lista para **probar**, sin publicar. Android compila y se probó en emulador; iOS está generado pero **no se ha compilado nunca** (la Mac de desarrollo no tiene Xcode). Todavía no hay cuentas de desarrollador.
+Estado (10-nov-2026): fase 1 lista para **probar**, sin publicar. Android compila y se probó en emulador; iOS compila con Xcode 26 y se probó en el simulador de iPhone (sección «iOS»), pero **no en un iPhone real**. Todavía no hay cuentas de desarrollador.
 
 ## Cómo funciona
 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
-| Configuración | `mobile/capacitor.config.ts` | `server.url` = Torre en producción, `appStartPath` = `/login` (igual que el `start_url` de la PWA), `allowNavigation` sólo `torrecondominios.com` y `www.`, `errorPath` = pantalla sin conexión, `appendUserAgent` = `TorreApp/<versión>`. |
+| Configuración | `mobile/capacitor.config.ts` | `server.url` = Torre en producción **con la ruta de inicio**, `https://torrecondominios.com/login` (igual que el `start_url` de la PWA; **no** uses `appStartPath`: en iOS, con `server.url`, se busca como archivo local `public//login` y la app se cierra al abrir), `allowNavigation` sólo `torrecondominios.com` y `www.`, `errorPath` = pantalla sin conexión, `appendUserAgent` = `TorreApp/<versión>`. |
 | Pantalla sin conexión | `mobile/www-src/offline.html` | Local (no necesita red). Se copia a `mobile/www/` al sincronizar. «Reintentar» recarga Torre; también reintenta sola al volver la red. |
 | Dirección a cargar | `mobile/scripts/entorno.cjs` | Producción por defecto. `TORRE_URL=http://10.0.2.2:4000` la cambia sólo para desarrollo. |
 | Android nativo | `mobile/android/app/src/main/java/com/torrecondominios/app/` | `MainActivity` (Atrás, descargas, cámara), `Descargas.java`, `CamaraWebChromeClient.java`. |
-| iOS nativo | `mobile/ios/App/App/TorreViewController.swift` | Descargas (WKDownload + hoja de compartir). **Sin compilar.** |
+| iOS nativo | `mobile/ios/App/App/TorreViewController.swift` (lo crea `SceneDelegate.swift`) | Descargas (WKDownload + hoja de compartir), reintento ante cortes de red de HTTP/3, que una descarga no deje «Sin conexión», y franja de desenfoque bajo la barra de estado. |
 | Web | `src/app/instalar.ts` | `dentroDeLaApp()` reconoce `TorreApp/` en el user agent y oculta «Instalar Torre». Prueba en `tests/instalar-app.test.ts`. |
 
 Lo que NO cambió: autenticación (cookie httpOnly + CSRF en el mismo origen), CORS, el backend y las variables de entorno del servidor. Como la app carga la web desde el mismo origen, todo eso funciona igual que en el navegador.
 
 Comportamientos que da Capacitor sin código propio:
 
-- Un enlace a otro dominio (WhatsApp `wa.me`, Instagram, el manual en `s3.gargurevich.dev`, `mailto:`, `tel:`) se abre **fuera** de la app, en el navegador o en la app del sistema. Probado en Android con `wa.me`, `target="_blank"` y `mailto:`.
+- Un enlace a otro dominio (WhatsApp `wa.me`, Instagram, el manual en `s3.gargurevich.dev`, `mailto:`, `tel:`) se abre **fuera** de la app, en el navegador o en la app del sistema. Probado en Android con `wa.me`, `target="_blank"` y `mailto:`, y en iOS con el botón de WhatsApp (abre Safari).
 - Los permisos de cámara y fotos se piden al usarlos por primera vez.
 
 ## Estructura de `mobile/`
@@ -93,33 +93,64 @@ Antes de cualquier build de tienda, `npm run sync:prod` ignora `TORRE_URL` y `np
 
 Sin verificar en Android: Android 15 o superior (borde a borde forzado; sólo hay imágenes de API 33 y 34), tabletas, enlace de descarga PDF desde pantallas reales de Torre (se probó la misma ruta con un PDF de prueba y un Excel real), foto de cámara real de punta a punta, notificaciones (no existen aún).
 
-## iOS: generar y compilar
+## iOS: construir y probar
 
-El proyecto de Xcode ya está generado (`mobile/ios/`, con Swift Package Manager: **no hace falta CocoaPods**). Lo que falta es compilarlo **con Xcode**, que no está en esta Mac. Pasos en una Mac con Xcode 16 o superior:
+Requisitos: Xcode 16 o superior (se probó con 26.6; runtimes de iPhone 18.4, 18.5 y 26.5), `npm install` en `mobile/`. Swift Package Manager, **sin CocoaPods**. Para el simulador no hace falta cuenta ni firma.
 
 ```bash
 cd mobile
 npm install
-npm run sync:prod
-npx cap open ios        # abre Xcode
+npm run sync:prod                  # o TORRE_URL=http://localhost:4000 npm run sync para un build de desarrollo
+
+# compilar para un simulador (id con `xcrun simctl list devices`)
+env -u GIT_CONFIG_PARAMETERS xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+  -destination 'id=<UDID>' build
+
+# instalar y abrir (la app queda en DerivedData: Build/Products/Debug-iphonesimulator/App.app)
+xcrun simctl install <UDID> <ruta>/App.app
+xcrun simctl launch --console-pty <UDID> com.torrecondominios.app   # muestra los logs de Capacitor
+xcrun simctl io <UDID> screenshot captura.png
 ```
 
-En Xcode: target **App**, pestaña Signing & Capabilities, marca «Automatically manage signing» y elige tu equipo (hace falta la cuenta de Apple Developer; para probar en un simulador no hace falta). Elige un iPhone simulado y pulsa Run.
+O abre `npx cap open ios` y pulsa Run. Para un iPhone real o TestFlight: target **App**, Signing & Capabilities, «Automatically manage signing» y tu equipo de Apple Developer.
 
-### iOS: lo que falta verificar (todo)
+Gotchas encontrados al probar:
 
-Nada de iOS se ha ejecutado. Concretamente:
+- **`xcodebuild` falla con «Couldn't get the list of tags … safe.bareRepository is 'explicit'»** cuando se corre desde una sesión de Claude Code: hereda `GIT_CONFIG_PARAMETERS` y el git de SwiftPM no puede usar sus repositorios en caché. Corre `xcodebuild` con `env -u GIT_CONFIG_PARAMETERS`.
+- **Worktrees**: si `mobile/node_modules` es un enlace al checkout principal, `cap sync` escribe rutas relativas a ese checkout en `ios/App/CapApp-SPM/Package.swift` y `android/capacitor.settings.gradle` (se ve en `git diff`). Usa un `node_modules` propio (`rm mobile/node_modules` si es un enlace, y `npm ci`) y no commitees esos dos archivos con rutas ajenas.
+- **`ios/App/App/SceneDelegate.swift` debe crear `TorreViewController`**, no `CAPBridgeViewController`: la plantilla de Capacitor 8 con escenas arma la vista en código e ignora la clase del storyboard, así que el código propio no corría (descargas incluidas).
+- **El simulador de iPhone con HTTP/3**: ver el siguiente apartado. En el simulador conviene apagarlo: `xcrun simctl spawn <UDID> defaults write -g CFNetworkHTTP3Override -bool NO` (se revierte con `defaults delete -g CFNetworkHTTP3Override`). Sólo afecta a ese simulador.
+- WebKit **bloquea ciertos puertos** (1, 7, 9, 25…): probar «sin conexión» con `http://localhost:1` deja la pantalla en blanco. Usa un puerto libre normal (por ejemplo `TORRE_URL=http://localhost:59999`).
+- Las capturas por `xcrun simctl io … screenshot` no necesitan tocar la ventana del Simulador; para tocar la pantalla se usó `cliclick` sobre la ventana (con otra sesión usando el Simulador, mueve la ventana a una zona libre de la pantalla antes).
 
-1. **`TorreViewController.swift` nunca se compiló.** La sintaxis se revisó con `swiftc -parse`, pero los tipos (WKDownload, WKDownloadDelegate, reenvío al delegado de Capacitor) no se pudieron comprobar sin el SDK de iOS. Es el primer sitio donde mirar si Xcode da error. Si no compila o da problemas, se puede quitar el archivo y volver `Main.storyboard` a `CAPBridgeViewController` (módulo `Capacitor`): la app abre igual, sólo sin descargas.
-2. Se editó a mano `project.pbxproj` para registrar ese archivo y `Main.storyboard` para usarlo. Si Xcode se queja, agrega el archivo desde la interfaz (clic derecho en la carpeta App, «Add Files…») y ajusta el storyboard.
-3. Ícono, splash, cámara y fotos: se generaron los PNG y los textos del `Info.plist`, pero no se han visto en un dispositivo.
-4. La pantalla sin conexión, los enlaces externos y el user agent usan comportamiento estándar de Capacitor en iOS, no probado.
-5. Zonas seguras (notch, isla dinámica) y el aspecto en iPad: sin ver.
+### Por qué la app se cerraba al abrir, y por qué salía «Sin conexión»
+
+Dos fallos distintos, el primero de configuración y el segundo del entorno de prueba:
+
+1. **Se cerraba al abrir** (`⚡️ ERROR: Unable to load …/App.app/public//login — This file is the root of your web app and must exist`). `CAPBridgeViewController.loadWebView` comprueba que exista el **archivo** `public/<appStartPath>` aunque haya `server.url`. Con `appStartPath: '/login'` busca `public//login`, no existe y llama a `fatalLoadError()`. Solución: poner la ruta en la propia `server.url` (`https://torrecondominios.com/login`) y quitar `appStartPath`. Es igual en Android, y `scripts/verificar.mjs` ahora espera esa URL.
+2. **«Sin conexión» tras cargar** (`WebView failed provisional navigation`, errores `NSURLErrorNetworkConnectionLost` -1005 o «no se puede analizar la respuesta» -1017). **No es de la app**: el servidor de Torre anuncia HTTP/3 (`alt-svc: h3=":443"`) y en el simulador de iPhone la conexión QUIC se abre bien y enseguida se corta. Evidencia: con HTTP/3 activo la app falló en 7 de 10 aperturas y **Safari del mismo simulador falló en 5 de 6** («Safari no puede abrir la página porque se interrumpió la conexión de red»); con HTTP/3 apagado en el simulador, **0 de 6** fallos; en la Mac real, un programa con `URLSession` obtuvo `h3` 200 en 11 de 11. Es decir, el servidor está bien y el problema es el QUIC del simulador. En un iPhone real no se ha visto (no se ha probado).
+
+Por si en un iPhone real o en una red con UDP filtrado pasara algo parecido, `TorreViewController` reintenta hasta 2 veces la carga de la página (sólo GET, sólo para -1005 y -1017) antes de dejar que Capacitor muestre «Sin conexión». En el simulador con HTTP/3 activo eso rescató 3 de 8 aperturas: es una mitigación parcial, no la causa.
+
+### Qué se probó en el simulador (iPhone 16, iOS 18.4, 10-nov-2026)
+
+| Prueba | Resultado |
+|---|---|
+| Compila (`BUILD SUCCEEDED`, Xcode 26.6) | Sí. Se corrigió además `TorreViewController` y `SceneDelegate` (nunca se habían compilado). |
+| Abre en `https://torrecondominios.com/login` (producción), sin cerrarse | Sí, con HTTP/3 apagado en el simulador: 6 de 6 y las pruebas finales. Con HTTP/3 activo, intermitente (ver arriba). |
+| Sesión con cuenta de prueba contra el backend LOCAL (`TORRE_URL=http://localhost:4000`) | Sí: login de un propietario, inicio con su deuda; al cerrar y abrir la app la cookie sigue y entra directo al panel. No se inició sesión en producción. |
+| Zona segura: contenido bajo la hora y la isla dinámica al hacer scroll | Corregido con una franja de desenfoque bajo la barra de estado (antes el texto pasaba por debajo de la hora). |
+| Enlace externo: botón de WhatsApp de la portada pública (producción) | Sale de la app y abre Safari (`api.whatsapp.com`). El aviso de «dirección no válida» es el esquema `whatsapp://`: el simulador no tiene WhatsApp. |
+| Sin conexión (`TORRE_URL` a un puerto sin servidor) | Sale la pantalla «Sin conexión». «Reintentar» con el servidor aún apagado vuelve a ella; al levantar un servidor de prueba, carga la página. |
+| Descarga con sesión: `/api/me/historial.xlsx` (`Content-Disposition: attachment`) | Sale la hoja de compartir con «mi-historial · Hoja de cálculo · 26 KB» y «Guardar en Archivos». Antes la página se reemplazaba por «Sin conexión» detrás de la hoja (WebKit 102): corregido. |
+| Voucher desde galería: «Seleccionar archivo» → Fototeca → una foto | Sí: el selector nativo ofrece Fototeca, Hacer foto y Seleccionar archivo; la foto llegó al formulario (y la propia web la rechazó por pesar 3,9 MB: máximo 2 MB). No se envió el pago. |
+
+Sin verificar en iOS: **un iPhone real** (HTTP/3 real, firma, TestFlight), **cámara** (el simulador no tiene: sólo se vio que el menú ofrece «Hacer foto»; el permiso y su texto no se vieron), descarga de un **PDF** y por `<a download>` con `blob:` (sólo se ejerció la ruta `attachment` con un Excel; los otros caminos están en `TorreViewController` pero no se probaron), guardar de verdad el archivo en Archivos, **iPad**, modo oscuro, modo avión real, rotación (la app es vertical), VoiceOver. Observación para la web (no se tocó `src/`): una foto de la galería o de la cámara de un iPhone suele pesar más de 2 MB y el formulario del voucher la rechaza sin comprimirla; conviene comprimir en el navegador antes de decidir publicar. También, la portada pública dentro de la app sigue ofreciendo «Descarga la app para Android».
 
 Textos de permisos (ya en `Info.plist`, en español):
 
 - Cámara: «Torre usa la cámara para que tomes una foto del voucher o comprobante de tu pago.»
-- Fotos: «Torre accede a tus fotos para que elijas el voucher o comprobante de tu pago.»
+- Fotos: «Torre accede a tus fotos para que elijas el voucher o comprobante de tu pago.» (el selector de fotos de iOS es privado: no pide permiso; ofrece sólo lo que la persona elige)
 
 ## Íconos y splash
 
@@ -285,7 +316,7 @@ npm run apk:release               # AAB de tienda (sync:prod + verificar + bundl
 npm run assets                    # íconos y splash
 npm run version -- 1.1.0          # versión y build
 npx cap open android              # Android Studio
-npx cap open ios                  # Xcode (sólo en una Mac con Xcode)
+npx cap open ios                  # Xcode
 ```
 
 Depuración: con un build de desarrollo, Chrome en tu Mac > `chrome://inspect` muestra el WebView de la app. Logs nativos: `adb logcat -s Capacitor Capacitor/Console`.
