@@ -4,6 +4,21 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-12 — Fotos de iPhone comprimidas en el navegador antes de subir (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/fotos-comprimidas`) — push: no
+
+- **Pedido de Miguel**: «haz lo de comprimir las fotos de iPhone» (tablero: los vouchers de iPhone pasan de 2 MB y el vecino no puede pagar con la foto).
+- **Hecho (sólo navegador; servidor sin cambios)**: `src/pages/shared/comprimirImagen.ts` (parte pura `medidasDestino`, `necesitaComprimir`, `pasos`, `achicarHasta` con codificador inyectable; `comprimirImagen` decodifica con `createImageBitmap` o `<img>`, dibuja en canvas y exporta JPEG 0,85→0,55 y luego lado 1600/1280 (QR: hasta 1000)). Hook `usePrepararArchivo.ts` (muestra «Preparando la foto…» y descarta resultados viejos o de componentes cerrados). `prepararComprobante` (comprobantes.ts), `prepararImagen` (imagenes.ts), `prepararQr` (qr.ts).
+- **Puntos cubiertos**: PagarModal, PagarPanel, PagosResidente, ValidarPagoModal, RegistrarLineaModal, RegistrarMovimientoModal, FormPagoMantenimiento, ImagenEditable (cabecera/logo), MedioFormModal (QR).
+- **Textos**: `ACCEPT_COMPROBANTE` suma `image/heic,image/heif`; el servidor sigue recibiendo sólo jpeg/png/webp/pdf. Error nuevo para foto que no se pudo achicar («…y no se pudo achicar; el máximo es 2 MB. Prueba con una captura de pantalla del voucher.»); PDF conserva el mensaje viejo. Guía de la demo: «sube cualquier foto o imagen de ejemplo.»
+- **Decisiones**: PNG de logo/QR sigue PNG (transparencia); JPEG pinta fondo blanco antes de dibujar (si no, lo transparente sale negro). Envío bloqueado mientras se prepara (FormPagoMantenimiento y RegistrarLinea/Movimiento tienen voucher opcional u obligatorio: sin el bloqueo el pago salía sin voucher o con error engañoso).
+- **Pruebas**: `tests/comprimir-imagen.test.ts` (27, Node, pasan) y `tests/comprimir-fotos-ui.test.ts` (fuente, pasa); `tests/adjuntar-comprobante-ui.test.ts` actualizado a `listo`. `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde.
+- **Resultados**: suite completa contra `house_test_fotos` (2.ª corrida, con las 4 pruebas de fuente ya actualizadas): 4617 pasan, 5 fallan. El fallo conocido de `recibos-excel` («conceptos en 0») sigue. Los de `demo-seed` (y «es determinista», «Reinicio…») exigen una base que termine en `_demo`: no se pueden correr con `house_test_fotos`. Los 3 de `zona-horaria` dependen de la hora y no tocan estos archivos. Mutaciones (todas en rojo): quitar `preparar` en PagarModal → 1 fallo; `comprimirImagen` siempre el original → 2 fallos; `necesitaComprimir` acepta PDF → 1 fallo. Prueba en Chromium (390 px, backend 4100 con `CORS_ORIGIN=http://localhost:5175`, Vite 5175): foto de 4,38 MB → «Preparando la foto…» → 1,4 MB en el formulario → servidor 201, voucher guardado de 1 505 846 bytes (`image/jpeg`, `IMG_0001.jpg`).
+- **Pendiente antes de integrar**: HEIC/iPhone real en Safari (no se pudo probar aquí). Opus revisa el diff y decide la integración.
+- **Gotchas**: HEIC sólo se convierte donde el navegador decodifica (Safari/iPhone); en Chrome de escritorio se rechaza por tipo, como antes. No se probó HEIC real ni iPhone real. Los QR comprimidos a JPEG pueden perder legibilidad: el mínimo de 1000 px es lo que lo mantiene. `docs/manual/manual-*.json` dice «hasta 2 MB» y «pesa más de 2 MB»: sigue siendo cierto para el archivo final, no se tocó.
+- **Próximo**: Opus revisa el diff y la suite; si está en verde, integra con OK de Miguel.
+
+---
+
 ## 2026-11-11 — Eliminar mi cuenta desde la app y la web (App Store 5.1.1(v) y Google Play) (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/eliminar-cuenta`) — push: no
 
 - **Pedido de Miguel**: «haz el 8 y el 7 sin la cuenta de Apple aún». Lo construible del 7: borrar la cuenta desde la app (Apple) y una página web para pedirlo (Google Play). Push y cuenta de Apple quedan fuera.
