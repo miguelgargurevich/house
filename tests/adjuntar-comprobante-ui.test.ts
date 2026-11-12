@@ -25,9 +25,9 @@ describe('detalle del pago: adjuntar el comprobante', () => {
 
   it('sube con subirComprobante, valida el tipo y el tamaño en el cliente y sigue la evaluación de la IA', () => {
     assert.match(MODAL, /import \{[^}]*subirComprobante[^}]*\} from '\.\.\/\.\.\/\.\.\/shared\/comprobantes';/);
-    assert.match(MODAL, /const error = errorDeArchivo\(archivo\);/);
+    assert.match(MODAL, /const error = errorDeArchivo\(listo\);/);
     assert.match(MODAL, /accept=\{ACCEPT_COMPROBANTE\}/);
-    assert.match(MODAL, /setSubido\(await subirComprobante\(pago\.id, archivo\)\);/);
+    assert.match(MODAL, /setSubido\(await subirComprobante\(id, listo\)\);/);
     assert.match(MODAL, /ia\.seguir\(\);/);
     assert.match(MODAL, /onRevisado\(\); \/\/ refresca la lista/);
   });

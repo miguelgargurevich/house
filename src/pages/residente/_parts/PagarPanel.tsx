@@ -19,6 +19,8 @@ interface PanelProps {
   referencia: string;
   onReferencia: (v: string) => void;
   archivo: File | null;
+  /** La foto se está achicando (no se puede enviar todavía). */
+  preparando?: boolean;
   /** Qué falla con el archivo (lo vio el navegador o lo dijo el servidor). */
   errorArchivo?: string;
   onArchivo: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -64,7 +66,8 @@ export function PanelPago(p: PanelProps) {
               <Button size="sm" variant="secondary" icon={<CameraIcon className="h-4 w-4" />} onClick={() => inputCamara.current?.click()}>Tomar foto con la cámara</Button>
               <input ref={inputCamara} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={p.onArchivo} className="sr-only" tabIndex={-1} aria-label="Tomar una foto del voucher" />
             </div>}
-            {p.archivo && (
+            {p.preparando && <p role="status" className="mt-2 text-sm text-muted">Preparando la foto…</p>}
+            {p.archivo && !p.preparando && (
               <p className="mt-2 flex items-center justify-between gap-3 rounded bg-surface2 px-3 py-2 text-sm">
                 <span className="min-w-0 truncate">{p.archivo.name} · <span className="num text-muted">{tamanoLegible(p.archivo.size)}</span></span>
               </p>

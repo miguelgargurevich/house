@@ -72,7 +72,7 @@ describe('formulario «Registrar pago» del administrador', () => {
     assert.match(form, /label="Adjuntar voucher \(opcional\)"/);
     assert.match(form, /type="file"/);
     assert.match(form, /accept=\{ACCEPT_COMPROBANTE\}/);
-    assert.match(form, /errorDeArchivo\(f\)/);
+    assert.match(form, /errorDeArchivo\(listo\)/);
     assert.match(form, /import \{[^}]*\bACCEPT_COMPROBANTE\b[^}]*\} from '..\/..\/..\/shared\/comprobantes'/);
   });
 

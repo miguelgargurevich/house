@@ -104,7 +104,7 @@ describe('estructura de las pantallas', () => {
   const detalle = fuente('src/pages/admin/_parts/cierres/DetalleCierre.tsx');
   const pagina = fuente('src/pages/admin/Cierres.tsx');
   it('registrar un pago: el voucher es obligatorio (no se envía sin archivo) y todo va en UN envío multipart', () => {
-    assert.match(modal, /disabled=\{!archivo \|\| enviando\}/);
+    assert.match(modal, /disabled=\{!archivo \|\| enviando \|\| preparando\}/);
     assert.match(modal, /type="file"[\s\S]*required/);
     assert.match(modal, /registrarPagoConVoucher\(`\/api\/cierres\/block\/\$\{cierre\.estructura\.id\}\/lineas`/);
     assert.match(modal, /capture="environment"/, 'cámara en el celular');

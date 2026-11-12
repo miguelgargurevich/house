@@ -5,7 +5,8 @@ import { useAuth } from '../../../../auth/AuthContext';
 import { Alert, Button, DefinitionList, Modal, StatusBadge, Textarea, dinero, fechaCorta, useToast } from '../../../../ui';
 import { ComprobanteVista } from '../../../shared/ComprobanteVista';
 import type { ComprobanteMeta } from '../../../shared/comprobantes';
-import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../../shared/comprobantes';
+import { ACCEPT_COMPROBANTE, errorDeArchivo, prepararComprobante, subirComprobante, tamanoLegible } from '../../../shared/comprobantes';
+import { usePrepararArchivo } from '../../../shared/usePrepararArchivo';
 import { EvaluacionPanel, useCapacidadIA, useEvaluacionCompleta } from '../../../shared/evaluacion';
 import type { EvaluacionCompleta } from '../../../shared/evaluacion';
 import { fechaPorRevisar, textoFechaPago } from '../../../shared/mantenimiento/fechaPago';
@@ -98,6 +99,8 @@ export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado, onReabie
   const [subido, setSubido] = useState<ComprobanteMeta | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararComprobante);
+  useEffect(() => { cancelar(); }, [pagoProp?.id, cancelar]);
 
   const ofreceReabrir = pago !== null && puedeReabrir(user, pago.estado_validacion);
   const reapertura = useReapertura(pago?.id ?? null, ofreceReabrir);
@@ -110,11 +113,15 @@ export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado, onReabie
   /** Sube el voucher y sigue la evaluación de la IA; el pago no cambia de estado aquí (sólo la IA o quien valida). */
   async function adjuntar(archivo: File) {
     if (!pago) return;
-    const error = errorDeArchivo(archivo);
+    const id = pago.id;
+    // La foto se achica antes de validarla; si se cambia de pago mientras tanto, ese resultado se descarta.
+    const listo = await preparar(archivo);
+    if (!listo) return;
+    const error = errorDeArchivo(listo);
     if (error) return void setErrorAdjunto(error);
     setSubiendo(true); setErrorAdjunto(null);
     try {
-      setSubido(await subirComprobante(pago.id, archivo));
+      setSubido(await subirComprobante(id, listo));
       ia.seguir();
       onRevisado(); // refresca la lista: la fila ya no dice «Sin comprobante»
     } catch (e) { setErrorAdjunto(errorText(e)); }
@@ -299,8 +306,8 @@ export function ValidarPagoModal({ pago: pagoProp, onClose, onRevisado, onReabie
                 <Alert tone="warn">{pago.usuario ? `${pago.usuario.nombre} no adjuntó comprobante.` : 'Este pago no tiene comprobante adjunto.'}</Alert>
                 {puedeAdjuntar && (
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} disabled={subiendo} onClick={() => archivoRef.current?.click()}>Adjuntar comprobante</Button>
-                    <span className="text-xs text-muted">JPG, PNG, WebP o PDF, hasta 2 MB.</span>
+                    <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} disabled={subiendo || preparando} onClick={() => archivoRef.current?.click()}>Adjuntar comprobante</Button>
+                    {preparando ? <span role="status" className="text-xs text-muted">Preparando la foto…</span> : <span className="text-xs text-muted">JPG, PNG, WebP o PDF, hasta 2 MB.</span>}
                     <input ref={archivoRef} type="file" accept={ACCEPT_COMPROBANTE} onChange={e => { const f = e.target.files?.[0]; if (f) void adjuntar(f); }} className="sr-only" tabIndex={-1} aria-label="Elegir archivo del comprobante" />
                   </div>
                 )}

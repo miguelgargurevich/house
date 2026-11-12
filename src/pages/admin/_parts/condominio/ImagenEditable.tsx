@@ -3,7 +3,8 @@ import type { ChangeEvent } from 'react';
 import { PhotoIcon } from '@heroicons/react/24/outline';
 import { api, errorText } from '../../../../api';
 import { Alert, Button, ConfirmDialog, useToast } from '../../../../ui';
-import { ACCEPT_IMAGEN, errorDeImagen, subirImagen } from '../../../shared/_parts/imagenes';
+import { ACCEPT_IMAGEN, errorDeImagen, prepararImagen, subirImagen } from '../../../shared/_parts/imagenes';
+import { usePrepararArchivo } from '../../../shared/usePrepararArchivo';
 import { ImagenRecibo } from '../../../shared/mantenimiento/ImagenRecibo';
 
 interface Props {
@@ -27,17 +28,21 @@ export function ImagenEditable({ titulo, ayuda, url, ruta, onCambio, className }
   const [error, setError] = useState<string | null>(null);
   const [quitar, setQuitar] = useState(false);
   const [quitando, setQuitando] = useState(false);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararImagen);
 
   async function elegir(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     e.target.value = '';
-    if (!f) return;
-    const err = errorDeImagen(f);
+    if (!f) { cancelar(); return; }
+    // La foto se achica antes de subirla («Preparando la foto…»; no se puede elegir otra hasta que termine).
+    const listo = await preparar(f);
+    if (!listo) return;
+    const err = errorDeImagen(listo);
     setError(err);
     if (err) return;
     setSubiendo(true);
     try {
-      await subirImagen(ruta, f);
+      await subirImagen(ruta, listo);
       toast.ok(`${titulo} guardada`);
       onCambio(true);
     } catch (x) { setError(errorText(x)); } finally { setSubiendo(false); }
@@ -64,7 +69,8 @@ export function ImagenEditable({ titulo, ayuda, url, ruta, onCambio, className }
             : <span className="flex flex-col items-center gap-1 text-xs"><PhotoIcon className="h-6 w-6" aria-hidden="true" />Sin imagen</span>}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" loading={subiendo} onClick={() => input.current?.click()}>{url ? 'Cambiar imagen' : 'Subir imagen'}</Button>
+          <Button variant="secondary" size="sm" loading={subiendo} disabled={preparando} onClick={() => input.current?.click()}>{url ? 'Cambiar imagen' : 'Subir imagen'}</Button>
+          {preparando && <span role="status" className="text-sm text-muted">Preparando la foto…</span>}
           {url && <Button variant="ghost" size="sm" onClick={() => setQuitar(true)}>Quitar</Button>}
         </div>
         <input ref={input} type="file" accept={ACCEPT_IMAGEN} className="sr-only" tabIndex={-1} aria-label={`Elegir ${titulo.toLowerCase()}`} onChange={e => void elegir(e)} />

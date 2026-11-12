@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { errorText, useResource } from '../../../api';
-import { ErrorDeEnvio, errorDeArchivo, registrarPagoConVoucher } from '../../shared/comprobantes';
+import { ErrorDeEnvio, errorDeArchivo, prepararComprobante, registrarPagoConVoucher } from '../../shared/comprobantes';
+import { usePrepararArchivo } from '../../shared/usePrepararArchivo';
 import { Alert, Button, Modal, useToast } from '../../../ui';
 import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
 import { PanelPago } from './PagarPanel';
@@ -23,6 +24,7 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
   const [enviando, setEnviando] = useState(false);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararComprobante);
   // Id del pago recién enviado: mientras tanto se muestra cómo va la revisión automática del voucher.
   const [pagoEnviado, setPagoEnviado] = useState<number | null>(null);
   const evaluacion = useEvaluacionResidente(pagoEnviado);
@@ -31,6 +33,7 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
   const d = mant && detalle.data && detalle.data.recibo_id === mant.recibo_id && detalle.data.unidad_id === mant.unidad_id ? detalle.data : null;
 
   useEffect(() => {
+    cancelar(); // una foto que aún se achica no llega al formulario de otro mantenimiento
     if (!mant) return;
     setMetodo('transferencia');
     setReferencia('');
@@ -38,14 +41,21 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
     setErrorArchivo(undefined);
     setEnviando(false);
     setPagoEnviado(null);
-  }, [mant]);
+  }, [mant, cancelar]);
 
-  function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    const err = f ? errorDeArchivo(f) : null;
-    if (err) e.target.value = '';
+  // La foto se achica antes de validarla: mientras tanto no se puede enviar. Un resultado viejo (otra elección o modal cerrado) se descarta.
+  async function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const f = input.files?.[0] ?? null;
+    setArchivo(null);
+    setErrorArchivo(undefined);
+    if (!f) { cancelar(); return; }
+    const listo = await preparar(f);
+    if (!listo) return;
+    const err = errorDeArchivo(listo);
+    if (err) input.value = '';
     setErrorArchivo(err ?? undefined);
-    setArchivo(f && !err ? f : null);
+    setArchivo(err ? null : listo);
   }
 
   async function enviar() {
@@ -90,6 +100,7 @@ export function PagarModal({ mant, onClose, onPagado }: Props) {
           referencia={referencia}
           onReferencia={setReferencia}
           archivo={archivo}
+          preparando={preparando}
           errorArchivo={errorArchivo}
           onArchivo={elegirArchivo}
           conCamara={conCamara}

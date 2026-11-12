@@ -1,4 +1,5 @@
 import { csrfHeader } from '../../../api';
+import { LADO_VOUCHER, comprimirImagen } from '../comprimirImagen';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -6,11 +7,16 @@ export const MAX_IMAGEN = 2 * 1024 * 1024;
 export const TIPOS_IMAGEN = ['image/png', 'image/jpeg', 'image/webp'];
 export const ACCEPT_IMAGEN = 'image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp';
 
+/** Achica la foto (cabecera o logo) que pasa de 2 MB. Un PNG sigue PNG: el logo puede tener transparencia. */
+export function prepararImagen(f: File): Promise<File> {
+  return comprimirImagen(f, { tope: MAX_IMAGEN, ladoMax: LADO_VOUCHER, formato: f.type === 'image/png' ? 'image/png' : 'image/jpeg' });
+}
+
 /** Mensaje de error si el archivo no sirve como imagen del recibo; `null` si está bien (el servidor lo vuelve a validar). */
 export function errorDeImagen(f: File): string | null {
   if (!TIPOS_IMAGEN.includes(f.type)) return 'Sube una imagen JPG, PNG o WebP.';
   if (f.size === 0) return 'El archivo está vacío.';
-  if (f.size > MAX_IMAGEN) return `La imagen pesa ${(f.size / 1024 / 1024).toFixed(1)} MB; el máximo es 2 MB.`;
+  if (f.size > MAX_IMAGEN) return `La imagen pesa ${(f.size / 1024 / 1024).toFixed(1)} MB y no se pudo achicar; el máximo es 2 MB.`;
   return null;
 }
 

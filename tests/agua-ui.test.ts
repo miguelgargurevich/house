@@ -66,7 +66,8 @@ describe('datos del recibo en las fichas', () => {
     const img = f('shared/_parts/imagenes.ts');
     assert.match(img, /MAX_IMAGEN = 2 \* 1024 \* 1024/);
     assert.match(img, /TIPOS_IMAGEN = \['image\/png', 'image\/jpeg', 'image\/webp'\]/);
-    assert.match(f('admin/_parts/condominio/ImagenEditable.tsx'), /errorDeImagen\(f\)/);
+    // Se achica antes de validar (prepararImagen) y se valida lo preparado.
+    assert.match(f('admin/_parts/condominio/ImagenEditable.tsx'), /usePrepararArchivo\(prepararImagen\)[\s\S]*errorDeImagen\(listo\)/);
   });
 });
 

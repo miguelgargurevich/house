@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
 import { csrfHeader } from '../../api';
+import { LADO_VOUCHER, comprimirImagen } from './comprimirImagen';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 export const MAX_COMPROBANTE = 2 * 1024 * 1024;
 export const TIPOS_COMPROBANTE = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-export const ACCEPT_COMPROBANTE = 'image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf';
+/** HEIC/HEIF entran al elegir (Safari los convierte a JPEG al achicarlos); el servidor sólo recibe jpeg/png/webp/pdf. */
+export const ACCEPT_COMPROBANTE = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,.pdf';
+
+/** Achica la foto de un voucher que pasa de 2 MB (un PDF o un archivo que no se puede achicar sale igual). */
+export function prepararComprobante(f: File): Promise<File> {
+  return comprimirImagen(f, { tope: MAX_COMPROBANTE, ladoMax: LADO_VOUCHER });
+}
 
 export interface ComprobanteMeta { id: number; nombre: string; tipo_mime: string; tamano: number; created_at: string }
 
@@ -19,7 +26,11 @@ export function tamanoLegible(bytes: number): string {
 export function errorDeArchivo(f: File): string | null {
   if (!TIPOS_COMPROBANTE.includes(f.type)) return 'Sube una imagen JPG, PNG o WebP, o un PDF.';
   if (f.size === 0) return 'El archivo está vacío.';
-  if (f.size > MAX_COMPROBANTE) return `El archivo pesa ${tamanoLegible(f.size)}; el máximo es 2 MB.`;
+  if (f.size > MAX_COMPROBANTE) {
+    // Una foto llega aquí ya achicada por `prepararComprobante`: si aún pesa, no se pudo achicar.
+    if (f.type === 'application/pdf') return `El archivo pesa ${tamanoLegible(f.size)}; el máximo es 2 MB.`;
+    return `El archivo pesa ${tamanoLegible(f.size)} y no se pudo achicar; el máximo es 2 MB. Prueba con una captura de pantalla del voucher.`;
+  }
   return null;
 }
 

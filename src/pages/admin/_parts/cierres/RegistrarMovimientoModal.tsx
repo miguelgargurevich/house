@@ -3,7 +3,8 @@ import type { ChangeEvent } from 'react';
 import { CameraIcon } from '@heroicons/react/24/outline';
 import { useList } from '../../../../api';
 import { Button, Input, Modal, Select, Textarea, nombreDelMes, useToast } from '../../../../ui';
-import { ACCEPT_COMPROBANTE, ErrorDeEnvio, errorDeArchivo, registrarPagoConVoucher, tamanoLegible } from '../../../shared/comprobantes';
+import { ACCEPT_COMPROBANTE, ErrorDeEnvio, errorDeArchivo, prepararComprobante, registrarPagoConVoucher, tamanoLegible } from '../../../shared/comprobantes';
+import { usePrepararArchivo } from '../../../shared/usePrepararArchivo';
 import { esTactil } from '../../../residente/_parts/pago';
 import type { CategoriaCentral, CierreCentral } from './tipos';
 import { CATEGORIAS_CENTRAL, camposDeCategoria, erroresDeMovimiento } from './vista';
@@ -41,18 +42,26 @@ export function RegistrarMovimientoModal({ tipo, cierre, complejoId, onClose, on
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararComprobante);
   const campos = camposDeCategoria(categoria);
   const ayuda = CATEGORIAS_CENTRAL.find(c => c.value === categoria)?.ayuda;
   const proveedores = useList<{ id: number; razon_social: string }>('/api/proveedores', { pageSize: 100, params: { complejo_id: complejoId ? String(complejoId) : undefined } });
 
-  function elegir(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    const err = f ? errorDeArchivo(f) : null;
-    setArchivo(err ? null : f); setErrorArchivo(err ?? undefined);
-    if (err) e.target.value = '';
+  // La foto se achica antes de validarla; mientras tanto no se puede registrar (el voucher es obligatorio).
+  async function elegir(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const f = input.files?.[0] ?? null;
+    setArchivo(null); setErrorArchivo(undefined);
+    if (!f) { cancelar(); return; }
+    const listo = await preparar(f);
+    if (!listo) return;
+    const err = errorDeArchivo(listo);
+    setArchivo(err ? null : listo); setErrorArchivo(err ?? undefined);
+    if (err) input.value = '';
   }
 
   async function enviar() {
+    if (preparando) return;
     const nuevos = erroresDeMovimiento({ categoria, monto, fecha, descripcion, pagador, estacionamiento, tieneVoucher: !!archivo });
     setErrores(nuevos);
     if (nuevos.voucher) setErrorArchivo(nuevos.voucher);
@@ -86,7 +95,7 @@ export function RegistrarMovimientoModal({ tipo, cierre, complejoId, onClose, on
       onClose={onClose}
       title={esIngreso ? 'Registrar ingreso' : 'Registrar egreso'}
       description={`Cuenta en el cierre de ${nombreDelMes(cierre.mes)} de ${cierre.anio}.`}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={FORM} loading={enviando} disabled={!archivo || enviando}>{esIngreso ? 'Registrar ingreso' : 'Registrar egreso'}</Button></>}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={FORM} loading={enviando} disabled={!archivo || enviando || preparando}>{esIngreso ? 'Registrar ingreso' : 'Registrar egreso'}</Button></>}
     >
       <form id={FORM} onSubmit={e => { e.preventDefault(); void enviar(); }} noValidate className="grid gap-4">
         <Select label="Categoría" value={categoria} hint={ayuda} onChange={e => { setCategoria(e.target.value as CategoriaCentral); setErrores({}); }}>
@@ -116,6 +125,7 @@ export function RegistrarMovimientoModal({ tipo, cierre, complejoId, onClose, on
               <input ref={camara} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={elegir} className="sr-only" tabIndex={-1} aria-label="Tomar una foto del voucher" />
             </div>
           )}
+          {preparando && <p role="status" className="mt-2 text-sm text-muted">Preparando la foto…</p>}
           {archivo && <p className="mt-2 truncate rounded bg-surface2 px-3 py-2 text-sm">{archivo.name} · <span className="num text-muted">{tamanoLegible(archivo.size)}</span></p>}
         </div>
         <Textarea label="Observaciones (opcional)" value={observaciones} onChange={e => setObservaciones(e.target.value)} />

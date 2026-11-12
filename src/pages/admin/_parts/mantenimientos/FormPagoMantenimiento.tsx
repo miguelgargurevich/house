@@ -3,7 +3,8 @@ import type { ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { api, errorText } from '../../../../api';
 import { Button, Input, Select, dinero, useToast } from '../../../../ui';
-import { ACCEPT_COMPROBANTE, errorDeArchivo, registrarPagoConVoucher, tamanoLegible } from '../../../shared/comprobantes';
+import { ACCEPT_COMPROBANTE, errorDeArchivo, prepararComprobante, registrarPagoConVoucher, tamanoLegible } from '../../../shared/comprobantes';
+import { usePrepararArchivo } from '../../../shared/usePrepararArchivo';
 import type { ResultadoPagoMantenimiento } from '../../../shared/mantenimiento/tipos';
 import { METODOS, hoyISO } from '../cobranza/comun';
 import { SeguimientoVoucher } from './SeguimientoVoucher';
@@ -22,16 +23,25 @@ export function FormPagoMantenimiento({ reciboId, unidadId, saldo, moneda, onReg
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
   const [resultado, setResultado] = useState<ResultadoPagoMantenimiento | null>(null);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararComprobante);
 
-  function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    const err = f ? errorDeArchivo(f) : null;
-    if (err) e.target.value = '';
+  // La foto se achica antes de validarla. El voucher es opcional: mientras se prepara, el envío queda apagado (si no, el pago saldría sin voucher).
+  async function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const f = input.files?.[0] ?? null;
+    setArchivo(null);
+    setErrorArchivo(undefined);
+    if (!f) { cancelar(); return; }
+    const listo = await preparar(f);
+    if (!listo) return;
+    const err = errorDeArchivo(listo);
+    if (err) input.value = '';
     setErrorArchivo(err ?? undefined);
-    setArchivo(f && !err ? f : null);
+    setArchivo(err ? null : listo);
   }
 
   async function enviar(v: Form) {
+    if (preparando) return;
     const ruta = `/api/recibos/${reciboId}/mantenimientos/${unidadId}/pagos`;
     const referencia = v.referencia.trim();
     try {
@@ -70,9 +80,10 @@ export function FormPagoMantenimiento({ reciboId, unidadId, saldo, moneda, onReg
           onChange={elegirArchivo}
           className="[&_input]:h-auto [&_input]:py-2"
         />
-        {archivo && <p className="mt-2 truncate rounded bg-surface2 px-3 py-2 text-sm">{archivo.name} · <span className="num text-muted">{tamanoLegible(archivo.size)}</span></p>}
+        {preparando && <p role="status" className="mt-2 text-sm text-muted">Preparando la foto…</p>}
+        {archivo && !preparando && <p className="mt-2 truncate rounded bg-surface2 px-3 py-2 text-sm">{archivo.name} · <span className="num text-muted">{tamanoLegible(archivo.size)}</span></p>}
       </div>
-      <div className="sm:col-span-2"><Button type="submit" loading={isSubmitting}>{archivo ? 'Registrar pago y revisar voucher' : 'Registrar pago del mantenimiento'}</Button></div>
+      <div className="sm:col-span-2"><Button type="submit" loading={isSubmitting} disabled={preparando}>{archivo ? 'Registrar pago y revisar voucher' : 'Registrar pago del mantenimiento'}</Button></div>
     </form>
   );
 }

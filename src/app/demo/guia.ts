@@ -41,7 +41,7 @@ export const GUIA: Record<RolDemo, readonly PasoGuia[]> = {
   propietario_al_dia: [
     { id: 'inicio', texto: 'Mira cuánto debes', ayuda: 'Tu deuda total y el próximo vencimiento.', ruta: '/propietario/inicio', manual: 'propietario.inicio' },
     { id: 'recibo', texto: 'Revisa tu recibo del mes', ayuda: 'El mantenimiento, concepto por concepto.', ruta: '/propietario/cargos', manual: 'propietario.mis-recibos' },
-    { id: 'pagar', texto: 'Paga con el voucher de ejemplo', ayuda: 'Toca «Pagar mantenimiento» y sube cualquier imagen de ejemplo de menos de 2 MB.', ruta: '/propietario/cargos', manual: 'propietario.mis-recibos' },
+    { id: 'pagar', texto: 'Paga con el voucher de ejemplo', ayuda: 'Toca «Pagar mantenimiento» y sube cualquier foto o imagen de ejemplo.', ruta: '/propietario/cargos', manual: 'propietario.mis-recibos' },
     { id: 'historial', texto: 'Mira tu historial de pagos', ayuda: 'Cómo evolucionan tus pagos mes a mes.', ruta: '/propietario/pagos', manual: 'propietario.mi-historial' },
     { id: 'junta', texto: 'Conoce a la junta de tu block', ayuda: 'Presidente, tesorero y secretario, y a dónde pagar.', ruta: '/propietario/junta', manual: 'propietario.mi-junta' },
     { id: 'reservas', texto: 'Reserva el salón de usos múltiples', ayuda: 'Elige un día y una hora libres.', ruta: '/propietario/reservas', manual: 'propietario.reservas' },
@@ -49,7 +49,7 @@ export const GUIA: Record<RolDemo, readonly PasoGuia[]> = {
   propietario_moroso: [
     { id: 'inicio', texto: 'Mira cuánto debes', ayuda: 'Tu deuda total, con los meses vencidos.', ruta: '/propietario/inicio', manual: 'propietario.inicio' },
     { id: 'detalle', texto: 'Revisa tus meses vencidos', ayuda: 'El recargo por mora de cada recibo vencido.', ruta: '/propietario/cargos', manual: 'propietario.mis-recibos' },
-    { id: 'pagar', texto: 'Paga un mes con el voucher de ejemplo', ayuda: 'Toca «Pagar mantenimiento» y sube cualquier imagen de ejemplo de menos de 2 MB.', ruta: '/propietario/cargos', manual: 'propietario.mis-recibos' },
+    { id: 'pagar', texto: 'Paga un mes con el voucher de ejemplo', ayuda: 'Toca «Pagar mantenimiento» y sube cualquier foto o imagen de ejemplo.', ruta: '/propietario/cargos', manual: 'propietario.mis-recibos' },
     { id: 'estado', texto: 'Mira tus pagos', ayuda: 'Cuáles están en revisión y cuáles validados.', ruta: '/propietario/pagos', manual: 'propietario.mi-historial' },
     { id: 'comunicados', texto: 'Lee los comunicados', ayuda: 'Lo que anuncian la administración y la junta.', ruta: '/propietario/comunicados', manual: 'propietario.comunicados' },
     { id: 'junta', texto: 'Conoce a tu junta', ayuda: 'A quién escribir si tienes dudas con tu cuenta.', ruta: '/propietario/junta', manual: 'propietario.mi-junta' },
@@ -57,7 +57,7 @@ export const GUIA: Record<RolDemo, readonly PasoGuia[]> = {
   inquilino: [
     { id: 'inicio', texto: 'Mira cuánto se debe', ayuda: 'La deuda del departamento y el próximo vencimiento.', ruta: '/inquilino/inicio', manual: 'inquilino.inicio' },
     { id: 'recibo', texto: 'Revisa el recibo del mes', ayuda: 'El mantenimiento, concepto por concepto.', ruta: '/inquilino/cargos', manual: 'inquilino.mis-recibos' },
-    { id: 'pagar', texto: 'Paga con el voucher de ejemplo', ayuda: 'Toca «Pagar mantenimiento» y sube cualquier imagen de ejemplo de menos de 2 MB.', ruta: '/inquilino/cargos', manual: 'inquilino.mis-recibos' },
+    { id: 'pagar', texto: 'Paga con el voucher de ejemplo', ayuda: 'Toca «Pagar mantenimiento» y sube cualquier foto o imagen de ejemplo.', ruta: '/inquilino/cargos', manual: 'inquilino.mis-recibos' },
     { id: 'historial', texto: 'Mira tus pagos', ayuda: 'Cómo van los pagos del departamento.', ruta: '/inquilino/pagos', manual: 'inquilino.mi-historial' },
     { id: 'comunicados', texto: 'Lee los comunicados', ayuda: 'Cortes de agua, asambleas, mantenimiento.', ruta: '/inquilino/comunicados', manual: 'inquilino.comunicados' },
     { id: 'reservas', texto: 'Reserva el salón de usos múltiples', ayuda: 'Elige un día y una hora libres.', ruta: '/inquilino/reservas', manual: 'inquilino.reservas' },

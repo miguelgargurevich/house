@@ -5,7 +5,8 @@ import { api, errorText } from '../../../../api';
 import { Alert, Button, Input, Modal, Select, TelefonoInput, useToast } from '../../../../ui';
 import { parsearCelular } from '../../../../lib/telefono';
 import { Interruptor } from '../catalogo/Interruptor';
-import { ACCEPT_QR, errorDeQr, subirQr } from './qr';
+import { ACCEPT_QR, errorDeQr, prepararQr, subirQr } from './qr';
+import { usePrepararArchivo } from '../../../shared/usePrepararArchivo';
 import { QrImagen } from './QrMiniatura';
 import { avisoCci, avisoLargoCuenta } from './avisos';
 import { nombreAmbito, textoCuentaJunta } from '../juntas/tipos';
@@ -61,6 +62,7 @@ export function MedioFormModal({ medio, ambitos, inicial, junta, onClose, onSave
   const [vista, setVista] = useState<string | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
   const [quitarQr, setQuitarQr] = useState(false);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararQr);
 
   useEffect(() => {
     if (medio === null) return;
@@ -72,8 +74,9 @@ export function MedioFormModal({ medio, ambitos, inicial, junta, onClose, onSave
           moneda: medio.moneda ?? 'PEN', servicio: medio.servicio ?? '', codigo_pago: medio.codigo_pago ?? 'departamento', codigo_instruccion: medio.codigo_instruccion ?? '',
           documento_titular: medio.documento_titular ?? '', celular: medio.celular ?? '', titular: medio.titular, activo: medio.activo,
         });
+    cancelar(); // un QR que aún se achica no llega a otro medio de pago
     setArchivo(null); setErrorArchivo(undefined); setQuitarQr(false);
-  }, [medio, ambitos, inicial, junta, reset]);
+  }, [medio, ambitos, inicial, junta, reset, cancelar]);
 
   // Vista previa del archivo elegido; se libera al cambiar o cerrar.
   useEffect(() => {
@@ -97,16 +100,23 @@ export function MedioFormModal({ medio, ambitos, inicial, junta, onClose, onSave
   const unCondominio = ambitos.complejos.length === 1;
   const palabra = palabraEstructura(ambitos);
 
-  function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    const err = f ? errorDeQr(f) : null;
-    if (err) e.target.value = '';
+  // La foto del QR se achica antes de validarla. Mientras tanto no se guarda: si no, el medio quedaría guardado sin el QR elegido.
+  async function elegirArchivo(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const f = input.files?.[0] ?? null;
+    setArchivo(null); setErrorArchivo(undefined);
+    if (!f) { cancelar(); return; }
+    const listo = await preparar(f);
+    if (!listo) return;
+    const err = errorDeQr(listo);
+    if (err) input.value = '';
     setErrorArchivo(err ?? undefined);
-    setArchivo(f && !err ? f : null);
-    if (f && !err) setQuitarQr(false);
+    setArchivo(err ? null : listo);
+    if (!err) setQuitarQr(false);
   }
 
   async function guardar(v: Form) {
+    if (preparando) return;
     const otra = v.banco === ENTIDAD_OTRA ? v.banco_otro.trim() : null;
     const datos = v.tipo === 'banco'
       ? { banco: v.banco, banco_otro: otra, tipo_cuenta: v.tipo_cuenta, numero_cuenta: v.numero_cuenta.trim(), moneda: v.moneda, cci: v.cci.replace(/[\s-]/g, '') || null, documento_titular: v.documento_titular.trim() || null }
@@ -140,7 +150,7 @@ export function MedioFormModal({ medio, ambitos, inicial, junta, onClose, onSave
       onClose={onClose}
       title={nuevo ? 'Agregar medio de pago' : 'Editar medio de pago'}
       description="Los vecinos verán estos datos al pagar sus recibos."
-      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={idForm} loading={isSubmitting}>{nuevo ? 'Agregar medio de pago' : 'Guardar cambios'}</Button></>}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={idForm} loading={isSubmitting} disabled={preparando}>{nuevo ? 'Agregar medio de pago' : 'Guardar cambios'}</Button></>}
     >
       <form id={idForm} onSubmit={handleSubmit(guardar)} className="grid gap-4 sm:grid-cols-2" noValidate>
         {nuevo && !unCondominio && !junta && (
@@ -259,6 +269,7 @@ export function MedioFormModal({ medio, ambitos, inicial, junta, onClose, onSave
               error={errorArchivo} onChange={elegirArchivo}
               className="[&_input]:h-auto [&_input]:py-2"
             />
+            {preparando && <p role="status" className="mt-2 text-sm text-muted">Preparando la foto…</p>}
             {(vista || tieneQr) && medio !== null && (
               <div className="mt-3 flex items-center gap-4">
                 {vista

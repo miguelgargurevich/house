@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { CameraIcon } from '@heroicons/react/24/outline';
 import { Alert, Button, Input, Modal, Textarea, dinero, useToast } from '../../../../ui';
-import { ACCEPT_COMPROBANTE, ErrorDeEnvio, errorDeArchivo, registrarPagoConVoucher, tamanoLegible } from '../../../shared/comprobantes';
+import { ACCEPT_COMPROBANTE, ErrorDeEnvio, errorDeArchivo, prepararComprobante, registrarPagoConVoucher, tamanoLegible } from '../../../shared/comprobantes';
+import { usePrepararArchivo } from '../../../shared/usePrepararArchivo';
 import { esTactil } from '../../../residente/_parts/pago';
 import type { CierreBlock, LineaCierre } from './tipos';
 import { etiquetaDestino, montoSugerido, textoCuenta } from './vista';
@@ -52,21 +53,30 @@ export function RegistrarLineaModal({ cierre, linea, onClose, onHecho }: Props) 
   const [errorArchivo, setErrorArchivo] = useState<string | undefined>();
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararComprobante);
 
   useEffect(() => {
+    cancelar(); // una foto que aún se achica no llega a otra línea
     if (!linea) return;
     setMonto(montoSugerido(linea)); setFecha(hoyISO()); setReferencia(''); setObservaciones('');
     setArchivo(null); setErrorArchivo(undefined); setErrores({}); setEnviando(false);
-  }, [linea]);
+  }, [linea, cancelar]);
 
-  function elegir(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    const err = f ? errorDeArchivo(f) : null;
-    setArchivo(err ? null : f); setErrorArchivo(err ?? undefined);
-    if (err) e.target.value = '';
+  // La foto se achica antes de validarla; mientras tanto no se puede registrar (el voucher es obligatorio).
+  async function elegir(e: ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const f = input.files?.[0] ?? null;
+    setArchivo(null); setErrorArchivo(undefined);
+    if (!f) { cancelar(); return; }
+    const listo = await preparar(f);
+    if (!listo) return;
+    const err = errorDeArchivo(listo);
+    setArchivo(err ? null : listo); setErrorArchivo(err ?? undefined);
+    if (err) input.value = '';
   }
 
   async function enviar() {
+    if (preparando) return;
     if (!linea) return;
     const nuevos: Record<string, string> = {};
     if (!archivo) nuevos.voucher = 'Adjunta el voucher del pago.';
@@ -96,7 +106,7 @@ export function RegistrarLineaModal({ cierre, linea, onClose, onHecho }: Props) 
       onClose={onClose}
       title="Registrar pago"
       description={linea ? `${linea.nombre} · ${etiquetaDestino(linea.destino)}` : undefined}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={FORM} loading={enviando} disabled={!archivo || enviando}>Registrar pago</Button></>}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" form={FORM} loading={enviando} disabled={!archivo || enviando || preparando}>Registrar pago</Button></>}
     >
       {linea && (
         <form id={FORM} onSubmit={e => { e.preventDefault(); void enviar(); }} noValidate className="grid gap-4">
@@ -126,6 +136,7 @@ export function RegistrarLineaModal({ cierre, linea, onClose, onHecho }: Props) 
                 <input ref={camara} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={elegir} className="sr-only" tabIndex={-1} aria-label="Tomar una foto del voucher" />
               </div>
             )}
+            {preparando && <p role="status" className="mt-2 text-sm text-muted">Preparando la foto…</p>}
             {archivo && <p className="mt-2 truncate rounded bg-surface2 px-3 py-2 text-sm">{archivo.name} · <span className="num text-muted">{tamanoLegible(archivo.size)}</span></p>}
           </div>
           <Textarea label="Observaciones (opcional)" value={observaciones} onChange={e => setObservaciones(e.target.value)} />

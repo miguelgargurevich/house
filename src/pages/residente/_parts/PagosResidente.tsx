@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { ArrowUpTrayIcon, BanknotesIcon, DocumentTextIcon, PrinterIcon } from '@heroicons/react/24/outline';
 import { errorText, useList } from '../../../api';
 import { ComprobanteVista } from '../../shared/ComprobanteVista';
 import { EstadoEvaluacion, ValidadoPorIABadge, useEvaluacionResidente } from '../../shared/evaluacion';
-import { ACCEPT_COMPROBANTE, errorDeArchivo, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
+import { ACCEPT_COMPROBANTE, errorDeArchivo, prepararComprobante, subirComprobante, tamanoLegible } from '../../shared/comprobantes';
+import { usePrepararArchivo } from '../../shared/usePrepararArchivo';
 import { Alert, Button, Card, DataTable, DefinitionList, EmptyState, ErrorState, IconButton, Modal, Skeleton, StatusBadge, dinero, fechaCorta, useToast } from '../../../ui';
 import type { Column } from '../../../ui';
 import { ZonaImprimible } from '../../shared/mantenimiento/ZonaImprimible';
@@ -20,6 +21,9 @@ export function PagosResidente() {
   const [subiendo, setSubiendo] = useState(false);
   const toast = useToast();
   const inputArchivo = useRef<HTMLInputElement>(null);
+  const { preparando, preparar, cancelar } = usePrepararArchivo(prepararComprobante);
+  // Si el detalle cambia o se cierra mientras se achica la foto, ese resultado ya no se sube.
+  useEffect(() => { cancelar(); }, [ver?.id, cancelar]);
   // Si la captura aún se está evaluando, se sigue su estado mientras el detalle está abierto.
   const seguimiento = useEvaluacionResidente(ver?.estado_validacion === 'por_validar' && ver.evaluacion?.estado === 'evaluando' ? ver.id : null);
   const estadoIA = seguimiento.estado ?? (ver?.estado_validacion === 'por_validar' ? ver.evaluacion?.estado ?? null : null);
@@ -28,11 +32,14 @@ export function PagosResidente() {
     const f = e.target.files?.[0];
     e.target.value = '';
     if (!f || !ver) return;
-    const err = errorDeArchivo(f);
+    const id = ver.id;
+    const listo = await preparar(f);
+    if (!listo) return;
+    const err = errorDeArchivo(listo);
     if (err) return void toast.error(err);
     setSubiendo(true);
     try {
-      const meta = await subirComprobante(ver.id, f);
+      const meta = await subirComprobante(id, listo);
       setVer({ ...ver, comprobante: meta });
       toast.ok('Comprobante adjuntado.');
       void list.reload();
@@ -147,10 +154,11 @@ export function PagosResidente() {
           <>
             <Button variant="secondary" onClick={() => setVer(null)}>Cerrar</Button>
             {ver?.estado_validacion === 'por_validar' && (
-              <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} onClick={() => inputArchivo.current?.click()}>
+              <Button variant="secondary" icon={<ArrowUpTrayIcon className="h-4 w-4" />} loading={subiendo} disabled={preparando} onClick={() => inputArchivo.current?.click()}>
                 {ver.comprobante ? 'Reemplazar comprobante' : 'Adjuntar comprobante'}
               </Button>
             )}
+            {preparando && <span role="status" className="self-center text-sm text-muted">Preparando la foto…</span>}
             <Button icon={<PrinterIcon className="h-4 w-4" />} onClick={() => window.print()}>Imprimir</Button>
           </>
         }
