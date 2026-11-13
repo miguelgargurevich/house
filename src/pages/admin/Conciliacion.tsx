@@ -143,7 +143,7 @@ function PanelDeCuenta({ cuenta }: { cuenta: Cuenta }) {
 
   return (
     <>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 mt-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
           {r?.rango ? <>Extractos cargados: <span className="num">{fechaCorta(r.rango.desde)}</span> al <span className="num">{fechaCorta(r.rango.hasta)}</span> ({r.extractos} {r.extractos === 1 ? 'archivo' : 'archivos'}).</> : 'Aún no subiste ningún extracto de esta cuenta.'}
         </p>

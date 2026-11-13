@@ -1,3 +1,14 @@
+## 2026-11-13 — Modales y fechas en el iPhone (Claude Code, Opus 5.5) — push: NO (commit local)
+
+**Qué (Miguel, con capturas de la app: «no se ven bien esos paneles en mobile»):**
+- Campos de fecha: WebKit dibuja `<input type="date">` con su ancho propio e ignora `w-full`, así que en «Emitir recibo» se salían del modal por la derecha y el texto iba centrado. En el CSS global, `appearance: none` + `min-width: 0` en date/datetime-local/time/month, y el valor alineado a la izquierda.
+- Pie del `Modal`: en el celular los botones van apilados a lo ancho, con el principal arriba (`flex-col-reverse`, `[&>*]:w-full`). Antes, con tres botones, se partían en dos renglones desparejos. Desde `sm` vuelve la fila a la derecha. También deja espacio para el área segura de abajo.
+- Conciliación: «Subir extracto» quedaba pegado al resumen del periodo; se agregó `mb-4`.
+
+**Pruebas:** 2 pruebas de fuente en `tests/sinZoomEnIos.test.ts`; `tsc` 0; `vite build` ok. Suite completa: 4625 pasan y 5 fallan. Una de las fallas, `solo-lectura-ui` «la banda va dentro de la barra fija», ya fallaba sin estos cambios. Las otras 4 no las revisé.
+
+**Sin verificar:** en el iPhone, que se ve después de desplegar a torrecondominios.com.
+
 ## 2026-11-12 — Sin auto-zoom de iOS al escribir en un campo (Claude Code, Opus 5.5) — push: NO (commit local)
 
 **Qué (Miguel, desde las apps del iPhone: «se hace zoom al escribir en un input pero no se regresa a la vista normal»):** iOS (Safari y el WebView de la app) acerca la vista al enfocar un campo con letra < 16 px y no la devuelve. Regla en el CSS global: `@media (hover: none) and (pointer: coarse)` → `input` (salvo casillas, radio, rango, color, archivo), `textarea`, `select` y `[contenteditable]` a `font-size: max(16px, 1em) !important`. La computadora no cambia; NO se usa `maximum-scale` (el pellizco sigue). Mismo cambio en My Workspace, Torre, Facturo y el Portal de dealers. Llega a las apps al desplegar la web, sin reinstalar.

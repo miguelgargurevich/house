@@ -180,3 +180,22 @@ html.en-app .min-h-screen, html.en-app .min-h-svh { min-height: calc(100svh - va
     font-size: max(16px, 1em) !important;
   }
 }
+
+/* Fechas en iOS (2026-11-13, Miguel con captura del modal «Emitir recibo»: los campos de fecha se salían del modal por la derecha y el
+   texto iba centrado). WebKit dibuja <input type="date"> con su propio ancho mínimo e ignora `w-full`; sin `appearance` y con
+   `min-width: 0` respeta el ancho de la columna. El valor se alinea a la izquierda como el resto de los campos. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value {
+  text-align: left;
+}

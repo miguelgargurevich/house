@@ -17,3 +17,21 @@ test('en pantallas táctiles los campos van a 16 px como mínimo (sin auto-zoom 
 test('no se bloquea el zoom con los dedos: el viewport no lleva maximum-scale ni user-scalable=no', () => {
   assert.doesNotMatch(readFileSync('index.html', 'utf8'), /maximum-scale|user-scalable=no/);
 });
+
+// 2026-11-13, Miguel con capturas del iPhone: en «Emitir recibo» las fechas se salían del modal y los tres botones del pie se partían mal.
+test('las fechas no se salen de su columna en iOS: sin appearance nativa y con min-width 0', () => {
+  const i = css.indexOf('input[type="date"],\ninput[type="datetime-local"]');
+  assert.ok(i >= 0, 'falta la regla de los campos de fecha');
+  const regla = css.slice(i, css.indexOf('}', i) + 1);
+  assert.ok(regla.includes('appearance: none;'));
+  assert.ok(regla.includes('min-width: 0;'));
+});
+
+test('el pie del modal apila los botones a lo ancho en el celular y vuelve a la fila desde sm', () => {
+  const modal = readFileSync('src/ui/Modal.tsx', 'utf8');
+  const pie = modal.slice(modal.indexOf('<div data-modal-pie=""'), modal.indexOf('{footer}</div>'));
+  assert.ok(pie.includes('flex-col-reverse'));
+  assert.ok(pie.includes('[&>*]:w-full'));
+  assert.ok(pie.includes('sm:flex-row'));
+  assert.ok(pie.includes('sm:[&>*]:w-auto'));
+});

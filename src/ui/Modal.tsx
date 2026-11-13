@@ -67,7 +67,9 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             <IconButton label="Cerrar" data-modal-cerrar="" onClick={onClose} className="-mr-2 -mt-1"><XMarkIcon className="h-5 w-5" /></IconButton>
           </div>
           <div data-modal-cuerpo="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
-          {footer && <div data-modal-pie="" className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-4">{footer}</div>}
+          {/* En el celular los botones del pie van uno debajo del otro y a lo ancho, el principal (el último) arriba: con tres botones en fila
+              se partían en dos renglones desparejos (2026-11-13). Desde `sm` vuelven a la fila alineada a la derecha. */}
+          {footer && <div data-modal-pie="" className="flex shrink-0 flex-col-reverse gap-2 border-t border-line px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] [&>*]:w-full sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:[&>*]:w-auto">{footer}</div>}
         </div>
       )}
     </dialog>
