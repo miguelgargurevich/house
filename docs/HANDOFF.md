@@ -10,6 +10,18 @@ Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada
 
 ---
 
+## 2026-11-13 — App iOS/Android a pantalla completa, sin franjas blancas arriba y abajo (Claude Code, Opus 5.5; main) — push: no
+
+- **Pedido**: captura de Miguel (en My Workspace, mismo problema en Torre): iOS dejaba dos franjas blancas, arriba (barra de estado) y abajo (barra del inicio), y la web encogida entre ellas. Mismo arreglo que My Workspace (commit `31dd386b4` de dashboardia-llm).
+- **App (`mobile/`)**: `ios.contentInset: 'never'` (antes `'automatic'`); `@capacitor/status-bar` ^8.0.4 (Package.swift y gradle regenerados con `npm run sync:prod`; `npm run verificar` ok). Se quitó la franja nativa con desenfoque de `TorreViewController.swift` (ahora la zona la pinta la web). Comentario de `SystemBars` (Android) corregido: con `native` + `viewport-fit=cover` el WebView va de borde a borde en Chromium ≥ 140 y env() trae los valores reales.
+- **Web**: `index.html` con `viewport-fit=cover`. `public/theme-init.js` marca `<html class="en-app">` si el user agent trae `TorreApp/` (antes de pintar). `src/index.css`: `--techo`/`--suelo` valen `env(safe-area-inset-*)` SÓLO con `en-app` (0 en cualquier navegador, Safari del iPhone incluido); el body deja ese espacio, un `body::before` fijo del color `--bg` hace de techo bajo la hora, y `min-h-screen`/`min-h-svh` descuentan las franjas. `padding-left/right: env(safe-area-inset-left/right)` en el body para todos (iPhone horizontal con cover; 0 en lo demás). Ajustados: cabecera fija del Shell (`top-[var(--techo)]`), menú del celular, asistente a pantalla completa (también su alto con teclado), avisos (Toast), guía de la demo y la barra del visor de imágenes. `WhatsappFlotante` y `Compositor` ya usaban env().
+- **Hora legible**: `src/app/barraDeEstado.ts` (`estiloParaElFondo` entiende `rgb()` y `oklch()`) + `seguirAlTema()` en `main.tsx`: lee el fondo real del body y llama a `Capacitor.Plugins.StatusBar.setStyle`; vuelve a mirar cuando cambia la clase del `<html>` (tema). Sin plugin (app vieja) no hace nada.
+- **Pruebas**: 4 nuevas en `tests/instalar-app.test.ts` (contentInset never, viewport-fit=cover, en-app/--techo, estilo por brillo, plugin v8). Ese archivo 15/15; `npx tsc -b`, `npx tsc -p tests/tsconfig.json --noEmit` y `npm run build` en verde. No se corrió la suite completa (sólo cambió frontend/app).
+- **Sin probar en un iPhone ni en Android real**: hay que recompilar en la Mac: `cd mobile && npm install && npm run sync:prod` y abrir Xcode. La web (cambios de CSS) llega con el próximo deploy; en la app vieja (contentInset automatic) las variables valen lo mismo pero iOS ya reserva las zonas, así que podría verse un techo doble hasta recompilar → **desplegar la web y publicar la app juntas**, o aceptar ese rato.
+- **Próximo**: Miguel recompila y prueba en el iPhone (modo claro y oscuro, menú, asistente con teclado, visor de imágenes).
+
+---
+
 ## 2026-11-12 — Fotos de iPhone comprimidas en el navegador antes de subir (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/fotos-comprimidas`) — push: no
 
 - **Pedido de Miguel**: «haz lo de comprimir las fotos de iPhone» (tablero: los vouchers de iPhone pasan de 2 MB y el vecino no puede pagar con la foto).
