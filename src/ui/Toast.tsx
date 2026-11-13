@@ -21,7 +21,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={api}>
       {children}
       {/* Dos regiones vivas siempre montadas: los avisos son cortesía (status/polite), los errores interrumpen (alert/assertive). */}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2">
+      <div className="pointer-events-none fixed bottom-[calc(1rem+var(--suelo))] right-4 z-[60] flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2">
         <div role="status" aria-live="polite" className="flex flex-col gap-2">
           {items.filter(t => t.kind === 'ok').map(t => <Aviso key={t.id} item={t} />)}
         </div>

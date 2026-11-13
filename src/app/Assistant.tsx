@@ -138,7 +138,8 @@ export function Assistant({ open, onClose, escritorio, barra }: { open: boolean;
   const estilo = {
     '--ancho': `${open ? ancho : 0}px`,
     '--ancho-fijo': `${ancho}px`,
-    ...(!escritorio && visible ? { height: visible.height, top: visible.top, bottom: 'auto' } : {}),
+    // Dentro de la app (pantalla completa) empieza bajo la hora: --techo vale 0 en el navegador.
+    ...(!escritorio && visible ? { height: `calc(${visible.height}px - var(--techo))`, top: `calc(${visible.top}px + var(--techo))`, bottom: 'auto' } : {}),
   } as CSSProperties;
 
   return (
@@ -150,7 +151,7 @@ export function Assistant({ open, onClose, escritorio, barra }: { open: boolean;
       onKeyDown={teclas}
       style={estilo}
       className={cx(
-        open ? 'fixed inset-0 z-50 h-dvh' : 'hidden',
+        open ? 'fixed inset-0 top-[var(--techo)] z-50 h-[calc(100dvh-var(--techo))]' : 'hidden',
         'lg:sticky lg:inset-x-auto lg:bottom-auto lg:top-0 lg:z-20 lg:block lg:h-dvh lg:w-[var(--ancho)] lg:shrink-0 lg:overflow-hidden',
         !arrastrando && 'lg:transition-[width] lg:duration-200 lg:ease-out',
       )}

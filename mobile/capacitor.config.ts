@@ -32,7 +32,11 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
   },
   ios: {
-    contentInset: 'automatic',
+    // PANTALLA COMPLETA (13-nov, captura de Miguel con franjas blancas arriba y abajo). Con 'automatic' iOS reservaba la barra de
+    // estado y la del inicio con el fondo nativo (blanco) y la web quedaba encogida entre dos franjas. Con 'never' la web llega a los
+    // bordes y respeta las zonas seguras ella misma: index.html declara viewport-fit=cover y, sólo dentro de la app (user agent
+    // TorreApp/, clase `en-app` del <html>), src/index.css pinta el «techo» bajo la hora y deja libre la barra del inicio.
+    contentInset: 'never',
     webContentsDebuggingEnabled: !prod,
   },
   plugins: {
@@ -45,8 +49,8 @@ const config: CapacitorConfig = {
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
     },
-    // Barras del sistema: la web se muestra dentro de las zonas seguras (notch, barra de estado y de gestos) sin tocar nada de la web.
-    // `native` no inyecta CSS en la página remota; Torre no declara viewport-fit=cover, así que el WebView queda entre las barras.
+    // Barras del sistema en Android: con `native` y viewport-fit=cover (Chromium ≥ 140) el WebView va de borde a borde y env(safe-area-inset-*)
+    // trae los valores reales, que la web usa igual que en iOS; con un Chromium más viejo el WebView queda entre las barras y env() vale 0.
     SystemBars: {
       insetsHandling: 'native',
     },

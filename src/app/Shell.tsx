@@ -119,7 +119,7 @@ function ShellInterior() {
       </aside>
 
       {menu && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="fixed inset-0 top-[var(--techo)] z-40 lg:hidden">
           <div className="absolute inset-0 bg-ink/40" onClick={() => setMenu(false)} aria-hidden="true" />
           <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] border-r border-line bg-surface shadow-pop">
             <IconButton label="Cerrar menú" onClick={() => setMenu(false)} className="absolute right-2 top-2.5"><XMarkIcon className="h-5 w-5" /></IconButton>
@@ -129,7 +129,7 @@ function ShellInterior() {
       )}
 
       <div className="min-w-0 flex-1" inert={chat.abierto && !escritorio}>
-      <div className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur">
+      <div className="sticky top-[var(--techo)] z-30 border-b border-line bg-bg/85 backdrop-blur">
       {/* Demo de Torre: la franja fija (datos de ejemplo, cambiar de rol, crear cuenta, WhatsApp y «Qué probar»); en cualquier otra instancia no pinta nada. */}
       <FranjaDemo />
       {/* «Entrar como»: mientras el superadmin ve Torre como otra persona, la barra va arriba de todo y no se puede cerrar. */}

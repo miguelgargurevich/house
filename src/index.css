@@ -61,8 +61,21 @@
   color-scheme: dark;
 }
 
+/* Zonas seguras (13-nov). La app de iOS/Android va a pantalla completa (contentInset 'never', viewport-fit=cover): la web llega a
+   los bordes y deja libres ella misma la barra de estado (--techo) y la del inicio (--suelo). SÓLO dentro de la app (html.en-app,
+   public/theme-init.js): en Safari del iPhone la web pública sigue como siempre (las variables valen 0). */
+:root { --techo: 0px; --suelo: 0px; }
+html.en-app { --techo: env(safe-area-inset-top, 0px); --suelo: env(safe-area-inset-bottom, 0px); }
+html.en-app body { padding-top: var(--techo); padding-bottom: var(--suelo); }
+/* El TECHO: la franja bajo la hora, del color de la página (sigue al tema); lo que se desplaza pasa por debajo, no bajo la hora. */
+html.en-app body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 90; height: var(--techo); background: oklch(var(--bg)); pointer-events: none; }
+/* Las pantallas de alto completo descuentan las dos franjas: si no, sobraría un poco de desplazamiento. */
+html.en-app .min-h-screen, html.en-app .min-h-svh { min-height: calc(100svh - var(--techo) - var(--suelo)); }
+
 @layer base {
   html { -webkit-text-size-adjust: 100%; }
+  /* Con viewport-fit=cover, en el iPhone horizontal el contenido no debe quedar bajo la cámara (fuera de ese caso valen 0). */
+  body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
   body {
     @apply bg-bg text-ink font-sans antialiased;
     font-feature-settings: 'cv11', 'ss01';

@@ -31,7 +31,7 @@ export function VisorImagen({ src, alt, open, onClose }: { src: string; alt: str
     >
       {open && (
         <div className="flex h-full flex-col">
-          <div className="flex shrink-0 items-center justify-end gap-1 p-2 [&_button]:text-white [&_button:hover]:bg-white/15 [&_button:hover]:text-white">
+          <div className="flex shrink-0 items-center justify-end gap-1 p-2 pt-[calc(0.5rem+var(--techo))] [&_button]:text-white [&_button:hover]:bg-white/15 [&_button:hover]:text-white">
             <span className="mr-auto pl-2 text-sm tabular-nums text-white/80" aria-live="polite">{ajustada ? 'Ajustada a la pantalla' : `${Math.round(zoom * 100)} %`}</span>
             <IconButton label="Alejar" disabled={nivel === 0} onClick={() => setNivel(n => Math.max(0, n - 1))}><MagnifyingGlassMinusIcon className="h-5 w-5" /></IconButton>
             <IconButton label="Acercar" disabled={nivel === ZOOMS.length - 1} onClick={() => setNivel(n => Math.min(ZOOMS.length - 1, n + 1))}><MagnifyingGlassPlusIcon className="h-5 w-5" /></IconButton>

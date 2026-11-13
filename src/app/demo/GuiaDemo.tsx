@@ -24,7 +24,7 @@ export function GuiaDemo({ rol, urlManual, marcadas, onAlternar, onLimpiar, onCe
     <aside
       role="complementary"
       aria-label="Qué probar en la demo"
-      className="fixed bottom-4 right-4 z-40 flex max-h-[min(34rem,calc(100vh-7rem))] w-[22rem] max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-line bg-surface shadow-pop"
+      className="fixed bottom-[calc(1rem+var(--suelo))] right-4 z-40 flex max-h-[min(34rem,calc(100vh-7rem))] w-[22rem] max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-line bg-surface shadow-pop"
     >
       <header className="flex items-start justify-between gap-2 border-b border-line px-4 py-3">
         <div className="min-w-0">

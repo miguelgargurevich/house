@@ -18,19 +18,8 @@ class TorreViewController: CAPBridgeViewController {
         web.navigationDelegate = envoltura
     }
 
-    // El WebView ocupa toda la pantalla (Capacitor lo usa como la vista raíz): al hacer scroll, el contenido pasaría por debajo de la hora
-    // y la isla dinámica. Una franja con desenfoque nativo cubre sólo la zona de la barra de estado, como en Android (SystemBars).
-    private let franjaSuperior = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
-
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        if franjaSuperior.superview == nil {
-            franjaSuperior.isUserInteractionEnabled = false
-            view.addSubview(franjaSuperior)
-        }
-        franjaSuperior.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: view.safeAreaInsets.top)
-        view.bringSubviewToFront(franjaSuperior)
-    }
+    // Antes había aquí una franja nativa con desenfoque sobre la barra de estado. Desde que la app va a pantalla completa
+    // (contentInset 'never', 13-nov) esa zona la pinta la web (el «techo» de src/index.css, del color del tema) y la franja sobraba.
 }
 
 /// Envuelve el delegado de navegación de Capacitor: todo lo reenvía tal cual, salvo qué hacer con las descargas.

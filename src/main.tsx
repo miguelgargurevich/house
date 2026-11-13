@@ -4,6 +4,10 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary, recargarUnaVez } from './app/ErrorBoundary'
 import './app/instalar' // escucha el aviso de instalación desde la primera pantalla (llega antes de iniciar sesión)
+import { seguirAlTema } from './app/barraDeEstado'
+
+// Dentro de la app de iOS/Android: la hora y la batería, claras u oscuras según el fondo del tema (no hace nada en el navegador).
+seguirAlTema();
 
 // Vite avisa cuando falla la precarga de un archivo (nueva versión publicada con la pestaña abierta).
 // No se llama a preventDefault(): con eso la importación devolvería `undefined` y React.lazy fallaría con un

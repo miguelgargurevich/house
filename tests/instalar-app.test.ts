@@ -106,3 +106,37 @@ describe('Dentro de la app no se ofrece descargar la app', () => {
     assert.match(marco.slice(Math.max(0, i - 160), i), /\{muestraBloques\(agente\(\)\) && \(/);
   });
 });
+
+describe('App de iOS/Android a pantalla completa, sin franjas blancas arriba y abajo (13-nov, captura de Miguel)', () => {
+  it('iOS no reserva las barras (contentInset never) y la web declara viewport-fit=cover', () => {
+    assert.match(fuente('mobile/capacitor.config.ts'), /contentInset: 'never'/);
+    assert.equal(fuente('mobile/capacitor.config.ts').includes("contentInset: 'automatic'"), false);
+    assert.match(fuente('index.html'), /<meta name="viewport" content="[^"]*viewport-fit=cover[^"]*"/);
+  });
+
+  it('las zonas seguras se respetan SÓLO dentro de la app: la clase en-app sale del mismo user agent', () => {
+    const init = fuente('public/theme-init.js');
+    assert.ok(init.includes(String.raw`if (/\bTorreApp\//.test(navigator.userAgent)) document.documentElement.classList.add('en-app');`));
+    const css = fuente('src/index.css');
+    assert.match(css, /:root \{ --techo: 0px; --suelo: 0px; \}/);
+    assert.match(css, /html\.en-app \{ --techo: env\(safe-area-inset-top, 0px\); --suelo: env\(safe-area-inset-bottom, 0px\); \}/);
+    assert.match(css, /html\.en-app body::before \{[^}]*position: fixed;[^}]*height: var\(--techo\)/);
+    assert.match(fuente('src/app/Shell.tsx'), /sticky top-\[var\(--techo\)\]/);
+    assert.match(fuente('src/main.tsx'), /seguirAlTema\(\);/);
+  });
+
+  it('la hora se lee: texto claro sobre el fondo oscuro del tema y oscuro sobre el claro', async () => {
+    const { estiloParaElFondo } = await import('../src/app/barraDeEstado');
+    assert.equal(estiloParaElFondo('oklch(0.978 0.005 160)'), 'LIGHT');
+    assert.equal(estiloParaElFondo('oklch(0.175 0.012 175)'), 'DARK');
+    assert.equal(estiloParaElFondo('rgb(255, 255, 255)'), 'LIGHT');
+    assert.equal(estiloParaElFondo('rgba(15, 23, 42, 1)'), 'DARK');
+    assert.equal(estiloParaElFondo(''), null);
+    assert.equal(estiloParaElFondo(undefined), null);
+  });
+
+  it('la app trae el plugin de la barra de estado (versión 8, como los demás)', () => {
+    const pkg = JSON.parse(fuente('mobile/package.json'));
+    assert.match(pkg.dependencies['@capacitor/status-bar'], /^\^8\./);
+  });
+});
