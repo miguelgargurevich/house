@@ -1,3 +1,10 @@
+## 2026-11-14 — Estado de lo publicado (Claude Code, Opus 5.5)
+
+- **Pantalla de arranque animada: publicada** (30db189, desplegada en Coolify, app torre). La entrada de abajo dice «push: no»: era el estado de su rama. Verificado: `torrecondominios.com/login` trae `#arranque-app` y `/arranque-app.js` responde 200. Vista en el iPhone de Miguel.
+- **Gotcha del despliegue:** durante el relevo de contenedores `arranque-app.js` alternó 200/404 (dos contenedores sirviendo a la vez, el viejo sin el archivo). Se resuelve solo cuando queda el nuevo: `docker ps | grep b4goasky` muestra uno.
+- **Suite:** las fallas de `npm test` varían entre corridas (5, 7, 8) y son de la base de prueba (demo, recibos, fechas «de hoy» por zona horaria: en UTC ya es otro día pasadas las 19:00 de Lima) y de otras corridas usando `house_test` a la vez. Ninguna es de la pantalla de arranque.
+- **Apps:** reinstaladas en el iPhone 15 y el ZTE Blade A54 con el splash nuevo. La firma de iOS vence el 20-nov.
+
 ## 2026-11-13 — Pantalla de arranque animada con el logo en la app (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/splash-animado`) — push: no
 
 - **Pedido de Miguel**: al abrir la app sale el splash nativo estático y luego una pantalla en blanco hasta que carga la web. Quiere una animación divertida y elegante del logo mientras carga.
