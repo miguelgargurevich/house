@@ -19,9 +19,65 @@
     <title>Torre · Administración de condominios</title>
     <meta name="description" content="Torre ordena recibos, pagos y morosidad de edificios y condominios en el Perú. Empieza gratis." />
     <script src="/theme-init.js"></script>
+    <!-- Pantalla de arranque de la app de iOS/Android (#arranque-app). Va en línea para pintarse antes que el bundle de JS. Oculta en el
+         navegador: sólo se ve con html.en-app (theme-init.js). Sólo transform y opacity (60 fps). Forma y medidas = IconoTorre (src/ui/IconoTorre.tsx),
+         sin la baldosa, como el splash nativo (mobile/assets/splash.png): fondo #0f766e = el del splash nativo (mobile/capacitor.config.ts). -->
+    <style>
+      #arranque-app { display: none; }
+      html.en-app #arranque-app {
+        position: fixed; inset: 0; z-index: 2147483000;
+        display: flex; align-items: center; justify-content: center;
+        background: #0f766e; pointer-events: none;
+        transition: opacity 250ms ease;
+      }
+      #arranque-app.salir { opacity: 0; }
+      #arranque-app .arr-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      #arranque-app svg { width: min(42vmin, 240px); height: auto; overflow: visible; animation: arr-fundido 300ms ease both; }
+      /* Entrada: el edificio cae, gira y rebota; las ventanas se encienden en cascada y la puerta sube. Después respira y las luces parpadean. */
+      #arranque-app .arr-entra { transform-origin: 16px 16px; animation: arr-entra 900ms cubic-bezier(.2, .9, .25, 1.15) both; }
+      #arranque-app .arr-respira { transform-origin: 16px 16px; animation: arr-respira 2600ms ease-in-out 1400ms infinite alternate; }
+      #arranque-app .arr-ventana { transform-box: fill-box; transform-origin: center; animation: arr-pop 380ms cubic-bezier(.3, 1.6, .5, 1) calc(550ms + var(--i) * 70ms) both; }
+      #arranque-app .arr-luz { animation: arr-luz 2400ms ease-in-out calc(1600ms + var(--i) * 140ms) infinite; }
+      #arranque-app .arr-puerta { transform-box: fill-box; transform-origin: center bottom; animation: arr-puerta 500ms ease-out 900ms both; }
+      @keyframes arr-fundido { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes arr-entra {
+        0% { opacity: 0; transform: translateY(18px) scale(.7) rotate(-9deg); }
+        55% { opacity: 1; transform: translateY(-5px) scale(1.04) rotate(2deg); }
+        78% { transform: translateY(1px) scale(.985) rotate(-.6deg); }
+        100% { opacity: 1; transform: none; }
+      }
+      @keyframes arr-pop { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
+      @keyframes arr-puerta { from { opacity: 0; transform: translateY(6px) scaleY(.4); } to { opacity: 1; transform: none; } }
+      @keyframes arr-respira { from { transform: scale(1); } to { transform: scale(1.035); } }
+      @keyframes arr-luz { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+      /* Con «reducir movimiento»: sin giro ni rebote ni parpadeo; sólo un fundido. */
+      @media (prefers-reduced-motion: reduce) {
+        #arranque-app .arr-entra, #arranque-app .arr-respira, #arranque-app .arr-ventana,
+        #arranque-app .arr-luz, #arranque-app .arr-puerta { animation: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="arranque-app" role="status" aria-live="polite">
+      <span class="arr-sr">Cargando Torre…</span>
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <g class="arr-entra">
+          <g class="arr-respira">
+            <rect x="10" y="5.5" width="12" height="21" rx="1.6" fill="none" stroke="#fff" stroke-width="2" />
+            <g class="arr-ventana" style="--i: 0"><rect class="arr-luz" x="13" y="9.5" width="2.2" height="2.2" rx="0.4" fill="#fff" /></g>
+            <g class="arr-ventana" style="--i: 1"><rect class="arr-luz" x="16.8" y="9.5" width="2.2" height="2.2" rx="0.4" fill="#fff" /></g>
+            <g class="arr-ventana" style="--i: 2"><rect class="arr-luz" x="13" y="13.8" width="2.2" height="2.2" rx="0.4" fill="#fff" /></g>
+            <g class="arr-ventana" style="--i: 3"><rect class="arr-luz" x="16.8" y="13.8" width="2.2" height="2.2" rx="0.4" fill="#fff" /></g>
+            <g class="arr-ventana" style="--i: 4"><rect class="arr-luz" x="13" y="18.1" width="2.2" height="2.2" rx="0.4" fill="#fff" /></g>
+            <g class="arr-ventana" style="--i: 5"><rect class="arr-luz" x="16.8" y="18.1" width="2.2" height="2.2" rx="0.4" fill="#fff" /></g>
+            <g class="arr-puerta"><rect x="14.6" y="21.6" width="2.8" height="4.9" fill="#fff" /></g>
+          </g>
+        </g>
+      </svg>
+    </div>
     <div id="root"></div>
+    <!-- Clásico y antes del bundle: decide si la pantalla se queda (sólo en la app), oculta el splash nativo y se quita sola (public/arranque-app.js). -->
+    <script src="/arranque-app.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

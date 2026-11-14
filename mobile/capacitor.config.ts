@@ -41,7 +41,10 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1500,
+      // Dura lo mínimo para empalmar con la pantalla animada de la web (index.html, #arranque-app), que el propio puente nativo lo oculta
+      // en cuanto se pinta (public/arranque-app.js → nativePromise('SplashScreen', 'hide')). Este temporizador nativo es la red de seguridad:
+      // si la web no llega (sin red → offline.html, o el puente falla), el splash se va solo a los 3 s. Con launchAutoHide: false, nada lo quitaría.
+      launchShowDuration: 3000,
       launchAutoHide: true,
       launchFadeOutDuration: 300,
       backgroundColor: '#0f766e',

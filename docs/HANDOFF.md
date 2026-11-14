@@ -1,3 +1,23 @@
+## 2026-11-13 — Pantalla de arranque animada con el logo en la app (Claude Code, Haiku 5.5, delegado por Opus; rama `feat/splash-animado`) — push: no
+
+- **Pedido de Miguel**: al abrir la app sale el splash nativo estático y luego una pantalla en blanco hasta que carga la web. Quiere una animación divertida y elegante del logo mientras carga.
+- **Hecho**:
+  - `index.html`: pantalla `#arranque-app` en línea (HTML + CSS, sin esperar al bundle). Dibuja el edificio del splash nativo (`mobile/assets/splash.png`), con la forma de `IconoTorre`, sin baldosa, sobre `#0f766e`. Entra con giro y rebote, las 6 ventanas se encienden en cascada y la puerta sube; después respira y las luces parpadean. Sólo `transform` y `opacity`. Con `prefers-reduced-motion`, sólo un fundido.
+  - `public/arranque-app.js` (clásico, antes del bundle): sin `html.en-app` (user agent `TorreApp/`, lo pone `theme-init.js`) retira el marcado, así que en el navegador no cambia nada. En la app, tras dos cuadros oculta el splash nativo; se quita con `window.torreArranque.quitar()` y tiene red de seguridad a los 8 s.
+  - `src/app/pantallaDeArranque.ts` + `src/App.tsx`: `useEffect` al montar `App` llama a `quitarPantallaDeArranque()`.
+  - `mobile/capacitor.config.ts`: `launchShowDuration` 1500 → 3000; `launchAutoHide` queda en `true`.
+- **Decisiones**:
+  - **`Capacitor.Plugins.SplashScreen` no existe en la web** (Torre no importa `@capacitor/*`), así que el `hide()` directo no haría nada. Se usa `window.Capacitor.nativePromise('SplashScreen', 'hide', {})`, que el bridge nativo de iOS y Android inyecta en la web remota (verificado en `mobile/node_modules/@capacitor/ios/.../native-bridge.js`).
+  - `launchAutoHide` **queda en `true`** (el brief pedía `false`): si la web no llega (sin red → `offline.html`, o el puente falla), el splash nativo se va solo a los 3 s. Con `false` nada lo quitaría.
+  - Color: el fondo de la pantalla es el `#0f766e` del splash nativo, para que no parpadee. La baldosa del favicon se omitió: tendría el mismo color que el fondo y no se vería.
+- **Pruebas**: `tests/pantalla-arranque.test.ts` 13/13 (fuente, y comportamiento ejecutando `public/arranque-app.js` en `node:vm` con DOM falso). `npx tsc -b --noEmit` y `npx tsc -p tests/tsconfig.json --noEmit`: exit 0. `npx vite build`: exit 0. Mutaciones (todas en rojo, archivo restaurado y verificado con `cmp`): sin la condición `en-app` → 1 fallo; sin la red de 8 s → 1 fallo; `App` sin `quitarPantallaDeArranque()` → 1 fallo.
+- **Suite completa** (`npm test`, base `house_test`): 4636 pasan, 7 fallan, 6 canceladas (cascada de `demo-seed`). Ninguna de las pruebas que fallan lee `App.tsx`, `index.html` ni `capacitor.config.ts`, y el servidor no cambió: `demo-seed` exige una base que termine en `_demo`; `zona-horaria` asume otra fecha («a esa fecha ya vencieron», hoy es 2026-11-13); `corregir-recibos` («solo lectura no deja anular»: 200 en vez de 409), `personas-unidad` (solo lectura) y `recibos-excel` no los revisé a fondo; `solo-lectura-ui` «la banda va dentro de la barra fija» es la falla conocida. Se reproducen al correr cada archivo solo. No se arreglaron.
+- **Próximos pasos**: Opus revisa el diff y la suite; recompilar la app (`cd mobile && npm run sync:prod`, Xcode y Android Studio) porque cambia la config nativa; probar en iPhone y Android: empalme splash → web, `offline.html`, «reducir movimiento», y que en el navegador no aparezca nada.
+- **Gotchas**:
+  - Lanzar `npm test` con `( … ) &` deja procesos huérfanos que siguen escribiendo en `house_test` y en el log: pasó en esta sesión. Usar el comando directo en segundo plano.
+  - El cambio de web llega con el deploy; el de `capacitor.config.ts` sólo al recompilar la app.
+  - `mobile/www-src/offline.html` no se tocó (fuera de alcance); lo cubre el temporizador nativo de 3 s.
+
 ## 2026-11-13 — Modales y fechas en el iPhone (Claude Code, Opus 5.5) — push: SÍ (bd4b357, desplegado y verificado)
 
 **Qué (Miguel, con capturas de la app: «no se ven bien esos paneles en mobile»):**

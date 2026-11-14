@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, HOME, useAuth } from './auth/AuthContext';
 import { RequireAuth, RequireJunta, RequireRole } from './auth/guards';
@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Portada from './pages/publico/Portada';
 import { puedeSerDemo, useModoDemo } from './app/demo/useDemo';
 import { esRutaDeLaApp } from './pages/publico/rutasApp';
+import { quitarPantallaDeArranque } from './app/pantallaDeArranque';
 
 const SuperadminDashboard = lazy(() => import('./pages/superadmin/Dashboard'));
 const SuperadminEmpresas = lazy(() => import('./pages/superadmin/Empresas'));
@@ -99,6 +100,10 @@ function RaizPublica() {
 }
 
 export default function App() {
+  // La app ya montó su primera pantalla: se quita la pantalla de arranque de la app de iOS/Android (en el navegador no hay ninguna).
+  useEffect(() => {
+    quitarPantallaDeArranque();
+  }, []);
   return (
     <BrowserRouter>
       <AuthProvider>
