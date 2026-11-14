@@ -1,4 +1,4 @@
-## 2026-11-13 — Modales y fechas en el iPhone (Claude Code, Opus 5.5) — push: NO (commit local)
+## 2026-11-13 — Modales y fechas en el iPhone (Claude Code, Opus 5.5) — push: SÍ (bd4b357, desplegado y verificado)
 
 **Qué (Miguel, con capturas de la app: «no se ven bien esos paneles en mobile»):**
 - Campos de fecha: WebKit dibuja `<input type="date">` con su ancho propio e ignora `w-full`, así que en «Emitir recibo» se salían del modal por la derecha y el texto iba centrado. En el CSS global, `appearance: none` + `min-width: 0` en date/datetime-local/time/month, y el valor alineado a la izquierda.
@@ -20,6 +20,8 @@
 Registro entre agentes de código (Claude Code, OpenCode, Cline…). Una entrada por sesión significativa, la más reciente arriba. Actualiza secciones; no reescribas la historia ajena.
 
 ---
+
+**Actualización 13-nov (noche):** subido a main y desplegado en Coolify (app torre); torrecondominios.com sirve el CSS nuevo (`::-webkit-date-and-time-value` y el pie apilado). La app de Android también se recompiló (`sync:prod` + `assembleDebug`) e instaló en el ZTE Blade A54 de Miguel; la de iPhone no hizo falta (carga la web). Falta verlo en el teléfono.
 
 ## 2026-11-13 — App iOS/Android a pantalla completa, sin franjas blancas arriba y abajo (Claude Code, Opus 5.5; main) — push: no
 
