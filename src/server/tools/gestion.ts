@@ -638,7 +638,7 @@ export const tareasDeMantenimiento = defineHerramienta({
 
 export const avisosRecientes = defineHerramienta({
   nombre: 'avisos_recientes',
-  descripcion: 'Resumen de los avisos enviados por correo y WhatsApp en los últimos días: cuántos por tipo, canal y estado (enviado, pendiente, fallido). No incluye destinatarios ni el texto. Úsala para «¿se enviaron los avisos de vencimiento?». Ejemplo: {"dias":7}.',
+  descripcion: 'Resumen de los avisos enviados por correo, WhatsApp y push en los últimos días: cuántos por tipo, canal y estado (enviado, pendiente, fallido). No incluye destinatarios ni el texto. Úsala para «¿se enviaron los avisos de vencimiento?». Ejemplo: {"dias":7}.',
   entrada: z.strictObject({ dias: z.number().int().min(1).max(90).default(30), tipo: textoCorto(40).optional(), estado: textoCorto(20).optional() }),
   roles: GESTION,
   solo_lectura: true,

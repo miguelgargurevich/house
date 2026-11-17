@@ -41,6 +41,7 @@ import { empresasRouter } from './routes/empresas';
 import { estadoCuentaRouter } from './routes/estadoCuenta';
 import { estructurasRouter } from './routes/estructuras';
 import { avisosPersonalesRouter } from './routes/avisosPersonales';
+import { pushRouter } from './routes/push';
 import { meRouter } from './routes/me';
 import { mediosPagoMeRouter, mediosPagoRouter } from './routes/mediosPago';
 import { notificacionesRouter } from './routes/notificaciones';
@@ -135,6 +136,7 @@ export function createApp(opts: AppOptions = {}) {
   api.use('/llavero', llaveroRouter(limiters.llavero));
   api.use('/me/tokens-api', tokensApiRouter); // antes de /me: tokens de API (MCP) del propio usuario
   api.use('/me/avisos', avisosPersonalesRouter); // antes de /me: ruta propia, sin tocar me.ts
+  api.use('/me/push', pushRouter); // antes de /me: los dispositivos (app y navegador) que reciben avisos push
   api.use('/me/medios-pago', mediosPagoMeRouter); // antes de /me: ruta propia, sin tocar me.ts
   api.use('/me/canales', soloSesionPropia, canalesMeRouter); // antes de /me: vincular el WhatsApp propio
   api.use('/me', meRouter(limiters.password));

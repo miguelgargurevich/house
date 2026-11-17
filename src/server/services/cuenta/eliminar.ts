@@ -85,6 +85,7 @@ export async function eliminarCuenta(usuarioId: number): Promise<ResultadoElimin
 
     // Acceso y avisos.
     await tx.tokenApi.deleteMany({ where: { usuario_id: u.id } });
+    await tx.dispositivoPush.deleteMany({ where: { usuario_id: u.id } }); // sus teléfonos y navegadores de avisos push (la fila se anonimiza, no se borra: no hay cascada)
     await tx.canalVinculado.deleteMany({ where: { usuario_id: u.id } }); // WhatsApp y Telegram propios (sus pendientes caen en cascada)
     await tx.codigoVinculacion.deleteMany({ where: { usuario_id: u.id } });
     await tx.tokenInvitacion.deleteMany({ where: { usuario_id: u.id } });

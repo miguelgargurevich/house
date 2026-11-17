@@ -2,6 +2,7 @@ import { migrarPersonas } from './server/services/personas/sincronizar';
 import { app } from './server/app';
 import { iniciarLimpieza } from './server/services/sesiones';
 import { iniciarPlanificador, planificadorActivo } from './server/services/avisos';
+import { mensajeDeArranque as mensajesDePush } from './server/services/push/config';
 import { iniciarTareasAsistente } from './server/services/asistente/planificador';
 import { prisma } from './server/db';
 import { crearContratosIniciales } from './server/lib/contratosIniciales';
@@ -35,6 +36,8 @@ migrarPersonas()
 app.listen(PORT, () => {
   console.log(`Servidor backend escuchando en puerto ${PORT}`);
   if (planificadorActivo()) iniciarPlanificador();
+  // Avisos push: sin las variables de FCM / VAPID el canal queda apagado (los avisos push se omiten); sólo se dice cuál y qué falta.
+  for (const linea of mensajesDePush()) console.log(linea);
   iniciarTareasAsistente();
   // Tipo de cambio PEN/USD (los países que no son Perú pagan en dólares): lo lee solo cada 24 h, salvo que el superadmin lo haya fijado a mano.
   iniciarTipoCambio();

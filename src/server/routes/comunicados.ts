@@ -31,7 +31,7 @@ export function formatear<T extends ConAutor>(c: T) {
   return { ...c, autor: c.autor ? { id: c.autor.id, nombre: c.autor.nombre } : null, origen: origenDe(c.autor) };
 }
 
-/** Cuántos envíos (correo y WhatsApp) tuvo cada comunicado, por estado. Sólo cuentan los que quien mira alcanza (`scopeNotificaciones`). */
+/** Cuántos envíos (correo, WhatsApp y push) tuvo cada comunicado, por estado. Sólo cuentan los que quien mira alcanza (`scopeNotificaciones`). */
 export type Envios = { total: number; pendiente: number; enviada: number; error: number; omitida: number };
 
 /** Los envíos de una página de comunicados en UNA consulta (no una por comunicado). Sin envíos = todo en cero. */

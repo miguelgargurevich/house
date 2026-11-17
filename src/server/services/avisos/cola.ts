@@ -12,6 +12,9 @@ import { montoDeMoraAplicable, montoMoraTexto } from '../mora';
 import { moduloActivo } from '../comercial/modulos';
 import { dineroTexto, enlaceDeAviso, fechaTexto, periodoTexto, plantilla, type TipoAviso } from './plantillas';
 import { correoDeAviso } from './correoAviso';
+import { tieneDispositivos } from '../push/dispositivos';
+import { enviarPushDeAviso } from '../push/enviar';
+import { TIPOS_CON_PUSH, textoPush } from '../push/textos';
 import { empresaDeAviso as empresaDeAvisoBase } from '../marca/avisos';
 import { marcaParaCorreo } from '../marca/servicio';
 import { correoSinBuzon } from '../invitaciones';
@@ -323,12 +326,20 @@ export async function encolarAviso(tipo: TipoAviso, usuarioId: number, ref: RefA
   const canales = await canalesDe(tipo, u, await listaWhatsappDe(tipo, { ref_entidad: ref.entidad, ref_id: ref.id }));
   // `opts.canales` acota (un comunicado puede ir sólo por correo o sólo por WhatsApp); nunca agrega un canal que la persona no aceptó.
   if (opts.canales) for (let i = canales.length - 1; i >= 0; i--) if (!(opts.canales as readonly string[]).includes(canales[i]!)) canales.splice(i, 1);
-  if (!canales.length) return 0;
+  // El push es un canal más de la misma cola, pero lo decide otra cosa: que la persona tenga un dispositivo registrado (así lo pidió). No depende de `opts.canales`
+  // (que acota correo y WhatsApp) ni de sus preferencias de correo. Su texto es propio y corto (`textoPush`: sin montos ni nombres).
+  const conPush = TIPOS_CON_PUSH.has(tipo) && (await tieneDispositivos(u.id));
+  if (!canales.length && !conPush) return 0;
   const cargado = await cargarDatos(tipo, u, ref, ahora);
   if (!cargado) return 0;
-  const { asunto, cuerpo } = plantilla(tipo, opts.motivo ? { ...cargado.datos, motivo: opts.motivo.slice(0, 300) } : cargado.datos);
+  const datos = opts.motivo ? { ...cargado.datos, motivo: opts.motivo.slice(0, 300) } : cargado.datos;
+  const { asunto, cuerpo } = plantilla(tipo, datos);
+  const filas: { canal: string; asunto: string; cuerpo: string }[] = canales.map((canal) => ({ canal, asunto, cuerpo }));
+  const push = conPush ? textoPush(tipo, datos) : null;
+  if (push) filas.push({ canal: 'push', asunto: push.titulo, cuerpo: push.cuerpo });
+  if (!filas.length) return 0;
   const r = await prisma.notificacion.createMany({
-    data: canales.map((canal) => ({ usuario_id: u.id, canal, tipo, asunto, cuerpo, estado: 'pendiente', programada_para: ahora, ref_entidad: ref.entidad, ref_id: ref.id })),
+    data: filas.map((f) => ({ usuario_id: u.id, canal: f.canal, tipo, asunto: f.asunto, cuerpo: f.cuerpo, estado: 'pendiente', programada_para: ahora, ref_entidad: ref.entidad, ref_id: ref.id })),
     skipDuplicates: true,
   });
   return r.count;
@@ -639,7 +650,7 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
     where: { estado: 'pendiente', programada_para: { lte: ahora } },
     orderBy: [{ programada_para: 'asc' }, { id: 'asc' }],
     take: limite,
-    include: { usuario: { select: { email: true, telefono: true, nombre: true, rol: true } } },
+    include: { usuario: { select: { email: true, telefono: true, nombre: true, rol: true, eliminada_at: true } } },
   });
   // Por instancia, en esta pasada: las que ya tuvieron un WhatsApp (la pausa va entre ellos) y cuántos salieron hoy (para el tope).
   const instanciasUsadas = new Set<string>();
@@ -700,6 +711,9 @@ export async function procesarCola(deps: DepsAvisos = depsReales(), limite = 50,
           if (instancia) instanciasUsadas.add(instancia);
         });
       }
+    } else if (n.canal === 'push') {
+      // Avisos push (app y navegador): a todos los dispositivos de la persona, con FCM y Web Push. Sin variables o sin dispositivos, se omite.
+      r = await enviarPushDeAviso(deps, n);
     } else if (n.canal === 'telegram') {
       // El bot de Telegram es parte del módulo «Asistente con IA». Un resultado de pago no sale por Telegram (sólo correo).
       r = RESULTADOS_PAGO.includes(n.tipo)
