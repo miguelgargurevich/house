@@ -322,3 +322,7 @@ npx cap open ios                  # Xcode
 Depuración: con un build de desarrollo, Chrome en tu Mac > `chrome://inspect` muestra el WebView de la app. Logs nativos: `adb logcat -s Capacitor Capacitor/Console`.
 
 Pantallas de la prueba en emulador (Android, 10-nov-2026): se guardaron en `.claude/app-movil/capturas/` del worktree de la rama `feat/app-movil` (no se commitean).
+
+## Avisos push
+
+La app lleva `@capacitor/push-notifications` (sólo Android por ahora; iPhone preparado y apagado) y el permiso `POST_NOTIFICATIONS`. **Sin `google-services.json` el APK puede cerrarse al registrarse** (según el código de Capacitor; no probado en teléfono): el archivo va ANTES de las variables `FCM_*` del servidor. Todo el procedimiento (Firebase, VAPID, iPhone, orden, verificación y lo no probado) está en [`docs/push/README.md`](push/README.md).

@@ -1,3 +1,18 @@
+## 2026-11-17 — Avisos push: app (Android) y navegador (Claude Code, Sonnet 5.5, delegado por Opus; rama `feat/push-notificaciones`) — push a git: no
+
+- **Pedido de Miguel**: «lo mismo del push» de My Workspace/Portal para Torre. Receta: `portal-dealers-vendedores` (FCM HTTP v1 + puente Capacitor).
+- **Hecho** (todo lo tocó esta sesión; detalle y pasos para Miguel en `docs/push/README.md`):
+  - El push es **un canal más de la cola `Notificacion`** (`canal='push'`), no un sistema aparte: la clave única de la fila ya evita repetir, así que no hay tabla de «enviados». Tabla nueva `DispositivoPush` (`prisma/schema.prisma`; producción la crea con `db push` al arrancar).
+  - Backend: `src/server/services/push/` (config por env, textos sin montos, FCM, Web Push con `web-push`, lista cerrada de endpoints contra SSRF, envío), `routes/push.ts` (`/api/me/push/{config,dispositivos,dispositivos/baja}`), `encolarAviso`/`procesarCola` (`services/avisos/cola.ts`), borrado al eliminar cuenta, línea de log al arrancar. Contrato en `docs/API-CONTRATO.md`.
+  - Web: `public/sw.js`, `src/app/push.ts`, `AvisosPushPerfil` en Mi perfil. App: `src/app/pushApp.ts` (+`pushServidor.ts`, `usePush.ts`), `@capacitor/push-notifications` en `mobile/` + `cap sync android` + permiso `POST_NOTIFICATIONS`; baja del dispositivo al cerrar sesión (`AuthContext`).
+- **Próximos pasos (Miguel)**: Web Push = sólo VAPID en Coolify. Android = `google-services.json` en `mobile/android/app/` → compilar/publicar APK → RECIÉN después `FCM_PROJECT_ID` y `FCM_SERVICE_ACCOUNT_BASE64`. iPhone: cuenta de pago, APNs en Firebase, capability en Xcode, SDK de Firebase en `mobile/ios` y entonces `IOS_LISTO = true` (hoy `false`; no toqué la firma).
+- **Decisiones**: FCM sólo borra el dispositivo con `UNREGISTERED`/400 «registration token» (un 404 a secas no: un proyecto mal escrito borraría todos); sin silenciar por tipo; `pago_validado` e `ia_restablecida` no se empujan.
+- **Gotchas**: (1) `register()` del plugin sin `google-services.json` puede tumbar la app (código de Capacitor; no probado en teléfono): por eso la web sólo registra si `GET /api/me/push/config` dice `fcm:true`, y `verificar.mjs` avisa. (2) Safari de iPhone sólo hace Web Push con Torre instalada en inicio. (3) `npm i web-push` entra en la raíz; `mobile/` tiene `node_modules` propio. (4) Pruebas con `TEST_DATABASE_URL`, no sólo `DATABASE_URL`.
+- **Pruebas**: `npm test` (base `house_test_push`): 4757 pruebas, 4744 pasan, 7 fallan, 6 canceladas; baseline previo 4649/4636/7/6 con las MISMAS 7 fallas (demo-seed, negocio, recibos-excel, solo-lectura-ui, zona-horaria: fechas «de hoy»/base `_demo`). 11 archivos `tests/push-*.test.ts` (+108). 30 mutaciones: 29 en rojo, 1 equivalente. Nada se probó contra Firebase ni un navegador reales (`fetch` inyectado; Web Push verificado descifrando el mensaje y la firma VAPID). Una corrida con `tsc` en paralelo hizo fallar por tiempo `uso-del-mes`; no se repitió limpia.
+
+
+
+
 ## 2026-11-14 — Estado de lo publicado (Claude Code, Opus 5.5)
 
 - **Pantalla de arranque animada: publicada** (30db189, desplegada en Coolify, app torre). La entrada de abajo dice «push: no»: era el estado de su rama. Verificado: `torrecondominios.com/login` trae `#arranque-app` y `/arranque-app.js` responde 200. Vista en el iPhone de Miguel.
