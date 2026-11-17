@@ -28,4 +28,9 @@ for (const rel of archivos) {
   console.log(problemas.length ? `X ${rel}: ${problemas.join('; ')}` : `ok ${rel}`);
   mal += problemas.length;
 }
+// Avisos push de Android: el plugin llama a Firebase y, SIN `google-services.json` en el APK, `register()` lanza una excepción que el puente de Capacitor
+// relanza como RuntimeException (puede cerrar la app). La web sólo lo llama si el servidor tiene FCM configurado (variables FCM_*); por eso el archivo va ANTES que las variables.
+if (!existsSync(join(raiz, 'android/app/google-services.json'))) {
+  console.log('ADVERTENCIA android/app/google-services.json no existe: este APK/AAB queda SIN avisos push. No configures las variables FCM_* en el servidor hasta publicar uno que lo traiga (docs/push/README.md).');
+}
 if (mal) { console.error('\nNo generes el build de tienda: corre `npm run sync:prod` y vuelve a verificar.'); process.exit(1); }

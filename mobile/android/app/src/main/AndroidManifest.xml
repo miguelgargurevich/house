@@ -45,4 +45,7 @@
     <!-- La cámara es opcional: sin ella (tabletas, Chromebooks) se elige el voucher de la galería. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <!-- Avisos push (Android 13+): sin este permiso declarado el sistema ni muestra el diálogo y el aviso no se ve. El plugin
+         @capacitor/push-notifications sólo lo pide en una anotación Java; se declara aquí para no depender de eso. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
