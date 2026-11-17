@@ -23,7 +23,7 @@ Torre ya tiene un sistema de avisos: una cola (`Notificacion`) con correo y What
 
 Lo que el push **nunca** dice: montos, nombres, motivos de rechazo ni documentos. Sale en la pantalla bloqueada. El correo y el WhatsApp llevan el detalle; el push sólo invita a abrir Torre. Hay dos redes: el texto lo arma `services/push/textos.ts` sólo con el periodo, la fecha de vencimiento, el título del comunicado y el block, y antes de enviar `esSeguro()` descarta cualquier texto con 8+ dígitos seguidos, cifras con formato de dinero o marcas de moneda (un comunicado «Cuota extraordinaria S/ 50» sale como «Tu administración publicó un comunicado»).
 
-**Quién lo recibe:** quien tenga al menos un dispositivo registrado. No depende de sus preferencias de correo/WhatsApp (puede tener ambas apagadas). Registrar el dispositivo es la elección; quitarlo (cerrar sesión, «Dejar de recibir avisos») es apagarlo. Todavía no hay silenciar por tipo.
+**Quién lo recibe:** quien tenga al menos un dispositivo registrado. No depende de sus preferencias de correo/WhatsApp (puede tener ambas apagadas) **en los avisos que pasan directo por `encolarAviso`**: recibo emitido, recordatorios automáticos de vencimiento, comunicados, rechazos/anulaciones de pago y cierres. **Excepción:** «Avisar a los vecinos» (recibo) y «Enviar recordatorio» (Morosidad) planifican con `canalesDe` (sólo correo/WhatsApp): quien tiene únicamente push cuenta como «sin canal» y no se le encola nada; quien tiene además correo o WhatsApp sí recibe también el push. Registrar el dispositivo es la elección; quitarlo (cerrar sesión, «Dejar de recibir avisos») es apagarlo. Todavía no hay silenciar por tipo.
 
 ## 2. Cómo está hecho
 
@@ -85,7 +85,7 @@ Falta, y no lo toqué (firma de iOS):
 
 1. `GET /api/me/push/config` (con sesión) → `{fcm:true,web:true,vapid_public:"…"}`.
 2. Registra un dispositivo (activa el navegador o inicia sesión en la app) → debe existir una fila en `DispositivoPush`.
-3. Genera un aviso: emite un recibo, publica un comunicado o usa «Enviar recordatorio» en Morosidad. El planificador procesa la cola cada 15 min (o al emitir, a los ~1 s).
+3. Genera un aviso: emite un recibo o publica un comunicado (si usas «Enviar recordatorio» de Morosidad, la persona de prueba debe tener también correo o WhatsApp activo). El planificador procesa la cola cada 15 min (o al emitir, a los ~1 s).
 4. Revisa Envíos (filtro por tipo) o «Mis avisos»: la fila **Push** debe quedar **enviada**. «Omitida · Canal no configurado» = faltan variables; «Omitida · Sin dispositivos» = no hay ninguno válido.
 
 ## 5. Lo que NO está verificado
