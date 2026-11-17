@@ -59,6 +59,8 @@ model Usuario {
   aviso_email       Boolean                @default(true)
   aviso_whatsapp    Boolean                @default(false)
   notificaciones    Notificacion[]
+  /// Teléfonos (app) y navegadores que reciben avisos push de esta persona.
+  dispositivosPush  DispositivoPush[]
   cargo_junta       String?
   estructura_id     Int?
   estructura        Estructura?            @relation("JuntaEstructura", fields: [estructura_id], references: [id], onDelete: SetNull)
@@ -660,6 +662,28 @@ model Comunicado {
 
   @@index([complejo_id, archivado_at])
   @@index([complejo_id, estructura_id])
+}
+
+/// Un dispositivo que recibe avisos push de UNA persona: un teléfono con la app (`fcm`, token de Firebase; Android y, cuando se prepare, iPhone) o un navegador (`web`,
+/// suscripción de Web Push). El token (o el endpoint) pertenece a un dispositivo y un dispositivo a la última sesión que entró: se reasigna por token. Son datos de acceso:
+/// no se imprimen ni se auditan. Un aviso push es una fila `Notificacion` con canal `push` (su clave única evita repetirlo); los dispositivos sólo dicen adónde mandarlo.
+model DispositivoPush {
+  id            Int      @id @default(autoincrement())
+  usuario_id    Int
+  /// `fcm` (Android/iPhone, FCM HTTP v1) o `web` (Web Push con VAPID).
+  tipo          String
+  /// `android`, `ios` o `web`.
+  plataforma    String
+  /// Token de FCM, o el endpoint (URL del servicio de push del navegador). Único en toda la tabla.
+  token         String   @unique
+  /// Sólo `web`: las llaves de la suscripción que cifran el mensaje.
+  p256dh        String?
+  auth          String?
+  created_at    DateTime @default(now())
+  ultimo_uso_at DateTime @default(now())
+  usuario       Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@index([usuario_id])
 }
 
 model MedioPago {
