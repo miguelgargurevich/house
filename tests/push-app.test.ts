@@ -2,7 +2,7 @@
 // pushApp.ts no importa la API (la recibe inyectada): por eso se puede probar en Node.
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { claveVapid, esIphone, suscripcionParaServidor } from '../src/app/pushLib';
+import { claveVapid, esIphone, estadoLocalWeb, suscripcionParaServidor } from '../src/app/pushLib';
 import { ESPERA_DE_LA_BAJA_MS, darDeBajaPushApp, iniciarPushApp, reiniciarPushApp, resolverPuerto, tokenActual, type ServidorPush } from '../src/app/pushApp';
 import { esRutaInterna } from '../src/app/rutaInterna';
 
@@ -211,5 +211,16 @@ describe('utilidades del Web Push', () => {
   it('esIphone', () => {
     assert.equal(esIphone('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)'), true);
     assert.equal(esIphone('Mozilla/5.0 (Linux; Android 14)'), false);
+  });
+});
+
+describe('navegador compartido: «activo» es de ESTA cuenta', () => {
+  it('sólo es activo con permiso, suscripción local y que esta cuenta lo haya activado aquí', () => {
+    assert.equal(estadoLocalWeb({ permiso: 'granted', haySuscripcion: true, recordadoPorEstaCuenta: true }), 'activo');
+    // la cuenta A activó y cerró sesión; entra B en el mismo navegador: la suscripción de A sigue, pero para B no está activo (y su botón es «Recibir»)
+    assert.equal(estadoLocalWeb({ permiso: 'granted', haySuscripcion: true, recordadoPorEstaCuenta: false }), 'inactivo');
+    assert.equal(estadoLocalWeb({ permiso: 'granted', haySuscripcion: false, recordadoPorEstaCuenta: true }), 'inactivo');
+    assert.equal(estadoLocalWeb({ permiso: 'default', haySuscripcion: true, recordadoPorEstaCuenta: true }), 'inactivo');
+    assert.equal(estadoLocalWeb({ permiso: 'denied', haySuscripcion: true, recordadoPorEstaCuenta: true }), 'inactivo');
   });
 });

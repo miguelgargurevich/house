@@ -77,6 +77,10 @@ describe('el navegador: «Recibir avisos en este navegador»', () => {
     assert.match(web, /catch \(e\) \{\s*\n\s*await sub\.unsubscribe\(\)\.catch\(\(\) => false\);[\s\S]*?throw e;/);
   });
 
+  it('estadoWeb decide «activo» con la elección de ESTA cuenta, no sólo con la suscripción del navegador', () => {
+    assert.match(web, /estadoLocalWeb\(\{ permiso: Notification\.permission, haySuscripcion: !!\(await suscripcionActual\(\)\), recordadoPorEstaCuenta: recordado\(usuarioId\) \}\)/);
+  });
+
   it('la elección se recuerda POR USUARIO (un navegador compartido no registra a otra cuenta sin que lo pida)', () => {
     assert.match(web, /const CLAVE = \(usuarioId: number\) => `torre-push-web:\$\{usuarioId\}`;/);
   });

@@ -1,6 +1,6 @@
 import { api } from '../api';
 import { dentroDeLaApp, agente, estaInstalada } from './instalar';
-import { claveVapid, esIphone, suscripcionParaServidor } from './pushLib';
+import { claveVapid, esIphone, estadoLocalWeb, suscripcionParaServidor } from './pushLib';
 
 /**
  * **Avisos push en el NAVEGADOR** (Web Push). La persona los activa a mano en Mi perfil («Recibir avisos en este navegador»): se registra el service worker
@@ -46,7 +46,7 @@ let endpointRegistrado: string | null = null;
 export const endpointDeEsteNavegador = () => endpointRegistrado;
 
 /** Cómo está el navegador para recibir avisos, y por qué no (para que la pantalla lo diga). Nunca lanza. */
-export async function estadoWeb(config: ConfigPush | null): Promise<EstadoWeb> {
+export async function estadoWeb(config: ConfigPush | null, usuarioId: number): Promise<EstadoWeb> {
   try {
     const ua = agente();
     if (dentroDeLaApp(ua)) return 'no_soportado'; // dentro de la app van los avisos nativos
@@ -54,7 +54,7 @@ export async function estadoWeb(config: ConfigPush | null): Promise<EstadoWeb> {
     if (!soportaWebPush()) return 'no_soportado';
     if (!config?.web || !config.vapid_public) return 'sin_servidor';
     if (Notification.permission === 'denied') return 'bloqueado';
-    return Notification.permission === 'granted' && (await suscripcionActual()) ? 'activo' : 'inactivo';
+    return estadoLocalWeb({ permiso: Notification.permission, haySuscripcion: !!(await suscripcionActual()), recordadoPorEstaCuenta: recordado(usuarioId) });
   } catch {
     return 'no_soportado';
   }
@@ -62,7 +62,7 @@ export async function estadoWeb(config: ConfigPush | null): Promise<EstadoWeb> {
 
 /** Activa los avisos en este navegador. Devuelve el estado en que quedó. Lanza sólo si el servidor rechaza el registro (la pantalla lo muestra). */
 export async function activarWeb(usuarioId: number, config: ConfigPush): Promise<EstadoWeb> {
-  if (!soportaWebPush() || !config.web || !config.vapid_public) return estadoWeb(config);
+  if (!soportaWebPush() || !config.web || !config.vapid_public) return estadoWeb(config, usuarioId);
   const permiso = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
   if (permiso !== 'granted') return permiso === 'denied' ? 'bloqueado' : 'inactivo';
   const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });

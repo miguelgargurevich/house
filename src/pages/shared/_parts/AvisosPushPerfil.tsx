@@ -22,13 +22,15 @@ export function AvisosPushPerfil() {
   const [estado, setEstado] = useState<EstadoWeb | null>(null);
   const [trabajando, setTrabajando] = useState(false);
 
+  const usuarioId = user?.id;
   const cargar = useCallback(async () => {
+    if (usuarioId == null) return;
     try {
       const c = await leerConfigPush();
       setConfig(c);
-      setEstado(await estadoWeb(c));
+      setEstado(await estadoWeb(c, usuarioId));
     } catch { setEstado('no_soportado'); }
-  }, []);
+  }, [usuarioId]);
   useEffect(() => { void cargar(); }, [cargar]);
 
   if (!user || user.impersonando || !estado || estado === 'no_soportado' || estado === 'sin_servidor') return null;
@@ -44,7 +46,7 @@ export function AvisosPushPerfil() {
         const nuevo = await activarWeb(user.id, config);
         if (nuevo === 'activo') toast.ok('Listo: recibirás avisos en este navegador');
       }
-      setEstado(await estadoWeb(config));
+      setEstado(await estadoWeb(config, user.id));
     } catch (e) { toast.error(errorText(e)); } finally { setTrabajando(false); }
   }
 
