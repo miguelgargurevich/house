@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { rotuloRol } from '../../app/nav';
 import SesionesActivas from './SesionesActivas';
 import { AvisosPerfil } from './_parts/AvisosPerfil';
+import { AvisosPushPerfil } from './_parts/AvisosPushPerfil';
 import { CanalesPerfil } from './_parts/CanalesPerfil';
 import { EliminarCuentaPerfil } from './_parts/EliminarCuentaPerfil';
 import { TelegramPerfil } from './_parts/TelegramPerfil';
@@ -103,6 +104,7 @@ export default function Perfil() {
 
         <SesionesActivas />
         <AvisosPerfil />
+        <AvisosPushPerfil />
         <CanalesPerfil />
         <TelegramPerfil />
         {CON_HERRAMIENTAS.includes(user.rol) && <TokensApiPerfil />}

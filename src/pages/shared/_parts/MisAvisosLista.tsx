@@ -18,7 +18,7 @@ const ESTADO: Record<string, { tone: Tone; label: string }> = {
   error: { tone: 'bad', label: 'No se entregó' },
   omitida: { tone: 'warn', label: 'Omitido' },
 };
-const CANAL: Record<string, string> = { email: 'Correo', whatsapp: 'WhatsApp', telegram: 'Telegram' };
+const CANAL: Record<string, string> = { email: 'Correo', whatsapp: 'WhatsApp', telegram: 'Telegram', push: 'Aviso en tu dispositivo' };
 
 const fechaCorta = new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 

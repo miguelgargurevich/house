@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api, csrfStore, setUnauthorizedHandler } from '../api';
+import { api, csrfHeader, csrfStore, setUnauthorizedHandler } from '../api';
+import { darDeBajaWeb } from '../app/push';
+import { darDeBajaPushApp } from '../app/pushApp';
+import { servidorPush } from '../app/pushServidor';
 import type { MarcaUsuario } from '../lib/marca';
 import type { Impersonando } from './impersonacion-lib';
 
@@ -64,7 +67,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const olvidar = useCallback(() => { csrfStore.set(null); setUser(null); }, []);
 
   const logout = useCallback(() => {
-    if (csrfStore.has()) void api('/api/auth/logout', { method: 'POST', json: {} }).catch(() => undefined);
+    if (csrfStore.has()) {
+      // Primero se da de baja el dispositivo de los avisos push (la baja necesita la sesión) y después se cierra: así los avisos de esta cuenta no siguen llegando
+      // a un teléfono o navegador compartido. Con la sesión que se va ya olvidada, la baja y el cierre llevan las cabeceras (CSRF) capturadas ahora. Sin dispositivos
+      // no espera nada; con uno, como mucho unos segundos (la interfaz no espera: `olvidar` corre ya).
+      const cabeceras = csrfHeader();
+      void Promise.all([darDeBajaPushApp(cabeceras, servidorPush.baja), darDeBajaWeb(cabeceras)])
+        .then(() => api('/api/auth/logout', { method: 'POST', json: {}, headers: cabeceras }))
+        .catch(() => undefined);
+    }
     olvidar();
   }, [olvidar]);
 

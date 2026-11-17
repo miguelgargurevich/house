@@ -16,6 +16,7 @@ import { BarraImpersonacion } from './BarraImpersonacion';
 import { FranjaDemo } from './demo/FranjaDemo';
 import { volverAMiCuenta } from '../auth/impersonacion';
 import { InstalarApp } from './InstalarApp';
+import { usePushInicio } from './usePush';
 import { CondominioProvider } from './CondominioProvider';
 import { SoloLecturaProvider } from './SoloLecturaProvider';
 import { SelectorCondominio } from './SelectorCondominio';
@@ -72,6 +73,7 @@ function ShellInterior() {
   const marca = useMarca();
 
   useEffect(() => { setMenu(false); }, [loc.pathname]);
+  usePushInicio(user); // avisos push: registra el teléfono (app) y reanuda el navegador; en una sesión prestada no hace nada
   if (!user) return null;
 
   // En una sesión prestada no hay «cerrar sesión» propia: se vuelve a la cuenta del superadmin.

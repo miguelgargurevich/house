@@ -17,7 +17,7 @@ type Filtro = '' | Estado;
 interface Envio {
   id: number;
   usuario: { id: number; nombre: string };
-  canal: 'email' | 'whatsapp';
+  canal: 'email' | 'whatsapp' | 'push';
   tipo: string;
   estado: Estado;
   asunto: string;
@@ -45,7 +45,7 @@ const TIPO: Record<string, string> = {
   recordatorio_deuda: 'Recordatorio de deuda',
   recibo_anulado: 'Recibo anulado',
 };
-const CANAL = { email: 'Correo', whatsapp: 'WhatsApp' } as const;
+const CANAL = { email: 'Correo', whatsapp: 'WhatsApp', push: 'Push' } as const;
 const ESTADO: Record<Estado, { tone: Tone; label: string }> = {
   enviada: { tone: 'ok', label: 'Enviada' },
   pendiente: { tone: 'info', label: 'Pendiente' },
