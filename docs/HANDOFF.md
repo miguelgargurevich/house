@@ -13,6 +13,12 @@
 
 
 
+## 2026-11-20 — iOS: el plugin de push también en la app de iPhone (Claude Code, Opus 5.5)
+
+- **Qué:** al recompilar la app para el iPhone de Miguel, `cap sync` agregó `CapacitorPushNotifications` a `mobile/ios/App/CapApp-SPM/Package.swift` (el plugin ya estaba en `package.json` y en el lockfile desde 9eaa07a, sólo para Android). App reinstalada en el iPhone 15.
+- **Gotcha:** el `node_modules` de `mobile/` estaba viejo (sin `@capacitor/push-notifications`) y `cap sync` QUITÓ el plugin de los .gradle de Android; se revirtió y se corrió `npm ci`. Antes de compilar la app, `npm ci` en `mobile/`.
+- **Pendiente:** el push en iOS necesita la capacidad Push Notifications y una cuenta de Apple Developer de pago (la Mac usa Personal Team).
+
 ## 2026-11-14 — Estado de lo publicado (Claude Code, Opus 5.5)
 
 - **Pantalla de arranque animada: publicada** (30db189, desplegada en Coolify, app torre). La entrada de abajo dice «push: no»: era el estado de su rama. Verificado: `torrecondominios.com/login` trae `#arranque-app` y `/arranque-app.js` responde 200. Vista en el iPhone de Miguel.
